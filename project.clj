@@ -8,6 +8,7 @@
                  [ch.qos.logback/logback-classic "1.1.3"]
                  [compojure "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
+                 [hiccup "1.0.5"]
                  [environ "1.0.0"]
                  [com.cemerick/friend "0.2.3"]]
   :min-lein-version "2.0.0"

@@ -1,4 +1,4 @@
-(ns clj-money.web
+(ns clj-money.web.server
   (:require [clojure.tools.logging :as log]
             [compojure.core :refer [defroutes GET PUT POST DELETE ANY]]
             [compojure.handler :refer [site]]
@@ -8,16 +8,12 @@
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
-            [cemerick.friend.credentials :as creds]))
-
-(defn splash []
-  {:status 200
-   :headers {"Content-Type" "text/plain"}
-   :body "Really cool accounting app coming soon."})
+            [cemerick.friend.credentials :as creds])
+  (:use [clj-money.web.pages :as pages]))
 
 (defroutes app
   (GET "/" []
-       (splash))
+       (pages/home))
   (ANY "*" []
        (route/not-found (slurp (io/resource "404.html")))))
 
