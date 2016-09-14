@@ -1,5 +1,6 @@
 (ns clj-money.web
-  (:require [compojure.core :refer [defroutes GET PUT POST DELETE ANY]]
+  (:require [clojure.tools.logging :as log]
+            [compojure.core :refer [defroutes GET PUT POST DELETE ANY]]
             [compojure.handler :refer [site]]
             [compojure.route :as route]
             [clojure.java.io :as io]

@@ -4,6 +4,8 @@
   :license {:name "Eclipse Public License v1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.6.0"]
+                 [org.clojure/tools.logging "0.3.1"]
+                 [ch.qos.logback/logback-classic "1.1.3"]
                  [compojure "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [environ "1.0.0"]
