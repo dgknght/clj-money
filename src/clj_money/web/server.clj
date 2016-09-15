@@ -14,6 +14,8 @@
 (defroutes app
   (GET "/" []
        (pages/home))
+  (GET "/login" []
+       (pages/login))
   (ANY "*" []
        (route/not-found (slurp (io/resource "404.html")))))
 
