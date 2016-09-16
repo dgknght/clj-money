@@ -1,6 +1,7 @@
 (ns clj-money.db
   (:require [ragtime.jdbc :as jdbc]
-            [ragtime.repl :as rt])
+            [ragtime.repl :as rt]
+            [environ.core :refer [env]])
   #_(:use [clj-money.config :as config]))
 
 #_(defn ragtime-config []
@@ -9,10 +10,10 @@
 
 (defn migrate
   []
-  (println "this is a migration")
+  (println (str "this is a migration for " (env :database-url)))
   #_(rt/migrate (ragtime-config)))
 
 (defn rollback
   []
-  (println "this is a rollback")
+  (println (str "this is a rollback for " (env :database-url)))
   #_(rt/rollback (ragtime-config)))
