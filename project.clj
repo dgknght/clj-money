@@ -10,9 +10,12 @@
                  [ring/ring-jetty-adapter "1.4.0"]
                  [hiccup "1.0.5"]
                  [environ "1.0.0"]
-                 [com.cemerick/friend "0.2.3"]]
+                 [com.cemerick/friend "0.2.3"]
+                 [ragtime "0.6.3"]]
   :min-lein-version "2.0.0"
   :plugins [[environ/environ.lein "0.3.1"]]
   :hooks [environ.leiningen.hooks]
   :uberjar-name "clj-money-standalone.jar"
+  :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
+            "rollback" ["run" "-m" "clj-money.db/rollback"]}
   :profiles {:production {:env {:production true}}})
