@@ -1,6 +1,14 @@
 {:dev
  {:env
-  {:database-url "postgresql://localhost/5432/money_development"}}
+  {:db {:dbtype   "postgresql"
+        :dbname   "money_development"
+        :host     "localhost"
+        :user     "app_user"
+        :password "please01"}}}
  :test
  {:env
-  {:database-url "postgresql://localhost/5432/money_test"}}}
+  {:db {:dbtype   "postgresql"
+        :dbname   "money_test"
+        :host     "localhost"
+        :user     "app_user"
+        :password "please01"}}}}
