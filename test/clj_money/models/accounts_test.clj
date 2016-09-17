@@ -3,8 +3,7 @@
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [clojure.java.jdbc :as jdbc]
-            [clj-money.web :refer :all])
+            [clojure.java.jdbc :as jdbc])
   (:use [clj-money.models.accounts :as accounts]))
 
 (def data-store (env :db))
