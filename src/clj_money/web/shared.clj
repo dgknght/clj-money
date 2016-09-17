@@ -21,11 +21,14 @@
      [:a.navbar-brand {:href "/"} "clj-money"]]
     [:div#navbar.collapse.navbar-collapse
      [:ul.nav.navbar-nav
-      (map (fn [item]
-             [:li
-              [:a {:href (:url item)} (:caption item)]
-              ])
-           items)]]]])
+      (concat (map (fn [item]
+                     [:li
+                      [:a {:href (:url item)} (:caption item)]
+                      ])
+                   items)
+              [[:li
+                [:form {:action "/logout" :method :post}
+                 [:input.btn.btn-danger {:type :submit :value "Logout"}]]]])]]]])
 
 (defn primary-nav
   "Renders the site primary navigation"

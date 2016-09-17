@@ -8,6 +8,7 @@
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+            [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
@@ -20,17 +21,22 @@
        (pages/home))
   (GET "/login" []
        (pages/login))
-  (GET "/authenticate" [username password]
-       (pages/authenticate username password))
   (GET "/accounts" []
        (friend/authorize #{::user} (accounts/index)))
+  (friend/logout (POST "/logout" [] (redirect "/")))
   (ANY "*" []
        (route/not-found (slurp (io/resource "404.html")))))
 
+; TODO Replace this with a database implementation
+(def users
+  {"doug" {:username "doug"
+           :password (creds/hash-bcrypt "please01")
+           :roles #{::user}}})
+
 (def secured-app
   (-> app
-      (friend/authenticate {:credential-fn (partial creds/bcrypt-credential-fn users)
-                            :workflows [(workflows/interactive-form)]})
+      (friend/authenticate {:workflows [(workflows/interactive-form)]
+                            :credential-fn (partial creds/bcrypt-credential-fn users)})
       (wrap-keyword-params)
       (wrap-params)
       (wrap-session)))
