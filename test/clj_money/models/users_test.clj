@@ -38,7 +38,7 @@
 (deftest try-to-create-with-invalid-data
   (testing "Email is required"
     (try
-    (users/create data-store (dissoc attributes :email))
+      (users/create data-store (dissoc attributes :email))
       (catch clojure.lang.ExceptionInfo e
-        (is (= {:email "missing-required-key"}
+        (is (= {:email 'missing-required-key}
                (:error (ex-data e))))))))
