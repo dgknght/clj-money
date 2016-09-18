@@ -41,4 +41,16 @@
       (users/create data-store (dissoc attributes :email))
       (catch clojure.lang.ExceptionInfo e
         (is (= {:email 'missing-required-key}
+               (:error (ex-data e)))))))
+  (testing "First name is required"
+    (try
+      (users/create data-store (dissoc attributes :first_name))
+      (catch clojure.lang.ExceptionInfo e
+        (is (= {:first_name 'missing-required-key}
+               (:error (ex-data e)))))))
+  (testing "Last name is required"
+    (try
+      (users/create data-store (dissoc attributes :last_name))
+      (catch clojure.lang.ExceptionInfo e
+        (is (= {:last_name 'missing-required-key}
                (:error (ex-data e))))))))
