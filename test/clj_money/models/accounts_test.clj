@@ -4,19 +4,12 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc])
-  (:use [clj-money.models.accounts :as accounts]))
+  (:use [clj-money.models.accounts :as accounts]
+        [clj-money.test-helpers :refer [reset-db]]))
 
 (def data-store (env :db))
 
-(defn reset-db
-  "Deletes all records from all tables in the database prior to test execution"
-  [f]
-  (jdbc/with-db-connection [db data-store]
-    (doseq [table ["accounts"]]
-      (jdbc/execute! db (str "truncate table " table ";"))))
-  (f))
-
-(use-fixtures :each reset-db)
+(use-fixtures :each (partial reset-db data-store))
 
 (deftest create-an-account
   (testing "After I add an account, I can retrieve it"
