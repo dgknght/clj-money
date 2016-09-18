@@ -28,6 +28,8 @@
        (pages/login))
   (GET "/signup" []
        (users/new-user))
+  (POST "/users" req
+        (users/create (:params req)))
   (friend/logout (POST "/logout" [] (redirect "/")))
   (friend/wrap-authorize protected-routes #{:user})
   (ANY "*" []

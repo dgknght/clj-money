@@ -10,18 +10,27 @@
 
 (use-fixtures :each (partial reset-db data-store))
 
+(def attributes {:first_name "John"
+                 :last_name "Doe"
+                 :email "john@doe.com"
+                 :password "please01"})
+
 (deftest create-a-user
-  (testing "An user can be created with valid attributes"
-    (users/create data-store {:first_name "John"
-                              :last_name "Doe"
-                              :email "john@doe.com"
-                              :password "please01"})
-    (let [users (->> (users/select data-store)
-                     (map #(select-keys % [:first_name
-                                           :last_name
-                                           :email
-                                           :password])))
-          expected [{:first_name "John"
-                     :last_name "Doe"
-                     :email "john@doe.com"}]]
-      (is (= expected users)))))
+  (let [user (users/create data-store attributes)]
+    (testing "An created user can be retreived"
+      (let [users (->> (users/select data-store)
+                       (map #(select-keys % [:first_name
+                                             :last_name
+                                             :email
+                                             :password])))
+            expected [{:first_name "John"
+                       :last_name "Doe"
+                       :email "john@doe.com"}]]
+        (is (= expected users))))
+    (testing "It returns a user map"
+      (is (number? (:id user)) "The id should be a number")
+      (is (= {:first_name "John"
+              :last_name "Doe"
+              :email "john@doe.com"}
+             user)
+          "The map should contain the user properties"))))

@@ -1,5 +1,6 @@
 (ns clj-money.test-helpers
-  (:require [clojure.java.jdbc :as jdbc]))
+  (:require [clojure.java.jdbc :as jdbc]
+            [clojure.tools.logging :as log]))
 
 (def all-tables ["accounts"
                  "users"])
