@@ -7,8 +7,8 @@
 (defn home
   "Renders the home page"
   []
-  (layout "Home",
-          "Money"
+  (layout "Home"
+          {}
           (html
             "Welcome to the accounting application"
             )))
@@ -19,7 +19,7 @@
   ([model]
    (layout
      "Log in"
-     "Log in"
+     {}
      [:div.row
       [:div.col-md-6
        [:form {:action "/login" :method :post}

@@ -1,7 +1,9 @@
 (ns clj-money.web.shared
-  (:require [hiccup.core :refer :all]
+  (:require [clojure.tools.logging :as log]
+            [hiccup.core :refer :all]
             [hiccup.page :refer :all]
-            [clojure.string :as s]))
+            [clojure.string :as s])
+  (:import schema.utils.ValidationError))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
@@ -39,9 +41,19 @@
                   {:url "/commodities"  :caption "Commodities"}
                   {:url "/signup"       :caption "Signup"}]))
 
+(defn render-alerts
+  "Renders notifications as HTML"
+  [alerts]
+  (map (fn [alert]
+         (let [css-class (if (string? alert)
+                           :info
+                           (:type alert))]
+           [:div.alert {:class css-class}]))
+       alerts))
+
 (defn layout
   "Renders content inside a standard page template"
-  [site-title page-title & content]
+  [page-title options & content]
   (html5
     [:html {:lang "en"}
      [:head
@@ -53,7 +65,9 @@
       [:meta  {:name "description" :content "Double-entry account system"}]
       [:meta  {:name "author" :content "Doug Knight"}]
       [:link  {:rel "icon" :href "../../favicon.ico"}]
-      [:title (str "clj-money - " site-title)]
+      [:title (str "clj-money - " (if-let [site-title (:site-title options)]
+                                    site-title
+                                    page-title))]
 
       "<!-- jQuery -->"
       [:script {:src "http://code.jquery.com/jquery-2.1.4.min.js"}]
@@ -68,7 +82,26 @@
       [:div.container {:style "margin-top: 2em;"}
        (html
          [:h1#page-title page-title]
+         (if-let [alerts (:alerts options)]
+           (render-alerts alerts))
          content)]]]))
+
+; see https://gist.github.com/rauhs/cfdb55a8314e0d3f4862
+(defn friendly-validation-error
+  "Converts the specified error into a human-friendly error"
+  [error]
+  (cond
+    (instance? ValidationError error) (print-str error)
+    :else error))
+
+(defn append-schema-errors
+  "Appends error information from prismatic schema
+  to the specified model"
+  [model error-data]
+  (assoc model :errors (->> error-data
+                            :error
+                            (map #(update-in % [1] friendly-validation-error))
+                            (into {}))))
 
 (defn humanize
   "Accepts a value in kabob case and returns the value in human friendly form"
@@ -87,9 +120,10 @@
       [:input.form-control (merge options {:id attribute
                                            :name attribute
                                            :value (get model attribute)})]
-      (map
-        #(vector :span.help-block %)
-        (attribute (:errors model)))])))
+      (let [errors (if (seq? (-> model :errors attribute))
+                     (-> model :errors attribute)
+                     [(-> model :errors attribute)])]
+        (map #(vector :span.help-block %) errors))])))
 
 (defn text-input-field
   ([model attribute] (text-input-field model attribute {}))

@@ -7,5 +7,5 @@
   "Renders the list of accounts"
   []
   (layout
-    "Accounts" "Accounts"
+    "Accounts" {}
     "Account list will go here."))
