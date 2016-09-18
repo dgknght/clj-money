@@ -21,7 +21,7 @@
         (password-input-field user :password)
         [:input.btn.btn-primary {:type :submit :value "Save"}]]]])))
 
-(def create
+(defn create-user
   "Creates the user, redirects on success"
   [params]
   (let [validated (validate-user params)]

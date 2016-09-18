@@ -34,3 +34,11 @@
               :email "john@doe.com"}
              (dissoc user :id))
           "The map should contain the user properties"))))
+
+(deftest try-to-create-with-invalid-data
+  (testing "Email is required"
+    (try
+    (users/create data-store (dissoc attributes :email))
+      (catch clojure.lang.ExceptionInfo e
+        (is (= {:email "missing-required-key"}
+               (:error (ex-data e))))))))

@@ -14,7 +14,8 @@
                  [hiccup "1.0.5"]
                  [environ "1.0.0"]
                  [com.cemerick/friend "0.2.3"]
-                 [ragtime "0.6.3"]]
+                 [ragtime "0.6.3"]
+                 [prismatic/schema "1.1.3"]]
   :min-lein-version "2.0.0"
   :plugins [[environ/environ.lein "0.3.1"]]
   :hooks [environ.leiningen.hooks]

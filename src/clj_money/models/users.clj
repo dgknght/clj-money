@@ -4,7 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
-            [cemerick.friend.credentials :refer [hash-bcrypt]]))
+            [cemerick.friend.credentials :refer [hash-bcrypt]]
+            [schema.core :as s]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -12,9 +13,17 @@
   (-> user
       (update-in [:password] hash-bcrypt)))
 
+(def NewUser
+  "Schema for a new user"
+  {:first_name s/Str
+   :last_name s/Str
+   :email s/Str
+   :password s/Str})
+
 (defn create
   "Creates a new user record"
   [data-store user]
+  (s/validate NewUser user)
   (try
     (dissoc (->> user
                  prepare-user-for-insertion
