@@ -14,7 +14,8 @@
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds])
   (:use [clj-money.web.pages :as pages]
-        [clj-money.web.accounts :as accounts]))
+        [clj-money.web.accounts :as accounts]
+        [clj-money.web.users :as users]))
 
 (defroutes protected-routes
   (GET "/accounts" []
@@ -25,6 +26,8 @@
        (pages/home))
   (GET "/login" []
        (pages/login))
+  (GET "/signup" []
+       (users/new-user))
   (friend/logout (POST "/logout" [] (redirect "/")))
   (friend/wrap-authorize protected-routes #{:user})
   (ANY "*" []
@@ -36,7 +39,7 @@
            :password (creds/hash-bcrypt "please01")
            :roles #{:user}}})
 
-(def secured-app
+(def app
   (-> routes
       (friend/authenticate {:workflows [(workflows/interactive-form)]
                             :credential-fn (partial creds/bcrypt-credential-fn users)})
@@ -46,7 +49,7 @@
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 5000))]
-    (jetty/run-jetty (site #'secured-app) {:port port :join? false})))
+    (jetty/run-jetty (site #'app) {:port port :join? false})))
 
 ;; For interactive development:
 ;; (.stop server)

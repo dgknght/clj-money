@@ -35,7 +35,8 @@
   []
   (bootstrap-nav [{:url "/accounts"     :caption "Accounts"}
                   {:url "/transactions" :caption "Transactions"}
-                  {:url "/commodities"  :caption "Commodities"}]))
+                  {:url "/commodities"  :caption "Commodities"}
+                  {:url "/signup"       :caption "Signup"}]))
 
 (defn layout
   "Renders content inside a standard page template"
