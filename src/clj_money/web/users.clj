@@ -1,15 +1,14 @@
 (ns clj-money.web.users
   (:require [hiccup.core :refer :all]
-            [hiccup.page :refer :all])
+            [hiccup.page :refer :all]
+            [clojure.tools.logging :as log]
+            )
   (:use [clj-money.web.shared]))
 
 (defn new-user
   "Renders the sign up form"
-  ([] new-user {})
+  ([] (new-user {}))
   ([user]
-
-   (println "new-user")
-
    (layout
      "Sign up"
      "Sign up"
