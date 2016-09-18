@@ -47,8 +47,7 @@
       (users/create data-store (assoc attributes :email "notavalidemail"))
       (is false "The expected exception was not thrown")
       (catch clojure.lang.ExceptionInfo e
-        (is (= {:email "Email mmust be a valid email address"}
-               (:error (ex-data e)))))))
+        (is (contains? (-> e ex-data :error) :email) "There should be an error for the email"))))
   (testing "First name is required"
     (try
       (users/create data-store (dissoc attributes :first_name))
