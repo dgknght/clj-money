@@ -16,14 +16,17 @@
   (:use [clj-money.web.pages :as pages]
         [clj-money.web.accounts :as accounts]))
 
-(defroutes app
+(defroutes protected-routes
+  (GET "/accounts" []
+       (accounts/index)))
+
+(defroutes routes
   (GET "/" []
        (pages/home))
   (GET "/login" []
        (pages/login))
-  (GET "/accounts" []
-       (friend/authorize #{::user} (accounts/index)))
   (friend/logout (POST "/logout" [] (redirect "/")))
+  (friend/wrap-authorize protected-routes #{:user})
   (ANY "*" []
        (route/not-found (slurp (io/resource "404.html")))))
 
@@ -31,10 +34,10 @@
 (def users
   {"doug" {:username "doug"
            :password (creds/hash-bcrypt "please01")
-           :roles #{::user}}})
+           :roles #{:user}}})
 
 (def secured-app
-  (-> app
+  (-> routes
       (friend/authenticate {:workflows [(workflows/interactive-form)]
                             :credential-fn (partial creds/bcrypt-credential-fn users)})
       (wrap-keyword-params)
