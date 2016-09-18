@@ -1,6 +1,7 @@
 (ns clj-money.web.shared
   (:require [hiccup.core :refer :all]
-            [hiccup.page :refer :all]))
+            [hiccup.page :refer :all]
+            [clojure.string :as s]))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
@@ -69,12 +70,20 @@
          [:h1#page-title page-title]
          content)]]]))
 
+(defn humanize
+  "Accepts a value in kabob case and returns the value in human friendly form"
+  [value]
+  (-> value
+      name
+      (s/replace "-" " ")
+      s/capitalize))
+
 (defn- input-field
   "Renders a HTML input field"
   ([model attribute options]
    (let [{{errors attribute} :errors} model]
      [:div.form-group {:class (when errors "has-error")}
-      [:label.control-label {:for attribute} (name attribute)]
+      [:label.control-label {:for attribute} (humanize attribute)]
       [:input.form-control (merge options {:id attribute
                                            :name attribute
                                            :value (get model attribute)})]
