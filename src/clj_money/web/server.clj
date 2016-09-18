@@ -34,7 +34,7 @@
        (route/not-found (slurp (io/resource "404.html")))))
 
 ; TODO Replace this with a database implementation
-(def users
+(def user-map
   {"doug" {:username "doug"
            :password (creds/hash-bcrypt "please01")
            :roles #{:user}}})
@@ -42,7 +42,7 @@
 (def app
   (-> routes
       (friend/authenticate {:workflows [(workflows/interactive-form)]
-                            :credential-fn (partial creds/bcrypt-credential-fn users)})
+                            :credential-fn (partial creds/bcrypt-credential-fn user-map)})
       (wrap-keyword-params)
       (wrap-params)
       (wrap-session)))
