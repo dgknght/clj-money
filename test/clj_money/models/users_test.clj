@@ -32,5 +32,5 @@
       (is (= {:first_name "John"
               :last_name "Doe"
               :email "john@doe.com"}
-             user)
+             (dissoc user :id))
           "The map should contain the user properties"))))
