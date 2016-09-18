@@ -1,7 +1,8 @@
 (ns clj-money.web.users
   (:require [hiccup.core :refer :all]
             [hiccup.page :refer :all]
-            [clojure.tools.logging :as log])
+            [clojure.tools.logging :as log]
+            [ring.util.response :refer :all])
   (:use [clj-money.web.shared]
         [clj-money.models.users :as users]))
 
@@ -24,9 +25,8 @@
 (defn create-user
   "Creates the user, redirects on success"
   [params]
-  (let [validated (validate-user params)]
-    (if (seq (:errors validate))
-      (new-user validated)
-      (do
-        (users/create (env :db) validated)
-        (redirect "/")))))
+  (try
+    (new-user params)
+    (redirect "/")
+    (catch clojure.lang.ExceptionInfo e
+      (new-user (merge params (ex-data e))))))
