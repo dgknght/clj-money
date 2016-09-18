@@ -13,11 +13,13 @@
   (-> user
       (update-in [:password] hash-bcrypt)))
 
+(def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
+
 (def NewUser
   "Schema for a new user"
   {:first_name s/Str
    :last_name s/Str
-   :email s/Str
+   :email (s/pred (partial re-matches EmailPattern) "Email must be a valid email address")
    :password s/Str})
 
 (defn create

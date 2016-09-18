@@ -42,15 +42,24 @@
       (catch clojure.lang.ExceptionInfo e
         (is (= {:email 'missing-required-key}
                (:error (ex-data e)))))))
+  (testing "Email must be a valid email address"
+    (try
+      (users/create data-store (assoc attributes :email "notavalidemail"))
+      (is false "The expected exception was not thrown")
+      (catch clojure.lang.ExceptionInfo e
+        (is (= {:email "Email mmust be a valid email address"}
+               (:error (ex-data e)))))))
   (testing "First name is required"
     (try
       (users/create data-store (dissoc attributes :first_name))
+      (is false "The expected exception was not thrown")
       (catch clojure.lang.ExceptionInfo e
         (is (= {:first_name 'missing-required-key}
                (:error (ex-data e)))))))
   (testing "Last name is required"
     (try
       (users/create data-store (dissoc attributes :last_name))
+      (is false "The expected exception was not thrown")
       (catch clojure.lang.ExceptionInfo e
         (is (= {:last_name 'missing-required-key}
                (:error (ex-data e))))))))
