@@ -2,27 +2,22 @@
   (:require [clojure.pprint :refer [pprint]])
   (:import schema.utils.ValidationError))
 
-(def validation-error-map
-  {#"integer\?"      "must be a number"
-   #"invalid format" "is not valid"})
-
-(defn- translate-validation-error
-  "Takes a ValidationError instance and returns a user-friendly
-  message"
-  [error]
-  (some (fn [[pattern message]]
-          (when (re-find pattern (print-str error))
-            message)) 
-        validation-error-map))
+(def rules
+  [{:fn #(= % 'missing-required-key)
+    :message "is required"}
+   {:fn #(re-find #"integer\?" (print-str %))
+    :message "must be a number"}
+   {:fn #(re-find #"invalid format" (print-str %))
+    :message "is not valid"}])
 
 (defn- friendly-message
   "Takes a single prismatic rule violation token and returns
   a user-friendly message"
   [violation]
-  (cond
-    (= violation 'missing-required-key) "is required"
-    (instance? ValidationError violation) (translate-validation-error violation)
-    :else violation))
+  (some (fn [{f :fn m :message}]
+          (when (f violation)
+            m))
+        rules))
 
 (defn- extract-error
   "Extracts the error data from the exception ex-data"

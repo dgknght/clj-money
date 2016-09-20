@@ -20,9 +20,4 @@
                       :id "is not valid"
                       :size "must be a number"}
             actual (user-friendify data)]
-
-        (println "")
-        (println "diff")
-        (pprint (diff expected actual))
-
         (is (= expected actual))))))
