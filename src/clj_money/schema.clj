@@ -8,7 +8,9 @@
    {:fn #(re-find #"integer\?" (print-str %))
     :message "must be a number"}
    {:fn #(re-find #"invalid format" (print-str %))
-    :message "is not valid"}])
+    :message "is not valid"}
+   {:fn #(re-find #"instance\? java\.lang\.String nil" (print-str %))
+    :message "is required"}])
 
 (defn- friendly-message
   "Takes a single prismatic rule violation token and returns
