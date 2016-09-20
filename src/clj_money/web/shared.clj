@@ -2,8 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
-            [clojure.string :as s])
-  (:import schema.utils.ValidationError))
+            [clojure.string :as s]))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
@@ -85,23 +84,6 @@
          (if-let [alerts (:alerts options)]
            (render-alerts alerts))
          content)]]]))
-
-; see https://gist.github.com/rauhs/cfdb55a8314e0d3f4862
-(defn friendly-validation-error
-  "Converts the specified error into a human-friendly error"
-  [error]
-  (cond
-    (instance? ValidationError error) (print-str error)
-    :else error))
-
-(defn append-schema-errors
-  "Appends error information from prismatic schema
-  to the specified model"
-  [model error-data]
-  (assoc model :errors (->> error-data
-                            :error
-                            (map #(update-in % [1] friendly-validation-error))
-                            (into {}))))
 
 (defn humanize
   "Accepts a value in kabob case and returns the value in human friendly form"

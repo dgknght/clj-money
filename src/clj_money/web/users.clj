@@ -5,16 +5,17 @@
             [ring.util.response :refer :all]
             [environ.core :refer [env]])
   (:use [clj-money.web.shared]
-        [clj-money.models.users :as users]))
+        [clj-money.models.users :as users]
+        [clj-money.schema :as schema]))
 
 (defn new-user
   "Renders the sign up form"
   ([] (new-user {}))
   ([user] (new-user user []))
-  ([user alerts]
+  ([user options]
    (layout
      "Sign up"
-     {:alerts alerts}
+     options
      [:div.row
       [:div.col-md-6
        [:form {:action "/users" :method :post}
@@ -35,8 +36,7 @@
       (users/create (env :db) user)
       (redirect "/")
       (catch clojure.lang.ExceptionInfo e
-        (log/debug "The user is not valid." (-> e ex-data :error))
-        (new-user (append-schema-errors user (ex-data e))))
+        (new-user (schema/append-errors user (ex-data e))))
       (catch java.lang.Exception e
         (log/error "Unable to create the user." e)
-        (new-user user [{:type :danger :message (.getMessage e)}])))))
+        (new-user user {:alerts [{:type :danger :message (.getMessage e)}]})))))

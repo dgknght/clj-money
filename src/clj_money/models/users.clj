@@ -19,7 +19,7 @@
   "Schema for a new user"
   {:first_name s/Str
    :last_name s/Str
-   :email (s/pred (partial re-matches EmailPattern) "Email must be a valid email address")
+   :email (s/pred (partial re-matches EmailPattern) "invalid format")
    :password s/Str})
 
 (defn create

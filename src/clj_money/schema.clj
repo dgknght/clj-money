@@ -1,6 +1,5 @@
 (ns clj-money.schema
-  (:require [clojure.pprint :refer [pprint]])
-  (:import schema.utils.ValidationError))
+  (:require [clojure.pprint :refer [pprint]]))
 
 (def rules
   [{:fn #(= % 'missing-required-key)
@@ -34,3 +33,9 @@
        extract-error
        (map #(update-in % [1] friendly-message))
        (into {})))
+
+(defn append-errors
+  "Appends error information from prismatic schema
+  to the specified model"
+  [model error-data]
+  (assoc model :errors (user-friendify error-data)))
