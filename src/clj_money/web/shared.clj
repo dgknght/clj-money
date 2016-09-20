@@ -45,10 +45,10 @@
   "Renders notifications as HTML"
   [alerts]
   (map (fn [alert]
-         (let [css-class (if (string? alert)
-                           :info
-                           (:type alert))]
-           [:div.alert {:class css-class}]))
+         (let [[css-class message] (if (string? alert)
+                           [:info alert]
+                           [(:type alert) (:message alert)])]
+           [:div {:class (str "alert alert-" (name css-class))} message]))
        alerts))
 
 (defn layout
