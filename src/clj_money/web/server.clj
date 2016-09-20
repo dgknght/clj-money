@@ -35,16 +35,11 @@
   (ANY "*" []
        (route/not-found (slurp (io/resource "404.html")))))
 
-; TODO Replace this with a database implementation
-(def user-map
-  {"doug" {:username "doug"
-           :password (creds/hash-bcrypt "please01")
-           :roles #{:user}}})
-
 (def app
   (-> routes
-      (friend/authenticate {:workflows [(workflows/interactive-form)]
-                            :credential-fn (partial creds/bcrypt-credential-fn user-map)})
+      (friend/authenticate
+        {:workflows [(workflows/interactive-form)]
+         :credential-fn (partial clj-money.models.users/authenticate (env :db))})
       (wrap-keyword-params)
       (wrap-params)
       (wrap-session)))
