@@ -8,6 +8,7 @@
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+            [ring.middleware.resource :refer [wrap-resource]]
             [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
@@ -40,6 +41,7 @@
       (friend/authenticate
         {:workflows [(workflows/interactive-form)]
          :credential-fn (partial clj-money.models.users/authenticate (env :db))})
+      (wrap-resource "public")
       (wrap-keyword-params)
       (wrap-params)
       (wrap-session)))

@@ -2,7 +2,8 @@
   (:require [clojure.tools.logging :as log]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
-            [clojure.string :as s])
+            [clojure.string :as s]
+            [cemerick.friend :as friend])
   (:use clj-money.inflection))
 
 ; TODO Wrap this up in a sharable library
@@ -24,22 +25,23 @@
      [:a.navbar-brand {:href "/"} "clj-money"]]
     [:div#navbar.collapse.navbar-collapse
      [:ul.nav.navbar-nav
-      (concat (map (fn [item]
-                     [:li
-                      [:a {:href (:url item)} (:caption item)]
-                      ])
-                   items)
-              [[:li
-                [:form {:action "/logout" :method :post}
-                 [:input.btn.btn-danger {:type :submit :value "Logout"}]]]])]]]])
+      (map (fn [{:keys [url caption method]}]
+             [:li
+              [:a {:href url :data-method method :rel (when method "nofollow")} caption]])
+           items)]]]])
 
 (defn primary-nav
   "Renders the site primary navigation"
   []
-  (bootstrap-nav [{:url "/accounts"     :caption "Accounts"}
-                  {:url "/transactions" :caption "Transactions"}
-                  {:url "/commodities"  :caption "Commodities"}
-                  {:url "/signup"       :caption "Signup"}]))
+  (let [user (friend/current-authentication)
+        items [{:url "/accounts"     :caption "Accounts"}
+               {:url "/transactions" :caption "Transactions"}
+               {:url "/commodities"  :caption "Commodities"}]]
+    (bootstrap-nav (concat items
+                         (if user
+                           [{:url "/logout" :caption "Logout" :method :post}]
+                           [{:url "/login"  :caption "Login"}
+                            {:url "/signup" :caption "Sign up"}])))))
 
 (defn render-alerts
   "Renders notifications as HTML"
@@ -71,11 +73,11 @@
 
       "<!-- jQuery -->"
       [:script {:src "http://code.jquery.com/jquery-2.1.4.min.js"}]
+      [:script {:src "jquery-startup.js"}]
 
       "<!-- Bootstrap core CSS -->"
       [:link {:rel "stylesheet" :href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"}]
       [:link {:rel "stylesheet" :href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css"}]
-      [:link {:rel "stylesheet" :href "/clj-money.css"}]
       [:script  {:src "https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"}]]
      [:body
       (primary-nav)
