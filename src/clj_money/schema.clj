@@ -1,5 +1,6 @@
 (ns clj-money.schema
-  (:require [clojure.pprint :refer [pprint]]))
+  (:require [clojure.pprint :refer [pprint]])
+  (:use clj-money.inflection))
 
 (def rules
   [{:fn #(= % 'missing-required-key)
@@ -34,8 +35,19 @@
        (map #(update-in % [1] friendly-message))
        (into {})))
 
+(defn- full-messages
+  "Takes a map of user-friendly validation messages
+  and creates full sentence validation messages"
+  [errors]
+  (->> errors
+       (map (fn [[k m]]
+              [k (str (humanize k) " " m)]))
+       (into {})))
+
 (defn append-errors
   "Appends error information from prismatic schema
   to the specified model"
   [model error-data]
-  (assoc model :errors (user-friendify error-data)))
+  (assoc model :errors (-> error-data
+                           user-friendify
+                           full-messages)))
