@@ -49,7 +49,15 @@
     (assert-throws-validation-exception
       {:first_name 'missing-required-key}
       (users/create data-store (dissoc attributes :first_name))))
+  (testing "First name cannot be empty"
+    (assert-throws-ex-info-with-key
+      [:error :first_name]
+      (users/create data-store (assoc attributes :first_name ""))))
   (testing "Last name is required"
     (assert-throws-validation-exception
       {:last_name 'missing-required-key}
-      (users/create data-store (dissoc attributes :last_name)))))
+      (users/create data-store (dissoc attributes :last_name))))
+  (testing "Last name cannot be empty"
+    (assert-throws-ex-info-with-key
+      [:error :last_name]
+      (users/create data-store (assoc attributes :last_name "")))))
