@@ -6,5 +6,5 @@
   [value]
   (-> value
       name
-      (string/replace "-" " ")
+      (string/replace #"[_-]" " ")
       string/capitalize))
