@@ -4,8 +4,7 @@
             [clojure.data :refer [diff]]
             [environ.core :refer [env]])
   (:use [clj-money.models.users :as users]
-        [clj-money.test-helpers :refer :all])
-  (:import clojure.lang.ExceptionInfo))
+        [clj-money.test-helpers :refer :all]))
 
 (def data-store (env :db))
 
