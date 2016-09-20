@@ -48,6 +48,10 @@
   "Appends error information from prismatic schema
   to the specified model"
   [model error-data]
+
+  (println "append-errors")
+  (pprint error-data)
+
   (assoc model :errors (-> error-data
                            user-friendify
                            full-messages)))

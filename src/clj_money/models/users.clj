@@ -5,7 +5,9 @@
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [cemerick.friend.credentials :refer [hash-bcrypt]]
-            [schema.core :as s]))
+            [schema.core :as s]
+            [schema.coerce :as coerce]
+            [schema.utils :as sutils]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -22,21 +24,40 @@
    :email (s/pred (partial re-matches EmailPattern) "invalid format")
    :password s/Str})
 
+(defn nil-matcher
+  [schema]
+  (when (= s/Str schema)
+    (coerce/safe
+      (fn [x]
+        (if (and (string? x) (= 0 (count x)))
+          nil
+          x)))))
+
+(defn- coerce-and-validate-user
+  [user]
+  (let [coercer (coerce/coercer NewUser
+                                nil-matcher)
+        result (coercer user)]
+    (if (sutils/error? result)
+      (throw (ex-info "The user is not valid." (sutils/error-val result)))
+      result)))
+
 (defn create
   "Creates a new user record"
   [data-store user]
-  (s/validate NewUser user)
-  (try
-    (dissoc (->> user
-                 prepare-user-for-insertion
-                 (jdbc/insert! data-store :users)
-                 first)
-            :password)
-    (catch java.sql.BatchUpdateException e
-      (log/error (str "Unable to insert user "
-                      user
-                      ": "
-                      (.getMessage (.getNextException e)))))))
+  (coerce-and-validate-user user)
+  (let [user (coerce-and-validate-user user)]
+    (try
+      (dissoc (->> user
+                   prepare-user-for-insertion
+                   (jdbc/insert! data-store :users)
+                   first)
+              :password)
+      (catch java.sql.BatchUpdateException e
+        (log/error (str "Unable to insert user "
+                        user
+                        ": "
+                        (.getMessage (.getNextException e))))))))
 
 (defn select
   "Lists the users in the database"
