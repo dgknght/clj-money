@@ -4,7 +4,8 @@
             [clojure.data :refer [diff]]
             [environ.core :refer [env]])
   (:use [clj-money.models.users :as users]
-        [clj-money.test-helpers :refer [reset-db]]))
+        [clj-money.test-helpers :refer :all])
+  (:import clojure.lang.ExceptionInfo))
 
 (def data-store (env :db))
 
@@ -37,28 +38,18 @@
 
 (deftest try-to-create-with-invalid-data
   (testing "Email is required"
-    (try
-      (users/create data-store (dissoc attributes :email))
-      (catch clojure.lang.ExceptionInfo e
-        (is (= {:email 'missing-required-key}
-               (:error (ex-data e)))))))
+    (assert-throws-validation-exception
+      {:email 'missing-required-key}
+      (users/create data-store (dissoc attributes :email))) )
   (testing "Email must be a valid email address"
-    (try
-      (users/create data-store (assoc attributes :email "notavalidemail"))
-      (is false "The expected exception was not thrown")
-      (catch clojure.lang.ExceptionInfo e
-        (is (contains? (-> e ex-data :error) :email) "There should be an error for the email"))))
+    (assert-throws-ex-info-with-key
+      [:error :email]
+      (users/create data-store (assoc attributes :email "notavalidemail"))))
   (testing "First name is required"
-    (try
-      (users/create data-store (dissoc attributes :first_name))
-      (is false "The expected exception was not thrown")
-      (catch clojure.lang.ExceptionInfo e
-        (is (= {:first_name 'missing-required-key}
-               (:error (ex-data e)))))))
+    (assert-throws-validation-exception
+      {:first_name 'missing-required-key}
+      (users/create data-store (dissoc attributes :first_name))))
   (testing "Last name is required"
-    (try
-      (users/create data-store (dissoc attributes :last_name))
-      (is false "The expected exception was not thrown")
-      (catch clojure.lang.ExceptionInfo e
-        (is (= {:last_name 'missing-required-key}
-               (:error (ex-data e))))))))
+    (assert-throws-validation-exception
+      {:last_name 'missing-required-key}
+      (users/create data-store (dissoc attributes :last_name)))))
