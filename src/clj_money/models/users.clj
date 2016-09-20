@@ -4,7 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
-            [cemerick.friend.credentials :refer [hash-bcrypt]]
+            [cemerick.friend.credentials :refer [hash-bcrypt
+                                                 bcrypt-verify]]
             [schema.core :as s]
             [schema.coerce :as coerce]
             [schema.utils :as sutils]))
@@ -68,3 +69,19 @@
   (let [sql (sql/format (-> (h/select :first_name :last_name :email)
                             (h/from :users)))]
     (jdbc/query data-store sql)))
+
+(defn authenticate
+  "Returns the user with the specified username and password.
+  The returned map contains the information cemerick friend
+  needs to operate"
+  [data-store {:keys [username password]}]
+  (let [sql (sql/format (-> (h/select :id :first_name :last_name :email :password)
+                            (h/from :users)
+                            (h/where [:= :email username])))
+        user (first (jdbc/query data-store sql))]
+    (when (and user (bcrypt-verify password (:password user)))
+      (-> user
+          (dissoc :password)
+          (assoc :type :cemerick.friend/auth
+                 :identity (:id user)
+                 :roles #{:user})))))

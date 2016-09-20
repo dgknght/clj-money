@@ -61,3 +61,16 @@
     (assert-throws-ex-info-with-key
       [:error :last_name]
       (users/create data-store (assoc attributes :last_name "")))))
+
+(deftest authenticate-a-user
+  (let [user (users/create data-store attributes)
+        actual (users/authenticate data-store {:username "john@doe.com"
+                                               :password "please01"})
+        expected {:identity (:id user)
+                  :id (:id user)
+                  :email "john@doe.com"
+                  :first_name "John"
+                  :last_name "Doe"
+                  :type :cemerick.friend/auth
+                  :roles #{:user}}]
+    (is (= expected actual) "The returned value should be the user information")))
