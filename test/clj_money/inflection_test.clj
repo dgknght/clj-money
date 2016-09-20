@@ -1,6 +1,6 @@
-(ns clj-money.web.shared-test
+(ns clj-money.inflection-test
   (:require [clojure.test :refer :all])
-  (:use [clj-money.web.shared]))
+  (:use [clj-money.inflection]))
 
 (deftest humanize-a-keyword
   (let [tests [{:input :test      :expected "Test"}

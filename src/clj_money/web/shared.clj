@@ -2,7 +2,8 @@
   (:require [clojure.tools.logging :as log]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
-            [clojure.string :as s]))
+            [clojure.string :as s])
+  (:use clj-money.inflection))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
@@ -84,14 +85,6 @@
          (if-let [alerts (:alerts options)]
            (render-alerts alerts))
          content)]]]))
-
-(defn humanize
-  "Accepts a value in kabob case and returns the value in human friendly form"
-  [value]
-  (-> value
-      name
-      (s/replace "-" " ")
-      s/capitalize))
 
 (defn- input-field
   "Renders a HTML input field"
