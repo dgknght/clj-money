@@ -28,25 +28,28 @@
   [schema]
   (when (= s/Str schema)
     (coerce/safe
-      (fn [x]
-        (if (and (string? x) (= 0 (count x)))
+      (fn [value]
+        (if (and (string? value) (= 0 (count value)))
           nil
-          x)))))
+          value)))))
 
-(defn- coerce-and-validate-user
+(defn- validate-new-user
   [user]
   (let [coercer (coerce/coercer NewUser
                                 nil-matcher)
         result (coercer user)]
     (if (sutils/error? result)
-      (throw (ex-info "The user is not valid." (sutils/error-val result)))
+      (throw (ex-info "The user is not valid."
+                      (merge result
+                             {:schema NewUser
+                              :value user
+                              :type :schema.core/error})))
       result)))
 
 (defn create
   "Creates a new user record"
   [data-store user]
-  (coerce-and-validate-user user)
-  (let [user (coerce-and-validate-user user)]
+  (let [user (validate-new-user user)]
     (try
       (dissoc (->> user
                    prepare-user-for-insertion
