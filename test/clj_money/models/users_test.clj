@@ -10,8 +10,8 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def attributes {:first_name "John"
-                 :last_name "Doe"
+(def attributes {:first-name "John"
+                 :last-name "Doe"
                  :email "john@doe.com"
                  :password "please01"})
 
@@ -19,18 +19,18 @@
   (let [user (users/create storage-spec attributes)]
     (testing "An created user can be retreived"
       (let [users (->> (users/select storage-spec)
-                       (map #(select-keys % [:first_name
-                                             :last_name
+                       (map #(select-keys % [:first-name
+                                             :last-name
                                              :email
                                              :password])))
-            expected [{:first_name "John"
-                       :last_name "Doe"
+            expected [{:first-name "John"
+                       :last-name "Doe"
                        :email "john@doe.com"}]]
         (is (= expected users))))
     (testing "It returns a user map"
       (is (number? (:id user)) "The id should be a number")
-      (is (= {:first_name "John"
-              :last_name "Doe"
+      (is (= {:first-name "John"
+              :last-name "Doe"
               :email "john@doe.com"}
              (dissoc user :id))
           "The map should contain the user properties"))))
@@ -46,20 +46,20 @@
       (users/create storage-spec (assoc attributes :email "notavalidemail"))))
   (testing "First name is required"
     (assert-throws-validation-exception
-      {:first_name 'missing-required-key}
-      (users/create storage-spec (dissoc attributes :first_name))))
+      {:first-name 'missing-required-key}
+      (users/create storage-spec (dissoc attributes :first-name))))
   (testing "First name cannot be empty"
     (assert-throws-ex-info-with-key
-      [:error :first_name]
-      (users/create storage-spec (assoc attributes :first_name ""))))
+      [:error :first-name]
+      (users/create storage-spec (assoc attributes :first-name ""))))
   (testing "Last name is required"
     (assert-throws-validation-exception
-      {:last_name 'missing-required-key}
-      (users/create storage-spec (dissoc attributes :last_name))))
+      {:last-name 'missing-required-key}
+      (users/create storage-spec (dissoc attributes :last-name))))
   (testing "Last name cannot be empty"
     (assert-throws-ex-info-with-key
-      [:error :last_name]
-      (users/create storage-spec (assoc attributes :last_name "")))))
+      [:error :last-name]
+      (users/create storage-spec (assoc attributes :last-name "")))))
 
 (deftest authenticate-a-user
   (let [user (users/create storage-spec attributes)
@@ -68,8 +68,8 @@
         expected {:identity (:id user)
                   :id (:id user)
                   :email "john@doe.com"
-                  :first_name "John"
-                  :last_name "Doe"
+                  :first-name "John"
+                  :last-name "Doe"
                   :type :cemerick.friend/auth
                   :roles #{:user}}]
     (is (= expected actual) "The returned value should be the user information")))

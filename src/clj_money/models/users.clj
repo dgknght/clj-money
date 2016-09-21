@@ -1,5 +1,6 @@
 (ns clj-money.models.users
   (:require [clojure.tools.logging :as log]
+            [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
@@ -15,19 +16,24 @@
   "Prepares a user record to be saved in the database"
   [user]
   (-> user
-      (update-in [:password] hash-bcrypt)))
+      (update-in [:password] hash-bcrypt)
+      (rename-keys {:first-name :first_name
+                    :last-name :last_name})))
 
 (defn prepare-user-for-return
   "Prepares a user record for return to the caller"
   [user]
-  (dissoc user :password))
+  (-> user
+      (dissoc :password)
+      (rename-keys {:first_name :first-name
+                    :last_name :last-name})))
 
 (def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
 
 (def NewUser
   "Schema for a new user"
-  {:first_name s/Str
-   :last_name s/Str
+  {:first-name s/Str
+   :last-name s/Str
    :email (s/pred (partial re-matches EmailPattern) "invalid format")
    :password s/Str})
 
@@ -65,7 +71,10 @@
 (defn select
   "Lists the users in the database"
   [storage-spec]
-  (select-users (storage storage-spec)))
+  (->> storage-spec
+       storage
+       select-users
+       (map prepare-user-for-return)))
 
 (defn authenticate
   "Returns the user with the specified username and password.
@@ -75,7 +84,7 @@
   (let [user (find-user-by-email (storage storage-spec) username)]
     (when (and user (bcrypt-verify password (:password user)))
       (-> user
-          (dissoc :password)
+          prepare-user-for-return
           (assoc :type :cemerick.friend/auth
                  :identity (:id user)
                  :roles #{:user})))))
