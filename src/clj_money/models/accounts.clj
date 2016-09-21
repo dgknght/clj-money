@@ -18,16 +18,16 @@
 
 (defn create
   "Creates a new account in the system"
-  [data-store account]
+  [storage-spec account]
   (->> account
        prepare-account-for-save
-       (create-account (storage data-store))
+       (create-account (storage storage-spec))
        prepare-account-for-return))
 
 (defn select
   "Returns a list of all accounts in the system"
-  [data-store]
-  (->> data-store
+  [storage-spec]
+  (->> storage-spec
        storage
        select-accounts
        (map prepare-account-for-return)))

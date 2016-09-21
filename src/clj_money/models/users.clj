@@ -55,24 +55,24 @@
 
 (defn create
   "Creates a new user record"
-  [data-store user]
+  [storage-spec user]
   (->> user
        validate-new-user
        prepare-user-for-insertion
-       (create-user (storage data-store))
+       (create-user (storage storage-spec))
        prepare-user-for-return))
 
 (defn select
   "Lists the users in the database"
-  [data-store]
-  (select-users (storage data-store)))
+  [storage-spec]
+  (select-users (storage storage-spec)))
 
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
   needs to operate"
-  [data-store {:keys [username password]}]
-  (let [user (find-user-by-email (storage data-store) username)]
+  [storage-spec {:keys [username password]}]
+  (let [user (find-user-by-email (storage storage-spec) username)]
     (when (and user (bcrypt-verify password (:password user)))
       (-> user
           (dissoc :password)

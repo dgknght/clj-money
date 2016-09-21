@@ -7,15 +7,15 @@
   (:use [clj-money.models.accounts :as accounts]
         [clj-money.test-helpers :refer [reset-db]]))
 
-(def data-store (env :db))
+(def storage-spec (env :db))
 
-(use-fixtures :each (partial reset-db data-store))
+(use-fixtures :each (partial reset-db storage-spec))
 
 (deftest create-an-account
   (testing "After I add an account, I can retrieve it"
-    (accounts/create data-store {:name "Checking"
+    (accounts/create storage-spec {:name "Checking"
                                  :type :asset})
-    (let [accounts (->> data-store
+    (let [accounts (->> storage-spec
                         (accounts/select)
                         (map #(select-keys % [:name :type])))
           expected [{:name "Checking"
