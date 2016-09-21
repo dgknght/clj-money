@@ -8,6 +8,7 @@
 (deftype SqlStorage [db-spec]
   Storage
 
+  ; Users
   (create-user
     [_ user]
     (try
@@ -33,5 +34,17 @@
                               (h/where [:= :email email])))]
       (->> sql
            (jdbc/query db-spec)
-           first))))
+           first)))
 
+  ; Accounts
+  (create-account
+    [_ account]
+    (->> account
+         (jdbc/insert! db-spec :accounts)
+         first))
+
+  (select-accounts
+    [_]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :accounts)))]
+      (jdbc/query db-spec sql))))
