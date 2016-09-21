@@ -1,56 +1,16 @@
 (ns clj-money.models.users
-  (:require [clojure.java.jdbc :as jdbc]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [honeysql.core :as sql]
-            [honeysql.helpers :as h]
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [schema.core :as s]
             [schema.coerce :as coerce]
-            [schema.utils :as sutils]))
-
-(defprotocol Storage
-  "Provides data storage services for the application"
-  (create-user
-    [this user]
-    "Creates a new user record")
-  (select-users
-    [this]
-    "Returns all of the users in the system matching the specified criteria")
-  (find-user-by-email
-    [this email]
-    "Returns the user having the specified email"))
-
-(deftype SqlStorage [db-spec]
-  Storage
-
-  (create-user
-    [_ user]
-    (try
-      (->> user
-           (jdbc/insert! db-spec :users)
-           first)
-      (catch java.sql.BatchUpdateException e
-        (log/error (format "Unable to insert user %s: %s"
-                        user
-                        (.getMessage (.getNextException e))))
-        (throw e))))
-
-  (select-users
-    [_]
-    (let [sql (sql/format (-> (h/select :first_name :last_name :email)
-                              (h/from :users)))]
-      (jdbc/query db-spec sql)))
-
-  (find-user-by-email
-    [this email]
-    (let [sql (sql/format (-> (h/select :id :first_name :last_name :email :password)
-                              (h/from :users)
-                              (h/where [:= :email email])))]
-      (->> sql
-           (jdbc/query db-spec)
-           first))))
+            [schema.utils :as sutils]
+            [clj-money.models.storage :refer [create-user
+                                              select-users
+                                              find-user-by-email]]
+            [clj-money.models.storage.sql-storage])
+  (:import clj_money.models.storage.sql_storage.SqlStorage))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
