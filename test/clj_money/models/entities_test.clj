@@ -23,3 +23,21 @@
     (testing "The new entity is returned"
       (is (= expected
              (dissoc actual :id)) "The returned map should have the correct content."))))
+
+(deftest select-entities-for-a-user
+ (let [user (users/create storage-spec (factory :user))
+       other-user (users/create storage-spec (factory :user))
+       other-entity (entities/create storage-spec {:name "Other entity"
+                                                   :user-id (:id other-user)})
+       _ (map #(entities/create storage-spec {:name %
+                                              :user-id (:id user)})
+              ["Personal"
+               "Business"])
+       actual (entities/select-entities storage-spec (:id user))
+       expected [{:name "Business"}
+                 {:name "Personal"}]]
+   (testing "It returns the expected entities"
+     (is (= expected
+            (map #(dissoc % :id) actual))))
+   (testing "It omits other user's entities"
+     (is (not-any? #(= "Other entity" (:name %)) actual)))))

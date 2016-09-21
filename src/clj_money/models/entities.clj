@@ -20,3 +20,9 @@
        prepare-entity-for-save
        (create-entity (storage storage-spec))
        prepare-entity-for-return))
+
+(defn select-entities
+  "Returns entities for the specified user"
+  [storage-spec user-id]
+  []
+  )
