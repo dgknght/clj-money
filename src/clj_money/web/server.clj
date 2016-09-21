@@ -40,7 +40,8 @@
   (-> routes
       (friend/authenticate
         {:workflows [(workflows/interactive-form)]
-         :credential-fn (partial clj-money.models.users/authenticate (env :db))})
+         :credential-fn (partial clj-money.models.users/authenticate (env :db))
+         :redirect-on-auth? false})
       (wrap-resource "public")
       (wrap-keyword-params)
       (wrap-params)
