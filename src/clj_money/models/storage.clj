@@ -18,6 +18,9 @@
   (create-entity
     [this entity]
     "Creates a new entity record")
+  (select-entities
+    [this user-id]
+    "Returns the entities belonging to the specified user")
 
   ; Accounts
   (create-account

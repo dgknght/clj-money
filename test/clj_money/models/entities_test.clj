@@ -12,32 +12,32 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def attributes {:name "Checking"})
+(def attributes {:name "Personal"})
 
 (deftest create-an-entity
   (let [user (users/create storage-spec (factory :user))
         actual (entities/create storage-spec
                                 (assoc attributes :user-id (:id user)))
-        expected {:name "Checking"
+        expected {:name "Personal"
                   :user-id (:id user)}]
     (testing "The new entity is returned"
       (is (= expected
              (dissoc actual :id)) "The returned map should have the correct content."))))
 
 (deftest select-entities-for-a-user
- (let [user (users/create storage-spec (factory :user))
-       other-user (users/create storage-spec (factory :user))
-       other-entity (entities/create storage-spec {:name "Other entity"
-                                                   :user-id (:id other-user)})
-       _ (map #(entities/create storage-spec {:name %
-                                              :user-id (:id user)})
-              ["Personal"
-               "Business"])
-       actual (entities/select-entities storage-spec (:id user))
-       expected [{:name "Business"}
-                 {:name "Personal"}]]
-   (testing "It returns the expected entities"
-     (is (= expected
-            (map #(dissoc % :id) actual))))
-   (testing "It omits other user's entities"
-     (is (not-any? #(= "Other entity" (:name %)) actual)))))
+  (let [user (users/create storage-spec (factory :user))
+        other-user (users/create storage-spec (factory :user))
+        other-entity (entities/create storage-spec {:name "Other entity"
+                                                    :user-id (:id other-user)})
+        _ (dorun (map #(entities/create storage-spec {:name %
+                                                 :user-id (:id user)})
+                 ["Personal"
+                  "Business"]))
+        actual (entities/select storage-spec (:id user))
+        expected [{:name "Business"
+                   :user-id (:id user)}
+                  {:name "Personal"
+                   :user-id (:id user)}]]
+    (is (= expected
+           (map #(dissoc % :id) actual)) "The returned list should contain the correct items")
+    (is (not-any? #(= "Other entity" (:name %)) actual) "The returned list should not contain other users entities")))
