@@ -6,11 +6,10 @@
             [schema.core :as s]
             [schema.coerce :as coerce]
             [schema.utils :as sutils]
+            [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-user
                                               select-users
-                                              find-user-by-email]]
-            [clj-money.models.storage.sql-storage])
-  (:import clj_money.models.storage.sql_storage.SqlStorage))
+                                              find-user-by-email]]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -60,20 +59,20 @@
   (->> user
        validate-new-user
        prepare-user-for-insertion
-       (create-user (SqlStorage. data-store))
+       (create-user (storage data-store))
        prepare-user-for-return))
 
 (defn select
   "Lists the users in the database"
   [data-store]
-  (select-users (SqlStorage. data-store)))
+  (select-users (storage data-store)))
 
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
   needs to operate"
   [data-store {:keys [username password]}]
-  (let [user (find-user-by-email (SqlStorage. data-store) username)]
+  (let [user (find-user-by-email (storage data-store) username)]
     (when (and user (bcrypt-verify password (:password user)))
       (-> user
           (dissoc :password)
