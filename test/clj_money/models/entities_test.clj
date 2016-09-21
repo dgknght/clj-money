@@ -12,27 +12,37 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def attributes {:name "Personal"})
+(def user (users/create storage-spec (factory :user)))
+(def attributes {:name "Personal"
+                 :user-id (:id user)})
+(def other-user (users/create storage-spec (factory :user)))
 
 (deftest create-an-entity
-  (let [user (users/create storage-spec (factory :user))
-        actual (entities/create storage-spec
-                                (assoc attributes :user-id (:id user)))
+  (let [actual (entities/create storage-spec attributes)
         expected {:name "Personal"
                   :user-id (:id user)}]
     (testing "The new entity is returned"
       (is (= expected
-             (dissoc actual :id)) "The returned map should have the correct content."))))
+             (dissoc actual :id)) "The returned map should have the correct content."))
+    (testing "The name can be duplicated between two different users"
+      (let [other-entity (entities/create storage-spec
+                                          (assoc attributes :user-id (:id other-user)))]
+        (is (number? (:id other-entity)))))))
+
+(deftest attempt-to-create-an-invalid-entity
+  (testing "Name is required"
+    (assert-throws-validation-exception
+      {:name 'missing-required-key}
+      (entities/create storage-spec (dissoc attributes :name))))
+  (testing "Name must be unique"))
 
 (deftest select-entities-for-a-user
-  (let [user (users/create storage-spec (factory :user))
-        other-user (users/create storage-spec (factory :user))
-        other-entity (entities/create storage-spec {:name "Other entity"
+  (let [other-entity (entities/create storage-spec {:name "Other entity"
                                                     :user-id (:id other-user)})
         _ (dorun (map #(entities/create storage-spec {:name %
-                                                 :user-id (:id user)})
-                 ["Personal"
-                  "Business"]))
+                                                      :user-id (:id user)})
+                      ["Personal"
+                       "Business"]))
         actual (entities/select storage-spec (:id user))
         expected [{:name "Business"
                    :user-id (:id user)}
