@@ -36,6 +36,13 @@
            (jdbc/query db-spec)
            first)))
 
+  ; Entities
+  (create-entity
+    [_ entity]
+    (->> entity
+         (jdbc/insert! db-spec :entities)
+         first))
+
   ; Accounts
   (create-account
     [_ account]

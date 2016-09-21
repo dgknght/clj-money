@@ -14,6 +14,11 @@
     [this email]
     "Returns the user having the specified email")
 
+  ; Entities
+  (create-entity
+    [this entity]
+    "Creates a new entity record")
+
   ; Accounts
   (create-account
     [this account]

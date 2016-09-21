@@ -4,6 +4,7 @@
             [clojure.tools.logging :as log]))
 
 (def all-tables ["accounts"
+                 "entities"
                  "users"])
 
 (defn reset-db
