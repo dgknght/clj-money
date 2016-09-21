@@ -5,9 +5,7 @@
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [schema.core :as s]
-            [schema.coerce :as coerce]
-            [schema.utils :as sutils]
-            [clj-money.models.helpers :refer [storage]]
+            [clj-money.models.helpers :refer [storage validate-model]]
             [clj-money.models.storage :refer [create-user
                                               select-users
                                               find-user-by-email]]))
@@ -37,27 +35,9 @@
    :email (s/pred (partial re-matches EmailPattern) "invalid format")
    :password s/Str})
 
-(defn nil-matcher
-  [schema]
-  (when (= s/Str schema)
-    (coerce/safe
-      (fn [value]
-        (if (and (string? value) (= 0 (count value)))
-          nil
-          value)))))
-
 (defn- validate-new-user
   [user]
-  (let [coercer (coerce/coercer NewUser
-                                nil-matcher)
-        result (coercer user)]
-    (if (sutils/error? result)
-      (throw (ex-info "The user is not valid."
-                      (merge result
-                             {:schema NewUser
-                              :value user
-                              :type :schema.core/error})))
-      result)))
+  (validate-model user NewUser "user"))
 
 (defn create
   "Creates a new user record"

@@ -1,7 +1,12 @@
 (ns clj-money.models.helpers
-  (:require [clj-money.models.storage.sql-storage])
+  (:require [clojure.pprint :refer [pprint]]
+            [schema.core :as schema]
+            [schema.coerce :as coerce]
+            [schema.utils :as sutils]
+            [clj-money.models.storage.sql-storage])
   (:import clj_money.models.storage.sql_storage.SqlStorage))
 
+;; Storage
 ; TODO should this be dynamic to support extension?
 (def handlers
   [{:can-handle-fn #(= "postgresql" (:dbtype %))
@@ -21,3 +26,27 @@
   for the specified config"
   [config]
   (some #(process-handler % config) handlers))
+
+;; Validation
+(defn- nil-matcher
+  [schema]
+  (when (= schema/Str schema)
+    (coerce/safe
+      (fn [value]
+        (if (and (string? value) (= 0 (count value)))
+          nil
+          value)))))
+
+(defn validate-model
+  "Coerces and validates the specified model using the specified schema"
+  [model schema model-name]
+  (let [coercer (coerce/coercer schema
+                                nil-matcher)
+        result (coercer model)]
+    (if (sutils/error? result)
+      (throw (ex-info (format "The %s is not valid." model-name)
+                      (merge result
+                             {:schema schema
+                              :value model
+                              :type :schema.core/error})))
+      result)))
