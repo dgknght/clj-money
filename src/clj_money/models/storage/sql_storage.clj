@@ -37,6 +37,16 @@
            (jdbc/query db-spec)
            first)))
 
+  (user-exists-with-email?
+    [this email]
+    (let [sql (sql/format (-> (h/select [:%count.id :record_count])
+                              (h/from :users)
+                              (h/where [:= :email email])))]
+      (= 1 (->> sql
+           (jdbc/query db-spec)
+           first
+           :record_count))))
+
   ; Entities
   (create-entity
     [_ entity]
