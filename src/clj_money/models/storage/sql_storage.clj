@@ -6,6 +6,16 @@
             [honeysql.helpers :as h]
             [clj-money.models.storage :refer [Storage]]))
 
+(defn- exists?
+  [db-spec table where]
+  (let [sql (sql/format (-> (h/select [:%count.id :record_count])
+                              (h/from table)
+                              (h/where where)))]
+      (= 1 (->> sql
+           (jdbc/query db-spec)
+           first
+           :record_count))))
+
 (deftype SqlStorage [db-spec]
   Storage
 
@@ -39,13 +49,7 @@
 
   (user-exists-with-email?
     [this email]
-    (let [sql (sql/format (-> (h/select [:%count.id :record_count])
-                              (h/from :users)
-                              (h/where [:= :email email])))]
-      (= 1 (->> sql
-           (jdbc/query db-spec)
-           first
-           :record_count))))
+    (exists? db-spec :users [:= :email email]))
 
   ; Entities
   (create-entity
@@ -60,6 +64,12 @@
                               (h/where [:= :user_id user-id])
                               (h/order-by :name)))]
       (jdbc/query db-spec sql)))
+
+  (entity-exists-with-name?
+    [_ user-id name]
+    (exists? db-spec :entities [:and
+                                [:= :user_id user-id]
+                                [:= :name name]]))
 
   ; Accounts
   (create-account

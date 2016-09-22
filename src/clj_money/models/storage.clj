@@ -15,7 +15,8 @@
     "Returns the user having the specified email")
   (user-exists-with-email?
     [this email]
-    "Returns a boolean value indicating whether or not a user exists with the specified email")
+    "Returns a boolean value indicating whether or not a user exists with
+    the specified email")
 
   ; Entities
   (create-entity
@@ -24,6 +25,10 @@
   (select-entities
     [this user-id]
     "Returns the entities belonging to the specified user")
+  (entity-exists-with-name?
+    [this user-id name]
+    "Returns a boolean value indicating whether or not an entity exists for
+    the specified user with the specified name")
 
   ; Accounts
   (create-account
