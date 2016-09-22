@@ -3,7 +3,7 @@
             [hiccup.page :refer :all]
             [cemerick.friend :as friend]
             [clj-money.models.entities :as entities])
-  (:use clj-money.web.share))
+  (:use clj-money.web.shared))
 
 (defn- entity-row
   "Renders a table row for an entity"
