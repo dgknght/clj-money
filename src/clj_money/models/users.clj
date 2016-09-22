@@ -75,3 +75,8 @@
           (assoc :type :cemerick.friend/auth
                  :identity (:id user)
                  :roles #{:user})))))
+
+(defn full-name
+  "Returns the user's full name"
+  [user]
+  (format "%s %s" (:first-name user) (:last-name user)))

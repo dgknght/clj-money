@@ -3,14 +3,15 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [clojure.string :as s]
-            [cemerick.friend :as friend])
+            [cemerick.friend :as friend]
+            [clj-money.models.users :as users])
   (:use clj-money.inflection))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
   "Renders the site navigation using the structure for twitter bootstrap"
   [items]
-  [:nav.navbar
+  [:nav.navbar.navbar-default
    [:div.container
     [:div.navbar-header
      [:button.navbar-toggle.collapsed {:type "button"
@@ -28,7 +29,12 @@
       (map (fn [{:keys [url caption method]}]
              [:li
               [:a {:href url :data-method method :rel (when method "nofollow")} caption]])
-           items)]]]])
+           items)]
+     (when-let [user (friend/current-authentication)]
+       [:div.navbar-right
+        [:ul.nav.navbar-nav.navbar-right
+         [:li
+          [:a {:href "#"} (users/full-name user)]]]])]]])
 
 (defn primary-nav
   "Renders the site primary navigation"
@@ -73,11 +79,11 @@
 
       "<!-- jQuery -->"
       [:script {:src "http://code.jquery.com/jquery-2.1.4.min.js"}]
-      [:script {:src "jquery-startup.js"}]
+      [:script {:src "/js/jquery-startup.js"}]
 
       "<!-- Bootstrap core CSS -->"
-      [:link {:rel "stylesheet" :href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"}]
-      [:link {:rel "stylesheet" :href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
       [:script  {:src "https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"}]]
      [:body
       (primary-nav)
