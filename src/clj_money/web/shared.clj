@@ -7,6 +7,13 @@
             [clj-money.models.users :as users])
   (:use clj-money.inflection))
 
+(defn glyph-link
+  "Renders a link with a glyphicon"
+  [glyph url options]
+  [:a (merge options {:href url})
+   [:span {:arial-hidden true
+           :class (format "glyphicon glyphicon-%s" (name glyph))}]])
+
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
   "Renders the site navigation using the structure for twitter bootstrap"
@@ -30,11 +37,20 @@
              [:li
               [:a {:href url :data-method method :rel (when method "nofollow")} caption]])
            items)]
-     (when-let [user (friend/current-authentication)]
-       [:div.navbar-right
-        [:ul.nav.navbar-nav.navbar-right
-         [:li
-          [:a {:href "#"} (users/full-name user)]]]])]]])
+     [:div.navbar-right
+      [:ul.nav.navbar-nav.navbar-right
+       (if-let [user (friend/current-authentication)]
+         (html
+           [:li
+            [:a {:href "#"} (users/full-name user)]]
+           [:li
+            (glyph-link :log-out "/logout" {:title "Click here to sign out."
+                                            :data-method :post})])
+         (html
+           [:li
+            [:a {:href "/signup"} "Sign up"]]
+           [:li
+            (glyph-link :log-in "/login" {:title "Click here to sign in."})]))]]]]])
 
 (defn primary-nav
   "Renders the site primary navigation"
@@ -43,11 +59,7 @@
         items [{:url "/entities"     :caption "Entities"}
                {:url "/transactions" :caption "Transactions"}
                {:url "/commodities"  :caption "Commodities"}]]
-    (bootstrap-nav (concat items
-                         (if user
-                           [{:url "/logout" :caption "Logout" :method :post}]
-                           [{:url "/login"  :caption "Login"}
-                            {:url "/signup" :caption "Sign up"}])))))
+    (bootstrap-nav items)))
 
 (defn render-alerts
   "Renders notifications as HTML"
@@ -78,7 +90,7 @@
                                     page-title))]
 
       "<!-- jQuery -->"
-      [:script {:src "http://code.jquery.com/jquery-2.1.4.min.js"}]
+      [:script {:src "/js/jquery-3.1.0.min.js"}]
       [:script {:src "/js/jquery-startup.js"}]
 
       "<!-- Bootstrap core CSS -->"
