@@ -37,6 +37,16 @@
           nil
           value)))))
 
+(defn throw-validation-exception
+  "Throws a validation exception that is consistent with
+  what is thrown by prismatic schema"
+  [errors model schema model-name]
+  (throw (ex-info (format "The %s is not valid." model-name)
+                      (assoc {:schema schema
+                              :value model
+                              :type :schema.core/error}
+                             :error errors))))
+
 (defn validate-model
   "Coerces and validates the specified model using the specified schema"
   [model schema model-name]
@@ -44,9 +54,5 @@
                                 nil-matcher)
         result (coercer model)]
     (if (sutils/error? result)
-      (throw (ex-info (format "The %s is not valid." model-name)
-                      (merge result
-                             {:schema schema
-                              :value model
-                              :type :schema.core/error})))
+     (throw-validation-exception (:error result) model schema model-name)
       result)))
