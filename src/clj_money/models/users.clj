@@ -5,10 +5,13 @@
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [schema.core :as s]
-            [clj-money.models.helpers :refer [storage validate-model]]
+            [clj-money.models.helpers :refer [storage
+                                              validate-model
+                                              throw-validation-exception]]
             [clj-money.models.storage :refer [create-user
                                               select-users
-                                              find-user-by-email]]))
+                                              find-user-by-email
+                                              user-exists-with-email?]]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -36,17 +39,21 @@
    :password s/Str})
 
 (defn- validate-new-user
-  [user]
-  (validate-model user NewUser "user"))
+  [storage user]
+  (let [validated (validate-model user NewUser "user")]
+    (if (user-exists-with-email? storage (:email validated))
+      (throw-validation-exception {:email :duplicate-key} validated NewUser "user")
+      validated)))
 
 (defn create
   "Creates a new user record"
   [storage-spec user]
-  (->> user
-       validate-new-user
-       prepare-user-for-insertion
-       (create-user (storage storage-spec))
-       prepare-user-for-return))
+  (let [s (storage storage-spec)]
+    (->> user
+         (validate-new-user s)
+         prepare-user-for-insertion
+         (create-user s)
+         prepare-user-for-return)))
 
 (defn select
   "Lists the users in the database"
