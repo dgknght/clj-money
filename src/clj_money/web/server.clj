@@ -13,11 +13,11 @@
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
-            [cemerick.friend.credentials :as creds])
-  (:use [clj-money.web.pages :as pages]
-        [clj-money.web.entities :as entities]
-        [clj-money.web.accounts :as accounts]
-        [clj-money.web.users :as users]))
+            [cemerick.friend.credentials :as creds]
+            [clj-money.web.pages :as pages]
+            [clj-money.web.entities :as entities]
+            [clj-money.web.accounts :as accounts]
+            [clj-money.web.users :as users]))
 
 (defroutes protected-routes
   (GET "/entities" []
