@@ -3,9 +3,12 @@
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
             [schema.core :as s]
-            [clj-money.models.helpers :refer [storage validate-model]]
+            [clj-money.models.helpers :refer [storage
+                                              validate-model
+                                              throw-validation-exception]]
             [clj-money.models.storage :refer [create-entity
-                                              select-entities]]))
+                                              select-entities
+                                              entity-exists-with-name?]]))
 
 (def Entity
   "Schema for entities"
@@ -21,17 +24,26 @@
   (rename-keys entity {:user_id :user-id}))
 
 (defn- validate-entity
-  [entity]
-  (validate-model entity Entity "entity"))
+  [storage entity]
+  (let [validated (validate-model entity Entity "entity")]
+    (if (entity-exists-with-name? storage
+                                  (:user-id validated)
+                                  (:name validated))
+      (throw-validation-exception {:name :duplicate-key}
+                                  entity
+                                  Entity
+                                  "entity")
+      validated)))
 
 (defn create
   "Creates a new entity"
   [storage-spec entity]
-  (->> entity
-       validate-entity
-       prepare-entity-for-save
-       (create-entity (storage storage-spec))
-       prepare-entity-for-return))
+  (let [s (storage storage-spec)]
+    (->> entity
+         (validate-entity s)
+         prepare-entity-for-save
+         (create-entity s)
+         prepare-entity-for-return)))
 
 (defn select
   "Returns entities for the specified user"

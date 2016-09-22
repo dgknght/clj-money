@@ -34,7 +34,11 @@
     (assert-throws-validation-exception
       {:name 'missing-required-key}
       (entities/create storage-spec (dissoc attributes :name))))
-  (testing "Name must be unique"))
+  (testing "Name must be unique"
+    (entities/create storage-spec attributes)
+    (assert-throws-validation-exception
+      {:name :duplicate-key}
+      (entities/create storage-spec attributes))))
 
 (deftest select-entities-for-a-user
   (let [other-entity (entities/create storage-spec {:name "Other entity"
