@@ -29,6 +29,9 @@
     [this user-id name]
     "Returns a boolean value indicating whether or not an entity exists for
     the specified user with the specified name")
+  (find-entity-by-id
+    [this id]
+    "Returns the entity having the specified ID")
 
   ; Accounts
   (create-account

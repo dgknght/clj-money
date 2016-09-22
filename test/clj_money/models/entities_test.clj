@@ -55,3 +55,9 @@
     (is (= expected
            (map #(dissoc % :id) actual)) "The returned list should contain the correct items")
     (is (not-any? #(= "Other entity" (:name %)) actual) "The returned list should not contain other users entities")))
+
+(deftest find-an-entity-by-id
+  (let [entity (entities/create storage-spec {:name "Personal"
+                                              :user-id (:id user)})
+        retrieved (entities/find-by-id storage-spec (:id entity))]
+    (is (= entity retrieved))))

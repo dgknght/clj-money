@@ -3,4 +3,4 @@
             [faker.lorem :as lorem]))
 
 (deffactory :entity
-  {:name (lorem/words 2)})
+  {:name (lorem/words)})

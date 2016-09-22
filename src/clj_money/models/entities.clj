@@ -8,7 +8,8 @@
                                               throw-validation-exception]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
-                                              entity-exists-with-name?]]))
+                                              entity-exists-with-name?
+                                              find-entity-by-id]]))
 
 (def Entity
   "Schema for entities"
@@ -51,3 +52,11 @@
   (map prepare-entity-for-return
        (select-entities (storage storage-spec)
                         user-id)))
+
+(defn find-by-id
+  "Finds the entity with the specified ID"
+  [storage-spec id]
+  (-> storage-spec
+      storage
+      (find-entity-by-id id)
+      prepare-entity-for-return))

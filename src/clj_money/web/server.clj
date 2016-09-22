@@ -26,6 +26,8 @@
        (entities/new-entity))
   (POST "/entities" {params :params}
         (entities/create-entity params))
+  (GET "/entities/:id/edit" [id]
+       (entities/edit-entity id))
   (GET "/accounts" []
        (accounts/index)))
 

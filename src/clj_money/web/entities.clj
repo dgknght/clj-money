@@ -11,7 +11,10 @@
   "Renders a table row for an entity"
   [entity]
   [:tr
-   [:td (:name entity)]])
+   [:td (:name entity)]
+   [:td
+    [:a.btn.btn-xs.btn-info {:href (format "/entities/%s/edit" (:id entity))}
+     [:span.glyphicon.glyphicon-pencil {:aria-hidden true} "Edit"]]]])
 
 (defn- entity-table
   "Renders the table of entities belonging to the
@@ -19,7 +22,8 @@
   []
   [:table.table.table-striped
    [:tr
-    [:th "Name"]]
+    [:th "Name"]
+    [:th "&nbsp;"]]
    (let [user (friend/current-authentication)
          entities (entities/select (env :db) (:id user))]
      (map entity-row entities))])
@@ -62,3 +66,14 @@
         entity (entities/create (env :db) {:name entity-name
                                            :user-id (:id user)})]
     (redirect "/entities")))
+
+(defn edit-entity
+  "Renders the edit form"
+  [id]
+  (layout
+    "Edit entity" {}
+    [:div.row
+     [:div.col-md-6
+      [:form {:action (format "/entities/%s" id) :method :post}
+       (let [entity (entities/find-by-id (env :db) (Integer. id))]
+         (entity-form-fields entity))]]]))

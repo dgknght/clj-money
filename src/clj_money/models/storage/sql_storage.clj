@@ -71,6 +71,10 @@
                                 [:= :user_id user-id]
                                 [:= :name name]]))
 
+  (find-entity-by-id
+    [_ id]
+    (jdbc/get-by-id db-spec :entities id))
+
   ; Accounts
   (create-account
     [_ account]
