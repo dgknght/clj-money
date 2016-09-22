@@ -22,6 +22,10 @@
 (defroutes protected-routes
   (GET "/entities" []
        (entities/index))
+  (GET "/entities/new" []
+       (entities/new-entity))
+  (POST "/entities" {params :params}
+        (entities/create-entity params))
   (GET "/accounts" []
        (accounts/index)))
 

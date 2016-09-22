@@ -34,7 +34,7 @@
   "Renders the site primary navigation"
   []
   (let [user (friend/current-authentication)
-        items [{:url "/accounts"     :caption "Accounts"}
+        items [{:url "/entities"     :caption "Entities"}
                {:url "/transactions" :caption "Transactions"}
                {:url "/commodities"  :caption "Commodities"}]]
     (bootstrap-nav (concat items

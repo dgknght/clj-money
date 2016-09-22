@@ -1,5 +1,7 @@
 (ns clj-money.web.entities
-  (:require [hiccup.core :refer :all]
+  (:require [environ.core :refer [env]]
+            [ring.util.response :refer :all]
+            [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [cemerick.friend :as friend]
             [clj-money.models.entities :as entities])
@@ -11,15 +13,52 @@
   [:tr
    [:td (:name entity)]])
 
+(defn- entity-table
+  "Renders the table of entities belonging to the
+  authenticated user"
+  []
+  [:table.table.table-striped
+   [:tr
+    [:th "Name"]]
+   (let [user (friend/current-authentication)
+         entities (entities/select (env :db) (:id user))]
+     (map entity-row entities))])
+
+(defn- entity-form-fields
+  "Renders form fields for the entity"
+  [entity]
+  (html
+    (text-input-field entity :name {:autofocus true
+                                    :maxlength 100})
+    [:input.btn.btn-primary {:type :submit :value "Save"}]))
+
 (defn index
   "Renders the list of entities that belong to the currently
   authenticated user"
   []
   (layout
     "Entities" {}
-    [:table.table.table-striped
-     [:tr
-      [:th name]]
-     (let [user (friend/current-authentication)
-           ]
-       (map entity-row (entities/select (:id user))))]))
+    [:div.row
+     [:div.col-md-6
+      (entity-table)
+      [:a.btn.btn-primary {:href "/entities/new"} "Add"]]]))
+
+(defn new-entity
+  "Renders a form for adding a new entity"
+  ([] (new-entity {}))
+  ([entity]
+   (layout
+     "New entity" {}
+     [:div.row
+      [:div.col-md-6
+       [:form {:action "/entities" :method :post}
+        (entity-form-fields entity)]]])))
+
+(defn create-entity
+  "Creates the entity and redirects to the index on success, 
+  or displays the entity from on failuer"
+  [{entity-name :name :as params}]
+  (let [user (friend/current-authentication)
+        entity (entities/create (env :db) {:name entity-name
+                                           :user-id (:id user)})]
+    (redirect "/entities")))
