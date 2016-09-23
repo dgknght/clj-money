@@ -9,7 +9,7 @@
 ;; Storage
 ; TODO should this be dynamic to support extension?
 (def handlers
-  [{:can-handle-fn #(= "postgresql" (:dbtype %))
+  [{:can-handle-fn #(re-find #"postgresql" %)
     :create-fn #(SqlStorage. %)}])
 
 (defn- process-handler
