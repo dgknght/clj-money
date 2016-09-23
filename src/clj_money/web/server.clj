@@ -20,6 +20,7 @@
             [clj-money.web.users :as users]))
 
 (defroutes protected-routes
+  ; Entities
   (GET "/entities" []
        (entities/index))
   (GET "/entities/new" []
@@ -28,6 +29,10 @@
         (entities/create-entity params))
   (GET "/entities/:id/edit" [id]
        (entities/edit-entity id))
+  (POST "/entities/:id" req
+        (entities/update-entity (:params req)))
+
+  ; Accounts
   (GET "/accounts" []
        (accounts/index)))
 

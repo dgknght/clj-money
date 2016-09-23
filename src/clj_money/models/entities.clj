@@ -11,10 +11,14 @@
                                               entity-exists-with-name?
                                               find-entity-by-id]]))
 
-(def Entity
-  "Schema for entities"
+(def NewEntity
+  "Schema for unsaved entities"
   {:name s/Str
    :user-id s/Int})
+
+(def Entity
+  "Schema for saved entities"
+  (merge NewEntity {:id s/Int}))
 
 (defn- prepare-entity-for-save
   [entity]
@@ -26,13 +30,13 @@
 
 (defn- validate-entity
   [storage entity]
-  (let [validated (validate-model entity Entity "entity")]
+  (let [validated (validate-model entity NewEntity "entity")]
     (if (entity-exists-with-name? storage
                                   (:user-id validated)
                                   (:name validated))
       (throw-validation-exception {:name :duplicate-key}
                                   entity
-                                  Entity
+                                  NewEntity
                                   "entity")
       validated)))
 
@@ -60,3 +64,11 @@
       storage
       (find-entity-by-id id)
       prepare-entity-for-return))
+
+(defn update-entity
+  "Updates the specified entity"
+  [storage-spec entity]
+  (-> storage-spec
+      storage
+      (validate-entity entity)
+      (update-entity entity)))

@@ -75,6 +75,13 @@
     [_ id]
     (jdbc/get-by-id db-spec :entities id))
 
+  (update-entity
+    [_ entity]
+    (let [sql (sql/format (-> (h/update :entities)
+                              (h/sset (select-keys entity [:name]))
+                              (h/where [:= :id (:id entity)])))]
+      (jdbc/execute! db-spec sql)))
+
   ; Accounts
   (create-account
     [_ account]

@@ -32,6 +32,9 @@
   (find-entity-by-id
     [this id]
     "Returns the entity having the specified ID")
+  (update-entity
+    [this entity]
+    "Updates the specified entity record")
 
   ; Accounts
   (create-account

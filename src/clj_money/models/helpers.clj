@@ -54,7 +54,7 @@
   "Coerces and validates the specified model using the specified schema"
   [model schema model-name]
   (let [coercer (coerce/coercer schema
-                                nil-matcher)
+                                (coerce/first-matcher json-matcher nil-matcher))
         result (coercer model)]
     (if (sutils/error? result)
      (throw-validation-exception (:error result) model schema model-name)

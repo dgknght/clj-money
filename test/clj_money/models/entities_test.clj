@@ -61,3 +61,13 @@
                                               :user-id (:id user)})
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (= entity retrieved))))
+
+(deftest update-an-entity
+  (let [entity (entities/create storage-spec {:name "Entity X"
+                                              :user-id (:id user)})
+        _ (entities/update-entity storage-spec {:name "Entity Y"})
+        retrieved (entities/find-by-id storage-spec (:id entity))]
+    (is (= {:id (:id entity)
+            :name "Entity Y"
+            :user-id (:id user)}
+           retrieved))))

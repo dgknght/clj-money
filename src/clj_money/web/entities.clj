@@ -14,7 +14,7 @@
    [:td (:name entity)]
    [:td
     [:a.btn.btn-xs.btn-info {:href (format "/entities/%s/edit" (:id entity))}
-     [:span.glyphicon.glyphicon-pencil {:aria-hidden true} "Edit"]]]])
+     [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]]]])
 
 (defn- entity-table
   "Renders the table of entities belonging to the
@@ -77,3 +77,15 @@
       [:form {:action (format "/entities/%s" id) :method :post}
        (let [entity (entities/find-by-id (env :db) (Integer. id))]
          (entity-form-fields entity))]]]))
+
+(defn update-entity
+  "Updates the entity and redirects to index on success or
+  renders edit on error"
+  [params]
+  (let [entity (entities/find-by-id (Integer. (:id params)))
+        updated (merge entity (select-keys params [:name]))]
+    (try
+      (entities/update-entity (env :db) updated)
+      (redirect "/entities")
+      (catch clojure.lang.ExceptionInfo e
+        (edit-entity (schema/append-errors updated (ex-data e)))))))
