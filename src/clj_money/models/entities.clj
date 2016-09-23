@@ -1,4 +1,5 @@
 (ns clj-money.models.entities
+  (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
@@ -9,7 +10,8 @@
             [clj-money.models.storage :refer [create-entity
                                               select-entities
                                               entity-exists-with-name?
-                                              find-entity-by-id]]))
+                                              find-entity-by-id
+                                              update-entity]]))
 
 (def NewEntity
   "Schema for unsaved entities"
@@ -74,10 +76,9 @@
       (find-entity-by-id id)
       prepare-entity-for-return))
 
-(defn update-entity
+(defn update
   "Updates the specified entity"
   [storage-spec entity]
-  (-> storage-spec
-      storage
-      (validate-existing-entity entity)
-      (update-entity entity)))
+  (let [s (storage storage-spec)
+        validated (validate-existing-entity s entity)]
+    (update-entity s entity)))

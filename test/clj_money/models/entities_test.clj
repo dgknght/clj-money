@@ -65,8 +65,8 @@
 (deftest update-an-entity
   (let [entity (entities/create storage-spec {:name "Entity X"
                                               :user-id (:id user)})
-        _ (entities/update-entity storage-spec {:id (:id entity)
-                                                  :name "Entity Y"})
+        _ (entities/update storage-spec {:id (:id entity)
+                                                :name "Entity Y"})
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (= {:id (:id entity)
             :name "Entity Y"
