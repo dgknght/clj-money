@@ -19,8 +19,8 @@
                  [clj-factory "0.2.1"]
                  [faker "0.2.2"]]
   :min-lein-version "2.0.0"
-  :plugins [[environ/environ.lein "0.3.1"]]
-  :hooks [environ.leiningen.hooks]
+  :plugins [[lein-environ "1.1.0"]]
+  :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
             "rollback" ["run" "-m" "clj-money.db/rollback"]}
