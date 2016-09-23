@@ -3,13 +3,17 @@
             [schema.core :as schema]
             [schema.coerce :as coerce]
             [schema.utils :as sutils]
+            [clj-money.models.storage]
             [clj-money.models.storage.sql-storage])
-  (:import clj_money.models.storage.sql_storage.SqlStorage))
+  (:import clj_money.models.storage.sql_storage.SqlStorage
+           clj_money.models.storage.Storage))
 
 ;; Storage
 ; TODO should this be dynamic to support extension?
 (def handlers
-  [{:can-handle-fn #(re-find #"\Apostgresql" %)
+  [{:can-handle-fn #(and
+                      (string? %)
+                      (re-find #"\Apostgresql" %))
     :create-fn #(SqlStorage. %)}])
 
 (defn- process-handler
@@ -27,8 +31,13 @@
   [config]
   (when (not config)
     (throw (RuntimeException.
-            "No configuration was specified. Unable to select a storage provider.")))
-  (some #(process-handler % config) handlers))
+             "No configuration was specified. Unable to select a storage provider.")))
+  (if (instance? Storage config)
+    config
+
+    (or (some #(process-handler % config) handlers)
+        (throw (RuntimeException.
+                 (format "Unable to find a storage provider for config %s" config))))))
 
 ;; Validation
 (defn- nil-matcher
