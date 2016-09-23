@@ -9,7 +9,7 @@
 ;; Storage
 ; TODO should this be dynamic to support extension?
 (def handlers
-  [{:can-handle-fn #(re-find #"postgresql" %)
+  [{:can-handle-fn #(re-find #"\Apostgresql" %)
     :create-fn #(SqlStorage. %)}])
 
 (defn- process-handler
@@ -54,7 +54,8 @@
   "Coerces and validates the specified model using the specified schema"
   [model schema model-name]
   (let [coercer (coerce/coercer schema
-                                (coerce/first-matcher json-matcher nil-matcher))
+                                (coerce/first-matcher [coerce/json-coercion-matcher
+                                                       nil-matcher]))
         result (coercer model)]
     (if (sutils/error? result)
      (throw-validation-exception (:error result) model schema model-name)
