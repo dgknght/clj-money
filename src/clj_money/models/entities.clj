@@ -18,7 +18,8 @@
 
 (def Entity
   "Schema for saved entities"
-  (merge NewEntity {:id s/Int}))
+  {:id s/Int
+   :name (s/maybe s/Str)})
 
 (defn- prepare-entity-for-save
   [entity]
@@ -29,8 +30,8 @@
   (rename-keys entity {:user_id :user-id}))
 
 (defn- validate-entity
-  [storage entity]
-  (let [validated (validate-model entity NewEntity "entity")]
+  [storage schema entity]
+  (let [validated (validate-model entity schema "entity")]
     (if (entity-exists-with-name? storage
                                   (:user-id validated)
                                   (:name validated))
@@ -40,12 +41,20 @@
                                   "entity")
       validated)))
 
+(defn- validate-new-entity
+  [storage entity]
+  (validate-entity storage NewEntity entity))
+
+(defn- validate-existing-entity
+  [storage entity]
+  (validate-entity storage Entity entity))
+
 (defn create
   "Creates a new entity"
   [storage-spec entity]
   (let [s (storage storage-spec)]
     (->> entity
-         (validate-entity s)
+         (validate-new-entity s)
          prepare-entity-for-save
          (create-entity s)
          prepare-entity-for-return)))
@@ -70,5 +79,5 @@
   [storage-spec entity]
   (-> storage-spec
       storage
-      (validate-entity entity)
+      (validate-existing-entity entity)
       (update-entity entity)))
