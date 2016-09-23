@@ -25,6 +25,9 @@
   "Returns a storage implementation appropriate
   for the specified config"
   [config]
+  (when (not config)
+    (throw (RuntimeException.
+            "No configuration was specified. Unable to select a storage provider.")))
   (some #(process-handler % config) handlers))
 
 ;; Validation
