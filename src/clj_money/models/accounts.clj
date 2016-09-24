@@ -32,7 +32,6 @@
 (defn select-by-entity-id
   "Returns a list of all accounts in the system"
   [storage-spec entity-id]
-  (->> storage-spec
-       storage
-       (select-accounts-by-entity-id entity-id)
-       (map prepare-account-for-return)))
+  (map prepare-account-for-return
+       (select-accounts-by-entity-id (storage storage-spec)
+                                     entity-id)))

@@ -25,7 +25,8 @@
         a2 (accounts/create storage-spec {:name "Credit card"
                                           :type :liability
                                           :entity-id (:id entity)})
-        actual (accounts/select-by-entity-id storage-spec (:id entity))
+        actual (map #(select-keys % [:name :type])
+                    (accounts/select-by-entity-id storage-spec (:id entity)))
         expected [{:name "Checking"
                    :type :asset}
                   {:name "Credit card"
@@ -37,9 +38,9 @@
     (accounts/create storage-spec {:name "Checking"
                                    :type :asset
                                    :entity-id (:id entity)})
-    (let [accounts (->> storage-spec
-                        (accounts/select-by-entity-id (:id entity))
-                        (map #(select-keys % [:name :type])))
+    (let [accounts (map #(select-keys % [:name :type])
+                        (accounts/select-by-entity-id storage-spec
+                                                      (:id entity)))
           expected [{:name "Checking"
                      :type :asset}]]
       (is (= expected
