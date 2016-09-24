@@ -11,7 +11,8 @@
                                               select-entities
                                               entity-exists-with-name?
                                               find-entity-by-id
-                                              update-entity]]))
+                                              update-entity
+                                              delete-entity]]))
 
 (def NewEntity
   "Schema for unsaved entities"
@@ -86,4 +87,4 @@
 (defn delete
   "Removes the specifiedy entity from storage"
   [storage-spec id]
-  #_(jdbc/delete! (storage storage-spec) :entities [:= :id id]))
+  (delete-entity (storage storage-spec) id))

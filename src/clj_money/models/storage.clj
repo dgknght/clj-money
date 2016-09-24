@@ -35,6 +35,9 @@
   (update-entity
     [this entity]
     "Updates the specified entity record")
+  (delete-entity
+    [this id]
+    "Removes the entity from the data store")
 
   ; Accounts
   (create-account

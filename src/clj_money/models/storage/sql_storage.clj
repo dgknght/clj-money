@@ -82,6 +82,10 @@
                               (h/where [:= :id (:id entity)])))]
       (jdbc/execute! db-spec sql)))
 
+  (delete-entity
+    [_ id]
+    (jdbc/delete! db-spec :entities ["id = ?" id]))
+
   ; Accounts
   (create-account
     [_ account]
