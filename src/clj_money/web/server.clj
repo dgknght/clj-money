@@ -1,4 +1,5 @@
 (ns clj-money.web.server
+  (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [compojure.core :refer [defroutes GET PUT POST DELETE ANY]]
             [compojure.handler :refer [site]]
@@ -30,7 +31,7 @@
   (GET "/entities/:id/edit" [id]
        (entities/edit-entity id))
   (POST "/entities/:id" req
-        (entities/update-entity (:params req)))
+        (entities/update (:params req)))
 
   ; Accounts
   (GET "/accounts" []

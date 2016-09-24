@@ -1,10 +1,13 @@
 (ns clj-money.web.entities
-  (:require [environ.core :refer [env]]
+  (:refer-clojure :exclude [update])
+  (:require [clojure.pprint :refer [pprint]]
+            [environ.core :refer [env]]
             [ring.util.response :refer :all]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [cemerick.friend :as friend]
-            [clj-money.models.entities :as entities])
+            [clj-money.models.entities :as entities]
+            [clj-money.schema :as schema])
   (:use clj-money.web.shared))
 
 (defn- entity-row
@@ -78,14 +81,17 @@
        (let [entity (entities/find-by-id (env :db) (Integer. id))]
          (entity-form-fields entity))]]]))
 
-(defn update-entity
+(defn update
   "Updates the entity and redirects to index on success or
   renders edit on error"
   [params]
-  (let [entity (entities/find-by-id (Integer. (:id params)))
-        updated (merge entity (select-keys params [:name]))]
+  (let [id (Integer. (:id params))
+        entity (entities/find-by-id (env :db) id)
+        updated (-> params
+                    (select-keys [:name])
+                    (assoc :id id))]
     (try
-      (entities/update-entity (env :db) updated)
+      (entities/update (env :db) updated)
       (redirect "/entities")
       (catch clojure.lang.ExceptionInfo e
         (edit-entity (schema/append-errors updated (ex-data e)))))))
