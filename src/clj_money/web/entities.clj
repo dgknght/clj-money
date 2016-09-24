@@ -15,10 +15,18 @@
   [entity]
   [:tr
    [:td (:name entity)]
-   [:td
-    (glyph-button :pencil
-                  (format "/entities/%s/edit" (:id entity))
-                  {:level :info :size :extra-small})]])
+   [:td.col-sm-2
+    [:span.btn-group
+     (glyph-button :pencil
+                   (format "/entities/%s/edit" (:id entity))
+                   {:level :info
+                    :size :extra-small})
+     (glyph-button :remove
+                   (format "/entities/%s/delete" (:id entity))
+                   {:level :danger
+                    :size :extra-small
+                    :data-method :post
+                    :data-confirm "Are you sure you want to delete this entity?"})]]])
 
 (defn- entity-table
   "Renders the table of entities belonging to the
@@ -96,3 +104,12 @@
       (redirect "/entities")
       (catch clojure.lang.ExceptionInfo e
         (edit-entity (schema/append-errors updated (ex-data e)))))))
+
+(defn delete
+  "Removes the entity from the system"
+  [id]
+  (try
+    (entities/delete (env :db) (Integer. id))
+    (redirect "/entities")
+    (catch Exception e
+      (index {:alerts [{:type :danger :message (.getMessage e)}]}))))

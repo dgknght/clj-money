@@ -32,6 +32,8 @@
        (entities/edit-entity id))
   (POST "/entities/:id" req
         (entities/update (:params req)))
+  (POST "/entities/:id/delete" [id]
+        (entities/delete id))
 
   ; Accounts
   (GET "/accounts" []

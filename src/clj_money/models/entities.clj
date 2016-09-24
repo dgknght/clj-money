@@ -82,3 +82,8 @@
   (let [s (storage storage-spec)
         validated (validate-existing-entity s entity)]
     (update-entity s entity)))
+
+(defn delete
+  "Removes the specifiedy entity from storage"
+  [storage-spec id]
+  #_(jdbc/delete! (storage storage-spec) :entities [:= :id id]))
