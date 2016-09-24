@@ -12,13 +12,15 @@
                  [compojure "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [hiccup "1.0.5"]
-                 [environ "1.0.0"]
+                 [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.6.3"]
-                 [prismatic/schema "1.1.3"]]
+                 [prismatic/schema "1.1.3"]
+                 [clj-factory "0.2.1"]
+                 [faker "0.2.2"]]
   :min-lein-version "2.0.0"
-  :plugins [[environ/environ.lein "0.3.1"]]
-  :hooks [environ.leiningen.hooks]
+  :plugins [[lein-environ "1.1.0"]]
+  :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
             "rollback" ["run" "-m" "clj-money.db/rollback"]}

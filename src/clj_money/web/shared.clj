@@ -1,16 +1,46 @@
 (ns clj-money.web.shared
   (:require [clojure.tools.logging :as log]
+            [clojure.set :as set]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [clojure.string :as s]
-            [cemerick.friend :as friend])
+            [cemerick.friend :as friend]
+            [clj-money.models.users :as users])
   (:use clj-money.inflection))
+
+(defn glyph-link
+  "Renders a link with a glyphicon"
+  ([glyph url] (glyph-link glyph url {}))
+  ([glyph url options]
+   [:a (merge options {:href url})
+    [:span {:arial-hidden true
+            :class (format "glyphicon glyphicon-%s" (name glyph))}]]))
+
+(def glyph-button-sizes
+  {:large       "lg"
+   :small       "sm"
+   :extra-small "xs"})
+
+(defn- glyph-button-css
+  [options]
+  (cond-> #{"btn"}
+    true (conj (str "btn-" (name (get options :level :default))))
+    (:size options) (conj (str "btn-"
+                               (get glyph-button-sizes (:size options))))))
+
+(defn glyph-button
+  "Renders a button with a glyphicon"
+  [glyph url options]
+  (glyph-link glyph url (-> options
+                            (assoc :class
+                                   (s/join " " (glyph-button-css options)))
+                            (dissoc :size :level))))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
   "Renders the site navigation using the structure for twitter bootstrap"
   [items]
-  [:nav.navbar
+  [:nav.navbar.navbar-default
    [:div.container
     [:div.navbar-header
      [:button.navbar-toggle.collapsed {:type "button"
@@ -28,20 +58,30 @@
       (map (fn [{:keys [url caption method]}]
              [:li
               [:a {:href url :data-method method :rel (when method "nofollow")} caption]])
-           items)]]]])
+           items)]
+     [:div.navbar-right
+      [:ul.nav.navbar-nav.navbar-right
+       (if-let [user (friend/current-authentication)]
+         (html
+           [:li
+            [:a {:href "#"} (users/full-name user)]]
+           [:li
+            (glyph-link :log-out "/logout" {:title "Click here to sign out."
+                                            :data-method :post})])
+         (html
+           [:li
+            [:a {:href "/signup"} "Sign up"]]
+           [:li
+            (glyph-link :log-in "/login" {:title "Click here to sign in."})]))]]]]])
 
 (defn primary-nav
   "Renders the site primary navigation"
   []
   (let [user (friend/current-authentication)
-        items [{:url "/accounts"     :caption "Accounts"}
+        items [{:url "/entities"     :caption "Entities"}
                {:url "/transactions" :caption "Transactions"}
                {:url "/commodities"  :caption "Commodities"}]]
-    (bootstrap-nav (concat items
-                         (if user
-                           [{:url "/logout" :caption "Logout" :method :post}]
-                           [{:url "/login"  :caption "Login"}
-                            {:url "/signup" :caption "Sign up"}])))))
+    (bootstrap-nav items)))
 
 (defn render-alerts
   "Renders notifications as HTML"
@@ -72,12 +112,12 @@
                                     page-title))]
 
       "<!-- jQuery -->"
-      [:script {:src "http://code.jquery.com/jquery-2.1.4.min.js"}]
-      [:script {:src "jquery-startup.js"}]
+      [:script {:src "/js/jquery-3.1.0.min.js"}]
+      [:script {:src "/js/jquery-startup.js"}]
 
       "<!-- Bootstrap core CSS -->"
-      [:link {:rel "stylesheet" :href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap.min.css"}]
-      [:link {:rel "stylesheet" :href "https://maxcdn.bootstrapcdn.com/bootstrap/3.3.5/css/bootstrap-theme.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
       [:script  {:src "https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"}]]
      [:body
       (primary-nav)

@@ -40,6 +40,11 @@
     (assert-throws-validation-exception
       {:email 'missing-required-key}
       (users/create storage-spec (dissoc attributes :email))) )
+  (testing "Email is unique"
+    (users/create storage-spec attributes)
+    (assert-throws-validation-exception
+      {:email :duplicate-key}
+      (users/create storage-spec attributes)))
   (testing "Email must be a valid email address"
     (assert-throws-ex-info-with-key
       [:error :email]

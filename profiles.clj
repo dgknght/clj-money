@@ -1,14 +1,6 @@
 {:dev
  {:env
-  {:db {:dbtype   "postgresql"
-        :dbname   "money_development"
-        :host     "localhost"
-        :user     "app_user"
-        :password "please01"}}}
+  {:db "postgresql://app_user:please01@localhost/money_development"}}
  :test
  {:env
-  {:db {:dbtype   "postgresql"
-        :dbname   "money_test"
-        :host     "localhost"
-        :user     "app_user"
-        :password "please01"}}}}
+  {:db "postgresql://app_user:please01@localhost/money_test" }}}

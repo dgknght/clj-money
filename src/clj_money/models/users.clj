@@ -5,12 +5,13 @@
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [schema.core :as s]
-            [schema.coerce :as coerce]
-            [schema.utils :as sutils]
-            [clj-money.models.helpers :refer [storage]]
+            [clj-money.models.helpers :refer [storage
+                                              validate-model
+                                              throw-validation-exception]]
             [clj-money.models.storage :refer [create-user
                                               select-users
-                                              find-user-by-email]]))
+                                              find-user-by-email
+                                              user-exists-with-email?]]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -37,36 +38,22 @@
    :email (s/pred (partial re-matches EmailPattern) "invalid format")
    :password s/Str})
 
-(defn nil-matcher
-  [schema]
-  (when (= s/Str schema)
-    (coerce/safe
-      (fn [value]
-        (if (and (string? value) (= 0 (count value)))
-          nil
-          value)))))
-
 (defn- validate-new-user
-  [user]
-  (let [coercer (coerce/coercer NewUser
-                                nil-matcher)
-        result (coercer user)]
-    (if (sutils/error? result)
-      (throw (ex-info "The user is not valid."
-                      (merge result
-                             {:schema NewUser
-                              :value user
-                              :type :schema.core/error})))
-      result)))
+  [storage user]
+  (let [validated (validate-model user NewUser "user")]
+    (if (user-exists-with-email? storage (:email validated))
+      (throw-validation-exception {:email :duplicate-key} validated NewUser "user")
+      validated)))
 
 (defn create
   "Creates a new user record"
   [storage-spec user]
-  (->> user
-       validate-new-user
-       prepare-user-for-insertion
-       (create-user (storage storage-spec))
-       prepare-user-for-return))
+  (let [s (storage storage-spec)]
+    (->> user
+         (validate-new-user s)
+         prepare-user-for-insertion
+         (create-user s)
+         prepare-user-for-return)))
 
 (defn select
   "Lists the users in the database"
@@ -88,3 +75,8 @@
           (assoc :type :cemerick.friend/auth
                  :identity (:id user)
                  :roles #{:user})))))
+
+(defn full-name
+  "Returns the user's full name"
+  [user]
+  (format "%s %s" (:first-name user) (:last-name user)))

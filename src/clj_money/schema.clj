@@ -5,6 +5,8 @@
 (def rules
   [{:fn #(= % 'missing-required-key)
     :message "is required"}
+   {:fn #(= % :duplicate-key)
+    :message "is already in use"}
    {:fn #(re-find #"integer\?" (print-str %))
     :message "must be a number"}
    {:fn #(re-find #"invalid format" (print-str %))
@@ -16,10 +18,11 @@
   "Takes a single prismatic rule violation token and returns
   a user-friendly message"
   [violation]
-  (some (fn [{f :fn m :message}]
-          (when (f violation)
-            m))
-        rules))
+  (or (some (fn [{f :fn m :message}]
+              (when (f violation)
+                m))
+            rules)
+      violation))
 
 (defn- extract-error
   "Extracts the error data from the exception ex-data"
@@ -50,10 +53,6 @@
   "Appends error information from prismatic schema
   to the specified model"
   [model error-data]
-
-  (println "append-errors")
-  (pprint error-data)
-
   (assoc model :errors (-> error-data
                            user-friendify
                            full-messages)))

@@ -1,4 +1,5 @@
 (ns clj-money.web.server
+  (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [compojure.core :refer [defroutes GET PUT POST DELETE ANY]]
             [compojure.handler :refer [site]]
@@ -13,12 +14,28 @@
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
-            [cemerick.friend.credentials :as creds])
-  (:use [clj-money.web.pages :as pages]
-        [clj-money.web.accounts :as accounts]
-        [clj-money.web.users :as users]))
+            [cemerick.friend.credentials :as creds]
+            [clj-money.web.pages :as pages]
+            [clj-money.web.entities :as entities]
+            [clj-money.web.accounts :as accounts]
+            [clj-money.web.users :as users]))
 
 (defroutes protected-routes
+  ; Entities
+  (GET "/entities" []
+       (entities/index))
+  (GET "/entities/new" []
+       (entities/new-entity))
+  (POST "/entities" {params :params}
+        (entities/create-entity params))
+  (GET "/entities/:id/edit" [id]
+       (entities/edit-entity id))
+  (POST "/entities/:id" req
+        (entities/update (:params req)))
+  (POST "/entities/:id/delete" [id]
+        (entities/delete id))
+
+  ; Accounts
   (GET "/accounts" []
        (accounts/index)))
 
