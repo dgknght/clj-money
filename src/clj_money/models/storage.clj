@@ -44,6 +44,6 @@
     [this account]
     "Creates a new account record")
 
-  (select-accounts
-    [this]
+  (select-accounts-by-entity-id
+    [this entity-id]
     "Returns all accounts in the system"))

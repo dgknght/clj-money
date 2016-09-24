@@ -93,8 +93,9 @@
          (jdbc/insert! db-spec :accounts)
          first))
 
-  (select-accounts
-    [_]
+  (select-accounts-by-entity-id
+    [_ entity-id]
     (let [sql (sql/format (-> (h/select :*)
-                              (h/from :accounts)))]
+                              (h/from :accounts)
+                              (h/where [:= :entity_id entity-id])))]
       (jdbc/query db-spec sql))))
