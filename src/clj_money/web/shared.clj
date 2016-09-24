@@ -1,5 +1,6 @@
 (ns clj-money.web.shared
   (:require [clojure.tools.logging :as log]
+            [clojure.set :as set]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [clojure.string :as s]
@@ -9,10 +10,21 @@
 
 (defn glyph-link
   "Renders a link with a glyphicon"
+  ([glyph url] (glyph-link glyph url {}))
+  ([glyph url options]
+   (let [css (set/union #{"glyphicon" (str "glyphicon-" (name glyph))}
+                        (or (:class options) #{}))]
+     [:a (merge options {:href url})
+      [:span {:arial-hidden true
+              :class (s/join " " css)}]])))
+
+(glyph-button
+  "Renders a button with a glyphicon"
   [glyph url options]
-  [:a (merge options {:href url})
-   [:span {:arial-hidden true
-           :class (format "glyphicon glyphicon-%s" (name glyph))}]])
+  (let [level (or (:level options) "default")
+        css #{"btn" (str "btn-" (name level))}
+        ]
+  (glyph-link url (assoc options :class css))))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav

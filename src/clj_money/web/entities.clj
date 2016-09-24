@@ -16,8 +16,7 @@
   [:tr
    [:td (:name entity)]
    [:td
-    [:a.btn.btn-xs.btn-info {:href (format "/entities/%s/edit" (:id entity))}
-     [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]]]])
+    (glyph-button :pencil (format "/entities/%s/edit" (:id entity)))]])
 
 (defn- entity-table
   "Renders the table of entities belonging to the
