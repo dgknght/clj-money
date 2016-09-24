@@ -25,6 +25,7 @@ $(function() {
 
   // Links that post
   $("a[data-method]").click(function(e) {
+    e.stopPropagation();
     // Find the anchor element
     var elem = findAncestor(e.target, "A");
     if (elem == null) {
@@ -32,13 +33,18 @@ $(function() {
       return false;
     }
 
+    a = $(elem);
+
     // Post to the url
-    postLink($(elem));
+    if (a.data("confirm") == null) {
+      postLink(a);
+    }
     return false;
   });
 
   // Links with confirmation
   $("a[data-confirm]").click(function(e) {
+    e.stopPropagation();
     // Find the anchor element
     var elem = findAncestor(e.target, "A");
     if (elem == null) {
