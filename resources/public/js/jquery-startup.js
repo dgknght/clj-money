@@ -1,17 +1,16 @@
 $(function() {
-  $("a[data-method]").click(function(e) {
-    // Find the anchor element
-    var elem = e.target;
-    while (elem != null && elem.tagName != "A") {
+
+  function findAncestor(elem, tagName) {
+    while (elem != null) {
+      if (elem.tagName == tagName) {
+        return elem
+      }
       elem = elem.parentElement;
     }
-    if (elem == null) {
-      console.log("Unable to find the anchor element");
-      return false;
-    }
+    return null;
+  }
 
-    // Post to the url
-    var a = $(elem);
+  function postLink(a) {
     var url = a.attr("href");
     try {
       a.after("<form id=\"dynamic-form\" action=\"" +
@@ -22,7 +21,39 @@ $(function() {
       console.log("error");
       console.log(e);
     }
+  }
 
+  // Links that post
+  $("a[data-method]").click(function(e) {
+    // Find the anchor element
+    var elem = findAncestor(e.target, "A");
+    if (elem == null) {
+      console.log("Unable to find the anchor element");
+      return false;
+    }
+
+    // Post to the url
+    postLink($(elem));
+    return false;
+  });
+
+  // Links with confirmation
+  $("a[data-confirm]").click(function(e) {
+    // Find the anchor element
+    var elem = findAncestor(e.target, "A");
+    if (elem == null) {
+      console.log("Unable to find the anchor element");
+      return false;
+    }
+
+    var a = $(elem);
+    if (confirm(a.data("confirm"))) {
+      if (a.data("method") == null) {
+        return true;
+      } else {
+        postLink(a);
+      }
+    }
     return false;
   });
 });
