@@ -24,7 +24,7 @@
 (defn- glyph-button-css
   [options]
   (cond-> #{"btn"}
-    true (conj (str "btn-" (get options :level "default")))
+    true (conj (str "btn-" (name (get options :level :default))))
     (:size options) (conj (str "btn-"
                                (get glyph-button-sizes (:size options))))))
 
