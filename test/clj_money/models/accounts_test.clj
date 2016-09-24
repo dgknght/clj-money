@@ -15,7 +15,7 @@
 (use-fixtures :each (partial reset-db storage-spec))
 
 (def user (users/create storage-spec (factory :user)))
-(def entity {:id 1} #_(entities/create storage-spec
+(def entity (entities/create storage-spec
                              (assoc (factory :entity) :user-id (:id user))))
 
 (deftest select-accounts
