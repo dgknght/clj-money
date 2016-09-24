@@ -1,5 +1,6 @@
 (ns clj-money.web.accounts
-  (:require [hiccup.core :refer :all]
+  (:require [environ.core :refer [env]]
+            [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [clj-money.models.accounts :as accounts])
   (:use [clj-money.web.shared :refer :all]))
