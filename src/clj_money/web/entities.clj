@@ -16,7 +16,9 @@
   [:tr
    [:td (:name entity)]
    [:td
-    (glyph-button :pencil (format "/entities/%s/edit" (:id entity)))]])
+    (glyph-button :pencil
+                  (format "/entities/%s/edit" (:id entity))
+                  {:level :info :size :extra-small})]])
 
 (defn- entity-table
   "Renders the table of entities belonging to the

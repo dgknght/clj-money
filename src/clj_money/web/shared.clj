@@ -12,19 +12,29 @@
   "Renders a link with a glyphicon"
   ([glyph url] (glyph-link glyph url {}))
   ([glyph url options]
-   (let [css (set/union #{"glyphicon" (str "glyphicon-" (name glyph))}
-                        (or (:class options) #{}))]
-     [:a (merge options {:href url})
-      [:span {:arial-hidden true
-              :class (s/join " " css)}]])))
+   [:a (merge options {:href url})
+    [:span {:arial-hidden true
+            :class (format "glyphicon glyphicon-%s" (name glyph))}]]))
 
-(glyph-button
+(def glyph-button-sizes
+  {:large       "lg"
+   :small       "sm"
+   :extra-small "xs"})
+
+(defn- glyph-button-css
+  [options]
+  (cond-> #{"btn"}
+    true (conj (str "btn-" (get options :level "default")))
+    (:size options) (conj (str "btn-"
+                               (get glyph-button-sizes (:size options))))))
+
+(defn glyph-button
   "Renders a button with a glyphicon"
   [glyph url options]
-  (let [level (or (:level options) "default")
-        css #{"btn" (str "btn-" (name level))}
-        ]
-  (glyph-link url (assoc options :class css))))
+  (glyph-link glyph url (-> options
+                            (assoc :class
+                                   (s/join " " (glyph-button-css options)))
+                            (dissoc :size :level))))
 
 ; TODO Wrap this up in a sharable library
 (defn bootstrap-nav
