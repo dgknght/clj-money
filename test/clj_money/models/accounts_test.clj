@@ -9,7 +9,8 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.test-helpers :refer [reset-db
-                                            assert-throws-validation-exception]]))
+                                            assert-throws-validation-exception
+                                            assert-throws-ex-info-with-key]]))
 
 (def storage-spec (env :db))
 
@@ -59,6 +60,11 @@
         (is false "Unexpected validation error")))))
 
 (deftest attempt-to-create-an-invalid-account
-  (assert-throws-validation-exception
-    {:name 'missing-required-key}
-    (accounts/create storage-spec (dissoc attributes :name))))
+  (testing "name is required"
+    (assert-throws-validation-exception
+      {:name 'missing-required-key}
+      (accounts/create storage-spec (dissoc attributes :name))))
+  (testing "type must be asset, liability, equity, income or expense"
+    (assert-throws-ex-info-with-key
+      [:error :type]
+      (accounts/create storage-spec (assoc attributes :type :invalidtype)))))

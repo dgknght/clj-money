@@ -43,12 +43,14 @@
      ~@body
      (is false "An exception was expected, but none was thrown.")
      (catch clojure.lang.ExceptionInfo e#
-       (is (not (nil? (if (seq ~expected-key)
-                        (get-in (ex-data e#) ~expected-key)
-                        (get (ex-data e#) ~expected-key))))
-           (str "Expected a value at the key "
-                ~expected-key
-                ", but none was found.")))))
+       (let [data# (ex-data e#)]
+         (is (not (nil? (if (seq ~expected-key)
+                          (get-in data# ~expected-key)
+                          (get data# ~expected-key))))
+             (str "Expected a value at the key "
+                  ~expected-key
+                  ", but none was found in "
+                  data#))))))
 
 (defmacro assert-throws-validation-exception
   "Tests to see if the specified code raises a schema validation
