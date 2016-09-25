@@ -8,6 +8,10 @@
             [clj-money.models.storage :refer [create-account
                                               select-accounts-by-entity-id]]))
 
+(def types
+  "The list of valid account types in standard presentation order"
+  [:asset :liability :equity :income :expense])
+
 (def NewAccount
   {:entity-id s/Int
    :name s/Str
@@ -47,3 +51,14 @@
   (map prepare-account-for-return
        (select-accounts-by-entity-id (storage storage-spec)
                                      entity-id)))
+
+(defn group-by-type
+  "Returns the accounts for the specified entity grouped by type"
+  ([storage-spec entity-id]
+   (group-by-type (select-by-entity-id storage-spec entity-id)))
+  ([accounts]
+   (->> types
+        (map (fn [type]
+               [type (->> accounts
+                          (filter #(= (:type %) type))
+                          (sort-by :name))])))))
