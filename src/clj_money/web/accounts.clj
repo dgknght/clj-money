@@ -2,7 +2,9 @@
   (:require [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
-            [clj-money.models.accounts :as accounts])
+            [ring.util.response :refer :all]
+            [clj-money.models.accounts :as accounts]
+            [clj-money.schema :as schema])
   (:use [clj-money.web.shared :refer :all]))
 
 (defn- account-row
@@ -48,3 +50,19 @@
         [:input.btn.btn-primary {:type :submit
                                  :value "Save"
                                  :title "Click here to save the account"}]]]])))
+
+(defn create
+  "Creates the account and redirects to the index page on success, or
+  re-renders the new form on failure"
+  [params]
+
+  (println "")
+  (println "create")
+  (clojure.pprint/pprint params)
+
+  (let [account (select-keys params [:entity-id :name :type])]
+    (try
+      (accounts/create (env :db) params)
+      (redirect (str "/entities/" (:entity-id params) "/accounts"))
+      (catch clojure.lang.ExceptionInfo e
+        (new-account (schema/append-errors params (ex-data e)))))))

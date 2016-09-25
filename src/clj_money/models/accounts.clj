@@ -2,13 +2,24 @@
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
-            [clj-money.models.helpers :refer [storage]]
+            [clj-money.models.helpers :refer [storage
+                                              validate-model]]
             [clj-money.models.storage :refer [create-account
                                               select-accounts-by-entity-id]]))
+
+(def NewAccount
+  {:entity-id s/Int
+   :name s/Str
+   :type (s/enum :asset :liability :equity :income :expense)})
 
 (defn prepare-account-for-save
   "Adjusts account data for saving in the database"
   [account]
+
+  (println "")
+  (println "prepare-account-for-save")
+  (pprint account)
+
   ; convert account type from keyword to string
   (-> account
       (update-in [:type] name)
@@ -21,10 +32,15 @@
       (update-in [:type] keyword)
       (rename-keys {:entity_id :entity-id})))
 
+(defn- validate-new-account
+  [account]
+  (validate-model account NewAccount "account"))
+
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
   (->> account
+       validate-new-account
        prepare-account-for-save
        (create-account (storage storage-spec))
        prepare-account-for-return))

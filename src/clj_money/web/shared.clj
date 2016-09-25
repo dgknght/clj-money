@@ -198,5 +198,5 @@
   [model attribute options]
   [:div.form-group
    [:label {:for attribute} (humanize attribute)]
-   [:select.form-control {:id attribute}
+   [:select.form-control {:id attribute :name attribute}
     (map #(vector :option {:value (:value %)} (:caption %)) options)]])
