@@ -93,9 +93,20 @@
          (jdbc/insert! db-spec :accounts)
          first))
 
+  (find-account-by-id
+    [_ id]
+    (jdbc/get-by-id db-spec :accounts id))
+
   (select-accounts-by-entity-id
     [_ entity-id]
     (let [sql (sql/format (-> (h/select :*)
                               (h/from :accounts)
                               (h/where [:= :entity_id entity-id])))]
-      (jdbc/query db-spec sql))))
+      (jdbc/query db-spec sql)))
+
+  (update-account
+    [_ account]
+    (let [sql (sql/format (-> (h/update :accounts)
+                              (h/sset (select-keys account [:name :type]))
+                              (h/where [:= :id (:id account)])))]
+      (jdbc/execute! db-spec sql))))

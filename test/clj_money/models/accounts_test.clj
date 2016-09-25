@@ -68,3 +68,12 @@
     (assert-throws-ex-info-with-key
       [:error :type]
       (accounts/create storage-spec (assoc attributes :type :invalidtype)))))
+
+(deftest update-an-account
+  (try
+    (let [account (accounts/create storage-spec attributes)
+          updated (accounts/update storage-spec (assoc account :name "New name"))]
+      (is (= "New name" (:name updated)) "The updated account is returned"))
+    (catch clojure.lang.ExceptionInfo e
+      (pprint (ex-data e))
+      (is false "unexpected validation error"))))

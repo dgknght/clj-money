@@ -43,6 +43,12 @@
   (create-account
     [this account]
     "Creates a new account record")
+  (find-account-by-id
+    [this id]
+    "Returns the account having the specified ID")
+  (update-account
+    [this account]
+    "Updates the specified account")
 
   (select-accounts-by-entity-id
     [this entity-id]

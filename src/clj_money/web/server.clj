@@ -41,7 +41,11 @@
   (GET "/entities/:entity-id/accounts/new" [entity-id]
        (accounts/new-account entity-id))
   (POST "/entities/:entity-id/accounts" {params :params}
-        (accounts/create params)))
+        (accounts/create params))
+  (GET "/accounts/:id/edit" [id]
+       (accounts/edit id))
+  (POST "/accounts/:id" req
+        (accounts/update (:params req))))
 
 (defroutes routes
   (GET "/" []
@@ -54,8 +58,10 @@
         (users/create-user (:params req)))
   (friend/logout (POST "/logout" [] (redirect "/")))
   (friend/wrap-authorize protected-routes #{:user})
-  (ANY "*" []
-       (route/not-found (slurp (io/resource "404.html")))))
+  (ANY "*" req
+       (do
+         (log/debug "unable to match route for " req)
+         (route/not-found (slurp (io/resource "404.html"))))))
 
 (def app
   (-> routes
