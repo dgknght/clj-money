@@ -50,7 +50,9 @@
   (testing "Values are coerced into the correct types"
     (try
     (let [result (accounts/create storage-spec
-                                  (update-in attributes [:entity-id] str))]
+                                  (-> attributes
+                                      (update-in [:entity-id] str)
+                                      (assoc :name "Coerced")))]
       (is (number? (:id result))))
       (catch clojure.lang.ExceptionInfo e
         (pprint (ex-data e))
