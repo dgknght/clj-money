@@ -36,7 +36,7 @@
         (entities/delete id))
 
   ; Accounts
-  (GET "/entity/%entity-id/accounts" [entity-id]
+  (GET "/entities/:entity-id/accounts" [entity-id]
        (accounts/index entity-id)))
 
 (defroutes routes
