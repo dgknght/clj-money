@@ -1,5 +1,6 @@
 (ns clj-money.web.accounts
-  (:require [environ.core :refer [env]]
+  (:require [clojure.tools.logging :as log]
+            [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
@@ -60,4 +61,4 @@
       (accounts/create (env :db) params)
       (redirect (str "/entities/" (:entity-id params) "/accounts"))
       (catch clojure.lang.ExceptionInfo e
-        (new-account (schema/append-errors params (ex-data e)))))))
+        (new-account (:entity-id params) (schema/append-errors params (ex-data e)))))))
