@@ -18,16 +18,21 @@
 (def other-user (users/create storage-spec (factory :user)))
 
 (deftest create-an-entity
-  (let [actual (entities/create storage-spec attributes)
-        expected {:name "Personal"
-                  :user-id (:id user)}]
-    (testing "The new entity is returned"
-      (is (= expected
-             (dissoc actual :id)) "The returned map should have the correct content."))
-    (testing "The name can be duplicated between two different users"
-      (let [other-entity (entities/create storage-spec
-                                          (assoc attributes :user-id (:id other-user)))]
-        (is (number? (:id other-entity)))))))
+  (testing "An entity can be created with valid attributes"
+    (let [actual (entities/create storage-spec attributes)
+          expected {:name "Personal"
+                    :user-id (:id user)}]
+      (testing "The new entity is returned"
+        (is (= expected
+               (dissoc actual :id)) "The returned map should have the correct content."))
+      (testing "The name can be duplicated between two different users"
+        (let [other-entity (entities/create storage-spec
+                                            (assoc attributes :user-id (:id other-user)))]
+          (is (number? (:id other-entity)))))))
+  (testing "Attributes are coerced into the correct types"
+    (let [result (entities/create storage-spec {:user-id (str (:id user))
+                                                :name "Coerced"})]
+      (is (number? (:id result))))))
 
 (deftest attempt-to-create-an-invalid-entity
   (testing "Name is required"
