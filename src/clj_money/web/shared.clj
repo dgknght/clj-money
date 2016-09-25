@@ -193,3 +193,10 @@
   ([model attribute] (password-input-field model attribute {}))
   ([model attribute options]
    (input-field model attribute (merge options {:type :password}))))
+
+(defn select-field
+  [model attribute options]
+  [:div.form-group
+   [:label {:for attribute} (humanize attribute)]
+   [:select.form-control {:id attribute}
+    (map #(vector :option {:value (:value %)} (:caption %)) options)]])
