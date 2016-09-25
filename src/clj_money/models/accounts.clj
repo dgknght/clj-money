@@ -2,6 +2,7 @@
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [schema.core :as s]
             [clj-money.models.helpers :refer [storage
                                               validate-model]]
             [clj-money.models.storage :refer [create-account
@@ -15,11 +16,6 @@
 (defn prepare-account-for-save
   "Adjusts account data for saving in the database"
   [account]
-
-  (println "")
-  (println "prepare-account-for-save")
-  (pprint account)
-
   ; convert account type from keyword to string
   (-> account
       (update-in [:type] name)

@@ -8,7 +8,8 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db
+                                            assert-throws-validation-exception]]))
 
 (def storage-spec (env :db))
 
@@ -18,10 +19,13 @@
 (def entity (entities/create storage-spec
                              (assoc (factory :entity) :user-id (:id user))))
 
+(def attributes
+  {:name "Checking"
+   :type :asset
+   :entity-id (:id entity)})
+
 (deftest select-accounts
-  (let [a1 (accounts/create storage-spec {:name "Checking"
-                                          :type :asset
-                                          :entity-id (:id entity)})
+  (let [a1 (accounts/create storage-spec attributes)
         a2 (accounts/create storage-spec {:name "Credit card"
                                           :type :liability
                                           :entity-id (:id entity)})
@@ -35,13 +39,24 @@
 
 (deftest create-an-account
   (testing "After I add an account, I can retrieve it"
-    (accounts/create storage-spec {:name "Checking"
-                                   :type :asset
-                                   :entity-id (:id entity)})
+    (accounts/create storage-spec attributes)
     (let [accounts (map #(select-keys % [:name :type])
                         (accounts/select-by-entity-id storage-spec
                                                       (:id entity)))
           expected [{:name "Checking"
                      :type :asset}]]
       (is (= expected
-             accounts)))))
+             accounts))))
+  (testing "Values are coerced into the correct types"
+    (try
+    (let [result (accounts/create storage-spec
+                                  (update-in attributes [:entity-id] str))]
+      (is (number? (:id result))))
+      (catch clojure.lang.ExceptionInfo e
+        (pprint (ex-data e))
+        (is false "Unexpected validation error")))))
+
+(deftest attempt-to-create-an-invalid-account
+  (assert-throws-validation-exception
+    {:name 'missing-required-key}
+    (accounts/create storage-spec (dissoc attributes :name))))

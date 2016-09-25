@@ -55,11 +55,6 @@
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [params]
-
-  (println "")
-  (println "create")
-  (clojure.pprint/pprint params)
-
   (let [account (select-keys params [:entity-id :name :type])]
     (try
       (accounts/create (env :db) params)
