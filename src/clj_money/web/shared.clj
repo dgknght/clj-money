@@ -1,11 +1,14 @@
 (ns clj-money.web.shared
   (:require [clojure.tools.logging :as log]
             [clojure.set :as set]
+            [clojure.string :as string]
+            [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [clojure.string :as s]
             [cemerick.friend :as friend]
-            [clj-money.models.users :as users])
+            [clj-money.models.users :as users]
+            [clj-money.models.entities :as entities])
   (:use clj-money.inflection))
 
 (defn glyph-link
@@ -36,10 +39,48 @@
                                    (s/join " " (glyph-button-css options)))
                             (dissoc :size :level))))
 
+(defn- authenticated-user-nav
+  "Renders the top level navigation for the authenticated user"
+  [user entity]
+  (html
+    [:li
+     [:a {:href "#"} (users/full-name user)]]
+    [:li.dropdown {:role "presentation"}
+     [:a.dropdown-toggle {:href (str "/entities/" (:id entity) "/accounts")
+                          :data-toggle "dropdown"
+                          :role "button"
+                          :aria-haspopup "true"
+                          :aria-expanded "false"}
+      (:name entity)
+      [:span.caret]]
+     [:ul.dropdown-menu
+      (let [other-entities (remove #(= (:id %) (:id entity)) (entities/select (env :db) (:id user)))]
+        (when (seq other-entities)
+          (concat
+            (map #(vector :li
+                          [:a {:href (str "/entities/" (:id %) "/accounts")}
+                           (:name %)])
+                 other-entities)
+            [[:li.divider {:role "separator"}]])))
+      [:li
+       [:a {:href "/entities"} "Manage entities"]]]]
+    [:li
+     (glyph-link :log-out "/logout" {:title "Click here to sign out."
+                                     :data-method :post})]))
+
+(defn- unauthenticated-nav
+  "Renders the top level navigation for a non-authenticated user"
+  []
+  (html
+    [:li
+     [:a {:href "/signup"} "Sign up"]]
+    [:li
+     (glyph-link :log-in "/login" {:title "Click here to sign in."})]))
+
 ; TODO Wrap this up in a sharable library
-(defn bootstrap-nav
+(defn- bootstrap-nav
   "Renders the site navigation using the structure for twitter bootstrap"
-  [items]
+  [items user entity]
   [:nav.navbar.navbar-default
    [:div.container
     [:div.navbar-header
@@ -61,27 +102,28 @@
            items)]
      [:div.navbar-right
       [:ul.nav.navbar-nav.navbar-right
-       (if-let [user (friend/current-authentication)]
-         (html
-           [:li
-            [:a {:href "#"} (users/full-name user)]]
-           [:li
-            (glyph-link :log-out "/logout" {:title "Click here to sign out."
-                                            :data-method :post})])
-         (html
-           [:li
-            [:a {:href "/signup"} "Sign up"]]
-           [:li
-            (glyph-link :log-in "/login" {:title "Click here to sign in."})]))]]]]])
+       (if user
+         (authenticated-user-nav user entity)
+         (unauthenticated-nav))]]]]])
+
+(def item-templates
+  [{:url "/entities/:entity-id/accounts"     :caption "Accounts"}
+   {:url "/entities/:entity-id/transactions" :caption "Transactions"}
+   {:url "/entities/:entity-idcommodities"  :caption "Commodities"}])
 
 (defn primary-nav
   "Renders the site primary navigation"
-  []
-  (let [user (friend/current-authentication)
-        items [{:url "/entities"     :caption "Entities"}
-               {:url "/transactions" :caption "Transactions"}
-               {:url "/commodities"  :caption "Commodities"}]]
-    (bootstrap-nav items)))
+  [entity]
+  (if-let [user (friend/current-authentication)]
+    (if-let [entity (or entity (first (entities/select (env :db) (:id user))))]
+      (let [items (->> item-templates
+                       (map (fn [item]
+                              (update-in item
+                                         [:url]
+                                         #(string/replace % ":entity-id" (str (:id entity)))))))]
+        (bootstrap-nav items user entity))
+      (bootstrap-nav [] user nil))
+    (bootstrap-nav [] nil nil)))
 
 (defn render-alerts
   "Renders notifications as HTML"
@@ -114,13 +156,13 @@
       "<!-- jQuery -->"
       [:script {:src "/js/jquery-3.1.0.min.js"}]
       [:script {:src "/js/jquery-startup.js"}]
+      [:script {:src "/js/bootstrap.min.js"}]
 
       "<!-- Bootstrap core CSS -->"
       [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
-      [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
-      [:script  {:src "https://ajax.googleapis.com/ajax/libs/jquery/1.11.3/jquery.min.js"}]]
+      [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]]
      [:body
-      (primary-nav)
+      (primary-nav (:entity options))
       [:div.container {:style "margin-top: 2em;"}
        (html
          [:h1#page-title page-title]
