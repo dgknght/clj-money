@@ -37,7 +37,9 @@
 
   ; Accounts
   (GET "/entities/:entity-id/accounts" [entity-id]
-       (accounts/index entity-id)))
+       (accounts/index entity-id))
+  (GET "/entities/:entity-id/accounts/new" [entity-id]
+       (accounts/new-account entity-id)))
 
 (defroutes routes
   (GET "/" []

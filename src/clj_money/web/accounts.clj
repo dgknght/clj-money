@@ -28,3 +28,23 @@
        {:href (format "/entities/%s/accounts/new" entity-id)
         :title "Click here to add a new account."}
        "Add"]]]))
+
+(defn new-account
+  "Renders the new account form"
+  ([entity-id] (new-account entity-id {}))
+  ([entity-id account]
+   (layout
+     "New account" {}
+     [:div.row
+      [:div.col-md-6
+       [:form {:action (str "/entities/" entity-id "/accounts")
+               :method :post}
+        (text-input-field account :name {:autofocus true})
+        (select-field account :type [{:value :asset     :caption "Asset"}
+                                     {:value :liability :caption "Liability"}
+                                     {:value :equity    :caption "Equity"}
+                                     {:value :income    :caption "Income"}
+                                     {:value :expense   :caption "Expense"}])
+        [:input.btn.btn-primary {:type :submit
+                                 :value "Save"
+                                 :title "Click here to save the account"}]]]])))
