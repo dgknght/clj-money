@@ -9,7 +9,8 @@
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               select-accounts-by-entity-id
-                                              update-account]]))
+                                              update-account
+                                              delete-account]]))
 
 (def types
   "The list of valid account types in standard presentation order"
@@ -22,9 +23,9 @@
 
 (def Account
   {:id s/Int
-   :entity-id (s/maybe s/Int)
-   :name (s/maybe s/Str)
-   :type (s/maybe (s/enum :asset :liability :equity :income :expense))})
+   (s/optional-key :entity-id) s/Int
+   (s/optional-key :name) s/Str
+   (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)})
 
 (defn prepare-account-for-save
   "Adjusts account data for saving in the database"
@@ -85,3 +86,8 @@
         validated (validate-account account)]
     (update-account st (prepare-account-for-save validated))
     (prepare-account-for-return (find-by-id st (:id validated)))))
+
+(defn delete
+  "Removes the account from the system"
+  [storage-spec id]
+  (delete-account (storage storage-spec) id))

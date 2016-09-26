@@ -22,25 +22,33 @@
                     (glyph-button :pencil
                                   (format "/accounts/%s/edit" (:id %))
                                   {:level :info
-                                   :size :extra-small})]]) accounts)))
+                                   :size :extra-small})
+                    (glyph-button :remove
+                                  (format "/accounts/%s/delete" (:id %))
+                                  {:level :danger
+                                   :size :extra-small
+                                   :data-method :post
+                                   :data-confirm "Are you sure you want to delete this account?"})]])
+         accounts)))
 
 (defn index
   "Renders the list of accounts"
-  [entity-id]
-  (layout
-    "Accounts" {}
-    [:div.row
-     [:div.col-md-6
-      [:table.table.table-striped
-       [:tr
-        [:th "Name"]
-        [:th "&nbsp;"]]
-       (let [groups (accounts/group-by-type (env :db) (Integer. entity-id))]
-         (map account-rows groups))]
-      [:a.btn.btn-primary
-       {:href (format "/entities/%s/accounts/new" entity-id)
-        :title "Click here to add a new account."}
-       "Add"]]]))
+  ([entity-id] (index entity-id {}))
+  ([entity-id options]
+   (layout
+     "Accounts" options
+     [:div.row
+      [:div.col-md-6
+       [:table.table.table-striped
+        [:tr
+         [:th.col-md-10 "Name"]
+         [:th.col-sm-2 "&nbsp;"]]
+        (let [groups (accounts/group-by-type (env :db) (Integer. entity-id))]
+          (map account-rows groups))]
+       [:a.btn.btn-primary
+        {:href (format "/entities/%s/accounts/new" entity-id)
+         :title "Click here to add a new account."}
+        "Add"]]])))
 
 (defn- form-fields
   "Renders the form fields for an account"
@@ -109,3 +117,17 @@
       (log/debug "Unable to update account " params ": " (ex-data e))
 
       (edit (schema/append-errors params (ex-data e))))))
+
+(defn delete
+  "Deletes the specified account"
+  [id]
+  (let [account (accounts/find-by-id (env :db) (Integer. id))]
+    (try
+      (accounts/delete (env :db) (:id account))
+      (redirect (format "/entities/%s/accounts" (:entity-id account)))
+      (catch Exception e
+        (log/error e "Unable to delete account id=" id)
+        (index (:entity-id account) {:alerts [{:type :danger
+                                               :message (html [:strong "Unable to delete the account."]
+                                                              "&nbsp;"
+                                                              (.getMessage e))}]})))))

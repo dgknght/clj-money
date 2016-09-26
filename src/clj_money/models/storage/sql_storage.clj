@@ -147,4 +147,8 @@
     (let [sql (sql/format (-> (h/update :accounts)
                               (h/sset (->sql-keys (select-keys account [:name :type])))
                               (h/where [:= :id (:id account)])))]
-      (jdbc/execute! db-spec sql))))
+      (jdbc/execute! db-spec sql)))
+
+  (delete-account
+    [_ id]
+    (jdbc/delete! db-spec :accounts ["id = ?" id])))

@@ -49,7 +49,9 @@
   (update-account
     [this account]
     "Updates the specified account")
-
   (select-accounts-by-entity-id
     [this entity-id]
-    "Returns all accounts in the system"))
+    "Returns all accounts in the system")
+  (delete-account
+    [this id]
+    "Deletes the specified account"))

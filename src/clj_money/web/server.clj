@@ -45,7 +45,9 @@
   (GET "/accounts/:id/edit" [id]
        (accounts/edit id))
   (POST "/accounts/:id" req
-        (accounts/update (:params req))))
+        (accounts/update (:params req)))
+  (POST "/accounts/:id/delete" [id]
+        (accounts/delete id)))
 
 (defroutes routes
   (GET "/" []

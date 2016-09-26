@@ -77,3 +77,9 @@
     (catch clojure.lang.ExceptionInfo e
       (pprint (ex-data e))
       (is false "unexpected validation error"))))
+
+(deftest delete-an-account
+  (let [account (accounts/create storage-spec attributes)
+        _ (accounts/delete storage-spec (:id account))
+        accounts (accounts/select-by-entity-id storage-spec (:id entity))]
+    (is (not-any? #(= (:id account) (:id %)) accounts) "The deleted account is no longer returned from the database")))
