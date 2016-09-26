@@ -39,10 +39,6 @@
   "Accepts a hash and replaces underscores in key names
   with hyphens"
   [model]
-
-  (println "->clojure-keys")
-  (pprint model)
-
   (->> model
        (map #(update-in % [0] ->clojure-key))
        (into {})))
@@ -69,8 +65,8 @@
     [_]
     (let [sql (sql/format (-> (h/select :first_name :last_name :email)
                               (h/from :users)))]
-      (-> (jdbc/query db-spec sql)
-          (map ->clojure-keys))))
+      (->> (jdbc/query db-spec sql)
+           (map ->clojure-keys))))
 
   (find-user-by-email
     [this email]
