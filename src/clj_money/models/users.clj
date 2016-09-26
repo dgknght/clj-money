@@ -16,18 +16,12 @@
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
   [user]
-  (-> user
-      (update-in [:password] hash-bcrypt)
-      (rename-keys {:first-name :first_name
-                    :last-name :last_name})))
+  (update-in user [:password] hash-bcrypt))
 
 (defn prepare-user-for-return
   "Prepares a user record for return to the caller"
   [user]
-  (-> user
-      (dissoc :password)
-      (rename-keys {:first_name :first-name
-                    :last_name :last-name})))
+  (dissoc user :password))
 
 (def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
 

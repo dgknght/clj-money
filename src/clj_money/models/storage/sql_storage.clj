@@ -1,5 +1,6 @@
 (ns clj-money.models.storage.sql-storage
   (:require [clojure.tools.logging :as log]
+            [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [honeysql.core :as sql]
@@ -16,6 +17,36 @@
            first
            :record_count))))
 
+(defn- ->sql-key
+  "Accepts a keyword returns it with hyphens replaced with underscores"
+  [k]
+  (keyword (string/replace (name k) "-" "_")))
+
+(defn- ->sql-keys
+  "Accepts a hash and replaces hyphens in key names
+  with underscores"
+  [model]
+  (->> model
+       (map #(update-in % [0] ->sql-key))
+       (into {})))
+
+(defn- ->clojure-key
+  "Accepts a keyword returns it with underscores replaced with hyphens"
+  [k]
+  (keyword (string/replace (name k) "_" "-")))
+
+(defn- ->clojure-keys
+  "Accepts a hash and replaces underscores in key names
+  with hyphens"
+  [model]
+
+  (println "->clojure-keys")
+  (pprint model)
+
+  (->> model
+       (map #(update-in % [0] ->clojure-key))
+       (into {})))
+
 (deftype SqlStorage [db-spec]
   Storage
 
@@ -24,8 +55,10 @@
     [_ user]
     (try
       (->> user
+           ->sql-keys
            (jdbc/insert! db-spec :users)
-           first)
+           first
+           ->clojure-keys)
       (catch java.sql.BatchUpdateException e
         (log/error (format "Unable to insert user %s: %s"
                         user
@@ -36,7 +69,8 @@
     [_]
     (let [sql (sql/format (-> (h/select :first_name :last_name :email)
                               (h/from :users)))]
-      (jdbc/query db-spec sql)))
+      (-> (jdbc/query db-spec sql)
+          (map ->clojure-keys))))
 
   (find-user-by-email
     [this email]
@@ -45,7 +79,8 @@
                               (h/where [:= :email email])))]
       (->> sql
            (jdbc/query db-spec)
-           first)))
+           first
+           ->clojure-keys)))
 
   (user-exists-with-email?
     [this email]
