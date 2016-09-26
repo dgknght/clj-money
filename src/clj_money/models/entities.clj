@@ -24,14 +24,6 @@
   {:id s/Int
    :name (s/maybe s/Str)})
 
-(defn- prepare-entity-for-save
-  [entity]
-  (rename-keys entity {:user-id :user_id}))
-
-(defn- prepare-entity-for-return
-  [entity]
-  (rename-keys entity {:user_id :user-id}))
-
 (defn- validate-entity
   [storage schema entity]
   (let [validated (validate-model entity schema "entity")]
@@ -58,24 +50,20 @@
   (let [s (storage storage-spec)]
     (->> entity
          (validate-new-entity s)
-         prepare-entity-for-save
-         (create-entity s)
-         prepare-entity-for-return)))
+         (create-entity s))))
 
 (defn select
   "Returns entities for the specified user"
   [storage-spec user-id]
-  (map prepare-entity-for-return
-       (select-entities (storage storage-spec)
-                        user-id)))
+  (select-entities (storage storage-spec)
+                   user-id))
 
 (defn find-by-id
   "Finds the entity with the specified ID"
   [storage-spec id]
   (-> storage-spec
       storage
-      (find-entity-by-id id)
-      prepare-entity-for-return))
+      (find-entity-by-id id)))
 
 (defn update
   "Updates the specified entity"

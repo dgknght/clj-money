@@ -83,4 +83,4 @@
                                               :user-id (:id user)})
         _ (entities/delete storage-spec (:id entity))
         retrieved (entities/find-by-id storage-spec (:id entity))]
-    (is (nil? retrieved) "The entity is not retrurned after delete")))
+    (is (nil? retrieved) "The entity is not returned after delete")))

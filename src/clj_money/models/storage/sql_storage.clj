@@ -17,6 +17,13 @@
            first
            :record_count))))
 
+(defn- update-keys
+  [model f]
+  (when model
+    (->> model
+         (map #(update-in % [0] f))
+         (into {}))))
+
 (defn- ->sql-key
   "Accepts a keyword returns it with hyphens replaced with underscores"
   [k]
@@ -26,9 +33,7 @@
   "Accepts a hash and replaces hyphens in key names
   with underscores"
   [model]
-  (->> model
-       (map #(update-in % [0] ->sql-key))
-       (into {})))
+  (update-keys model ->sql-key))
 
 (defn- ->clojure-key
   "Accepts a keyword returns it with underscores replaced with hyphens"
@@ -39,9 +44,7 @@
   "Accepts a hash and replaces underscores in key names
   with hyphens"
   [model]
-  (->> model
-       (map #(update-in % [0] ->clojure-key))
-       (into {})))
+  (update-keys model ->clojure-key))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -86,15 +89,17 @@
   (create-entity
     [_ entity]
     (->> entity
+         ->sql-keys
          (jdbc/insert! db-spec :entities)
-         first))
+         first
+         ->clojure-keys))
   (select-entities
     [_ user-id]
     (let [sql (sql/format (-> (h/select :*)
                               (h/from :entities)
                               (h/where [:= :user_id user-id])
                               (h/order-by :name)))]
-      (jdbc/query db-spec sql)))
+      (map ->clojure-keys (jdbc/query db-spec sql))))
 
   (entity-exists-with-name?
     [_ user-id name]
@@ -104,12 +109,12 @@
 
   (find-entity-by-id
     [_ id]
-    (jdbc/get-by-id db-spec :entities id))
+    (->clojure-keys (jdbc/get-by-id db-spec :entities id)))
 
   (update-entity
     [_ entity]
     (let [sql (sql/format (-> (h/update :entities)
-                              (h/sset (select-keys entity [:name]))
+                              (h/sset (->sql-keys (select-keys entity [:name])))
                               (h/where [:= :id (:id entity)])))]
       (jdbc/execute! db-spec sql)))
 
