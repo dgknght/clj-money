@@ -30,16 +30,12 @@
   "Adjusts account data for saving in the database"
   [account]
   ; convert account type from keyword to string
-  (-> account
-      (update-in [:type] name)
-      (rename-keys {:entity-id :entity_id})))
+  (update-in account [:type] name))
 
 (defn prepare-account-for-return
   "Adjusts account data read from the database for use"
   [account]
-  (-> account
-      (update-in [:type] keyword)
-      (rename-keys {:entity_id :entity-id})))
+  (update-in account [:type] keyword))
 
 (defn- validate-new-account
   [account]

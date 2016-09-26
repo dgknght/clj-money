@@ -126,23 +126,25 @@
   (create-account
     [_ account]
     (->> account
+         ->sql-keys
          (jdbc/insert! db-spec :accounts)
-         first))
+         first
+         ->clojure-keys))
 
   (find-account-by-id
     [_ id]
-    (jdbc/get-by-id db-spec :accounts id))
+    (->clojure-keys (jdbc/get-by-id db-spec :accounts id)))
 
   (select-accounts-by-entity-id
     [_ entity-id]
     (let [sql (sql/format (-> (h/select :*)
                               (h/from :accounts)
                               (h/where [:= :entity_id entity-id])))]
-      (jdbc/query db-spec sql)))
+      (map ->clojure-keys (jdbc/query db-spec sql))))
 
   (update-account
     [_ account]
     (let [sql (sql/format (-> (h/update :accounts)
-                              (h/sset (select-keys account [:name :type]))
+                              (h/sset (->sql-keys (select-keys account [:name :type])))
                               (h/where [:= :id (:id account)])))]
       (jdbc/execute! db-spec sql))))
