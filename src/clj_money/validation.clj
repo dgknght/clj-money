@@ -56,3 +56,17 @@
       (map (fn [[k v]]
              [k (str (humanize k) " " (friendly-message v))])
            (schema-utils/error-val result)))))
+
+(defn has-error?
+  "Returns true if the specified model contains validation errors"
+  [model]
+  (contains? model ::errors))
+
+(defn get-errors
+  "Returns the errors from the specified model. If given only a model, 
+  returns a map of all errors. If given a model and a key, returns the 
+  errors for the specified key from wihin the model."
+  ([model]
+   (get model ::errors))
+  ([model attr-key]
+   (get-in model [::errors attr-key])))
