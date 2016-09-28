@@ -14,7 +14,7 @@
    {:fn #(re-find #"instance\? java\.lang\.String nil" (print-str %))
     :message "is required"}])
 
-(defn- friendly-message
+(defn friendly-message
   "Takes a single prismatic rule violation token and returns
   a user-friendly message"
   [violation]
