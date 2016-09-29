@@ -2,9 +2,10 @@
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [environ.core :refer [env]])
-  (:use [clj-money.models.users :as users]
-        [clj-money.test-helpers :refer :all]))
+            [environ.core :refer [env]]
+            [clj-money.validation :as validation]
+            [clj-money.models.users :as users]
+            [clj-money.test-helpers :refer :all]))
 
 (def storage-spec (env :db))
 
@@ -35,36 +36,50 @@
              (dissoc user :id))
           "The map should contain the user properties"))))
 
+(defn assert-validation-error
+  "Asserts the expected validation error"
+  [trigger-fn attribute message]
+  (let [result (trigger-fn)]
+      (is (= [message]
+             (validation/get-errors result attribute))
+          (format "Expected error \"%s\" on %s, but it was not found." message attribute))))
+
 (deftest try-to-create-with-invalid-data
   (testing "Email is required"
-    (assert-throws-validation-exception
-      {:email 'missing-required-key}
-      (users/create storage-spec (dissoc attributes :email))) )
+    (assert-validation-error #(users/create storage-spec
+                                           (dissoc attributes :email))
+                             :email
+                             "Email is required"))
   (testing "Email is unique"
     (users/create storage-spec attributes)
-    (assert-throws-validation-exception
-      {:email :duplicate-key}
-      (users/create storage-spec attributes)))
+    (assert-validation-error #(users/create storage-spec attributes)
+                             :email
+                             "Email is already taken"))
   (testing "Email must be a valid email address"
-    (assert-throws-ex-info-with-key
-      [:error :email]
-      (users/create storage-spec (assoc attributes :email "notavalidemail"))))
+    (assert-validation-error #(users/create storage-spec
+                                            (assoc attributes
+                                                   :email "notavalidemail"))
+                             :email
+                             "Email is not valid"))
   (testing "First name is required"
-    (assert-throws-validation-exception
-      {:first-name 'missing-required-key}
-      (users/create storage-spec (dissoc attributes :first-name))))
+    (assert-validation-error #(users/create storage-spec
+                                            (dissoc attributes :first-name))
+                             :first-name
+                             "First name is required"))
   (testing "First name cannot be empty"
-    (assert-throws-ex-info-with-key
-      [:error :first-name]
-      (users/create storage-spec (assoc attributes :first-name ""))))
-  (testing "Last name is required"
-    (assert-throws-validation-exception
-      {:last-name 'missing-required-key}
-      (users/create storage-spec (dissoc attributes :last-name))))
+    (assert-validation-error #(users/create storage-spec
+                                            (assoc attributes :first-name ""))
+                             :first-name
+                             "First name is required")
+    (assert-validation-error #(users/create storage-spec
+                                            (dissoc attributes :last-name))
+                             :last-name
+                             "Last name is required")) 
   (testing "Last name cannot be empty"
-    (assert-throws-ex-info-with-key
-      [:error :last-name]
-      (users/create storage-spec (assoc attributes :last-name "")))))
+    (assert-validation-error #(users/create storage-spec
+                                            (dissoc attributes :last-name))
+                             :last-name
+                             "Last name is required")))
 
 (deftest authenticate-a-user
   (let [user (users/create storage-spec attributes)
