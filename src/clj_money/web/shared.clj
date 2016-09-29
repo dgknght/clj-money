@@ -7,6 +7,7 @@
             [hiccup.page :refer :all]
             [clojure.string :as s]
             [cemerick.friend :as friend]
+            [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities])
   (:use clj-money.inflection))
@@ -174,16 +175,13 @@
 (defn- input-field
   "Renders a HTML input field"
   ([model attribute options]
-   (let [{{errors attribute} :errors} model]
-     [:div.form-group {:class (when errors "has-error")}
-      [:label.control-label {:for attribute} (humanize attribute)]
-      [:input.form-control (merge options {:id attribute
-                                           :name attribute
-                                           :value (get model attribute)})]
-      (let [errors (if (seq? (-> model :errors attribute))
-                     (-> model :errors attribute)
-                     [(-> model :errors attribute)])]
-        (map #(vector :span.help-block %) errors))])))
+   [:div.form-group {:class (when (validation/has-error? model attribute)"has-error")}
+    [:label.control-label {:for attribute} (humanize attribute)]
+    [:input.form-control (merge options {:id attribute
+                                         :name attribute
+                                         :value (get model attribute)})]
+    (when (validation/has-error? model)
+      (map #(vector :span.help-block %) (validation/get-errors model attribute)))]))
 
 (defn text-input-field
   ([model attribute] (text-input-field model attribute {}))

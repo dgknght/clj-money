@@ -59,8 +59,10 @@
 
 (defn has-error?
   "Returns true if the specified model contains validation errors"
-  [model]
-  (contains? model ::errors))
+  ([model]
+   (contains? model ::errors))
+  ([model attribute]
+   (get-in model [::errors attribute])))
 
 (defn get-errors
   "Returns the errors from the specified model. If given only a model, 

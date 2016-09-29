@@ -6,7 +6,7 @@
             [environ.core :refer [env]])
   (:use [clj-money.web.shared]
         [clj-money.models.users :as users]
-        [clj-money.schema :as schema]))
+        [clj-money.validation :as validation]))
 
 (defn new-user
   "Renders the sign up form"
@@ -28,15 +28,10 @@
 (defn create-user
   "Creates the user, redirects on success"
   [params]
-  (let [user (select-keys params [:first-name
-                                  :last-name
-                                  :email
-                                  :password])]
-    (try
-      (users/create (env :db) user)
-      (redirect "/")
-      (catch clojure.lang.ExceptionInfo e
-        (new-user (schema/append-errors user (ex-data e))))
-      (catch java.lang.Exception e
-        (log/error "Unable to create the user." e)
-        (new-user user {:alerts [{:type :danger :message (.getMessage e)}]})))))
+  (let [created (users/create (env :db) (select-keys params [:first-name
+                                                             :last-name
+                                                             :email
+                                                             :password]))]
+    (if (validation/has-error? created)
+      (new-user created)
+      (redirect "/login"))))
