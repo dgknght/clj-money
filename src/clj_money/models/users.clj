@@ -35,8 +35,10 @@
   [storage user]
   (validate-model user [(partial apply-schema NewUser)
                         (fn [model]
-                          (if (user-exists-with-email? storage (:email model))
-                            [[:email "Email is already taken"]]))]))
+                          {:model model
+                           :errors (if (user-exists-with-email? storage (:email model))
+                                     [[:email "Email is already taken"]]
+                                     [])})]))
 
 (defn create
   "Creates a new user record"

@@ -1,7 +1,8 @@
 (ns clj-money.test-helpers
   (:require [clojure.test :refer :all]
             [clojure.java.jdbc :as jdbc]
-            [clojure.tools.logging :as log]))
+            [clojure.tools.logging :as log]
+            [clj-money.validation :as validation]))
 
 (def all-tables ["accounts"
                  "entities"
@@ -22,6 +23,14 @@
   [smaller-map larger-map]
   (= (select-keys larger-map (keys smaller-map))
      smaller-map))
+
+(defn assert-validation-error
+  "Asserts the expected validation error"
+  [trigger-fn attribute message]
+  (let [result (trigger-fn)]
+      (is (= [message]
+             (validation/get-errors result attribute))
+          (format "Expected error \"%s\" on %s, but it was not found." message attribute))))
 
 (defmacro assert-throws-ex-info
   "Tests to see if the specified code raises ExceptionInfo

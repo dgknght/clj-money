@@ -4,9 +4,8 @@
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
             [schema.core :as s]
-            [clj-money.models.helpers :refer [storage
-                                              validate-model
-                                              throw-validation-exception]]
+            [clj-money.validation :as validation]
+            [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
                                               entity-exists-with-name?
@@ -24,21 +23,24 @@
   {:id s/Int
    :name (s/maybe s/Str)})
 
+(defn validation-rules
+  [schema storage]
+  [(partial validation/apply-schema schema)
+   (fn [model]
+     {:model model
+      :errors (if (and (:name model)
+                       (:user-id model)
+                       (entity-exists-with-name? storage (:user-id model) (:name model)))
+                [[:name "Name is already in use"]]
+                [])})])
+
 (defn- validate-entity
   [storage schema entity]
-  (let [validated (validate-model entity schema "entity")]
-    (if (entity-exists-with-name? storage
-                                  (:user-id validated)
-                                  (:name validated))
-      (throw-validation-exception {:name :duplicate-key}
-                                  entity
-                                  NewEntity
-                                  "entity")
-      validated)))
+  (validation/validate-model entity (validation-rules Entity storage)))
 
 (defn- validate-new-entity
   [storage entity]
-  (validate-entity storage NewEntity entity))
+  (validation/validate-model entity (validation-rules NewEntity storage)))
 
 (defn- validate-existing-entity
   [storage entity]
@@ -47,10 +49,13 @@
 (defn create
   "Creates a new entity"
   [storage-spec entity]
-  (let [s (storage storage-spec)]
-    (->> entity
-         (validate-new-entity s)
-         (create-entity s))))
+  (let [s (storage storage-spec)
+        validated (validate-new-entity s entity)]
+    (when (not validated)
+      (throw (ex-info "The validated data is null" {:entity entity
+                                                    :validated validated})))
+    (if-not (validation/has-error? validated)
+      (create-entity s validated))))
 
 (defn select
   "Returns entities for the specified user"

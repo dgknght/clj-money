@@ -36,14 +36,6 @@
              (dissoc user :id))
           "The map should contain the user properties"))))
 
-(defn assert-validation-error
-  "Asserts the expected validation error"
-  [trigger-fn attribute message]
-  (let [result (trigger-fn)]
-      (is (= [message]
-             (validation/get-errors result attribute))
-          (format "Expected error \"%s\" on %s, but it was not found." message attribute))))
-
 (deftest try-to-create-with-invalid-data
   (testing "Email is required"
     (assert-validation-error #(users/create storage-spec
