@@ -26,11 +26,11 @@
 (defn validation-rules
   [schema storage]
   [(partial validation/apply-schema schema)
-   (fn [model]
+   (fn [{:keys [user-id name] :as model}]
      {:model model
-      :errors (if (and (:name model)
-                       (:user-id model)
-                       (entity-exists-with-name? storage (:user-id model) (:name model)))
+      :errors (if (and name
+                       user-id
+                       (entity-exists-with-name? storage user-id name))
                 [[:name "Name is already in use"]]
                 [])})])
 
@@ -54,7 +54,8 @@
     (when (not validated)
       (throw (ex-info "The validated data is null" {:entity entity
                                                     :validated validated})))
-    (if-not (validation/has-error? validated)
+    (if (validation/has-error? validated)
+      validated
       (create-entity s validated))))
 
 (defn select

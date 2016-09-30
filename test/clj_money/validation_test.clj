@@ -27,9 +27,11 @@
 
 (deftest validate-against-external
   (let [model {:name "John Doe"}
-        rules [(fn [m]
-                 (when (= "John Doe" (:name m))
-                   [[:name "Name must be a real name"]]))]
+        rules [(fn [model]
+                 {:model model
+                  :errors (if(= "John Doe" (:name model))
+                            [[:name "Name must be a real name"]]
+                            [])})]
         result (validate-model model rules)]
     (is (= ["Name must be a real name"]
            (get-errors result :name)))))

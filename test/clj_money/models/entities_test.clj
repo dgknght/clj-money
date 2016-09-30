@@ -38,13 +38,13 @@
 (deftest attempt-to-create-an-invalid-entity
   (testing "Name is required"
     (assert-validation-error
-      (entities/create storage-spec (dissoc attributes :name))
+      #(entities/create storage-spec (dissoc attributes :name))
       :name "Name is required"))
   (testing "Name must be unique"
     (entities/create storage-spec attributes)
     (assert-validation-error
-      (entities/create storage-spec attributes)
-      :name "Name is already taken")))
+      #(entities/create storage-spec attributes)
+      :name "Name is already in use")))
 
 (deftest select-entities-for-a-user
   (let [other-entity (entities/create storage-spec {:name "Other entity"

@@ -6,6 +6,18 @@
             [clj-money.inflection :refer [humanize]]
             [clj-money.schema :refer [friendly-message]]))
 
+(defn- apply-rule
+  "Applies the rule to the context, returning an 
+  updated context. The context contains
+  {:model  the model being validated
+  :errors the list of validation errors}"
+  [context rule]
+  (let [{validated :model
+         errors :errors} (rule (:model context))]
+    (-> context
+        (update-in [:errors] #(concat  % errors))
+        (assoc :model validated))))
+
 (defn validate-model
   "Validates the specified model using the specified rules.
   If any violations are found, they are added to the model
@@ -16,24 +28,20 @@
 
   {:model  The model (in case it was updated by the rule)
    :errors A sequence of tuples containing the key in the 1st postion
-           and a rule violation in the 2nd}
-  "
+           and a rule violation in the 2nd}"
   [model rules]
-  (let [result (reduce (fn [context rule]
-                         (let [result (rule (:model context))]
-                           (-> context
-                               (update-in [:errors] #(concat (:errors result)))
-                               (update-in [:model] (:model result)))))
-                       {:errors []
-                        :model model}
-                       rules)]
+  (let [{validated :model
+         errors :errors} (reduce apply-rule
+                                 {:errors []
+                                  :model model}
+                                 rules)]
     (if (seq errors)
-      (assoc (:model result) ::errors (->> errors
-                                           (group-by first)
-                                           (map (fn [[k tuples]]
-                                                  [k (map second tuples)]))
-                                           (into {})))
-      (:model result))))
+      (assoc validated ::errors (->> errors
+                                     (group-by first)
+                                     (map (fn [[k tuples]]
+                                            [k (map second tuples)]))
+                                     (into {})))
+      validated)))
 
 ;; Schema validation
 (defn- int-matcher
@@ -54,6 +62,12 @@
           nil
           value)))))
 
+(defn- full-humanized-message
+  "Accepts a tuple containg an attribute key and a schema
+  violation expresion and returns a human-friendly message"
+  [[attr-key expr]]
+  [attr-key (str (humanize attr-key) " " (friendly-message expr))])
+
 (defn apply-schema
   "A rule function that coerces and applies a schema to a model"
   [schema model]
@@ -62,11 +76,11 @@
                                                        nil-matcher
                                                        coerce/json-coercion-matcher]))
         result (coercer model)]
-    {:model result
-     :errors (when (schema-utils/error? result)
-               (map (fn [[k v]]
-                      [k (str (humanize k) " " (friendly-message v))])
-                    (schema-utils/error-val result)))}))
+    {:model (dissoc result :error)
+     :errors (if (schema-utils/error? result)
+               (map full-humanized-message
+                    (schema-utils/error-val result))
+               [])}))
 
 (defn has-error?
   "Returns true if the specified model contains validation errors"

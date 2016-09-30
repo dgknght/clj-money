@@ -28,9 +28,9 @@
   "Asserts the expected validation error"
   [trigger-fn attribute message]
   (let [result (trigger-fn)]
-      (is (= [message]
-             (validation/get-errors result attribute))
-          (format "Expected error \"%s\" on %s, but it was not found." message attribute))))
+    (is (= [message]
+           (validation/get-errors result attribute))
+        (format "Expected error \"%s\" on %s, but it was not found." message attribute))))
 
 (defmacro assert-throws-ex-info
   "Tests to see if the specified code raises ExceptionInfo
