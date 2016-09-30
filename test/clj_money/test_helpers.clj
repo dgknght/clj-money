@@ -24,13 +24,21 @@
   (= (select-keys larger-map (keys smaller-map))
      smaller-map))
 
-(defn assert-validation-error
+(defmacro assert-validation-error
   "Asserts the expected validation error"
-  [trigger-fn attribute message]
-  (let [result (trigger-fn)]
-    (is (= [message]
-           (validation/get-errors result attribute))
-        (format "Expected error \"%s\" on %s, but it was not found." message attribute))))
+  [attribute message & body]
+  `(let [result# ~@body
+         found-message# (validation/get-errors result# ~attribute)]
+     (is (not (nil? found-message#))
+         (format "Expected error \"%s\" on %s, but no error was found"
+                 ~message
+                 ~attribute))
+     (is (= [~message]
+            (validation/get-errors result# ~attribute))
+         (format "Expected error \"%s\" on %s, but received %s instead"
+                 ~message
+                 ~attribute
+                 found-message#))))
 
 (defmacro assert-throws-ex-info
   "Tests to see if the specified code raises ExceptionInfo

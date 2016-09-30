@@ -38,40 +38,40 @@
 
 (deftest try-to-create-with-invalid-data
   (testing "Email is required"
-    (assert-validation-error #(users/create storage-spec
-                                           (dissoc attributes :email))
-                             :email
-                             "Email is required"))
+    (assert-validation-error
+      :email
+      "Email is required"
+      (users/create storage-spec (dissoc attributes :email))))
   (testing "Email is unique"
     (users/create storage-spec attributes)
-    (assert-validation-error #(users/create storage-spec attributes)
-                             :email
-                             "Email is already taken"))
+    (assert-validation-error
+      :email
+      "Email is already taken"
+      (users/create storage-spec attributes)))
   (testing "Email must be a valid email address"
-    (assert-validation-error #(users/create storage-spec
-                                            (assoc attributes
-                                                   :email "notavalidemail"))
-                             :email
-                             "Email is not valid"))
+    (assert-validation-error
+      :email
+      "Email is not valid"
+      (users/create storage-spec (assoc attributes :email "notavalidemail"))))
   (testing "First name is required"
-    (assert-validation-error #(users/create storage-spec
-                                            (dissoc attributes :first-name))
-                             :first-name
-                             "First name is required"))
+    (assert-validation-error
+      :first-name
+      "First name is required"
+      (users/create storage-spec (dissoc attributes :first-name))))
   (testing "First name cannot be empty"
-    (assert-validation-error #(users/create storage-spec
-                                            (assoc attributes :first-name ""))
-                             :first-name
-                             "First name is required")
-    (assert-validation-error #(users/create storage-spec
-                                            (dissoc attributes :last-name))
-                             :last-name
-                             "Last name is required")) 
+    (assert-validation-error
+      :first-name
+      "First name is required"
+      (users/create storage-spec (assoc attributes :first-name "")))
+    (assert-validation-error
+      :last-name
+      "Last name is required"
+      (users/create storage-spec (dissoc attributes :last-name))))
   (testing "Last name cannot be empty"
-    (assert-validation-error #(users/create storage-spec
-                                            (dissoc attributes :last-name))
-                             :last-name
-                             "Last name is required")))
+    (assert-validation-error
+      :last-name
+      "Last name is required"
+      (users/create storage-spec (dissoc attributes :last-name)))))
 
 (deftest authenticate-a-user
   (let [user (users/create storage-spec attributes)
