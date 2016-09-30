@@ -4,8 +4,10 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [schema.core :as s]
-            [clj-money.models.helpers :refer [storage
-                                              validate-model]]
+            [clj-money.factories.user-factory]
+            [clj-money.factories.entity-factory]
+            [clj-money.validation :as validation]
+            [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               select-accounts-by-entity-id
@@ -38,22 +40,29 @@
   [account]
   (update-in account [:type] keyword))
 
+(defn- validation-rules
+  "Returns the account validation rules"
+  [storage schema]
+  [(partial validation/apply-schema schema)])
+
 (defn- validate-new-account
   [account]
-  (validate-model account NewAccount "account"))
+  (validation/validate-model account (validation-rules nil NewAccount)))
 
 (defn- validate-account
   [account]
-  (validate-model account Account "account"))
+  (validation/validate-model account (validation-rules nil Account)))
 
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
-  (->> account
-       validate-new-account
-       prepare-account-for-save
-       (create-account (storage storage-spec))
-       prepare-account-for-return))
+  (let [validated (validate-new-account account)]
+    (if (validation/has-error? validated)
+      validated
+      (->> validated
+           prepare-account-for-save
+           (create-account (storage storage-spec))
+           prepare-account-for-return))))
 
 (defn find-by-id
   "Returns the account having the specified id"
