@@ -54,4 +54,8 @@
     "Returns all accounts in the system")
   (delete-account
     [this id]
-    "Deletes the specified account"))
+    "Deletes the specified account")
+  (account-exists-with-name?
+    [this entity-id name]
+    "Returns a boolean value indicating whether or not an account
+    exists with the specified name"))

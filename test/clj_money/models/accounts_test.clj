@@ -5,6 +5,7 @@
             [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
             [clj-factory.core :refer [factory]]
+            [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -56,7 +57,17 @@
       (is (number? (:id result))))
       (catch clojure.lang.ExceptionInfo e
         (pprint (ex-data e))
-        (is false "Unexpected validation error")))))
+        (is false "Unexpected validation error"))))
+  (testing "Name can be duplicated across entities"
+    (let [other-entity (entities/create storage-spec {:name "My other life"
+                                                      :user-id (:id user)})
+          a1 (accounts/create storage-spec {:name "Checking"
+                                            :type :asset
+                                            :entity-id (:id other-entity)})
+          a2 (accounts/create storage-spec {:name "Checking"
+                                            :type :asset
+                                            :entity-id (:id entity)})]
+      (is (not (validation/has-error? a2)) "A second account can be created with the same name in a different entity"))))
 
 (deftest attempt-to-create-an-invalid-account
   (testing "name is required"
@@ -64,6 +75,12 @@
       :name
       "Name is required"
       (accounts/create storage-spec (dissoc attributes :name))))
+  (testing "name is unique within an entity"
+    (accounts/create storage-spec attributes)
+    (assert-validation-error
+      :name
+      "Name is already in use"
+      (accounts/create storage-spec attributes)))
   (testing "type must be asset, liability, equity, income or expense"
     (assert-validation-error
       :type

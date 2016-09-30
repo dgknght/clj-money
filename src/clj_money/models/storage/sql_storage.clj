@@ -151,4 +151,10 @@
 
   (delete-account
     [_ id]
-    (jdbc/delete! db-spec :accounts ["id = ?" id])))
+    (jdbc/delete! db-spec :accounts ["id = ?" id]))
+
+(account-exists-with-name?
+  [_ entity-id name]
+  (exists? db-spec :accounts [:and
+                              [:= :entity-id entity-id]
+                              [:= :name name]])))

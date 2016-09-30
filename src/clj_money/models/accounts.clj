@@ -12,7 +12,8 @@
                                               find-account-by-id
                                               select-accounts-by-entity-id
                                               update-account
-                                              delete-account]]))
+                                              delete-account
+                                              account-exists-with-name?]]))
 
 (def types
   "The list of valid account types in standard presentation order"
@@ -25,7 +26,7 @@
 
 (def Account
   {:id s/Int
-   (s/optional-key :entity-id) s/Int
+   :entity-id s/Int
    (s/optional-key :name) s/Str
    (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)})
 
@@ -43,25 +44,33 @@
 (defn- validation-rules
   "Returns the account validation rules"
   [storage schema]
-  [(partial validation/apply-schema schema)])
+  [(partial validation/apply-schema schema)
+   (fn [{account-name :name entity-id :entity-id :as model}]
+     {:model model
+      :errors (if (and account-name
+                       entity-id
+                       (account-exists-with-name? storage entity-id account-name))
+                [[:name "Name is already in use"]]
+                [])})])
 
 (defn- validate-new-account
-  [account]
-  (validation/validate-model account (validation-rules nil NewAccount)))
+  [storage account]
+  (validation/validate-model account (validation-rules storage NewAccount)))
 
 (defn- validate-account
-  [account]
-  (validation/validate-model account (validation-rules nil Account)))
+  [storage account]
+  (validation/validate-model account (validation-rules storage Account)))
 
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
-  (let [validated (validate-new-account account)]
+  (let [storage (storage storage-spec)
+        validated (validate-new-account storage account)]
     (if (validation/has-error? validated)
       validated
       (->> validated
            prepare-account-for-save
-           (create-account (storage storage-spec))
+           (create-account storage)
            prepare-account-for-return))))
 
 (defn find-by-id
@@ -92,7 +101,7 @@
   "Updates the specified account"
   [storage-spec account]
   (let [st (storage storage-spec)
-        validated (validate-account account)]
+        validated (validate-account st account)]
     (update-account st (prepare-account-for-save validated))
     (prepare-account-for-return (find-by-id st (:id validated)))))
 
