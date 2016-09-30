@@ -1,5 +1,6 @@
 (ns clj-money.schema
-  (:require [clojure.pprint :refer [pprint]])
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :as string])
   (:use clj-money.inflection))
 
 (def rules
@@ -11,6 +12,13 @@
     :message "must be a number"}
    {:fn #(re-find #"invalid format" (print-str %))
     :message "is not valid"}
+   {:fn (fn [violation]
+          (when-let [match (re-find #"#\{((\S+\s?)*)\}" (print-str violation))]
+            (-> match
+                second
+                (string/replace #"(?<=^| ):" "")
+                (string/replace " " ", "))))
+    :message "must be one of: %s"}
    {:fn #(re-find #"instance\? java\.lang\.String nil" (print-str %))
     :message "is required"}])
 
@@ -19,8 +27,10 @@
   a user-friendly message"
   [violation]
   (or (some (fn [{f :fn m :message}]
-              (when (f violation)
-                m))
+              (when-let [result (f violation)]
+                (if (seq? result)
+                  (apply format m result)
+                  (format m result))))
             rules)
       violation))
 
