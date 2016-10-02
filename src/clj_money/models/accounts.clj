@@ -22,24 +22,38 @@
 (def NewAccount
   {:entity-id s/Int
    :name s/Str
-   :type (s/enum :asset :liability :equity :income :expense)})
+   :type (s/enum :asset :liability :equity :income :expense)
+   (s/optional-key :parent-id) s/Int})
 
 (def Account
   {:id s/Int
    :entity-id s/Int
    (s/optional-key :name) s/Str
-   (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)})
+   (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)
+   (s/optional-key :parent-id) s/Int})
 
-(defn prepare-account-for-save
+(defn- prepare-for-save
   "Adjusts account data for saving in the database"
   [account]
   ; convert account type from keyword to string
-  (update-in account [:type] name))
+  (cond-> account
+    :type (update-in [:type] name)))
 
-(defn prepare-account-for-return
+(defn- prepare-for-return
   "Adjusts account data read from the database for use"
   [account]
-  (update-in account [:type] keyword))
+  (cond-> account
+
+    ; Remove :parent-id if it's nil
+    (and
+      (contains? account :parent-id)
+      (nil? (:parent-id account)))
+    (dissoc :parent-id)
+
+    ; :type should already be present
+    ; and should be a keyword
+    true
+    (update-in [:type] keyword)))
 
 (defn- validation-rules
   "Returns the account validation rules"
@@ -69,20 +83,20 @@
     (if (validation/has-error? validated)
       validated
       (->> validated
-           prepare-account-for-save
+           prepare-for-save
            (create-account storage)
-           prepare-account-for-return))))
+           prepare-for-return))))
 
 (defn find-by-id
   "Returns the account having the specified id"
   [storage-spec id]
-  (prepare-account-for-return
+  (prepare-for-return
     (find-account-by-id (storage storage-spec) id)))
 
 (defn select-by-entity-id
   "Returns a list of all accounts in the system"
   [storage-spec entity-id]
-  (map prepare-account-for-return
+  (map prepare-for-return
        (select-accounts-by-entity-id (storage storage-spec)
                                      entity-id)))
 
@@ -102,8 +116,11 @@
   [storage-spec account]
   (let [st (storage storage-spec)
         validated (validate-account st account)]
-    (update-account st (prepare-account-for-save validated))
-    (prepare-account-for-return (find-by-id st (:id validated)))))
+    (if (validation/has-error? validated)
+      validated
+      (do
+        (update-account st (prepare-for-save validated))
+        (prepare-for-return (find-by-id st (:id validated)))))))
 
 (defn delete
   "Removes the account from the system"

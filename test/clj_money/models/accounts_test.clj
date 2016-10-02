@@ -91,6 +91,9 @@
   (try
     (let [account (accounts/create storage-spec attributes)
           updated (accounts/update storage-spec (assoc account :name "New name"))]
+      (is (not (validation/has-error? updated))
+          (format "Unexpected validation error: %s"
+                  (validation/get-errors updated)) )
       (is (= "New name" (:name updated)) "The updated account is returned"))
     (catch clojure.lang.ExceptionInfo e
       (pprint (ex-data e))
