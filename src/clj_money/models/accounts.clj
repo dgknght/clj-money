@@ -37,7 +37,7 @@
   [account]
   ; convert account type from keyword to string
   (cond-> account
-    :type (update-in [:type] name)))
+    (:type account) (update-in [:type] name)))
 
 (defn- prepare-for-return
   "Adjusts account data read from the database for use"

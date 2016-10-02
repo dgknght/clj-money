@@ -89,6 +89,11 @@
   ([model attribute]
    (get-in model [::errors attribute])))
 
+(defn valid?
+  "Returns false if the model has any validation errors"
+  [model]
+  (not (has-error? model)))
+
 (defn get-errors
   "Returns the errors from the specified model. If given only a model, 
   returns a map of all errors. If given a model and a key, returns the 

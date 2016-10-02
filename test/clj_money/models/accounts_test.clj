@@ -69,6 +69,16 @@
                                             :entity-id (:id entity)})]
       (is (not (validation/has-error? a2)) "A second account can be created with the same name in a different entity"))))
 
+(deftest create-a-child-account
+  (let [savings (accounts/create storage-spec {:name "Savings"
+                                               :type :asset
+                                               :entity-id (:id entity)})
+        car (accounts/create storage-spec {:name "Car"
+                                           :type :asset
+                                           :parent-id (:id savings)
+                                           :entity-id (:id entity)})]
+    (is (validation/valid? car) "The model should not have any errors")))
+
 (deftest attempt-to-create-an-invalid-account
   (testing "name is required"
     (assert-validation-error
@@ -98,6 +108,24 @@
     (catch clojure.lang.ExceptionInfo e
       (pprint (ex-data e))
       (is false "unexpected validation error"))))
+
+(deftest change-an-account-parent
+  (let [current-assets (accounts/create storage-spec {:name "Current assets"
+                                                      :type :asset
+                                                      :entity-id (:id entity)})
+        fixed-assets (accounts/create storage-spec {:name "Fixed assets"
+                                                    :type :asset
+                                                    :entity-id (:id entity)})
+        house (accounts/create storage-spec {:name "House"
+                                             :type :asset
+                                             :parent-id (:id current-assets)
+                                             :entity-id (:id entity)})
+        updated (accounts/update storage-spec {:id (:id house)
+                                               :parent-id (:id fixed-assets)
+                                               :entity-id (:entity-id house)})]
+    (is (validation/valid? updated) "The account has no validation errors")
+    (is (= (:id fixed-assets)
+           (:parent-id updated)) "The returned account has the correct parent-id value")) )
 
 (deftest delete-an-account
   (let [account (accounts/create storage-spec attributes)

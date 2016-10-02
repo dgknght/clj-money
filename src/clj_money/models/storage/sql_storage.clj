@@ -145,7 +145,9 @@
   (update-account
     [_ account]
     (let [sql (sql/format (-> (h/update :accounts)
-                              (h/sset (->sql-keys (select-keys account [:name :type])))
+                              (h/sset (->sql-keys (select-keys account [:name
+                                                                        :type
+                                                                        :parent-id])))
                               (h/where [:= :id (:id account)])))]
       (jdbc/execute! db-spec sql)))
 
