@@ -2,10 +2,12 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
+            [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.schema :as schema])
   (:use [clj-money.web.shared :refer :all]))
@@ -60,6 +62,13 @@
                                  {:value :equity    :caption "Equity"}
                                  {:value :income    :caption "Income"}
                                  {:value :expense   :caption "Expense"}])
+    (select-field account :parent-id (->> account
+                                          :entity-id
+                                          (accounts/select-by-entity-id (env :db))
+                                          (map #(select-keys % [:id :name]))
+                                          (map #(rename-keys % {:id :value
+                                                                :name :caption}))
+                                          (concat [{:value nil :caption "None"}])))
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save the account"}]
@@ -83,12 +92,11 @@
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [params]
-  (let [account (select-keys params [:entity-id :name :type])]
-    (try
-      (accounts/create (env :db) params)
-      (redirect (str "/entities/" (:entity-id params) "/accounts"))
-      (catch clojure.lang.ExceptionInfo e
-        (new-account (:entity-id params) (schema/append-errors params (ex-data e)))))))
+  (let [account (select-keys params [:entity-id :name :type :parent-id])
+        saved (accounts/create (env :db) account)]
+    (if (validation/has-error? saved)
+      (new-account (:entity-id saved) saved)
+      (redirect (str "/entities/" (:entity-id params) "/accounts")))))
 
 (defn edit
   "Renders the edit form for an account"
@@ -108,15 +116,14 @@
   "Updates the account and redirects to the account list on
   success or rerenders the edit from on error"
   [params]
-  (try
-    (let [updated (accounts/update (env :db)
-                                   (select-keys params [:id :name :type]))]
-      (redirect (format "/entities/%s/accounts" (:entity-id updated))))
-    (catch clojure.lang.ExceptionInfo e
-
-      (log/debug "Unable to update account " params ": " (ex-data e))
-
-      (edit (schema/append-errors params (ex-data e))))))
+  (let [account (select-keys params [:id
+                                     :name
+                                     :type
+                                     :parent-id])
+        updated (accounts/update (env :db) account)]
+    (if (validation/has-error? updated)
+      (edit updated)
+      (redirect (format "/entities/%s/accounts" (:entity-id updated))))))
 
 (defn delete
   "Deletes the specified account"

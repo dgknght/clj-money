@@ -39,7 +39,7 @@
   (GET "/entities/:entity-id/accounts" [entity-id]
        (accounts/index entity-id))
   (GET "/entities/:entity-id/accounts/new" [entity-id]
-       (accounts/new-account entity-id))
+       (accounts/new-account (Integer.  entity-id)))
   (POST "/entities/:entity-id/accounts" {params :params}
         (accounts/create params))
   (GET "/accounts/:id/edit" [id]

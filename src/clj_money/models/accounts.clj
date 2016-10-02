@@ -32,9 +32,17 @@
    (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)
    (s/optional-key :parent-id) s/Int})
 
+(declare find-by-id)
+(defn- before-update-validation
+  "Adjust account data for validation"
+  [storage account]
+  (cond-> account
+    (nil? (:entity-id account))
+    (assoc :entity-id (:entity-id (find-by-id storage (Integer. (:id account)))))))
+
 (defn- prepare-for-save
   "Adjusts account data for saving in the database"
-  [account]
+  [storage account]
   ; convert account type from keyword to string
   (cond-> account ; TODO should coercion handle this?
     (:type account) (update-in [:type] name)))
@@ -66,7 +74,6 @@
              [[:name "Name is already in use"]]
              [])})
 
-(declare find-by-id)
 (defn- must-have-same-type-as-parent
   "Validation rule that ensure an account
   has the same type as its parent"
@@ -103,7 +110,7 @@
     (if (validation/has-error? validated)
       validated
       (->> validated
-           prepare-for-save
+           (partial prepare-for-save storage)
            (create-account storage)
            prepare-for-return))))
 
@@ -135,7 +142,9 @@
   "Updates the specified account"
   [storage-spec account]
   (let [st (storage storage-spec)
-        validated (validate-account st account)]
+        validated (->> account
+                       (before-update-validation st)
+                       (validate-account st))]
     (if (validation/has-error? validated)
       validated
       (do
