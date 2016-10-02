@@ -79,6 +79,17 @@
                                            :entity-id (:id entity)})]
     (is (validation/valid? car) "The model should not have any errors")))
 
+(deftest child-must-have-same-type-as-parent
+  (let [savings (accounts/create storage-spec {:name "Savings"
+                                               :type :asset
+                                               :entity-id (:id entity)})
+        fit (accounts/create storage-spec {:name "Federal income tax"
+                                           :type :expense
+                                           :parent-id (:id savings)
+                                           :entity-id (:id entity)})]
+    (is (= ["Type must match the parent type"]
+           (validation/get-errors fit :type)) "The model should not be valid")))
+
 (deftest attempt-to-create-an-invalid-account
   (testing "name is required"
     (assert-validation-error

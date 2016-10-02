@@ -36,7 +36,7 @@
   "Adjusts account data for saving in the database"
   [account]
   ; convert account type from keyword to string
-  (cond-> account
+  (cond-> account ; TODO should coercion handle this?
     (:type account) (update-in [:type] name)))
 
 (defn- prepare-for-return
@@ -55,17 +55,37 @@
     true
     (update-in [:type] keyword)))
 
+(defn- name-must-be-unique
+  "Validation rule function that ensures an account
+  name is unique within an entity"
+  [storage {account-name :name entity-id :entity-id :as model}]
+  {:model model
+   :errors (if (and account-name
+                    entity-id
+                    (account-exists-with-name? storage entity-id account-name))
+             [[:name "Name is already in use"]]
+             [])})
+
+(declare find-by-id)
+(defn- must-have-same-type-as-parent
+  "Validation rule that ensure an account
+  has the same type as its parent"
+  [storage {:keys [parent-id type] :as model}]
+  {:model model
+   :errors (if (and type
+                    parent-id
+                    (let [parent (find-by-id storage parent-id)]
+                      (not (= type
+                              (:type parent)))))
+             [[:type "Type must match the parent type"]]
+             [])})
+
 (defn- validation-rules
   "Returns the account validation rules"
   [storage schema]
   [(partial validation/apply-schema schema)
-   (fn [{account-name :name entity-id :entity-id :as model}]
-     {:model model
-      :errors (if (and account-name
-                       entity-id
-                       (account-exists-with-name? storage entity-id account-name))
-                [[:name "Name is already in use"]]
-                [])})])
+   (partial name-must-be-unique storage)
+   (partial must-have-same-type-as-parent storage)])
 
 (defn- validate-new-account
   [storage account]
