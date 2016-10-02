@@ -94,6 +94,8 @@
   returns a map of all errors. If given a model and a key, returns the 
   errors for the specified key from wihin the model."
   ([model]
-   (get model ::errors))
+   (->> (get model ::errors)
+        (mapcat second)
+        (into [])))
   ([model attr-key]
    (get-in model [::errors attr-key])))
