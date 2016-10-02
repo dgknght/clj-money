@@ -61,11 +61,11 @@
   (testing "Name can be duplicated across entities"
     (let [other-entity (entities/create storage-spec {:name "My other life"
                                                       :user-id (:id user)})
-          a1 (accounts/create storage-spec {:name "Checking"
-                                            :type :asset
+          a1 (accounts/create storage-spec {:name "Credit card"
+                                            :type :liability
                                             :entity-id (:id other-entity)})
-          a2 (accounts/create storage-spec {:name "Checking"
-                                            :type :asset
+          a2 (accounts/create storage-spec {:name "Credit card"
+                                            :type :liability
                                             :entity-id (:id entity)})]
       (is (not (validation/has-error? a2)) "A second account can be created with the same name in a different entity"))))
 
