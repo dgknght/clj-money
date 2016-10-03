@@ -33,18 +33,25 @@
    (s/optional-key :parent-id) s/Int})
 
 (declare find-by-id)
-(defn- before-update-validation
+(defn- before-validation
   "Adjust account data for validation"
   [storage account]
   (cond-> account
-    (nil? (:entity-id account))
-    (assoc :entity-id (:entity-id (find-by-id storage (Integer. (:id account)))))))
 
-(defn- prepare-for-save
+    ; If no entity is specified, try to look it up
+    (nil? (:entity-id account))
+    (assoc :entity-id (:entity-id (find-by-id storage
+                                              (Integer. (:id account)))))
+
+    ; make sure type is a keyword
+    (string? (:type account))
+    (update-in [:type] keyword)))
+
+(defn- before-save
   "Adjusts account data for saving in the database"
   [storage account]
-  ; convert account type from keyword to string
-  (cond-> account ; TODO should coercion handle this?
+  (cond-> account
+    ; convert account type from keyword to string
     (:type account) (update-in [:type] name)))
 
 (defn- prepare-for-return
@@ -110,7 +117,7 @@
     (if (validation/has-error? validated)
       validated
       (->> validated
-           (partial prepare-for-save storage)
+           (before-save storage)
            (create-account storage)
            prepare-for-return))))
 
@@ -143,13 +150,18 @@
   [storage-spec account]
   (let [st (storage storage-spec)
         validated (->> account
-                       (before-update-validation st)
+                       (before-validation st)
                        (validate-account st))]
     (if (validation/has-error? validated)
       validated
       (do
-        (update-account st (prepare-for-save validated))
-        (prepare-for-return (find-by-id st (:id validated)))))))
+        (->> validated
+             (before-save st)
+             (update-account st))
+        (->> validated
+             :id
+             (find-by-id st)
+             prepare-for-return)))))
 
 (defn delete
   "Removes the account from the system"
