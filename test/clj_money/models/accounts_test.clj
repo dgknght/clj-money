@@ -47,27 +47,29 @@
           expected [{:name "Checking"
                      :type :asset}]]
       (is (= expected
-             accounts))))
-  (testing "Values are coerced into the correct types"
-    (try
+             accounts)))))
+
+(deftest values-are-coerced-on-create
+  (try
     (let [result (accounts/create storage-spec
                                   (-> attributes
                                       (update-in [:entity-id] str)
                                       (assoc :name "Coerced")))]
       (is (number? (:id result))))
-      (catch clojure.lang.ExceptionInfo e
-        (pprint (ex-data e))
-        (is false "Unexpected validation error"))))
-  (testing "Name can be duplicated across entities"
-    (let [other-entity (entities/create storage-spec {:name "My other life"
-                                                      :user-id (:id user)})
-          a1 (accounts/create storage-spec {:name "Credit card"
-                                            :type :liability
-                                            :entity-id (:id other-entity)})
-          a2 (accounts/create storage-spec {:name "Credit card"
-                                            :type :liability
-                                            :entity-id (:id entity)})]
-      (is (not (validation/has-error? a2)) "A second account can be created with the same name in a different entity"))))
+    (catch clojure.lang.ExceptionInfo e
+      (pprint (ex-data e))
+      (is false "Unexpected validation error"))))
+
+(deftest duplicate-name-across-entities
+  (let [other-entity (entities/create storage-spec {:name "My other life"
+                                                    :user-id (:id user)})
+        a1 (accounts/create storage-spec {:name "Credit card"
+                                          :type :liability
+                                          :entity-id (:id other-entity)})
+        a2 (accounts/create storage-spec {:name "Credit card"
+                                          :type :liability
+                                          :entity-id (:id entity)})]
+    (is (not (validation/has-error? a2)) "A second account can be created with the same name in a different entity")))
 
 (deftest create-a-child-account
   (let [savings (accounts/create storage-spec {:name "Savings"
@@ -96,7 +98,7 @@
       "Name is required"
       (accounts/create storage-spec (dissoc attributes :name))))
 
-(deftest name-is-unique
+(deftest name-is-unique-within-a-parent
   (accounts/create storage-spec attributes)
   (assert-validation-error
     :name
