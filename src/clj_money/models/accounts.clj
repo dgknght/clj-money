@@ -10,10 +10,10 @@
             [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
+                                              find-account-by-name
                                               select-accounts-by-entity-id
                                               update-account
-                                              delete-account
-                                              account-exists-with-name?]]))
+                                              delete-account]]))
 
 (def types
   "The list of valid account types in standard presentation order"
@@ -75,11 +75,15 @@
   name is unique within an entity"
   [storage {account-name :name entity-id :entity-id :as model}]
   {:model model
-   :errors (if (and account-name
-                    entity-id
-                    (account-exists-with-name? storage entity-id account-name))
-             [[:name "Name is already in use"]]
-             [])})
+   :errors (let [existing (when (and account-name entity-id)
+                            (find-account-by-name storage entity-id account-name))]
+             (if (and existing
+                      (= (:name existing)
+                          account-name)
+                      (not= (:id existing)
+                            (:id model)))
+               [[:name "Name is already in use"]]
+               []))})
 
 (defn- must-have-same-type-as-parent
   "Validation rule that ensure an account

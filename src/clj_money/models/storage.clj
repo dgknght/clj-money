@@ -55,7 +55,6 @@
   (delete-account
     [this id]
     "Deletes the specified account")
-  (account-exists-with-name?
+  (find-account-by-name
     [this entity-id name]
-    "Returns a boolean value indicating whether or not an account
-    exists with the specified name"))
+    "Returns the account in the specified entity with the specified name"))
