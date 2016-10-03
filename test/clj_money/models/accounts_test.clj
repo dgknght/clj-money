@@ -90,23 +90,24 @@
     (is (= ["Type must match the parent type"]
            (validation/get-errors fit :type)) "The model should not be valid")))
 
-(deftest attempt-to-create-an-invalid-account
-  (testing "name is required"
-    (assert-validation-error
+(deftest name-is-required
+  (assert-validation-error
       :name
       "Name is required"
       (accounts/create storage-spec (dissoc attributes :name))))
-  (testing "name is unique within an entity"
-    (accounts/create storage-spec attributes)
-    (assert-validation-error
-      :name
-      "Name is already in use"
-      (accounts/create storage-spec attributes)))
-  (testing "type must be asset, liability, equity, income or expense"
-    (assert-validation-error
-      :type
-      "Type must be one of: expense, equity, liability, income, asset"
-      (accounts/create storage-spec (assoc attributes :type :invalidtype)))))
+
+(deftest name-is-unique
+  (accounts/create storage-spec attributes)
+  (assert-validation-error
+    :name
+    "Name is already in use"
+    (accounts/create storage-spec attributes)))
+
+(deftest correct-account-type
+  (assert-validation-error
+    :type
+    "Type must be one of: expense, equity, liability, income, asset"
+    (accounts/create storage-spec (assoc attributes :type :invalidtype))))
 
 (deftest update-an-account
   (try
