@@ -38,6 +38,57 @@
                    :type :liability}]]
     (is (= expected actual) "It returns the correct accounts")))
 
+(deftest select-nested-accounts
+  (let [savings (accounts/create storage-spec {:name "Savings"
+                                               :type :asset
+                                               :entity-id (:id entity)})
+        reserve-savings (accounts/create storage-spec {:name "Reserve"
+                                                       :type :asset
+                                                       :parent-id (:id savings)
+                                                       :entity-id (:id entity)})
+        car-savings (accounts/create storage-spec {:name "Car"
+                                                   :type :asset
+                                                   :parent-id (:id savings)
+                                                   :entity-id (:id entity)})
+        doug-car (accounts/create storage-spec {:name "Doug"
+                                                   :type :asset
+                                                   :parent-id (:id car-savings)
+                                                   :entity-id (:id entity)})
+        eli-car (accounts/create storage-spec {:name "Eli"
+                                                   :type :asset
+                                                   :parent-id (:id car-savings)
+                                                   :entity-id (:id entity)})
+        checking (accounts/create storage-spec {:name "Checking"
+                                                :type :asset
+                                                :entity-id (:id entity)})
+        taxes (accounts/create storage-spec {:name "Taxes"
+                                             :type :expense
+                                             :entity-id (:id entity)})
+        fit (accounts/create storage-spec {:name "Federal Income Tax"
+                                           :type :expense
+                                           :parent-id (:id taxes)
+                                           :entity-id (:id entity)})
+        ss (accounts/create storage-spec {:name "Social Security"
+                                          :type :expense
+                                          :parent-id (:id taxes)
+                                          :entity-id (:id entity)})
+        result (accounts/select-nested-by-entity-id storage-spec (:id entity))
+        expected [{:type :asset
+             :accounts [(assoc checking :children [])
+                        (assoc savings :children [(assoc car-savings :children [(assoc doug-car :children [])
+                                                                                (assoc eli-car :children [])])
+                                                  (assoc reserve-savings :children [])])]}
+            {:type :liability
+             :accounts []}
+            {:type :equity
+             :accounts []}
+            {:type :income
+             :accounts []}
+            {:type :expense
+             :accounts [(assoc taxes :children [(assoc fit :children [])
+                                                (assoc ss  :children [])])]}]]
+    (is (= expected result) "The accounts should be returned in the correct hierarchy")))
+
 (deftest create-an-account
   (testing "After I add an account, I can retrieve it"
     (accounts/create storage-spec attributes)

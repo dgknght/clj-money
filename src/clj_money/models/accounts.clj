@@ -143,6 +143,26 @@
        (select-accounts-by-entity-id (storage storage-spec)
                                      entity-id)))
 
+(defn- append-children
+  [account all-accounts]
+  (let [children (->> all-accounts
+                      (filter #(= (:id account) (:parent-id %)))
+                      (map #(append-children % all-accounts))
+                      (sort-by :name))]
+    (assoc account :children children)))
+
+(defn select-nested-by-entity-id
+  "Returns the accounts for the entity with children nested under
+  parents and parents grouped by type"
+  [storage-spec entity-id]
+  []
+  (let [all (select-by-entity-id storage-spec entity-id)
+        grouped (->> all
+                     (remove :parent-id)
+                     (map #(append-children % all))
+                     (group-by :type))]
+    (map #(hash-map :type % :accounts (or (% grouped) [])) types)))
+
 (defn group-by-type
   "Returns the accounts for the specified entity grouped by type"
   ([storage-spec entity-id]
