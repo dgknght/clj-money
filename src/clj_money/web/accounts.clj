@@ -68,7 +68,7 @@
                                           (map #(select-keys % [:id :name]))
                                           (map #(rename-keys % {:id :value
                                                                 :name :caption}))
-                                          (concat [{:value nil :caption "None"}])))
+                                          (concat [{:value "" :caption "None"}])))
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save the account"}]

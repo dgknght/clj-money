@@ -45,7 +45,12 @@
 
     ; make sure type is a keyword
     (string? (:type account))
-    (update-in [:type] keyword)))
+    (update-in [:type] keyword)
+
+    ; strip out empty string for parent-id
+    (and (string? (:parent-id account))
+         (empty? (:parent-id account)))
+    (dissoc :parent-id)))
 
 (defn- before-save
   "Adjusts account data for saving in the database"
@@ -117,7 +122,9 @@
   "Creates a new account in the system"
   [storage-spec account]
   (let [storage (storage storage-spec)
-        validated (validate-new-account storage account)]
+        validated (->> account
+                       (before-validation storage)
+                       (validate-new-account storage))]
     (if (validation/has-error? validated)
       validated
       (->> validated
