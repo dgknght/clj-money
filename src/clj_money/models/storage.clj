@@ -55,6 +55,6 @@
   (delete-account
     [this id]
     "Deletes the specified account")
-  (find-account-by-name
+  (find-accounts-by-name
     [this entity-id name]
     "Returns the account in the specified entity with the specified name"))

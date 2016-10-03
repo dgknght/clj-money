@@ -71,6 +71,23 @@
                                           :entity-id (:id entity)})]
     (is (not (validation/has-error? a2)) "A second account can be created with the same name in a different entity")))
 
+(deftest duplicate-name-across-parents
+  (let [auto (accounts/create storage-spec {:name "Auto"
+                                            :type :expense
+                                            :entity-id (:id entity)})
+        auto-repair (accounts/create storage-spec {:name "Repair"
+                                                   :type :expense
+                                                   :parent-id (:id auto)
+                                                   :entity-id (:id entity)})
+        household (accounts/create storage-spec {:name "Household"
+                                                 :type :expense
+                                                 :entity-id (:id entity)})
+        household-repair (accounts/create storage-spec {:name "Repair"
+                                                        :type :expense
+                                                        :parent-id (:id household)
+                                                        :entity-id (:id entity)})]
+    (is (validation/valid? household-repair) "A name can be dulicated across parents")))
+
 (deftest create-a-child-account
   (let [savings (accounts/create storage-spec {:name "Savings"
                                                :type :asset

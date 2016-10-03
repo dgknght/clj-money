@@ -10,7 +10,7 @@
             [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
-                                              find-account-by-name
+                                              find-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
                                               delete-account]]))
@@ -81,12 +81,10 @@
   [storage {account-name :name entity-id :entity-id :as model}]
   {:model model
    :errors (let [existing (when (and account-name entity-id)
-                            (find-account-by-name storage entity-id account-name))]
-             (if (and existing
-                      (= (:name existing)
-                          account-name)
-                      (not= (:id existing)
-                            (:id model)))
+                            (->> (find-accounts-by-name storage entity-id account-name)
+                                 (remove #(= (:id %) (:id model)))
+                                 (filter #(= (:parent-id %) (:parent-id model)))))]
+             (if (seq existing)
                [[:name "Name is already in use"]]
                []))})
 

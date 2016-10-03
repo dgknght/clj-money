@@ -155,7 +155,7 @@
     [_ id]
     (jdbc/delete! db-spec :accounts ["id = ?" id]))
 
-(find-account-by-name
+(find-accounts-by-name
   [_ entity-id name]
   (let [sql (sql/format (-> (h/select :*)
                             (h/from :accounts)
@@ -163,5 +163,4 @@
                                       [:= :entity_id entity-id]
                                       [:= :name name]])))]
     (->> (jdbc/query db-spec sql)
-         first
-         ->clojure-keys))))
+         (map ->clojure-keys)))))
