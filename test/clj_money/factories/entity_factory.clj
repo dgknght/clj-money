@@ -1,6 +1,7 @@
 (ns clj-money.factories.entity-factory
-  (:require [clj-factory.core :refer [deffactory defseq]]
+  (:require [clojure.string :as s]
+            [clj-factory.core :refer [deffactory defseq]]
             [faker.lorem :as lorem]))
 
 (deffactory :entity
-  {:name (lorem/words)})
+  {:name (s/join " " (take 2 (lorem/words)))})

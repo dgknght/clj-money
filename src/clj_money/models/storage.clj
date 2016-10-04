@@ -43,7 +43,18 @@
   (create-account
     [this account]
     "Creates a new account record")
-
-  (select-accounts
-    [this]
-    "Returns all accounts in the system"))
+  (find-account-by-id
+    [this id]
+    "Returns the account having the specified ID")
+  (update-account
+    [this account]
+    "Updates the specified account")
+  (select-accounts-by-entity-id
+    [this entity-id]
+    "Returns all accounts in the system")
+  (delete-account
+    [this id]
+    "Deletes the specified account")
+  (find-accounts-by-name
+    [this entity-id name]
+    "Returns the account in the specified entity with the specified name"))
