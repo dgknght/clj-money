@@ -12,26 +12,44 @@
             [clj-money.schema :as schema])
   (:use [clj-money.web.shared :refer :all]))
 
+(defn- account-row
+  "Renders a single account row"
+  [account depth]
+  [:tr
+   [:td
+    [:span {:class (format "account-depth-%s" depth)}
+     (:name account)]]
+   [:td
+    [:span.btn-group
+     (glyph-button :pencil
+                   (format "/accounts/%s/edit" (:id account))
+                   {:level :info
+                    :size :extra-small})
+     (glyph-button :remove
+                   (format "/accounts/%s/delete" (:id account))
+                   {:level :danger
+                    :size :extra-small
+                    :data-method :post
+                    :data-confirm "Are you sure you want to delete this account?"})]]])
+
+(defn- account-and-children-rows
+  "Renders an individual account row and any child rows"
+  ([account] (account-and-children-rows account 0))
+  ([account depth]
+   (html
+     (concat
+       [(account-row account depth)]
+       (->> (:children account)
+            (map #(account-and-children-rows % (+ depth 1)))
+            (into []))))))
+
 (defn- account-rows
-  [[type accounts]]
+  "Renders rows for all accounts and type headers"
+  [{:keys [type accounts]}]
   (html
     [:tr
      [:td.account-type {:colspan 2} type]]
-    (map #(vector :tr
-                  [:td (:name %)]
-                  [:td
-                   [:span.btn-group
-                    (glyph-button :pencil
-                                  (format "/accounts/%s/edit" (:id %))
-                                  {:level :info
-                                   :size :extra-small})
-                    (glyph-button :remove
-                                  (format "/accounts/%s/delete" (:id %))
-                                  {:level :danger
-                                   :size :extra-small
-                                   :data-method :post
-                                   :data-confirm "Are you sure you want to delete this account?"})]])
-         accounts)))
+    (map account-and-children-rows accounts)))
 
 (defn index
   "Renders the list of accounts"
@@ -45,7 +63,7 @@
         [:tr
          [:th.col-md-10 "Name"]
          [:th.col-sm-2 "&nbsp;"]]
-        (let [groups (accounts/group-by-type (env :db) (Integer. entity-id))]
+        (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
           (map account-rows groups))]
        [:a.btn.btn-primary
         {:href (format "/entities/%s/accounts/new" entity-id)

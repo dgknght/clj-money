@@ -15,7 +15,7 @@
                                               update-account
                                               delete-account]]))
 
-(def types
+(def account-types
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
@@ -154,25 +154,14 @@
 (defn select-nested-by-entity-id
   "Returns the accounts for the entity with children nested under
   parents and parents grouped by type"
-  [storage-spec entity-id]
-  []
+  ([storage-spec entity-id] (select-nested-by-entity-id storage-spec entity-id account-types))
+  ([storage-spec entity-id types]
   (let [all (select-by-entity-id storage-spec entity-id)
         grouped (->> all
                      (remove :parent-id)
                      (map #(append-children % all))
                      (group-by :type))]
-    (map #(hash-map :type % :accounts (or (% grouped) [])) types)))
-
-(defn group-by-type
-  "Returns the accounts for the specified entity grouped by type"
-  ([storage-spec entity-id]
-   (group-by-type (select-by-entity-id storage-spec entity-id)))
-  ([accounts]
-   (->> types
-        (map (fn [type]
-               [type (->> accounts
-                          (filter #(= (:type %) type))
-                          (sort-by :name))])))))
+    (map #(hash-map :type % :accounts (or (% grouped) [])) types))))
 
 (defn update
   "Updates the specified account"

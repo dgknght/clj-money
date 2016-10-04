@@ -3,3 +3,16 @@
   font-weight: bold;
   text-transform: capitalize;
 }
+
+.account-depth-1 {
+  display: block;
+  margin-left: 2em;
+}
+.account-depth-2 {
+  display: block;
+  margin-left: 4em;
+}
+.account-depth-3 {
+  display: block;
+  margin-left: 6em;
+}
