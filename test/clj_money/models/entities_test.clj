@@ -6,7 +6,8 @@
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.users :as users]
-            [clj-factory.core :refer [factory]])
+            [clj-factory.core :refer [factory]]
+            [clj-money.factories.user-factory])
   (:use [clj-money.test-helpers :refer :all]))
 
 (def storage-spec (env :db))

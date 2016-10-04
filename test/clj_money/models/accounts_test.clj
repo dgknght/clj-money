@@ -5,6 +5,8 @@
             [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
             [clj-factory.core :refer [factory]]
+            [clj-money.factories.user-factory]
+            [clj-money.factories.entity-factory]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]

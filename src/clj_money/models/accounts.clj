@@ -1,11 +1,8 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update])
-  (:require [clojure.java.jdbc :as jdbc]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [schema.core :as s]
-            [clj-money.factories.user-factory]
-            [clj-money.factories.entity-factory]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-account
