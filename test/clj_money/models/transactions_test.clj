@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
+            [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -39,7 +40,7 @@
   (let [[checking
          salary
          groceries] (create-accounts storage-spec entity account-defs)
-        transaction (transactions/create storage-spec {:transaction-date "2016-03-02"
+        transaction (transactions/create storage-spec {:transaction-date (t/date-time 2016 3 2)
                                                        :entity-id (:id entity)
                                                        :items [{:account-id (:id checking)
                                                                 :action :debit
@@ -48,3 +49,13 @@
                                                                 :action :credit
                                                                 :amount (bigdec 1000)}]})]
     (is (number? (:id transaction)) "A map with the new ID is returned")))
+
+;; TODO
+; transaction date is required
+; entity-id is required
+; item account-id is required
+; item amount is required
+; item amount must be greater than zero
+; item action is required
+; item action is :debit or :credit
+; sub of debits must equal sum of credits

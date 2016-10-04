@@ -57,4 +57,14 @@
     "Deletes the specified account")
   (find-accounts-by-name
     [this entity-id name]
-    "Returns the account in the specified entity with the specified name"))
+    "Returns the account in the specified entity with the specified name")
+
+  ; Transactions
+  (create-transaction
+    [this transaction]
+    "Creates a new transaction record")
+
+  ; Transaction items
+  (create-transaction-item
+    [this transaction-item]
+    "Creates a new transaction item record"))

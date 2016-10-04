@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
+            [clj-time.jdbc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-money.models.storage :refer [Storage]]))
@@ -155,12 +156,29 @@
     [_ id]
     (jdbc/delete! db-spec :accounts ["id = ?" id]))
 
-(find-accounts-by-name
-  [_ entity-id name]
-  (let [sql (sql/format (-> (h/select :*)
-                            (h/from :accounts)
-                            (h/where [:and
-                                      [:= :entity_id entity-id]
-                                      [:= :name name]])))]
-    (->> (jdbc/query db-spec sql)
-         (map ->clojure-keys)))))
+  (find-accounts-by-name
+    [_ entity-id name]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :accounts)
+                              (h/where [:and
+                                        [:= :entity_id entity-id]
+                                        [:= :name name]])))]
+      (->> (jdbc/query db-spec sql)
+          (map ->clojure-keys))))
+
+  ; Transactions
+  (create-transaction
+    [_ transaction]
+    (->> transaction
+        ->sql-keys
+        (jdbc/insert! db-spec :transactions)
+        first
+        ->clojure-keys))
+
+  (create-transaction-item
+    [_ transaction-item]
+    (->> transaction-item
+        ->sql-keys
+        (jdbc/insert! db-spec :transaction-items)
+        first
+        ->clojure-keys)))
