@@ -45,7 +45,9 @@
   "Accepts a hash and replaces underscores in key names
   with hyphens"
   [model]
-  (update-keys model ->clojure-key))
+  (if (map? model)
+    (update-keys model ->clojure-key)
+    model))
 
 (defn- insert
   "Inserts a record into the specified table"
