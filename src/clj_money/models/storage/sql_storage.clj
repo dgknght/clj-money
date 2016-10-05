@@ -47,23 +47,22 @@
   [model]
   (update-keys model ->clojure-key))
 
+(defn- insert
+  "Inserts a record into the specified table"
+  [db-spec table model]
+  (->> model
+       ->sql-keys
+       (jdbc/insert! db-spec table)
+       first
+       ->clojure-keys))
+
 (deftype SqlStorage [db-spec]
   Storage
 
   ; Users
   (create-user
     [_ user]
-    (try
-      (->> user
-           ->sql-keys
-           (jdbc/insert! db-spec :users)
-           first
-           ->clojure-keys)
-      (catch java.sql.BatchUpdateException e
-        (log/error (format "Unable to insert user %s: %s"
-                        user
-                        (.getMessage (.getNextException e))))
-        (throw e))))
+    (insert db-spec :users user))
 
   (select-users
     [_]
@@ -126,11 +125,7 @@
   ; Accounts
   (create-account
     [_ account]
-    (->> account
-         ->sql-keys
-         (jdbc/insert! db-spec :accounts)
-         first
-         ->clojure-keys))
+    (insert db-spec :accounts account))
 
   (find-account-by-id
     [_ id]
@@ -169,16 +164,27 @@
   ; Transactions
   (create-transaction
     [_ transaction]
-    (->> transaction
-        ->sql-keys
-        (jdbc/insert! db-spec :transactions)
-        first
-        ->clojure-keys))
+    (insert db-spec :transactions transaction))
 
+  (find-transaction-by-id
+      [_ id]
+      (let [sql (sql/format (-> (h/select :*)
+                                (h/from :transactions)
+                                (h/where [:= :id id])
+                                (h/limit 1)))]
+        (->> (jdbc/query db-spec sql)
+            (map ->clojure-keys)
+            first)))
+
+  ; Transaction Items
   (create-transaction-item
     [_ transaction-item]
-    (->> transaction-item
-        ->sql-keys
-        (jdbc/insert! db-spec :transaction-items)
-        first
-        ->clojure-keys)))
+    (insert db-spec :transaction_items transaction-item))
+
+  (select-transaction-items-by-transaction-id
+    [_ transaction-id]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :transaction_items)
+                              (h/where [:= :transaction_id transaction-id])))]
+            (->> (jdbc/query db-spec sql)
+                (map ->clojure-keys)))))

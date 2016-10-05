@@ -63,8 +63,14 @@
   (create-transaction
     [this transaction]
     "Creates a new transaction record")
+  (find-transaction-by-id
+      [this id]
+      "Returns the specified transaction")
 
   ; Transaction items
   (create-transaction-item
     [this transaction-item]
-    "Creates a new transaction item record"))
+    "Creates a new transaction item record")
+  (select-transaction-items-by-transaction-id
+    [this transaction-id]
+    "Returns the transaction items belonging to the specified transaction"))
