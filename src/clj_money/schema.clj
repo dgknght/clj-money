@@ -20,7 +20,9 @@
                 (string/replace " " ", "))))
     :message "must be one of: %s"}
    {:fn #(re-find #"instance\? java\.lang\.String nil" (print-str %))
-    :message "is required"}])
+    :message "is required"}
+   {:fn #(re-find #"not \(sequential" (print-str %))
+    :message "must be sequential"}])
 
 (defn friendly-message
   "Takes a single prismatic rule violation token and returns
@@ -32,7 +34,7 @@
                   (apply format m result)
                   (format m result))))
             rules)
-      violation))
+      (print-str violation)))
 
 (defn- extract-error
   "Extracts the error data from the exception ex-data"
