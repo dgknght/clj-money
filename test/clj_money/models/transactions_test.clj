@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
+            [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -40,7 +41,7 @@
   (let [[checking
          salary
          groceries] (create-accounts storage-spec entity account-defs)
-        transaction (transactions/create storage-spec {:transaction-date (t/date-time 2016 3 2)
+        transaction (transactions/create storage-spec {:transaction-date (t/local-date 2016 3 2)
                                                        :entity-id (:id entity)
                                                        :items [{:account-id (:id checking)
                                                                 :action :debit
@@ -48,7 +49,14 @@
                                                                {:account-id (:id salary)
                                                                 :action :credit
                                                                 :amount (bigdec 1000)}]})]
-    (is (number? (:id transaction)) "A map with the new ID is returned")))
+    (testing "return value includes the new id"
+      (is (validation/valid? transaction))
+      (is (number? (:id transaction)) "A map with the new ID is returned"))
+    (testing "transaction can be retrieved"
+      (let [retrieved (transactions/find-by-id storage-spec (:id transaction))]
+        (is retrieved "The transaction is retrievable by ID")
+        (is (= 2
+               (count (:items retrieved))) "The items are returned with the transaction")))))
 
 ;; TODO
 ; transaction date is required

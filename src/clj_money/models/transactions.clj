@@ -1,20 +1,82 @@
 (ns clj-money.models.transactions
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clj-time.coerce :as tc]
             [schema.core :as schema]
+            [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [storage]]
-            [clj-money.models.storage :refer [create-transaction]])
+            [clj-money.models.storage :refer [create-transaction
+                                              create-transaction-item
+                                              find-transaction-by-id
+                                              select-transaction-items-by-transaction-id]])
   (:import java.util.Date
-           org.joda.time.DateTime))
+           org.joda.time.LocalDate))
 
 (def NewTransaction
   {:entity-id schema/Int
-   :transaction-date DateTime
+   :transaction-date LocalDate
    :items [{:account-id schema/Int
             :action (schema/enum :debit :credit)
-            :amount BigDecimal}]})
+            :amount BigDecimal
+            :balance BigDecimal
+            (schema/optional-key :next-item-id) schema/Int
+            (schema/optional-key :previous-item-id) schema/Int}]})
+
+(defn- before-save-item
+  "Makes pre-save adjustments for a transaction item"
+  [item]
+  (update-in item [:action] name))
+
+(defn- prepare-item-for-return
+  "Makes adjustments to a transaction item in prepartion for return
+  from the data store"
+  [item]
+  (if (map? item)
+    (update-in item [:action] keyword)
+    item))
+
+(defn- validation-rules
+  [schema]
+  [(partial validation/apply-schema schema)])
+
+(defn- before-validation
+  "Performs operations required before validation"
+  [transaction]
+  (update-in transaction [:items] (fn [items]
+                                    (map #(assoc % :balance (bigdec 0)) items))))
+
+(defn- before-save
+  "Returns a transaction ready for insertion into the
+  database"
+  [transaction]
+  (-> transaction
+      (dissoc :items)
+      (update-in [:transaction-date] tc/to-sql-date)))
+
+(defn- prepare-for-return
+  "Returns a transaction that is ready for public use"
+  [transaction]
+  (update-in [:transaction-date] tc/to-local-date))
 
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (create-transaction (storage storage-spec) (dissoc transaction :items)))
+  (let [validated (-> (before-validation transaction)
+                      (validation/validate-model (validation-rules NewTransaction)))]
+    (if (validation/has-error? validated)
+      validated
+      (let [storage (storage storage-spec)
+            result (create-transaction storage (before-save validated))
+            items (dorun (map #(->> (assoc % :transaction-id (:id result))
+                                    before-save-item
+                                    (create-transaction-item storage)
+                                    (prepare-item-for-return))
+                              (:items validated)))]
+        (assoc result :items items)))))
+
+(defn find-by-id
+  "Returns the specified transaction"
+  [storage-spec id]
+  (let [storage (storage storage-spec)]
+    (-> (find-transaction-by-id storage id)
+        (assoc :items (select-transaction-items-by-transaction-id storage id)))))
