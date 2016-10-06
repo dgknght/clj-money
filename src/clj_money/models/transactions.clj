@@ -67,11 +67,11 @@
       validated
       (let [storage (storage storage-spec)
             result (create-transaction storage (before-save validated))
-            items (dorun (map #(->> (assoc % :transaction-id (:id result))
-                                    before-save-item
-                                    (create-transaction-item storage)
-                                    (prepare-item-for-return))
-                              (:items validated)))]
+            items (into [] (map #(->> (assoc % :transaction-id (:id result))
+                                      before-save-item
+                                      (create-transaction-item storage)
+                                      prepare-item-for-return)
+                                (:items validated)))]
         (assoc result :items items)))))
 
 (defn find-by-id
