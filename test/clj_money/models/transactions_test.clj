@@ -30,25 +30,24 @@
    {:name "Groceries"
     :type :expense}])
 
-(defn create-accounts
-  "Creates the specified accounts"
-  [storage-spec entity defs]
-  (->> defs
-       (map #(assoc % :entity-id (:id entity)))
-       (map #(accounts/create storage-spec %))))
+(def accounts
+  (zipmap [:checking :salary :groceries]
+          (->> account-defs
+               (map #(assoc % :entity-id (:id entity)))
+               (map #(accounts/create storage-spec %)))))
+
+(def attributes
+  {:transaction-date (t/local-date 2016 3 2)
+   :entity-id (:id entity)
+   :items [{:account-id (-> accounts :checking :id)
+            :action :debit
+            :amount (bigdec 1000)}
+           {:account-id (-> accounts :salary :id)
+            :action :credit
+            :amount (bigdec 1000)}]})
 
 (deftest create-a-transaction
-  (let [[checking
-         salary
-         groceries] (create-accounts storage-spec entity account-defs)
-        transaction (transactions/create storage-spec {:transaction-date (t/local-date 2016 3 2)
-                                                       :entity-id (:id entity)
-                                                       :items [{:account-id (:id checking)
-                                                                :action :debit
-                                                                :amount (bigdec 1000)}
-                                                               {:account-id (:id salary)
-                                                                :action :credit
-                                                                :amount (bigdec 1000)}]})]
+  (let [transaction (transactions/create storage-spec attributes)]
     (testing "return value includes the new id"
       (is (validation/valid? transaction))
       (is (number? (:id transaction)) "A map with the new ID is returned"))
@@ -58,9 +57,22 @@
         (is (= 2
                (count (:items retrieved))) "The items are returned with the transaction")))))
 
+(deftest transaction-date-is-required
+  (let [transaction (transactions/create storage-spec (dissoc attributes :transaction-date))]
+    (is (validation/has-error? transaction :transaction-date))))
+
+(deftest entity-id-is-required
+  (let [transaction (transactions/create storage-spec (dissoc attributes :entity-id))]
+    (is (validation/has-error? transaction :entity-id))))
+
+(deftest item-account-id-is-required
+  (let [transaction (transactions/create storage-spec (update-in attributes [:items 0] #(dissoc % :account-id)))]
+
+    (pprint {:transaction transaction})
+
+    (is (validation/has-error? transaction))))
+
 ;; TODO
-; transaction date is required
-; entity-id is required
 ; item account-id is required
 ; item amount is required
 ; item amount must be greater than zero
