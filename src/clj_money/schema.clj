@@ -28,13 +28,19 @@
   "Takes a single prismatic rule violation token and returns
   a user-friendly message"
   [violation]
-  (or (some (fn [{f :fn m :message}]
-              (when-let [result (f violation)]
-                (if (seq? result)
-                  (apply format m result)
-                  (format m result))))
-            rules)
-      (print-str violation)))
+  (if (vector? violation)
+    (vec (map (fn [violation-map]
+                (when violation-map
+                  (->> violation-map
+                       (map #(update-in % [1] friendly-message))
+                       (into {})))) violation))
+    (or (some (fn [{f :fn m :message}]
+                (when-let [result (f violation)]
+                  (if (seq? result)
+                    (apply format m result)
+                    (format m result))))
+              rules)
+        (print-str violation))))
 
 (defn- extract-error
   "Extracts the error data from the exception ex-data"
