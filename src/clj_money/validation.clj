@@ -98,9 +98,9 @@
   "Returns the errors from the specified model. If given only a model, 
   returns a map of all errors. If given a model and a key, returns the 
   errors for the specified key from wihin the model."
-  ([model]
-   (->> (get model ::errors)
-        (mapcat second)
-        (into [])))
-  ([model attr-key]
-   (get-in model [::errors attr-key])))
+  [model & attr-keys]
+  (if (seq attr-keys)
+    (get-in model (concat [::errors] attr-keys))
+    (->> (get model ::errors)
+         (mapcat second)
+         (into []))))

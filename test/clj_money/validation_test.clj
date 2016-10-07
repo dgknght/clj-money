@@ -22,8 +22,32 @@
           result (validate-model model rules)]
       (is (has-error? result) "The model should have at least one error")
       (is (= ["Name is required"]
+             (get-errors result))
+          "The error is returned with all errors for the model")
+      (is (= ["Name is required"]
              (get-errors result :name))
-          "There should be an error for the missing value."))))
+          "The error is returned for the specified attribute of the model"))))
+
+(deftest nested-validation-errors-are-made-friendly
+  (let [nested-schema {:name s/Str
+                       :age s/Int
+                       :children [{:name s/Str
+                                   :age s/Int}]}
+        model {:name "John Doe"
+               :age 40
+               :children [{:name "Jill Doe"
+                           :age 12}
+                          {:name "Jack Doe"}]}
+        result (validate-model model [(partial apply-schema nested-schema)])]
+    (is (= ["Children 2: Age is required"]
+           (get-errors result))
+        "The error is included in the full list of errors for the model")
+    (is (= ["Children 2: Age is required"]
+           (get-errors result :children))
+        "The error is included in the list of errors for the parent attribute")
+    (is (= ["Age is required"]
+           (get-errors result :children 1))
+        "The error is included in the list of errors for the specified model part")))
 
 (deftest validate-against-external
   (let [model {:name "John Doe"}
