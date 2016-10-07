@@ -42,12 +42,15 @@
     (is (= ["Children 2: Age is required"]
            (get-errors result))
         "The error is included in the full list of errors for the model")
-    (is (= ["Children 2: Age is required"]
+    (is (= [nil "Children 2: Age is required"]
            (get-errors result :children))
         "The error is included in the list of errors for the parent attribute")
     (is (= ["Age is required"]
            (get-errors result :children 1))
-        "The error is included in the list of errors for the specified model part")))
+        "The error is included in the list of errors for the child model")
+    (is (= ["Age is required"]
+           (get-errors result :children 1 :age))
+        "The error is included in the list of errors for the child model attribute")))
 
 (deftest validate-against-external
   (let [model {:name "John Doe"}
