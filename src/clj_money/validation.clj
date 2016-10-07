@@ -39,7 +39,7 @@
       (assoc validated ::errors (->> errors
                                      (group-by first)
                                      (map (fn [[k tuples]]
-                                            [k (map second tuples)]))
+                                            [k (map second tuples)])) ; TODO don't double wrap vectors in lists
                                      (into {})))
       validated)))
 
@@ -66,7 +66,11 @@
   "Accepts a tuple containg an attribute key and a schema
   violation expresion and returns a human-friendly message"
   [[attr-key expr]]
-  [attr-key (str (humanize attr-key) " " (friendly-message expr))])
+  (let [humanized (if (vector? expr)
+                    (vec (map #(when %
+                                 (into {} (map full-humanized-message %))) expr))
+                    (str (humanize attr-key) " " (friendly-message expr)))]
+    [attr-key humanized]))
 
 (defn apply-schema
   "A rule function that coerces and applies a schema to a model"
@@ -75,12 +79,13 @@
                                 (coerce/first-matcher [int-matcher
                                                        nil-matcher
                                                        coerce/json-coercion-matcher]))
-        result (coercer model)]
+        result (coercer model)
+        errors (if (schema-utils/error? result)
+               (vec (map full-humanized-message
+                         (schema-utils/error-val result)))
+               [])]
     {:model (dissoc result :error)
-     :errors (if (schema-utils/error? result)
-               (map full-humanized-message
-                    (schema-utils/error-val result))
-               [])}))
+     :errors errors}))
 
 (defn has-error?
   "Returns true if the specified model contains validation errors"
@@ -103,4 +108,4 @@
     (get-in model (concat [::errors] attr-keys))
     (->> (get model ::errors)
          (mapcat second)
-         (into []))))
+         vec)))
