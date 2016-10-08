@@ -39,7 +39,11 @@
       (assoc validated ::errors (->> errors
                                      (group-by first)
                                      (map (fn [[k tuples]]
-                                            [k (map second tuples)])) ; TODO don't double wrap vectors in lists
+                                            (let [error-list (map second tuples)
+                                                  error-list (if (vector? (k model))
+                                                                          (first error-list)
+                                                                          error-list)]
+                                              [k error-list])))
                                      (into {})))
       validated)))
 
