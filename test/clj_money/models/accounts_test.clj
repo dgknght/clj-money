@@ -40,6 +40,23 @@
                    :type :liability}]]
     (is (= expected actual) "It returns the correct accounts")))
 
+(defn simplify-accounts
+  [accounts]
+  (map #(if (seq (:children %))
+                 ( -> %
+                      (select-keys [:name :children])
+                      (update-in [:children] simplify-accounts))
+                 (select-keys % [:name]))
+       accounts))
+
+(defn- simplify-account-groups
+  "Accept a list of hashes containing :type keyword and :accounts [],
+  drill down into each account, filtering out every attribute of the
+  account except the name"
+  [list]
+  (map #(update-in % [:accounts] simplify-accounts)
+       list))
+
 (deftest select-nested-accounts
   (let [savings (accounts/create storage-spec {:name "Savings"
                                                :type :asset
