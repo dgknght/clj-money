@@ -1,9 +1,12 @@
 (ns clj-money.validation
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
             [schema.core :as schema]
             [schema.coerce :as coerce]
             [schema.utils :as schema-utils]
-            [clj-money.inflection :refer [humanize]]
+            [clj-money.inflection :refer [singular
+                                          humanize
+                                          ordinal]]
             [clj-money.schema :refer [friendly-message]]))
 
 (defn- apply-rule
@@ -103,6 +106,19 @@
   [model]
   (not (has-error? model)))
 
+(defn- extract-message
+  "Accepts a validation error key/value pair 
+  performs any necessary adjustments to make it readable
+  and the current level of nesting"
+  [[k v]]
+  (if (-> v first string?)
+    v
+    (filter identity
+            (map-indexed (fn [index err]
+                           (when err
+                             (str (ordinal (+ 1 index)) " " (singular (humanize k)) ": " (string/join ", " (map second (seq err))))))
+                         v))))
+
 (defn get-errors
   "Returns the errors from the specified model. If given only a model, 
   returns a map of all errors. If given a model and a key, returns the 
@@ -111,5 +127,5 @@
   (if (seq attr-keys)
     (get-in model (concat [::errors] attr-keys))
     (->> (get model ::errors)
-         (mapcat second)
+         (mapcat #(extract-message %))
          vec)))
