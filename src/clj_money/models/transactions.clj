@@ -35,9 +35,40 @@
     (update-in item [:action] keyword)
     item))
 
+(defn- item-amount-must-be-greater-than-zero
+  [transaction]
+  (let [errors (map #(when (> 0 (:amount %))
+                       "Amout must be greater than zero")
+                    (:items transaction))]
+    {:model transaction
+     :errors (if (seq (filter identity errors))
+               [[:items errors]]
+               [])}))
+
+(defn- item-amount-sum
+  "Returns the sum of items in the transaction having
+  the specified action"
+  [transaction action]
+  (reduce + 0 (->> (:items transaction)
+
+                   (filter #(= action (:action %)))
+                   (map :amount))))
+
+(defn- sum-of-credits-must-equal-sum-of-debits
+  [transaction]
+  (let [[debits credits] (map #(item-amount-sum transaction %)
+                              [:debit :credit])]
+    {:model transaction
+     :errors (if (= debits credits)
+               []
+               [[:items
+                 (str "The total debits (" debits ") does not match the total credits (" credits ")")]])}))
+
 (defn- validation-rules
   [schema]
-  [(partial validation/apply-schema schema)])
+  [(partial validation/apply-schema schema)
+   item-amount-must-be-greater-than-zero
+   sum-of-credits-must-equal-sum-of-debits])
 
 (defn- before-validation
   "Performs operations required before validation"

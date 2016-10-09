@@ -66,16 +66,49 @@
     (is (validation/has-error? transaction :entity-id))))
 
 (deftest item-account-id-is-required
-  (let [transaction (transactions/create storage-spec (update-in attributes [:items 0] #(dissoc % :account-id)))]
+  (let [transaction (transactions/create
+                      storage-spec
+                      (update-in attributes
+                                 [:items 0]
+                                 #(dissoc % :account-id)))]
+    (is (validation/has-error? transaction :items))))
 
-    (pprint {:transaction transaction})
+(deftest item-amount-is-required
+  (let [transaction (transactions/create
+                      storage-spec
+                      (update-in attributes
+                                 [:items 0]
+                                 #(dissoc % :amount)))]
+    (is (validation/has-error? transaction :items) "Validation error should be present")))
 
-    (is (validation/has-error? transaction))))
+(deftest item-amount-must-be-greater-than-zero
+  (let [transaction (transactions/create
+                      storage-spec
+                      (update-in attributes
+                                 [:items 0]
+                                 #(assoc % :amount (bigdec -1000))))]
+    (is (validation/has-error? transaction :items) "Validation error should be present")))
 
-;; TODO
-; item account-id is required
-; item amount is required
-; item amount must be greater than zero
-; item action is required
-; item action is :debit or :credit
-; sub of debits must equal sum of credits
+(deftest item-action-is-required
+  (let [transaction (transactions/create
+                      storage-spec
+                      (update-in attributes
+                                 [:items 0]
+                                 #(dissoc % :action)))]
+    (is (validation/has-error? transaction :items) "Validation error should be present")))
+
+(deftest item-action-must-be-debit-or-created
+  (let [transaction (transactions/create
+                      storage-spec
+                      (update-in attributes
+                                 [:items 0]
+                                 #(assoc % :action :not-valid)))]
+    (is (validation/has-error? transaction :items) "Validation error should be present")))
+
+(deftest sum-of-debits-must-equal-sum-of-credits
+  (let [transaction (transactions/create
+                      storage-spec
+                      (update-in attributes
+                                 [:items 0]
+                                 #(assoc % :amount (bigdec 1001))))]
+    (is (validation/has-error? transaction :items) "Validation error should be present")))
