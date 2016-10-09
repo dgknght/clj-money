@@ -145,7 +145,8 @@
   (let [children (->> all-accounts
                       (filter #(= (:id account) (:parent-id %)))
                       (map #(append-children % all-accounts))
-                      (sort-by :name))]
+                      (sort-by :name)
+                      vec)]
     (assoc account :children children)))
 
 (defn select-nested-by-entity-id
