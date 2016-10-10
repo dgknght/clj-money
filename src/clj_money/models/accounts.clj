@@ -183,3 +183,17 @@
   "Removes the account from the system"
   [storage-spec id]
   (delete-account (storage storage-spec) id))
+
+(defn- left-side?
+  "Returns truthy if the specified account is asset or expense, falsey if anything else"
+  [account]
+  (#{:asset :expense} (:type account)))
+
+(defn polarize-amount
+  "Adjusts the polarity of an amount as appropriate given
+  a transaction item action and the type of the associated account"
+  [storage-spec transaction-item]
+  (let [account (find-by-id storage-spec (:account-id transaction-item))
+        polarizer (* (if (left-side? account) 1 -1)
+                     (if (= :debit (:action transaction-item)) 1 -1))]
+    (* (:amount transaction-item) polarizer)))

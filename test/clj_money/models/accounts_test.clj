@@ -7,6 +7,7 @@
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
+            [clj-money.factories.account-factory]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -233,3 +234,29 @@
         _ (accounts/delete storage-spec (:id account))
         accounts (accounts/select-by-entity-id storage-spec (:id entity))]
     (is (not-any? #(= (:id account) (:id %)) accounts) "The deleted account is no longer returned from the database")))
+
+(defmacro test-amount-polarization
+  [account-type action amount expected message]
+  `(let [account# (accounts/create storage-spec (merge (factory :account)
+                                                       {:type ~account-type
+                                                        :entity-id (:id entity)}))
+         item# {:account-id (:id account#)
+                :action ~action
+                :amount ~amount}
+         polarized-amount# (accounts/polarize-amount storage-spec item#)]
+     (is (= ~expected polarized-amount#) ~message)))
+
+(deftest polarize-an-amount
+  ; Debits
+  (test-amount-polarization :asset     :debit (bigdec 100) (bigdec  100) "A debit in an asset account increases the balance")
+  (test-amount-polarization :expense   :debit (bigdec 100) (bigdec  100) "A debit in an expense account increases the balance")
+  (test-amount-polarization :liability :debit (bigdec 100) (bigdec -100) "A debit in an liability account decreases the balance")
+  (test-amount-polarization :equity    :debit (bigdec 100) (bigdec -100) "A debit in an equity account decreases the balance")
+  (test-amount-polarization :income    :debit (bigdec 100) (bigdec -100) "A debit in an income account decreases the balance")
+
+  ;; Credits
+  (test-amount-polarization :asset     :credit (bigdec 100) (bigdec -100) "A credit in an asset account decreases the balance")
+  (test-amount-polarization :expense   :credit (bigdec 100) (bigdec -100) "A credit in an expense account dereases the balance")
+  (test-amount-polarization :liability :credit (bigdec 100) (bigdec  100) "A credit in an liability account increases the balance")
+  (test-amount-polarization :equity    :credit (bigdec 100) (bigdec  100) "A credit in an equity account increases the balance")
+  (test-amount-polarization :income    :credit (bigdec 100) (bigdec  100) "A credit in an income account increases the balance"))
