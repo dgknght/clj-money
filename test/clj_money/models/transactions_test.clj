@@ -112,3 +112,34 @@
                                  [:items 0]
                                  #(assoc % :amount (bigdec 1001))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
+
+(deftest item-balances-are-set-when-saved
+  (let [transaction (transactions/create
+                      storage-spec
+                      attributes)
+        salary-item (->> transaction
+                         :items
+                         (filter #(= (:id (:salary accounts)) (:account-id %)))
+                         first)
+        checking-item (->> transaction
+                         :items
+                         (filter #(= (:id (:checking accounts)) (:account-id %)))
+                         first)]
+    (is (= (bigdec 1000) (:balance salary-item)) "The salary transaction item has the correct balance")
+    (is (= (bigdec 1000) (:balance checking-item)) "The checking transaction item has the correct balance")))
+
+; TODO Need to create the accounts for each test instead of once
+(deftest item-indexes-are-set-when-saved
+  (let [transaction (transactions/create
+                      storage-spec
+                      attributes)
+        salary-item (->> transaction
+                         :items
+                         (filter #(= (:id (:salary accounts)) (:account-id %)))
+                         first)
+        checking-item (->> transaction
+                         :items
+                         (filter #(= (:id (:checking accounts)) (:account-id %)))
+                         first)]
+    (is (= 0 (:index salary-item)) "The salary transaction item has the correct index")
+    (is (= 0 (:index checking-item)) "The checking transaction item has the correct index")))

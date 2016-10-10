@@ -189,4 +189,26 @@
                               (h/from :transaction_items)
                               (h/where [:= :transaction_id transaction-id])))]
             (->> (jdbc/query db-spec sql)
-                (map ->clojure-keys)))))
+                (map ->clojure-keys))))
+
+  (find-transaction-item-by-index
+    [_ account-id index]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :transaction_items)
+                              (h/where [:= :index index])
+                              (h/limit 1)))]
+      (->> (jdbc/query db-spec sql)
+          first
+          ->clojure-keys)))
+
+  (find-transaction-item-preceding-date
+    [_ account-id transaction-date]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from [:transaction_items :i])
+                              (h/join [:transactions :t] [:= :t.id :i.transaction-id])
+                              (h/where [:= :i.account-id account-id])
+                              (h/order-by [:t.transaction-date :desc] [:i.index :desc])
+                              (h/limit 1)))]
+      (->> (jdbc/query db-spec sql)
+          first
+          ->clojure-keys))))

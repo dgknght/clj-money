@@ -4,10 +4,13 @@
             [clj-time.coerce :as tc]
             [schema.core :as schema]
             [clj-money.validation :as validation]
+            [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
+                                              find-transaction-item-by-index
+                                              find-transaction-item-preceding-date
                                               select-transaction-items-by-transaction-id]])
   (:import java.util.Date
            org.joda.time.LocalDate))
@@ -89,6 +92,44 @@
   [transaction]
   (update-in [:transaction-date] tc/to-local-date))
 
+(defn- get-previous-item
+  "Finds the transaction item that immediately precedes the specified item"
+  [storage item transaction-date]
+  (if-let [index (:index item)]
+    (if (= 0 index)
+      nil
+      (find-transaction-item-by-index storage
+                                      (:account-id item)
+                                      (- index 1)))
+    (find-transaction-item-preceding-date storage
+                                          (:account-id item)
+                                          transaction-date)))
+
+(defn- update-balances
+  "Updates transaction item and account balances resulting from the
+  specified transaction.
+  
+  The balance for each transaction item is the sum of the balance of
+  the previous transaction item and the polarized transaction amount.
+  
+  The polarized transaction amount is the positive or negative change
+  on the balance of the associated account and is dependant on the action
+  (debit or credit) and the account type (asset, liability, equity,
+  income, or expense)"
+  [storage transaction]
+  (update-in transaction
+             [:items]
+             #(map (fn [item]
+                     (let [previous-item (get-previous-item storage item (:transaction-date transaction))
+                           previous-balance (or (get previous-item :balance)
+                                                (bigdec 0))
+                           next-index (+ 1 (or (get previous-item :index) -1))
+                           polarized-amount (accounts/polarize-amount storage item)]
+                       (-> item
+                           (assoc :balance (+ previous-balance
+                                              polarized-amount)
+                                  :index next-index)))) %)))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
@@ -97,12 +138,13 @@
     (if (validation/has-error? validated)
       validated
       (let [storage (storage storage-spec)
-            result (create-transaction storage (before-save validated))
+            with-balances (update-balances storage validated)
+            result (create-transaction storage (before-save with-balances))
             items (into [] (map #(->> (assoc % :transaction-id (:id result))
                                       before-save-item
                                       (create-transaction-item storage)
                                       prepare-item-for-return)
-                                (:items validated)))]
+                                (:items with-balances)))]
         (assoc result :items items)))))
 
 (defn find-by-id
