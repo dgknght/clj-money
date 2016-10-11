@@ -30,24 +30,27 @@
    {:name "Groceries"
     :type :expense}])
 
-(def accounts
-  (zipmap [:checking :salary :groceries]
-          (->> account-defs
-               (map #(assoc % :entity-id (:id entity)))
-               (map #(accounts/create storage-spec %)))))
-
-(def attributes
-  {:transaction-date (t/local-date 2016 3 2)
-   :entity-id (:id entity)
-   :items [{:account-id (-> accounts :checking :id)
-            :action :debit
-            :amount (bigdec 1000)}
-           {:account-id (-> accounts :salary :id)
-            :action :credit
-            :amount (bigdec 1000)}]})
+(defn test-context
+  "Returns a context containing related models necessary to run the tests"
+  []
+  (let [accounts (zipmap [:checking :salary :groceries]
+                         (->> account-defs
+                              (map #(assoc % :entity-id (:id entity)))
+                              (map #(accounts/create storage-spec %))))]
+    {:accounts accounts
+     :attributes {:transaction-date (t/local-date 2016 3 2)
+                  :entity-id (:id entity)
+                  :items [{:account-id (-> accounts :checking :id)
+                           :action :debit
+                           :amount (bigdec 1000)}
+                          {:account-id (-> accounts :salary :id)
+                           :action :credit
+                           :amount (bigdec 1000)}]}}))
 
 (deftest create-a-transaction
-  (let [transaction (transactions/create storage-spec attributes)]
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create storage-spec attributes)]
     (testing "return value includes the new id"
       (is (validation/valid? transaction))
       (is (number? (:id transaction)) "A map with the new ID is returned"))
@@ -58,15 +61,21 @@
                (count (:items retrieved))) "The items are returned with the transaction")))))
 
 (deftest transaction-date-is-required
-  (let [transaction (transactions/create storage-spec (dissoc attributes :transaction-date))]
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create storage-spec (dissoc attributes :transaction-date))]
     (is (validation/has-error? transaction :transaction-date))))
 
 (deftest entity-id-is-required
-  (let [transaction (transactions/create storage-spec (dissoc attributes :entity-id))]
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create storage-spec (dissoc attributes :entity-id))]
     (is (validation/has-error? transaction :entity-id))))
 
 (deftest item-account-id-is-required
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create
                       storage-spec
                       (update-in attributes
                                  [:items 0]
@@ -74,7 +83,9 @@
     (is (validation/has-error? transaction :items))))
 
 (deftest item-amount-is-required
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create
                       storage-spec
                       (update-in attributes
                                  [:items 0]
@@ -82,7 +93,9 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-amount-must-be-greater-than-zero
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create
                       storage-spec
                       (update-in attributes
                                  [:items 0]
@@ -90,7 +103,9 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-is-required
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create
                       storage-spec
                       (update-in attributes
                                  [:items 0]
@@ -98,7 +113,9 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-must-be-debit-or-created
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create
                       storage-spec
                       (update-in attributes
                                  [:items 0]
@@ -106,7 +123,9 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest sum-of-debits-must-equal-sum-of-credits
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        transaction (transactions/create
                       storage-spec
                       (update-in attributes
                                  [:items 0]
@@ -114,7 +133,10 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-balances-are-set-when-saved
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        accounts (:accounts context)
+        transaction (transactions/create
                       storage-spec
                       attributes)
         salary-item (->> transaction
@@ -130,7 +152,10 @@
 
 ; TODO Need to create the accounts for each test instead of once
 (deftest item-indexes-are-set-when-saved
-  (let [transaction (transactions/create
+  (let [context (test-context)
+        attributes (:attributes context)
+        accounts (:accounts context)
+        transaction (transactions/create
                       storage-spec
                       attributes)
         salary-item (->> transaction
