@@ -132,43 +132,77 @@
                                  #(assoc % :amount (bigdec 1001))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
+(def balance-context
+  {:entities [{:name "Personal"}]
+   :accounts [{:name "Checking"
+               :type :asset
+               :entity-name "Personal"}
+              {:name "Salary"
+               :type :income
+               :entity-name "Personal"}
+              {:name "Groceries"
+               :type :expense
+               :entity-name "Personal"}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-name "Personal"
+                   :items [{:action :debit
+                            :account-name "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-name "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 3)
+                   :entity-name "Personal"
+                   :items [{:action :debit
+                            :account-name "Groceries"
+                            :amount 100}
+                           {:action :credit
+                            :account-name "Checking"
+                            :amount 100}]}]})
+
+(defn realize-users
+  [context]
+  (throw (RuntimeException. "Not implemented")))
+
+(defn realize-entities
+  [context]
+  (update-in context [:entities] (fn [entities]
+                                 (map (fn [attributes]
+                                        (entities/create storage-spec attributes))
+                                      entities))))
+
+(defn create-accounts
+  [context accounts]
+  (map (fn [attributes]
+         (let [entity (->> context
+                           :entities
+                           (filter #(= (:name %) (:entity-name attributes))))]
+           (accounts/create storage-spec (-> attributes
+                                             (assoc :entity entity)
+                                             (dissoc :entity-name)))))
+       accounts))
+
+(defn realize-accounts
+  [context]
+  (update-in context [:accounts] #(create-accounts context %)))
+
+(defn realize
+  "Realizes a test context"
+  [input]
+  (-> input
+      realize-users
+      realize-entities
+      realize-accounts))
+
 (deftest item-balances-are-set-when-saved
-  (let [context (test-context)
-        attributes (:attributes context)
-        accounts (:accounts context)
-        transaction (transactions/create
-                      storage-spec
-                      attributes)
-        salary-item (->> transaction
-                         :items
-                         (filter #(= (:id (:salary accounts)) (:account-id %)))
-                         first)
-        checking-item (->> transaction
-                         :items
-                         (filter #(= (:id (:checking accounts)) (:account-id %)))
-                         first)]
-    (is (= (bigdec 1000) (:balance salary-item)) "The salary transaction item has the correct balance")
-    (is (= (bigdec 1000) (:balance checking-item)) "The checking transaction item has the correct balance")
-    (let [t2 (transactions/create
-               storage-spec
-               {:transaction-date (t/local-date 2016 3 3)
-                :entity-id (:id entity)
-                :items [{:action :debit
-                         :account-id (:id (:groceries accounts))
-                         :amount (bigdec 100)}
-                        {:action :credit
-                         :account-id (:id (:checking accounts))
-                         :amount (bigdec 100)}]})
-          groceries-item (->> t2
-                              :items
-                              (filter #(= (:id (:groceries accounts)) (:account-id %)))
-                              first)
-          checking-item (->> t2
-                              :items
-                              (filter #(= (:id (:checking accounts)) (:account-id %)))
-                              first)]
-      (is (= (bigdec 100) (:balance groceries-item)) "The groceries transaciton has the correct balance")
-      (is (= (bigdec 900) (:balance checking-item)) "The second checking transaction item has the correct balance"))))
+  (let [context (realize balance-context)
+        [checking-items
+         salary-items
+         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
+                               (:accounts context))]
+    (is (= [(bigdec 1000) (bigdec 900)] (map :balance (checking-items))) "The checking account balances are correct")
+    (is (= [(bigdec 1000)] (map :balance (salary-items))) "The salary account balances are correct")
+    (is (= [(bigdec 100)] (map :balance (groceries-items))) "The groceries account balances are correct")))
 
 ; TODO Need to create the accounts for each test instead of once
 (deftest item-indexes-are-set-when-saved

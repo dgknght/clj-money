@@ -153,3 +153,8 @@
   (let [storage (storage storage-spec)]
     (-> (find-transaction-by-id storage id)
         (assoc :items (select-transaction-items-by-transaction-id storage id)))))
+
+(defn items-by-account
+  "Returns the transaction items for the specified account"
+  [storage-spec account-id]
+  )
