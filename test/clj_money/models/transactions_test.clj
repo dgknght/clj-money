@@ -148,7 +148,27 @@
                          (filter #(= (:id (:checking accounts)) (:account-id %)))
                          first)]
     (is (= (bigdec 1000) (:balance salary-item)) "The salary transaction item has the correct balance")
-    (is (= (bigdec 1000) (:balance checking-item)) "The checking transaction item has the correct balance")))
+    (is (= (bigdec 1000) (:balance checking-item)) "The checking transaction item has the correct balance")
+    (let [t2 (transactions/create
+               storage-spec
+               {:transaction-date (t/local-date 2016 3 3)
+                :entity-id (:id entity)
+                :items [{:action :debit
+                         :account-id (:id (:groceries accounts))
+                         :amount (bigdec 100)}
+                        {:action :credit
+                         :account-id (:id (:checking accounts))
+                         :amount (bigdec 100)}]})
+          groceries-item (->> t2
+                              :items
+                              (filter #(= (:id (:groceries accounts)) (:account-id %)))
+                              first)
+          checking-item (->> t2
+                              :items
+                              (filter #(= (:id (:checking accounts)) (:account-id %)))
+                              first)]
+      (is (= (bigdec 100) (:balance groceries-item)) "The groceries transaciton has the correct balance")
+      (is (= (bigdec 900) (:balance checking-item)) "The second checking transaction item has the correct balance"))))
 
 ; TODO Need to create the accounts for each test instead of once
 (deftest item-indexes-are-set-when-saved
