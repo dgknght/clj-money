@@ -197,9 +197,6 @@
                               (h/from :transaction_items)
                               (h/where [:= :account_id account-id])
                               (h/order-by [:index :desc])))]
-
-      (pprint {:select-transaction-items-by-account-id sql})
-
             (->> (jdbc/query db-spec sql)
                 (map ->clojure-keys))))
 

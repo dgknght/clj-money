@@ -7,7 +7,7 @@
 
 (defn- create-users
   [storage-spec users]
-  (map (fn [attributes]
+  (mapv (fn [attributes]
          (users/create storage-spec attributes))
        users))
 
@@ -28,7 +28,7 @@
 
 (defn- create-entities
   [storage-spec context entities]
-  (map (fn [attributes]
+  (mapv (fn [attributes]
          (entities/create storage-spec (resolve-user context attributes)))
        entities))
 
@@ -49,7 +49,7 @@
 
 (defn- create-accounts
   [storage-spec context accounts]
-  (map #(accounts/create storage-spec (resolve-entity context %)) accounts))
+  (mapv #(accounts/create storage-spec (resolve-entity context %)) accounts))
 
 (defn- realize-accounts
   [storage-spec context]
@@ -85,7 +85,7 @@
 (defn- create-transactions
   [storage-spec context transactions]
   []
-  (map (fn [attributes]
+  (mapv (fn [attributes]
          (transactions/create storage-spec (->> attributes
                                             (resolve-entity context)
                                             (prepare-items context))))

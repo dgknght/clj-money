@@ -170,11 +170,13 @@
          salary-items
          groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
                                (:accounts context))]
-    (is (= [(bigdec 1000) (bigdec 900)] (map :balance checking-items))
+           ; Transactions are returned with most recent first
+    (is (= [(bigdec 900) (bigdec 1000)]
+           (map :balance checking-items))
         "The checking account balances are correct")
-    (is (= [(bigdec 1000)] (map :balance (salary-items)))
+    (is (= [(bigdec 1000)] (map :balance salary-items))
           "The salary account balances are correct")
-    (is (= [(bigdec 100)] (map :balance (groceries-items)))
+    (is (= [(bigdec 100)] (map :balance groceries-items))
           "The groceries account balances are correct")))
 
 ; TODO Need to create the accounts for each test instead of once
