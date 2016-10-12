@@ -201,3 +201,9 @@
     (is (= (bigdec 900) checking-balance) "The checking account has the correct balance.")
     (is (= (bigdec 1000) salary-balance) "The salary account has the correct balance.")
     (is (= (bigdec 100) groceries-balance) "The groceries account has the correct balance.")))
+
+; TODO test balances after inserting a transaction before the end
+; subsequent item balances should be updated
+; account balances should be updated correctly
+; walking the list of subsequent items should stop as soon as
+;   the balance is equal to the new value
