@@ -11,6 +11,7 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
+            [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
                                             assert-validation-error]]))
 
@@ -133,76 +134,48 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (def balance-context
-  {:entities [{:name "Personal"}]
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"
+               :user-id "john@doe.com"}]
    :accounts [{:name "Checking"
                :type :asset
-               :entity-name "Personal"}
+               :entity-id "Personal"}
               {:name "Salary"
                :type :income
-               :entity-name "Personal"}
+               :entity-id "Personal"}
               {:name "Groceries"
                :type :expense
-               :entity-name "Personal"}]
+               :entity-id "Personal"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
-                   :entity-name "Personal"
+                   :entity-id "Personal"
                    :items [{:action :debit
-                            :account-name "Checking"
+                            :account-id "Checking"
                             :amount 1000}
                            {:action :credit
-                            :account-name "Salary"
+                            :account-id "Salary"
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 3)
-                   :entity-name "Personal"
+                   :entity-id "Personal"
                    :items [{:action :debit
-                            :account-name "Groceries"
+                            :account-id "Groceries"
                             :amount 100}
                            {:action :credit
-                            :account-name "Checking"
+                            :account-id "Checking"
                             :amount 100}]}]})
 
-(defn realize-users
-  [context]
-  (throw (RuntimeException. "Not implemented")))
-
-(defn realize-entities
-  [context]
-  (update-in context [:entities] (fn [entities]
-                                 (map (fn [attributes]
-                                        (entities/create storage-spec attributes))
-                                      entities))))
-
-(defn create-accounts
-  [context accounts]
-  (map (fn [attributes]
-         (let [entity (->> context
-                           :entities
-                           (filter #(= (:name %) (:entity-name attributes))))]
-           (accounts/create storage-spec (-> attributes
-                                             (assoc :entity entity)
-                                             (dissoc :entity-name)))))
-       accounts))
-
-(defn realize-accounts
-  [context]
-  (update-in context [:accounts] #(create-accounts context %)))
-
-(defn realize
-  "Realizes a test context"
-  [input]
-  (-> input
-      realize-users
-      realize-entities
-      realize-accounts))
 
 (deftest item-balances-are-set-when-saved
-  (let [context (realize balance-context)
+  (let [context (serialization/realize storage-spec balance-context)
         [checking-items
          salary-items
          groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
                                (:accounts context))]
-    (is (= [(bigdec 1000) (bigdec 900)] (map :balance (checking-items))) "The checking account balances are correct")
-    (is (= [(bigdec 1000)] (map :balance (salary-items))) "The salary account balances are correct")
-    (is (= [(bigdec 100)] (map :balance (groceries-items))) "The groceries account balances are correct")))
+    (is (= [(bigdec 1000) (bigdec 900)] (map :balance checking-items))
+        "The checking account balances are correct")
+    (is (= [(bigdec 1000)] (map :balance (salary-items)))
+          "The salary account balances are correct")
+    (is (= [(bigdec 100)] (map :balance (groceries-items)))
+          "The groceries account balances are correct")))
 
 ; TODO Need to create the accounts for each test instead of once
 (deftest item-indexes-are-set-when-saved
