@@ -10,7 +10,8 @@
                                               find-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
-                                              delete-account]]))
+                                              delete-account]])
+  (:import java.math.BigDecimal))
 
 (def account-types
   "The list of valid account types in standard presentation order"
@@ -25,6 +26,7 @@
 (def Account
   {:id s/Int
    :entity-id s/Int
+   (s/optional-key :balance) BigDecimal
    (s/optional-key :name) s/Str
    (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)
    (s/optional-key :parent-id) s/Int})
@@ -48,6 +50,11 @@
     (and (string? (:parent-id account))
          (empty? (:parent-id account)))
     (dissoc :parent-id)))
+
+(defn- before-create
+  "Adjust account data prior to creation"
+  [storage account]
+  (assoc account :balance (bigdec 0)))
 
 (defn- before-save
   "Adjusts account data for saving in the database"
@@ -123,6 +130,7 @@
     (if (validation/has-error? validated)
       validated
       (->> validated
+           (before-create storage)
            (before-save storage)
            (create-account storage)
            prepare-for-return))))
