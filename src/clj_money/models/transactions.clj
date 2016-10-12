@@ -131,6 +131,18 @@
                                               polarized-amount)
                                   :index next-index)))) %)))
 
+(defn- update-account-balances
+  "Updates the accounts affected by the specified transaction"
+  [storage-spec transaction]
+  (doseq [[account-id items] (->> transaction
+                                  :items
+                                  (group-by :account-id))]
+    (let [last-item (->> items
+                         (sort-by #(- 0 (:index %)))
+                         first)]
+      (accounts/update storage-spec {:id account-id
+                                     :balance (:balance last-item)}))))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
@@ -145,8 +157,10 @@
                                       before-save-item
                                       (create-transaction-item storage)
                                       prepare-item-for-return)
-                                (:items with-balances)))]
-        (assoc result :items items)))))
+                                (:items with-balances)))
+            result (assoc result :items items)]
+        (update-account-balances storage-spec result)
+        result))))
 
 (defn find-by-id
   "Returns the specified transaction"

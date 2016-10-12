@@ -188,3 +188,16 @@
     (is (= [1 0] (map :index checking-items)) "The checking transaction items have correct indexes")
     (is (= [0] (map :index salary-items)) "The salary transaction items have the correct indexes")
     (is (= [0] (map :index groceries-items)) "The groceries transaction items have the correct indexes")))
+
+(deftest account-balances-are-set-when-saved
+  (let [context (serialization/realize storage-spec balance-context)
+        [checking-balance
+         salary-balance
+         groceries-balance] (map #(->> %
+                                       :id
+                                       (accounts/find-by-id storage-spec)
+                                       :balance)
+                                 (:accounts context))]
+    (is (= (bigdec 900) checking-balance) "The checking account has the correct balance.")
+    (is (= (bigdec 1000) salary-balance) "The salary account has the correct balance.")
+    (is (= (bigdec 100) groceries-balance) "The groceries account has the correct balance.")))
