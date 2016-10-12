@@ -11,6 +11,7 @@
                                               find-transaction-by-id
                                               find-transaction-item-by-index
                                               find-transaction-item-preceding-date
+                                              select-transaction-items-by-account-id
                                               select-transaction-items-by-transaction-id]])
   (:import java.util.Date
            org.joda.time.LocalDate))
@@ -157,4 +158,4 @@
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [storage-spec account-id]
-  )
+  (select-transaction-items-by-account-id (storage storage-spec) account-id))

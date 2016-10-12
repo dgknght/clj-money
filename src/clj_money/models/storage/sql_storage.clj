@@ -191,6 +191,18 @@
             (->> (jdbc/query db-spec sql)
                 (map ->clojure-keys))))
 
+  (select-transaction-items-by-account-id
+    [_ account-id]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :transaction_items)
+                              (h/where [:= :account_id account-id])
+                              (h/order-by [:index :desc])))]
+
+      (pprint {:select-transaction-items-by-account-id sql})
+
+            (->> (jdbc/query db-spec sql)
+                (map ->clojure-keys))))
+
   (find-transaction-item-by-index
     [_ account-id index]
     (let [sql (sql/format (-> (h/select :*)

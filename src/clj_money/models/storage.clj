@@ -74,6 +74,9 @@
   (select-transaction-items-by-transaction-id
     [this transaction-id]
     "Returns the transaction items belonging to the specified transaction")
+  (select-transaction-items-by-account-id
+    [this account-id]
+    "Returns the transaction items belonging to the specified account")
   (find-transaction-item-by-index
     [this account-id index]
     "Returns the transaction item for the specified account having the specified index")
