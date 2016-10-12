@@ -179,21 +179,12 @@
     (is (= [(bigdec 100)] (map :balance groceries-items))
           "The groceries account balances are correct")))
 
-; TODO Need to create the accounts for each test instead of once
 (deftest item-indexes-are-set-when-saved
-  (let [context (test-context)
-        attributes (:attributes context)
-        accounts (:accounts context)
-        transaction (transactions/create
-                      storage-spec
-                      attributes)
-        salary-item (->> transaction
-                         :items
-                         (filter #(= (:id (:salary accounts)) (:account-id %)))
-                         first)
-        checking-item (->> transaction
-                         :items
-                         (filter #(= (:id (:checking accounts)) (:account-id %)))
-                         first)]
-    (is (= 0 (:index salary-item)) "The salary transaction item has the correct index")
-    (is (= 0 (:index checking-item)) "The checking transaction item has the correct index")))
+  (let [context (serialization/realize storage-spec balance-context)
+        [checking-items
+         salary-items
+         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
+                               (:accounts context))]
+    (is (= [1 0] (map :index checking-items)) "The checking transaction items have correct indexes")
+    (is (= [0] (map :index salary-items)) "The salary transaction items have the correct indexes")
+    (is (= [0] (map :index groceries-items)) "The groceries transaction items have the correct indexes")))
