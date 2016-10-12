@@ -38,7 +38,7 @@
   (cond-> account
 
     ; If no entity is specified, try to look it up
-    (nil? (:entity-id account))
+    (and (:id account) (nil? (:entity-id account)))
     (assoc :entity-id (:entity-id (find-by-id storage
                                               (Integer. (:id account)))))
 
