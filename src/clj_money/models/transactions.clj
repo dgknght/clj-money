@@ -12,7 +12,9 @@
                                               find-transaction-item-by-index
                                               find-transaction-item-preceding-date
                                               select-transaction-items-by-account-id
-                                              select-transaction-items-by-transaction-id]])
+                                              select-transaction-items-by-account-id-and-starting-index
+                                              select-transaction-items-by-transaction-id
+                                              update-transaction-item]])
   (:import java.util.Date
            org.joda.time.LocalDate))
 
@@ -131,17 +133,40 @@
                                               polarized-amount)
                                   :index next-index)))) %)))
 
-(defn- update-account-balances
-  "Updates the accounts affected by the specified transaction"
-  [storage-spec transaction]
-  (doseq [[account-id items] (->> transaction
-                                  :items
-                                  (group-by :account-id))]
+(defn- subsequent-items
+  "Returns items in the same account with an equal or greater
+  index that the specified item"
+  [storage-spec reference-item]
+  (remove #(= (:id reference-item) (:id %))
+          (select-transaction-items-by-account-id-and-starting-index
+            (storage storage-spec)
+            (:account-id reference-item)
+            (:index reference-item))))
+
+(defn- update-item
+  "Updates the specified transaction item"
+  [storage-spec item]
+  (update-transaction-item (storage storage-spec) item))
+
+(defn- update-affected-balances
+  "Updates the accounts affected by the specified transaction items"
+  [storage-spec items]
+  (doseq [[account-id items] (group-by :account-id items)]
     (let [last-item (->> items
                          (sort-by #(- 0 (:index %)))
-                         first)]
+                         first)
+          subsequent-items (subsequent-items storage-spec last-item)
+          final (reduce (fn [{:keys [index balance]} item]
+                          (let [new-index (+ 1 index)
+                                new-balance (+ balance (accounts/polarize-amount storage-spec item))]
+                            (update-item storage-spec (assoc item :index new-index
+                                                             :balance new-balance))
+                            {:index new-index
+                             :balance new-balance}))
+                        last-item
+                        subsequent-items)]
       (accounts/update storage-spec {:id account-id
-                                     :balance (:balance last-item)}))))
+                                     :balance (:balance final)}))))
 
 (defn create
   "Creates a new transaction"
@@ -152,15 +177,14 @@
       validated
       (let [storage (storage storage-spec)
             with-balances (update-balances storage validated)
+            _ (update-affected-balances storage-spec (:items with-balances))
             result (create-transaction storage (before-save with-balances))
             items (into [] (map #(->> (assoc % :transaction-id (:id result))
                                       before-save-item
                                       (create-transaction-item storage)
                                       prepare-item-for-return)
-                                (:items with-balances)))
-            result (assoc result :items items)]
-        (update-account-balances storage-spec result)
-        result))))
+                                (:items with-balances)))]
+        (assoc result :items items)))))
 
 (defn find-by-id
   "Returns the specified transaction"

@@ -202,8 +202,82 @@
     (is (= (bigdec 1000) salary-balance) "The salary account has the correct balance.")
     (is (= (bigdec 100) groceries-balance) "The groceries account has the correct balance.")))
 
+(def insert-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"
+               :user-id "john@doe.com"}]
+   :accounts [{:name "Checking"
+               :type :asset
+               :entity-id "Personal"}
+              {:name "Salary"
+               :type :income
+               :entity-id "Personal"}
+              {:name "Groceries"
+               :type :expense
+               :entity-id "Personal"}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 10)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 100}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 100}]}
+                  {:transaction-date (t/local-date 2016 3 3)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 99}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 99}]}]})
+
+(deftest insert-transaction-before-the-end
+  (let [context (serialization/realize storage-spec insert-context)
+        [checking-items
+         salary-items
+         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
+                               (:accounts context))]
+    (is (= [{:index 2
+             :amount (bigdec 100)
+             :balance (bigdec 801)}
+            {:index 1
+             :amount (bigdec 99)
+             :balance (bigdec 901)}
+            {:index 0
+             :amount (bigdec 1000)
+             :balance (bigdec 1000)}]
+           (map #(select-keys % [:index :amount :balance]) checking-items))
+        "The checking item balances should be correct")
+    (is (= (map bigdec [801 1000 199])
+           (map #(:balance (accounts/find-by-id storage-spec (:id %))) (:accounts context)))
+        "The checking account has the correct balance")))
+
 ; TODO test balances after inserting a transaction before the end
 ; subsequent item balances should be updated
 ; account balances should be updated correctly
 ; walking the list of subsequent items should stop as soon as
 ;   the balance is equal to the new value
+
+; create a transaction with more than one item for a given account
+
+; update a transaction
+; change amount
+;  subsequent item balances are recalculated
+;  account balance is recalculated
+; change date
+;  subsequent item balances are recalculated
+;  subsequent item indexes are recaculated
+;  account balances are recalculated
+;  recalculation stops once new balance matches old balance
+; change account
+;  old account balance and items are recalculated
+;  new account balance and items are recalculated
