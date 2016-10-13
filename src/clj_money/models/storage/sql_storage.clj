@@ -4,6 +4,7 @@
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [clj-time.jdbc]
+            [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-money.models.storage :refer [Storage]]))
@@ -201,6 +202,17 @@
             (->> (jdbc/query db-spec sql)
                 (map ->clojure-keys))))
 
+  (select-transaction-items-by-account-id-and-starting-index
+    [_ account-id index]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :transaction_items)
+                              (h/where [:and
+                                        [:= :account_id account-id]
+                                        [:>= :index index]])
+                              (h/order-by [:index :desc])))]
+      (->> (jdbc/query db-spec sql)
+          (map ->clojure-keys))))
+
   (find-transaction-item-by-index
     [_ account-id index]
     (let [sql (sql/format (-> (h/select :*)
@@ -216,9 +228,23 @@
     (let [sql (sql/format (-> (h/select :*)
                               (h/from [:transaction_items :i])
                               (h/join [:transactions :t] [:= :t.id :i.transaction-id])
-                              (h/where [:= :i.account-id account-id])
+                              (h/where [:and
+                                        [:= :i.account-id account-id]
+                                        [:< :t.transaction-date (tc/to-sql-date transaction-date)]])
                               (h/order-by [:t.transaction-date :desc] [:i.index :desc])
                               (h/limit 1)))]
       (->> (jdbc/query db-spec sql)
           first
-          ->clojure-keys))))
+          ->clojure-keys)))
+
+(update-transaction-item
+  [_ transaction-item]
+  (let [sql (sql/format (-> (h/update :transaction_items)
+                            (h/sset (->sql-keys (select-keys transaction-item
+                                                             [:amount
+                                                              :action
+                                                              :index
+                                                              :balance
+                                                              :account-id])))
+                            (h/where [:= :id (:id transaction-item)])))]
+    (jdbc/execute! db-spec sql))))

@@ -77,9 +77,15 @@
   (select-transaction-items-by-account-id
     [this account-id]
     "Returns the transaction items belonging to the specified account")
+  (select-transaction-items-by-account-id-and-starting-index
+    [this account-id index]
+    "Returns the transaction items for the specified account having an index greater than or equal to the specified index")
   (find-transaction-item-by-index
     [this account-id index]
     "Returns the transaction item for the specified account having the specified index")
   (find-transaction-item-preceding-date
     [this account-id transaction-date]
-    "Returns the transaction item with the highest index preceding the specifed date"))
+    "Returns the transaction item with the highest index preceding the specifed date")
+  (update-transaction-item
+    [this transaction-item]
+    "Updates the specified transaction item"))
