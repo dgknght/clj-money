@@ -137,11 +137,12 @@
   "Returns items in the same account with an equal or greater
   index that the specified item"
   [storage-spec reference-item]
-  (remove #(= (:id reference-item) (:id %))
-          (select-transaction-items-by-account-id-and-starting-index
-            (storage storage-spec)
-            (:account-id reference-item)
-            (:index reference-item))))
+  (->> (select-transaction-items-by-account-id-and-starting-index
+         (storage storage-spec)
+         (:account-id reference-item)
+         (:index reference-item))
+       (remove #(= (:id reference-item) (:id %)))
+       (map prepare-item-for-return)))
 
 (defn- update-item
   "Updates the specified transaction item"
@@ -158,7 +159,8 @@
           subsequent-items (subsequent-items storage-spec last-item)
           final (reduce (fn [{:keys [index balance]} item]
                           (let [new-index (+ 1 index)
-                                new-balance (+ balance (accounts/polarize-amount storage-spec item))]
+                                polarized-amount (accounts/polarize-amount storage-spec item)
+                                new-balance (+ balance polarized-amount)]
                             (update-item storage-spec (assoc item :index new-index
                                                              :balance new-balance))
                             {:index new-index
