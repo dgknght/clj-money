@@ -107,8 +107,19 @@
     (find-transaction-item-preceding-date storage
                                           (:account-id item)
                                           transaction-date)))
+(defn- add-item-balance-and-index
+  [storage transaction-date item]
+  (let [previous-item (get-previous-item storage item transaction-date)
+        previous-balance (or (get previous-item :balance)
+                             (bigdec 0))
+        next-index (+ 1 (or (get previous-item :index) -1))
+        polarized-amount (accounts/polarize-amount storage item)]
+    (-> item
+        (assoc :balance (+ previous-balance
+                           polarized-amount)
+               :index next-index))))
 
-(defn- update-balances
+(defn- calculate-balances-and-indexes
   "Updates transaction item and account balances resulting from the
   specified transaction.
   
@@ -122,16 +133,10 @@
   [storage transaction]
   (update-in transaction
              [:items]
-             #(map (fn [item]
-                     (let [previous-item (get-previous-item storage item (:transaction-date transaction))
-                           previous-balance (or (get previous-item :balance)
-                                                (bigdec 0))
-                           next-index (+ 1 (or (get previous-item :index) -1))
-                           polarized-amount (accounts/polarize-amount storage item)]
-                       (-> item
-                           (assoc :balance (+ previous-balance
-                                              polarized-amount)
-                                  :index next-index)))) %)))
+             #(map (partial add-item-balance-and-index
+                            storage
+                            (:transaction-date transaction))
+                   %)))
 
 (defn- subsequent-items
   "Returns items in the same account with an equal or greater
@@ -180,7 +185,7 @@
     (if (validation/has-error? validated)
       validated
       (let [storage (storage storage-spec)
-            with-balances (update-balances storage validated)
+            with-balances (calculate-balances-and-indexes storage validated)
             _ (update-affected-balances storage-spec (:items with-balances))
             result (create-transaction storage (before-save with-balances))
             items (into [] (map #(->> (assoc % :transaction-id (:id result))
