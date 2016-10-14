@@ -161,8 +161,10 @@
                           (let [new-index (+ 1 index)
                                 polarized-amount (accounts/polarize-amount storage-spec item)
                                 new-balance (+ balance polarized-amount)]
-                            (update-item storage-spec (assoc item :index new-index
-                                                             :balance new-balance))
+                            (update-item storage-spec (-> item
+                                                          (assoc :index new-index
+                                                                 :balance new-balance)
+                                                          before-save-item))
                             {:index new-index
                              :balance new-balance}))
                         last-item
