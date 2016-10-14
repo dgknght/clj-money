@@ -281,3 +281,5 @@
 ; change account
 ;  old account balance and items are recalculated
 ;  new account balance and items are recalculated
+
+; delete a transaction
