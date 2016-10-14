@@ -261,13 +261,56 @@
            (map #(:balance (accounts/find-by-id storage-spec (:id %))) (:accounts context)))
         "The checking account has the correct balance")))
 
-; TODO test balances after inserting a transaction before the end
-; subsequent item balances should be updated
-; account balances should be updated correctly
-; walking the list of subsequent items should stop as soon as
-;   the balance is equal to the new value
+(def multi-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"
+               :user-id "john@doe.com"}]
+   :accounts [{:name "Checking"
+               :type :asset
+               :entity-id "Personal"}
+              {:name "Salary"
+               :type :income
+               :entity-id "Personal"}
+              {:name "Bonus"
+               :type :income
+               :entity-id "Personal"}
+              {:name "Groceries"
+               :type :expense
+               :entity-id "Personal"}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :debit
+                            :account-id "Checking"
+                            :amount 100}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Bonus"
+                            :amount 100}]}
+                  {:transaction-date (t/local-date 2016 3 10)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 100}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 100}]}]})
 
-; create a transaction with more than one item for a given account
+(deftest create-a-transaction-with-multiple-items-for-one-account
+  (let [context (serialization/realize storage-spec multi-context)
+        [checking-items
+         salary-items
+         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
+                               (:accounts context))]
+    (is (= [{:index 0 :amount 1000 :balance 1000}
+            {:index 1 :amount  100 :balance 1100}
+            {:index 2 :amount  100 :balance 1000}]
+           checking-items)
+        "The checking account items are correct")))
 
 ; update a transaction
 ; change amount
