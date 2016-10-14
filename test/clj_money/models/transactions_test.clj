@@ -305,11 +305,16 @@
         [checking-items
          salary-items
          groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
-                               (:accounts context))]
-    (is (= [{:index 0 :amount 1000 :balance 1000}
-            {:index 1 :amount  100 :balance 1100}
-            {:index 2 :amount  100 :balance 1000}]
-           checking-items)
+                               (:accounts context))
+        expected-checking-items (->> [{:index 2 :amount  100 :balance 1000}
+                                      {:index 1 :amount  100 :balance 1100}
+                                      {:index 0 :amount 1000 :balance 1000}]
+                                     (map #(update-in % [:amount] bigdec))
+                                     (map #(update-in % [:balance] bigdec)))
+        actual-checking-items (map #(select-keys % [:index :amount :balance])
+                                   checking-items)]
+    (is (= expected-checking-items
+           actual-checking-items)
         "The checking account items are correct")))
 
 ; update a transaction
