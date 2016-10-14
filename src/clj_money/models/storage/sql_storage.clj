@@ -7,7 +7,8 @@
             [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
-            [clj-money.models.storage :refer [Storage]]))
+            [clj-money.models.storage :refer [Storage]])
+  (:import java.sql.BatchUpdateException))
 
 (defn- exists?
   [db-spec table where]
@@ -237,14 +238,18 @@
           first
           ->clojure-keys)))
 
-(update-transaction-item
-  [_ transaction-item]
-  (let [sql (sql/format (-> (h/update :transaction_items)
-                            (h/sset (->sql-keys (select-keys transaction-item
-                                                             [:amount
-                                                              :action
-                                                              :index
-                                                              :balance
-                                                              :account-id])))
-                            (h/where [:= :id (:id transaction-item)])))]
-    (jdbc/execute! db-spec sql))))
+  (update-transaction-item
+    [_ transaction-item]
+    (let [sql (sql/format (-> (h/update :transaction_items)
+                              (h/sset (->sql-keys (select-keys transaction-item
+                                                              [:amount
+                                                               :action
+                                                               :index
+                                                               :balance
+                                                               :account-id])))
+                              (h/where [:= :id (:id transaction-item)])))]
+      (try
+        (jdbc/execute! db-spec sql)
+        (catch BatchUpdateException e
+          (pprint {:sql sql
+                   :batch-update-exception (.getNextException e)}))))))
