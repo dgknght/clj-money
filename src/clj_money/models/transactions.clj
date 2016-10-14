@@ -107,17 +107,47 @@
     (find-transaction-item-preceding-date storage
                                           (:account-id item)
                                           transaction-date)))
+
+(defn- process-item-balance-and-index
+  "Accepts a context containing
+    :previous-index   - The index of the previous item
+    :previous-balance - The balance of the previous item
+    :items            - The items processed so far
+    :storage          - Storage service
+
+  Returns the context with these updates
+    :previous-index   - updated to the index of the item just processed
+    :previous-balance - updated to the balance of the item just processed
+    :items            - appended with the item just processed
+    :storage          - Unchanged storage service"
+  [context item]
+  (let [next-index (+ 1 (:previous-index context))
+        polarized-amount (accounts/polarize-amount (:storage context) item)
+        next-balance (+ (:previous-balance context) polarized-amount)
+        updated-item (-> item
+                         (assoc :balance next-balance
+                                :index next-index))]
+    (-> context
+        (assoc :previous-index next-index
+               :previous-balance next-balance)
+        (update-in [:items] #(conj % updated-item)))))
+
 (defn- add-item-balance-and-index
-  [storage transaction-date item]
-  (let [previous-item (get-previous-item storage item transaction-date)
+  "Updates the specified items, which belong to the specified account
+  with new balance and index values"
+  [storage transaction-date [account-id items]]
+  (let [sorted-items (sort-by :index items)
+        previous-item (get-previous-item storage (first sorted-items) transaction-date)
         previous-balance (or (get previous-item :balance)
                              (bigdec 0))
-        next-index (+ 1 (or (get previous-item :index) -1))
-        polarized-amount (accounts/polarize-amount storage item)]
-    (-> item
-        (assoc :balance (+ previous-balance
-                           polarized-amount)
-               :index next-index))))
+        previous-index (or (get previous-item :index) -1)]
+    (->> sorted-items
+         (reduce process-item-balance-and-index
+                 {:previous-index previous-index
+                  :previous-balance previous-balance
+                  :items []
+                  :storage storage})
+         :items)))
 
 (defn- calculate-balances-and-indexes
   "Updates transaction item and account balances resulting from the
@@ -130,13 +160,12 @@
   on the balance of the associated account and is dependant on the action
   (debit or credit) and the account type (asset, liability, equity,
   income, or expense)"
-  [storage transaction]
-  (update-in transaction
-             [:items]
-             #(map (partial add-item-balance-and-index
-                            storage
-                            (:transaction-date transaction))
-                   %)))
+  [storage transaction-date items]
+  (->> items
+       (group-by :account-id)
+       (mapcat (partial add-item-balance-and-index
+                     storage
+                     transaction-date))))
 
 (defn- subsequent-items
   "Returns items in the same account with an equal or greater
@@ -158,9 +187,7 @@
   "Updates the accounts affected by the specified transaction items"
   [storage-spec items]
   (doseq [[account-id items] (group-by :account-id items)]
-    (let [last-item (->> items
-                         (sort-by #(- 0 (:index %)))
-                         first)
+    (let [last-item (last items) ; these should already be sorted
           subsequent-items (subsequent-items storage-spec last-item)
           final (reduce (fn [{:keys [index balance]} item]
                           (let [new-index (+ 1 index)
@@ -185,14 +212,16 @@
     (if (validation/has-error? validated)
       validated
       (let [storage (storage storage-spec)
-            with-balances (calculate-balances-and-indexes storage validated)
-            _ (update-affected-balances storage-spec (:items with-balances))
-            result (create-transaction storage (before-save with-balances))
+            items-with-balances (calculate-balances-and-indexes storage
+                                                                (:transaction-date validated)
+                                                                (:items validated))
+            _ (update-affected-balances storage-spec items-with-balances)
+            result (create-transaction storage (before-save (assoc validated :items items-with-balances)))
             items (into [] (map #(->> (assoc % :transaction-id (:id result))
                                       before-save-item
                                       (create-transaction-item storage)
                                       prepare-item-for-return)
-                                (:items with-balances)))]
+                                items-with-balances))]
         (assoc result :items items)))))
 
 (defn find-by-id
