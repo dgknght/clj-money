@@ -183,23 +183,42 @@
   [storage-spec item]
   (update-transaction-item (storage storage-spec) item))
 
+(defn- update-item-index-and-balance
+  "Accepts a transaction item and a context containing
+    :index   - a transaction item index
+    :balance - a transaction item balance
+    :storage - service used to communicate with the data store
+
+  Calculates the new index and balance for the item and updates
+  them in the data store
+
+  Returns a context containing
+    :index   - the new index
+    :balance - the new balance
+    :storage - unchanged
+
+  This is done in the context of updating existing transaction
+  items that are affected by a new or updated transaction"
+  [{:keys [index balance storage]} item]
+  (let [new-index (+ 1 index)
+        polarized-amount (accounts/polarize-amount storage item)
+        new-balance (+ balance polarized-amount)]
+    (update-item storage (-> item
+                             (assoc :index new-index
+                                    :balance new-balance)
+                             before-save-item))
+    {:index new-index
+     :balance new-balance
+     :storage storage}))
+
 (defn- update-affected-balances
   "Updates the accounts affected by the specified transaction items"
   [storage-spec items]
   (doseq [[account-id items] (group-by :account-id items)]
     (let [last-item (last items) ; these should already be sorted
           subsequent-items (subsequent-items storage-spec last-item)
-          final (reduce (fn [{:keys [index balance]} item]
-                          (let [new-index (+ 1 index)
-                                polarized-amount (accounts/polarize-amount storage-spec item)
-                                new-balance (+ balance polarized-amount)]
-                            (update-item storage-spec (-> item
-                                                          (assoc :index new-index
-                                                                 :balance new-balance)
-                                                          before-save-item))
-                            {:index new-index
-                             :balance new-balance}))
-                        last-item
+          final (reduce update-item-index-and-balance
+                        (assoc last-item :storage storage-spec)
                         subsequent-items)]
       (accounts/update storage-spec {:id account-id
                                      :balance (:balance final)}))))
