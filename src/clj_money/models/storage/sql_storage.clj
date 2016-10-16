@@ -66,7 +66,7 @@
   [model & keys]
   (-> model
       (select-keys keys)
-      (assoc :update-at (t/now))
+      (assoc :updated-at (t/now))
       ->sql-keys))
 
 (deftype SqlStorage [db-spec]
