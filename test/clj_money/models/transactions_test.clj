@@ -367,19 +367,27 @@
                                                 second
                                                 :id))
         checking-items-after (transactions/items-by-account storage-spec
-                                                             (:id checking))
-        expected-before [{:index 2 :amount (bigdec  102) :balance (bigdec  797)}
-                         {:index 1 :amount (bigdec  101) :balance (bigdec  899)}
-                         {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
-        actual-before (map #(select-keys % [:index :amount :balance])
-                           checking-items-before)
-        expected-after[{:index 1 :amount (bigdec  102) :balance (bigdec  898)}
-                       {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
-        actual-after (map #(select-keys % [:index :amount :balance]) checking-items-after)]
-    (is (= expected-before actual-before)
-        "Checking should have the correct items before delete")
-    (is (= expected-after actual-after)
-        "Checking should have the correct items after delete")))
+                                                             (:id checking))]
+    (testing "transaction item balances are adjusted"
+      (let [expected-before [{:index 2 :amount (bigdec  102) :balance (bigdec  797)}
+                             {:index 1 :amount (bigdec  101) :balance (bigdec  899)}
+                             {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+            actual-before (map #(select-keys % [:index :amount :balance])
+                               checking-items-before)
+            expected-after[{:index 1 :amount (bigdec  102) :balance (bigdec  898)}
+                           {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+            actual-after (map #(select-keys % [:index :amount :balance]) checking-items-after)]
+        (is (= expected-before actual-before)
+            "Checking should have the correct items before delete")
+        (is (= expected-after actual-after)
+            "Checking should have the correct items after delete")))
+    (testing "account balances are adjusted"
+      (let [checking-after (accounts/find-by-id storage-spec (:id checking))
+            groceries-after (accounts/find-by-id storage-spec (:id groceries))]
+        (is (= (bigdec 898) (:balance checking-after))
+            "Checking should have the correct balance after delete")
+        (is (= (bigdec 102) (:balance groceries-after))
+            "Groceries should have the correct balance after delete")))))
 
 ; update a transaction
 ; change amount
