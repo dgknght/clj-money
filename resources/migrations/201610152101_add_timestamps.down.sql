@@ -1,0 +1,15 @@
+alter table users
+  drop column created_at,
+  drop column updated_at;
+alter table entities
+  drop column created_at,
+  drop column updated_at;
+alter table accounts
+  drop column created_at,
+  drop column updated_at;
+alter table transactions
+  drop column created_at,
+  drop column updated_at;
+alter table transaction_items
+  drop column created_at,
+  drop column updated_at;

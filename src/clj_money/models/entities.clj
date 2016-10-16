@@ -21,7 +21,9 @@
 (def Entity
   "Schema for saved entities"
   {:id s/Int
-   :name (s/maybe s/Str)})
+   :name (s/maybe s/Str)
+   (s/optional-key :created-at) s/Any
+   (s/optional-key :updated-at) s/Any})
 
 (defn validation-rules
   [schema storage]

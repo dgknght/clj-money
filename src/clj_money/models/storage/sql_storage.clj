@@ -4,6 +4,7 @@
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [clj-time.jdbc]
+            [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
@@ -59,6 +60,14 @@
        (jdbc/insert! db-spec table)
        first
        ->clojure-keys))
+
+(defn- ->update-set
+  "Prepares a model for update"
+  [model & keys]
+  (-> model
+      (select-keys keys)
+      (assoc :update-at (t/now))
+      ->sql-keys))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -118,7 +127,7 @@
   (update-entity
     [_ entity]
     (let [sql (sql/format (-> (h/update :entities)
-                              (h/sset (->sql-keys (select-keys entity [:name])))
+                              (h/sset (->update-set entity :name))
                               (h/where [:= :id (:id entity)])))]
       (jdbc/execute! db-spec sql)))
 
@@ -145,10 +154,11 @@
   (update-account
     [_ account]
     (let [sql (sql/format (-> (h/update :accounts)
-                              (h/sset (->sql-keys (select-keys account [:name
-                                                                        :type
-                                                                        :parent-id
-                                                                        :balance])))
+                              (h/sset (->update-set account
+                                                    :name
+                                                    :type
+                                                    :parent-id
+                                                    :balance))
                               (h/where [:= :id (:id account)])))]
       (jdbc/execute! db-spec sql)))
 
@@ -245,12 +255,12 @@
   (update-transaction-item
     [_ transaction-item]
     (let [sql (sql/format (-> (h/update :transaction_items)
-                              (h/sset (->sql-keys (select-keys transaction-item
-                                                              [:amount
-                                                               :action
-                                                               :index
-                                                               :balance
-                                                               :account-id])))
+                              (h/sset (->update-set transaction-item
+                                                    :amount
+                                                    :action
+                                                    :index
+                                                    :balance
+                                                    :account-id))
                               (h/where [:= :id (:id transaction-item)])))]
       (try
         (jdbc/execute! db-spec sql)

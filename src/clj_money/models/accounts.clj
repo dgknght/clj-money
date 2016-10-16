@@ -29,7 +29,9 @@
    (s/optional-key :balance) BigDecimal
    (s/optional-key :name) s/Str
    (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)
-   (s/optional-key :parent-id) s/Int})
+   (s/optional-key :parent-id) s/Int
+   (s/optional-key :created-at) s/Any
+   (s/optional-key :updated-at) s/Any})
 
 (declare find-by-id)
 (defn- before-validation
