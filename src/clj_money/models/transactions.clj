@@ -258,20 +258,29 @@
   [storage-spec account-id]
   (select-transaction-items-by-account-id (storage storage-spec) account-id))
 
+(defn- get-preceding-items
+  "Returns the items that precede each item in the
+  specified transaction.
+
+  If an item in the transaction is the first item for an account
+  a fake item is generate to seed the following items."
+  [storage transaction]
+  (->> (:items transaction)
+       (group-by :account-id)
+       (map second)
+       (map #(sort-by :index %))
+       (map first)
+       (map #(or (get-previous-item storage % (:transaction-date transaction))
+                 {:account-id (:account-id %)
+                  :index -1
+                  :balance 0}))))
+
 (defn delete
   "Removes the specified transaction from the system"
   [storage-spec transaction-id]
   (let [storage (storage storage-spec)
         transaction (find-by-id storage transaction-id)
-        preceding-items (->> (:items transaction)
-                             (group-by :account-id)
-                             (map second)
-                             (map #(sort-by :index %))
-                             (map first)
-                             (map #(or (get-previous-item storage % (:transaction-date transaction))
-                                       {:account-id (:account-id %)
-                                        :index -1
-                                        :balance 0})))]
+        preceding-items (get-preceding-items storage transaction)]
     (delete-transaction-items-by-transaction-id storage transaction-id)
     (delete-transaction storage transaction-id)
     (update-affected-balances storage preceding-items)))
