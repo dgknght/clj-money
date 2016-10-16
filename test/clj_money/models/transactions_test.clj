@@ -389,6 +389,36 @@
         (is (= (bigdec 102) (:balance groceries-after))
             "Groceries should have the correct balance after delete")))))
 
+(deftest update-a-transaction
+  (let [context (serialization/realize storage-spec delete-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        [t1 t2 t3] (:transactions context)
+        updated (-> t2
+                    (assoc-in [:items 0 :amount] (bigdec 99.99))
+                    (assoc-in [:items 1 :amount] (bigdec 99.99)))
+        _ (transactions/update storage-spec updated)
+        expected-checking [{:index 2 :amount (bigdec  102)    :balance (bigdec  798.01)}
+                           {:index 1 :amount (bigdec   99.99) :balance (bigdec  900.01)}
+                           {:index 0 :amount (bigdec 1000)    :balance (bigdec 1000)}]
+        actual-checking (->> (:id checking)
+                             (transactions/items-by-account storage-spec)
+                             (map #(select-keys % [:index :amount :balance]))) 
+        expected-groceries [{:index 1 :amount (bigdec 102)    :balance (bigdec 201.99)}
+                            {:index 0 :amount (bigdec  99.99) :balance (bigdec  99.99)}]
+        actual-groceries (->> (:id groceries)
+                              (transactions/items-by-account storage-spec)
+                              (map #(select-keys % [:index :amount :balance])))]
+
+    (pprint {:expected expected-checking
+             :actual actual-checking})
+
+    (is (= expected-checking actual-checking
+           "Check items should have the correct values after update"))
+    #_(is (= expected-groceries actual-groceries
+           "Groceries items should have the correct values after update"))))
+
 ; update a transaction
 ; change amount
 ;  subsequent item balances are recalculated
@@ -401,3 +431,5 @@
 ; change account
 ;  old account balance and items are recalculated
 ;  new account balance and items are recalculated
+; add a transaction item
+; remove a transaction item

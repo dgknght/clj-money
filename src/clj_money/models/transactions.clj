@@ -30,6 +30,17 @@
             (schema/optional-key :next-item-id) schema/Int
             (schema/optional-key :previous-item-id) schema/Int}]})
 
+(def Transaction
+  (-> NewTransaction
+      (assoc :id schema/Int
+             (schema/optional-key :updated-at) schema/Any
+             (schema/optional-key :created-at) schema/Any)
+      (assoc-in [:items 0 (schema/optional-key :updated-at)] schema/Any)
+      (assoc-in [:items 0 (schema/optional-key :created-at)] schema/Any)
+      (assoc-in [:items 0 (schema/optional-key :index)] schema/Any)
+      (assoc-in [:items 0 (schema/optional-key :transaction-id)] schema/Int)
+      (assoc-in [:items 0 (schema/optional-key :id)] schema/Int)))
+
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
@@ -95,7 +106,7 @@
 (defn- prepare-for-return
   "Returns a transaction that is ready for public use"
   [transaction]
-  (update-in [:transaction-date] tc/to-local-date))
+  (update-in transaction [:transaction-date] tc/to-local-date))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -226,11 +237,15 @@
       (accounts/update storage-spec {:id account-id
                                      :balance (:balance final)}))))
 
+(defn- validate
+  [schema transaction]
+  (-> (before-validation transaction)
+      (validation/validate-model (validation-rules schema))))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (let [validated (-> (before-validation transaction)
-                      (validation/validate-model (validation-rules NewTransaction)))]
+  (let [validated (validate NewTransaction transaction)]
     (if (validation/has-error? validated)
       validated
       (let [storage (storage storage-spec)
@@ -238,7 +253,10 @@
                                                                 (:transaction-date validated)
                                                                 (:items validated))
             _ (update-affected-balances storage-spec items-with-balances)
-            result (create-transaction storage (before-save (assoc validated :items items-with-balances)))
+            result (->> (assoc validated :items items-with-balances)
+                        before-save
+                        (create-transaction storage)
+                        prepare-for-return)
             items (into [] (map #(->> (assoc % :transaction-id (:id result))
                                       before-save-item
                                       (create-transaction-item storage)
@@ -258,6 +276,22 @@
   [storage-spec account-id]
   (select-transaction-items-by-account-id (storage storage-spec) account-id))
 
+(defn- process-item-updates
+  "Process items in a transaction update operation"
+  [storage items]
+  (->> items
+       (map before-save-item)
+       (mapv #(update-transaction-item storage %))))
+
+(defn update
+  "Updates the specified transaction"
+  [storage-spec transaction]
+  (let [storage (storage storage-spec)
+        validated (validate Transaction transaction)]
+    (if (validation/has-error? validated)
+      validated
+      (update-in validated [:items] (partial process-item-updates storage)))))
+
 (defn- get-preceding-items
   "Returns the items that precede each item in the
   specified transaction.
@@ -274,7 +308,6 @@
                  {:account-id (:account-id %)
                   :index -1
                   :balance 0}))))
-
 (defn delete
   "Removes the specified transaction from the system"
   [storage-spec transaction-id]
