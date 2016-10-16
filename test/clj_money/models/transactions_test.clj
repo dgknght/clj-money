@@ -317,6 +317,70 @@
            actual-checking-items)
         "The checking account items are correct")))
 
+(def delete-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"
+               :user-id "john@doe.com"}]
+   :accounts [{:name "Checking"
+               :type :asset
+               :entity-id "Personal"}
+              {:name "Salary"
+               :type :income
+               :entity-id "Personal"}
+              {:name "Groceries"
+               :type :expense
+               :entity-id "Personal"}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 3)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 101}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 101}]}
+                  {:transaction-date (t/local-date 2016 3 4)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 102}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 102}]}]})
+
+(deftest delete-a-transaction
+  (let [context (serialization/realize storage-spec delete-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        checking-items-before (transactions/items-by-account storage-spec
+                                                             (:id checking))
+        _ (transactions/delete storage-spec  (-> context
+                                                :transactions
+                                                second
+                                                :id))
+        checking-items-after (transactions/items-by-account storage-spec
+                                                             (:id checking))
+        expected-before [{:index 2 :amount (bigdec  102) :balance (bigdec  797)}
+                         {:index 1 :amount (bigdec  101) :balance (bigdec  899)}
+                         {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+        actual-before (map #(select-keys % [:index :amount :balance])
+                           checking-items-before)
+        expected-after[{:index 1 :amount (bigdec  102) :balance (bigdec  898)}
+                       {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+        actual-after (map #(select-keys % [:index :amount :balance]) checking-items-after)]
+    (is (= expected-before actual-before)
+        "Checking should have the correct items before delete")
+    (is (= expected-after actual-after)
+        "Checking should have the correct items after delete")))
+
 ; update a transaction
 ; change amount
 ;  subsequent item balances are recalculated
@@ -329,5 +393,3 @@
 ; change account
 ;  old account balance and items are recalculated
 ;  new account balance and items are recalculated
-
-; delete a transaction

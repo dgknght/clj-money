@@ -64,8 +64,11 @@
     [this transaction]
     "Creates a new transaction record")
   (find-transaction-by-id
-      [this id]
-      "Returns the specified transaction")
+    [this id]
+    "Returns the specified transaction")
+  (delete-transaction
+    [this id]
+    "Deletes the specified transaction record")
 
   ; Transaction items
   (create-transaction-item
@@ -88,4 +91,7 @@
     "Returns the transaction item with the highest index preceding the specifed date")
   (update-transaction-item
     [this transaction-item]
-    "Updates the specified transaction item"))
+    "Updates the specified transaction item")
+  (delete-transaction-items-by-transaction-id
+    [this transaction-id]
+    "Deletes the transaction items having the specified id"))

@@ -14,7 +14,9 @@
                                               select-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-transaction-id
-                                              update-transaction-item]])
+                                              update-transaction-item
+                                              delete-transaction
+                                              delete-transaction-items-by-transaction-id]])
   (:import java.util.Date
            org.joda.time.LocalDate))
 
@@ -212,7 +214,8 @@
      :storage storage}))
 
 (defn- update-affected-balances
-  "Updates the accounts affected by the specified transaction items"
+  "Updates transaction items and corresponding accounts that
+  succeed the specifie items"
   [storage-spec items]
   (doseq [[account-id items] (group-by :account-id items)]
     (let [last-item (last items) ; these should already be sorted
@@ -254,3 +257,21 @@
   "Returns the transaction items for the specified account"
   [storage-spec account-id]
   (select-transaction-items-by-account-id (storage storage-spec) account-id))
+
+(defn delete
+  "Removes the specified transaction from the system"
+  [storage-spec transaction-id]
+  (let [storage (storage storage-spec)
+        transaction (find-by-id storage transaction-id)
+        preceding-items (->> (:items transaction)
+                             (group-by :account-id)
+                             (map second)
+                             (map #(sort-by :index %))
+                             (map first)
+                             (map #(or (get-previous-item storage % (:transaction-date transaction))
+                                       {:account-id (:account-id %)
+                                        :index -1
+                                        :balance 0})))]
+    (delete-transaction-items-by-transaction-id storage transaction-id)
+    (delete-transaction storage transaction-id)
+    (update-affected-balances storage preceding-items)))

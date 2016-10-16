@@ -181,6 +181,10 @@
             (map ->clojure-keys)
             first)))
 
+  (delete-transaction
+    [_ id]
+    (jdbc/delete! db-spec :transactions ["id = ?" id]))
+
   ; Transaction Items
   (create-transaction-item
     [_ transaction-item]
@@ -252,4 +256,10 @@
         (jdbc/execute! db-spec sql)
         (catch BatchUpdateException e
           (pprint {:sql sql
-                   :batch-update-exception (.getNextException e)}))))))
+                   :batch-update-exception (.getNextException e)})))))
+
+  (delete-transaction-items-by-transaction-id
+    [_ transaction-id]
+    (jdbc/delete! db-spec
+                  :transaction_items
+                  ["transaction_id = ?" transaction-id])))
