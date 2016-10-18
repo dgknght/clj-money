@@ -9,8 +9,7 @@
             [clj-money.models.storage :refer [create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
-                                              find-transaction-item-by-index
-                                              find-transaction-item-preceding-date
+                                              find-transaction-items-preceding-date
                                               select-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-transaction-id
@@ -111,15 +110,11 @@
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
   [storage item transaction-date]
-  (if-let [index (:index item)]
-    (if (= 0 index)
-      nil
-      (find-transaction-item-by-index storage
-                                      (:account-id item)
-                                      (- index 1)))
-    (find-transaction-item-preceding-date storage
-                                          (:account-id item)
-                                          transaction-date)))
+  (->> (find-transaction-items-preceding-date storage
+                                              (:account-id item)
+                                              transaction-date)
+       (remove #(= (:id %) (:id item)))
+       first))
 
 (defn- process-item-balance-and-index
   "Accepts a context containing

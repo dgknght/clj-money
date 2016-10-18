@@ -390,8 +390,46 @@
         (is (= (bigdec 102) (:balance groceries-after))
             "Groceries should have the correct balance after delete")))))
 
-(deftest update-a-transaction
-  (let [context (serialization/realize storage-spec delete-context)
+(def update-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"
+               :user-id "john@doe.com"}]
+   :accounts [{:name "Checking"
+               :type :asset
+               :entity-id "Personal"}
+              {:name "Salary"
+               :type :income
+               :entity-id "Personal"}
+              {:name "Groceries"
+               :type :expense
+               :entity-id "Personal"}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 12)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 101}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 101}]}
+                  {:transaction-date (t/local-date 2016 3 22)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 102}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 102}]}]})
+
+(deftest update-a-transaction-change-amount
+  (let [context (serialization/realize storage-spec update-context)
         [checking
          salary
          groceries] (:accounts context)
@@ -426,14 +464,43 @@
                                   :balance))
           "The groceries account balance should be correct after update"))))
 
+(deftest update-a-transaction-change-date
+  (let [context (serialization/realize storage-spec update-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        [t1 t2 t3] (:transactions context)
+        updated (assoc t3 :transaction-date (t/local-date 2016 3 10))
+        _ (transactions/update storage-spec updated)
+        expected-checking [{:index 2 :amount (bigdec  101) :balance (bigdec  797)}
+                           {:index 1 :amount (bigdec  102) :balance (bigdec  898)}
+                           {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+        actual-checking (->> (:id checking)
+                             (transactions/items-by-account storage-spec)
+                             (map #(select-keys % [:index :amount :balance]))) 
+        expected-groceries [{:index 1 :amount (bigdec 101) :balance (bigdec 203)}
+                            {:index 0 :amount (bigdec 102) :balance (bigdec 102)}]
+        actual-groceries (->> (:id groceries)
+                              (transactions/items-by-account storage-spec)
+                              (map #(select-keys % [:index :amount :balance])))]
+    (testing "transaction item balances are correct"
+      (is (= expected-checking actual-checking)
+          "Check items should have the correct values after update")
+      (is (= expected-groceries actual-groceries)
+          "Groceries items should have the correct values after update"))
+    (testing "account balances are correct"
+      (is (= (bigdec 797) (->> checking
+                               (accounts/reload storage-spec)
+                               :balance))
+          "The checkout account balance should be correct after update")
+      (is (= (bigdec 203) (->> groceries
+                               (accounts/reload storage-spec)
+                               :balance))
+          "The groceries account balance should be correct after update"))))
+
 ; update a transaction
-; change amount
-;  subsequent item balances are recalculated
-;  account balance is recalculated
+
 ; change date
-;  subsequent item balances are recalculated
-;  subsequent item indexes are recaculated
-;  account balances are recalculated
 ;  recalculation stops once new balance matches old balance
 ; change account
 ;  old account balance and items are recalculated
