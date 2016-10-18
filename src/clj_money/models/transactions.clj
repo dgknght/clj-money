@@ -290,7 +290,11 @@
         validated (validate Transaction transaction)]
     (if (validation/has-error? validated)
       validated
-      (update-in validated [:items] (partial process-item-updates storage)))))
+      (let [items-with-balances (calculate-balances-and-indexes storage
+                                                                (:transaction-date validated)
+                                                                (:items validated))]
+        (update-affected-balances storage-spec items-with-balances)
+        (assoc validated [:items] (process-item-updates storage items-with-balances))))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
