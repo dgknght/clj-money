@@ -411,10 +411,20 @@
         actual-groceries (->> (:id groceries)
                               (transactions/items-by-account storage-spec)
                               (map #(select-keys % [:index :amount :balance])))]
-    (is (= expected-checking actual-checking)
-        "Check items should have the correct values after update")
-    (is (= expected-groceries actual-groceries)
-        "Groceries items should have the correct values after update")))
+    (testing "transaction item balances are correct"
+      (is (= expected-checking actual-checking)
+          "Check items should have the correct values after update")
+      (is (= expected-groceries actual-groceries)
+          "Groceries items should have the correct values after update"))
+    (testing "account balances are correct"
+      (is (= (bigdec 798.01) (->> checking
+                                  (accounts/reload storage-spec)
+                                  :balance))
+          "The checkout account balance should be correct after update")
+      (is (= (bigdec 201.99) (->> groceries
+                                  (accounts/reload storage-spec)
+                                  :balance))
+          "The groceries account balance should be correct after update"))))
 
 ; update a transaction
 ; change amount
