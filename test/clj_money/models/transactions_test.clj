@@ -1,5 +1,6 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer :all]
+            [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
@@ -410,14 +411,10 @@
         actual-groceries (->> (:id groceries)
                               (transactions/items-by-account storage-spec)
                               (map #(select-keys % [:index :amount :balance])))]
-
-    (pprint {:expected expected-checking
-             :actual actual-checking})
-
-    (is (= expected-checking actual-checking
-           "Check items should have the correct values after update"))
-    #_(is (= expected-groceries actual-groceries
-           "Groceries items should have the correct values after update"))))
+    (is (= expected-checking actual-checking)
+        "Check items should have the correct values after update")
+    (is (= expected-groceries actual-groceries)
+        "Groceries items should have the correct values after update")))
 
 ; update a transaction
 ; change amount
