@@ -143,6 +143,11 @@
   (prepare-for-return
     (find-account-by-id (storage storage-spec) id)))
 
+(defn reload
+  "Returns a fresh copy of the specified account from the data store"
+  [storage-spec {:keys [id]}]
+  (find-by-id storage-spec id))
+
 (defn select-by-entity-id
   "Returns a list of all accounts in the system"
   [storage-spec entity-id]
