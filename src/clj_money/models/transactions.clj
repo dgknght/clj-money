@@ -12,6 +12,7 @@
                                               find-transaction-items-preceding-date
                                               select-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
+                                              select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
                                               update-transaction-item
                                               delete-transaction
@@ -176,15 +177,22 @@
                      transaction-date))))
 
 (defn- subsequent-items
-  "Returns items in the same account with an equal or greater
-  index that the specified item"
-  [storage-spec reference-item]
-  (->> (select-transaction-items-by-account-id-and-starting-index
-         (storage storage-spec)
-         (:account-id reference-item)
-         (:index reference-item))
-       (remove #(= (:id reference-item) (:id %)))
-       (map prepare-item-for-return)))
+  "Returns items in the specified account on or after the specified
+  transaction date, excluding the reference-item"
+  ([storage-spec reference-item]
+   (->> (select-transaction-items-by-account-id-and-starting-index
+          (storage storage-spec)
+          (:account-id reference-item)
+          (:index reference-item))
+        (remove #(= (:id reference-item) (:id %)))
+        (map prepare-item-for-return)))
+  ([storage-spec reference-item transaction-date]
+   (->> (select-transaction-items-by-account-id-on-or-after-date
+          (storage storage-spec)
+          (:account-id reference-item)
+          transaction-date)
+        (remove #(= (:id reference-item) (:id %)))
+        (map prepare-item-for-return))))
 
 (defn- update-item
   "Updates the specified transaction item"
@@ -221,16 +229,19 @@
 
 (defn- update-affected-balances
   "Updates transaction items and corresponding accounts that
-  succeed the specifie items"
-  [storage-spec items]
-  (doseq [[account-id items] (group-by :account-id items)]
-    (let [last-item (last items) ; these should already be sorted
-          subsequent-items (subsequent-items storage-spec last-item)
-          final (reduce update-item-index-and-balance
-                        (assoc last-item :storage storage-spec)
-                        subsequent-items)]
-      (accounts/update storage-spec {:id account-id
-                                     :balance (:balance final)}))))
+  succeed the specified items"
+  ([storage-spec items] (update-affected-balances storage-spec items nil))
+  ([storage-spec items transaction-date]
+   (doseq [[account-id items] (group-by :account-id items)]
+     (let [last-item (last items) ; these should already be sorted
+           subsequent-items (if transaction-date
+                              (subsequent-items storage-spec last-item transaction-date)
+                              (subsequent-items storage-spec last-item))
+           final (reduce update-item-index-and-balance
+                         (assoc last-item :storage storage-spec)
+                         subsequent-items)]
+       (accounts/update storage-spec {:id account-id
+                                      :balance (:balance final)})))))
 
 (defn- validate
   [schema transaction]
@@ -247,7 +258,7 @@
             items-with-balances (calculate-balances-and-indexes storage
                                                                 (:transaction-date validated)
                                                                 (:items validated))
-            _ (update-affected-balances storage-spec items-with-balances)
+            _ (update-affected-balances storage-spec items-with-balances (:transaction-date validated))
             result (->> (assoc validated :items items-with-balances)
                         before-save
                         (create-transaction storage)
@@ -288,7 +299,7 @@
       (let [items-with-balances (calculate-balances-and-indexes storage
                                                                 (:transaction-date validated)
                                                                 (:items validated))]
-        (update-affected-balances storage-spec items-with-balances)
+        (update-affected-balances storage-spec items-with-balances (:transaction-date validated))
         (assoc validated [:items] (process-item-updates storage items-with-balances))))))
 
 (defn- get-preceding-items

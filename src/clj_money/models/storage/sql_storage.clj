@@ -228,9 +228,21 @@
       (->> (jdbc/query db-spec sql)
           (map ->clojure-keys))))
 
+  (select-transaction-items-by-account-id-on-or-after-date
+    [_ account-id transaction-date]
+    (let [sql (sql/format (-> (h/select :i.*)
+                                (h/from [:transaction_items :i])
+                                (h/join [:transactions :t] [:= :t.id :i.transaction-id])
+                                (h/where [:and
+                                          [:= :i.account_id account-id]
+                                          [:>= :t.transaction_date (tc/to-sql-date transaction-date)]])
+                                (h/order-by :index)))]
+        (->> (jdbc/query db-spec sql)
+            (map ->clojure-keys))))
+
   (find-transaction-items-preceding-date
     [_ account-id transaction-date]
-    (let [sql (sql/format (-> (h/select :*)
+    (let [sql (sql/format (-> (h/select :i.*)
                               (h/from [:transaction_items :i])
                               (h/join [:transactions :t] [:= :t.id :i.transaction-id])
                               (h/where [:and
