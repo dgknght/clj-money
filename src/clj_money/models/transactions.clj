@@ -287,7 +287,7 @@
   [storage items]
   (->> items
        (map before-save-item)
-       (mapv #(update-transaction-item storage %))))
+       (mapv #(update-item storage %))))
 
 (defn update
   "Updates the specified transaction"

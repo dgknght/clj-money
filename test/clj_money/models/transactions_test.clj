@@ -498,10 +498,85 @@
                                :balance))
           "The groceries account balance should be correct after update"))))
 
+(def short-circuit-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"
+               :user-id "john@doe.com"}]
+   :accounts [{:name "Checking"
+               :type :asset
+               :entity-id "Personal"}
+              {:name "Salary"
+               :type :income
+               :entity-id "Personal"}
+              {:name "Groceries"
+               :type :expense
+               :entity-id "Personal"}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 9)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 101}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 101}]}
+                  {:transaction-date (t/local-date 2016 3 16)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 102}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 102}]}
+                  {:transaction-date (t/local-date 2016 3 23)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 103}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 103}]}]})
+
+(defn- record-update-call
+  [item result]
+  (update-in result
+             [(:account-id item)]
+             #((fnil conj #{}) % (select-keys item [:index
+                                                   :amount
+                                                   :balance]))))
+
+(deftest update-a-transaction-short-circuit-updates
+  (let [context (serialization/realize storage-spec short-circuit-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        [t1 t2 t3 t4] (:transactions context)
+        updated (assoc t3 :transaction-date (t/local-date 2016 3 8))
+        update-calls (atom {})]
+    (with-redefs [transactions/update-item (fn [storage-spec item]
+                                             (swap! update-calls (partial record-update-call item)))]
+      (transactions/update storage-spec updated)
+      (let [expected #{{:index 1
+                       :amount (bigdec 102)
+                       :balance (bigdec 898)}
+                      {:index 2
+                       :amount (bigdec 101)
+                       :balance (bigdec 797)}}
+            actual (get @update-calls (:id checking))]
+        (is (= expected actual)
+            "Only items with changes are updated")))))
+
 ; update a transaction
 
 ; change date
-;  recalculation stops once new balance matches old balance
+;  recalculation stops once new balance and index values match old values
 ; change account
 ;  old account balance and items are recalculated
 ;  new account balance and items are recalculated
