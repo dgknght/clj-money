@@ -15,6 +15,7 @@
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
                                               update-transaction-item
+                                              update-transaction-item-index-and-balance
                                               delete-transaction
                                               delete-transaction-items-by-transaction-id]])
   (:import java.util.Date
@@ -200,6 +201,13 @@
   (update-transaction-item (storage storage-spec) item))
 
 (defn- update-item-index-and-balance
+  "Updates only the index and balance attributes of an item, returning truthy if
+  the values where changed as a result of the update, or false if the specified
+  values match the existing values"
+  [storage-spec item]
+  (update-transaction-item-index-and-balance (storage storage-spec) item))
+
+(defn- calculate-item-index-and-balance
   "Accepts a transaction item and a context containing
     :index   - a transaction item index
     :balance - a transaction item balance
@@ -218,26 +226,32 @@
   [{:keys [index balance storage]} item]
   (let [new-index (+ 1 index)
         polarized-amount (accounts/polarize-amount storage item)
-        new-balance (+ balance polarized-amount)]
-    (update-item storage (-> item
-                             (assoc :index new-index
-                                    :balance new-balance)
-                             before-save-item))
-    {:index new-index
-     :balance new-balance
-     :storage storage}))
+        new-balance (+ balance polarized-amount)
+        value-changed (update-item-index-and-balance storage (-> item
+                                                                 (assoc :index new-index
+                                                                        :balance new-balance)
+                                                                 before-save-item))
+        result {:index new-index
+                :balance new-balance
+                :storage storage}]
+    (if value-changed
+      result
+      (reduced result))))
 
 (defn- update-affected-balances
   "Updates transaction items and corresponding accounts that
   succeed the specified items"
   ([storage-spec items] (update-affected-balances storage-spec items nil))
   ([storage-spec items transaction-date]
+
+   (pprint {:transaction-date transaction-date})
+
    (doseq [[account-id items] (group-by :account-id items)]
      (let [last-item (last items) ; these should already be sorted
            subsequent-items (if transaction-date
                               (subsequent-items storage-spec last-item transaction-date)
                               (subsequent-items storage-spec last-item))
-           final (reduce update-item-index-and-balance
+           final (reduce calculate-item-index-and-balance
                          (assoc last-item :storage storage-spec)
                          subsequent-items)]
        (accounts/update storage-spec {:id account-id

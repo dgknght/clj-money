@@ -542,7 +542,15 @@
                             :amount 103}
                            {:action :credit
                             :account-id "Checking"
-                            :amount 103}]}]})
+                            :amount 103}]}
+                  {:transaction-date (t/local-date 2016 3 30)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 104}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 104}]}]})
 
 (defn- record-update-call
   [item result]
@@ -552,6 +560,22 @@
                                                    :amount
                                                    :balance]))))
 
+(defn- fake-update-item-index-and-balance
+  [context update-calls storage-spec item]
+  (swap! update-calls (partial record-update-call item))
+  (let [existing-item (->> context
+                           :transactions
+                           (mapcat :items)
+                           (filter #(= (:id item) (:id %)))
+                           first)]
+
+    (pprint {:item (select-keys item [:index :amount :balance])
+             :existing-item (select-keys existing-item [:index :amount :balance])})
+
+    (= (select-keys item {:index :balance})
+       (select-keys existing-item
+                    {:index :balance}))))
+
 (deftest update-a-transaction-short-circuit-updates
   (let [context (serialization/realize storage-spec short-circuit-context)
         [checking
@@ -560,16 +584,28 @@
         [t1 t2 t3 t4] (:transactions context)
         updated (assoc t3 :transaction-date (t/local-date 2016 3 8))
         update-calls (atom {})]
-    (with-redefs [transactions/update-item (fn [storage-spec item]
-                                             (swap! update-calls (partial record-update-call item)))]
+    (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance context update-calls)]
+
+      (println "--------------")
+      (println "do the test")
+      (println "--------------")
+
       (transactions/update storage-spec updated)
       (let [expected #{{:index 1
                        :amount (bigdec 102)
                        :balance (bigdec 898)}
                       {:index 2
                        :amount (bigdec 101)
-                       :balance (bigdec 797)}}
+                       :balance (bigdec 797)}
+                      {:index 3
+                       :amount (bigdec 103)
+                       :balance (bigdec 694)}} ; The first update that doesn't change a value stops the chain
             actual (get @update-calls (:id checking))]
+
+        (pprint {:expected expected
+                 :actual actual
+                 :diff (diff expected actual)})
+
         (is (= expected actual)
             "Only items with changes are updated")))))
 

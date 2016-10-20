@@ -269,6 +269,19 @@
           (pprint {:sql sql
                    :batch-update-exception (.getNextException e)})))))
 
+  (update-transaction-item-index-and-balance
+    [_ transaction-item]
+    (let [sql (sql/format (-> (h/update :transaction_items)
+                                (h/sset (->update-set transaction-item
+                                                      :index
+                                                      :balance))
+                                (h/where [:= :id (:id transaction-item)])))]
+        (try
+          (jdbc/execute! db-spec sql)
+          (catch BatchUpdateException e
+            (pprint {:sql sql
+                    :batch-update-exception (.getNextException e)})))))
+
   (delete-transaction-items-by-transaction-id
     [_ transaction-id]
     (jdbc/delete! db-spec
