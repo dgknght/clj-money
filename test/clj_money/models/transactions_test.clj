@@ -595,8 +595,6 @@
 
 ; update a transaction
 
-; change date
-;  recalculation stops once new balance and index values match old values
 ; change account
 ;  old account balance and items are recalculated
 ;  new account balance and items are recalculated
