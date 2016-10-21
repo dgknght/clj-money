@@ -201,11 +201,14 @@
   (update-transaction-item (storage storage-spec) item))
 
 (defn- update-item-index-and-balance
-  "Updates only the index and balance attributes of an item, returning truthy if
+  "Updates only the index and balance attributes of an item, returning true if
   the values where changed as a result of the update, or false if the specified
   values match the existing values"
   [storage-spec item]
-  (update-transaction-item-index-and-balance (storage storage-spec) item))
+  (let [records-affected (first (update-transaction-item-index-and-balance
+                                  (storage storage-spec)
+                                  item))]
+    (> records-affected 0)))
 
 (defn- calculate-item-index-and-balance
   "Accepts a transaction item and a context containing

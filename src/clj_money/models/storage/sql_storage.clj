@@ -275,7 +275,11 @@
                                 (h/sset (->update-set transaction-item
                                                       :index
                                                       :balance))
-                                (h/where [:= :id (:id transaction-item)])))]
+                                (h/where [:and
+                                          [:= :id (:id transaction-item)]
+                                          [:or
+                                           [:!= :balance (:balance transaction-item)]
+                                           [:!= :index (:index transaction-item)]]])))]
         (try
           (jdbc/execute! db-spec sql)
           (catch BatchUpdateException e
