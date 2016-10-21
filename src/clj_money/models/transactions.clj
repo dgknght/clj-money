@@ -239,7 +239,9 @@
                 :storage storage}]
     (if value-changed
       result
-      (reduced result))))
+      (-> result
+          (assoc :skip-account-update true)
+          reduced))))
 
 (defn- update-affected-balances
   "Updates transaction items and corresponding accounts that
@@ -254,8 +256,9 @@
            final (reduce calculate-item-index-and-balance
                          (assoc last-item :storage storage-spec)
                          subsequent-items)]
-       (accounts/update storage-spec {:id account-id
-                                      :balance (:balance final)})))))
+       (if-not (:skip-account-update final)
+         (accounts/update storage-spec {:id account-id
+                                        :balance (:balance final)}))))))
 
 (defn- validate
   [schema transaction]

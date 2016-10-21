@@ -590,8 +590,12 @@
                        :balance (bigdec 694)}} ; The first update that doesn't change a value stops the chain
                                                ; the 4th item should never be updated because the 4rd one did not change a value
             actual (get @update-calls (:id checking))]
-        (is (= expected actual)
-            "Only items with changes are updated")))))
+        (testing "the expected transactions are updated"
+          (is (= expected actual)
+              "Only items with changes are updated")
+          (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
+        (testing "account balances are correct"
+          (is (= (bigdec 590) (:balance (accounts/reload storage-spec checking))) "Checking has the correct balance"))))))
 
 ; update a transaction
 
