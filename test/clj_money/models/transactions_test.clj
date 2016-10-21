@@ -568,13 +568,9 @@
                            (mapcat :items)
                            (filter #(= (:id item) (:id %)))
                            first)]
-
-    (pprint {:item (select-keys item [:index :amount :balance])
-             :existing-item (select-keys existing-item [:index :amount :balance])})
-
-    (= (select-keys item {:index :balance})
-       (select-keys existing-item
-                    {:index :balance}))))
+    (not= (select-keys item [:index :balance])
+          (select-keys existing-item
+                       [:index :balance]))))
 
 (deftest update-a-transaction-short-circuit-updates
   (let [context (serialization/realize storage-spec short-circuit-context)
@@ -585,27 +581,15 @@
         updated (assoc t3 :transaction-date (t/local-date 2016 3 8))
         update-calls (atom {})]
     (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance context update-calls)]
-
-      (println "--------------")
-      (println "do the test")
-      (println "--------------")
-
       (transactions/update storage-spec updated)
-      (let [expected #{{:index 1
-                       :amount (bigdec 102)
-                       :balance (bigdec 898)}
-                      {:index 2
+      (let [expected #{{:index 2
                        :amount (bigdec 101)
                        :balance (bigdec 797)}
                       {:index 3
                        :amount (bigdec 103)
                        :balance (bigdec 694)}} ; The first update that doesn't change a value stops the chain
+                                               ; the 4th item should never be updated because the 4rd one did not change a value
             actual (get @update-calls (:id checking))]
-
-        (pprint {:expected expected
-                 :actual actual
-                 :diff (diff expected actual)})
-
         (is (= expected actual)
             "Only items with changes are updated")))))
 

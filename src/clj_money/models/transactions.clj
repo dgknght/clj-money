@@ -243,9 +243,6 @@
   succeed the specified items"
   ([storage-spec items] (update-affected-balances storage-spec items nil))
   ([storage-spec items transaction-date]
-
-   (pprint {:transaction-date transaction-date})
-
    (doseq [[account-id items] (group-by :account-id items)]
      (let [last-item (last items) ; these should already be sorted
            subsequent-items (if transaction-date
