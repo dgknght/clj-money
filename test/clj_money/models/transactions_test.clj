@@ -496,7 +496,11 @@
       (is (= (bigdec 203) (->> groceries
                                (accounts/reload storage-spec)
                                :balance))
-          "The groceries account balance should be correct after update"))))
+          "The groceries account balance should be correct after update"))
+    (testing "transaction is updated"
+      (is (= (t/local-date 2016 3 10)
+             (:transaction-date (transaction/reload storage-spec t3)))
+          "The transaction should be updated"))))
 
 (def short-circuit-context
   {:users [(factory :user, {:email "john@doe.com"})]

@@ -344,3 +344,8 @@
     (delete-transaction-items-by-transaction-id storage transaction-id)
     (delete-transaction storage transaction-id)
     (update-affected-balances storage preceding-items)))
+
+(defn reload
+  "Returns an updated copy of the transaction"
+  [storage-spec transaction]
+  (find-by-id storage-spec (:id transaction)))
