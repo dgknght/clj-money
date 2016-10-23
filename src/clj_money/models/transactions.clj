@@ -240,7 +240,7 @@
     (if value-changed
       result
       (-> result
-          (assoc :skip-account-update true)
+          (assoc ::skip-account-update true)
           reduced))))
 
 (defn- update-affected-balances
@@ -256,7 +256,7 @@
            final (reduce calculate-item-index-and-balance
                          (assoc last-item :storage storage-spec)
                          subsequent-items)]
-       (if-not (:skip-account-update final)
+       (when-not (::skip-account-update final)
          (accounts/update storage-spec {:id account-id
                                         :balance (:balance final)}))))))
 
