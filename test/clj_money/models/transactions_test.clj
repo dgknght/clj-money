@@ -597,6 +597,87 @@
         (testing "account balances are correct"
           (is (= (bigdec 590) (:balance (accounts/reload storage-spec checking))) "Checking has the correct balance"))))))
 
+(def change-account-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"}]
+   :accounts [{:name "Checking"
+               :type :asset}
+              {:name "Salary"
+               :type :income}
+              {:name "Rent"
+               :type :expense}
+              {:name "Groceries"
+               :type :expense}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 9)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 101}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 101}]}
+                  {:transaction-date (t/local-date 2016 3 16)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 102}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 102}]}
+                  {:transaction-date (t/local-date 2016 3 23)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 103}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 103}]}]})
+
+(deftest update-a-transaction-change-account
+  (let [context (serialization/realize storage-spec change-account-context)
+        [checking
+         salary
+         rent
+         groceries] (:accounts context)
+        [t1 t2 t3 t4] (:transactions context)
+        _ (transactions/update storage-spec (assoc t3 :account-id (:id rent)))
+        groceries-items (transactions/items-by-account storage-spec (:id groceries))
+        rent-items (transactions/items-by-account storage-spec (:id rent))
+        expected-groceries [{:index 1
+                             :amount (bigdec 103)
+                             :balance (bigdec 204)}
+                            {:index 0
+                             :amount (bigdec 101)
+                             :balance (bigdec 101)}]
+        expected-rent [{:index 0
+                        :amount (bigdec 102)
+                        :balance (bigdec 102)}]
+        actual-groceries (map #(select-keys % [:index :amount :balance])
+                              groceries-items)]
+
+    (pprint {:expected expected-groceries
+             :actual actual-groceries
+             :diff (diff expected-groceries actual-groceries)})
+
+    (testing "accounts have the correct items"
+      (is (= expected-groceries actual-groceries)
+          "Groceries should have the correct items after update")
+      #_(is (= expected-rent
+             (map #(select-keys % [:index :amount :balance]) rent-items))))
+    #_(testing "accounts have the correct balances"
+      (is (= (bigdec 204)
+             (:balance (accounts/reload storage-spec groceries))))
+      (is (= (bigdec 102)
+             (:balance (accounts/reload storage-spec rent)))))))
+
 ; update a transaction
 
 ; change account
