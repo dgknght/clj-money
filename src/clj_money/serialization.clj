@@ -19,7 +19,8 @@
   [context email]
   (->> context
        :users
-       (filter #(= email (:email %)))
+       (filter #(or (nil? email)
+                    (= email (:email %))))
        first))
 
 (defn- resolve-user
@@ -40,7 +41,8 @@
   [context entity-name]
   (->> context
        :entities
-       (filter #(= (:name %) entity-name))
+       (filter #(or (nil? entity-name)
+                    (= (:name %) entity-name)))
        first))
 
 (defn- resolve-entity
