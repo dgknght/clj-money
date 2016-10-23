@@ -307,21 +307,26 @@
        (map before-save-item)
        (mapv #(update-item storage %))))
 
-(defn- dereferenced-accounts
-  "Given an existing transaction and an update of the
-  same transaction, returns the IDs of the accounts
-  that were referenced in the original but are not
-  referenced now"
-  [existing updated]
-  (apply difference (map #(->> (:items %)
-                               (map :account-id)
-                               (into #{}))
-                         [existing updated])))
-
 (defn reload
   "Returns an updated copy of the transaction"
   [storage-spec transaction]
   (find-by-id storage-spec (:id transaction)))
+
+(defn- base-items-for-dereferenced-accounts
+  "Given a transaction being updated, returns a list of base
+  items to be used to propagate updates for accounts there were
+  referenced in the transaction but no longer are"
+  [storage-spec transaction]
+  (let [existing-trans (reload storage-spec transaction)
+        dereferenced-account-ids (apply difference
+                                        (map #(->> (:items %)
+                                                   (map :account-id)
+                                                   (into #{}))
+                                             [existing-trans transaction]))]
+    (->> dereferenced-account-ids
+         ; fake out an item because that's what get-previous-item expects
+         (map #(hash-map :account-id % :id -1))
+         (map #(get-previous-item storage-spec % (:transaction-date transaction))))))
 
 (defn update
   "Updates the specified transaction"
@@ -330,16 +335,13 @@
         validated (validate Transaction transaction)]
     (if (validation/has-error? validated)
       validated
-      (let [existing-trans (reload storage transaction)
-            dereferenced-account-ids (dereferenced-accounts
-                                       existing-trans
-                                       validated)
-            dereferenced-base-items (->> dereferenced-account-ids
-                                         (map #(hash-map :account-id % :id -1)) ; fake out an item because that's what get-previous-item expects
-                                         (map #(get-previous-item storage-spec % (:transaction-date transaction))))
-            items-with-balances (calculate-balances-and-indexes storage
-                                                                (:transaction-date validated)
-                                                                (:items validated))]
+      (let [dereferenced-base-items (base-items-for-dereferenced-accounts
+                                      storage
+                                      validated)
+            items-with-balances (calculate-balances-and-indexes
+                                  storage
+                                  (:transaction-date validated)
+                                  (:items validated))]
         (process-item-updates storage items-with-balances)
         (update-affected-balances storage
                                   (concat items-with-balances
