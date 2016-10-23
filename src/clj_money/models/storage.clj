@@ -69,6 +69,9 @@
   (delete-transaction
     [this id]
     "Deletes the specified transaction record")
+  (update-transaction
+    [this id]
+    "Updates the specified transaction")
 
   ; Transaction items
   (create-transaction-item

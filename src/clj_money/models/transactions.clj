@@ -10,6 +10,7 @@
             [clj-money.models.storage :refer [create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
+                                              update-transaction
                                               find-transaction-items-preceding-date
                                               select-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
@@ -342,6 +343,7 @@
                                   storage
                                   (:transaction-date validated)
                                   (:items validated))]
+        (update-transaction storage validated)
         (process-item-updates storage items-with-balances)
         (update-affected-balances storage
                                   (concat items-with-balances

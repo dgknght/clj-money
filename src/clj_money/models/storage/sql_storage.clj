@@ -195,6 +195,17 @@
     [_ id]
     (jdbc/delete! db-spec :transactions ["id = ?" id]))
 
+  (update-transaction
+    [_ transaction]
+    (let [sql (sql/format (-> (h/update :transactions)
+                              (h/sset (->update-set
+                                        (update-in transaction
+                                                   [:transaction-date]
+                                                   tc/to-sql-date)
+                                        :transaction-date))
+                              (h/where [:= :id (:id transaction)])))]
+      (jdbc/execute! db-spec sql)))
+
   ; Transaction Items
   (create-transaction-item
     [_ transaction-item]
