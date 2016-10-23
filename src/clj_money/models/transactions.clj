@@ -1,6 +1,7 @@
 (ns clj-money.models.transactions
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
             [schema.core :as schema]
             [clj-money.validation :as validation]
@@ -306,6 +307,23 @@
        (map before-save-item)
        (mapv #(update-item storage %))))
 
+(defn- process-dereferenced-accounts
+  "Finds any accounts that used to be referenced by the transaction
+  but no longer are and recalculates balances and indexes for those
+  accounts"
+  [storage-spec transaction]
+  (let [old-trans (find-by-id storage-spec (:id transaction))
+        old-accounts (->> (:items old-trans)
+                          (map :account-id)
+                          (into #{}))
+        current-accounts (->> (:items transaction)
+                              (map :account-id)
+                              (into #{}))]
+    (->> (difference old-accounts current-accounts)
+         (map #(hash-map :account-id % :id -1)) ; fake out an item because that's what get-previous-item expects
+         (map #(get-previous-item storage-spec % (:transaction-date transaction)))
+         (update-affected-balances storage-spec))))
+
 (defn update
   "Updates the specified transaction"
   [storage-spec transaction]
@@ -315,9 +333,13 @@
       validated
       (let [items-with-balances (calculate-balances-and-indexes storage
                                                                 (:transaction-date validated)
-                                                                (:items validated))]
-        (update-affected-balances storage-spec items-with-balances (:transaction-date validated))
-        (assoc validated [:items] (process-item-updates storage items-with-balances))))))
+                                                                (:items validated))
+            _ (process-dereferenced-accounts storage validated) ; this relies on old values still being in the database
+            _ (update-affected-balances storage
+                                        items-with-balances
+                                        (:transaction-date validated))
+            processed-items (process-item-updates storage items-with-balances)]
+        (assoc validated [:items] processed-items)))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
