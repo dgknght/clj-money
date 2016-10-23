@@ -499,7 +499,7 @@
           "The groceries account balance should be correct after update"))
     (testing "transaction is updated"
       (is (= (t/local-date 2016 3 10)
-             (:transaction-date (transaction/reload storage-spec t3)))
+             (:transaction-date (transactions/reload storage-spec t3)))
           "The transaction should be updated"))))
 
 (def short-circuit-context
@@ -652,7 +652,7 @@
          rent
          groceries] (:accounts context)
         [t1 t2 t3 t4] (:transactions context)
-        _ (transactions/update storage-spec (assoc t3 :account-id (:id rent)))
+        _ (transactions/update storage-spec (assoc-in t3 [:items 0 :account-id] (:id rent)))
         groceries-items (transactions/items-by-account storage-spec (:id groceries))
         rent-items (transactions/items-by-account storage-spec (:id rent))
         expected-groceries [{:index 1
@@ -666,26 +666,24 @@
                         :balance (bigdec 102)}]
         actual-groceries (map #(select-keys % [:index :amount :balance])
                               groceries-items)]
-
-    (pprint {:expected expected-groceries
-             :actual actual-groceries
-             :diff (diff expected-groceries actual-groceries)})
-
     (testing "accounts have the correct items"
       (is (= expected-groceries actual-groceries)
           "Groceries should have the correct items after update")
-      #_(is (= expected-rent
+      (is (= expected-rent
              (map #(select-keys % [:index :amount :balance]) rent-items))))
-    #_(testing "accounts have the correct balances"
+    (testing "accounts have the correct balances"
       (is (= (bigdec 204)
-             (:balance (accounts/reload storage-spec groceries))))
+             (:balance (accounts/reload storage-spec groceries)))
+          "The groceries account has the correct balance after update")
       (is (= (bigdec 102)
-             (:balance (accounts/reload storage-spec rent)))))))
+             (:balance (accounts/reload storage-spec rent)))
+          "The rend account has the correct balance after update"))))
 
 ; update a transaction
 
 ; change account
 ;  old account balance and items are recalculated
 ;  new account balance and items are recalculated
+; change action
 ; add a transaction item
 ; remove a transaction item
