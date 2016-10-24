@@ -7,11 +7,12 @@ create sequence transactions_id_seq
 
 create table transactions (
   id int primary key not null default nextval('transactions_id_seq'),
-  transaction_date date not null,
+  transaction_date bigint not null,
   entity_id int not null
 );
 
-create index ix_transactions_date on transactions (entity_id, transaction_date DESC);
+create index ix_transactions_entity_date on transactions (entity_id, transaction_date DESC);
+create index ix_transactions_date on transactions (transaction_date DESC);
 
 alter sequence transactions_id_seq
   owned by transactions.id;

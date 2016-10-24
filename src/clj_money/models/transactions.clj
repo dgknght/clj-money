@@ -104,7 +104,7 @@
   [transaction]
   (-> transaction
       (dissoc :items)
-      (update-in [:transaction-date] tc/to-sql-date)))
+      (update-in [:transaction-date] tc/to-long)))
 
 (defn- prepare-for-return
   "Returns a transaction that is ready for public use"
@@ -116,7 +116,7 @@
   [storage item transaction-date]
   (->> (find-transaction-items-preceding-date storage
                                               (:account-id item)
-                                              transaction-date)
+                                              (tc/to-long transaction-date))
        (remove #(= (:id %) (:id item)))
        first))
 
@@ -193,7 +193,7 @@
    (->> (select-transaction-items-by-account-id-on-or-after-date
           (storage storage-spec)
           (:account-id reference-item)
-          transaction-date)
+          (tc/to-long transaction-date))
         (remove #(= (:id reference-item) (:id %)))
         (map prepare-item-for-return))))
 
@@ -294,6 +294,7 @@
   [storage-spec id]
   (let [storage (storage storage-spec)]
     (-> (find-transaction-by-id storage id)
+        prepare-for-return
         (assoc :items (select-transaction-items-by-transaction-id storage id)))))
 
 (defn items-by-account
@@ -343,7 +344,9 @@
                                   storage
                                   (:transaction-date validated)
                                   (:items validated))]
-        (update-transaction storage validated)
+        (->> validated
+             before-save
+             (update-transaction storage))
         (process-item-updates storage items-with-balances)
         (update-affected-balances storage
                                   (concat items-with-balances

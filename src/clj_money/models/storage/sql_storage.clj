@@ -199,9 +199,7 @@
     [_ transaction]
     (let [sql (sql/format (-> (h/update :transactions)
                               (h/sset (->update-set
-                                        (update-in transaction
-                                                   [:transaction-date]
-                                                   tc/to-sql-date)
+                                        transaction
                                         :transaction-date))
                               (h/where [:= :id (:id transaction)])))]
       (jdbc/execute! db-spec sql)))
@@ -246,7 +244,7 @@
                                 (h/join [:transactions :t] [:= :t.id :i.transaction-id])
                                 (h/where [:and
                                           [:= :i.account_id account-id]
-                                          [:>= :t.transaction_date (tc/to-sql-date transaction-date)]])
+                                          [:>= :t.transaction_date transaction-date]])
                                 (h/order-by :index)))]
         (->> (jdbc/query db-spec sql)
             (map ->clojure-keys))))
@@ -258,7 +256,7 @@
                               (h/join [:transactions :t] [:= :t.id :i.transaction-id])
                               (h/where [:and
                                         [:= :i.account-id account-id]
-                                        [:< :t.transaction-date (tc/to-sql-date transaction-date)]])
+                                        [:< :t.transaction-date transaction-date]])
                               (h/order-by [:t.transaction-date :desc] [:i.index :desc])
                               (h/limit 2)))]
       (->> (jdbc/query db-spec sql)
