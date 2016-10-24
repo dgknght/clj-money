@@ -60,7 +60,10 @@
       (let [retrieved (transactions/find-by-id storage-spec (:id transaction))]
         (is retrieved "The transaction is retrievable by ID")
         (is (= 2
-               (count (:items retrieved))) "The items are returned with the transaction")))))
+               (count (:items retrieved))) "The items are returned with the transaction")
+        (is (= (t/local-date 2016 3 2)
+               (:transaction-date retrieved))
+            "The transaction date is correct")))))
 
 (deftest transaction-date-is-required
   (let [context (test-context)
