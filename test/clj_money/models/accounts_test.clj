@@ -92,21 +92,29 @@
                                           :type :expense
                                           :parent-id (:id taxes)
                                           :entity-id (:id entity)})
-        result (accounts/select-nested-by-entity-id storage-spec (:id entity))
+        result (simplify-account-groups (accounts/select-nested-by-entity-id storage-spec (:id entity)))
         expected [{:type :asset
-             :accounts [(assoc checking :children [])
-                        (assoc savings :children [(assoc car-savings :children [(assoc doug-car :children [])
-                                                                                (assoc eli-car :children [])])
-                                                  (assoc reserve-savings :children [])])]}
-            {:type :liability
-             :accounts []}
-            {:type :equity
-             :accounts []}
-            {:type :income
-             :accounts []}
-            {:type :expense
-             :accounts [(assoc taxes :children [(assoc fit :children [])
-                                                (assoc ss  :children [])])]}]]
+                   :accounts [{:name "Checking"}
+                              {:name "Savings"
+                               :children [{:name "Car"
+                                           :children [{:name "Doug"}
+                                                      {:name "Eli"}]}
+                                          {:name "Reserve"}]}]}
+                  {:type :liability
+                   :accounts []}
+                  {:type :equity
+                   :accounts []}
+                  {:type :income
+                   :accounts []}
+                  {:type :expense
+                   :accounts [{:name "Taxes"
+                               :children [{:name "Federal Income Tax"}
+                                          {:name "Social Security"}]}]}]]
+    (when-not (= expected result)
+      (pprint {:expected expected
+               :actual result
+               :diff (diff expected result)}))
+
     (is (= expected result) "The accounts should be returned in the correct hierarchy")))
 
 (deftest create-an-account
