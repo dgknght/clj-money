@@ -98,6 +98,9 @@
   (update-transaction-item-index-and-balance
     [this transaction-item]
     "Updates the specified transaction item, index and balance fields only, returns true if the values changes, false if not")
+  (delete-transaction-item
+    [this id]
+    "Deletes the specified transaction item record")
   (delete-transaction-items-by-transaction-id
     [this transaction-id]
     "Deletes the transaction items having the specified id"))

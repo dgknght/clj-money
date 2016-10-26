@@ -295,6 +295,10 @@
             (pprint {:sql sql
                     :batch-update-exception (.getNextException e)})))))
 
+  (delete-transaction-item
+    [_ id]
+    (jdbc/delete! db-spec :transaction_items ["id = ?" id]))
+
   (delete-transaction-items-by-transaction-id
     [_ transaction-id]
     (jdbc/delete! db-spec

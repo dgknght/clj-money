@@ -19,6 +19,7 @@
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
                                               delete-transaction
+                                              delete-transaction-item
                                               delete-transaction-items-by-transaction-id]])
   (:import java.util.Date
            org.joda.time.LocalDate))
@@ -314,21 +315,30 @@
   [storage-spec transaction]
   (find-by-id storage-spec (:id transaction)))
 
-(defn- base-items-for-dereferenced-accounts
-  "Given a transaction being updated, returns a list of base
+(defn- process-removals
+  "Given a transaction being updated, deletes an transaction
+  items that are no longer present and returns a list of base
   items to be used to propagate updates for accounts there were
   referenced in the transaction but no longer are"
-  [storage-spec transaction]
-  (let [existing-trans (reload storage-spec transaction)
+  [storage transaction]
+  (let [existing-trans (reload storage transaction)
+        removed-item-ids (apply difference
+                                (map #(->> (:items %)
+                                           (map :id)
+                                           (into #{}))
+                                     [existing-trans transaction]))
         dereferenced-account-ids (apply difference
                                         (map #(->> (:items %)
                                                    (map :account-id)
                                                    (into #{}))
                                              [existing-trans transaction]))]
+    (doseq [id removed-item-ids]
+      (delete-transaction-item storage id))
     (->> dereferenced-account-ids
          ; fake out an item because that's what get-previous-item expects
          (map #(hash-map :account-id % :id -1))
-         (map #(get-previous-item storage-spec % (:transaction-date transaction))))))
+         (map #(or (get-previous-item storage % (:transaction-date transaction))
+                   (assoc % :index -1 :balance (bigdec 0)))))))
 
 (defn update
   "Updates the specified transaction"
@@ -337,7 +347,7 @@
         validated (validate Transaction transaction)]
     (if (validation/has-error? validated)
       validated
-      (let [dereferenced-base-items (base-items-for-dereferenced-accounts
+      (let [dereferenced-base-items (process-removals
                                       storage
                                       validated)
             items-with-balances (calculate-balances-and-indexes
