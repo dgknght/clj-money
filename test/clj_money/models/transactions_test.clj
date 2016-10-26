@@ -682,11 +682,80 @@
              (:balance (accounts/reload storage-spec rent)))
           "The rend account has the correct balance after update"))))
 
+(def change-action-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"}]
+   :accounts [{:name "Checking"
+               :type :asset}
+              {:name "Salary"
+               :type :income}
+              {:name "Groceries"
+               :type :expense}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 9)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 103}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 103}]}
+                  {:transaction-date (t/local-date 2016 3 16)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 12}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 12}]}
+                  {:transaction-date (t/local-date 2016 3 23)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 101}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 101}]}]})
+
+(deftest update-a-transaction-change-action
+  (let [context (serialization/realize storage-spec change-action-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        [t1 t2 t3 t4] (:transactions context)
+        updated (transactions/update storage-spec (-> t3
+                                                      (assoc-in [:items 0 :action] :credit)
+                                                      (assoc-in [:items 1 :action] :debit)))
+        expected-items [{:index 2
+                         :amount (bigdec 101)
+                         :balance (bigdec 192)}
+                        {:index 1
+                         :amount (bigdec 12)
+                         :balance (bigdec 91)}
+                        {:index 0
+                         :amount (bigdec 103)
+                         :balance (bigdec 103)}]
+        actual-items (map #(select-keys % [:index :amount :balance])
+                          (transactions/items-by-account storage-spec (:id groceries)))]
+    (testing "items are updated correctly"
+      (is (= expected-items actual-items)
+          "Groceries should have the correct items after update"))
+    (testing "account balances are updated correctly"
+      (is (= (bigdec 192)
+             (:balance (accounts/reload storage-spec groceries)))
+          "Groceries should have the correct balance after update")
+      (is (= (bigdec 808)
+             (:balance (accounts/reload storage-spec checking)))
+          "Checking should have the correct balance after update"))))
+
 ; update a transaction
 
-; change account
-;  old account balance and items are recalculated
-;  new account balance and items are recalculated
-; change action
 ; add a transaction item
 ; remove a transaction item
