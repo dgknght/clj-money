@@ -198,10 +198,12 @@
         (remove #(= (:id reference-item) (:id %)))
         (map prepare-item-for-return))))
 
-(defn- update-item
+(defn- upsert-item
   "Updates the specified transaction item"
-  [storage-spec item]
-  (update-transaction-item (storage storage-spec) item))
+  [storage item]
+  (if (:id item)
+    (update-transaction-item storage item)
+    (create-transaction-item storage item)))
 
 (defn- update-item-index-and-balance
   "Updates only the index and balance attributes of an item, returning true if
@@ -308,7 +310,7 @@
   [storage items]
   (->> items
        (map before-save-item)
-       (mapv #(update-item storage %))))
+       (mapv #(upsert-item storage %))))
 
 (defn reload
   "Returns an updated copy of the transaction"
@@ -357,7 +359,8 @@
         (->> validated
              before-save
              (update-transaction storage))
-        (process-item-updates storage items-with-balances)
+        (process-item-updates storage (map #(assoc % :transaction-id (:id transaction))
+                                           items-with-balances)) ; new items need the transaction id
         (update-affected-balances storage
                                   (concat items-with-balances
                                           dereferenced-base-items)
