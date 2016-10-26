@@ -828,7 +828,8 @@
         actual-items (map #(select-keys % [:index :amount :balance])
                           (transactions/items-by-account storage-spec (:id groceries)))]
     (testing "item values are correct"
-      (is (= expected-items actual-items "The Pets account should have the correct items")))
+      (is (= expected-items actual-items)
+          "The Pets account should have the correct items"))
     (testing "account balances are correct"
       (is (= (bigdec 0)
              (:balance (accounts/reload storage-spec pets)))
@@ -862,7 +863,8 @@
         actual-items (map #(select-keys % [:index :amount :balance])
                           (transactions/items-by-account storage-spec (:id pets)))]
     (testing "item values are correct"
-      (is (= expected-items actual-items "The Pets account should have the correct items")))
+      (is (= expected-items actual-items)
+          "The Pets account should have the correct items"))
     (testing "account balances are correct"
       (is (= (bigdec 25)
              (:balance (accounts/reload storage-spec pets)))
