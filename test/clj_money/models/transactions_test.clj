@@ -755,7 +755,121 @@
              (:balance (accounts/reload storage-spec checking)))
           "Checking should have the correct balance after update"))))
 
-; update a transaction
+(def add-remove-item-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"}]
+   :accounts [{:name "Checking"
+               :type :asset}
+              {:name "Salary"
+               :type :income}
+              {:name "Pets"
+               :type :expense}
+              {:name "Groceries"
+               :type :expense}]
+   :transactions [{:transaction-date (t/local-date 2016 3 2)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount 1000}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount 1000}]}
+                  {:transaction-date (t/local-date 2016 3 9)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 103}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 103}]}
+                  {:transaction-date (t/local-date 2016 3 16)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 90}
+                           {:action :debit
+                            :account-id "Pets"
+                            :amount 12}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 102}]}
+                  {:transaction-date (t/local-date 2016 3 23)
+                   :entity-id "Personal"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount 101}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount 101}]}]})
 
-; add a transaction item
-; remove a transaction item
+(deftest update-a-transaction-remove-item
+  (let [context (serialization/realize storage-spec add-remove-item-context)
+        [checking
+         salary
+         pets
+         groceries] (:accounts context)
+        [t1 t2 t3 t4] (:transactions context)
+        to-update (-> t3
+                      (assoc-in [:items 0 :amount] (bigdec 102))
+                      (update-in [:items] #(remove (fn [item]
+                                                     (= (:account-id item)
+                                                        (:id pets)))
+                                                   %)))
+        updated (transactions/update storage-spec to-update)
+        expected-items [{:index 2
+                         :amount (bigdec 101)
+                         :balance (bigdec 306)}
+                        {:index 1
+                         :amount (bigdec 102)
+                         :balance (bigdec 205)}
+                        {:index 0
+                         :amount (bigdec 103)
+                         :balance (bigdec 103)}]
+        actual-items (map #(select-keys % [:index :amount :balance])
+                          (transactions/items-by-account storage-spec (:id groceries)))]
+    (testing "item values are correct"
+      (is (= expected-items actual-items "The Pets account should have the correct items")))
+    (testing "account balances are correct"
+      (is (= (bigdec 0)
+             (:balance (accounts/reload storage-spec pets)))
+          "Pets should have the correct balance after update")
+      (is (= (bigdec 306)
+             (:balance (accounts/reload storage-spec groceries)))
+          "Groceries should have the correct balance after update")
+      (is (= (bigdec 694)
+             (:balance (accounts/reload storage-spec checking)))
+          "Checking should have the correct balance after update"))))
+
+(deftest update-a-transaction-add-item
+  (let [context (serialization/realize storage-spec add-remove-item-context)
+        [checking
+         salary
+         pets
+         groceries] (:accounts context)
+        [t1 t2 t3 t4] (:transactions context)
+        to-update (-> t2
+                      (assoc-in [:items 0 :amount] (bigdec 90))
+                      (update-in [:items] #(conj % {:action :debit
+                                                    :account-id (:id pets)
+                                                    :amount (bigdec 13)})))
+        updated (transactions/update storage-spec to-update)
+        expected-items [{:index 1
+                         :amount (bigdec 12)
+                         :balance (bigdec 25)}
+                        {:index 0
+                         :amount (bigdec 13)
+                         :balance (bigdec 13)}]
+        actual-items (map #(select-keys % [:index :amount :balance])
+                          (transactions/items-by-account storage-spec (:id pets)))]
+    (testing "item values are correct"
+      (is (= expected-items actual-items "The Pets account should have the correct items")))
+    (testing "account balances are correct"
+      (is (= (bigdec 25)
+             (:balance (accounts/reload storage-spec pets)))
+          "Pets should have the correct balance after update")
+      (is (= (bigdec 281)
+             (:balance (accounts/reload storage-spec groceries)))
+          "Groceries should have the correct balance after update")
+      (is (= (bigdec 694)
+             (:balance (accounts/reload storage-spec checking)))
+          "Checking should have the correct balance after update"))))
