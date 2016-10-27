@@ -249,6 +249,16 @@
         (->> (jdbc/query db-spec sql)
             (map ->clojure-keys))))
 
+  (find-transaction-item-by-id
+    [_ id]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :transaction_items)
+                              (h/where [:= :id id])
+                              (h/limit 1)))]
+      (->> (jdbc/query db-spec sql)
+           first
+           ->clojure-keys)))
+
   (find-transaction-items-preceding-date
     [_ account-id transaction-date]
     (let [sql (sql/format (-> (h/select :i.*)

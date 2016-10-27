@@ -89,6 +89,9 @@
   (select-transaction-items-by-account-id-on-or-after-date
     [this account-id transaction-date]
     "Returns the transaction items for the specified account ocurring on or after the specified date")
+  (find-transaction-item-by-id
+    [this id]
+    "Returns the transaction item having the specified id")
   (find-transaction-items-preceding-date
     [this account-id transaction-date]
     "Returns the transaction items preceding the specifed date in descending order by seqence")

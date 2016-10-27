@@ -11,6 +11,7 @@
                                               create-transaction-item
                                               find-transaction-by-id
                                               update-transaction
+                                              find-transaction-item-by-id
                                               find-transaction-items-preceding-date
                                               select-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
@@ -202,7 +203,9 @@
   "Updates the specified transaction item"
   [storage item]
   (if (:id item)
-    (update-transaction-item storage item)
+    (do
+      (update-transaction-item storage item)
+      (find-transaction-item-by-id storage (:id item)))
     (create-transaction-item storage item)))
 
 (defn- update-item-index-and-balance
@@ -305,7 +308,7 @@
   [storage-spec account-id]
   (select-transaction-items-by-account-id (storage storage-spec) account-id))
 
-(defn- process-item-updates
+(defn- process-item-upserts
   "Process items in a transaction update operation"
   [storage items]
   (->> items
@@ -352,17 +355,18 @@
       (let [dereferenced-base-items (process-removals
                                       storage
                                       validated)
-            items-with-balances (calculate-balances-and-indexes
+            upserted-items (->> (:items validated)
+                                (calculate-balances-and-indexes
                                   storage
-                                  (:transaction-date validated)
-                                  (:items validated))]
+                                  (:transaction-date validated))
+                                ; new items need the transaction-id added
+                                (map #(assoc % :transaction-id (:id transaction)))
+                                (process-item-upserts storage))]
         (->> validated
              before-save
              (update-transaction storage))
-        (process-item-updates storage (map #(assoc % :transaction-id (:id transaction))
-                                           items-with-balances)) ; new items need the transaction id
         (update-affected-balances storage
-                                  (concat items-with-balances
+                                  (concat upserted-items
                                           dereferenced-base-items)
                                   (:transaction-date validated))
         (reload storage validated)))))
