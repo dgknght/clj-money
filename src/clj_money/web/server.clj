@@ -52,9 +52,9 @@
 
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
-       (transactions/index entity-id))
+       (transactions/index (Integer. entity-id)))
   (GET "/entities/:entity-id/transactions/new" [entity-id]
-       (transactions/new-transaction entity-id)))
+       (transactions/new-transaction (Integer. entity-id))))
 
 (defroutes routes
   (GET "/" []
