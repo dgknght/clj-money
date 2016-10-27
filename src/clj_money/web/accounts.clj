@@ -61,7 +61,7 @@
       [:div.col-md-6
        [:table.table.table-striped
         [:tr
-         [:th.col-md-10 "Name"]
+         [:th.col-sm-10 "Name"]
          [:th.col-sm-2 "&nbsp;"]]
         (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
           (map account-rows groups))]
