@@ -181,7 +181,8 @@
   "Renders a HTML input field"
   ([model attribute options]
    [:div.form-group {:class (when (validation/has-error? model attribute)"has-error")}
-    [:label.control-label {:for attribute} (humanize attribute)]
+    (when-not (:suppress-label? options)
+      [:label.control-label {:for attribute} (humanize attribute)])
     [:input.form-control (merge options {:id attribute
                                          :name attribute
                                          :value (get model attribute)})]
@@ -199,14 +200,17 @@
    (input-field model attribute (merge options {:type :password}))))
 
 (defn select-field
-  [model attribute options]
-  [:div.form-group
-   [:label {:for attribute} (humanize attribute)]
-   [:select.form-control {:id attribute :name attribute}
-    (map #(vector :option {:value (:value %)
-                           :selected (if (= (attribute model)
-                                            (:value %))
-                                       true
-                                       nil)}
-                  (:caption %))
-         options)]])
+  ([model attribute option-items]
+   (select-field model attribute option-items {}))
+  ([model attribute option-items options]
+   [:div.form-group
+    (when-not (:suppress-label? options)
+      [:label {:for attribute} (humanize attribute)])
+    [:select.form-control {:id attribute :name attribute}
+     (map #(vector :option {:value (:value %)
+                            :selected (if (= (attribute model)
+                                             (:value %))
+                                        true
+                                        nil)}
+                   (:caption %))
+          option-items)]]))
