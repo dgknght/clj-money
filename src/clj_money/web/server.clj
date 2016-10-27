@@ -18,6 +18,7 @@
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.accounts :as accounts]
+            [clj-money.web.transactions :as transactions]
             [clj-money.web.users :as users]))
 
 (defroutes protected-routes
@@ -47,7 +48,13 @@
   (POST "/accounts/:id" req
         (accounts/update (:params req)))
   (POST "/accounts/:id/delete" [id]
-        (accounts/delete id)))
+        (accounts/delete id))
+
+  ; Transactions
+  (GET "/entities/:entity-id/transactions" [entity-id]
+       (transactions/index entity-id))
+  (GET "/entities/:entity-id/transactions/new" [entity-id]
+       (transactions/new-transaction entity-id)))
 
 (defroutes routes
   (GET "/" []
