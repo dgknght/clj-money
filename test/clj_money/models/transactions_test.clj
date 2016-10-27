@@ -41,6 +41,7 @@
                               (map #(accounts/create storage-spec %))))]
     {:accounts accounts
      :attributes {:transaction-date (t/local-date 2016 3 2)
+                  :description "Paycheck"
                   :entity-id (:id entity)
                   :items [{:account-id (-> accounts :checking :id)
                            :action :debit
@@ -152,6 +153,7 @@
                :entity-id "Personal"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -160,6 +162,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 3)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 100}
@@ -221,6 +224,7 @@
                :entity-id "Personal"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -229,6 +233,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 10)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 100}
@@ -237,6 +242,7 @@
                             :amount 100}]}
                   {:transaction-date (t/local-date 2016 3 3)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 99}
@@ -283,6 +289,7 @@
                :entity-id "Personal"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -297,6 +304,7 @@
                             :amount 100}]}
                   {:transaction-date (t/local-date 2016 3 10)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 100}
@@ -336,6 +344,7 @@
                :entity-id "Personal"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -344,6 +353,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 3)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 101}
@@ -352,6 +362,7 @@
                             :amount 101}]}
                   {:transaction-date (t/local-date 2016 3 4)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 102}
@@ -408,6 +419,7 @@
                :entity-id "Personal"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -416,6 +428,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 12)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 101}
@@ -424,6 +437,7 @@
                             :amount 101}]}
                   {:transaction-date (t/local-date 2016 3 22)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 102}
@@ -520,6 +534,7 @@
                :entity-id "Personal"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -528,6 +543,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 9)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 101}
@@ -536,6 +552,7 @@
                             :amount 101}]}
                   {:transaction-date (t/local-date 2016 3 16)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 102}
@@ -544,6 +561,7 @@
                             :amount 102}]}
                   {:transaction-date (t/local-date 2016 3 23)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 103}
@@ -552,6 +570,7 @@
                             :amount 103}]}
                   {:transaction-date (t/local-date 2016 3 30)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 104}
@@ -617,6 +636,7 @@
                :type :expense}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -625,6 +645,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 9)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 101}
@@ -633,6 +654,7 @@
                             :amount 101}]}
                   {:transaction-date (t/local-date 2016 3 16)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 102}
@@ -641,6 +663,7 @@
                             :amount 102}]}
                   {:transaction-date (t/local-date 2016 3 23)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 103}
@@ -693,6 +716,7 @@
                :type :expense}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -701,6 +725,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 9)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 103}
@@ -709,6 +734,7 @@
                             :amount 103}]}
                   {:transaction-date (t/local-date 2016 3 16)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 12}
@@ -717,6 +743,7 @@
                             :amount 12}]}
                   {:transaction-date (t/local-date 2016 3 23)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 101}
@@ -768,6 +795,7 @@
                :type :expense}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
+                   :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
                             :amount 1000}
@@ -776,6 +804,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 9)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 103}
@@ -784,6 +813,7 @@
                             :amount 103}]}
                   {:transaction-date (t/local-date 2016 3 16)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 90}
@@ -795,6 +825,7 @@
                             :amount 102}]}
                   {:transaction-date (t/local-date 2016 3 23)
                    :entity-id "Personal"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 101}
