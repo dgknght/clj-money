@@ -67,6 +67,13 @@
     (is (validation/valid? transaction) "The transaction is valid")
     (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
 
+(deftest create-a-transaction-intl-string-date
+  (let [context (serialization/realize storage-spec create-context)
+        transaction (transactions/create storage-spec (-> (attributes context)
+                                                          (assoc :transaction-date "2016-03-02")))]
+    (is (validation/valid? transaction) "The transaction is valid")
+    (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
+
 (deftest transaction-date-is-required
   (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create storage-spec (-> (attributes context)
