@@ -20,40 +20,34 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def user (users/create storage-spec (factory :user)))
-(def entity (entities/create storage-spec
-                             (assoc (factory :entity) :user-id (:id user))))
+(def create-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"}]
+   :accounts [{:name "Checking"
+               :type :asset }
+              {:name "Salary"
+               :type :income}
+              {:name "Groceries"
+               :type :expense}]})
 
-(def account-defs
-  [{:name "Checking"
-    :type :asset}
-   {:name "Salary"
-    :type :income}
-   {:name "Groceries"
-    :type :expense}])
-
-(defn test-context
-  "Returns a context containing related models necessary to run the tests"
-  []
-  (let [accounts (zipmap [:checking :salary :groceries]
-                         (->> account-defs
-                              (map #(assoc % :entity-id (:id entity)))
-                              (map #(accounts/create storage-spec %))))]
-    {:accounts accounts
-     :attributes {:transaction-date (t/local-date 2016 3 2)
-                  :description "Paycheck"
-                  :entity-id (:id entity)
-                  :items [{:account-id (-> accounts :checking :id)
-                           :action :debit
-                           :amount (bigdec 1000)}
-                          {:account-id (-> accounts :salary :id)
-                           :action :credit
-                           :amount (bigdec 1000)}]}}))
+(defn attributes
+  [context]
+  (let [[checking
+         salary
+         groceries] (:accounts context)]
+    {:transaction-date (t/local-date 2016 3 2)
+     :description "Paycheck"
+     :entity-id (-> context :entities first :id)
+     :items [{:account-id (:id checking)
+              :action :debit
+              :amount (bigdec 1000)}
+             {:account-id (:id salary)
+              :action :credit
+              :amount (bigdec 1000)}]}))
 
 (deftest create-a-transaction
-  (let [context (test-context)
-        attributes (:attributes context)
-        transaction (transactions/create storage-spec attributes)]
+  (let [context (serialization/realize storage-spec create-context)
+        transaction (transactions/create storage-spec (attributes context))]
     (testing "return value includes the new id"
       (is (validation/valid? transaction))
       (is (number? (:id transaction)) "A map with the new ID is returned"))
@@ -67,82 +61,82 @@
             "The transaction date is correct")))))
 
 (deftest create-a-transaction-us-string-date
-  (let [context (test-context)
-        attributes (assoc (:attributes context) :transaction-date "3/2/2016")
-        transaction (transactions/create storage-spec attributes)]
+  (let [context (serialization/realize storage-spec create-context)
+        transaction (transactions/create storage-spec (-> (attributes context)
+                                                          (assoc :transaction-date "3/2/2016")))]
     (is (validation/valid? transaction) "The transaction is valid")
     (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
 
 (deftest transaction-date-is-required
-  (let [context (test-context)
-        attributes (:attributes context)
-        transaction (transactions/create storage-spec (dissoc attributes :transaction-date))]
+  (let [context (serialization/realize storage-spec create-context)
+        transaction (transactions/create storage-spec (-> (attributes context)
+                                                          (dissoc :transaction-date)))]
     (is (validation/has-error? transaction :transaction-date))))
 
 (deftest entity-id-is-required
-  (let [context (test-context)
-        attributes (:attributes context)
-        transaction (transactions/create storage-spec (dissoc attributes :entity-id))]
+  (let [context (serialization/realize storage-spec create-context)
+        transaction (transactions/create storage-spec (-> (attributes context)
+                                                          (dissoc :entity-id)))]
     (is (validation/has-error? transaction :entity-id))))
 
 (deftest item-account-id-is-required
-  (let [context (test-context)
-        attributes (:attributes context)
+  (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create
                       storage-spec
-                      (update-in attributes
-                                 [:items 0]
-                                 #(dissoc % :account-id)))]
+                      (-> (attributes context)
+                          (update-in
+                            [:items 0]
+                            #(dissoc % :account-id))))]
     (is (validation/has-error? transaction :items))))
 
 (deftest item-amount-is-required
-  (let [context (test-context)
-        attributes (:attributes context)
+  (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create
                       storage-spec
-                      (update-in attributes
-                                 [:items 0]
-                                 #(dissoc % :amount)))]
+                      (-> (attributes context)
+                          (update-in
+                            [:items 0]
+                            #(dissoc % :amount))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-amount-must-be-greater-than-zero
-  (let [context (test-context)
-        attributes (:attributes context)
+  (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create
                       storage-spec
-                      (update-in attributes
-                                 [:items 0]
-                                 #(assoc % :amount (bigdec -1000))))]
+                      (-> (attributes context)
+                          (update-in
+                            [:items 0]
+                            #(assoc % :amount (bigdec -1000)))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-is-required
-  (let [context (test-context)
-        attributes (:attributes context)
+  (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create
                       storage-spec
-                      (update-in attributes
-                                 [:items 0]
-                                 #(dissoc % :action)))]
+                      (-> (attributes context)
+                          (update-in
+                            [:items 0]
+                            #(dissoc % :action))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-must-be-debit-or-created
-  (let [context (test-context)
-        attributes (:attributes context)
+  (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create
                       storage-spec
-                      (update-in attributes
-                                 [:items 0]
-                                 #(assoc % :action :not-valid)))]
+                      (-> (attributes context)
+                          (update-in
+                            [:items 0]
+                            #(assoc % :action :not-valid))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest sum-of-debits-must-equal-sum-of-credits
-  (let [context (test-context)
-        attributes (:attributes context)
+  (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create
                       storage-spec
-                      (update-in attributes
-                                 [:items 0]
-                                 #(assoc % :amount (bigdec 1001))))]
+                      (-> (attributes context)
+                          (update-in
+                            [:items 0]
+                            #(assoc % :amount (bigdec 1001)))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (def balance-context
@@ -467,7 +461,7 @@
                            {:index 0 :amount (bigdec 1000)    :balance (bigdec 1000)}]
         actual-checking (->> (:id checking)
                              (transactions/items-by-account storage-spec)
-                             (map #(select-keys % [:index :amount :balance]))) 
+                             (map #(select-keys % [:index :amount :balance])))
         expected-groceries [{:index 1 :amount (bigdec 102)    :balance (bigdec 201.99)}
                             {:index 0 :amount (bigdec  99.99) :balance (bigdec  99.99)}]
         actual-groceries (->> (:id groceries)
@@ -501,7 +495,7 @@
                            {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
         actual-checking (->> (:id checking)
                              (transactions/items-by-account storage-spec)
-                             (map #(select-keys % [:index :amount :balance]))) 
+                             (map #(select-keys % [:index :amount :balance])))
         expected-groceries [{:index 1 :amount (bigdec 101) :balance (bigdec 203)}
                             {:index 0 :amount (bigdec 102) :balance (bigdec 102)}]
         actual-groceries (->> (:id groceries)
