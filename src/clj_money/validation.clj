@@ -4,10 +4,12 @@
             [schema.core :as schema]
             [schema.coerce :as coerce]
             [schema.utils :as schema-utils]
+            [clj-time.core :as t]
             [clj-money.inflection :refer [singular
                                           humanize
                                           ordinal]]
-            [clj-money.schema :refer [friendly-message]]))
+            [clj-money.schema :refer [friendly-message]])
+  (:import org.joda.time.LocalDate))
 
 (defn- apply-rule
   "Applies the rule to the context, returning an 
@@ -69,6 +71,28 @@
           nil
           value)))))
 
+(def date-patterns
+  [{:pattern #"(\d{1,2})/(\d{1,2})/(\d{4})"
+    :groups [:month :day :year]}
+   {:pattern
+    #"(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})"
+    :groups [:year :month :day]}])
+
+(defn- local-date-matcher
+  [schema]
+  (when (= LocalDate schema)
+    (coerce/safe
+      (fn [value]
+        (if (string? value)
+          (when-let [parsed (some (fn [{:keys [pattern groups]}]
+                                    (when-let [m (re-matches pattern value)]
+                                      (zipmap groups (->> m
+                                                          rest
+                                                          (map #(Integer. %))))))
+                                  date-patterns)]
+            (apply t/local-date ((juxt :year :month :day) parsed)))
+          value)))))
+
 (defn- full-humanized-message
   "Accepts a tuple containg an attribute key and a schema
   violation expresion and returns a human-friendly message"
@@ -84,6 +108,7 @@
   [schema model]
   (let [coercer (coerce/coercer schema
                                 (coerce/first-matcher [int-matcher
+                                                       local-date-matcher
                                                        nil-matcher
                                                        coerce/json-coercion-matcher]))
         result (coercer model)

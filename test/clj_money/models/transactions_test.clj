@@ -66,6 +66,13 @@
                (:transaction-date retrieved))
             "The transaction date is correct")))))
 
+(deftest create-a-transaction-us-string-date
+  (let [context (test-context)
+        attributes (assoc (:attributes context) :transaction-date "3/2/2016")
+        transaction (transactions/create storage-spec attributes)]
+    (is (validation/valid? transaction) "The transaction is valid")
+    (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
+
 (deftest transaction-date-is-required
   (let [context (test-context)
         attributes (:attributes context)
@@ -725,7 +732,7 @@
                             :amount 1000}]}
                   {:transaction-date (t/local-date 2016 3 9)
                    :entity-id "Personal"
-                   :description "Paycheck"
+                   :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
                             :amount 103}

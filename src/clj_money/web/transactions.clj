@@ -48,6 +48,14 @@
                              (:amount transaction-item)))
       (dissoc :amount :action)))
 
+(defn- ->transaction-item
+  "Transforms a form item into a transaction item"
+  [{:keys [credit-amount debit-amount] :as item}]
+  (-> item
+      (assoc :action (if credit-amount :credit :debit)
+             :amount (if credit-amount credit-amount debit-amount))
+      (dissoc :credit-amount :debit-amount)))
+
 (defn new-transaction
   ([entity-id] (new-transaction entity-id
                                 {:entity-id entity-id
@@ -72,3 +80,14 @@
                     ->form-item
                     (item-row entity-id)) (:items transaction))]
         [:input.btn.btn-primary {:type :submit :value "Save"}]]]])))
+
+(defn create
+  [params]
+  (let [transaction (-> params
+                        (select-keys [:transaction-date :description :items])
+                        (update-in [:items] (partial map ->transaction-item))
+                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount]))))
+        result (transactions/create (env :db) transaction)]
+    (if (validation/has-error? result)
+      (new-transaction (:entity-id result) result {})
+      (redirect (str "/entities/" (:entity-id result) "/transactions")))))

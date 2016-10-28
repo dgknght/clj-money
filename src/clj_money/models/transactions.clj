@@ -27,6 +27,7 @@
 
 (def NewTransaction
   {:entity-id schema/Int
+   :description schema/Str
    :transaction-date LocalDate
    :items [{:account-id schema/Int
             :action (schema/enum :debit :credit)
