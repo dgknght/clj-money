@@ -86,6 +86,14 @@
                                                           (dissoc :entity-id)))]
     (is (validation/has-error? transaction :entity-id))))
 
+(deftest items-are-required
+  (let [context (serialization/realize storage-spec create-context)
+        transaction (transactions/create
+                      storage-spec
+                      (-> (attributes context)
+                          (assoc :items [])))]
+    (is (validation/has-error? transaction :items))))
+
 (deftest item-account-id-is-required
   (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create

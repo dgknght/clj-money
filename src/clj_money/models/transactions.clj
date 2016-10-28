@@ -89,9 +89,18 @@
                [[:items
                  (str "The total debits (" debits ") does not match the total credits (" credits ")")]])}))
 
+(defn- items-must-be-present
+  [{:keys [items] :as transaction}]
+  {:model transaction
+   :errors (if (and items (<= 2 (count items)))
+             []
+             [[:items
+               "The transaction must have at least two items"]])})
+
 (defn- validation-rules
   [schema]
   [(partial validation/apply-schema schema)
+   items-must-be-present
    item-amount-must-be-greater-than-zero
    sum-of-credits-must-equal-sum-of-debits])
 
