@@ -84,10 +84,10 @@
 (defn create
   [params]
   (let [transaction (-> params
-                        (select-keys [:transaction-date :description :items])
+                        (select-keys [:entity-id :transaction-date :description :items])
                         (update-in [:items] (partial map ->transaction-item))
                         (update-in [:items] (partial map #(select-keys % [:account-id :action :amount]))))
         result (transactions/create (env :db) transaction)]
     (if (validation/has-error? result)
-      (new-transaction (:entity-id result) result {})
+      (new-transaction (:entity-id transaction) result {})
       (redirect (str "/entities/" (:entity-id result) "/transactions")))))
