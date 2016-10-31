@@ -56,7 +56,9 @@
   (GET "/entities/:entity-id/transactions/new" [entity-id]
        (transactions/new-transaction (Integer. entity-id)))
   (POST "/entities/:entity-id/transactions" {params :params}
-        (transactions/create params)))
+        (transactions/create params))
+  (POST "/transactions/:id/delete" [id]
+        (transactions/delete (Integer. id))))
 
 (defroutes routes
   (GET "/" []

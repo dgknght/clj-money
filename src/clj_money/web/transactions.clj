@@ -17,8 +17,14 @@
   "Renders a row in the transaction table"
   [transaction]
   [:tr
-   [:td (:transaction-date transaction)]
-   [:td (:description transaction)]])
+   [:td.col-sm-2 (:transaction-date transaction)]
+   [:td.col-sm-9 (:description transaction)]
+   [:td.col-sm-1 (glyph-button :remove
+                      (format "/transactions/%s/delete" (:id transaction))
+                      {:level :danger
+                       :size :extra-small
+                       :data-method :post
+                       :data-confirm "Are you sure you want to delete this transaction?"})]])
 
 (defn index
   ([entity-id] (index entity-id {}))
@@ -29,8 +35,9 @@
       [:div.col-md-6
        [:table.table.table-striped
         [:tr
-         [:th "Date"]
-         [:th "Description"]]
+         [:th.col-sm-2 "Date"]
+         [:th.col-sm-9 "Description"]
+         [:th.col-sm-1 "&nbsp;"]]
         (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
       [:a.btn.btn-primary {:href (str"/entities/" entity-id "/transactions/new")} "Add"]]])))
 
@@ -99,3 +106,9 @@
     (if (validation/has-error? result)
       (new-transaction (:entity-id transaction) result {})
       (redirect (str "/entities/" (:entity-id result) "/transactions")))))
+
+(defn delete
+  [id]
+  (let [transaction (transactions/find-by-id (env :db) id)]
+    (transactions/delete (env :db) id)
+    (redirect (str "/entities/" (:entity-id transaction) "/transactions"))))
