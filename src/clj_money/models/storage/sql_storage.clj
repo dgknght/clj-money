@@ -177,6 +177,15 @@
           (map ->clojure-keys))))
 
   ; Transactions
+  (select-transactions-by-entity-id
+    [_ entity-id]
+    (let [sql (sql/format (-> (h/select :*)
+                              (h/from :transactions)
+                              (h/where [:= :entity-id entity-id])
+                              (h/order-by [:transaction-date :desc])))]
+      (->> (jdbc/query db-spec sql)
+           (map ->clojure-keys))))
+
   (create-transaction
     [_ transaction]
     (insert db-spec :transactions transaction))

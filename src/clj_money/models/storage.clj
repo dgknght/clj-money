@@ -60,6 +60,9 @@
     "Returns the account in the specified entity with the specified name")
 
   ; Transactions
+  (select-transactions-by-entity-id
+    [this entity-id]
+    "Returns transactions for the specified entity")
   (create-transaction
     [this transaction]
     "Creates a new transaction record")
