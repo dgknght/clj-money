@@ -13,6 +13,13 @@
             [clj-money.schema :as schema])
   (:use [clj-money.web.shared :refer :all]))
 
+(defn- transaction-row
+  "Renders a row in the transaction table"
+  [transaction]
+  [:tr
+   [:td (:transaction-date transaction)]
+   [:td (:description transaction)]])
+
 (defn index
   ([entity-id] (index entity-id {}))
   ([entity-id options]
@@ -23,7 +30,8 @@
        [:table.table.table-striped
         [:tr
          [:th "Date"]
-         [:th "Description"]]]
+         [:th "Description"]]
+        (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
       [:a.btn.btn-primary {:href (str"/entities/" entity-id "/transactions/new")} "Add"]]])))
 
 (defn- item-row

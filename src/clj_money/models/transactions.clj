@@ -7,7 +7,8 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [storage]]
-            [clj-money.models.storage :refer [create-transaction
+            [clj-money.models.storage :refer [select-transactions-by-entity-id
+                                              create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
                                               update-transaction
@@ -283,6 +284,21 @@
   (-> (before-validation transaction)
       (validation/validate-model (validation-rules schema))))
 
+(defn- append-items
+  [storage transaction]
+  (assoc transaction
+         :items
+         (select-transaction-items-by-transaction-id storage (:id transaction))))
+
+(defn select-by-entity-id
+  "Returns the transactions that belong to the specified entity"
+  [storage-spec entity-id]
+  (let [storage (storage storage-spec)]
+    (->>
+      (select-transactions-by-entity-id storage entity-id)
+      (map prepare-for-return)
+      (map #(append-items storage %)))))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
@@ -309,9 +325,9 @@
   "Returns the specified transaction"
   [storage-spec id]
   (let [storage (storage storage-spec)]
-    (-> (find-transaction-by-id storage id)
+    (->> (find-transaction-by-id storage id)
         prepare-for-return
-        (assoc :items (select-transaction-items-by-transaction-id storage id)))))
+        (append-items storage))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
