@@ -69,6 +69,14 @@
       (assoc :updated-at (t/now))
       ->sql-keys))
 
+(defn- query
+  "Executes a SQL query and maps field names into
+  clojure keys"
+  [db-spec sql-map]
+  (->> (sql/format sql-map)
+       (jdbc/query db-spec)
+       (map ->clojure-keys)))
+
 (deftype SqlStorage [db-spec]
   Storage
 
@@ -79,20 +87,17 @@
 
   (select-users
     [_]
-    (let [sql (sql/format (-> (h/select :first_name :last_name :email)
-                              (h/from :users)))]
-      (->> (jdbc/query db-spec sql)
-           (map ->clojure-keys))))
+    (query db-spec (-> (h/select :first_name :last_name :email)
+                       (h/from :users))))
 
   (find-user-by-email
     [this email]
-    (let [sql (sql/format (-> (h/select :id :first_name :last_name :email :password)
-                              (h/from :users)
-                              (h/where [:= :email email])))]
-      (->> sql
-           (jdbc/query db-spec)
-           first
-           ->clojure-keys)))
+    (->> (-> (h/select :id :first_name :last_name :email :password)
+             (h/from :users)
+             (h/where [:= :email email])
+             (h/limit 1))
+         (query db-spec)
+         first))
 
   (user-exists-with-email?
     [this email]
@@ -106,13 +111,13 @@
          (jdbc/insert! db-spec :entities)
          first
          ->clojure-keys))
+
   (select-entities
     [_ user-id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :entities)
-                              (h/where [:= :user_id user-id])
-                              (h/order-by :name)))]
-      (map ->clojure-keys (jdbc/query db-spec sql))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :entities)
+                       (h/where [:= :user_id user-id])
+                       (h/order-by :name))))
 
   (entity-exists-with-name?
     [_ user-id name]
@@ -146,10 +151,9 @@
 
   (select-accounts-by-entity-id
     [_ entity-id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :accounts)
-                              (h/where [:= :entity_id entity-id])))]
-      (map ->clojure-keys (jdbc/query db-spec sql))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :accounts)
+                       (h/where [:= :entity_id entity-id]))))
 
   (update-account
     [_ account]
@@ -168,37 +172,32 @@
 
   (find-accounts-by-name
     [_ entity-id name]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :accounts)
-                              (h/where [:and
-                                        [:= :entity_id entity-id]
-                                        [:= :name name]])))]
-      (->> (jdbc/query db-spec sql)
-          (map ->clojure-keys))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :accounts)
+                       (h/where [:and
+                                 [:= :entity_id entity-id]
+                                 [:= :name name]]))))
 
   ; Transactions
   (select-transactions-by-entity-id
     [_ entity-id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :transactions)
-                              (h/where [:= :entity-id entity-id])
-                              (h/order-by [:transaction-date :desc])))]
-      (->> (jdbc/query db-spec sql)
-           (map ->clojure-keys))))
+    (query db-spec (-> (h/select :*)
+                      (h/from :transactions)
+                      (h/where [:= :entity-id entity-id])
+                      (h/order-by [:transaction-date :desc]))))
 
   (create-transaction
     [_ transaction]
     (insert db-spec :transactions transaction))
 
   (find-transaction-by-id
-      [_ id]
-      (let [sql (sql/format (-> (h/select :*)
-                                (h/from :transactions)
-                                (h/where [:= :id id])
-                                (h/limit 1)))]
-        (->> (jdbc/query db-spec sql)
-            (map ->clojure-keys)
-            first)))
+    [_ id]
+    (->> (-> (h/select :*)
+            (h/from :transactions)
+            (h/where [:= :id id])
+            (h/limit 1))
+        (query db-spec )
+        first))
 
   (delete-transaction
     [_ id]
@@ -220,66 +219,55 @@
 
   (select-transaction-items-by-transaction-id
     [_ transaction-id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :transaction_items)
-                              (h/where [:= :transaction_id transaction-id])))]
-            (->> (jdbc/query db-spec sql)
-                (map ->clojure-keys))))
+    (query db-spec (-> (h/select :*)
+                      (h/from :transaction_items)
+                      (h/where [:= :transaction_id transaction-id]))))
 
   (select-transaction-items-by-account-id
     [_ account-id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :transaction_items)
-                              (h/where [:= :account_id account-id])
-                              (h/order-by [:index :desc])))]
-            (->> (jdbc/query db-spec sql)
-                (map ->clojure-keys))))
+    (query db-spec (-> (h/select :*)
+                      (h/from :transaction_items)
+                      (h/where [:= :account_id account-id])
+                      (h/order-by [:index :desc]))))
 
   (select-transaction-items-by-account-id-and-starting-index
     [_ account-id index]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :transaction_items)
-                              (h/where [:and
-                                        [:= :account_id account-id]
-                                        [:>= :index index]])
-                              (h/order-by [:index :desc])))]
-      (->> (jdbc/query db-spec sql)
-          (map ->clojure-keys))))
+    (query db-spec (-> (h/select :*)
+                      (h/from :transaction_items)
+                      (h/where [:and
+                                [:= :account_id account-id]
+                                [:>= :index index]])
+                      (h/order-by [:index :desc]))))
 
   (select-transaction-items-by-account-id-on-or-after-date
     [_ account-id transaction-date]
-    (let [sql (sql/format (-> (h/select :i.*)
-                                (h/from [:transaction_items :i])
-                                (h/join [:transactions :t] [:= :t.id :i.transaction-id])
-                                (h/where [:and
-                                          [:= :i.account_id account-id]
-                                          [:>= :t.transaction_date transaction-date]])
-                                (h/order-by :index)))]
-        (->> (jdbc/query db-spec sql)
-            (map ->clojure-keys))))
+    (query db-spec (-> (h/select :i.*)
+                      (h/from [:transaction_items :i])
+                      (h/join [:transactions :t] [:= :t.id :i.transaction-id])
+                      (h/where [:and
+                                [:= :i.account_id account-id]
+                                [:>= :t.transaction_date transaction-date]])
+                      (h/order-by :index))))
 
   (find-transaction-item-by-id
     [_ id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :transaction_items)
-                              (h/where [:= :id id])
-                              (h/limit 1)))]
-      (->> (jdbc/query db-spec sql)
-           first
-           ->clojure-keys)))
+    (->> (-> (h/select :*)
+            (h/from :transaction_items)
+            (h/where [:= :id id])
+            (h/limit 1))
+        (query db-spec)
+        first))
 
   (find-transaction-items-preceding-date
     [_ account-id transaction-date]
-    (let [sql (sql/format (-> (h/select :i.*)
-                              (h/from [:transaction_items :i])
-                              (h/join [:transactions :t] [:= :t.id :i.transaction-id])
-                              (h/where [:and
-                                        [:= :i.account-id account-id]
-                                        [:< :t.transaction-date transaction-date]])
-                              (h/order-by [:t.transaction-date :desc] [:i.index :desc])
-                              (h/limit 2)))]
-      (->> (jdbc/query db-spec sql)
-          (map ->clojure-keys))))
+    (query db-spec (-> (h/select :i.*)
+                      (h/from [:transaction_items :i])
+                      (h/join [:transactions :t] [:= :t.id :i.transaction-id])
+                      (h/where [:and
+                                [:= :i.account-id account-id]
+                                [:< :t.transaction-date transaction-date]])
+                      (h/order-by [:t.transaction-date :desc] [:i.index :desc])
+                      (h/limit 2))))
 
   (update-transaction-item
     [_ transaction-item]
