@@ -208,6 +208,7 @@
     (let [sql (sql/format (-> (h/update :transactions)
                               (h/sset (->update-set
                                         transaction
+                                        :description
                                         :transaction-date))
                               (h/where [:= :id (:id transaction)])))]
       (jdbc/execute! db-spec sql)))
