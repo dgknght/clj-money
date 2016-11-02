@@ -57,6 +57,8 @@
        (transactions/new-transaction (Integer. entity-id)))
   (POST "/entities/:entity-id/transactions" {params :params}
         (transactions/create params))
+  (GET "/transactions/:id/edit" [id]
+       (transactions/edit (Integer. id)))
   (POST "/transactions/:id/delete" [id]
         (transactions/delete (Integer. id))))
 

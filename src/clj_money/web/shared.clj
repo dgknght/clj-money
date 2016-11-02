@@ -177,6 +177,20 @@
            (render-alerts alerts))
          content)]]]))
 
+(defn- input-element
+  [name value options]
+  [:div.form-group
+    (when-not (:suppress-label? options)
+      [:label.control-label {:for name} (humanize name)])
+    [:input.form-control (merge options {:id name
+                                         :name name
+                                         :value value})]])
+
+(defn text-input-element
+  ([name value] (text-input-element name value {}))
+  ([name value options]
+   (input-element name value (merge options {:type :text}))))
+
 (defn- input-field
   "Renders a HTML input field"
   ([model attribute options]
@@ -199,18 +213,22 @@
   ([model attribute options]
    (input-field model attribute (merge options {:type :password}))))
 
-(defn select-field
-  ([model attribute option-items]
-   (select-field model attribute option-items {}))
-  ([model attribute option-items options]
-   [:div.form-group
+(defn select-element ; TODO probably need a better name here
+  [name value option-items options]
+  [:div.form-group
     (when-not (:suppress-label? options)
-      [:label {:for attribute} (humanize attribute)])
-    [:select.form-control {:id attribute :name attribute}
+      [:label {:for name} (humanize name)])
+    [:select.form-control {:id name :name name}
      (map #(vector :option {:value (:value %)
-                            :selected (if (= (get model attribute)
+                            :selected (if (= value
                                              (:value %))
                                         true
                                         nil)}
                    (:caption %))
-          option-items)]]))
+          option-items)]])
+
+(defn select-field
+  ([model attribute option-items]
+   (select-field model attribute option-items {}))
+  ([model attribute option-items options]
+   (select-element attribute (get model attribute) options-items options)))
