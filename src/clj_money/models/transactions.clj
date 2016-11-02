@@ -26,9 +26,8 @@
   (:import java.util.Date
            org.joda.time.LocalDate))
 
-(def NewTransaction
-  {:entity-id schema/Int
-   :description schema/Str
+(def BaseTransaction
+  {:description schema/Str
    :transaction-date LocalDate
    :items [{:account-id schema/Int
             :action (schema/enum :debit :credit)
@@ -37,9 +36,14 @@
             (schema/optional-key :next-item-id) schema/Int
             (schema/optional-key :previous-item-id) schema/Int}]})
 
+(def NewTransaction
+  (merge BaseTransaction
+         {:entity-id schema/Int}))
+
 (def Transaction
-  (-> NewTransaction
+  (-> BaseTransaction
       (assoc :id schema/Int
+             (schema/optional-key :entity-id) schema/Any
              (schema/optional-key :updated-at) schema/Any
              (schema/optional-key :created-at) schema/Any)
       (assoc-in [:items 0 (schema/optional-key :updated-at)] schema/Any)

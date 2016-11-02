@@ -100,6 +100,7 @@
         actual (simplify-transaction (transm/find-by-id storage-spec (:id trans)))
         expected {:transaction-date (t/local-date 2016 1 2)
             :description "Employer"
+            :entity-id (-> context :entities first :id)
             :items [{:action :credit
                      :account-id (:id salary)
                      :amount (bigdec 1001)
