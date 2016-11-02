@@ -57,7 +57,13 @@
   [entity-id index item]
   [:tr
    [:td.col-sm-8
-    (select-element (str "account-id-" index) (:account-id item) (account-options entity-id) {:suppress-label? true})]
+    (html
+      (when-let [id (:id item)]
+        (hidden-input-element (str "id-" index) id))
+      (select-element (str "account-id-" index)
+                      (:account-id item)
+                      (account-options entity-id)
+                      {:suppress-label? true}))]
    [:td.col-sm-2
     (text-input-element (str "credit-amount-" index) (:credit-amount item) {:suppress-label? true})]
    [:td.col-sm-2
@@ -124,7 +130,7 @@
   [params]
   (->> (iterate inc 0)
        (map (fn [index]
-               (let [attr [:account-id :debit-amount :credit-amount]
+               (let [attr [:id :account-id :debit-amount :credit-amount]
                      indexed-attr (map #(keyword (str (name %) "-" index)) attr)
                      item (zipmap attr (map #(% params) indexed-attr))]
                  item))) 
@@ -143,15 +149,29 @@
       (redirect (str "/entities/" (:entity-id result) "/transactions")))))
 
 (defn edit
-  ([id] (edit id {}))
-  ([id options]
+  ([id-or-trans] (edit id-or-trans {}))
+  ([id-or-trans options]
    (layout
      "New Transaction" options
      [:div.row
       [:div.col-md-6
-       (let [transaction (transactions/find-by-id (env :db) id)]
-         [:form {:action (str "/transactions/" id) :method :post}
+       (let [transaction (if (map? id-or-trans)
+                           id-or-trans
+                           (transactions/find-by-id (env :db) id-or-trans))]
+         [:form {:action (str "/transactions/" (:id transaction)) :method :post}
           (form-fields transaction)])]])))
+
+(defn update
+  [params]
+  (let [transaction (-> params
+                        (select-keys [:id
+                                      :transaction-date
+                                      :description])
+                        (assoc :items (extract-items params)))
+        updated (transactions/update (env :db) transaction)]
+    (if (validation/has-error? updated)
+      (edit transaction)
+      (redirect (format "/entities/%s/transactions" (:entity-id updated))))))
 
 (defn delete
   [id]

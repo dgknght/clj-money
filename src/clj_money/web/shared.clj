@@ -191,6 +191,10 @@
   ([name value options]
    (input-element name value (merge options {:type :text}))))
 
+(defn hidden-input-element
+  [name value]
+  [:input {:type :hidden :name name :value value}])
+
 (defn- input-field
   "Renders a HTML input field"
   ([model attribute options]
@@ -231,4 +235,4 @@
   ([model attribute option-items]
    (select-field model attribute option-items {}))
   ([model attribute option-items options]
-   (select-element attribute (get model attribute) options-items options)))
+   (select-element attribute (get model attribute) option-items options)))

@@ -59,6 +59,8 @@
         (transactions/create params))
   (GET "/transactions/:id/edit" [id]
        (transactions/edit (Integer. id)))
+  (POST "/transactions/:id" req
+        (transactions/update (:params req)))
   (POST "/transactions/:id/delete" [id]
         (transactions/delete (Integer. id))))
 
