@@ -21,18 +21,18 @@
    [:td (:description transaction)]
    [:td
     [:div.btn-group
+     (glyph-button :pencil
+                   (format "/transactions/%s/edit" (:id transaction))
+                   {:level :info
+                    :size :extra-small
+                    :title "Click here to edit this transaction."})
      (glyph-button :remove
                    (format "/transactions/%s/delete" (:id transaction))
                    {:level :danger
                     :size :extra-small
                     :data-method :post
                     :data-confirm "Are you sure you want to delete this transaction?"
-                    :title "Click here to remove this transaction."})
-     (glyph-button :pencil
-                   (format "/transactions/%s/edit" (:id transaction))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this transaction."})]]])
+                    :title "Click here to remove this transaction."})]]])
 
 (defn index
   ([entity-id] (index entity-id {}))
