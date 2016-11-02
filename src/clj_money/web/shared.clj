@@ -208,7 +208,7 @@
       [:label {:for attribute} (humanize attribute)])
     [:select.form-control {:id attribute :name attribute}
      (map #(vector :option {:value (:value %)
-                            :selected (if (= (attribute model)
+                            :selected (if (= (get model attribute)
                                              (:value %))
                                         true
                                         nil)}

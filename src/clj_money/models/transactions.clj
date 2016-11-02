@@ -288,7 +288,9 @@
   [storage transaction]
   (assoc transaction
          :items
-         (select-transaction-items-by-transaction-id storage (:id transaction))))
+         (->> (:id transaction)
+              (select-transaction-items-by-transaction-id storage)
+              (map prepare-item-for-return))))
 
 (defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"

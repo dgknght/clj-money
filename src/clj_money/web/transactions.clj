@@ -43,14 +43,14 @@
 
 (defn- item-row
   "Renders an individual row for a transaction item"
-  [entity-id item]
+  [entity-id index item]
   [:tr
    [:td.col-sm-8
-    (select-field item :account-id (account-options entity-id) {:suppress-label? true})]
+    (select-field item (str "account-id-" index) (account-options entity-id) {:suppress-label? true})]
    [:td.col-sm-2
-    (text-input-field item :credit-amount {:suppress-label? true})]
+    (text-input-field item (str "credit-amount-" index) {:suppress-label? true})]
    [:td.col-sm-2
-    (text-input-field item :debit-amount {:suppress-label? true})]])
+    (text-input-field item (str "debit-amount-" index) {:suppress-label? true})]])
 
 (defn- ->form-item
   "Tranforms a transaction item as managed by the system into a
@@ -66,10 +66,14 @@
 (defn- ->transaction-item
   "Transforms a form item into a transaction item"
   [{:keys [credit-amount debit-amount] :as item}]
-  (-> item
-      (assoc :action (if credit-amount :credit :debit)
-             :amount (if credit-amount credit-amount debit-amount))
-      (dissoc :credit-amount :debit-amount)))
+  (let [[action amount] (if (seq credit-amount)
+                          [:credit (bigdec credit-amount)]
+                          [:debit (bigdec debit-amount)])]
+    (-> item
+        (assoc :action action
+               :amount amount)
+        (update-in [:account-id] #(Integer. %))
+        (dissoc :credit-amount :debit-amount))))
 
 (defn new-transaction
   ([entity-id] (new-transaction entity-id
@@ -91,16 +95,27 @@
           [:th "Account"]
           [:th "Credit"]
           [:th "Debit"]]
-         (map #(->> %
-                    ->form-item
-                    (item-row entity-id)) (:items transaction))]
+         (map-indexed #(->> %2
+                            ->form-item
+                            (item-row entity-id %1)) (:items transaction))]
         [:input.btn.btn-primary {:type :submit :value "Save"}]]]])))
+
+(defn- extract-items
+  [params]
+  (->> (iterate inc 0)
+       (map (fn [index]
+               (let [attr [:account-id :debit-amount :credit-amount]
+                     indexed-attr (map #(keyword (str (name %) "-" index)) attr)
+                     item (zipmap attr (map #(% params) indexed-attr))]
+                 item))) 
+       (take-while #(:account-id %))
+       (map ->transaction-item)))
 
 (defn create
   [params]
   (let [transaction (-> params
+                        (assoc :items (extract-items params))
                         (select-keys [:entity-id :transaction-date :description :items])
-                        (update-in [:items] (partial map ->transaction-item))
                         (update-in [:items] (partial map #(select-keys % [:account-id :action :amount]))))
         result (transactions/create (env :db) transaction)]
     (if (validation/has-error? result)
