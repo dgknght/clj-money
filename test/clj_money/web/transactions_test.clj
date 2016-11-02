@@ -15,13 +15,16 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def create-context
+(def base-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
    :accounts [{:name "Checking"
                :type :asset}
               {:name "Salary"
                :type :income}]})
+
+(def create-context
+  base-context)
 
 (defn- simplify-transaction-item
   [item]
@@ -66,3 +69,45 @@
                             :balance (bigdec 1000)
                             :index 0}]}]]
     (is (= expected actual) "The transaction should be retrievable")))
+
+(def update-context
+  (merge base-context
+         {:transactions [{:transaction-date (t/local-date 2016 1 1)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount (bigdec 1000)}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount (bigdec 1000)}]}]}))
+
+(deftest update-a-transaction
+  (let [context (serialization/realize storage-spec update-context)
+        [checking
+         salary] (:accounts context)
+        [trans] (:transactions context)
+        _ (transactions/update {:id (str (:id trans))
+                                :transaction-date "2016-01-02"
+                                :description "Employer"
+                                :id-0 (-> trans :items first :id str)
+                                :account-id-0 (str (:id checking))
+                                :credit-amount-0 ""
+                                :debit-amount-0 "1001"
+                                :id-1 (-> trans :items second :id str)
+                                :account-id-1 (str (:id salary))
+                                :credit-amount-1 "1001"
+                                :debit-amount-1 ""})
+        actual (simplify-transaction (transm/find-by-id storage-spec (:id trans)))
+        expected {:transaction-date (t/local-date 2016 1 2)
+            :description "Employer"
+            :items [{:action :credit
+                     :account-id (:id salary)
+                     :amount (bigdec 1001)
+                     :balance (bigdec 1001)
+                     :index 0}
+                    {:action :debit
+                     :account-id (:id checking)
+                     :amount (bigdec 1001)
+                     :balance (bigdec 1001)
+                     :index 0}]}]
+    (is (= expected actual) "The updated transaction can be retrieved")))
