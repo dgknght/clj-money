@@ -162,7 +162,10 @@
                       (map #(append-children % all-accounts))
                       (sort-by :name)
                       vec)]
-    (assoc account :children children)))
+    (assoc account :children children
+                   :children-balance (reduce #(+ %1 (:balance %2) (:children-balance %2))
+                                             0
+                                             children))))
 
 (defn select-nested-by-entity-id
   "Returns the accounts for the entity with children nested under

@@ -17,6 +17,7 @@
   ([entity-id options]
    (cond->> entity-id
      true (accounts/select-by-entity-id (env :db))
+     true (sort-by :name)
      true (map #(select-keys % [:id :name]))
      true (map #(rename-keys % {:id :value
                                 :name :caption}))
