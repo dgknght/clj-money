@@ -9,6 +9,7 @@
                  [org.clojure/java.jdbc "0.6.1"]
                  [org.postgresql/postgresql "9.4-1201-jdbc41"]
                  [honeysql "0.8.0"]
+                 [clj-time "0.12.0"]
                  [compojure "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [hiccup "1.0.5"]

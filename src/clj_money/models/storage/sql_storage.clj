@@ -3,9 +3,13 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
+            [clj-time.jdbc]
+            [clj-time.core :as t]
+            [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
-            [clj-money.models.storage :refer [Storage]]))
+            [clj-money.models.storage :refer [Storage]])
+  (:import java.sql.BatchUpdateException))
 
 (defn- exists?
   [db-spec table where]
@@ -44,7 +48,34 @@
   "Accepts a hash and replaces underscores in key names
   with hyphens"
   [model]
-  (update-keys model ->clojure-key))
+  (if (map? model)
+    (update-keys model ->clojure-key)
+    model))
+
+(defn- insert
+  "Inserts a record into the specified table"
+  [db-spec table model]
+  (->> model
+       ->sql-keys
+       (jdbc/insert! db-spec table)
+       first
+       ->clojure-keys))
+
+(defn- ->update-set
+  "Prepares a model for update"
+  [model & keys]
+  (-> model
+      (select-keys keys)
+      (assoc :updated-at (t/now))
+      ->sql-keys))
+
+(defn- query
+  "Executes a SQL query and maps field names into
+  clojure keys"
+  [db-spec sql-map]
+  (->> (sql/format sql-map)
+       (jdbc/query db-spec)
+       (map ->clojure-keys)))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -52,34 +83,21 @@
   ; Users
   (create-user
     [_ user]
-    (try
-      (->> user
-           ->sql-keys
-           (jdbc/insert! db-spec :users)
-           first
-           ->clojure-keys)
-      (catch java.sql.BatchUpdateException e
-        (log/error (format "Unable to insert user %s: %s"
-                        user
-                        (.getMessage (.getNextException e))))
-        (throw e))))
+    (insert db-spec :users user))
 
   (select-users
     [_]
-    (let [sql (sql/format (-> (h/select :first_name :last_name :email)
-                              (h/from :users)))]
-      (->> (jdbc/query db-spec sql)
-           (map ->clojure-keys))))
+    (query db-spec (-> (h/select :first_name :last_name :email)
+                       (h/from :users))))
 
   (find-user-by-email
     [this email]
-    (let [sql (sql/format (-> (h/select :id :first_name :last_name :email :password)
-                              (h/from :users)
-                              (h/where [:= :email email])))]
-      (->> sql
-           (jdbc/query db-spec)
-           first
-           ->clojure-keys)))
+    (->> (-> (h/select :id :first_name :last_name :email :password)
+             (h/from :users)
+             (h/where [:= :email email])
+             (h/limit 1))
+         (query db-spec)
+         first))
 
   (user-exists-with-email?
     [this email]
@@ -93,13 +111,13 @@
          (jdbc/insert! db-spec :entities)
          first
          ->clojure-keys))
+
   (select-entities
     [_ user-id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :entities)
-                              (h/where [:= :user_id user-id])
-                              (h/order-by :name)))]
-      (map ->clojure-keys (jdbc/query db-spec sql))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :entities)
+                       (h/where [:= :user_id user-id])
+                       (h/order-by :name))))
 
   (entity-exists-with-name?
     [_ user-id name]
@@ -114,7 +132,7 @@
   (update-entity
     [_ entity]
     (let [sql (sql/format (-> (h/update :entities)
-                              (h/sset (->sql-keys (select-keys entity [:name])))
+                              (h/sset (->update-set entity :name))
                               (h/where [:= :id (:id entity)])))]
       (jdbc/execute! db-spec sql)))
 
@@ -125,11 +143,7 @@
   ; Accounts
   (create-account
     [_ account]
-    (->> account
-         ->sql-keys
-         (jdbc/insert! db-spec :accounts)
-         first
-         ->clojure-keys))
+    (insert db-spec :accounts account))
 
   (find-account-by-id
     [_ id]
@@ -137,17 +151,18 @@
 
   (select-accounts-by-entity-id
     [_ entity-id]
-    (let [sql (sql/format (-> (h/select :*)
-                              (h/from :accounts)
-                              (h/where [:= :entity_id entity-id])))]
-      (map ->clojure-keys (jdbc/query db-spec sql))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :accounts)
+                       (h/where [:= :entity_id entity-id]))))
 
   (update-account
     [_ account]
     (let [sql (sql/format (-> (h/update :accounts)
-                              (h/sset (->sql-keys (select-keys account [:name
-                                                                        :type
-                                                                        :parent-id])))
+                              (h/sset (->update-set account
+                                                    :name
+                                                    :type
+                                                    :parent-id
+                                                    :balance))
                               (h/where [:= :id (:id account)])))]
       (jdbc/execute! db-spec sql)))
 
@@ -155,12 +170,145 @@
     [_ id]
     (jdbc/delete! db-spec :accounts ["id = ?" id]))
 
-(find-accounts-by-name
-  [_ entity-id name]
-  (let [sql (sql/format (-> (h/select :*)
-                            (h/from :accounts)
-                            (h/where [:and
-                                      [:= :entity_id entity-id]
-                                      [:= :name name]])))]
-    (->> (jdbc/query db-spec sql)
-         (map ->clojure-keys)))))
+  (find-accounts-by-name
+    [_ entity-id name]
+    (query db-spec (-> (h/select :*)
+                       (h/from :accounts)
+                       (h/where [:and
+                                 [:= :entity_id entity-id]
+                                 [:= :name name]]))))
+
+  ; Transactions
+  (select-transactions-by-entity-id
+    [_ entity-id]
+    (query db-spec (-> (h/select :*)
+                      (h/from :transactions)
+                      (h/where [:= :entity-id entity-id])
+                      (h/order-by [:transaction-date :desc]))))
+
+  (create-transaction
+    [_ transaction]
+    (insert db-spec :transactions transaction))
+
+  (find-transaction-by-id
+    [_ id]
+    (->> (-> (h/select :*)
+            (h/from :transactions)
+            (h/where [:= :id id])
+            (h/limit 1))
+        (query db-spec )
+        first))
+
+  (delete-transaction
+    [_ id]
+    (jdbc/delete! db-spec :transactions ["id = ?" id]))
+
+  (update-transaction
+    [_ transaction]
+    (let [sql (sql/format (-> (h/update :transactions)
+                              (h/sset (->update-set
+                                        transaction
+                                        :description
+                                        :transaction-date))
+                              (h/where [:= :id (:id transaction)])))]
+      (jdbc/execute! db-spec sql)))
+
+  ; Transaction Items
+  (create-transaction-item
+    [_ transaction-item]
+    (insert db-spec :transaction_items transaction-item))
+
+  (select-transaction-items-by-transaction-id
+    [_ transaction-id]
+    (query db-spec (-> (h/select :*)
+                      (h/from :transaction_items)
+                      (h/where [:= :transaction_id transaction-id]))))
+
+  (select-transaction-items-by-account-id
+    [_ account-id]
+    (query db-spec (-> (h/select :*)
+                      (h/from :transaction_items)
+                      (h/where [:= :account_id account-id])
+                      (h/order-by [:index :desc]))))
+
+  (select-transaction-items-by-account-id-and-starting-index
+    [_ account-id index]
+    (query db-spec (-> (h/select :*)
+                      (h/from :transaction_items)
+                      (h/where [:and
+                                [:= :account_id account-id]
+                                [:>= :index index]])
+                      (h/order-by [:index :desc]))))
+
+  (select-transaction-items-by-account-id-on-or-after-date
+    [_ account-id transaction-date]
+    (query db-spec (-> (h/select :i.*)
+                      (h/from [:transaction_items :i])
+                      (h/join [:transactions :t] [:= :t.id :i.transaction-id])
+                      (h/where [:and
+                                [:= :i.account_id account-id]
+                                [:>= :t.transaction_date transaction-date]])
+                      (h/order-by :index))))
+
+  (find-transaction-item-by-id
+    [_ id]
+    (->> (-> (h/select :*)
+            (h/from :transaction_items)
+            (h/where [:= :id id])
+            (h/limit 1))
+        (query db-spec)
+        first))
+
+  (find-transaction-items-preceding-date
+    [_ account-id transaction-date]
+    (query db-spec (-> (h/select :i.*)
+                      (h/from [:transaction_items :i])
+                      (h/join [:transactions :t] [:= :t.id :i.transaction-id])
+                      (h/where [:and
+                                [:= :i.account-id account-id]
+                                [:< :t.transaction-date transaction-date]])
+                      (h/order-by [:t.transaction-date :desc] [:i.index :desc])
+                      (h/limit 2))))
+
+  (update-transaction-item
+    [_ transaction-item]
+    (let [sql (sql/format (-> (h/update :transaction_items)
+                              (h/sset (->update-set transaction-item
+                                                    :amount
+                                                    :action
+                                                    :index
+                                                    :balance
+                                                    :account-id))
+                              (h/where [:= :id (:id transaction-item)])))]
+      (try
+        (jdbc/execute! db-spec sql)
+        (catch BatchUpdateException e
+          (pprint {:sql sql
+                   :batch-update-exception (.getNextException e)})))))
+
+  (update-transaction-item-index-and-balance
+    [_ transaction-item]
+    (let [sql (sql/format (-> (h/update :transaction_items)
+                                (h/sset (->update-set transaction-item
+                                                      :index
+                                                      :balance))
+                                (h/where [:and
+                                          [:= :id (:id transaction-item)]
+                                          [:or
+                                           [:!= :balance (:balance transaction-item)]
+                                           [:!= :index (:index transaction-item)]]])))]
+        (try
+          (jdbc/execute! db-spec sql)
+          (catch BatchUpdateException e
+            (pprint {:sql sql
+                    :batch-update-exception (.getNextException e)})))))
+
+  (delete-transaction-item
+    [_ id]
+    (jdbc/delete! db-spec :transaction_items ["id = ?" id]))
+
+  (delete-transaction-items-by-transaction-id
+    [_ transaction-id]
+    (jdbc/delete! db-spec
+                  :transaction_items
+                  ["transaction_id = ?" transaction-id])))

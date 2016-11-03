@@ -62,4 +62,6 @@ $(function() {
     }
     return false;
   });
+
+  $(".date-field").datepicker();
 });

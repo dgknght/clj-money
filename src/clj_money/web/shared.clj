@@ -10,7 +10,15 @@
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities])
-  (:use clj-money.inflection))
+  (:use clj-money.inflection)
+  (:import java.text.DecimalFormat))
+
+(def NumberFormat (DecimalFormat. "#,##0.00"))
+
+(defn format-number
+  "Format a number with 2 decimal places and groups separated with commas"
+  [value]
+  (.format NumberFormat value))
 
 (defn glyph-link
   "Renders a link with a glyphicon"
@@ -156,13 +164,18 @@
 
       "<!-- jQuery -->"
       [:script {:src "/js/jquery-3.1.0.min.js"}]
+      [:script {:src "/js/jquery-ui.min.js"}]
       [:script {:src "/js/jquery-startup.js"}]
       [:script {:src "/js/bootstrap.min.js"}]
 
       "<!-- Bootstrap core CSS -->"
       [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
       [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
-      [:link {:rel "stylesheet" :href "/css/clj-money.css"}]]
+      [:link {:rel "stylesheet" :href "/css/jquery-ui.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/jquery-ui.structure.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]
+      [:link {:rel "stylesheet" :href "/css/clj-money.css"}]
+      ]
      [:body
       (primary-nav (:entity options))
       [:div.container {:style "margin-top: 2em;"}
@@ -172,11 +185,30 @@
            (render-alerts alerts))
          content)]]]))
 
+(defn- input-element
+  [name value options]
+  [:div.form-group
+    (when-not (:suppress-label? options)
+      [:label.control-label {:for name} (humanize name)])
+    [:input.form-control (merge options {:id name
+                                         :name name
+                                         :value value})]])
+
+(defn text-input-element
+  ([name value] (text-input-element name value {}))
+  ([name value options]
+   (input-element name value (merge options {:type :text}))))
+
+(defn hidden-input-element
+  [name value]
+  [:input {:type :hidden :name name :value value}])
+
 (defn- input-field
   "Renders a HTML input field"
   ([model attribute options]
    [:div.form-group {:class (when (validation/has-error? model attribute)"has-error")}
-    [:label.control-label {:for attribute} (humanize attribute)]
+    (when-not (:suppress-label? options)
+      [:label.control-label {:for attribute} (humanize attribute)])
     [:input.form-control (merge options {:id attribute
                                          :name attribute
                                          :value (get model attribute)})]
@@ -193,15 +225,22 @@
   ([model attribute options]
    (input-field model attribute (merge options {:type :password}))))
 
-(defn select-field
-  [model attribute options]
+(defn select-element ; TODO probably need a better name here
+  [name value option-items options]
   [:div.form-group
-   [:label {:for attribute} (humanize attribute)]
-   [:select.form-control {:id attribute :name attribute}
-    (map #(vector :option {:value (:value %)
-                           :selected (if (= (attribute model)
-                                            (:value %))
-                                       true
-                                       nil)}
-                  (:caption %))
-         options)]])
+    (when-not (:suppress-label? options)
+      [:label {:for name} (humanize name)])
+    [:select.form-control {:id name :name name}
+     (map #(vector :option {:value (:value %)
+                            :selected (if (= value
+                                             (:value %))
+                                        true
+                                        nil)}
+                   (:caption %))
+          option-items)]])
+
+(defn select-field
+  ([model attribute option-items]
+   (select-field model attribute option-items {}))
+  ([model attribute option-items options]
+   (select-element attribute (get model attribute) option-items options)))

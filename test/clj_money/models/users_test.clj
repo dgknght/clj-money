@@ -22,8 +22,7 @@
       (let [users (->> (users/select storage-spec)
                        (map #(select-keys % [:first-name
                                              :last-name
-                                             :email
-                                             :password])))
+                                             :email])))
             expected [{:first-name "John"
                        :last-name "Doe"
                        :email "john@doe.com"}]]
@@ -33,7 +32,7 @@
       (is (= {:first-name "John"
               :last-name "Doe"
               :email "john@doe.com"}
-             (dissoc user :id))
+             (select-keys user [:first-name :last-name :email]))
           "The map should contain the user properties"))))
 
 (deftest try-to-create-with-invalid-data

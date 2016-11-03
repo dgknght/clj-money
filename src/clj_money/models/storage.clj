@@ -57,4 +57,56 @@
     "Deletes the specified account")
   (find-accounts-by-name
     [this entity-id name]
-    "Returns the account in the specified entity with the specified name"))
+    "Returns the account in the specified entity with the specified name")
+
+  ; Transactions
+  (select-transactions-by-entity-id
+    [this entity-id]
+    "Returns transactions for the specified entity")
+  (create-transaction
+    [this transaction]
+    "Creates a new transaction record")
+  (find-transaction-by-id
+    [this id]
+    "Returns the specified transaction")
+  (delete-transaction
+    [this id]
+    "Deletes the specified transaction record")
+  (update-transaction
+    [this id]
+    "Updates the specified transaction")
+
+  ; Transaction items
+  (create-transaction-item
+    [this transaction-item]
+    "Creates a new transaction item record")
+  (select-transaction-items-by-transaction-id
+    [this transaction-id]
+    "Returns the transaction items belonging to the specified transaction")
+  (select-transaction-items-by-account-id
+    [this account-id]
+    "Returns the transaction items belonging to the specified account")
+  (select-transaction-items-by-account-id-and-starting-index
+    [this account-id index]
+    "Returns the transaction items for the specified account having an index greater than or equal to the specified index")
+  (select-transaction-items-by-account-id-on-or-after-date
+    [this account-id transaction-date]
+    "Returns the transaction items for the specified account ocurring on or after the specified date")
+  (find-transaction-item-by-id
+    [this id]
+    "Returns the transaction item having the specified id")
+  (find-transaction-items-preceding-date
+    [this account-id transaction-date]
+    "Returns the transaction items preceding the specifed date in descending order by seqence")
+  (update-transaction-item
+    [this transaction-item]
+    "Updates the specified transaction item")
+  (update-transaction-item-index-and-balance
+    [this transaction-item]
+    "Updates the specified transaction item, index and balance fields only, returns true if the values changes, false if not")
+  (delete-transaction-item
+    [this id]
+    "Deletes the specified transaction item record")
+  (delete-transaction-items-by-transaction-id
+    [this transaction-id]
+    "Deletes the transaction items having the specified id"))

@@ -2,14 +2,14 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
-            [clj-money.schema :as schema])
+            [clj-money.schema :as schema]
+            [clj-money.web.money-shared :refer [account-options]])
   (:use [clj-money.web.shared :refer :all]))
 
 (defn- account-row
@@ -19,6 +19,9 @@
    [:td
     [:span {:class (format "account-depth-%s" depth)}
      (:name account)]]
+   [:td.text-right
+    [:span {:class (format "balance-depth-%s" depth)}
+     (format-number (+ (:balance account) (:children-balance account)))]]
    [:td
     [:span.btn-group
      (glyph-button :pencil
@@ -47,8 +50,15 @@
   "Renders rows for all accounts and type headers"
   [{:keys [type accounts]}]
   (html
-    [:tr
-     [:td.account-type {:colspan 2} type]]
+    [:tr.account-type
+     [:td type]
+     [:td.text-right (->> accounts
+                          (map (juxt :balance :children-balance))
+                          (reduce (fn [sum [balance children-balance]]
+                                    (+ sum balance children-balance))
+                                  0)
+                          format-number)]
+     [:td "&nbsp;"]]
     (map account-and-children-rows accounts)))
 
 (defn index
@@ -61,7 +71,8 @@
       [:div.col-md-6
        [:table.table.table-striped
         [:tr
-         [:th.col-md-10 "Name"]
+         [:th.col-sm-6 "Name"]
+         [:th.col-sm-4.text-right "Balance"]
          [:th.col-sm-2 "&nbsp;"]]
         (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
           (map account-rows groups))]
@@ -80,13 +91,8 @@
                                  {:value :equity    :caption "Equity"}
                                  {:value :income    :caption "Income"}
                                  {:value :expense   :caption "Expense"}])
-    (select-field account :parent-id (->> account
-                                          :entity-id
-                                          (accounts/select-by-entity-id (env :db))
-                                          (map #(select-keys % [:id :name]))
-                                          (map #(rename-keys % {:id :value
-                                                                :name :caption}))
-                                          (concat [{:value "" :caption "None"}])))
+    (select-field account :parent-id (account-options (:entity-id account)
+                                                      {:include-none? true}))
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save the account"}]

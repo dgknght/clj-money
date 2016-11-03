@@ -5,6 +5,9 @@
             [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
             [clj-factory.core :refer [factory]]
+            [clj-money.factories.user-factory]
+            [clj-money.factories.entity-factory]
+            [clj-money.factories.account-factory]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -37,6 +40,23 @@
                   {:name "Credit card"
                    :type :liability}]]
     (is (= expected actual) "It returns the correct accounts")))
+
+(defn simplify-accounts
+  [accounts]
+  (map #(if (seq (:children %))
+                 ( -> %
+                      (select-keys [:name :children])
+                      (update-in [:children] simplify-accounts))
+                 (select-keys % [:name]))
+       accounts))
+
+(defn- simplify-account-groups
+  "Accept a list of hashes containing :type keyword and :accounts [],
+  drill down into each account, filtering out every attribute of the
+  account except the name"
+  [list]
+  (map #(update-in % [:accounts] simplify-accounts)
+       list))
 
 (deftest select-nested-accounts
   (let [savings (accounts/create storage-spec {:name "Savings"
@@ -72,21 +92,29 @@
                                           :type :expense
                                           :parent-id (:id taxes)
                                           :entity-id (:id entity)})
-        result (accounts/select-nested-by-entity-id storage-spec (:id entity))
+        result (simplify-account-groups (accounts/select-nested-by-entity-id storage-spec (:id entity)))
         expected [{:type :asset
-             :accounts [(assoc checking :children [])
-                        (assoc savings :children [(assoc car-savings :children [(assoc doug-car :children [])
-                                                                                (assoc eli-car :children [])])
-                                                  (assoc reserve-savings :children [])])]}
-            {:type :liability
-             :accounts []}
-            {:type :equity
-             :accounts []}
-            {:type :income
-             :accounts []}
-            {:type :expense
-             :accounts [(assoc taxes :children [(assoc fit :children [])
-                                                (assoc ss  :children [])])]}]]
+                   :accounts [{:name "Checking"}
+                              {:name "Savings"
+                               :children [{:name "Car"
+                                           :children [{:name "Doug"}
+                                                      {:name "Eli"}]}
+                                          {:name "Reserve"}]}]}
+                  {:type :liability
+                   :accounts []}
+                  {:type :equity
+                   :accounts []}
+                  {:type :income
+                   :accounts []}
+                  {:type :expense
+                   :accounts [{:name "Taxes"
+                               :children [{:name "Federal Income Tax"}
+                                          {:name "Social Security"}]}]}]]
+    (when-not (= expected result)
+      (pprint {:expected expected
+               :actual result
+               :diff (diff expected result)}))
+
     (is (= expected result) "The accounts should be returned in the correct hierarchy")))
 
 (deftest create-an-account
@@ -214,3 +242,29 @@
         _ (accounts/delete storage-spec (:id account))
         accounts (accounts/select-by-entity-id storage-spec (:id entity))]
     (is (not-any? #(= (:id account) (:id %)) accounts) "The deleted account is no longer returned from the database")))
+
+(defmacro test-amount-polarization
+  [account-type action amount expected message]
+  `(let [account# (accounts/create storage-spec (merge (factory :account)
+                                                       {:type ~account-type
+                                                        :entity-id (:id entity)}))
+         item# {:account-id (:id account#)
+                :action ~action
+                :amount ~amount}
+         polarized-amount# (accounts/polarize-amount storage-spec item#)]
+     (is (= ~expected polarized-amount#) ~message)))
+
+(deftest polarize-an-amount
+  ; Debits
+  (test-amount-polarization :asset     :debit (bigdec 100) (bigdec  100) "A debit in an asset account increases the balance")
+  (test-amount-polarization :expense   :debit (bigdec 100) (bigdec  100) "A debit in an expense account increases the balance")
+  (test-amount-polarization :liability :debit (bigdec 100) (bigdec -100) "A debit in an liability account decreases the balance")
+  (test-amount-polarization :equity    :debit (bigdec 100) (bigdec -100) "A debit in an equity account decreases the balance")
+  (test-amount-polarization :income    :debit (bigdec 100) (bigdec -100) "A debit in an income account decreases the balance")
+
+  ;; Credits
+  (test-amount-polarization :asset     :credit (bigdec 100) (bigdec -100) "A credit in an asset account decreases the balance")
+  (test-amount-polarization :expense   :credit (bigdec 100) (bigdec -100) "A credit in an expense account dereases the balance")
+  (test-amount-polarization :liability :credit (bigdec 100) (bigdec  100) "A credit in an liability account increases the balance")
+  (test-amount-polarization :equity    :credit (bigdec 100) (bigdec  100) "A credit in an equity account increases the balance")
+  (test-amount-polarization :income    :credit (bigdec 100) (bigdec  100) "A credit in an income account increases the balance"))
