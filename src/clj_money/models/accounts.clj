@@ -170,14 +170,15 @@
 (defn select-nested-by-entity-id
   "Returns the accounts for the entity with children nested under
   parents and parents grouped by type"
-  ([storage-spec entity-id] (select-nested-by-entity-id storage-spec entity-id account-types))
+  ([storage-spec entity-id]
+   (select-nested-by-entity-id storage-spec entity-id account-types))
   ([storage-spec entity-id types]
-  (let [all (select-by-entity-id storage-spec entity-id)
-        grouped (->> all
-                     (remove :parent-id)
-                     (map #(append-children % all))
-                     (group-by :type))]
-    (map #(hash-map :type % :accounts (or (% grouped) [])) types))))
+   (let [all (select-by-entity-id storage-spec entity-id)
+         grouped (->> all
+                      (remove :parent-id)
+                      (map #(append-children % all))
+                      (group-by :type))]
+     (map #(hash-map :type % :accounts (or (% grouped) [])) types))))
 
 (defn update
   "Updates the specified account"
