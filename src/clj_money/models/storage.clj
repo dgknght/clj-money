@@ -98,6 +98,9 @@
   (find-transaction-items-preceding-date
     [this account-id transaction-date]
     "Returns the transaction items preceding the specifed date in descending order by seqence")
+  (find-last-transaction-item-on-or-before
+    [this account-id transaction-date]
+    "Returns the last transaction item that is on or before the specified date")
   (update-transaction-item
     [this transaction-item]
     "Updates the specified transaction item")

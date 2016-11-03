@@ -14,6 +14,7 @@
                                               update-transaction
                                               find-transaction-item-by-id
                                               find-transaction-items-preceding-date
+                                              find-last-transaction-item-on-or-before
                                               select-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
@@ -428,3 +429,25 @@
     (delete-transaction-items-by-transaction-id storage transaction-id)
     (delete-transaction storage transaction-id)
     (update-affected-balances storage preceding-items)))
+
+(defn- find-last-item-before
+  [storage-spec account-id date]
+  (first (find-transaction-items-preceding-date (storage storage-spec)
+                                                account-id
+                                                date)))
+
+(defn- find-last-item-on-or-before
+  [storage-spec account-id date]
+  (find-last-transaction-item-on-or-before (storage storage-spec)
+                                           account-id
+                                           date))
+
+(defn balance-delta
+  "Returns the change in balance during the specified period for the specified account"
+  [storage-spec account-id start end]
+  (let [t1 (find-last-item-before storage-spec account-id (tc/to-long start))
+        t2 (find-last-item-on-or-before storage-spec account-id (tc/to-long end))
+        prior-balance (if t1 (:balance t1) 0)]
+    (if t2
+      (- (:balance t2) prior-balance)
+      0)))
