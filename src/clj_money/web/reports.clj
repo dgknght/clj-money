@@ -5,22 +5,20 @@
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
+            [clj-time.core :as t]
             [clj-money.web.shared :refer :all]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.models.reports :as reports]))
 
 (defmulti render-report
-  (fn [type entity-id]
-    type))
+  (fn [params]
+    (:type params)))
 
-(defmethod render-report
-  :income-statement
-  [_ entity-id]
-  [:h1 "Income Statement"])
+(defmethod render-report :income-statement
+  [{:keys [entity-id start end]}]
+  [:pre (reports/income-statement (env :db) entity-id start end)])
 
-(defmethod render-report
-  :balance-sheet
-  [_ entity-id]
+(defmethod render-report :balance-sheet
+  [params]
   [:h1 "Balance Sheet"])
 
 (defn render
