@@ -76,7 +76,8 @@
                                           :type :expense
                                           :parent-id (:id taxes)
                                           :entity-id (:id entity)})
-        result (simplify-account-groups (accounts/select-nested-by-entity-id storage-spec (:id entity)))
+        result (simplify-account-groups
+                 (accounts/select-nested-by-entity-id storage-spec (:id entity)))
         expected [{:type :asset
                    :accounts [{:name "Checking"}
                               {:name "Savings"

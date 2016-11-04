@@ -8,20 +8,29 @@
 (declare set-balance-deltas)
 (defn- set-balance-delta
   [storage-spec account start end]
-  (let [children (set-balance-deltas storage-spec start end (:children account))]
-    (assoc account :children children
-           :children-balance (reduce #(+ %1
+  (let [children (set-balance-deltas storage-spec start end (:children account))
+        new-children-balance (reduce #(+ %1
                                          (:balance %2)
                                          (:children-balance %2))
                                      0
                                      children)
-           :balance (transactions/balance-delta storage-spec
+        new-balance (transactions/balance-delta storage-spec
                                                 (:id account)
                                                 start
-                                                end))))
+                                                end)]
+    (assoc account :children children
+                   :children-balance new-children-balance
+                   :balance new-balance)))
+
 (defn- set-balance-deltas
   [storage-spec start end nested-accounts]
-  (map #(set-balance-delta storage-spec % start end)
+  (map (fn [entry]
+         (let [updated (update-in entry
+                          [:accounts]
+                          (partial map #(set-balance-delta storage-spec % start end)))]
+           (assoc updated :value (reduce #(+ %1 (:balance %2 (:children-balance %2)))
+                                         0
+                                         (:accounts updated)))))
        nested-accounts))
 
 (defn- transform-account
@@ -34,20 +43,23 @@
                (:children account))))
 
 (defn- transform-account-group
-  [{:keys [type accounts]}]
+  [{:keys [type accounts value]}]
   (concat [{:caption (humanize type)
-            :value (reduce #(+ %1 (:balance %2) (:children-balance %2)) 0 accounts)
+            :value value
             :style :header}]
           (mapcat #(transform-account % 0) accounts)))
 
 (defn- transform
   "Accepts a nested account structure and returns a report structure"
   [nested-accounts]
-  (concat (mapcat transform-account-group
-                  nested-accounts)
-          [{:caption "Net"
-            :value (bigdec 0)
-            :style :summary}]))
+  (let [summary (->> nested-accounts
+                     (map (juxt :type :value))
+                     (into {}))]
+    (concat (mapcat transform-account-group
+                    nested-accounts)
+            [{:caption "Net"
+              :value (- (:income summary) (:expense summary))
+              :style :summary}])))
 
 (defn income-statement
   "Returns the data used to populate an income statement report"
@@ -61,5 +73,6 @@
           storage-spec
           entity-id
           [:income :expense])
+        (into [])
         (set-balance-deltas storage-spec start end)
         transform)))

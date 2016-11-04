@@ -32,18 +32,34 @@
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1000)}
+                            :amount (bigdec 1001)}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1000)}]}
+                            :amount (bigdec 1001)}]}
                   {:transaction-date (t/local-date 2016 1 15)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1000)}
+                            :amount (bigdec 1002)}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1000)}]}
+                            :amount (bigdec 1002)}]}
+                  {:transaction-date (t/local-date 2016 2 1)
+                   :description "Paycheck"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount (bigdec 1003)}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount (bigdec 1003)}]}
+                  {:transaction-date (t/local-date 2016 2 15)
+                   :description "Paycheck"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount (bigdec 1004)}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount (bigdec 1004)}]}
 
                   ; groceries
                   {:transaction-date (t/local-date 2016 1 3)
@@ -86,6 +102,38 @@
                            {:action :credit
                             :account-id "Checking"
                             :amount (bigdec 100)}]}
+                  {:transaction-date (t/local-date 2016 2 7)
+                   :description "Kroger"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount (bigdec 101)}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount (bigdec 101)}]}
+                  {:transaction-date (t/local-date 2016 2 14)
+                   :description "Kroger"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount (bigdec 101)}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount (bigdec 101)}]}
+                  {:transaction-date (t/local-date 2016 2 21)
+                   :description "Kroger"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount (bigdec 101)}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount (bigdec 101)}]}
+                  {:transaction-date (t/local-date 2016 2 28)
+                   :description "Kroger"
+                   :items [{:action :debit
+                            :account-id "Groceries"
+                            :amount (bigdec 101)}
+                           {:action :credit
+                            :account-id "Checking"
+                            :amount (bigdec 101)}]}
                   ; rent
                   {:transaction-date (t/local-date 2016 1 4)
                    :description "Landlord"
@@ -94,7 +142,15 @@
                             :amount (bigdec 700)}
                            {:action :credit
                             :account-id "Checking"
-                            :amount (bigdec 700)}]}]})
+                            :amount (bigdec 700)}]}
+                  {:transaction-date (t/local-date 2016 2 4)
+                   :description "Landlord"
+                   :items [{:action :debit
+                             :account-id "Rent"
+                             :amount (bigdec 700)}
+                           {:action :credit
+                             :account-id "Checking"
+                             :amount (bigdec 700)}]}]})
 
 (deftest create-an-income-statement
   (let [context (serialization/realize storage-spec income-statement-context)
@@ -103,10 +159,10 @@
                                          (t/local-date 2016 1 1)
                                          (t/local-date 2016 1 31))
         expected [{:caption "Income"
-                   :value (bigdec 2000)
+                   :value (bigdec 2003)
                    :style :header}
                   {:caption "Salary"
-                   :value (bigdec 2000)
+                   :value (bigdec 2003)
                    :style :data
                    :depth 0}
                   {:caption "Expense"
@@ -121,11 +177,6 @@
                    :style :data
                    :depth 0}
                   {:caption "Net"
-                   :value (bigdec 800)
+                   :value (bigdec 803)
                    :style :summary}]]
-
-    (pprint {:expected expected
-             :actual actual
-             :diff (diff expected actual)})
-    
     (is (= expected actual) "The report renders the corect data")))
