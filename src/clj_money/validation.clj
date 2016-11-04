@@ -1,10 +1,12 @@
 (ns clj-money.validation
+  (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
             [schema.core :as schema]
             [schema.coerce :as coerce]
             [schema.utils :as schema-utils]
             [clj-time.core :as t]
+            [clj-money.util :refer [parse-date]]
             [clj-money.inflection :refer [singular
                                           humanize
                                           ordinal]]
@@ -71,26 +73,13 @@
           nil
           value)))))
 
-(def date-patterns
-  [{:pattern #"(\d{1,2})/(\d{1,2})/(\d{4})"
-    :groups [:month :day :year]}
-   {:pattern
-    #"(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})"
-    :groups [:year :month :day]}])
-
 (defn- local-date-matcher
   [schema]
   (when (= LocalDate schema)
     (coerce/safe
       (fn [value]
         (if (string? value)
-          (when-let [parsed (some (fn [{:keys [pattern groups]}]
-                                    (when-let [m (re-matches pattern value)]
-                                      (zipmap groups (->> m
-                                                          rest
-                                                          (map #(Integer. %))))))
-                                  date-patterns)]
-            (apply t/local-date ((juxt :year :month :day) parsed)))
+          (parse-date value)
           value)))))
 
 (defn- full-humanized-message

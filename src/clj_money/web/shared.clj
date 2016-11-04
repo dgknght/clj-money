@@ -10,15 +10,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities])
-  (:use clj-money.inflection)
-  (:import java.text.DecimalFormat))
-
-(def NumberFormat (DecimalFormat. "#,##0.00"))
-
-(defn format-number
-  "Format a number with 2 decimal places and groups separated with commas"
-  [value]
-  (.format NumberFormat value))
+  (:use clj-money.inflection))
 
 (defn glyph-link
   "Renders a link with a glyphicon"
