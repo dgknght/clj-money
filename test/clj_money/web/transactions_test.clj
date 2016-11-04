@@ -6,6 +6,7 @@
             [clj-time.core :as t]
             [clj-money.serialization :as serialization]
             [clj-factory.core :refer [factory]]
+            [clj-money.validation :as validation]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.transactions :as transm]
@@ -21,6 +22,8 @@
    :accounts [{:name "Checking"
                :type :asset}
               {:name "Salary"
+               :type :income}
+              {:name "Bonus"
                :type :income}]})
 
 (def create-context
@@ -84,7 +87,8 @@
 (deftest update-a-transaction
   (let [context (serialization/realize storage-spec update-context)
         [checking
-         salary] (:accounts context)
+         salary
+         bonus] (:accounts context)
         [trans] (:transactions context)
         _ (transactions/update {:id (str (:id trans))
                                 :transaction-date "2016-01-02"
@@ -95,16 +99,29 @@
                                 :debit-amount-0 "1001"
                                 :id-1 (-> trans :items second :id str)
                                 :account-id-1 (str (:id salary))
-                                :credit-amount-1 "1001"
-                                :debit-amount-1 ""})
+                                :credit-amount-1 "901"
+                                :debit-amount-1 ""
+                                :id-2 ""
+                                :account-id-2 (str (:id bonus))
+                                :credit-amount-2 "100"
+                                :debit-amount-2 ""
+                                :id-3 ""
+                                :account-id-3 ""
+                                :credit-amount-3 ""
+                                :debit-amount-3 ""})
         actual (simplify-transaction (transm/find-by-id storage-spec (:id trans)))
         expected {:transaction-date (t/local-date 2016 1 2)
             :description "Employer"
             :entity-id (-> context :entities first :id)
             :items [{:action :credit
+                     :account-id (:id bonus)
+                     :amount (bigdec 100)
+                     :balance (bigdec 100)
+                     :index 0}
+                    {:action :credit
                      :account-id (:id salary)
-                     :amount (bigdec 1001)
-                     :balance (bigdec 1001)
+                     :amount (bigdec 901)
+                     :balance (bigdec 901)
                      :index 0}
                     {:action :debit
                      :account-id (:id checking)

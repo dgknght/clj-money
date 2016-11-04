@@ -135,6 +135,12 @@
        [:form {:action (str "/entities/" entity-id "/transactions") :method :post}
         (form-fields transaction)]]])))
 
+(defn- valid-item?
+  [{account-id :account-id :as item}]
+  (or (integer? account-id)
+      (and (string? account-id)
+           (seq account-id))))
+
 (defn- extract-items
   [params]
   (->> (iterate inc 0)
@@ -143,7 +149,7 @@
                      indexed-attr (map #(keyword (str (name %) "-" index)) attr)
                      item (zipmap attr (map #(% params) indexed-attr))]
                  item))) 
-       (take-while #(or (integer? (:account-id %)) (seq (:account-id %))))
+       (take-while valid-item?)
        (map ->transaction-item)))
 
 (defn create

@@ -98,7 +98,7 @@
 (defn- items-must-be-present
   [{:keys [items] :as transaction}]
   {:model transaction
-   :errors (if (and items (<= 2 (count items)))
+   :errors (if (or (nil? items) (<= 2 (count items)))
              []
              [[:items
                "The transaction must have at least two items"]])})
@@ -110,11 +110,19 @@
    item-amount-must-be-greater-than-zero
    sum-of-credits-must-equal-sum-of-debits])
 
+(defn- before-item-validation
+  [item]
+  (cond-> item
+    true (assoc :balance (bigdec 0))
+    (nil? (:id item)) (dissoc :id)
+    (and
+      (string? (:id item))
+      (empty? (:id item))) (dissoc :id)))
+
 (defn- before-validation
   "Performs operations required before validation"
   [transaction]
-  (update-in transaction [:items] (fn [items]
-                                    (map #(assoc % :balance (bigdec 0)) items))))
+  (update-in transaction [:items] #(map before-item-validation %)))
 
 (defn- before-save
   "Returns a transaction ready for insertion into the
@@ -393,7 +401,7 @@
                                   storage
                                   (:transaction-date validated))
                                 ; new items need the transaction-id added
-                                (map #(assoc % :transaction-id (:id transaction)))
+                                (map #(assoc % :transaction-id (:id validated)))
                                 (process-item-upserts storage))]
         (->> validated
              before-save
