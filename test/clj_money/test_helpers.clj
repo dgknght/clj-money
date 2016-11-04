@@ -83,7 +83,7 @@
   (map #(if (seq (:children %))
           ( -> %
                (select-keys (concat [:name :children] additional-attributes))
-               (update-in [:children] simplify-accounts))
+               (update-in [:children] simplify-accounts additional-attributes))
           (select-keys % [:name]))
        accounts))
 
