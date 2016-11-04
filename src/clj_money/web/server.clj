@@ -67,9 +67,9 @@
   
   ; Reports
   (GET "/entities/:entity-id/reports" [entity-id]
-       (reports/render (Integer. entity-id) :income-statement))
-  (GET "/entities/:entity-id/reports/:id" [entity-id id]
-       (reports/render (Integer. entity-id) (keyword id))))
+       (reports/render {:entity-id entity-id :type :income-statement}))
+  (GET "/entities/:entity-id/reports/:type" {params :params}
+       (reports/render params)))
 
 (defroutes routes
   (GET "/" []
