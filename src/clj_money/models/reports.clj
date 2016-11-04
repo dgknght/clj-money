@@ -1,6 +1,7 @@
 (ns clj-money.models.reports
   (:require [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]))
@@ -38,8 +39,8 @@
   (concat [{:caption (:name account)
             :value (+ (:balance account) (:children-balance account))
             :style :data
-            :depth 0}]
-          (map #(transform-account % (+ 1 depth))
+            :depth depth}]
+          (mapcat #(transform-account % (+ 1 depth))
                (:children account))))
 
 (defn- transform-account-group
