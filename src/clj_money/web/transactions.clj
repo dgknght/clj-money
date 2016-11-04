@@ -62,7 +62,8 @@
         (hidden-input-element (str "id-" index) id))
       (select-element (str "account-id-" index)
                       (:account-id item)
-                      (account-options entity-id)
+                      (account-options entity-id
+                                       {:include-none? true})
                       {:suppress-label? true}))]
    [:td.col-sm-2
     (text-input-element (str "credit-amount-" index) (:credit-amount item) {:suppress-label? true})]
@@ -92,6 +93,16 @@
         (update-in [:account-id] #(Integer. %))
         (dissoc :credit-amount :debit-amount))))
 
+(defn- items-for-form
+  [transaction]
+  (map-indexed #(->> %2
+                        ->form-item
+                        (item-row (:entity-id transaction) %1))
+               (concat (:items transaction)
+                       (repeat {:action nil
+                                :account-id nil
+                                :amount nil}))))
+
 (defn- form-fields
   [transaction]
   (html
@@ -103,9 +114,7 @@
       [:th "Account"]
       [:th "Credit"]
       [:th "Debit"]]
-     (map-indexed #(->> %2
-                        ->form-item
-                        (item-row (:entity-id transaction) %1)) (:items transaction))]
+     (take 10 (items-for-form transaction))]
     [:input.btn.btn-primary {:type :submit :value "Save"}]
     [:a.btn.btn-default
      {:href (format "/entities/%s/transactions" (:entity-id transaction))
@@ -134,7 +143,7 @@
                      indexed-attr (map #(keyword (str (name %) "-" index)) attr)
                      item (zipmap attr (map #(% params) indexed-attr))]
                  item))) 
-       (take-while #(:account-id %))
+       (take-while #(or (integer? (:account-id %)) (seq (:account-id %))))
        (map ->transaction-item)))
 
 (defn create
@@ -170,7 +179,7 @@
                         (assoc :items (extract-items params)))
         updated (transactions/update (env :db) transaction)]
     (if (validation/has-error? updated)
-      (edit transaction)
+      (edit transaction {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/get-errors updated))}]})
       (redirect (format "/entities/%s/transactions" (:entity-id updated))))))
 
 (defn delete
