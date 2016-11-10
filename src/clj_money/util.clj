@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clj-time.core :as t])
-  (:import java.text.DecimalFormat))
+  (:import java.text.DecimalFormat
+           org.joda.time.format.DateTimeFormat))
 
 (def NumberFormat (DecimalFormat. "#,##0.00"))
 
@@ -10,6 +11,13 @@
   "Format a number with 2 decimal places and groups separated with commas"
   [value]
   (.format NumberFormat value))
+
+(def DateFormat (DateTimeFormat/forPattern "M/d/y"))
+
+(defn format-date
+  "Formats a date (without time) in the standard US format"
+  [value]
+  (.print DateFormat value))
 
 (def date-patterns
   [{:pattern #"(\d{1,2})/(\d{1,2})/(\d{4})"

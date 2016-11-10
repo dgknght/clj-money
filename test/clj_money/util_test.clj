@@ -3,7 +3,11 @@
   (:require [clojure.test :refer :all]
             [clj-time.core :as t]
             [clj-money.util :refer [parse-date
+                                    format-date
                                     format-number]]))
+
+(deftest format-a-date
+  (is (= "3/2/2016" (format-date (t/local-date 2016 3 2)))))
 
 (deftest parse-a-date
   (testing "A US standard date is parsed correctly"
