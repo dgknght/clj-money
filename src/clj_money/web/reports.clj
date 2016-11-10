@@ -7,6 +7,7 @@
             [hiccup.page :refer :all]
             [clj-time.core :as t]
             [clj-money.util :refer [format-number
+                                    format-date
                                     parse-date]]
             [clj-money.web.shared :refer :all]
             [clj-money.models.reports :as reports]))
@@ -64,12 +65,12 @@
     [:label.control-label {:for :start-date} "Start Date"]
     [:input.form-control.date-field {:type :text
                                      :name :start-date
-                                     :value (:start-date params)}]]
+                                     :value (format-date (:start-date params))}]]
    [:div.form-group
     [:label {:for :end-date} "End Date"]
     [:input.form-control.date-field {:type :text
                                      :name :end-date
-                                     :value (:end-date params)}]]
+                                     :value (format-date (:end-date params))}]]
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defmethod render-filter :balance-sheet
