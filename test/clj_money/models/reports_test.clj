@@ -25,14 +25,34 @@
               {:name "Rent"
                :type :expense}
               {:name "Groceries"
-               :type :expense}]
+               :type :expense}
+              {:name "Taxes"
+               :type :expense}
+              {:name "FIT"
+               :type :expense
+               :parent-id "Taxes"}
+              {:name "Social Security"
+               :type :expense
+               :parent-id "Taxes"}
+              {:name "Medicare"
+               :type :expense
+               :parent-id "Taxes"}]
    :transactions [
                   ; salary
                   {:transaction-date (t/local-date 2016 1 1)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1001)}
+                            :amount (bigdec 724)}
+                           {:action :debit
+                            :account-id "FIT"
+                            :amount (bigdec 200)}
+                           {:action :debit
+                            :account-id "Social Security"
+                            :amount (bigdec 62)}
+                           {:action :debit
+                            :account-id "Medicare"
+                            :amount (bigdec 15)}
                            {:action :credit
                             :account-id "Salary"
                             :amount (bigdec 1001)}]}
@@ -40,7 +60,16 @@
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1002)}
+                            :amount (bigdec 725)}
+                           {:action :debit
+                            :account-id "FIT"
+                            :amount (bigdec 200)}
+                           {:action :debit
+                            :account-id "Social Security"
+                            :amount (bigdec 62)}
+                           {:action :debit
+                            :account-id "Medicare"
+                            :amount (bigdec 15)}
                            {:action :credit
                             :account-id "Salary"
                             :amount (bigdec 1002)}]}
@@ -48,7 +77,16 @@
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1003)}
+                            :amount (bigdec 726)}
+                           {:action :debit
+                            :account-id "FIT"
+                            :amount (bigdec 200)}
+                           {:action :debit
+                            :account-id "Social Security"
+                            :amount (bigdec 62)}
+                           {:action :debit
+                            :account-id "Medicare"
+                            :amount (bigdec 15)}
                            {:action :credit
                             :account-id "Salary"
                             :amount (bigdec 1003)}]}
