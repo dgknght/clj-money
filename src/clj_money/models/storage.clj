@@ -46,6 +46,9 @@
   (find-account-by-id
     [this id]
     "Returns the account having the specified ID")
+  (find-account-by-entity-id-and-name
+    [this entity-id account-name]
+    "Returns the account having the specified entity-id and name")
   (update-account
     [this account]
     "Updates the specified account")

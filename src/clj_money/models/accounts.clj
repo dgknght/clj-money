@@ -7,6 +7,7 @@
             [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
+                                              find-account-by-entity-id-and-name
                                               find-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
@@ -142,6 +143,14 @@
   [storage-spec id]
   (prepare-for-return
     (find-account-by-id (storage storage-spec) id)))
+
+(defn find-by-name
+  "Returns the account having the specified name"
+  [storage-spec entity-id account-name]
+  (prepare-for-return
+    (find-account-by-entity-id-and-name (storage storage-spec)
+                                        entity-id
+                                        account-name)))
 
 (defn reload
   "Returns a fresh copy of the specified account from the data store"

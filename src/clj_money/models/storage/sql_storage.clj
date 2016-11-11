@@ -149,6 +149,15 @@
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :accounts id)))
 
+  (find-account-by-entity-id-and-name
+    [_ entity-id account-name]
+    (first (query db-spec (-> (h/select :*)
+                       (h/from :accounts)
+                       (h/where [:and
+                                 [:= :entity_id entity-id]
+                                 [:= :name account-name]])
+                       (h/limit 1)))))
+
   (select-accounts-by-entity-id
     [_ entity-id]
     (query db-spec (-> (h/select :*)
