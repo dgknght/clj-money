@@ -204,7 +204,7 @@
                    :style :data
                    :depth 0}
                   {:caption "Expense"
-                   :value (bigdec 1200)
+                   :value (bigdec 1754)
                    :style :header}
                   {:caption "Groceries"
                    :value (bigdec 500)
@@ -214,7 +214,23 @@
                    :value (bigdec 700)
                    :style :data
                    :depth 0}
+                  {:caption "Taxes"
+                   :value (bigdec 554)
+                   :style :data
+                   :depth 0}
+                  {:caption "FIT"
+                   :value (bigdec 400)
+                   :style :data
+                   :depth 1}
+                  {:caption "Medicare"
+                   :value (bigdec 30)
+                   :style :data
+                   :depth 1}
+                  {:caption "Social Security"
+                   :value (bigdec 124)
+                   :style :data
+                   :depth 1}
                   {:caption "Net"
-                   :value (bigdec 803)
+                   :value (bigdec 249)
                    :style :summary}]]
     (is (= expected actual) "The report renders the corect data")))
