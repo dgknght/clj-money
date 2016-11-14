@@ -53,10 +53,6 @@
   [storage-spec account]
   (if (:parent-id account)
     (let [parent (accounts/find-by-name storage-spec (:entity-id account) (:parent-id account))]
-
-      (pprint {:resolve-parent account
-               :parent parent})
-
       (assoc account :parent-id (:id parent)))
     account))
 
