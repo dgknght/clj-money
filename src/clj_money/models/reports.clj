@@ -28,25 +28,20 @@
   [storage-spec start end accounts]
   (map #(set-balance-delta storage-spec % start end) accounts))
 
-; TODO combine this with set-balances-in-account-group
-(defn- set-balance-deltas-in-account-group
-  [storage-spec entry start end]
-  (let [updated (update-in entry
-                           [:accounts]
-                           (partial set-balance-deltas storage-spec start end))]
+(defn- set-balances-in-account-group
+  [account-group calc-fn]
+  (let [updated (update-in account-group [:accounts] calc-fn)]
     (assoc updated :value (reduce #(+ %1
                                       (:balance %2)
                                       (:children-balance %2))
-                                  0
+                                  (bigdec 0)
                                   (:accounts updated)))))
 
 (defn- set-balance-deltas-in-account-groups
   [storage-spec start end groups]
-  (map #(set-balance-deltas-in-account-group
-          storage-spec
+  (map #(set-balances-in-account-group
           %
-          start
-          end)
+          (partial set-balance-deltas storage-spec start end))
        groups))
 
 (declare set-balances)
@@ -71,21 +66,12 @@
   [storage-spec as-of accounts]
   (map #(set-balance storage-spec % as-of) accounts))
 
-; TODO combine this with set-balance-deltas-in-account-group
-(defn- set-balances-in-account-group
-  [storage-spec entry as-of]
-  (let [updated (update-in entry
-                           [:accounts]
-                           (partial set-balances storage-spec as-of))]
-    (assoc updated :value (reduce #(+ %1
-                                      (:balance %2)
-                                      (:children-balance %2))
-                                  (bigdec 0)
-                                  (:accounts updated)))))
-
 (defn- set-balances-in-account-groups
   [storage-spec as-of groups]
-  (map #(set-balances-in-account-group storage-spec % as-of) groups))
+  (map #(set-balances-in-account-group
+          %
+          (partial set-balances storage-spec as-of))
+       groups))
 
 (defn- transform-account
   [account depth]
