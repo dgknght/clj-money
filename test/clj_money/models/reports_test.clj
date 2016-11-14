@@ -234,3 +234,27 @@
                    :value (bigdec 249)
                    :style :summary}]]
     (is (= expected actual) "The report renders the corect data")))
+
+(deftest create-a-balance-sheet-report
+  (let [context (serialization/realize storage-spec income-statement-context)
+        actual (reports/balance-sheet storage-spec
+                                      (-> context :entities first :id)
+                                      (t/local-date 2016 1 31))
+        expected [{:caption "Asset"
+                   :value (bigdec 249)
+                   :style :header}
+                  {:caption "Checking"
+                   :value (bigdec 249)
+                   :style :data
+                   :depth 0}
+                  {:caption "Liability"
+                   :value (bigdec 0)
+                   :style :header}
+                  {:caption "Equity"
+                   :value (bigdec 249)
+                   :style :header}
+                  {:caption "Retained Earnings"
+                   :value (bigdec 249)
+                   :style :data
+                   :depth 0}]]
+    (is (= expected actual) "The rpoert renders the correct data")))
