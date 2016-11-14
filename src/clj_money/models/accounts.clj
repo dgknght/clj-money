@@ -7,6 +7,7 @@
             [clj-money.models.helpers :refer [storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
+                                              find-account-by-entity-id-and-name
                                               find-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
@@ -143,6 +144,14 @@
   (prepare-for-return
     (find-account-by-id (storage storage-spec) id)))
 
+(defn find-by-name
+  "Returns the account having the specified name"
+  [storage-spec entity-id account-name]
+  (prepare-for-return
+    (find-account-by-entity-id-and-name (storage storage-spec)
+                                        entity-id
+                                        account-name)))
+
 (defn reload
   "Returns a fresh copy of the specified account from the data store"
   [storage-spec {:keys [id]}]
@@ -170,14 +179,15 @@
 (defn select-nested-by-entity-id
   "Returns the accounts for the entity with children nested under
   parents and parents grouped by type"
-  ([storage-spec entity-id] (select-nested-by-entity-id storage-spec entity-id account-types))
+  ([storage-spec entity-id]
+   (select-nested-by-entity-id storage-spec entity-id account-types))
   ([storage-spec entity-id types]
-  (let [all (select-by-entity-id storage-spec entity-id)
-        grouped (->> all
-                     (remove :parent-id)
-                     (map #(append-children % all))
-                     (group-by :type))]
-    (map #(hash-map :type % :accounts (or (% grouped) [])) types))))
+   (let [all (select-by-entity-id storage-spec entity-id)
+         grouped (->> all
+                      (remove :parent-id)
+                      (map #(append-children % all))
+                      (group-by :type))]
+     (map #(hash-map :type % :accounts (or (% grouped) [])) types))))
 
 (defn update
   "Updates the specified account"

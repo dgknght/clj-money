@@ -10,15 +10,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities])
-  (:use clj-money.inflection)
-  (:import java.text.DecimalFormat))
-
-(def NumberFormat (DecimalFormat. "#,##0.00"))
-
-(defn format-number
-  "Format a number with 2 decimal places and groups separated with commas"
-  [value]
-  (.format NumberFormat value))
+  (:use clj-money.inflection))
 
 (defn glyph-link
   "Renders a link with a glyphicon"
@@ -118,7 +110,7 @@
 (def item-templates
   [{:url "/entities/:entity-id/accounts"     :caption "Accounts"}
    {:url "/entities/:entity-id/transactions" :caption "Transactions"}
-   {:url "/entities/:entity-idcommodities"  :caption "Commodities"}])
+   {:url "/entities/:entity-id/reports"      :caption "Reports"}])
 
 (defn primary-nav
   "Renders the site primary navigation"
@@ -133,6 +125,21 @@
         (bootstrap-nav items user entity))
       (bootstrap-nav [] user nil))
     (bootstrap-nav [] nil nil)))
+
+(defn- tabbed-nav-item
+  [item active?]
+  [:li {:role :presentation
+        :class (when active? :active)}
+   [:a {:href (:url item)}
+    (:caption item)]])
+
+(defn tabbed-nav
+  "Renders tabbed navigation. Expects a sequence of maps like:
+    :caption - the text to be displayed on the tab
+    :url     - The URL to which the navigation tab links"
+  [items current]
+  [:ul.nav.nav-tabs
+   (map #(tabbed-nav-item % (= current (:id %))) items)])
 
 (defn render-alerts
   "Renders notifications as HTML"

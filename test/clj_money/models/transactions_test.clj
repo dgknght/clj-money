@@ -922,3 +922,69 @@
       (is (= (bigdec 694)
              (:balance (accounts/reload storage-spec checking)))
           "Checking should have the correct balance after update"))))
+
+(def balance-delta-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :entities [{:name "Personal"}]
+   :accounts [{:name "Checking"
+               :type :asset }
+              {:name "Salary"
+               :type :income}
+              {:name "Groceries"
+               :type :expense}]
+   :transactions [{:transaction-date (t/local-date 2016 1 1)
+                   :description "Paycheck"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount (bigdec 1000)}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount (bigdec 1000)}]}
+                  {:transaction-date (t/local-date 2016 1 15)
+                   :description "Paycheck"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount (bigdec 1001)}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount (bigdec 1001)}]}
+                  {:transaction-date (t/local-date 2016 2 1)
+                   :description "Paycheck"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount (bigdec 1100)}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount (bigdec 1100)}]}
+                  {:transaction-date (t/local-date 2016 2 15)
+                   :description "Paycheck"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount (bigdec 1102)}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount (bigdec 1102)}]}
+                  {:transaction-date (t/local-date 2016 3 1)
+                   :description "Paycheck"
+                   :items [{:action :debit
+                            :account-id "Checking"
+                            :amount (bigdec 1200)}
+                           {:action :credit
+                            :account-id "Salary"
+                            :amount (bigdec 1200)}]}]})
+
+(deftest get-a-balance-delta
+  (let [context (serialization/realize storage-spec balance-delta-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        january (transactions/balance-delta storage-spec
+                                            (:id salary)
+                                            (t/local-date 2016 1 1)
+                                            (t/local-date 2016 1 31))
+        february (transactions/balance-delta storage-spec
+                                            (:id salary)
+                                            (t/local-date 2016 2 1)
+                                            (t/local-date 2016 2 29))]
+    (is (= (bigdec 2001) january) "The January value is the sum of polarized amounts for the period")
+    (is (= (bigdec 2202) february) "The February value is the sum of the polarized amounts for the period")))

@@ -1,5 +1,6 @@
 (ns clj-money.test-helpers
   (:require [clojure.test :refer :all]
+            [clojure.pprint :refer [pprint]]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
             [clj-money.validation :as validation]))
@@ -76,3 +77,23 @@
   exception with the specified violation errors"
   [validation-errors & body]
   `(assert-throws-ex-info {:error ~validation-errors} ~@body))
+
+(defn- simplify-accounts
+  [accounts additional-attributes]
+  (map #(if (seq (:children %))
+          ( -> %
+               (select-keys (concat [:name :children] additional-attributes))
+               (update-in [:children] simplify-accounts additional-attributes))
+          (select-keys % [:name]))
+       accounts))
+
+(defn simplify-account-groups
+  "Accept a list of hashes containing :type keyword and :accounts [],
+  drill down into each account, filtering out every attribute of the
+  account except the name"
+  ([groups]
+    (simplify-account-groups groups []))
+  ([groups additional-attributes]
+  (map #(update-in % [:accounts] (fn [accounts]
+                                   (simplify-accounts accounts additional-attributes)))
+       groups)))

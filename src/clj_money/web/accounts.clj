@@ -6,6 +6,7 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
+            [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.schema :as schema]

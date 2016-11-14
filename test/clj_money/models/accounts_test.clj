@@ -13,7 +13,8 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.test-helpers :refer [reset-db
-                                            assert-validation-error]]))
+                                            assert-validation-error
+                                            simplify-account-groups]]))
 
 (def storage-spec (env :db))
 
@@ -40,23 +41,6 @@
                   {:name "Credit card"
                    :type :liability}]]
     (is (= expected actual) "It returns the correct accounts")))
-
-(defn simplify-accounts
-  [accounts]
-  (map #(if (seq (:children %))
-                 ( -> %
-                      (select-keys [:name :children])
-                      (update-in [:children] simplify-accounts))
-                 (select-keys % [:name]))
-       accounts))
-
-(defn- simplify-account-groups
-  "Accept a list of hashes containing :type keyword and :accounts [],
-  drill down into each account, filtering out every attribute of the
-  account except the name"
-  [list]
-  (map #(update-in % [:accounts] simplify-accounts)
-       list))
 
 (deftest select-nested-accounts
   (let [savings (accounts/create storage-spec {:name "Savings"
@@ -92,7 +76,8 @@
                                           :type :expense
                                           :parent-id (:id taxes)
                                           :entity-id (:id entity)})
-        result (simplify-account-groups (accounts/select-nested-by-entity-id storage-spec (:id entity)))
+        result (simplify-account-groups
+                 (accounts/select-nested-by-entity-id storage-spec (:id entity)))
         expected [{:type :asset
                    :accounts [{:name "Checking"}
                               {:name "Savings"

@@ -149,6 +149,15 @@
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :accounts id)))
 
+  (find-account-by-entity-id-and-name
+    [_ entity-id account-name]
+    (first (query db-spec (-> (h/select :*)
+                       (h/from :accounts)
+                       (h/where [:and
+                                 [:= :entity_id entity-id]
+                                 [:= :name account-name]])
+                       (h/limit 1)))))
+
   (select-accounts-by-entity-id
     [_ entity-id]
     (query db-spec (-> (h/select :*)
@@ -269,6 +278,17 @@
                                 [:< :t.transaction-date transaction-date]])
                       (h/order-by [:t.transaction-date :desc] [:i.index :desc])
                       (h/limit 2))))
+
+  (find-last-transaction-item-on-or-before
+    [_ account-id transaction-date]
+    (first (query db-spec (-> (h/select :i.*)
+                              (h/from [:transaction_items :i])
+                              (h/join [:transactions :t] [:= :t.id :i.transaction_id])
+                              (h/where [:and
+                                        [:= :i.account_id account-id]
+                                        [:<= :t.transaction_date transaction-date]])
+                              (h/order-by [:t.transaction_date :desc] [:i.index :desc])
+                              (h/limit 1)))))
 
   (update-transaction-item
     [_ transaction-item]

@@ -28,3 +28,13 @@
   display: block;
   margin-right: 3em;
 }
+
+.report-header td {
+  font-weight: bold;
+  font-size: 120%;
+}
+
+.report-summary {
+  font-weight: bold;
+  font-size: 120%;
+}

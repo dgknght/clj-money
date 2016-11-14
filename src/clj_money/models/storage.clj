@@ -46,6 +46,9 @@
   (find-account-by-id
     [this id]
     "Returns the account having the specified ID")
+  (find-account-by-entity-id-and-name
+    [this entity-id account-name]
+    "Returns the account having the specified entity-id and name")
   (update-account
     [this account]
     "Updates the specified account")
@@ -98,6 +101,9 @@
   (find-transaction-items-preceding-date
     [this account-id transaction-date]
     "Returns the transaction items preceding the specifed date in descending order by seqence")
+  (find-last-transaction-item-on-or-before
+    [this account-id transaction-date]
+    "Returns the last transaction item that is on or before the specified date")
   (update-transaction-item
     [this transaction-item]
     "Updates the specified transaction item")

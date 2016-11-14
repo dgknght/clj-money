@@ -49,9 +49,18 @@
   [context model]
   (update-in model [:entity-id] #(:id (find-entity context %))))
 
+(defn- resolve-parent
+  [storage-spec account]
+  (if (:parent-id account)
+    (let [parent (accounts/find-by-name storage-spec (:entity-id account) (:parent-id account))]
+      (assoc account :parent-id (:id parent)))
+    account))
+
 (defn- create-accounts
   [storage-spec context accounts]
-  (mapv #(accounts/create storage-spec (resolve-entity context %)) accounts))
+  (mapv #(accounts/create storage-spec (->> %
+                                            (resolve-entity context)
+                                            (resolve-parent storage-spec))) accounts))
 
 (defn- realize-accounts
   [storage-spec context]
