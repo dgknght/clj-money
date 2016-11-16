@@ -347,7 +347,9 @@
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [storage-spec account-id]
-  (select-transaction-items-by-account-id (storage storage-spec) account-id))
+  (->> account-id
+       (select-transaction-items-by-account-id (storage storage-spec))
+       #_(map #(polarize-amount storage-spec %))))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"

@@ -9,6 +9,7 @@
             [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.schema :as schema]
             [clj-money.web.money-shared :refer [account-options]])
   (:use [clj-money.web.shared :refer :all]))
@@ -28,6 +29,10 @@
      (glyph-button :pencil
                    (format "/accounts/%s/edit" (:id account))
                    {:level :info
+                    :size :extra-small})
+     (glyph-button :list-alt
+                   (format "/accounts/%s" (:id account))
+                   {:level :default
                     :size :extra-small})
      (glyph-button :remove
                    (format "/accounts/%s/delete" (:id account))
@@ -81,6 +86,32 @@
         {:href (format "/entities/%s/accounts/new" entity-id)
          :title "Click here to add a new account."}
         "Add"]]])))
+
+(defn- transaction-item-row
+  [{:keys [transaction-date description polarized-amount balance]}]
+  [:tr
+   [:td transaction-date]
+   [:td description]
+   [:td polarized-amount]
+   [:td balance]])
+
+(defn show
+  "Renders account details, including transactions"
+  ([id] (show id {}))
+  ([id options]
+   (layout
+     "Account" options
+     [:div.row
+      [:div.col-md-6
+       [:table.table.table-striped.table-hover
+        [:tr
+         [:th "Date"]
+         [:th "Description"]
+         [:th "Amount"]
+         [:th "Balance"]
+         [:th "&nbsp;"]]
+        (map transaction-item-row
+             (transactions/items-by-account (env :db) id))]]])))
 
 (defn- form-fields
   "Renders the form fields for an account"
