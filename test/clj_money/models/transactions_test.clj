@@ -988,3 +988,17 @@
                                             (t/local-date 2016 2 29))]
     (is (= (bigdec 2001) january) "The January value is the sum of polarized amounts for the period")
     (is (= (bigdec 2202) february) "The February value is the sum of the polarized amounts for the period")))
+
+(deftest get-a-balance-as-of
+  (let [context (serialization/realize storage-spec balance-delta-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        january (transactions/balance-as-of storage-spec
+                                            (:id checking)
+                                            (t/local-date 2016 1 31))
+        february (transactions/balance-as-of storage-spec
+                                            (:id checking)
+                                            (t/local-date 2016 2 29))]
+    (is (= (bigdec 2001) january) "The January value is the balance for the last item in the period")
+    (is (= (bigdec 4203) february) "The February value is the balance for the last item in the period")))

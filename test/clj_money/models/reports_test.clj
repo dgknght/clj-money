@@ -20,6 +20,8 @@
    :entities [{:name "Personal"}]
    :accounts [{:name "Checking"
                :type :asset}
+              {:name "Credit Card"
+               :type :liability}
               {:name "Salary"
                :type :income}
               {:name "Rent"
@@ -106,7 +108,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 100)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 100)}]}
                   {:transaction-date (t/local-date 2016 1 10)
                    :description "Kroger"
@@ -114,7 +116,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 100)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 100)}]}
                   {:transaction-date (t/local-date 2016 1 17)
                    :description "Kroger"
@@ -122,7 +124,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 100)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 100)}]}
                   {:transaction-date (t/local-date 2016 1 24)
                    :description "Kroger"
@@ -130,7 +132,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 100)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 100)}]}
                   {:transaction-date (t/local-date 2016 1 31)
                    :description "Kroger"
@@ -138,7 +140,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 100)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 100)}]}
                   {:transaction-date (t/local-date 2016 2 7)
                    :description "Kroger"
@@ -146,7 +148,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 101)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 101)}]}
                   {:transaction-date (t/local-date 2016 2 14)
                    :description "Kroger"
@@ -154,7 +156,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 101)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 101)}]}
                   {:transaction-date (t/local-date 2016 2 21)
                    :description "Kroger"
@@ -162,7 +164,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 101)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 101)}]}
                   {:transaction-date (t/local-date 2016 2 28)
                    :description "Kroger"
@@ -170,7 +172,7 @@
                             :account-id "Groceries"
                             :amount (bigdec 101)}
                            {:action :credit
-                            :account-id "Checking"
+                            :account-id "Credit Card"
                             :amount (bigdec 101)}]}
                   ; rent
                   {:transaction-date (t/local-date 2016 1 4)
@@ -234,3 +236,36 @@
                    :value (bigdec 249)
                    :style :summary}]]
     (is (= expected actual) "The report renders the corect data")))
+
+(deftest create-a-balance-sheet-report
+  (let [context (serialization/realize storage-spec income-statement-context)
+        actual (reports/balance-sheet storage-spec
+                                      (-> context :entities first :id)
+                                      (t/local-date 2016 1 31))
+        expected [{:caption "Asset"
+                   :value (bigdec 749)
+                   :style :header}
+                  {:caption "Checking"
+                   :value (bigdec 749)
+                   :style :data
+                   :depth 0}
+                  {:caption "Liability"
+                   :value (bigdec 500)
+                   :style :header}
+                  {:caption "Credit Card"
+                   :value (bigdec 500)
+                   :style :data
+                   :depth 0}
+                  {:caption "Equity"
+                   :value (bigdec 249)
+                   :style :header}
+                  {:caption "Retained Earnings"
+                   :value (bigdec 249)
+                   :style :data
+                   :depth 0}]]
+
+    (pprint {:expected expected
+             :actual actual
+             :diff (diff expected actual)})
+
+    (is (= expected actual) "The rpoert renders the correct data")))

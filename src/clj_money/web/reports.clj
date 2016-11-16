@@ -51,8 +51,11 @@
                                                end-date))])
 
 (defmethod render-report :balance-sheet
-  [params]
-  [:h1 "Balance Sheet"])
+  [{:keys [entity-id as-of]}]
+  [:table.table.table-striped
+   (map report-row (reports/balance-sheet (env :db)
+                                          entity-id
+                                          as-of))])
 
 (defmulti render-filter
   (fn [params]
@@ -75,7 +78,13 @@
 
 (defmethod render-filter :balance-sheet
   [params]
-  )
+  [:form {:action "#" :method :get}
+   [:div.form-group
+    [:label.control-label {:for :start-date} "As of"]
+    [:input.form-control.date-field {:type :text
+                                     :name :as-of
+                                     :value (format-date (:as-of params))}]]
+   [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defn render
   [params]
@@ -85,7 +94,9 @@
                    (assoc :start-date (or (parse-date (:start-date params))
                                           (default-start-date))
                           :end-date (or (parse-date (:end-date params))
-                                        (default-end-date))))]
+                                        (default-end-date))
+                          :as-of (or (parse-date (:as-of params))
+                                     (default-end-date))))]
     (layout
       "Reports" {}
       [:div.row
