@@ -484,7 +484,7 @@
                               (map #(select-keys % [:index :amount :balance])))]
     (testing "transaction item balances are correct"
       (is (= expected-checking actual-checking)
-          "Check items should have the correct values after update")
+          "Checking items should have the correct values after update")
       (is (= expected-groceries actual-groceries)
           "Groceries items should have the correct values after update"))
     (testing "account balances are correct"
