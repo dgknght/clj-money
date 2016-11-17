@@ -89,9 +89,6 @@
 
 (defn- transaction-item-row
   [{:keys [transaction-date description polarized-amount balance] :as item}]
-
-  (pprint item)
-
   [:tr
    [:td transaction-date]
    [:td description]

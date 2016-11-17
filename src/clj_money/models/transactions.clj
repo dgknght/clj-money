@@ -58,6 +58,10 @@
   [item]
   (update-in item [:action] name))
 
+(defn- polarize-item-amount
+  [item account]
+  (assoc item :polarized-amount (accounts/polarize-amount item account)))
+
 (defn- prepare-item-for-return
   "Makes adjustments to a transaction item in prepartion for return
   from the data store"
@@ -67,7 +71,7 @@
      (cond-> item
        true (update-in [:action] keyword)
        (:transaction-date item) (update-in [:transaction-date] tc/to-local-date)
-       account (assoc :polarized-amount (accounts/polarize-amount account item)))
+       account (polarize-item-amount account))
      item)))
 
 (defn- item-amount-must-be-greater-than-zero
@@ -353,9 +357,10 @@
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [storage-spec account-id]
-  (->> account-id
-       (select-transaction-items-by-account-id (storage storage-spec))
-       (map prepare-item-for-return)))
+  (let [account (accounts/find-by-id storage-spec account-id)]
+    (->> account-id
+         (select-transaction-items-by-account-id (storage storage-spec))
+         (map #(prepare-item-for-return % account)))))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"
