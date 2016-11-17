@@ -61,10 +61,14 @@
 (defn- prepare-item-for-return
   "Makes adjustments to a transaction item in prepartion for return
   from the data store"
-  [item]
-  (if (map? item)
-    (update-in item [:action] keyword)
-    item))
+  ([item] (prepare-item-for-return item nil))
+  ([item account]
+   (if (map? item)
+     (cond-> item
+       true (update-in [:action] keyword)
+       (:transaction-date item) (update-in [:transaction-date] tc/to-local-date)
+       account (assoc :polarized-amount (accounts/polarize-amount account item)))
+     item)))
 
 (defn- item-amount-must-be-greater-than-zero
   [transaction]
@@ -160,7 +164,8 @@
     :storage          - Unchanged storage service"
   [context item]
   (let [next-index (+ 1 (:previous-index context))
-        polarized-amount (accounts/polarize-amount (:storage context) item)
+        account (accounts/find-by-id (:storage context) (:account-id item))
+        polarized-amount (accounts/polarize-amount item account)
         next-balance (+ (:previous-balance context) polarized-amount)
         updated-item (-> item
                          (assoc :balance next-balance
@@ -260,7 +265,8 @@
   items that are affected by a new or updated transaction"
   [{:keys [index balance storage]} item]
   (let [new-index (+ 1 index)
-        polarized-amount (accounts/polarize-amount storage item)
+        account (accounts/find-by-id storage (:account-id item))
+        polarized-amount (accounts/polarize-amount item account)
         new-balance (+ balance polarized-amount)
         value-changed (update-item-index-and-balance storage (-> item
                                                                  (assoc :index new-index
@@ -349,7 +355,7 @@
   [storage-spec account-id]
   (->> account-id
        (select-transaction-items-by-account-id (storage storage-spec))
-       #_(map #(polarize-amount storage-spec %))))
+       (map prepare-item-for-return)))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"

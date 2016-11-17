@@ -220,8 +220,7 @@
 (defn polarize-amount
   "Adjusts the polarity of an amount as appropriate given
   a transaction item action and the type of the associated account"
-  [storage-spec transaction-item]
-  (let [account (find-by-id storage-spec (:account-id transaction-item))
-        polarizer (* (if (left-side? account) 1 -1)
+  [transaction-item account]
+  (let [polarizer (* (if (left-side? account) 1 -1)
                      (if (= :debit (:action transaction-item)) 1 -1))]
     (* (:amount transaction-item) polarizer)))
