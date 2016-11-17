@@ -235,10 +235,11 @@
 
   (select-transaction-items-by-account-id
     [_ account-id]
-    (query db-spec (-> (h/select :*)
-                      (h/from :transaction_items)
-                      (h/where [:= :account_id account-id])
-                      (h/order-by [:index :desc]))))
+    (query db-spec (-> (h/select :i.* :t.transaction_date :t.description)
+                      (h/from [:transaction_items :i])
+                      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
+                      (h/where [:= :i.account_id account-id])
+                      (h/order-by [:i.index :desc]))))
 
   (select-transaction-items-by-account-id-and-starting-index
     [_ account-id index]
