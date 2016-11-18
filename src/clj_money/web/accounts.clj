@@ -29,17 +29,20 @@
      (glyph-button :pencil
                    (format "/accounts/%s/edit" (:id account))
                    {:level :info
-                    :size :extra-small})
+                    :size :extra-small
+                    :title "Click here to edit this account"})
      (glyph-button :list-alt
                    (format "/accounts/%s" (:id account))
                    {:level :default
-                    :size :extra-small})
+                    :size :extra-small
+                    :title "Click here to view transactions for this account"})
      (glyph-button :remove
                    (format "/accounts/%s/delete" (:id account))
                    {:level :danger
                     :size :extra-small
                     :data-method :post
-                    :data-confirm "Are you sure you want to delete this account?"})]]])
+                    :data-confirm "Are you sure you want to delete this account?"
+                    :title "Click here to remove this account"})]]])
 
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
@@ -88,12 +91,18 @@
         "Add"]]])))
 
 (defn- transaction-item-row
-  [{:keys [transaction-date description polarized-amount balance] :as item}]
+  [{:keys [transaction-id transaction-date description polarized-amount balance] :as item}]
   [:tr
    [:td transaction-date]
    [:td description]
    [:td polarized-amount]
-   [:td balance]])
+   [:td balance]
+   [:td
+    (glyph-button :pencil
+                   (format "/transactions/%s/edit" transaction-id)
+                   {:level :info
+                    :size :extra-small
+                    :title "Click here to edit this transaction"})]])
 
 (defn show
   "Renders account details, including transactions"
