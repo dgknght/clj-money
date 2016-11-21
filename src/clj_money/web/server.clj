@@ -60,12 +60,12 @@
        (transactions/new-transaction (Integer. entity-id)))
   (POST "/entities/:entity-id/transactions" {params :params}
         (transactions/create params))
-  (GET "/transactions/:id/edit" [id]
-       (transactions/edit (Integer. id)))
+  (GET "/transactions/:id/edit" [id redirect]
+       (transactions/edit (Integer. id) {:redirect-url redirect}))
   (POST "/transactions/:id" req
         (transactions/update (:params req)))
-  (POST "/transactions/:id/delete" [id]
-        (transactions/delete (Integer. id)))
+  (POST "/transactions/:id/delete" {params :params}
+        (transactions/delete (Integer. (:id params)) params))
   
   ; Reports
   (GET "/entities/:entity-id/reports" [entity-id]

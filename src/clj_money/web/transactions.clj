@@ -173,8 +173,21 @@
        (let [transaction (if (map? id-or-trans)
                            id-or-trans
                            (transactions/find-by-id (env :db) id-or-trans))]
-         [:form {:action (str "/transactions/" (:id transaction)) :method :post}
+         [:form {:action (format "/transactions/%s?redirect=%s"
+                                 (:id transaction)
+                                 (or (:redirect-url options) ""))
+                 :method :post}
           (form-fields transaction)])]])))
+
+(defn- validate-redirect-url
+  [url]
+  (when (and url (not (re-matches #"\Ahttps?:://" url)))
+    url))
+
+(defn- redirect-url
+  [entity-id params]
+  (or (validate-redirect-url (:redirect params))
+      (format "/entities/%s/transactions" entity-id)))
 
 (defn update
   [params]
@@ -183,13 +196,15 @@
                                       :transaction-date
                                       :description])
                         (assoc :items (extract-items params)))
-        updated (transactions/update (env :db) transaction)]
+        updated (transactions/update (env :db) transaction)
+        redirect-url (redirect-url (:entity-id updated) params)]
     (if (validation/has-error? updated)
       (edit transaction {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/get-errors updated))}]})
-      (redirect (format "/entities/%s/transactions" (:entity-id updated))))))
+      (redirect redirect-url))))
 
 (defn delete
-  [id]
-  (let [transaction (transactions/find-by-id (env :db) id)]
+  [{id :id :as params}]
+  (let [transaction (transactions/find-by-id (env :db) id)
+        redirect-url (redirect-url (:entity-id transaction) params)]
     (transactions/delete (env :db) id)
-    (redirect (str "/entities/" (:entity-id transaction) "/transactions"))))
+    (redirect redirect-url)))

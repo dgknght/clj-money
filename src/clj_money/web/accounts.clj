@@ -91,18 +91,35 @@
         "Add"]]])))
 
 (defn- transaction-item-row
-  [{:keys [transaction-id transaction-date description polarized-amount balance] :as item}]
+  [{:keys [transaction-id
+           transaction-date
+           description
+           polarized-amount
+           account-id
+           balance] :as item}]
   [:tr
    [:td transaction-date]
    [:td description]
    [:td polarized-amount]
    [:td balance]
    [:td
-    (glyph-button :pencil
-                   (format "/transactions/%s/edit" transaction-id)
+    [:span.btn-group
+     (glyph-button :pencil
+                   (format "/transactions/%s/edit?redirect=%s"
+                           transaction-id
+                           (format "/accounts/%s" account-id))
                    {:level :info
                     :size :extra-small
-                    :title "Click here to edit this transaction"})]])
+                    :title "Click here to edit this transaction."})
+     (glyph-button :remove
+                   (format "/transactions/%s/delete?redirect=%s"
+                           transaction-id
+                           (url-encode (format "/accounts/%s" account-id)))
+                   {:level :danger
+                    :size :extra-small
+                    :title "Click here to remove this transaction."
+                    :data-confirm "Are you sure you want to remove this transaction?"
+                    :method :post})]]])
 
 (defn show
   "Renders account details, including transactions"
