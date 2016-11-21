@@ -6,6 +6,8 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
+            [ring.util.codec :refer [url-encode]]
+            [clj-money.url :refer :all]
             [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
@@ -105,16 +107,16 @@
    [:td
     [:span.btn-group
      (glyph-button :pencil
-                   (format "/transactions/%s/edit?redirect=%s"
-                           transaction-id
-                           (format "/accounts/%s" account-id))
+                   (-> (path "/transactions" transaction-id "edit")
+                       (query {:redirect (url-encode (format "/accounts/%s" account-id))})
+                       format-url)
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this transaction."})
      (glyph-button :remove
-                   (format "/transactions/%s/delete?redirect=%s"
-                           transaction-id
-                           (url-encode (format "/accounts/%s" account-id)))
+                   (-> (path "/transactions" transaction-id "delete")
+                       (query {:redirect (url-encode (format "/accounts/%s" account-id))})
+                       format-url)
                    {:level :danger
                     :size :extra-small
                     :title "Click here to remove this transaction."

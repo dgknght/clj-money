@@ -6,6 +6,8 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
+            [ring.util.codec :refer [url-encode]]
+            [clj-money.url :refer :all]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
@@ -172,10 +174,16 @@
       [:div.col-md-6
        (let [transaction (if (map? id-or-trans)
                            id-or-trans
-                           (transactions/find-by-id (env :db) id-or-trans))]
-         [:form {:action (format "/transactions/%s?redirect=%s"
-                                 (:id transaction)
-                                 (or (:redirect-url options) ""))
+                           (transactions/find-by-id (env :db) id-or-trans))
+             action (cond-> (path "/transactions"
+                                  (:id transaction))
+
+                      (:redirect-url options)
+                      (query {:redirect (url-encode (:redirect-url options))})
+
+                      true
+                      format-url)]
+         [:form {:action action
                  :method :post}
           (form-fields transaction)])]])))
 
