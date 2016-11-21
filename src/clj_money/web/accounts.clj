@@ -127,19 +127,20 @@
   "Renders account details, including transactions"
   ([id] (show id {}))
   ([id options]
-   (layout
-     "Account" options
-     [:div.row
-      [:div.col-md-6
-       [:table.table.table-striped.table-hover
-        [:tr
-         [:th "Date"]
-         [:th "Description"]
-         [:th "Amount"]
-         [:th "Balance"]
-         [:th "&nbsp;"]]
-        (map transaction-item-row
-             (transactions/items-by-account (env :db) id))]]])))
+   (let [account (accounts/find-by-id (env :db) id)]
+     (layout
+       (format "Account - %s" (:name account)) options
+       [:div.row
+        [:div.col-md-6
+         [:table.table.table-striped.table-hover
+          [:tr
+           [:th "Date"]
+           [:th "Description"]
+           [:th "Amount"]
+           [:th "Balance"]
+           [:th "&nbsp;"]]
+          (map transaction-item-row
+               (transactions/items-by-account (env :db) id))]]]))))
 
 (defn- form-fields
   "Renders the form fields for an account"
