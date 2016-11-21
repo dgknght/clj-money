@@ -100,10 +100,10 @@
            account-id
            balance] :as item}]
   [:tr
-   [:td transaction-date]
+   [:td.text-right transaction-date]
    [:td description]
-   [:td polarized-amount]
-   [:td balance]
+   [:td.text-right polarized-amount]
+   [:td.text-right balance]
    [:td
     [:span.btn-group
      (glyph-button :pencil
@@ -134,10 +134,10 @@
         [:div.col-md-6
          [:table.table.table-striped.table-hover
           [:tr
-           [:th "Date"]
+           [:th.text-right "Date"]
            [:th "Description"]
-           [:th "Amount"]
-           [:th "Balance"]
+           [:th.text-right "Amount"]
+           [:th.text-right "Balance"]
            [:th "&nbsp;"]]
           (map transaction-item-row
                (transactions/items-by-account (env :db) id))]]]))))
