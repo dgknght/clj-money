@@ -120,6 +120,7 @@
                    {:level :danger
                     :size :extra-small
                     :title "Click here to remove this transaction."
+                    :data-method :post
                     :data-confirm "Are you sure you want to remove this transaction?"
                     :method :post})]]])
 

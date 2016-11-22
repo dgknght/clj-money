@@ -65,7 +65,7 @@
   (POST "/transactions/:id" req
         (transactions/update (:params req)))
   (POST "/transactions/:id/delete" {params :params}
-        (transactions/delete (Integer. (:id params)) params))
+        (transactions/delete (update-in params [:id] #(Integer. %))))
   
   ; Reports
   (GET "/entities/:entity-id/reports" [entity-id]
