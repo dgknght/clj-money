@@ -118,6 +118,7 @@
       [:th "Debit"]]
      (take 10 (items-for-form transaction))]
     [:input.btn.btn-primary {:type :submit :value "Save"}]
+    "&nbsp;"
     [:a.btn.btn-default
      {:href (format "/entities/%s/transactions" (:entity-id transaction))
       :title "Click here to return to the list of transactions"}

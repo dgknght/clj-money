@@ -157,6 +157,7 @@
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save the account"}]
+    "&nbsp;"
     [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))
                          :title "Click here to return to the list of accounts."}
      "Back"]))
