@@ -212,20 +212,22 @@
 
 (defn- input-field
   "Renders a HTML input field"
-  ([model attribute options]
+  ([model attribute options] (input-field model attribute options identity))
+  ([model attribute options format-fn]
    [:div.form-group {:class (when (validation/has-error? model attribute)"has-error")}
     (when-not (:suppress-label? options)
       [:label.control-label {:for attribute} (humanize attribute)])
     [:input.form-control (merge options {:id attribute
                                          :name attribute
-                                         :value (get model attribute)})]
+                                         :value (format-fn (get model attribute))})]
     (when (validation/has-error? model)
       (map #(vector :span.help-block %) (validation/get-errors model attribute)))]))
 
 (defn text-input-field
   ([model attribute] (text-input-field model attribute {}))
-  ([model attribute options]
-   (input-field model attribute (merge options {:type :text}))))
+  ([model attribute options] (text-input-field model attribute options identity))
+  ([model attribute options format-fn]
+   (input-field model attribute (merge options {:type :text}) format-fn)))
 
 (defn password-input-field
   ([model attribute] (password-input-field model attribute {}))

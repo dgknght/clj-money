@@ -6,10 +6,14 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
+            [ring.util.codec :refer [url-encode]]
+            [clj-time.core :as t]
+            [clj-money.url :refer :all]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.web.money-shared :refer [account-options]]
+            [clj-money.util :refer [format-date]]
             [clj-money.schema :as schema])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -104,10 +108,13 @@
                                 :amount nil}))))
 
 (defn- form-fields
-  [transaction]
+  [transaction back-url]
   (html
-    (text-input-field transaction :transaction-date {:autofocus true
-                                                     :class "date-field"})
+    (text-input-field transaction
+                      :transaction-date
+                      {:autofocus true
+                       :class "date-field"}
+                      format-date)
     (text-input-field transaction :description)
     [:table.table.table-striped
      [:tr
@@ -116,24 +123,44 @@
       [:th "Debit"]]
      (take 10 (items-for-form transaction))]
     [:input.btn.btn-primary {:type :submit :value "Save"}]
+    "&nbsp;"
     [:a.btn.btn-default
-     {:href (format "/entities/%s/transactions" (:entity-id transaction))
+     {:href back-url
       :title "Click here to return to the list of transactions"}
      "Back"]))
 
+(defn- validate-redirect-url
+  [url]
+  (when (and url (not (re-matches #"\Ahttps?:://" url)))
+    url))
+
+(defn- redirect-url
+  [entity-id params]
+  (or (validate-redirect-url (:redirect params))
+      (format "/entities/%s/transactions" entity-id)))
+
 (defn new-transaction
-  ([entity-id] (new-transaction entity-id
-                                {:entity-id entity-id
-                                 :items [{:action :debit}
-                                         {:action :credit}]}
-                                {}))
-  ([entity-id transaction options]
+  ([params]
+   (new-transaction params
+                    {:entity-id (:entity-id params)
+                     :items [{:action :debit}
+                             {:action :credit}]
+                     :transaction-date (t/today)}
+                    {}))
+  ([params transaction options]
    (layout
      "New Transaction" options
      [:div.row
       [:div.col-md-6
-       [:form {:action (str "/entities/" entity-id "/transactions") :method :post}
-        (form-fields transaction)]]])))
+       [:form {:action (cond-> (path "/entities"
+                                     (:entity-id params)
+                                     "transactions")
+                         (contains? params :redirect) (query {:redirect (-> params
+                                                                            :redirect
+                                                                            url-encode)})
+                         true format-url)
+               :method :post}
+        (form-fields transaction (redirect-url (:entity-id params) params))]]])))
 
 (defn- valid-item?
   [{account-id :account-id :as item}]
@@ -158,10 +185,11 @@
                         (assoc :items (extract-items params))
                         (select-keys [:entity-id :transaction-date :description :items])
                         (update-in [:items] (partial map #(select-keys % [:account-id :action :amount]))))
-        result (transactions/create (env :db) transaction)]
+        result (transactions/create (env :db) transaction)
+        redirect-url (redirect-url (:entity-id result) params)]
     (if (validation/has-error? result)
       (new-transaction (:entity-id transaction) result {})
-      (redirect (str "/entities/" (:entity-id result) "/transactions")))))
+      (redirect redirect-url))))
 
 (defn edit
   ([id-or-trans] (edit id-or-trans {}))
@@ -172,9 +200,18 @@
       [:div.col-md-6
        (let [transaction (if (map? id-or-trans)
                            id-or-trans
-                           (transactions/find-by-id (env :db) id-or-trans))]
-         [:form {:action (str "/transactions/" (:id transaction)) :method :post}
-          (form-fields transaction)])]])))
+                           (transactions/find-by-id (env :db) id-or-trans))
+             action (cond-> (path "/transactions"
+                                  (:id transaction))
+
+                      (:redirect options)
+                      (query {:redirect (url-encode (:redirect options))})
+
+                      true
+                      format-url)]
+         [:form {:action action
+                 :method :post}
+          (form-fields transaction (redirect-url (:entity-id transaction) options))])]])))
 
 (defn update
   [params]
@@ -183,13 +220,15 @@
                                       :transaction-date
                                       :description])
                         (assoc :items (extract-items params)))
-        updated (transactions/update (env :db) transaction)]
+        updated (transactions/update (env :db) transaction)
+        redirect-url (redirect-url (:entity-id updated) params)]
     (if (validation/has-error? updated)
       (edit transaction {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/get-errors updated))}]})
-      (redirect (format "/entities/%s/transactions" (:entity-id updated))))))
+      (redirect redirect-url))))
 
 (defn delete
-  [id]
-  (let [transaction (transactions/find-by-id (env :db) id)]
+  [{id :id :as params}]
+  (let [transaction (transactions/find-by-id (env :db) id)
+        redirect-url (redirect-url (:entity-id transaction) params)]
     (transactions/delete (env :db) id)
-    (redirect (str "/entities/" (:entity-id transaction) "/transactions"))))
+    (redirect redirect-url)))

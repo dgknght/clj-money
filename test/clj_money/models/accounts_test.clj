@@ -236,7 +236,7 @@
          item# {:account-id (:id account#)
                 :action ~action
                 :amount ~amount}
-         polarized-amount# (accounts/polarize-amount storage-spec item#)]
+         polarized-amount# (accounts/polarize-amount item# account#)]
      (is (= ~expected polarized-amount#) ~message)))
 
 (deftest polarize-an-amount

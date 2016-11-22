@@ -263,9 +263,4 @@
                    :value (bigdec 249)
                    :style :data
                    :depth 0}]]
-
-    (pprint {:expected expected
-             :actual actual
-             :diff (diff expected actual)})
-
     (is (= expected actual) "The rpoert renders the correct data")))

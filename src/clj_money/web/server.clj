@@ -41,9 +41,11 @@
   (GET "/entities/:entity-id/accounts" [entity-id]
        (accounts/index entity-id))
   (GET "/entities/:entity-id/accounts/new" [entity-id]
-       (accounts/new-account (Integer.  entity-id)))
+       (accounts/new-account (Integer. entity-id)))
   (POST "/entities/:entity-id/accounts" {params :params}
         (accounts/create params))
+  (GET "/accounts/:id" [id]
+       (accounts/show (Integer. id)))
   (GET "/accounts/:id/edit" [id]
        (accounts/edit id))
   (POST "/accounts/:id" req
@@ -54,16 +56,16 @@
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
        (transactions/index (Integer. entity-id)))
-  (GET "/entities/:entity-id/transactions/new" [entity-id]
-       (transactions/new-transaction (Integer. entity-id)))
+  (GET "/entities/:entity-id/transactions/new" {params :params}
+       (transactions/new-transaction (update-in params [:entity-id] #(Integer. %))))
   (POST "/entities/:entity-id/transactions" {params :params}
         (transactions/create params))
-  (GET "/transactions/:id/edit" [id]
-       (transactions/edit (Integer. id)))
+  (GET "/transactions/:id/edit" [id redirect]
+       (transactions/edit (Integer. id) {:redirect redirect}))
   (POST "/transactions/:id" req
         (transactions/update (:params req)))
-  (POST "/transactions/:id/delete" [id]
-        (transactions/delete (Integer. id)))
+  (POST "/transactions/:id/delete" {params :params}
+        (transactions/delete (update-in params [:id] #(Integer. %))))
   
   ; Reports
   (GET "/entities/:entity-id/reports" [entity-id]

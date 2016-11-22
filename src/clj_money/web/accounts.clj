@@ -6,9 +6,12 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
+            [ring.util.codec :refer [url-encode]]
+            [clj-money.url :refer :all]
             [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.schema :as schema]
             [clj-money.web.money-shared :refer [account-options]])
   (:use [clj-money.web.shared :refer :all]))
@@ -28,13 +31,20 @@
      (glyph-button :pencil
                    (format "/accounts/%s/edit" (:id account))
                    {:level :info
-                    :size :extra-small})
+                    :size :extra-small
+                    :title "Click here to edit this account"})
+     (glyph-button :list-alt
+                   (format "/accounts/%s" (:id account))
+                   {:level :default
+                    :size :extra-small
+                    :title "Click here to view transactions for this account"})
      (glyph-button :remove
                    (format "/accounts/%s/delete" (:id account))
                    {:level :danger
                     :size :extra-small
                     :data-method :post
-                    :data-confirm "Are you sure you want to delete this account?"})]]])
+                    :data-confirm "Are you sure you want to delete this account?"
+                    :title "Click here to remove this account"})]]])
 
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
@@ -82,6 +92,67 @@
          :title "Click here to add a new account."}
         "Add"]]])))
 
+(defn- transaction-item-row
+  [{:keys [transaction-id
+           transaction-date
+           description
+           polarized-amount
+           account-id
+           balance] :as item}]
+  [:tr
+   [:td.text-right transaction-date]
+   [:td description]
+   [:td.text-right polarized-amount]
+   [:td.text-right balance]
+   [:td
+    [:span.btn-group
+     (glyph-button :pencil
+                   (-> (path "/transactions" transaction-id "edit")
+                       (query {:redirect (url-encode (format "/accounts/%s" account-id))})
+                       format-url)
+                   {:level :info
+                    :size :extra-small
+                    :title "Click here to edit this transaction."})
+     (glyph-button :remove
+                   (-> (path "/transactions" transaction-id "delete")
+                       (query {:redirect (url-encode (format "/accounts/%s" account-id))})
+                       format-url)
+                   {:level :danger
+                    :size :extra-small
+                    :title "Click here to remove this transaction."
+                    :data-method :post
+                    :data-confirm "Are you sure you want to remove this transaction?"
+                    :method :post})]]])
+
+(defn show
+  "Renders account details, including transactions"
+  ([id] (show id {}))
+  ([id options]
+   (let [account (accounts/find-by-id (env :db) id)]
+     (layout
+       (format "Account - %s" (:name account)) options
+       [:div.row
+        [:div.col-md-6
+         [:table.table.table-striped.table-hover
+          [:tr
+           [:th.text-right "Date"]
+           [:th "Description"]
+           [:th.text-right "Amount"]
+           [:th.text-right "Balance"]
+           [:th "&nbsp;"]]
+          (map transaction-item-row
+               (transactions/items-by-account (env :db) id))]
+         [:a.btn.btn-primary {:href (-> (path "/entities"
+                                              (:entity-id account)
+                                              "transactions"
+                                              "new")
+                                        (query {:redirect (url-encode (format "/accounts/%s" id))})
+                                        format-url)}
+          "Add"]
+         "&nbsp;"
+         [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))}
+          "Back"]]]))))
+
 (defn- form-fields
   "Renders the form fields for an account"
   [account]
@@ -97,6 +168,7 @@
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save the account"}]
+    "&nbsp;"
     [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))
                          :title "Click here to return to the list of accounts."}
      "Back"]))
