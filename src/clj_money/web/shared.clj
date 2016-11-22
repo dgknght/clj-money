@@ -212,6 +212,7 @@
 
 (defn- input-field
   "Renders a HTML input field"
+  ([model attribute options] (input-field model attribute options identity))
   ([model attribute options format-fn]
    [:div.form-group {:class (when (validation/has-error? model attribute)"has-error")}
     (when-not (:suppress-label? options)

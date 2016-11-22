@@ -141,7 +141,14 @@
            [:th.text-right "Balance"]
            [:th "&nbsp;"]]
           (map transaction-item-row
-               (transactions/items-by-account (env :db) id))]]]))))
+               (transactions/items-by-account (env :db) id))]
+         [:a.btn.btn-primary {:href (-> (path "/entities"
+                                              (:entity-id account)
+                                              "transactions"
+                                              "new")
+                                        (query {:redirect (url-encode (format "/accounts/%s" id))})
+                                        format-url)}
+          "Add"]]]))))
 
 (defn- form-fields
   "Renders the form fields for an account"
