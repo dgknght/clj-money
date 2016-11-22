@@ -148,7 +148,10 @@
                                               "new")
                                         (query {:redirect (url-encode (format "/accounts/%s" id))})
                                         format-url)}
-          "Add"]]]))))
+          "Add"]
+         "&nbsp;"
+         [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))}
+          "Back"]]]))))
 
 (defn- form-fields
   "Renders the form fields for an account"
