@@ -115,4 +115,10 @@
     "Deletes the specified transaction item record")
   (delete-transaction-items-by-transaction-id
     [this transaction-id]
-    "Deletes the transaction items having the specified id"))
+    "Deletes the transaction items having the specified id")
+
+  ; Data integrity transactions
+  (with-transaction
+    [this func]
+    "Executes the specified function which expects a single argument,
+    which is a transacted storage instance"))

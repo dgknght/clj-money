@@ -3,7 +3,7 @@
             [schema.core :as schema]
             [schema.coerce :as coerce]
             [schema.utils :as sutils]
-            [clj-money.models.storage]
+            [clj-money.models.storage :refer [with-transaction]]
             [clj-money.models.storage.sql-storage])
   (:import clj_money.models.storage.sql_storage.SqlStorage
            clj_money.models.storage.Storage))
@@ -38,6 +38,16 @@
     (or (some #(process-handler % config) handlers)
         (throw (RuntimeException.
                  (format "Unable to find a storage provider for config %s" config))))))
+
+(defmacro transacted-storage
+  "Evaluates the body in the context of a transaction using the configured
+  storage mechanism.
+  (transacted-storage [t-store storage-spec]
+  ...do stuff with the t-store...)"
+  [binding & body]
+  `(let [s# (storage ~(second binding))
+         f# (fn* [~(first binding)] ~@body)]
+     (with-transaction s# f#)))
 
 ;; Validation
 (defn- int-matcher

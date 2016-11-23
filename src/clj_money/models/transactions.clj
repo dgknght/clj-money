@@ -6,7 +6,7 @@
             [schema.core :as schema]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.helpers :refer [storage]]
+            [clj-money.models.helpers :refer [storage transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
                                               create-transaction
                                               create-transaction-item
@@ -330,21 +330,22 @@
   (let [validated (validate NewTransaction transaction)]
     (if (validation/has-error? validated)
       validated
-      (let [storage (storage storage-spec)
-            items-with-balances (calculate-balances-and-indexes storage
-                                                                (:transaction-date validated)
-                                                                (:items validated))
-            _ (update-affected-balances storage-spec items-with-balances (:transaction-date validated))
-            result (->> (assoc validated :items items-with-balances)
-                        before-save
-                        (create-transaction storage)
-                        prepare-for-return)
-            items (into [] (map #(->> (assoc % :transaction-id (:id result))
-                                      before-save-item
-                                      (create-transaction-item storage)
-                                      prepare-item-for-return)
-                                items-with-balances))]
-        (assoc result :items items)))))
+      (transacted-storage
+        [storage storage-spec]
+        (let [items-with-balances (calculate-balances-and-indexes storage
+                                                                  (:transaction-date validated)
+                                                                  (:items validated))
+              _ (update-affected-balances storage items-with-balances (:transaction-date validated))
+              result (->> (assoc validated :items items-with-balances)
+                          before-save
+                          (create-transaction storage)
+                          prepare-for-return)
+              items (into [] (map #(->> (assoc % :transaction-id (:id result))
+                                        before-save-item
+                                        (create-transaction-item storage)
+                                        prepare-item-for-return)
+                                  items-with-balances))]
+          (assoc result :items items))))))
 
 (defn find-by-id
   "Returns the specified transaction"
