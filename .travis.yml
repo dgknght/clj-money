@@ -1,4 +1,5 @@
 language: clojure
 script:
   - createuser app_user
+  - createdb money_test
   - lein test
