@@ -1,1 +1,4 @@
 language: clojure
+script:
+  - createuser app_user
+  - lein test
