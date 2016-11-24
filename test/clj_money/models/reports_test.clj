@@ -194,10 +194,10 @@
 
 (deftest create-an-income-statement
   (let [context (serialization/realize storage-spec income-statement-context)
-        actual (reports/income-statement storage-spec
-                                         (-> context :entities first :id)
-                                         (t/local-date 2016 1 1)
-                                         (t/local-date 2016 1 31))
+        actual (into [] (reports/income-statement storage-spec
+                                                  (-> context :entities first :id)
+                                                  (t/local-date 2016 1 1)
+                                                  (t/local-date 2016 1 31)))
         expected [{:caption "Income"
                    :value (bigdec 2003)
                    :style :header}
