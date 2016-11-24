@@ -187,7 +187,13 @@
                       (remove :parent-id)
                       (map #(append-children % all))
                       (group-by :type))]
-     (map #(hash-map :type % :accounts (or (% grouped) [])) types))))
+     (map #(hash-map :type % :accounts (or
+                                         (->> grouped
+                                              %
+                                              (sort-by :name)
+                                              vec)
+                                         []))
+          types))))
 
 (defn update
   "Updates the specified account"
