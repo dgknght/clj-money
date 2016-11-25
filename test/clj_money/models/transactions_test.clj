@@ -548,9 +548,7 @@
                         (assoc-in [:items 1 :amount] (bigdec 99.99)))
             _ (try
                 (transactions/update storage-spec updated)
-                (catch RuntimeException e
-                  (println "exception caught")
-                  nil))]
+                (catch RuntimeException e nil))]
         (testing "transaction items are not updated"
           (is (= #{(bigdec 101)} (->> t2
                             (transactions/reload storage-spec)
