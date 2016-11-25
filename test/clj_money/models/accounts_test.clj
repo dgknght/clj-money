@@ -3,7 +3,6 @@
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [clojure.java.jdbc :as jdbc]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
