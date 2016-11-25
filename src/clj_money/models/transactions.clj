@@ -6,7 +6,7 @@
             [schema.core :as schema]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.helpers :refer [storage transacted-storage]]
+            [clj-money.models.helpers :refer [with-storage transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
                                               create-transaction
                                               create-transaction-item
@@ -218,19 +218,21 @@
   "Returns items in the specified account on or after the specified
   transaction date, excluding the reference-item"
   ([storage-spec reference-item]
-   (->> (select-transaction-items-by-account-id-and-starting-index
-          (storage storage-spec)
-          (:account-id reference-item)
-          (:index reference-item))
-        (remove #(= (:id reference-item) (:id %)))
-        (map prepare-item-for-return)))
+   (with-storage [s storage-spec]
+     (->> (select-transaction-items-by-account-id-and-starting-index
+            s
+            (:account-id reference-item)
+            (:index reference-item))
+          (remove #(= (:id reference-item) (:id %)))
+          (map prepare-item-for-return))))
   ([storage-spec reference-item transaction-date]
-   (->> (select-transaction-items-by-account-id-on-or-after-date
-          (storage storage-spec)
-          (:account-id reference-item)
-          (tc/to-long transaction-date))
-        (remove #(= (:id reference-item) (:id %)))
-        (map prepare-item-for-return))))
+   (with-storage [s storage-spec]
+     (->> (select-transaction-items-by-account-id-on-or-after-date
+            s
+            (:account-id reference-item)
+            (tc/to-long transaction-date))
+          (remove #(= (:id reference-item) (:id %)))
+          (map prepare-item-for-return)))))
 
 (defn- upsert-item
   "Updates the specified transaction item"
@@ -246,10 +248,11 @@
   the values where changed as a result of the update, or false if the specified
   values match the existing values"
   [storage-spec item]
-  (let [records-affected (first (update-transaction-item-index-and-balance
-                                  (storage storage-spec)
-                                  item))]
-    (> records-affected 0)))
+  (with-storage [s storage-spec]
+    (let [records-affected (first (update-transaction-item-index-and-balance
+                                    s
+                                    item))]
+      (> records-affected 0))))
 
 (defn- calculate-item-index-and-balance
   "Accepts a transaction item and a context containing
@@ -318,11 +321,11 @@
 (defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"
   [storage-spec entity-id]
-  (let [storage (storage storage-spec)]
+  (with-storage [s storage-spec]
     (->>
-      (select-transactions-by-entity-id storage entity-id)
+      (select-transactions-by-entity-id s entity-id)
       (map prepare-for-return)
-      (map #(append-items storage %)))))
+      (map #(append-items s %)))))
 
 (defn create
   "Creates a new transaction"
@@ -350,18 +353,19 @@
 (defn find-by-id
   "Returns the specified transaction"
   [storage-spec id]
-  (let [storage (storage storage-spec)]
-    (->> (find-transaction-by-id storage id)
-        prepare-for-return
-        (append-items storage))))
+  (with-storage [s storage-spec]
+    (->> (find-transaction-by-id s id)
+         prepare-for-return
+         (append-items s))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [storage-spec account-id]
-  (let [account (accounts/find-by-id storage-spec account-id)]
-    (->> account-id
-         (select-transaction-items-by-account-id (storage storage-spec))
-         (map #(prepare-item-for-return % account)))))
+  (with-storage [s storage-spec]
+    (let [account (accounts/find-by-id storage-spec account-id)]
+      (->> account-id
+           (select-transaction-items-by-account-id s)
+           (map #(prepare-item-for-return % account))))))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"
@@ -446,24 +450,26 @@
 (defn delete
   "Removes the specified transaction from the system"
   [storage-spec transaction-id]
-  (let [storage (storage storage-spec)
-        transaction (find-by-id storage transaction-id)
-        preceding-items (get-preceding-items storage transaction)]
-    (delete-transaction-items-by-transaction-id storage transaction-id)
-    (delete-transaction storage transaction-id)
-    (update-affected-balances storage preceding-items)))
+  (with-storage [s storage-spec]
+    (let [transaction (find-by-id s transaction-id)
+          preceding-items (get-preceding-items s transaction)]
+      (delete-transaction-items-by-transaction-id s transaction-id)
+      (delete-transaction s transaction-id)
+      (update-affected-balances s preceding-items))))
 
 (defn- find-last-item-before
   [storage-spec account-id date]
-  (first (find-transaction-items-preceding-date (storage storage-spec)
-                                                account-id
-                                                date)))
+  (with-storage [s storage-spec]
+    (first (find-transaction-items-preceding-date s
+                                                  account-id
+                                                  date))))
 
 (defn- find-last-item-on-or-before
   [storage-spec account-id date]
-  (find-last-transaction-item-on-or-before (storage storage-spec)
-                                           account-id
-                                           date))
+  (with-storage [s storage-spec]
+    (find-last-transaction-item-on-or-before s
+                                             account-id
+                                             date)))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"

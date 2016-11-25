@@ -25,7 +25,7 @@
   (when (can-handle-fn config)
     (create-fn config)))
 
-(defn storage
+(defn storage*
   "Returns a storage implementation appropriate
   for the specified config"
   [config]
@@ -39,13 +39,21 @@
         (throw (RuntimeException.
                  (format "Unable to find a storage provider for config %s" config))))))
 
+(defmacro with-storage
+  "Binds the 1st argument to an implementation
+  of the Storage protocol and executes the body"
+  [binding & body]
+  `(let [s# (storage* ~(second binding))
+         f# (fn* [~(first binding)] ~@body)]
+     (f# s#)))
+
 (defmacro transacted-storage
   "Evaluates the body in the context of a transaction using the configured
   storage mechanism.
   (transacted-storage [t-store storage-spec]
   ...do stuff with the t-store...)"
   [binding & body]
-  `(let [s# (storage ~(second binding))
+  `(let [s# (storage* ~(second binding))
          f# (fn* [~(first binding)] ~@body)]
      (with-transaction s# f#)))
 
