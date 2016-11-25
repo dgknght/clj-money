@@ -403,28 +403,29 @@
 (defn update
   "Updates the specified transaction"
   [storage-spec transaction]
-  (let [storage (storage storage-spec)
-        validated (validate Transaction transaction)]
-    (if (validation/has-error? validated)
-      validated
-      (let [dereferenced-base-items (process-removals
-                                      storage
-                                      validated)
-            upserted-items (->> (:items validated)
-                                (calculate-balances-and-indexes
-                                  storage
-                                  (:transaction-date validated))
-                                ; new items need the transaction-id added
-                                (map #(assoc % :transaction-id (:id validated)))
-                                (process-item-upserts storage))]
-        (->> validated
-             before-save
-             (update-transaction storage))
-        (update-affected-balances storage
-                                  (concat upserted-items
-                                          dereferenced-base-items)
-                                  (:transaction-date validated))
-        (reload storage validated)))))
+  (transacted-storage
+    [storage storage-spec]
+    (let [validated (validate Transaction transaction)]
+      (if (validation/has-error? validated)
+        validated
+        (let [dereferenced-base-items (process-removals
+                                        storage
+                                        validated)
+              upserted-items (->> (:items validated)
+                                  (calculate-balances-and-indexes
+                                    storage
+                                    (:transaction-date validated))
+                                  ; new items need the transaction-id added
+                                  (map #(assoc % :transaction-id (:id validated)))
+                                  (process-item-upserts storage))]
+          (->> validated
+               before-save
+               (update-transaction storage))
+          (update-affected-balances storage
+                                    (concat upserted-items
+                                            dereferenced-base-items)
+                                    (:transaction-date validated))
+          (reload storage validated))))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
