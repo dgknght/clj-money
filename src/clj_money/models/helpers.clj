@@ -47,7 +47,7 @@
          f# (fn* [~(first binding)] ~@body)]
      (f# s#)))
 
-(defmacro transacted-storage
+(defmacro with-transacted-storage
   "Evaluates the body in the context of a transaction using the configured
   storage mechanism.
   (transacted-storage [t-store storage-spec]

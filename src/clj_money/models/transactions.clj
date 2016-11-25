@@ -6,7 +6,7 @@
             [schema.core :as schema]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.helpers :refer [with-storage transacted-storage]]
+            [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
                                               create-transaction
                                               create-transaction-item
@@ -333,8 +333,7 @@
   (let [validated (validate NewTransaction transaction)]
     (if (validation/has-error? validated)
       validated
-      (transacted-storage
-        [storage storage-spec]
+      (with-transacted-storage [storage storage-spec]
         (let [items-with-balances (calculate-balances-and-indexes storage
                                                                   (:transaction-date validated)
                                                                   (:items validated))
@@ -407,8 +406,7 @@
 (defn update
   "Updates the specified transaction"
   [storage-spec transaction]
-  (transacted-storage
-    [storage storage-spec]
+  (with-transacted-storage [storage storage-spec]
     (let [validated (validate Transaction transaction)]
       (if (validation/has-error? validated)
         validated
