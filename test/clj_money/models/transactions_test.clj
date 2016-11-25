@@ -60,6 +60,39 @@
                (:transaction-date retrieved))
             "The transaction date is correct")))))
 
+(deftest rollback-on-failure
+  (let [call-count (atom 0)]
+    (with-redefs [transactions/before-save-item (fn [item]
+                                                  (if (= 1 @call-count)
+                                                    (throw (RuntimeException. "Induced error"))
+                                                    (do
+                                                      (swap! call-count inc)
+                                                      (update-in item [:action] name))))]
+      (let [context (serialization/realize storage-spec create-context)
+            [checking
+             salary
+             groceries] (:accounts context)
+            transaction (try
+                          (transactions/create storage-spec (attributes context))
+                          (catch RuntimeException e
+                            nil))]
+        (testing "records are not created"
+          (is (= 0 (count (transactions/select-by-entity-id storage-spec (-> context :entities first :id))))
+              "The transaction should not be saved")
+          (is (= 0 (count (transactions/items-by-account storage-spec (:id checking))))
+              "The transaction item for checking should not be created")
+          (is (= 0 (count (transactions/items-by-account storage-spec (:id salary))))
+              "The transaction item for salary should not be created"))
+        (testing "account balances are not updated"
+          (is (= (bigdec 0) (->> checking
+                                 (accounts/reload storage-spec)
+                                 :balance))
+              "The checking balance should not be updated")
+          (is (= (bigdec 0) (->> salary
+                                 (accounts/reload storage-spec)
+                                 :balance))
+              "The salary balance should not be updated"))))))
+
 (deftest create-a-transaction-us-string-date
   (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create storage-spec (-> (attributes context)
@@ -496,6 +529,41 @@
                                   (accounts/reload storage-spec)
                                   :balance))
           "The groceries account balance should be correct after update"))))
+
+(deftest rollback-a-failed-update
+  (let [real-reload transactions/reload
+        call-count (atom 0)]
+    (with-redefs [transactions/reload (fn [storage-spec transaction]
+                                        (swap! call-count inc)
+                                        (if (= 2 @call-count)
+                                          (throw (RuntimeException. "Induced exception"))
+                                          (real-reload storage-spec transaction)))]
+      (let [context (serialization/realize storage-spec update-context)
+            [checking
+             salary
+             groceries] (:accounts context)
+            [t1 t2 t3] (:transactions context)
+            updated (-> t2
+                        (assoc-in [:items 0 :amount] (bigdec 99.99))
+                        (assoc-in [:items 1 :amount] (bigdec 99.99)))
+            _ (try
+                (transactions/update storage-spec updated)
+                (catch RuntimeException e nil))]
+        (testing "transaction items are not updated"
+          (is (= #{(bigdec 101)} (->> t2
+                            (transactions/reload storage-spec)
+                            :items
+                            (map :amount)
+                            (into #{})))))
+        (testing "account balances are not updated"
+          (is (= (bigdec 797) (->> checking
+                                   (accounts/reload storage-spec)
+                                   :balance))
+              "The checkout account balance should not be changed")
+          (is (= (bigdec 203) (->> groceries
+                                   (accounts/reload storage-spec)
+                                   :balance))
+              "The groceries account balance should not be changed"))))))
 
 (deftest update-a-transaction-change-date
   (let [context (serialization/realize storage-spec update-context)

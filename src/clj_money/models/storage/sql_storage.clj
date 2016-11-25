@@ -333,4 +333,10 @@
     [_ transaction-id]
     (jdbc/delete! db-spec
                   :transaction_items
-                  ["transaction_id = ?" transaction-id])))
+                  ["transaction_id = ?" transaction-id]))
+
+  ; Database Transaction
+  (with-transaction
+    [_ func]
+    (jdbc/with-db-transaction [trans db-spec {:isolation :serializable :read-only false}]
+      (func (SqlStorage. trans)))))

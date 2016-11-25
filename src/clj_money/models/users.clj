@@ -5,7 +5,7 @@
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [schema.core :as s]
-            [clj-money.models.helpers :refer [storage]]
+            [clj-money.models.helpers :refer [with-storage]]
             [clj-money.validation :refer :all]
             [clj-money.models.storage :refer [create-user
                                               select-users
@@ -43,35 +43,36 @@
 (defn create
   "Creates a new user record"
   [storage-spec user]
-  (let [s (storage storage-spec)
-        validated (validate-new-user s user)]
-    (if (has-error? validated)
-      validated
-      (->> user
-           prepare-user-for-insertion
-           (create-user s)
-           prepare-user-for-return))))
+  (with-storage [s storage-spec]
+    (let [validated (validate-new-user s user)]
+      (if (has-error? validated)
+        validated
+        (->> user
+             prepare-user-for-insertion
+             (create-user s)
+             prepare-user-for-return)))))
 
 (defn select
   "Lists the users in the database"
   [storage-spec]
-  (->> storage-spec
-       storage
-       select-users
-       (map prepare-user-for-return)))
+  (with-storage [s storage-spec]
+    (->> s
+         select-users
+         (map prepare-user-for-return))))
 
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
   needs to operate"
   [storage-spec {:keys [username password]}]
-  (let [user (find-user-by-email (storage storage-spec) username)]
-    (when (and user (bcrypt-verify password (:password user)))
-      (-> user
-          prepare-user-for-return
-          (assoc :type :cemerick.friend/auth
-                 :identity (:id user)
-                 :roles #{:user})))))
+  (with-storage [s storage-spec]
+    (let [user (find-user-by-email s username)]
+      (when (and user (bcrypt-verify password (:password user)))
+        (-> user
+            prepare-user-for-return
+            (assoc :type :cemerick.friend/auth
+                   :identity (:id user)
+                   :roles #{:user}))))))
 
 (defn full-name
   "Returns the user's full name"

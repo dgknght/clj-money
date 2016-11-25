@@ -5,7 +5,7 @@
             [clojure.reflect :refer :all]
             [schema.core :as s]
             [clj-money.validation :as validation]
-            [clj-money.models.helpers :refer [storage]]
+            [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
                                               entity-exists-with-name?
@@ -51,36 +51,36 @@
 (defn create
   "Creates a new entity"
   [storage-spec entity]
-  (let [s (storage storage-spec)
-        validated (validate-new-entity s entity)]
-    (when (not validated)
-      (throw (ex-info "The validated data is null" {:entity entity
-                                                    :validated validated})))
-    (if (validation/has-error? validated)
-      validated
-      (create-entity s validated))))
+  (with-storage [s storage-spec]
+    (let [validated (validate-new-entity s entity)]
+      (when (not validated)
+        (throw (ex-info "The validated data is null" {:entity entity
+                                                      :validated validated})))
+      (if (validation/has-error? validated)
+        validated
+        (create-entity s validated)))))
 
 (defn select
   "Returns entities for the specified user"
   [storage-spec user-id]
-  (select-entities (storage storage-spec)
-                   user-id))
+  (with-storage [s storage-spec]
+    (select-entities s user-id)))
 
 (defn find-by-id
   "Finds the entity with the specified ID"
   [storage-spec id]
-  (-> storage-spec
-      storage
-      (find-entity-by-id id)))
+  (with-storage [s storage-spec]
+    (find-entity-by-id s id)))
 
 (defn update
   "Updates the specified entity"
   [storage-spec entity]
-  (let [s (storage storage-spec)
-        validated (validate-existing-entity s entity)]
-    (update-entity s entity)))
+  (with-storage [s storage-spec]
+    (let [validated (validate-existing-entity s entity)]
+      (update-entity s entity))))
 
 (defn delete
   "Removes the specifiedy entity from storage"
   [storage-spec id]
-  (delete-entity (storage storage-spec) id))
+  (with-storage [s storage-spec]
+    (delete-entity s id)))

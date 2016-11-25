@@ -4,7 +4,7 @@
             [clojure.set :refer [rename-keys]]
             [schema.core :as s]
             [clj-money.validation :as validation]
-            [clj-money.models.helpers :refer [storage]]
+            [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
@@ -126,31 +126,32 @@
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
-  (let [storage (storage storage-spec)
-        validated (->> account
-                       (before-validation storage)
-                       (validate-new-account storage))]
-    (if (validation/has-error? validated)
-      validated
-      (->> validated
-           (before-create storage)
-           (before-save storage)
-           (create-account storage)
-           prepare-for-return))))
+  (with-storage [s storage-spec]
+    (let [validated (->> account
+                         (before-validation s)
+                         (validate-new-account s))]
+      (if (validation/has-error? validated)
+        validated
+        (->> validated
+             (before-create s)
+             (before-save s)
+             (create-account s)
+             prepare-for-return)))))
 
 (defn find-by-id
   "Returns the account having the specified id"
   [storage-spec id]
-  (prepare-for-return
-    (find-account-by-id (storage storage-spec) id)))
+  (with-storage [s storage-spec]
+    (prepare-for-return (find-account-by-id s id))))
 
 (defn find-by-name
   "Returns the account having the specified name"
   [storage-spec entity-id account-name]
-  (prepare-for-return
-    (find-account-by-entity-id-and-name (storage storage-spec)
-                                        entity-id
-                                        account-name)))
+  (with-storage [s storage-spec]
+    (prepare-for-return
+      (find-account-by-entity-id-and-name s
+                                          entity-id
+                                          account-name))))
 
 (defn reload
   "Returns a fresh copy of the specified account from the data store"
@@ -160,9 +161,9 @@
 (defn select-by-entity-id
   "Returns a list of all accounts in the system"
   [storage-spec entity-id]
-  (map prepare-for-return
-       (select-accounts-by-entity-id (storage storage-spec)
-                                     entity-id)))
+  (with-storage [s storage-spec]
+    (map prepare-for-return
+         (select-accounts-by-entity-id s entity-id))))
 
 (defn- append-children
   [account all-accounts]
@@ -198,25 +199,26 @@
 (defn update
   "Updates the specified account"
   [storage-spec account]
-  (let [st (storage storage-spec)
-        validated (->> account
-                       (before-validation st)
-                       (validate-account st))]
-    (if (validation/has-error? validated)
-      validated
-      (do
-        (->> validated
-             (before-save st)
-             (update-account st))
-        (->> validated
-             :id
-             (find-by-id st)
-             prepare-for-return)))))
+  (with-storage [s storage-spec]
+    (let [validated (->> account
+                         (before-validation s)
+                         (validate-account s))]
+      (if (validation/has-error? validated)
+        validated
+        (do
+          (->> validated
+               (before-save s)
+               (update-account s))
+          (->> validated
+               :id
+               (find-by-id s)
+               prepare-for-return))))))
 
 (defn delete
   "Removes the account from the system"
   [storage-spec id]
-  (delete-account (storage storage-spec) id))
+  (with-storage [s storage-spec]
+    (delete-account s id)))
 
 (defn- left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
