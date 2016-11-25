@@ -128,4 +128,10 @@
                      :amount (bigdec 1001)
                      :balance (bigdec 1001)
                      :index 0}]}]
+
+    (when (not= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
+
     (is (= expected actual) "The updated transaction can be retrieved")))
