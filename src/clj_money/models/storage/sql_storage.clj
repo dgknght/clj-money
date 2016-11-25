@@ -231,7 +231,8 @@
     [_ transaction-id]
     (query db-spec (-> (h/select :*)
                       (h/from :transaction_items)
-                      (h/where [:= :transaction_id transaction-id]))))
+                      (h/where [:= :transaction_id transaction-id])
+                      (h/order-by [:action :desc] [:amount :desc]))))
 
   (select-transaction-items-by-account-id
     [_ account-id]

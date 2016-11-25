@@ -61,14 +61,14 @@
         expected [{:transaction-date (t/local-date 2016 3 2)
                    :description "Paycheck"
                    :entity-id entity-id
-                   :items [{:account-id (:id salary)
-                            :amount (bigdec 1000)
-                            :action :credit
-                            :balance (bigdec 1000)
-                            :index 0}
-                           {:account-id (:id checking)
+                   :items [{:account-id (:id checking)
                             :amount (bigdec 1000)
                             :action :debit
+                            :balance (bigdec 1000)
+                            :index 0}
+                           {:account-id (:id salary)
+                            :amount (bigdec 1000)
+                            :action :credit
                             :balance (bigdec 1000)
                             :index 0}]}]]
     (is (= expected actual) "The transaction should be retrievable")))
@@ -113,20 +113,20 @@
         expected {:transaction-date (t/local-date 2016 1 2)
             :description "Employer"
             :entity-id (-> context :entities first :id)
-            :items [{:action :credit
-                     :account-id (:id bonus)
-                     :amount (bigdec 100)
-                     :balance (bigdec 100)
+            :items [{:action :debit
+                     :account-id (:id checking)
+                     :amount (bigdec 1001)
+                     :balance (bigdec 1001)
                      :index 0}
                     {:action :credit
                      :account-id (:id salary)
                      :amount (bigdec 901)
                      :balance (bigdec 901)
                      :index 0}
-                    {:action :debit
-                     :account-id (:id checking)
-                     :amount (bigdec 1001)
-                     :balance (bigdec 1001)
+                    {:action :credit
+                     :account-id (:id bonus)
+                     :amount (bigdec 100)
+                     :balance (bigdec 100)
                      :index 0}]}]
 
     (when (not= expected actual)
