@@ -179,7 +179,7 @@
     [_ id]
     (jdbc/delete! db-spec :accounts ["id = ?" id]))
 
-  (find-accounts-by-name
+  (select-accounts-by-name
     [_ entity-id name]
     (query db-spec (-> (h/select :*)
                        (h/from :accounts)
@@ -270,7 +270,7 @@
         (query db-spec)
         first))
 
-  (find-transaction-items-preceding-date
+  (select-transaction-items-preceding-date
     [_ account-id transaction-date]
     (query db-spec (-> (h/select :i.*)
                       (h/from [:transaction_items :i])

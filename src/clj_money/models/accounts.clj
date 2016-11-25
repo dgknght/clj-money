@@ -8,7 +8,7 @@
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
-                                              find-accounts-by-name
+                                              select-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
                                               delete-account]])
@@ -88,7 +88,7 @@
   [storage {account-name :name entity-id :entity-id :as model}]
   {:model model
    :errors (let [existing (when (and account-name entity-id)
-                            (->> (find-accounts-by-name storage entity-id account-name)
+                            (->> (select-accounts-by-name storage entity-id account-name)
                                  (remove #(= (:id %) (:id model)))
                                  (filter #(= (:parent-id %) (:parent-id model)))))]
              (if (seq existing)

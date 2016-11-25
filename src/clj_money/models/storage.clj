@@ -58,7 +58,7 @@
   (delete-account
     [this id]
     "Deletes the specified account")
-  (find-accounts-by-name
+  (select-accounts-by-name
     [this entity-id name]
     "Returns the account in the specified entity with the specified name")
 
@@ -98,7 +98,7 @@
   (find-transaction-item-by-id
     [this id]
     "Returns the transaction item having the specified id")
-  (find-transaction-items-preceding-date
+  (select-transaction-items-preceding-date
     [this account-id transaction-date]
     "Returns the transaction items preceding the specifed date in descending order by seqence")
   (find-last-transaction-item-on-or-before
