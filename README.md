@@ -1,6 +1,8 @@
 # clj-money
 Clojure cloud accounting application
 
+![build status](https://travis-ci.org/dgknght/clj-money.svg?branch=master)
+
 ## Running locally
 
 In a terminal:
