@@ -106,11 +106,7 @@
   ; Entities
   (create-entity
     [_ entity]
-    (->> entity
-         ->sql-keys
-         (jdbc/insert! db-spec :entities)
-         first
-         ->clojure-keys))
+    (insert db-spec :entities entity))
 
   (select-entities
     [_ user-id]
@@ -334,6 +330,17 @@
     (jdbc/delete! db-spec
                   :transaction_items
                   ["transaction_id = ?" transaction-id]))
+
+  ; Budgets
+  (create-budget
+    [_ budget]
+    (insert db-spec :budgets budget))
+
+  (select-budgets-by-entity-id
+    [_ entity-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from :budgets)
+                       (h/where [:= :entity-id entity-id]))))
 
   ; Database Transaction
   (with-transaction

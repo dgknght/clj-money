@@ -20,8 +20,10 @@
 (def create-context
   {:users [{:email "john@doe.com"
             :first-name "John"
-            :last-name "Doe"}]
-   :entities [{:name "Personal"}]})
+            :last-name "Doe"
+            :password "please01"}]
+   :entities [{:user-id "john@doe.com"
+               :name "Personal"}]})
 
 (deftest create-a-budget
   (let [context (serialization/realize storage-spec create-context)
@@ -30,7 +32,7 @@
                  storage-spec
                  {:entity-id (:id entity)
                   :name "2017"
-                  :start-date "1/1/2017"
+                  :start-date (t/local-date 2017 1 1)
                   :period :month
                   :period-count 12})
         budgets (budgets/select-by-entity-id storage-spec (:id entity))]

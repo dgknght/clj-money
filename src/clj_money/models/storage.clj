@@ -117,6 +117,15 @@
     [this transaction-id]
     "Deletes the transaction items having the specified id")
 
+  ; Budgets
+  (create-budget
+    [this budget]
+    "Creates a new budget record")
+
+  (select-budgets-by-entity-id
+    [this entity-id]
+    "Returns budgets for the specified entity")
+
   ; Data integrity transactions
   (with-transaction
     [this func]
