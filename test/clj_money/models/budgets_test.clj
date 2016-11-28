@@ -39,3 +39,15 @@
     (is (not (nil? (:id budget))) "The returned value has an id")
     (is (= ["2017"] (map :name budgets))
         "A query for budgets returns the new budget")))
+
+; entity-id is required
+; name is required
+; start-date is required
+; start-date can be a string
+; start-date can be a LocalDate
+; period is required
+; period must be :month :week or :quarter
+; period-count is required
+; period-count must be greater than zero
+; items are required
+; each item just have number of items equal to period count
