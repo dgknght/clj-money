@@ -14,8 +14,8 @@
   {:entity-id schema/Int
    :name schema/Str
    :start-date LocalDate
-   :period schema/Keyword
-   :period_count schema/Int})
+   :period (schema/enum :week :month :quarter)
+   :period-count schema/Int})
 
 (defn select-by-entity-id
   "Returns the budgets for the specified entity"
@@ -49,10 +49,20 @@
       before-validation
       (validation/validate-model (validation-rules schema))))
 
+(defn- prepare-for-return
+  [budget]
+  (update-in budget [:start-date] tc/to-local-date))
+
 (defn create
   "Creates a new budget"
   [storage-spec budget]
   (with-storage [s storage-spec]
-    (->> budget
-         before-save
-         (create-budget s))))
+    (let [validated (->> budget
+                         before-validation
+                         (validate Budget))]
+      (if (validation/has-error? validated)
+        validated
+        (->> validated
+             before-save
+             (create-budget s)
+             prepare-for-return)))))
