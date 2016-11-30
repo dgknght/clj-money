@@ -34,9 +34,12 @@
       (update-in [:period] name)))
 
 (defn- period-count-must-be-greater-than-one
-  [budget]
+  [{period-count :period-count :as budget}]
   {:model budget
-   :errors []})
+   :errors (if (and period-count
+                    (> 1 period-count))
+             [[:period-count "Period count must be greater than zero"]]
+             [])})
 
 (defn- validation-rules
   [schema]

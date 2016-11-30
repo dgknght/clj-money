@@ -96,9 +96,23 @@
       "Period must be one of: quarter, week, month"
       result)))
 
-; period is required
-; period must be :month :week or :quarter
-; period-count is required
-; period-count must be greater than zero
+(deftest period-count-is-required
+  (let [context (serialization/realize storage-spec create-context)
+        entity (-> context :entities first)
+        result (budgets/create storage-spec (dissoc (attributes context) :period-count))]
+    (assert-validation-error
+      :period-count
+      "Period count is required"
+      result)))
+
+(deftest period-count-must-be-greater-than-zero
+  (let [context (serialization/realize storage-spec create-context)
+        entity (-> context :entities first)
+        result (budgets/create storage-spec (assoc (attributes context) :period-count 0))]
+    (assert-validation-error
+      :period-count
+      "Period count must be greater than zero"
+      result)))
+
 ; items are required
 ; each item just have number of items equal to period count
