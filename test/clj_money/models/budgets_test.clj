@@ -121,13 +121,18 @@
             :last-name "Doe"
             :password "please01"}]
    :entities [{:user-id "john@doe.com"
-               :name "Personal"}]
+               :name "Personal"}
+              {:user-id "john@doe.com"
+               :name "Business"}]
    :accounts [{:name "Salary"
                :type :income}
               {:name "Rent"
                :type :expense}
               {:name "Groceries"
-               :type :expense}]
+               :type :expense}
+              {:name "Sales"
+               :type :income
+               :entity-id "Business"}]
    :budgets [{:name "2017"
               :start-date (t/local-date 2017 1 1)
               :period :month
@@ -149,12 +154,73 @@
     (is (not (nil? (:id item))) "The new item has an id value")
     (is (= 1 (-> budget :items count)) "The item is returned with the budget after create")))
 
-; budget-id is required
-; account-id is required
-; account must be in the same entity as the budget
-; must have same number of budget-periods as budget period-count
+(deftest budget-item-requires-budget-id
+  (let [context (serialization/realize storage-spec budget-item-context)
+        item (budgets/create-item storage-spec (-> context
+                                                   budget-item-attributes
+                                                   (dissoc :budget-id)))]
+    (assert-validation-error
+      :budget-id
+      "Budget id is required"
+      item)))
+
+(deftest budget-item-requires-account-id
+  (let [context (serialization/realize storage-spec budget-item-context)
+        item (budgets/create-item storage-spec (-> context
+                                                   budget-item-attributes
+                                                   (dissoc :account-id)))]
+    (assert-validation-error
+      :account-id
+      "Account id is required"
+      item)))
+
+(deftest budget-item-account-must-belong-to-budget-entity
+  (let [context (serialization/realize storage-spec budget-item-context)
+        attributes (-> context
+                       budget-item-attributes
+                       (assoc :account-id (-> context
+                                              :accounts
+                                              last
+                                              :id)))
+        item (budgets/create-item storage-spec attributes)]
+    (assert-validation-error
+      :account-id
+      "Account must belong to the same entity as the budget"
+      item)))
+
+(deftest budget-item-has-same-period-count-as-budget
+  (let [context (serialization/realize storage-spec budget-item-context)
+        attributes (-> context
+                       budget-item-attributes
+                       (update-in [:periods] #(conj % {:index 12
+                                                       :amount (bigdec 1)})))
+        item (budgets/create-item storage-spec attributes)]
+    (assert-validation-error
+      :periods
+      "Number of periods must match the budget \"Period count\" value"
+      item)))
 
 ;; Periods
-; budget-item-id is required
-; amount is required
-; index is required
+
+;TODO Need to clean up validation error structure for these tests
+#_(deftest budget-item-period-requires-amount
+  (let [context (serialization/realize storage-spec budget-item-context)
+        attributes (-> context
+                       budget-item-attributes
+                       (update-in [:periods 0] #(dissoc % :amount)))
+        item (budgets/create-item storage-spec attributes)]
+    (assert-validation-error
+      :periods
+      [{:amount "Amount is required"} nil nil nil nil nil nil nil nil nil nil nil]
+      item)))
+
+#_(deftest budget-item-period-requires-index
+  (let [context (serialization/realize storage-spec budget-item-context)
+        attributes (-> context
+                       budget-item-attributes
+                       (update-in [:periods 0] #(dissoc % :index)))
+        item (budgets/create-item storage-spec attributes)]
+    (assert-validation-error
+      :periods
+      [{:index "Index is required"} nil nil nil nil nil nil nil nil nil nil nil]
+      item)))

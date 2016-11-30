@@ -101,19 +101,42 @@
     (->> (find-budget-by-id s id)
          (prepare-for-return s))))
 
+(defn- budget-item-account-belongs-to-budget-entity
+  [storage item]
+  (let [account (accounts/find-by-id storage (:account-id item))
+        budget (find-by-id storage (:budget-id item))
+        entity-ids (->> [account budget]
+                        (map :entity-id)
+                        (into #{}))]
+    {:model item
+     :errors (if (= 1 (count entity-ids))
+               []
+               [[:account-id "Account must belong to the same entity as the budget"]])}))
+
+(defn- budget-item-has-correct-number-of-periods
+  [storage item]
+  (let [budget (find-by-id storage (:budget-id item))]
+    {:model item
+     :errors (if (= (:period-count budget) (count (:periods item)))
+               []
+               ; the extra square brackets here are a bit of a hack
+               [[:periods ["Number of periods must match the budget \"Period count\" value"]]])}))
+
 (defn- item-validation-rules
-  [schema]
-  [(partial validation/apply-schema schema)])
+  [storage schema]
+  [(partial validation/apply-schema schema)
+   (partial budget-item-account-belongs-to-budget-entity storage)
+   (partial budget-item-has-correct-number-of-periods storage)])
 
 (defn- before-item-validation
   [item]
   item)
 
 (defn- validate-item
-  [schema item]
+  [storage schema item]
   (-> item
       before-item-validation
-      (validation/validate-model (item-validation-rules schema))))
+      (validation/validate-model (item-validation-rules storage schema))))
 
 (defn- before-save-item
   [item]
@@ -122,11 +145,11 @@
 (defn create-item
   "Adds a new budget item to an existing budget"
   [storage-spec item]
-  (let [validated (validate-item BudgetItem item)]
-    (if (validation/has-error? validated)
-    validated
-    (with-storage [s storage-spec]
-      (create-budget-item s (before-save-item validated))))))
+  (with-storage [s storage-spec]
+    (let [validated (validate-item s BudgetItem item)]
+      (if (validation/has-error? validated)
+        validated
+        (create-budget-item s (before-save-item validated))))))
 
 (defn find-item-by-id
   "Returns the budget item with the specified id"
