@@ -3,6 +3,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]))
 
 (defn- create-users
@@ -106,6 +107,17 @@
   [storage-spec context]
   (update-in context [:transactions] #(create-transactions storage-spec context %)))
 
+(defn- create-budgets
+  [storage-spec context budgets]
+  (mapv (fn [attributes]
+          (budgets/create storage-spec (->> attributes
+                                            (resolve-entity context))))
+        budgets))
+
+(defn- realize-budgets
+  [storage-spec context]
+  (update-in context [:budgets] #(create-budgets storage-spec context %)))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
@@ -113,4 +125,5 @@
       (realize-users storage-spec)
       (realize-entities storage-spec)
       (realize-accounts storage-spec)
+      (realize-budgets storage-spec)
       (realize-transactions storage-spec)))

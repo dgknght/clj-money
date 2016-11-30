@@ -336,11 +336,36 @@
     [_ budget]
     (insert db-spec :budgets budget))
 
+  (find-budget-by-id
+    [_ id]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :budgets)
+                              (h/where [:= :id id])
+                              (h/limit 1)))))
+
   (select-budgets-by-entity-id
     [_ entity-id]
     (query db-spec (-> (h/select :*)
                        (h/from :budgets)
-                       (h/where [:= :entity-id entity-id]))))
+                       (h/where [:= :entity_id entity-id]))))
+
+  ; Budget items
+  (create-budget-item
+    [_ budget-item]
+    (insert db-spec :budget_items budget-item))
+
+  (find-budget-item-by-id
+    [_ id]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :budget_items)
+                              (h/where [:= id id])
+                              (h/limit 1)))))
+
+  (select-budget-items-by-budget-id
+    [_ budget-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from :budget_items)
+                       (h/where [:= :budget_id budget-id]))))
 
   ; Database Transaction
   (with-transaction
