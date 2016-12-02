@@ -30,11 +30,17 @@
    :account-id schema/Int
    :periods [BudgetItemPeriod]})
 
+(defn- prepare-for-return
+  [storage budget]
+  (-> budget
+      (update-in [:start-date] tc/to-local-date)
+      (assoc :items (select-items-by-budget-id storage (:id budget)))))
+
 (defn select-by-entity-id
   "Returns the budgets for the specified entity"
   [storage-spec entity-id]
   (with-storage [s storage-spec]
-    (select-budgets-by-entity-id s entity-id)))
+    (map #(prepare-for-return s %) (select-budgets-by-entity-id s entity-id))))
 
 (defn- before-validation
   [budget]
@@ -73,12 +79,6 @@
   [storage budget-id]
   (map prepare-item-for-return
        (select-budget-items-by-budget-id storage budget-id)))
-
-(defn- prepare-for-return
-  [storage budget]
-  (-> budget
-      (update-in [:start-date] tc/to-local-date)
-      (assoc :items (select-items-by-budget-id storage (:id budget)))))
 
 (defn create
   "Creates a new budget"

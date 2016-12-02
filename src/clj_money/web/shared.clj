@@ -109,6 +109,7 @@
 
 (def item-templates
   [{:url "/entities/:entity-id/accounts"     :caption "Accounts"}
+   {:url "/entities/:entity-id/budgets" :caption "Budgets"}
    {:url "/entities/:entity-id/transactions" :caption "Transactions"}
    {:url "/entities/:entity-id/reports"      :caption "Reports"}])
 
@@ -228,6 +229,11 @@
   ([model attribute options] (text-input-field model attribute options identity))
   ([model attribute options format-fn]
    (input-field model attribute (merge options {:type :text}) format-fn)))
+
+(defn number-input-field
+  ([model attribute] (number-input-field model attribute {}))
+  ([model attribute options]
+   (input-field model attribute (merge options {:type :number}))))
 
 (defn password-input-field
   ([model attribute] (password-input-field model attribute {}))
