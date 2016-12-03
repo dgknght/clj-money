@@ -60,6 +60,10 @@
        (budgets/new-budget (Integer. entity-id)))
   (POST "/entities/:entity-id/budgets" {params :params}
         (budgets/create params))
+  (GET "/budgets/:id/edit" [id]
+       (budgets/edit (Integer. id)))
+  (POST "/budgets/:id" {params :params}
+        (budgets/update params))
   (POST "/budgets/:id/delete" [id]
         (budgets/delete (Integer. id)))
 

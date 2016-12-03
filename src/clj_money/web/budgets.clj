@@ -26,6 +26,11 @@
    [:td.text-right (format-date (:start-date budget))]
    [:td
     [:div.btn-group
+     (glyph-button :pencil
+                   (format "/budgets/%s/edit" (:id budget))
+                   {:level :info
+                    :size :extra-small
+                    :title "Click here to edit this budget."})
      (glyph-button :remove
                    (format "/budgets/%s/delete" (:id budget))
                    {:level :danger
@@ -56,6 +61,17 @@
   (let [now (t/now)]
     (t/local-date (+ 1 (t/year now)) 1 1)))
 
+(defn form-fields
+  [budget]
+  (html
+    (text-input-field budget :name {:autofocus true})
+    (select-field budget :period [{:value :week    :caption "Week"}
+                                  {:value :month   :caption "Month"}
+                                  {:value :quarter :caption "Quarter"}])
+    (number-input-field budget :period-count)
+    (text-input-field budget :start-date {:class "date-field"} format-date)
+    [:button.btn.btn-primary {:type :submit} "Save"]))
+
 (defn new-budget
   ([entity-id]
    (let [start-date (default-start-date)]
@@ -71,13 +87,7 @@
       [:div.col-md-3
        [:form {:action (format "/entities/%s/budgets" entity-id)
                :method :post}
-        (text-input-field budget :name {:autofocus true})
-        (select-field budget :period [{:value :week    :caption "Week"}
-                                      {:value :month   :caption "Month"}
-                                      {:value :quarter :caption "Quarter"}])
-        (number-input-field budget :period-count)
-        (text-input-field budget :start-date {:class "date-field"} format-date)
-        [:button.btn.btn-primary {:type :submit} "Save"]]]])))
+        (form-fields budget)]]])))
 
 (defn create
   "Creates the budget and redirects to the index page on success, or
@@ -88,6 +98,34 @@
     (if (validation/has-error? saved)
       (new-budget (:entity-id saved) saved)
       (redirect (format "/entities/%s/budgets" (:entity-id params))))))
+
+(defn edit
+  "Renders an edit form for the specified budget"
+  [id-or-budget]
+  (layout
+    "Edit budget" {}
+    (let [budget (if (map? id-or-budget)
+                   id-or-budget
+                   (budgets/find-by-id (env :db) id-or-budget))]
+      [:div.row
+       [:div.col-md-3
+        [:form {:action (format "/budgets/%s" (:id budget))
+                :method :post}
+         (form-fields budget)]]])))
+
+(defn update
+  "Updates the specified budget and redirects to the index page
+  on success or the edit page on failure"
+  [params]
+  (let [budget (select-keys params [:id
+                                    :name
+                                    :period
+                                    :period-count
+                                    :start-date])
+        updated (budgets/update (env :db) budget)]
+    (if (validation/valid? updated)
+      (redirect (format "/entities/%s/budgets" (:entity-id updated)))
+      (edit updated))))
 
 (defn delete
   "Deletes the specified budget and redirects to the budget index page"
