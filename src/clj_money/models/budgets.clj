@@ -7,6 +7,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [create-budget
+                                              update-budget
                                               create-budget-item
                                               find-budget-by-id
                                               find-budget-item-by-id
@@ -15,12 +16,18 @@
                                               delete-budget]])
   (:import org.joda.time.LocalDate))
 
-(def Budget
-  {:entity-id schema/Int
-   :name schema/Str
+(def BudgetBase
+  {:name schema/Str
    :start-date LocalDate
    :period (schema/enum :week :month :quarter)
    :period-count schema/Int})
+
+(def NewBudget
+  (merge BudgetBase
+         {:entity-id schema/Int}))
+
+(def ExistingBudget
+  (merge BudgetBase {:id schema/Int}))
 
 (def BudgetItemPeriod
   {:index schema/Int
@@ -45,7 +52,7 @@
 
 (defn- before-validation
   [budget]
-  budget)
+  (dissoc budget :items))
 
 (defn- before-save
   [budget]
@@ -85,9 +92,7 @@
   "Creates a new budget"
   [storage-spec budget]
   (with-storage [s storage-spec]
-    (let [validated (->> budget
-                         before-validation
-                         (validate Budget))]
+    (let [validated (validate NewBudget budget)]
       (if (validation/has-error? validated)
         validated
         (->> validated
@@ -101,6 +106,33 @@
   (with-storage [s storage-spec]
     (->> (find-budget-by-id s id)
          (prepare-for-return s))))
+
+(defn reload
+  "Returns the lastest version of the specified budget from the data store"
+  [storage-spec budget]
+  (with-storage [s storage-spec]
+    (->> budget
+         :id
+         (find-by-id s)
+         (prepare-for-return s))))
+
+(defn update
+  "Updates the specified budget"
+  [storage-spec budget]
+  (with-storage [s storage-spec]
+    (let [validated (validate ExistingBudget
+                              (select-keys budget [:id
+                                                   :name
+                                                   :period
+                                                   :period-count
+                                                   :start-date]))]
+      (if (validation/valid? validated)
+        (do
+          (->> validated
+               before-save
+               (update-budget s))
+          (reload s validated))
+        validated))))
 
 (defn- budget-item-account-belongs-to-budget-entity
   [storage item]
@@ -157,11 +189,6 @@
   [storage-spec item-id]
   (with-storage [s storage-spec]
     (prepare-item-for-return (find-budget-item-by-id s item-id))))
-
-(defn reload
-  "Returns the lastest version of the specified budget from the data store"
-  [storage-spec budget]
-  (find-by-id storage-spec (:id budget)))
 
 (defn delete
   "Removes the specified budget from the system"

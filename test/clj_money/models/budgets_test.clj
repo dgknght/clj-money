@@ -137,6 +137,30 @@
            (count (budgets/select-by-entity-id storage-spec (-> context :entities first :id))))
         "The budget is absent after delete")))
 
+(def update-context
+  {:users [{:email "john@doe.com"
+            :first-name "John"
+            :last-name "Doe"
+            :password "please01"}]
+   :entities [{:user-id "john@doe.com"
+               :name "Personal"}]
+   :budgets [{:name "2017"
+              :period :month
+              :period-count 12
+              :start-date (t/local-date 2017 1 1)}]})
+
+(deftest update-a-budget
+  (let [context (serialization/realize storage-spec update-context)
+        budget (-> context :budgets first)
+        updated (budgets/update storage-spec (assoc budget :name "edited"))
+        retrieved (budgets/find-by-id storage-spec (:id budget))]
+    (is (validation/valid? updated)
+        "The budget is valid")
+    (is (= "edited" (:name updated))
+        "The returned value reflects the update")
+    (is (= "edited" (:name retrieved))
+        "The retrieved value reflects the updated")))
+
 ;; Items
 (def budget-item-context
   {:users [{:email "john@doe.com"

@@ -349,6 +349,17 @@
                        (h/from :budgets)
                        (h/where [:= :entity_id entity-id]))))
 
+  (update-budget
+    [_ budget]
+    (let [sql (sql/format (-> (h/update :budgets)
+                              (h/sset (->update-set budget
+                                                    :name
+                                                    :period
+                                                    :period-count
+                                                    :start-date))
+                              (h/where [:= :id (:id budget)])))]
+      (jdbc/execute! db-spec sql)))
+
   (delete-budget
     [_ id]
     (jdbc/delete! db-spec :budgets ["id = ?" id]))

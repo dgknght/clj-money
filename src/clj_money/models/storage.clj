@@ -130,6 +130,10 @@
     [this entity-id]
     "Returns budgets for the specified entity")
 
+  (update-budget
+    [this budget]
+    "Updates the specified budget")
+
   (delete-budget
     [this id]
     "Deletes the specified budget")
