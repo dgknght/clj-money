@@ -11,7 +11,8 @@
                                               find-budget-by-id
                                               find-budget-item-by-id
                                               select-budgets-by-entity-id
-                                              select-budget-items-by-budget-id]])
+                                              select-budget-items-by-budget-id
+                                              delete-budget]])
   (:import org.joda.time.LocalDate))
 
 (def Budget
@@ -161,3 +162,9 @@
   "Returns the lastest version of the specified budget from the data store"
   [storage-spec budget]
   (find-by-id storage-spec (:id budget)))
+
+(defn delete
+  "Removes the specified budget from the system"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-budget s id)))

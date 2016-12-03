@@ -349,6 +349,10 @@
                        (h/from :budgets)
                        (h/where [:= :entity_id entity-id]))))
 
+  (delete-budget
+    [_ id]
+    (jdbc/delete! db-spec :budgets ["id = ?" id]))
+
   ; Budget items
   (create-budget-item
     [_ budget-item]
