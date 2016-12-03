@@ -34,7 +34,7 @@
   [storage budget]
   (-> budget
       (update-in [:start-date] tc/to-local-date)
-      (assoc :items (select-items-by-budget-id storage (:id budget)))))
+      (assoc :items (select-budget-items-by-budget-id storage (:id budget)))))
 
 (defn select-by-entity-id
   "Returns the budgets for the specified entity"
