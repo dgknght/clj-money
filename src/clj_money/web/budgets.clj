@@ -24,7 +24,15 @@
    [:td (:period budget)]
    [:td.text-right (:period-count budget)]
    [:td.text-right (format-date (:start-date budget))]
-   [:td "&nbsp;"]])
+   [:td
+    [:div.btn-group
+     (glyph-button :remove
+                   (format "/budgets/%s/delete" (:id budget))
+                   {:level :danger
+                    :size :extra-small
+                    :title "Click here to remove this budget."
+                    :data-confirm "Are you sure you want to remove this budget?"
+                    :data-method :post})]]])
 
 (defn index
   ([entity-id] (index entity-id {}))
@@ -80,3 +88,17 @@
     (if (validation/has-error? saved)
       (new-budget (:entity-id saved) saved)
       (redirect (format "/entities/%s/budgets" (:entity-id params))))))
+
+(defn delete
+  "Deletes the specified budget and redirects to the budget index page"
+  [id]
+  (let [budget (budgets/find-by-id (env :db) id)]
+    (try
+      (budgets/delete (env :db) (:id budget))
+      (redirect (format "/entities/%s/budgets" (:entity-id budget)))
+      (catch Exception e
+        (log/error e "Unable to delete the budget")
+        (index (:entity-id budget) {:alerts [{:type :danger
+                                              :message (html [:strong "Unable to delete the budget."
+                                                              "&nbps;"
+                                                              (.getMessage e)])}]})))))

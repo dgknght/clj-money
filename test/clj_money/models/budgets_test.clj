@@ -114,6 +114,29 @@
       "Period count must be greater than zero"
       result)))
 
+(def delete-context
+  {:users [{:email "john@doe.com"
+            :first-name "John"
+            :last-name "Doe"
+            :password "please01"}]
+   :entities [{:user-id "john@doe.com"
+               :name "Personal"}]
+   :budgets [{:name "2017"
+              :period :month
+              :period-count 12
+              :start-date (t/local-date 2017 1 1)}]})
+
+(deftest delete-a-budget
+  (let [context (serialization/realize storage-spec delete-context)
+        budget (-> context :budgets first)]
+    (is (= 1
+           (count (budgets/select-by-entity-id storage-spec (-> context :entities first :id))))
+        "The budget is returned before delete")
+    (budgets/delete storage-spec (:id budget))
+    (is (= 0
+           (count (budgets/select-by-entity-id storage-spec (-> context :entities first :id))))
+        "The budget is absent after delete")))
+
 ;; Items
 (def budget-item-context
   {:users [{:email "john@doe.com"
