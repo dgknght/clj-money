@@ -4,6 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
+            [clj-time.format :as tf]
+            [clj-time.coerce :as tc]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
@@ -31,6 +33,11 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this budget."})
+     (glyph-button :list-alt
+                   (format "/budgets/%s" (:id budget))
+                   {:level :default
+                    :size :extra-small
+                    :title "Click here to view the details of this budget."})
      (glyph-button :remove
                    (format "/budgets/%s/delete" (:id budget))
                    {:level :danger
@@ -100,6 +107,45 @@
     (if (validation/has-error? saved)
       (new-budget (:entity-id saved) saved)
       (redirect (format "/entities/%s/budgets" (:entity-id params))))))
+
+(defn- budget-period-start-date
+  [budget index]
+  (tf/unparse-local (tf/formatters :year-month)
+                    (t/plus (:start-date budget)
+                            (t/months index))))
+
+(defn- period-heading
+  [budget index]
+  [:th (budget-period-start-date budget index)])
+
+(defn- budget-header-row
+  [budget]
+  [:tr
+   (html
+     [:th "Account"]
+     (map #(period-heading budget %) (range 0 (:period-count budget)))
+     [:th "Total"])])
+
+(defn- budget-data-row
+  [budget item]
+  [:tr
+   [:td (:account-id item)]])
+
+(defn show
+  "Renders the budet details"
+  [id]
+  (let [budget (budgets/find-by-id (env :db) id)]
+  (layout
+    (str "Budget: " (:name budget)) {}
+    [:div.row
+     [:div.col-md-12
+      [:table.table.table-striped
+       (html
+       (budget-header-row budget)
+       (map #(budget-data-row budget %) (:items budget)))]
+      [:a.btn.btn-primary {:href (format "/budgets/%s/items/new" (:id budget))} "Add"]
+      "&nbsp;"
+      [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
 (defn edit
   "Renders an edit form for the specified budget"

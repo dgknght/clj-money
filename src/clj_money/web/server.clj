@@ -66,6 +66,8 @@
         (budgets/update params))
   (POST "/budgets/:id/delete" [id]
         (budgets/delete (Integer. id)))
+  (GET "/budgets/:id" [id]
+       (budgets/show (Integer. id)))
 
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
