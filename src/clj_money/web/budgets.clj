@@ -188,3 +188,21 @@
                                               :message (html [:strong "Unable to delete the budget."
                                                               "&nbps;"
                                                               (.getMessage e)])}]})))))
+
+(defn new-item
+  "Renders a form for creating a new item"
+  ([budget-id] (new-item budget-id {:budget-id budget-id}))
+  ([budget-id item]
+  (let [budget (budgets/find-by-id (env :db) budget-id)]
+    (layout
+      (str "Budget " (:name budget) ": New item") {}
+      [:div.row
+       [:div.col-md-3
+        [:form {:action (format "/budgets/%s/items" budget-id)
+                :method :post}
+         (select-field item :account-id (account-options (:entity-id budget)) {:autofocus true})
+         (number-input-field item :average)
+         [:button.btn.btn-primary {:type :submit
+                                   :title "Click here to save this budget item."} "Save"]
+         "&nbsp;"
+         [:a.btn.btn-default {:href (format "/budgets/%s" budget-id)} "Back"]]]]))))

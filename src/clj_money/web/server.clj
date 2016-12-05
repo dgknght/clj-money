@@ -69,6 +69,10 @@
   (GET "/budgets/:id" [id]
        (budgets/show (Integer. id)))
 
+  ; Budget items
+  (GET "/budgets/:id/items/new" [id]
+       (budgets/new-item (Integer. id)))
+
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
        (transactions/index (Integer. entity-id)))
