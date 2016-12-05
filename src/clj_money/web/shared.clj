@@ -245,7 +245,7 @@
   [:div.form-group
     (when-not (:suppress-label? options)
       [:label {:for name} (humanize name)])
-    [:select.form-control {:id name :name name}
+    [:select.form-control (merge (dissoc options :suppress-label?) {:id name :name name})
      (map #(vector :option {:value (:value %)
                             :selected (if (= value
                                              (:value %))
