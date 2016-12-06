@@ -139,7 +139,7 @@
                (accounts/find-by-id (env :db))
                :name)]
      (map budget-period-cell (:periods item))
-     [:td (format-number (reduce + 0 (map :amount (:periods item))))])])
+     [:td.text-right (format-number (reduce + 0 (map :amount (:periods item))))])])
 
 (defn show
   "Renders the budet details"
