@@ -134,7 +134,10 @@
   [budget item]
   [:tr
    (html
-     [:td (:account-id item)]
+     [:td (->> item
+               :account-id
+               (accounts/find-by-id (env :db))
+               :name)]
      (map budget-period-cell (:periods item))
      [:td (format-number (reduce + 0 (map :amount (:periods item))))])])
 
