@@ -219,7 +219,10 @@
 (defn create-item
   "Creates an budget item"
   [params]
-  (let [item (select-keys params [:budget-id :account-id :average])
+  (let [item (-> params
+                 (select-keys [:budget-id :account-id :average])
+                 (update-in [:budget-id] #(Integer. %))
+                 (update-in [:account-id] #(Integer. %)))
         adjusted (-> item
                      (assoc :periods (extract-periods-from-average item))
                      (dissoc :average))
