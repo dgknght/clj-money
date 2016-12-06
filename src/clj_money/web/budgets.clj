@@ -1,7 +1,7 @@
 (ns clj-money.web.budgets
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
+            [clojure.pprint :refer [pprint cl-format]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.format :as tf]
@@ -116,7 +116,7 @@
 
 (defn- period-heading
   [budget index]
-  [:th (budget-period-start-date budget index)])
+  [:th.text-right (budget-period-start-date budget index)])
 
 (defn- budget-header-row
   [budget]
@@ -124,12 +124,19 @@
    (html
      [:th "Account"]
      (map #(period-heading budget %) (range 0 (:period-count budget)))
-     [:th "Total"])])
+     [:th.text-right "Total"])])
 
-(defn- budget-data-row
+(defn- budget-period-cell
+  [period]
+  [:td.text-right (format-number (:amount period))])
+
+(defn- budget-item-row
   [budget item]
   [:tr
-   [:td (:account-id item)]])
+   (html
+     [:td (:account-id item)]
+     (map budget-period-cell (:periods item))
+     [:td (format-number (reduce + 0 (map :amount (:periods item))))])])
 
 (defn show
   "Renders the budet details"
@@ -142,7 +149,7 @@
       [:table.table.table-striped
        (html
        (budget-header-row budget)
-       (map #(budget-data-row budget %) (:items budget)))]
+       (map #(budget-item-row budget %) (:items budget)))]
       [:a.btn.btn-primary {:href (format "/budgets/%s/items/new" (:id budget))} "Add"]
       "&nbsp;"
       [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
