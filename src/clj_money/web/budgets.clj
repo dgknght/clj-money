@@ -206,3 +206,24 @@
                                    :title "Click here to save this budget item."} "Save"]
          "&nbsp;"
          [:a.btn.btn-default {:href (format "/budgets/%s" budget-id)} "Back"]]]]))))
+
+(defn- extract-periods-from-average
+  [item]
+  (let [budget (budgets/find-by-id (env :db) (:budget-id item))
+        amount (bigdec (:average item))]
+    (->> budget
+         :period-count
+         range
+         (mapv #(hash-map :amount amount :index %)))))
+
+(defn create-item
+  "Creates an budget item"
+  [params]
+  (let [item (select-keys params [:budget-id :account-id :average])
+        adjusted (-> item
+                     (assoc :periods (extract-periods-from-average item))
+                     (dissoc :average))
+        saved (budgets/create-item (env :db) adjusted)]
+    (if (validation/valid? saved)
+      (redirect (format "/budgets/%s" (:budget-id saved)))
+      (new-item saved))))
