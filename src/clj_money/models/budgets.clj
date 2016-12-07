@@ -51,6 +51,7 @@
   [storage budget]
   (-> budget
       (update-in [:start-date] tc/to-local-date)
+      (update-in [:period] keyword)
       (assoc :items (select-items-by-budget-id storage (:id budget)))))
 
 (defn select-by-entity-id
