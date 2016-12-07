@@ -11,6 +11,7 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-money.url :refer :all]
+            [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number format-date]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
@@ -126,25 +127,61 @@
      (map #(period-heading budget %) (range 0 (:period-count budget)))
      [:th.text-right "Total"])])
 
-(defn- budget-period-cell
-  [period]
-  [:td.text-right (format-number (:amount period))])
-
 (defn- budget-item-row
-  [budget item]
-  [:tr
+  "Renders a budget item row. Accepts a render-ready data structure that looks like this:
+
+    :caption - Row header
+    :data    - sequence of values, 1 for each period in the budget
+    :style   - header|data"
+  [item]
+  [:tr {:class (case (:style item)
+                 :header :report-header
+                 :summary :report-summary
+                 :data :report-data
+                 nil)}
    (html
-     [:td (->> item
-               :account-id
-               (accounts/find-by-id (env :db))
-               :name)]
-     (map budget-period-cell (:periods item))
-     [:td.text-right (format-number (reduce + 0 (map :amount (:periods item))))])])
+     [:td (:caption item)]
+     (map #(vector :td.text-right (format-number %)) (:data item))
+     [:td.text-right (format-number (reduce + 0 (:data item)))])])
+
+(defn- summarize-periods
+  [items]
+  (let [period-matrix (map #(map :amount (:periods %))
+                           items)]
+    (reduce (fn [totals periods]
+              (->> (interleave totals periods)
+                   (partition 2)
+                   (map #(apply + %))))
+            period-matrix)))
+
+(defn- group-budget-items
+  "Accepts raw budget items and returns render-ready data structures
+
+  :caption - The row header, either the account name or the account type header
+  :data    - The period data"
+  [items]
+  (let [items (->> items
+                   (map #(assoc % :account (accounts/find-by-id (env :db) (:account-id %)))))]
+    (reduce (fn [result account-type]
+              (let [typed-items (filter #(= account-type (-> % :account :type)) items)]
+                (concat result
+                        ; header
+                        [{:caption (humanize account-type)
+                          :style :header
+                          :data (vec (summarize-periods typed-items))}]
+                        ; data
+                        (map #(hash-map :caption (-> % :account :name)
+                                        :data (map (fn [p] (:amount p))
+                                                   (:periods %)))
+                             typed-items))))
+            []
+            [:income :expense])))
 
 (defn show
   "Renders the budet details"
   [id]
-  (let [budget (budgets/find-by-id (env :db) id)]
+  (let [budget (-> (budgets/find-by-id (env :db) id)
+                   (update-in [:items] group-budget-items))]
   (layout
     (str "Budget: " (:name budget)) {}
     [:div.row
@@ -152,7 +189,7 @@
       [:table.table.table-striped
        (html
        (budget-header-row budget)
-       (map #(budget-item-row budget %) (:items budget)))]
+       (map budget-item-row (:items budget)))]
       [:a.btn.btn-primary {:href (format "/budgets/%s/items/new" (:id budget))} "Add"]
       "&nbsp;"
       [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
@@ -210,7 +247,7 @@
        [:div.col-md-3
         [:form {:action (format "/budgets/%s/items" budget-id)
                 :method :post}
-         (select-field item :account-id (account-options (:entity-id budget)) {:autofocus true})
+         (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
          (number-input-field item :average)
          [:button.btn.btn-primary {:type :submit
                                    :title "Click here to save this budget item."} "Save"]
