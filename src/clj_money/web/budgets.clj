@@ -146,13 +146,45 @@
 
 (defn- summarize-periods
   [items]
-  (let [period-matrix (map #(map :amount (:periods %))
-                           items)]
-    (reduce (fn [totals periods]
-              (->> (interleave totals periods)
-                   (partition 2)
-                   (map #(apply + %))))
-            period-matrix)))
+  (if (seq items)
+    (let [period-matrix (map (fn [item]
+                               (map :amount (:periods item)))
+                             items)]
+      (reduce (fn [totals periods]
+                (->> (interleave totals periods)
+                     (partition 2)
+                     (map #(apply + %))
+                     (map #(hash-map :value %))))
+              period-matrix))
+    items))
+
+(defn- process-budget-item-group
+  "Process budget items by group and return a render-ready structure
+
+  context has this shape:
+  :items   - the items being processed
+  :result  - the result of the processing
+  :totals  - a map of account type to totals"
+  [context account-type]
+  (let [typed-items (filter #(= account-type (-> % :account :type)) (:items context))]
+
+    (pprint {:context context
+             :typed-items typed-items})
+
+    (-> context
+        (update-in [:result]
+                   (fn [result]
+                     (concat result
+                             ; header
+                             [{:caption (humanize account-type)
+                               :style :header
+                               :data (vec (summarize-periods typed-items))}]
+                             ; data
+                             (map #(hash-map :caption (-> % :account :name)
+                                             :id (:id %)
+                                             :data (map (fn [p] (:amount p))
+                                                        (:periods %)))
+                                  typed-items)))))))
 
 (defn- group-budget-items
   "Accepts raw budget items and returns render-ready data structures
@@ -160,22 +192,21 @@
   :caption - The row header, either the account name or the account type header
   :data    - The period data"
   [items]
-  (let [items (->> items
-                   (map #(assoc % :account (accounts/find-by-id (env :db) (:account-id %)))))]
-    (reduce (fn [result account-type]
-              (let [typed-items (filter #(= account-type (-> % :account :type)) items)]
-                (concat result
-                        ; header
-                        [{:caption (humanize account-type)
-                          :style :header
-                          :data (vec (summarize-periods typed-items))}]
-                        ; data
-                        (map #(hash-map :caption (-> % :account :name)
-                                        :data (map (fn [p] (:amount p))
-                                                   (:periods %)))
-                             typed-items))))
-            []
-            [:income :expense])))
+  (if (seq items)
+    (let [items (->> items
+                     (map #(assoc % :account (accounts/find-by-id (env :db) (:account-id %)))))]
+      (:result (reduce process-budget-item-group
+                       {:result []
+                        :items items
+                        :totals {}}
+                       [:income :expense])))
+    items))
+
+(defn for-display
+  "Returns a budget that has been prepared for rendering in the UI"
+  [id]
+  (-> (budgets/find-by-id (env :db) id)
+      (update-in [:items] group-budget-items)))
 
 (defn show
   "Renders the budet details"
