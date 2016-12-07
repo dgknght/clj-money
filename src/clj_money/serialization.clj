@@ -107,11 +107,20 @@
   [storage-spec context]
   (update-in context [:transactions] #(create-transactions storage-spec context %)))
 
+(defn- append-budget-items
+  [storage-spec context items budget]
+  (assoc budget :items (->> items
+                            (map #(resolve-account context %))
+                            (map #(assoc % :budget-id (:id budget)))
+                            (mapv #(budgets/create-item storage-spec %)))))
+
 (defn- create-budgets
   [storage-spec context budgets]
   (mapv (fn [attributes]
-          (budgets/create storage-spec (->> attributes
-                                            (resolve-entity context))))
+          (->> attributes
+               (resolve-entity context)
+               (budgets/create storage-spec)
+               (append-budget-items storage-spec context (:items attributes))))
         budgets))
 
 (defn- realize-budgets
