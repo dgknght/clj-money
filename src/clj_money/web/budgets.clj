@@ -187,6 +187,11 @@
                                   typed-items))))
         (update-in [:totals] #(assoc % account-type totals)))))
 
+(defn- append-account
+  "Assoces an account onto an item that contains an account-id value"
+  [{account-id :account-id :as item}]
+  (assoc item :account (accounts/find-by-id (env :db) account-id)))
+
 (defn- group-budget-items
   "Accepts raw budget items and returns render-ready data structures
 
@@ -194,11 +199,10 @@
   :data    - The period data"
   [items]
   (if (seq items)
-    (let [items (->> items
-                     (map #(assoc % :account (accounts/find-by-id (env :db) (:account-id %)))))
+    (let [items-with-accounts (map append-account items)
           result (reduce process-budget-item-group
                        {:result []
-                        :items items
+                        :items items-with-accounts
                         :totals {}}
                        [:income :expense])]
       (-> (:result result)
