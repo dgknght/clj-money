@@ -141,8 +141,8 @@
                  nil)}
    (html
      [:td (:caption item)]
-     (map #(vector :td.text-right (format-number %)) (:data item))
-     [:td.text-right (format-number (reduce + 0 (:data item)))])])
+     (map #(vector :td.text-right (format-number (:value %))) (:data item))
+     [:td.text-right (format-number (reduce + 0 (map :value (:data item))))])])
 
 (defn- summarize-periods
   [items]
@@ -153,8 +153,7 @@
       (reduce (fn [totals periods]
                 (->> (interleave totals periods)
                      (partition 2)
-                     (map #(apply + %))
-                     (map #(hash-map :value %))))
+                     (map #(apply + %))))
               period-matrix))
     items))
 
@@ -178,7 +177,7 @@
                              ; header
                              [{:caption (humanize account-type)
                                :style :header
-                               :data totals}]
+                               :data (map #(hash-map :value %) totals)}]
                              ; data
                              (map #(hash-map :caption (-> % :account :name)
                                              :style :data
@@ -207,7 +206,6 @@
                     :style :summary
                     :data (->> (interleave (-> result :totals :income)
                                            (-> result :totals :expense))
-                               (map :value)
                                (partition 2)
                                (map #(apply - %))
                                (map #(hash-map :value %)))}])))
@@ -222,8 +220,7 @@
 (defn show
   "Renders the budet details"
   [id]
-  (let [budget (-> (budgets/find-by-id (env :db) id)
-                   (update-in [:items] group-budget-items))]
+  (let [budget (for-display id)]
   (layout
     (str "Budget: " (:name budget)) {}
     [:div.row
