@@ -125,7 +125,8 @@
    (html
      [:th "Account"]
      (map #(period-heading budget %) (range 0 (:period-count budget)))
-     [:th.text-right "Total"])])
+     [:th.text-right "Total"]
+     [:td "&nbsp;"])])
 
 (defn- budget-item-row
   "Renders a budget item row. Accepts a render-ready data structure that looks like this:
@@ -142,7 +143,15 @@
    (html
      [:td (:caption item)]
      (map #(vector :td.text-right (format-number (:value %))) (:data item))
-     [:td.text-right (format-number (reduce + 0 (map :value (:data item))))])])
+     [:td.text-right (format-number (reduce + 0 (map :value (:data item))))]
+     [:td
+      (when (:id item)
+        [:div.btn-group
+         (glyph-button :pencil
+                       (format "/budget-items/%s/edit" (:id item))
+                       {:level :info
+                        :size :extra-small
+                        :title "Click here to edit this budget item."})])])])
 
 (defn- summarize-periods
   [items]
@@ -279,6 +288,16 @@
                                                               "&nbps;"
                                                               (.getMessage e)])}]})))))
 
+(defn- item-form-fields
+  [item budget]
+  (html
+    (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
+    (number-input-field item :average)
+    [:button.btn.btn-primary {:type :submit
+                              :title "Click here to save this budget item."} "Save"]
+    "&nbsp;"
+    [:a.btn.btn-default {:href (format "/budgets/%s" (:id budget))} "Back"]))
+
 (defn new-item
   "Renders a form for creating a new item"
   ([budget-id] (new-item budget-id {:budget-id budget-id}))
@@ -290,12 +309,7 @@
        [:div.col-md-3
         [:form {:action (format "/budgets/%s/items" budget-id)
                 :method :post}
-         (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
-         (number-input-field item :average)
-         [:button.btn.btn-primary {:type :submit
-                                   :title "Click here to save this budget item."} "Save"]
-         "&nbsp;"
-         [:a.btn.btn-default {:href (format "/budgets/%s" budget-id)} "Back"]]]]))))
+         (item-form-fields item budget)]]]))))
 
 (defn- extract-periods-from-average
   [item]
@@ -320,3 +334,39 @@
     (if (validation/valid? saved)
       (redirect (format "/budgets/%s" (:budget-id saved)))
       (new-item saved))))
+
+(defn- period-average
+  [periods]
+  (/ (reduce + (map :amount periods))
+     (count periods)))
+
+(defn edit-item
+  "Renders a form for editing a budget item"
+  [item-or-id]
+  (let [item (map? item-or-id
+                   item-or-id
+                   (budgets/find-item-by-id (env :db) item-or-id))
+        budget (budgets/find-by-id (env :db) (:budget-id item))
+        account (accounts/find-by-id (env :db) (:account-id item))]
+  (layout
+    (format "Budget %s: %s" (:name budget) (:name account)) {}
+    [:div.row
+     [:div.col-md-6
+      [:form {:action (format "/budget-items/%s" (:id item))
+              :method :post}
+       (item-form-fields (assoc item :average (period-average (:periods item))) budget)]]])))
+
+(defn update-item
+  "Updates the specified item and redirects to the budget on success or renders the
+  edit from on failure"
+  [params]
+  (let [item (-> params
+                 (select-keys [:id
+                               :account-id
+                               :average])
+                 (assoc :periods (extract-periods-from-average params))
+                 (dissoc :average))
+        updated (budgets/update-item (env :db) item)]
+    (if (validation/valid? updated)
+      (redirect (format "/budgets/%s" (:budget-id updated)))
+      (edit updated))))

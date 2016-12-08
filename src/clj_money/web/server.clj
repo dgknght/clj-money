@@ -74,6 +74,10 @@
        (budgets/new-item (Integer. budget-id)))
   (POST "/budgets/:budget-id/items" {params :params}
         (budgets/create-item params))
+  (GET "/budget-items/:id/edit" [id]
+       (budgets/edit-item (Integer. id)))
+  (POST "/budget-items/:id" {params :params}
+        (budgets/update-item params))
 
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
