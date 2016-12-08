@@ -200,16 +200,16 @@
   [items]
   (if (seq items)
     (let [items-with-accounts (map append-account items)
-          result (reduce process-budget-item-group
-                       {:result []
-                        :items items-with-accounts
-                        :totals {}}
-                       [:income :expense])]
-      (-> (:result result)
+          {result :result
+           {:keys [income expense]} :totals} (reduce process-budget-item-group
+                                                     {:result []
+                                                      :items items-with-accounts
+                                                      :totals {}}
+                                                     [:income :expense])]
+      (-> result
           (concat [{:caption "Net"
                     :style :summary
-                    :data (->> (interleave (-> result :totals :income)
-                                           (-> result :totals :expense))
+                    :data (->> (interleave income expense)
                                (partition 2)
                                (map #(apply - %))
                                (map #(hash-map :value %)))}])))
