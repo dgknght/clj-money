@@ -48,7 +48,9 @@
 
 (deftest prepare-budget-for-display
   (let [context (serialization/realize storage-spec budget-context)
-        actual (budgets/for-display (-> context :budgets first :id))
+        actual (-> (budgets/for-display (-> context :budgets first :id))
+                    (update-in [:items] #(map (fn [i] (dissoc i :id)) %))
+                    (dissoc :id :created-at :updated-at :entity-id))
         expected {:name "2017"
                   :period :month
                   :period-count 12
@@ -108,10 +110,47 @@
                                   {:value (bigdec 1000)}
                                   {:value (bigdec 1000)}
                                   {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}]}
+                          {:caption "Groceries"
+                           :style :data
+                           :data [{:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}
+                                  {:value (bigdec 200)}]}
+                          {:caption "Rent"
+                           :style :data
+                           :data [{:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}
+                                  {:value (bigdec 800)}]}
+                          {:caption "Net"
+                           :style :summary
+                           :data [{:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 2000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
+                                  {:value (bigdec 1000)}
                                   {:value (bigdec 1000)}]}]}]
-
-    (pprint {:expected expected
-             :actual actual
-             :diff (diff expected actual)})
-
     (is (= expected actual))))

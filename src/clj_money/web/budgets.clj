@@ -166,11 +166,11 @@
   :result  - the result of the processing
   :totals  - a map of account type to totals"
   [context account-type]
-  (let [typed-items (filter #(= account-type (-> % :account :type)) (:items context))]
-
-    (pprint {:context context
-             :typed-items typed-items})
-
+  (let [typed-items (->> context
+                         :items
+                         (filter #(= account-type (-> % :account :type)))
+                         (sort-by #(-> % :account :name)))
+        totals (vec (summarize-periods typed-items))]
     (-> context
         (update-in [:result]
                    (fn [result]
@@ -178,13 +178,15 @@
                              ; header
                              [{:caption (humanize account-type)
                                :style :header
-                               :data (vec (summarize-periods typed-items))}]
+                               :data totals}]
                              ; data
                              (map #(hash-map :caption (-> % :account :name)
+                                             :style :data
                                              :id (:id %)
-                                             :data (map (fn [p] (:amount p))
+                                             :data (map (fn [p] {:value (:amount p)})
                                                         (:periods %)))
-                                  typed-items)))))))
+                                  typed-items))))
+        (update-in [:totals] #(assoc % account-type totals)))))
 
 (defn- group-budget-items
   "Accepts raw budget items and returns render-ready data structures
@@ -194,12 +196,21 @@
   [items]
   (if (seq items)
     (let [items (->> items
-                     (map #(assoc % :account (accounts/find-by-id (env :db) (:account-id %)))))]
-      (:result (reduce process-budget-item-group
+                     (map #(assoc % :account (accounts/find-by-id (env :db) (:account-id %)))))
+          result (reduce process-budget-item-group
                        {:result []
                         :items items
                         :totals {}}
-                       [:income :expense])))
+                       [:income :expense])]
+      (-> (:result result)
+          (concat [{:caption "Net"
+                    :style :summary
+                    :data (->> (interleave (-> result :totals :income)
+                                           (-> result :totals :expense))
+                               (map :value)
+                               (partition 2)
+                               (map #(apply - %))
+                               (map #(hash-map :value %)))}])))
     items))
 
 (defn for-display
