@@ -71,7 +71,7 @@
        (budgets/show (Integer. id)))
 
   ; Budget items
-  (GET "/budgets/:budget-id/items/new" {params :params}
+  (GET "/budgets/:budget-id/items/new/:method" {params :params}
        (budgets/new-item (update-in params [:budget-id] #(Integer. %))))
   (POST "/budgets/:budget-id/items" {params :params}
         (budgets/create-item params))

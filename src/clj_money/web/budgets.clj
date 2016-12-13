@@ -261,9 +261,9 @@
         [:span.caret]]
        [:ul.dropdown-menu
         [:li
-         [:a {:href (format "/budgets/%s/items/new?method=average" (:id budget))} "By average"]]
+         [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
         [:li
-         [:a {:href (format "/budgets/%s/items/new?method=total" (:id budget))} "By total"]]]]
+         [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]]]
       "&nbsp;"
       [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
