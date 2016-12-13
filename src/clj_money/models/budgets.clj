@@ -9,6 +9,7 @@
             [clj-money.models.storage :refer [create-budget
                                               update-budget
                                               create-budget-item
+                                              update-budget-item
                                               find-budget-by-id
                                               find-budget-item-by-id
                                               select-budgets-by-entity-id
@@ -33,10 +34,15 @@
   {:index schema/Int
    :amount BigDecimal})
 
-(def BudgetItem
-  {:budget-id schema/Int
-   :account-id schema/Int
+(def BaseBudgetItem
+  {:account-id schema/Int
    :periods [BudgetItemPeriod]})
+
+(def NewBudgetItem
+  (merge BaseBudgetItem {:budget-id schema/Int}))
+
+(def ExistingBudgetItem
+  (merge BaseBudgetItem {:id schema/Int}))
 
 (defn- prepare-item-for-return
   [item]
@@ -135,42 +141,60 @@
           (reload s validated))
         validated))))
 
+(defn find-item-by-id
+  "Returns the budget item with the specified id"
+  [storage-spec item-id]
+  (with-storage [s storage-spec]
+    (->> item-id
+         (find-budget-item-by-id s)
+         prepare-item-for-return)))
+
 (defn- budget-item-account-belongs-to-budget-entity
-  [storage item]
-  (let [account (accounts/find-by-id storage (:account-id item))
-        budget (find-by-id storage (:budget-id item))
-        entity-ids (->> [account budget]
-                        (map :entity-id)
-                        (into #{}))]
-    {:model item
-     :errors (if (= 1 (count entity-ids))
-               []
-               [[:account-id "Account must belong to the same entity as the budget"]])}))
+  [storage budget item]
+  {:model item
+   :errors (if-let [account (accounts/find-by-id storage (:account-id item))]
+             (let [entity-ids (->> [account budget]
+                                   (map :entity-id)
+                                   (into #{}))]
+               (if (= 1 (count entity-ids))
+                 []
+                 [[:account-id "Account must belong to the same entity as the budget"]]))
+             [])})
 
 (defn- budget-item-has-correct-number-of-periods
-  [storage item]
-  (let [budget (find-by-id storage (:budget-id item))]
-    {:model item
-     :errors (if (= (:period-count budget) (count (:periods item)))
-               []
-               ; the extra square brackets here are a bit of a hack
-               [[:periods ["Number of periods must match the budget \"Period count\" value"]]])}))
+  [storage budget item]
+  {:model item
+   :errors (if (= (:period-count budget) (count (:periods item)))
+             []
+             ; the extra square brackets here are a bit of a hack
+             [[:periods ["Number of periods must match the budget \"Period count\" value"]]])})
+
+(defn- budget-item-account-is-unique
+  [storage budget item]
+  {:model item
+   :errors (if (->> (:items budget)
+                    (filter #(= (:account-id item) (:account-id %)))
+                    (remove #(= (:id item) (:id %)))
+                    seq)
+             [[:account-id "Account is already in the budget"]]
+             [])})
 
 (defn- item-validation-rules
-  [storage schema]
+  [storage schema budget]
   [(partial validation/apply-schema schema)
-   (partial budget-item-account-belongs-to-budget-entity storage)
-   (partial budget-item-has-correct-number-of-periods storage)])
+   (partial budget-item-account-is-unique storage budget)
+   (partial budget-item-account-belongs-to-budget-entity storage budget)
+   (partial budget-item-has-correct-number-of-periods storage budget)])
 
 (defn- before-item-validation
   [item]
   item)
 
 (defn- validate-item
-  [storage schema item]
+  [storage schema budget item]
   (-> item
       before-item-validation
-      (validation/validate-model (item-validation-rules storage schema))))
+      (validation/validate-model (item-validation-rules storage schema budget))))
 
 (defn- before-save-item
   [item]
@@ -180,16 +204,45 @@
   "Adds a new budget item to an existing budget"
   [storage-spec item]
   (with-storage [s storage-spec]
-    (let [validated (validate-item s BudgetItem item)]
+    (let [budget (when (:budget-id item) (find-by-id s (:budget-id item)))
+          validated (validate-item s NewBudgetItem budget item)]
       (if (validation/has-error? validated)
         validated
-        (create-budget-item s (before-save-item validated))))))
+        (->> validated
+             before-save-item
+             (create-budget-item s)
+             prepare-item-for-return)))))
 
-(defn find-item-by-id
-  "Returns the budget item with the specified id"
-  [storage-spec item-id]
+(defn- reload-item
+  "Returns the lastest version of the specified budget from the data store"
+  [storage-spec item]
   (with-storage [s storage-spec]
-    (prepare-item-for-return (find-budget-item-by-id s item-id))))
+    (->> item
+         :id
+         (find-item-by-id s))))
+
+(defn update-item
+  "Updates the specified budget item"
+  [storage-spec item]
+  (with-storage [s storage-spec]
+    (let [budget (->> item
+                      :id
+                      (find-item-by-id s)
+                      :budget-id
+                      (find-by-id s))
+          validated (validate-item s
+                                   ExistingBudgetItem
+                                   budget
+                                   (select-keys item [:id
+                                                      :account-id
+                                                      :periods]))]
+      (if (validation/valid? validated)
+        (do
+          (->> validated
+               before-save-item
+               (update-budget-item s))
+          (reload-item s validated))
+        validated))))
 
 (defn delete
   "Removes the specified budget from the system"

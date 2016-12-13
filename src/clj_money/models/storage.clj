@@ -143,6 +143,10 @@
     [this budget-item]
     "Creates a new budget item")
 
+  (update-budget-item
+    [this budget-item]
+    "Updates an existing budate item")
+
   (find-budget-item-by-id
     [this id]
     "Returns the budget item having the specified ID")

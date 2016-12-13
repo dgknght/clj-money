@@ -369,11 +369,20 @@
     [_ budget-item]
     (insert db-spec :budget_items budget-item))
 
+  (update-budget-item
+    [_ budget-item]
+    (let [sql (sql/format (-> (h/update :budget_items)
+                              (h/sset (->update-set budget-item
+                                                    :account-id
+                                                    :periods))
+                              (h/where [:= :id (:id budget-item)])))]
+      (jdbc/execute! db-spec sql)))
+
   (find-budget-item-by-id
     [_ id]
     (first (query db-spec (-> (h/select :*)
                               (h/from :budget_items)
-                              (h/where [:= id id])
+                              (h/where [:= :id id])
                               (h/limit 1)))))
 
   (select-budget-items-by-budget-id

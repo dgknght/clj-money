@@ -247,6 +247,45 @@
       "Number of periods must match the budget \"Period count\" value"
       item)))
 
+(def update-budget-item-context
+  {:users [{:email "john@doe.com"
+            :first-name "John"
+            :last-name "Doe"
+            :password "please01"}]
+   :entities [{:user-id "john@doe.com"
+               :name "Personal"}]
+   :accounts [{:name "Salary"
+               :type :income}
+              {:name "Rent"
+               :type :expense}]
+   :budgets [{:name "2017"
+             :period :month
+             :period-count 12
+             :start-date (t/local-date 2017 1 1)
+             :items [{:account-id "Salary"
+                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 (bigdec 2000)))}
+                     {:account-id "Rent"
+                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 (bigdec 850)))}]}]})
+
+(deftest update-a-budget-item
+  (let [context (serialization/realize storage-spec update-budget-item-context)
+        [salary rent] (:accounts context)
+        budget (-> context :budgets first)
+        budget-item (->> budget
+                         :items
+                         (filter #(= (:id rent) (:account-id %)))
+                         first)
+        updated (assoc-in budget-item [:periods 0 :amount] (bigdec 950))
+        result (budgets/update-item storage-spec updated)
+        retrieved (->> budget
+                       (budgets/reload storage-spec)
+                       :items
+                       (filter #(= (:id rent) (:account-id %)))
+                       first)]
+    (is (validation/valid? result) "The item is valid for update")
+    (is (= (map bigdec [950 850 850]) (->> result :periods (take 3) (map :amount))) "The returned value contains the updates")
+    (is (= (map bigdec [950 850 850]) (->> retrieved :periods (take 3) (map :amount))) "The retreived value contains the updates")))
+
 ;; Periods
 
 ;TODO Need to clean up validation error structure for these tests
