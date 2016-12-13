@@ -312,9 +312,8 @@
          (item-form-fields item budget)]]]))))
 
 (defn- extract-periods-from-average
-  [item]
-  (let [budget (budgets/find-by-id (env :db) (:budget-id item))
-        amount (bigdec (:average item))]
+  [budget item]
+  (let [amount (bigdec (:average item))]
     (->> budget
          :period-count
          range
@@ -323,12 +322,13 @@
 (defn create-item
   "Creates an budget item"
   [params]
-  (let [item (-> params
+  (let [budget (budgets/find-by-id (env :db) (:budget-id params))
+        item (-> params
                  (select-keys [:budget-id :account-id :average])
                  (update-in [:budget-id] #(Integer. %))
                  (update-in [:account-id] #(Integer. %)))
         adjusted (-> item
-                     (assoc :periods (extract-periods-from-average item))
+                     (assoc :periods (extract-periods-from-average budget item))
                      (dissoc :average))
         saved (budgets/create-item (env :db) adjusted)]
     (if (validation/valid? saved)
@@ -343,9 +343,9 @@
 (defn edit-item
   "Renders a form for editing a budget item"
   [item-or-id]
-  (let [item (map? item-or-id
-                   item-or-id
-                   (budgets/find-item-by-id (env :db) item-or-id))
+  (let [item (if (map? item-or-id)
+               item-or-id
+               (budgets/find-item-by-id (env :db) item-or-id))
         budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
   (layout
@@ -360,11 +360,13 @@
   "Updates the specified item and redirects to the budget on success or renders the
   edit from on failure"
   [params]
-  (let [item (-> params
+  (let [existing (budgets/find-item-by-id (env :db) (Integer. (:id params)))
+        budget (budgets/find-by-id (env :db) (:budget-id existing))
+        item (-> params
                  (select-keys [:id
                                :account-id
                                :average])
-                 (assoc :periods (extract-periods-from-average params))
+                 (assoc :periods (extract-periods-from-average budget params))
                  (dissoc :average))
         updated (budgets/update-item (env :db) item)]
     (if (validation/valid? updated)

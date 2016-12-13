@@ -1,6 +1,7 @@
 (ns clj-money.models.budgets
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clj-time.coerce :as tc]
             [schema.core :as schema]
             [clj-money.validation :as validation]
@@ -227,6 +228,7 @@
   (with-storage [s storage-spec]
     (let [budget (->> item
                       :id
+                      (Integer.)
                       (find-item-by-id s)
                       :budget-id
                       (find-by-id s))
