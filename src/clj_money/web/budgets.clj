@@ -242,7 +242,20 @@
        (html
        (budget-header-row budget)
        (map budget-item-row (:items budget)))]
-      [:a.btn.btn-primary {:href (format "/budgets/%s/items/new" (:id budget))} "Add"]
+      [:div.btn-group
+       [:button.btn.btn-primary.dropdown-toggle
+        {:type "button"
+         :data-toggle "dropdown"
+         :aria-haspopup true
+         :aria-expanded false}
+        "Add"
+        "&nbsp;"
+        [:span.caret]]
+       [:ul.dropdown-menu
+        [:li
+         [:a {:href (format "/budgets/%s/items/new?method=average" (:id budget))} "By average"]]
+        [:li
+         [:a {:href (format "/budgets/%s/items/new?method=total" (:id budget))} "By total"]]]]
       "&nbsp;"
       [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
@@ -288,11 +301,27 @@
                                                               "&nbps;"
                                                               (.getMessage e)])}]})))))
 
-(defn- item-form-fields
+(defmulti item-form-fields
+  (fn [item _]
+    (-> item :method keyword)))
+
+(defmethod item-form-fields :average
   [item budget]
   (html
     (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
     (number-input-field item :average)
+    [:input {:type :hidden :name :method :value :average}]
+    [:button.btn.btn-primary {:type :submit
+                              :title "Click here to save this budget item."} "Save"]
+    "&nbsp;"
+    [:a.btn.btn-default {:href (format "/budgets/%s" (:id budget))} "Back"]))
+
+(defmethod item-form-fields :total
+  [item budget]
+  (html
+    (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
+    (number-input-field item :total)
+    [:input {:type :hidden :name :method :value :total}]
     [:button.btn.btn-primary {:type :submit
                               :title "Click here to save this budget item."} "Save"]
     "&nbsp;"
@@ -300,8 +329,7 @@
 
 (defn new-item
   "Renders a form for creating a new item"
-  ([budget-id] (new-item budget-id {:budget-id budget-id}))
-  ([budget-id item]
+  [{budget-id :budget-id :as item}]
   (let [budget (budgets/find-by-id (env :db) budget-id)]
     (layout
       (str "Budget " (:name budget) ": New item") {}
@@ -309,28 +337,48 @@
        [:div.col-md-3
         [:form {:action (format "/budgets/%s/items" budget-id)
                 :method :post}
-         (item-form-fields item budget)]]]))))
+         (item-form-fields item budget)]]])))
 
-(defn- extract-periods-from-average
-  [budget item]
+(defmulti extract-periods
+  (fn [item _]
+    (-> item :method keyword)))
+
+(defmethod extract-periods :average
+  [item budget]
   (let [amount (bigdec (:average item))]
-    (->> budget
-         :period-count
-         range
-         (mapv #(hash-map :amount amount :index %)))))
+    (-> item
+        (assoc :periods
+               (->> budget
+                    :period-count
+                    range
+                    (mapv #(hash-map :amount amount :index %))))
+        (dissoc :average))))
+
+;TODO remove dulication between the above and below functions
+
+(defmethod extract-periods :total
+  [item budget]
+  (let [amount (with-precision 10
+                 (/ (bigdec (:total item))
+                    (:period-count budget)))]
+    (-> item
+        (assoc :periods
+               (->> budget
+                    :period-count
+                    range
+                    (mapv #(hash-map :amount amount :index %))))
+        (dissoc :total))))
 
 (defn create-item
   "Creates an budget item"
   [params]
-  (let [budget (budgets/find-by-id (env :db) (:budget-id params))
+  (let [budget (budgets/find-by-id (env :db) (Integer. (:budget-id params)))
         item (-> params
-                 (select-keys [:budget-id :account-id :average])
                  (update-in [:budget-id] #(Integer. %))
-                 (update-in [:account-id] #(Integer. %)))
-        adjusted (-> item
-                     (assoc :periods (extract-periods-from-average budget item))
-                     (dissoc :average))
-        saved (budgets/create-item (env :db) adjusted)]
+                 (update-in [:account-id] #(Integer. %))
+                 (extract-periods budget)
+                 (select-keys [:budget-id :account-id :periods]))
+        saved (budgets/create-item (env :db) item)]
     (if (validation/valid? saved)
       (redirect (format "/budgets/%s" (:budget-id saved)))
       (new-item saved))))
@@ -366,8 +414,7 @@
                  (select-keys [:id
                                :account-id
                                :average])
-                 (assoc :periods (extract-periods-from-average budget params))
-                 (dissoc :average))
+                 (extract-periods budget params))
         updated (budgets/update-item (env :db) item)]
     (if (validation/valid? updated)
       (redirect (format "/budgets/%s" (:budget-id updated)))

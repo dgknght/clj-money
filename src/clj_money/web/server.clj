@@ -1,6 +1,7 @@
 (ns clj-money.web.server
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [compojure.core :refer [defroutes GET PUT POST DELETE ANY]]
             [compojure.handler :refer [site]]
             [compojure.route :as route]
@@ -70,8 +71,8 @@
        (budgets/show (Integer. id)))
 
   ; Budget items
-  (GET "/budgets/:budget-id/items/new" [budget-id]
-       (budgets/new-item (Integer. budget-id)))
+  (GET "/budgets/:budget-id/items/new" {params :params}
+       (budgets/new-item (update-in params [:budget-id] #(Integer. %))))
   (POST "/budgets/:budget-id/items" {params :params}
         (budgets/create-item params))
   (GET "/budget-items/:id/edit" [id]
