@@ -147,11 +147,19 @@
      [:td
       (when (:id item)
         [:div.btn-group
-         (glyph-button :pencil
-                       (format "/budget-items/%s/edit" (:id item))
-                       {:level :info
-                        :size :extra-small
-                        :title "Click here to edit this budget item."})])])])
+         [:div.btn-group
+          [:button.btn.btn-info.btn-xs.dropdown-toggle
+           {:type :button
+            :title "Click here to edit this budget item."
+            :data-toggle :dropdown
+            :aria-haspop true
+            :aria-expanded false}
+           [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]
+           "&nbsp;"
+           [:span.caret]]
+          [:ul.dropdown-menu
+           [:li [:a {:href (format "/budget-items/%s/edit/average" (:id item))} "By average"]]
+           [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]]]])])])
 
 (defn- summarize-periods
   [items]
@@ -242,7 +250,20 @@
        (html
        (budget-header-row budget)
        (map budget-item-row (:items budget)))]
-      [:a.btn.btn-primary {:href (format "/budgets/%s/items/new" (:id budget))} "Add"]
+      [:div.btn-group
+       [:button.btn.btn-primary.dropdown-toggle
+        {:type "button"
+         :data-toggle "dropdown"
+         :aria-haspopup true
+         :aria-expanded false}
+        "Add"
+        "&nbsp;"
+        [:span.caret]]
+       [:ul.dropdown-menu
+        [:li
+         [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
+        [:li
+         [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]]]
       "&nbsp;"
       [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
@@ -288,11 +309,27 @@
                                                               "&nbps;"
                                                               (.getMessage e)])}]})))))
 
-(defn- item-form-fields
+(defmulti item-form-fields
+  (fn [item _]
+    (-> item :method keyword)))
+
+(defmethod item-form-fields :average
   [item budget]
   (html
     (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
     (number-input-field item :average)
+    [:input {:type :hidden :name :method :value :average}]
+    [:button.btn.btn-primary {:type :submit
+                              :title "Click here to save this budget item."} "Save"]
+    "&nbsp;"
+    [:a.btn.btn-default {:href (format "/budgets/%s" (:id budget))} "Back"]))
+
+(defmethod item-form-fields :total
+  [item budget]
+  (html
+    (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
+    (number-input-field item :total)
+    [:input {:type :hidden :name :method :value :total}]
     [:button.btn.btn-primary {:type :submit
                               :title "Click here to save this budget item."} "Save"]
     "&nbsp;"
@@ -300,8 +337,7 @@
 
 (defn new-item
   "Renders a form for creating a new item"
-  ([budget-id] (new-item budget-id {:budget-id budget-id}))
-  ([budget-id item]
+  [{budget-id :budget-id :as item}]
   (let [budget (budgets/find-by-id (env :db) budget-id)]
     (layout
       (str "Budget " (:name budget) ": New item") {}
@@ -309,40 +345,73 @@
        [:div.col-md-3
         [:form {:action (format "/budgets/%s/items" budget-id)
                 :method :post}
-         (item-form-fields item budget)]]]))))
+         (item-form-fields item budget)]]])))
 
-(defn- extract-periods-from-average
-  [budget item]
+(defmulti extract-periods
+  (fn [item _]
+    (-> item :method keyword)))
+
+(defmethod extract-periods :average
+  [item budget]
   (let [amount (bigdec (:average item))]
-    (->> budget
-         :period-count
-         range
-         (mapv #(hash-map :amount amount :index %)))))
+    (-> item
+        (assoc :periods
+               (->> budget
+                    :period-count
+                    range
+                    (mapv #(hash-map :amount amount :index %))))
+        (dissoc :average))))
+
+;TODO remove dulication between the above and below functions
+
+(defmethod extract-periods :total
+  [item budget]
+  (let [amount (with-precision 10
+                 (/ (bigdec (:total item))
+                    (:period-count budget)))]
+    (-> item
+        (assoc :periods
+               (->> budget
+                    :period-count
+                    range
+                    (mapv #(hash-map :amount amount :index %))))
+        (dissoc :total))))
 
 (defn create-item
   "Creates an budget item"
   [params]
-  (let [budget (budgets/find-by-id (env :db) (:budget-id params))
+  (let [budget (budgets/find-by-id (env :db) (Integer. (:budget-id params)))
         item (-> params
-                 (select-keys [:budget-id :account-id :average])
                  (update-in [:budget-id] #(Integer. %))
-                 (update-in [:account-id] #(Integer. %)))
-        adjusted (-> item
-                     (assoc :periods (extract-periods-from-average budget item))
-                     (dissoc :average))
-        saved (budgets/create-item (env :db) adjusted)]
+                 (update-in [:account-id] #(Integer. %))
+                 (extract-periods budget)
+                 (select-keys [:budget-id :account-id :periods]))
+        saved (budgets/create-item (env :db) item)]
     (if (validation/valid? saved)
       (redirect (format "/budgets/%s" (:budget-id saved)))
       (new-item saved))))
 
-(defn- period-average
-  [periods]
-  (/ (reduce + (map :amount periods))
-     (count periods)))
+(defmulti prepare-item-for-edit
+  (fn [item]
+    (-> item :method keyword)))
+
+(defmethod prepare-item-for-edit :average
+  [item]
+  (-> item
+      (assoc :average (with-precision 10
+                        (/ (reduce + (map :amount (:periods item)))
+                           (count (:periods item)))))
+      (dissoc :periods)))
+
+(defmethod prepare-item-for-edit :total
+  [item]
+  (-> item
+      (assoc :total (reduce + (map :amount (:periods item))))
+      (dissoc :periods)))
 
 (defn edit-item
   "Renders a form for editing a budget item"
-  [item-or-id]
+  [item-or-id method]
   (let [item (if (map? item-or-id)
                item-or-id
                (budgets/find-item-by-id (env :db) item-or-id))
@@ -354,7 +423,10 @@
      [:div.col-md-6
       [:form {:action (format "/budget-items/%s" (:id item))
               :method :post}
-       (item-form-fields (assoc item :average (period-average (:periods item))) budget)]]])))
+       (-> item
+           (assoc :method method)
+           prepare-item-for-edit
+           (item-form-fields budget))]]])))
 
 (defn update-item
   "Updates the specified item and redirects to the budget on success or renders the
@@ -363,11 +435,10 @@
   (let [existing (budgets/find-item-by-id (env :db) (Integer. (:id params)))
         budget (budgets/find-by-id (env :db) (:budget-id existing))
         item (-> params
+                 (extract-periods budget)
                  (select-keys [:id
                                :account-id
-                               :average])
-                 (assoc :periods (extract-periods-from-average budget params))
-                 (dissoc :average))
+                               :periods]))
         updated (budgets/update-item (env :db) item)]
     (if (validation/valid? updated)
       (redirect (format "/budgets/%s" (:budget-id updated)))
