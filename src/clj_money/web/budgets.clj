@@ -147,11 +147,19 @@
      [:td
       (when (:id item)
         [:div.btn-group
-         (glyph-button :pencil
-                       (format "/budget-items/%s/edit" (:id item))
-                       {:level :info
-                        :size :extra-small
-                        :title "Click here to edit this budget item."})])])])
+         [:div.btn-group
+          [:button.btn.btn-info.btn-xs.dropdown-toggle
+           {:type :button
+            :title "Click here to edit this budget item."
+            :data-toggle :dropdown
+            :aria-haspop true
+            :aria-expanded false}
+           [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]
+           "&nbsp;"
+           [:span.caret]]
+          [:ul.dropdown-menu
+           [:li [:a {:href (format "/budget-items/%s/edit/average" (:id item))} "By average"]]
+           [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]]]])])])
 
 (defn- summarize-periods
   [items]
@@ -383,14 +391,27 @@
       (redirect (format "/budgets/%s" (:budget-id saved)))
       (new-item saved))))
 
-(defn- period-average
-  [periods]
-  (/ (reduce + (map :amount periods))
-     (count periods)))
+(defmulti prepare-item-for-edit
+  (fn [item]
+    (-> item :method keyword)))
+
+(defmethod prepare-item-for-edit :average
+  [item]
+  (-> item
+      (assoc :average (with-precision 10
+                        (/ (reduce + (map :amount (:periods item)))
+                           (count (:periods item)))))
+      (dissoc :periods)))
+
+(defmethod prepare-item-for-edit :total
+  [item]
+  (-> item
+      (assoc :total (reduce + (map :amount (:periods item))))
+      (dissoc :periods)))
 
 (defn edit-item
   "Renders a form for editing a budget item"
-  [item-or-id]
+  [item-or-id method]
   (let [item (if (map? item-or-id)
                item-or-id
                (budgets/find-item-by-id (env :db) item-or-id))
@@ -402,7 +423,10 @@
      [:div.col-md-6
       [:form {:action (format "/budget-items/%s" (:id item))
               :method :post}
-       (item-form-fields (assoc item :average (period-average (:periods item))) budget)]]])))
+       (-> item
+           (assoc :method method)
+           prepare-item-for-edit
+           (item-form-fields budget))]]])))
 
 (defn update-item
   "Updates the specified item and redirects to the budget on success or renders the
@@ -411,10 +435,10 @@
   (let [existing (budgets/find-item-by-id (env :db) (Integer. (:id params)))
         budget (budgets/find-by-id (env :db) (:budget-id existing))
         item (-> params
+                 (extract-periods budget)
                  (select-keys [:id
                                :account-id
-                               :average])
-                 (extract-periods budget params))
+                               :periods]))
         updated (budgets/update-item (env :db) item)]
     (if (validation/valid? updated)
       (redirect (format "/budgets/%s" (:budget-id updated)))

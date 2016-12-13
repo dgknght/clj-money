@@ -75,8 +75,8 @@
        (budgets/new-item (update-in params [:budget-id] #(Integer. %))))
   (POST "/budgets/:budget-id/items" {params :params}
         (budgets/create-item params))
-  (GET "/budget-items/:id/edit" [id]
-       (budgets/edit-item (Integer. id)))
+  (GET "/budget-items/:id/edit/:method" [id method]
+       (budgets/edit-item (Integer. id) (keyword method)))
   (POST "/budget-items/:id" {params :params}
         (budgets/update-item params))
 
