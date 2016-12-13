@@ -117,6 +117,44 @@
     [this transaction-id]
     "Deletes the transaction items having the specified id")
 
+  ; Budgets
+  (create-budget
+    [this budget]
+    "Creates a new budget record")
+
+  (find-budget-by-id
+    [this id]
+    "Returns the specified budget")
+
+  (select-budgets-by-entity-id
+    [this entity-id]
+    "Returns budgets for the specified entity")
+
+  (update-budget
+    [this budget]
+    "Updates the specified budget")
+
+  (delete-budget
+    [this id]
+    "Deletes the specified budget")
+
+  ; Budget items
+  (create-budget-item
+    [this budget-item]
+    "Creates a new budget item")
+
+  (update-budget-item
+    [this budget-item]
+    "Updates an existing budate item")
+
+  (find-budget-item-by-id
+    [this id]
+    "Returns the budget item having the specified ID")
+
+  (select-budget-items-by-budget-id
+    [this budget-id]
+    "Returns the budget items for the specified budget")
+
   ; Data integrity transactions
   (with-transaction
     [this func]

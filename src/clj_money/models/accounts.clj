@@ -141,8 +141,9 @@
 (defn find-by-id
   "Returns the account having the specified id"
   [storage-spec id]
-  (with-storage [s storage-spec]
-    (prepare-for-return (find-account-by-id s id))))
+  (when id
+    (with-storage [s storage-spec]
+      (prepare-for-return (find-account-by-id s id)))))
 
 (defn find-by-name
   "Returns the account having the specified name"

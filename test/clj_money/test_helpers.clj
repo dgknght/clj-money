@@ -8,6 +8,8 @@
 (def all-tables ["transaction_items"
                  "transactions"
                  "accounts"
+                 "budgets"
+                 "budget_items"
                  "entities"
                  "users"])
 

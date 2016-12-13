@@ -18,6 +18,7 @@
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.accounts :as accounts]
+            [clj-money.web.budgets :as budgets]
             [clj-money.web.transactions :as transactions]
             [clj-money.web.reports :as reports]
             [clj-money.web.users :as users]))
@@ -52,6 +53,31 @@
         (accounts/update (:params req)))
   (POST "/accounts/:id/delete" [id]
         (accounts/delete id))
+
+  (GET "/entities/:entity-id/budgets" [entity-id]
+       (budgets/index (Integer. entity-id)))
+  (GET "/entities/:entity-id/budgets/new" [entity-id]
+       (budgets/new-budget (Integer. entity-id)))
+  (POST "/entities/:entity-id/budgets" {params :params}
+        (budgets/create params))
+  (GET "/budgets/:id/edit" [id]
+       (budgets/edit (Integer. id)))
+  (POST "/budgets/:id" {params :params}
+        (budgets/update params))
+  (POST "/budgets/:id/delete" [id]
+        (budgets/delete (Integer. id)))
+  (GET "/budgets/:id" [id]
+       (budgets/show (Integer. id)))
+
+  ; Budget items
+  (GET "/budgets/:budget-id/items/new" [budget-id]
+       (budgets/new-item (Integer. budget-id)))
+  (POST "/budgets/:budget-id/items" {params :params}
+        (budgets/create-item params))
+  (GET "/budget-items/:id/edit" [id]
+       (budgets/edit-item (Integer. id)))
+  (POST "/budget-items/:id" {params :params}
+        (budgets/update-item params))
 
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
