@@ -378,7 +378,7 @@
                 range
                 (map #(hash-map :index % :amount 0M))
                 (partition 3)))]]
-    [:input {:type :hidden :name :method :value :total}]
+    [:input {:type :hidden :name :method :value :detail}]
     [:button.btn.btn-primary {:type :submit
                               :title "Click here to save this budget item."} "Save"]
     "&nbsp;"
@@ -423,6 +423,17 @@
                     range
                     (mapv #(hash-map :amount amount :index %))))
         (dissoc :total))))
+
+(defmethod extract-periods :detail
+  [item budget]
+  (-> item
+      (assoc :periods (->> (range (:period-count budget))
+                           (map #(format "period-%s" %))
+                           (map keyword)
+                           (map #(% item))
+                           (map bigdec)
+                           (map-indexed #(hash-map :index %1 :amount %2))))
+      (select-keys [:budget-id :account-id :periods])))
 
 (defn create-item
   "Creates an budget item"
