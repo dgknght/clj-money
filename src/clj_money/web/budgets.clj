@@ -162,7 +162,8 @@
            [:span.caret]]
           [:ul.dropdown-menu
            [:li [:a {:href (format "/budget-items/%s/edit/average" (:id item))} "By average"]]
-           [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]]]])])])
+           [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]
+           [:li [:a {:href (format "/budget-items/%s/edit/detail" (:id item))} "By period"]]]]])])])
 
 (defn- summarize-periods
   [items]
@@ -373,11 +374,12 @@
     [:div.row
      [:div.col-md-8
       (map #(period-input-group budget %)
-           (->> budget
-                :period-count
-                range
-                (map #(hash-map :index % :amount 0M))
-                (partition 3)))]]
+           (or (:periods item)
+               (->> budget
+                    :period-count
+                    range
+                    (map #(hash-map :index % :amount 0M))
+                    (partition 3))))]]
     [:input {:type :hidden :name :method :value :detail}]
     [:button.btn.btn-primary {:type :submit
                               :title "Click here to save this budget item."} "Save"]
@@ -466,6 +468,10 @@
   (-> item
       (assoc :total (reduce + (map :amount (:periods item))))
       (dissoc :periods)))
+
+(defmethod prepare-item-for-edit :detail
+  [item]
+  item)
 
 (defn edit-item
   "Renders a form for editing a budget item"
