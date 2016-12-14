@@ -18,7 +18,10 @@
             [clj-money.models.budgets :as budgets]
             [clj-money.schema :as schema]
             [clj-money.web.money-shared :refer [account-options]])
-  (:use [clj-money.web.shared :refer :all]))
+  (:use [clj-money.web.shared :refer :all])
+  (:import org.joda.time.Months
+           org.joda.time.Weeks
+           org.joda.time.format.DateTimeFormat))
 
 (defn- budget-row
   [budget]
@@ -263,7 +266,9 @@
         [:li
          [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
         [:li
-         [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]]]
+         [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]
+        [:li
+         [:a {:href (format "/budgets/%s/items/new/detail" (:id budget))} "By period"]]]]
       "&nbsp;"
       [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
@@ -315,20 +320,64 @@
 
 (defmethod item-form-fields :average
   [item budget]
-  (html
-    (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
-    (number-input-field item :average)
-    [:input {:type :hidden :name :method :value :average}]
-    [:button.btn.btn-primary {:type :submit
-                              :title "Click here to save this budget item."} "Save"]
-    "&nbsp;"
-    [:a.btn.btn-default {:href (format "/budgets/%s" (:id budget))} "Back"]))
+  [:div.row
+   [:div.col-md-3
+    (html
+      (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
+      (number-input-field item :average)
+      [:input {:type :hidden :name :method :value :average}]
+      [:button.btn.btn-primary {:type :submit
+                                :title "Click here to save this budget item."} "Save"]
+      "&nbsp;"
+      [:a.btn.btn-default {:href (format "/budgets/%s" (:id budget))} "Back"])]])
 
 (defmethod item-form-fields :total
   [item budget]
+  [:div.row
+   [:div.col-md-3
+    (html
+      (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
+      (number-input-field item :total)
+      [:input {:type :hidden :name :method :value :total}]
+      [:button.btn.btn-primary {:type :submit
+                                :title "Click here to save this budget item."} "Save"]
+      "&nbsp;"
+      [:a.btn.btn-default {:href (format "/budgets/%s" (:id budget))} "Back"])]])
+
+(defn period-label
+  [budget index]
+  (->> (.multipliedBy Months/ONE index)
+       (t/plus (:start-date budget))
+       (.print (DateTimeFormat/forPattern "MMM yyyy"))))
+
+(defn- period-input-field
+  [budget period]
+  [:div.form-group
+   [:label.control-label (period-label budget (:index period))]
+   [:input.form-control {:type :number
+                         :name (format "period-%s" (:index period))
+                         :value (:amount period)}]])
+
+(defn- period-input-group
+  [budget periods]
+  [:div.row
+   (map #(vector :div.col-sm-4 (period-input-field budget %))
+        periods)])
+
+(defmethod item-form-fields :detail
+  [item budget]
   (html
-    (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
-    (number-input-field item :total)
+    [:div.row
+     [:div.col-md-3
+      (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})]]
+    [:div.row
+     [:div.col-md-8
+      (map #(period-input-group budget %)
+           (->> budget
+                :period-count
+                range
+                (map #(hash-map :index % :amount 0M))
+                (partition 3)))]]
     [:input {:type :hidden :name :method :value :total}]
     [:button.btn.btn-primary {:type :submit
                               :title "Click here to save this budget item."} "Save"]
@@ -341,11 +390,9 @@
   (let [budget (budgets/find-by-id (env :db) budget-id)]
     (layout
       (str "Budget " (:name budget) ": New item") {}
-      [:div.row
-       [:div.col-md-3
-        [:form {:action (format "/budgets/%s/items" budget-id)
+      [:form {:action (format "/budgets/%s/items" budget-id)
                 :method :post}
-         (item-form-fields item budget)]]])))
+         (item-form-fields item budget)])))
 
 (defmulti extract-periods
   (fn [item _]
@@ -417,16 +464,14 @@
                (budgets/find-item-by-id (env :db) item-or-id))
         budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
-  (layout
-    (format "Budget %s: %s" (:name budget) (:name account)) {}
-    [:div.row
-     [:div.col-md-6
+    (layout
+      (format "Budget %s: %s" (:name budget) (:name account)) {}
       [:form {:action (format "/budget-items/%s" (:id item))
               :method :post}
        (-> item
            (assoc :method method)
            prepare-item-for-edit
-           (item-form-fields budget))]]])))
+           (item-form-fields budget))])))
 
 (defn update-item
   "Updates the specified item and redirects to the budget on success or renders the

@@ -154,3 +154,10 @@
                                   {:value (bigdec 1000)}
                                   {:value (bigdec 1000)}]}]}]
     (is (= expected actual))))
+
+(deftest get-a-budget-period-label
+  (is (= "Feb 2017"
+         (budgets/period-label {:start-date (t/local-date 2017 1 1)
+                                :period :month
+                                :period-count 12}
+                               1))))
