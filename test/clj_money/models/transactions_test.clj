@@ -40,10 +40,10 @@
      :entity-id (-> context :entities first :id)
      :items [{:account-id (:id checking)
               :action :debit
-              :amount (bigdec 1000)}
+              :amount 1000M}
              {:account-id (:id salary)
               :action :credit
-              :amount (bigdec 1000)}]}))
+              :amount 1000M}]}))
 
 (deftest create-a-transaction
   (let [context (serialization/realize storage-spec create-context)
@@ -84,11 +84,11 @@
           (is (= 0 (count (transactions/items-by-account storage-spec (:id salary))))
               "The transaction item for salary should not be created"))
         (testing "account balances are not updated"
-          (is (= (bigdec 0) (->> checking
+          (is (= 0M (->> checking
                                  (accounts/reload storage-spec)
                                  :balance))
               "The checking balance should not be updated")
-          (is (= (bigdec 0) (->> salary
+          (is (= 0M (->> salary
                                  (accounts/reload storage-spec)
                                  :balance))
               "The salary balance should not be updated"))))))
@@ -154,7 +154,7 @@
                       (-> (attributes context)
                           (update-in
                             [:items 0]
-                            #(assoc % :amount (bigdec -1000)))))]
+                            #(assoc % :amount -1000M))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-is-required
@@ -184,7 +184,7 @@
                       (-> (attributes context)
                           (update-in
                             [:items 0]
-                            #(assoc % :amount (bigdec 1001)))))]
+                            #(assoc % :amount 1001M))))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (def balance-context
@@ -227,12 +227,12 @@
          groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
                                (:accounts context))]
            ; Transactions are returned with most recent first
-    (is (= [(bigdec 900) (bigdec 1000)]
+    (is (= [900M 1000M]
            (map :balance checking-items))
         "The checking account balances are correct")
-    (is (= [(bigdec 1000)] (map :balance salary-items))
+    (is (= [1000M] (map :balance salary-items))
           "The salary account balances are correct")
-    (is (= [(bigdec 100)] (map :balance groceries-items))
+    (is (= [100M] (map :balance groceries-items))
           "The groceries account balances are correct")))
 
 (deftest item-indexes-are-set-when-saved
@@ -254,9 +254,9 @@
                                        (accounts/find-by-id storage-spec)
                                        :balance)
                                  (:accounts context))]
-    (is (= (bigdec 900) checking-balance) "The checking account has the correct balance.")
-    (is (= (bigdec 1000) salary-balance) "The salary account has the correct balance.")
-    (is (= (bigdec 100) groceries-balance) "The groceries account has the correct balance.")))
+    (is (= 900M checking-balance) "The checking account has the correct balance.")
+    (is (= 1000M salary-balance) "The salary account has the correct balance.")
+    (is (= 100M groceries-balance) "The groceries account has the correct balance.")))
 
 (def insert-context
   {:users [(factory :user, {:email "john@doe.com"})]
@@ -306,17 +306,17 @@
          groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
                                (:accounts context))]
     (is (= [{:index 2
-             :amount (bigdec 100)
-             :balance (bigdec 801)}
+             :amount 100M
+             :balance 801M}
             {:index 1
-             :amount (bigdec 99)
-             :balance (bigdec 901)}
+             :amount 99M
+             :balance 901M}
             {:index 0
-             :amount (bigdec 1000)
-             :balance (bigdec 1000)}]
+             :amount 1000M
+             :balance 1000M}]
            (map #(select-keys % [:index :amount :balance]) checking-items))
         "The checking item balances should be correct")
-    (is (= (map bigdec [801 1000 199])
+    (is (= [801M 1000M 199M]
            (map #(:balance (accounts/find-by-id storage-spec (:id %))) (:accounts context)))
         "The checking account has the correct balance")))
 
@@ -367,11 +367,9 @@
          salary-items
          groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
                                (:accounts context))
-        expected-checking-items (->> [{:index 2 :amount  100 :balance 1000}
-                                      {:index 1 :amount  100 :balance 1100}
-                                      {:index 0 :amount 1000 :balance 1000}]
-                                     (map #(update-in % [:amount] bigdec))
-                                     (map #(update-in % [:balance] bigdec)))
+        expected-checking-items [{:index 2 :amount  100M :balance 1000M}
+                                      {:index 1 :amount  100M :balance 1100M}
+                                      {:index 0 :amount 1000M :balance 1000M}]
         actual-checking-items (map #(select-keys % [:index :amount :balance])
                                    checking-items)]
     (is (= expected-checking-items
@@ -433,13 +431,13 @@
         checking-items-after (transactions/items-by-account storage-spec
                                                              (:id checking))]
     (testing "transaction item balances are adjusted"
-      (let [expected-before [{:index 2 :amount (bigdec  102) :balance (bigdec  797)}
-                             {:index 1 :amount (bigdec  101) :balance (bigdec  899)}
-                             {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+      (let [expected-before [{:index 2 :amount 102M :balance 797M}
+                             {:index 1 :amount 101M :balance 899M}
+                             {:index 0 :amount 1000M :balance 1000M}]
             actual-before (map #(select-keys % [:index :amount :balance])
                                checking-items-before)
-            expected-after[{:index 1 :amount (bigdec  102) :balance (bigdec  898)}
-                           {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+            expected-after[{:index 1 :amount 102M :balance 898M}
+                           {:index 0 :amount 1000M :balance 1000M}]
             actual-after (map #(select-keys % [:index :amount :balance]) checking-items-after)]
         (is (= expected-before actual-before)
             "Checking should have the correct items before delete")
@@ -448,9 +446,9 @@
     (testing "account balances are adjusted"
       (let [checking-after (accounts/find-by-id storage-spec (:id checking))
             groceries-after (accounts/find-by-id storage-spec (:id groceries))]
-        (is (= (bigdec 898) (:balance checking-after))
+        (is (= 898M (:balance checking-after))
             "Checking should have the correct balance after delete")
-        (is (= (bigdec 102) (:balance groceries-after))
+        (is (= 102M (:balance groceries-after))
             "Groceries should have the correct balance after delete")))))
 
 (def update-context
@@ -501,17 +499,17 @@
          groceries] (:accounts context)
         [t1 t2 t3] (:transactions context)
         updated (-> t2
-                    (assoc-in [:items 0 :amount] (bigdec 99.99))
-                    (assoc-in [:items 1 :amount] (bigdec 99.99)))
+                    (assoc-in [:items 0 :amount] 99.99M)
+                    (assoc-in [:items 1 :amount] 99.99M))
         _ (transactions/update storage-spec updated)
-        expected-checking [{:index 2 :amount (bigdec  102)    :balance (bigdec  798.01)}
-                           {:index 1 :amount (bigdec   99.99) :balance (bigdec  900.01)}
-                           {:index 0 :amount (bigdec 1000)    :balance (bigdec 1000)}]
+        expected-checking [{:index 2 :amount 102M   :balance 798.01M}
+                           {:index 1 :amount 99.99M :balance 900.01M}
+                           {:index 0 :amount 1000M  :balance 1000M}]
         actual-checking (->> (:id checking)
                              (transactions/items-by-account storage-spec)
                              (map #(select-keys % [:index :amount :balance])))
-        expected-groceries [{:index 1 :amount (bigdec 102)    :balance (bigdec 201.99)}
-                            {:index 0 :amount (bigdec  99.99) :balance (bigdec  99.99)}]
+        expected-groceries [{:index 1 :amount 102M   :balance 201.99M}
+                            {:index 0 :amount 99.99M :balance 99.99M}]
         actual-groceries (->> (:id groceries)
                               (transactions/items-by-account storage-spec)
                               (map #(select-keys % [:index :amount :balance])))]
@@ -521,11 +519,11 @@
       (is (= expected-groceries actual-groceries)
           "Groceries items should have the correct values after update"))
     (testing "account balances are correct"
-      (is (= (bigdec 798.01) (->> checking
+      (is (= 798.01M (->> checking
                                   (accounts/reload storage-spec)
                                   :balance))
           "The checkout account balance should be correct after update")
-      (is (= (bigdec 201.99) (->> groceries
+      (is (= 201.99M (->> groceries
                                   (accounts/reload storage-spec)
                                   :balance))
           "The groceries account balance should be correct after update"))))
@@ -544,23 +542,23 @@
              groceries] (:accounts context)
             [t1 t2 t3] (:transactions context)
             updated (-> t2
-                        (assoc-in [:items 0 :amount] (bigdec 99.99))
-                        (assoc-in [:items 1 :amount] (bigdec 99.99)))
+                        (assoc-in [:items 0 :amount] 99.99M)
+                        (assoc-in [:items 1 :amount] 99.99M))
             _ (try
                 (transactions/update storage-spec updated)
                 (catch RuntimeException e nil))]
         (testing "transaction items are not updated"
-          (is (= #{(bigdec 101)} (->> t2
+          (is (= #{101M} (->> t2
                             (transactions/reload storage-spec)
                             :items
                             (map :amount)
                             (into #{})))))
         (testing "account balances are not updated"
-          (is (= (bigdec 797) (->> checking
+          (is (= 797M (->> checking
                                    (accounts/reload storage-spec)
                                    :balance))
               "The checkout account balance should not be changed")
-          (is (= (bigdec 203) (->> groceries
+          (is (= 203M (->> groceries
                                    (accounts/reload storage-spec)
                                    :balance))
               "The groceries account balance should not be changed"))))))
@@ -573,14 +571,14 @@
         [t1 t2 t3] (:transactions context)
         updated (assoc t3 :transaction-date (t/local-date 2016 3 10))
         _ (transactions/update storage-spec updated)
-        expected-checking [{:index 2 :amount (bigdec  101) :balance (bigdec  797)}
-                           {:index 1 :amount (bigdec  102) :balance (bigdec  898)}
-                           {:index 0 :amount (bigdec 1000) :balance (bigdec 1000)}]
+        expected-checking [{:index 2 :amount 101M :balance 797M}
+                           {:index 1 :amount 102M :balance 898M}
+                           {:index 0 :amount 1000M :balance 1000M}]
         actual-checking (->> (:id checking)
                              (transactions/items-by-account storage-spec)
                              (map #(select-keys % [:index :amount :balance])))
-        expected-groceries [{:index 1 :amount (bigdec 101) :balance (bigdec 203)}
-                            {:index 0 :amount (bigdec 102) :balance (bigdec 102)}]
+        expected-groceries [{:index 1 :amount 101M :balance 203M}
+                            {:index 0 :amount 102M :balance 102M}]
         actual-groceries (->> (:id groceries)
                               (transactions/items-by-account storage-spec)
                               (map #(select-keys % [:index :amount :balance])))]
@@ -590,11 +588,11 @@
       (is (= expected-groceries actual-groceries)
           "Groceries items should have the correct values after update"))
     (testing "account balances are correct"
-      (is (= (bigdec 797) (->> checking
+      (is (= 797M (->> checking
                                (accounts/reload storage-spec)
                                :balance))
           "The checkout account balance should be correct after update")
-      (is (= (bigdec 203) (->> groceries
+      (is (= 203M (->> groceries
                                (accounts/reload storage-spec)
                                :balance))
           "The groceries account balance should be correct after update"))
@@ -693,11 +691,11 @@
     (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance context update-calls)]
       (transactions/update storage-spec updated)
       (let [expected #{{:index 2
-                       :amount (bigdec 101)
-                       :balance (bigdec 797)}
+                       :amount 101M
+                       :balance 797M}
                       {:index 3
-                       :amount (bigdec 103)
-                       :balance (bigdec 694)}} ; The first update that doesn't change a value stops the chain
+                       :amount 103M
+                       :balance 694M}} ; The first update that doesn't change a value stops the chain
                                                ; the 4th item should never be updated because the 4rd one did not change a value
             actual (get @update-calls (:id checking))]
         (testing "the expected transactions are updated"
@@ -705,7 +703,7 @@
               "Only items with changes are updated")
           (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
         (testing "account balances are correct"
-          (is (= (bigdec 590) (:balance (accounts/reload storage-spec checking))) "Checking has the correct balance"))))))
+          (is (= 590M (:balance (accounts/reload storage-spec checking))) "Checking has the correct balance"))))))
 
 (def change-account-context
   {:users [(factory :user, {:email "john@doe.com"})]
@@ -766,14 +764,14 @@
         groceries-items (transactions/items-by-account storage-spec (:id groceries))
         rent-items (transactions/items-by-account storage-spec (:id rent))
         expected-groceries [{:index 1
-                             :amount (bigdec 103)
-                             :balance (bigdec 204)}
+                             :amount 103M
+                             :balance 204M}
                             {:index 0
-                             :amount (bigdec 101)
-                             :balance (bigdec 101)}]
+                             :amount 101M
+                             :balance 101M}]
         expected-rent [{:index 0
-                        :amount (bigdec 102)
-                        :balance (bigdec 102)}]
+                        :amount 102M
+                        :balance 102M}]
         actual-groceries (map #(select-keys % [:index :amount :balance])
                               groceries-items)]
     (testing "accounts have the correct items"
@@ -782,10 +780,10 @@
       (is (= expected-rent
              (map #(select-keys % [:index :amount :balance]) rent-items))))
     (testing "accounts have the correct balances"
-      (is (= (bigdec 204)
+      (is (= 204M
              (:balance (accounts/reload storage-spec groceries)))
           "The groceries account has the correct balance after update")
-      (is (= (bigdec 102)
+      (is (= 102M
              (:balance (accounts/reload storage-spec rent)))
           "The rend account has the correct balance after update"))))
 
@@ -845,24 +843,24 @@
                                                       (assoc-in [:items 0 :action] :credit)
                                                       (assoc-in [:items 1 :action] :debit)))
         expected-items [{:index 2
-                         :amount (bigdec 101)
-                         :balance (bigdec 192)}
+                         :amount 101M
+                         :balance 192M}
                         {:index 1
-                         :amount (bigdec 12)
-                         :balance (bigdec 91)}
+                         :amount 12M
+                         :balance 91M}
                         {:index 0
-                         :amount (bigdec 103)
-                         :balance (bigdec 103)}]
+                         :amount 103M
+                         :balance 103M}]
         actual-items (map #(select-keys % [:index :amount :balance])
                           (transactions/items-by-account storage-spec (:id groceries)))]
     (testing "items are updated correctly"
       (is (= expected-items actual-items)
           "Groceries should have the correct items after update"))
     (testing "account balances are updated correctly"
-      (is (= (bigdec 192)
+      (is (= 192M
              (:balance (accounts/reload storage-spec groceries)))
           "Groceries should have the correct balance after update")
-      (is (= (bigdec 808)
+      (is (= 808M
              (:balance (accounts/reload storage-spec checking)))
           "Checking should have the correct balance after update"))))
 
@@ -925,34 +923,34 @@
          groceries] (:accounts context)
         [t1 t2 t3 t4] (:transactions context)
         to-update (-> t3
-                      (assoc-in [:items 0 :amount] (bigdec 102))
+                      (assoc-in [:items 0 :amount] 102M)
                       (update-in [:items] #(remove (fn [item]
                                                      (= (:account-id item)
                                                         (:id pets)))
                                                    %)))
         updated (transactions/update storage-spec to-update)
         expected-items [{:index 2
-                         :amount (bigdec 101)
-                         :balance (bigdec 306)}
+                         :amount 101M
+                         :balance 306M}
                         {:index 1
-                         :amount (bigdec 102)
-                         :balance (bigdec 205)}
+                         :amount 102M
+                         :balance 205M}
                         {:index 0
-                         :amount (bigdec 103)
-                         :balance (bigdec 103)}]
+                         :amount 103M
+                         :balance 103M}]
         actual-items (map #(select-keys % [:index :amount :balance])
                           (transactions/items-by-account storage-spec (:id groceries)))]
     (testing "item values are correct"
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))
     (testing "account balances are correct"
-      (is (= (bigdec 0)
+      (is (= 0M
              (:balance (accounts/reload storage-spec pets)))
           "Pets should have the correct balance after update")
-      (is (= (bigdec 306)
+      (is (= 306M
              (:balance (accounts/reload storage-spec groceries)))
           "Groceries should have the correct balance after update")
-      (is (= (bigdec 694)
+      (is (= 694M
              (:balance (accounts/reload storage-spec checking)))
           "Checking should have the correct balance after update"))))
 
@@ -964,30 +962,30 @@
          groceries] (:accounts context)
         [t1 t2 t3 t4] (:transactions context)
         to-update (-> t2
-                      (assoc-in [:items 0 :amount] (bigdec 90))
+                      (assoc-in [:items 0 :amount] 90M)
                       (update-in [:items] #(conj % {:action :debit
                                                     :account-id (:id pets)
-                                                    :amount (bigdec 13)})))
+                                                    :amount 13M})))
         updated (transactions/update storage-spec to-update)
         expected-items [{:index 1
-                         :amount (bigdec 12)
-                         :balance (bigdec 25)}
+                         :amount 12M
+                         :balance 25M}
                         {:index 0
-                         :amount (bigdec 13)
-                         :balance (bigdec 13)}]
+                         :amount 13M
+                         :balance 13M}]
         actual-items (map #(select-keys % [:index :amount :balance])
                           (transactions/items-by-account storage-spec (:id pets)))]
     (testing "item values are correct"
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))
     (testing "account balances are correct"
-      (is (= (bigdec 25)
+      (is (= 25M
              (:balance (accounts/reload storage-spec pets)))
           "Pets should have the correct balance after update")
-      (is (= (bigdec 281)
+      (is (= 281M
              (:balance (accounts/reload storage-spec groceries)))
           "Groceries should have the correct balance after update")
-      (is (= (bigdec 694)
+      (is (= 694M
              (:balance (accounts/reload storage-spec checking)))
           "Checking should have the correct balance after update"))))
 
@@ -1004,42 +1002,42 @@
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1000)}
+                            :amount 1000M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1000)}]}
+                            :amount 1000M}]}
                   {:transaction-date (t/local-date 2016 1 15)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1001)}
+                            :amount 1001M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1001)}]}
+                            :amount 1001M}]}
                   {:transaction-date (t/local-date 2016 2 1)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1100)}
+                            :amount 1100M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1100)}]}
+                            :amount 1100M}]}
                   {:transaction-date (t/local-date 2016 2 15)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1102)}
+                            :amount 1102M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1102)}]}
+                            :amount 1102M}]}
                   {:transaction-date (t/local-date 2016 3 1)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1200)}
+                            :amount 1200M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1200)}]}]})
+                            :amount 1200M}]}]})
 
 (deftest get-a-balance-delta
   (let [context (serialization/realize storage-spec balance-delta-context)
@@ -1054,8 +1052,8 @@
                                             (:id salary)
                                             (t/local-date 2016 2 1)
                                             (t/local-date 2016 2 29))]
-    (is (= (bigdec 2001) january) "The January value is the sum of polarized amounts for the period")
-    (is (= (bigdec 2202) february) "The February value is the sum of the polarized amounts for the period")))
+    (is (= 2001M january) "The January value is the sum of polarized amounts for the period")
+    (is (= 2202M february) "The February value is the sum of the polarized amounts for the period")))
 
 (deftest get-a-balance-as-of
   (let [context (serialization/realize storage-spec balance-delta-context)
@@ -1068,5 +1066,5 @@
         february (transactions/balance-as-of storage-spec
                                             (:id checking)
                                             (t/local-date 2016 2 29))]
-    (is (= (bigdec 2001) january) "The January value is the balance for the last item in the period")
-    (is (= (bigdec 4203) february) "The February value is the balance for the last item in the period")))
+    (is (= 2001M january) "The January value is the balance for the last item in the period")
+    (is (= 4203M february) "The February value is the balance for the last item in the period")))

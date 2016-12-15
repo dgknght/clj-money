@@ -189,7 +189,7 @@
   [context]
   {:account-id (-> context :accounts second :id)
    :budget-id (-> context :budgets first :id)
-   :periods (mapv #(hash-map :amount (bigdec 700)
+   :periods (mapv #(hash-map :amount 700M
                              :index %)
                   (range 12))})
 
@@ -240,7 +240,7 @@
         attributes (-> context
                        budget-item-attributes
                        (update-in [:periods] #(conj % {:index 12
-                                                       :amount (bigdec 1)})))
+                                                       :amount 1M})))
         item (budgets/create-item storage-spec attributes)]
     (assert-validation-error
       :periods
@@ -263,9 +263,9 @@
              :period-count 12
              :start-date (t/local-date 2017 1 1)
              :items [{:account-id "Salary"
-                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 (bigdec 2000)))}
+                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 2000M))}
                      {:account-id "Rent"
-                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 (bigdec 850)))}]}]})
+                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 850M))}]}]})
 
 (deftest update-a-budget-item
   (let [context (serialization/realize storage-spec update-budget-item-context)
@@ -275,7 +275,7 @@
                          :items
                          (filter #(= (:id rent) (:account-id %)))
                          first)
-        updated (assoc-in budget-item [:periods 0 :amount] (bigdec 950))
+        updated (assoc-in budget-item [:periods 0 :amount] 950M)
         result (budgets/update-item storage-spec updated)
         retrieved (->> budget
                        (budgets/reload storage-spec)
@@ -283,8 +283,8 @@
                        (filter #(= (:id rent) (:account-id %)))
                        first)]
     (is (validation/valid? result) "The item is valid for update")
-    (is (= (map bigdec [950 850 850]) (->> result :periods (take 3) (map :amount))) "The returned value contains the updates")
-    (is (= (map bigdec [950 850 850]) (->> retrieved :periods (take 3) (map :amount))) "The retreived value contains the updates")))
+    (is (= [950M 850M 850M] (->> result :periods (take 3) (map :amount))) "The returned value contains the updates")
+    (is (= [950M 850M 850M] (->> retrieved :periods (take 3) (map :amount))) "The retreived value contains the updates")))
 
 ;; Periods
 

@@ -240,15 +240,15 @@
 
 (deftest polarize-an-amount
   ; Debits
-  (test-amount-polarization :asset     :debit (bigdec 100) (bigdec  100) "A debit in an asset account increases the balance")
-  (test-amount-polarization :expense   :debit (bigdec 100) (bigdec  100) "A debit in an expense account increases the balance")
-  (test-amount-polarization :liability :debit (bigdec 100) (bigdec -100) "A debit in an liability account decreases the balance")
-  (test-amount-polarization :equity    :debit (bigdec 100) (bigdec -100) "A debit in an equity account decreases the balance")
-  (test-amount-polarization :income    :debit (bigdec 100) (bigdec -100) "A debit in an income account decreases the balance")
+  (test-amount-polarization :asset     :debit 100M  100M "A debit in an asset account increases the balance")
+  (test-amount-polarization :expense   :debit 100M  100M "A debit in an expense account increases the balance")
+  (test-amount-polarization :liability :debit 100M -100M "A debit in an liability account decreases the balance")
+  (test-amount-polarization :equity    :debit 100M -100M "A debit in an equity account decreases the balance")
+  (test-amount-polarization :income    :debit 100M -100M "A debit in an income account decreases the balance")
 
   ;; Credits
-  (test-amount-polarization :asset     :credit (bigdec 100) (bigdec -100) "A credit in an asset account decreases the balance")
-  (test-amount-polarization :expense   :credit (bigdec 100) (bigdec -100) "A credit in an expense account dereases the balance")
-  (test-amount-polarization :liability :credit (bigdec 100) (bigdec  100) "A credit in an liability account increases the balance")
-  (test-amount-polarization :equity    :credit (bigdec 100) (bigdec  100) "A credit in an equity account increases the balance")
-  (test-amount-polarization :income    :credit (bigdec 100) (bigdec  100) "A credit in an income account increases the balance"))
+  (test-amount-polarization :asset     :credit 100M -100M "A credit in an asset account decreases the balance")
+  (test-amount-polarization :expense   :credit 100M -100M "A credit in an expense account dereases the balance")
+  (test-amount-polarization :liability :credit 100M  100M "A credit in an liability account increases the balance")
+  (test-amount-polarization :equity    :credit 100M  100M "A credit in an equity account increases the balance")
+  (test-amount-polarization :income    :credit 100M  100M "A credit in an income account increases the balance"))

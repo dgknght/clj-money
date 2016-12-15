@@ -20,7 +20,7 @@
         "The date is parsed correctly")))
 
 (deftest format-a-number
-  (is (= "1,234.56" (format-number (bigdec "1234.56")))
+  (is (= "1,234.56" (format-number 1234.56M))
       "The default format uses a comma, no currency symbol, and 2 decimal places")
-  (is (= "1234.56" (format-number (bigdec "1234.56") {:format :no-comma}))
+  (is (= "1234.56" (format-number 1234.56 {:format :no-comma}))
       "The :no-comma format uses 2 decimal places, no comma, and no currency symbol"))

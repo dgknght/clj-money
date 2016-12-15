@@ -16,9 +16,7 @@
 
 (defn- ->budget-item-periods
   [amounts]
-  (->> amounts
-       (map bigdec)
-       (map-indexed #(hash-map :index %1 :amount %2))))
+  (map-indexed #(hash-map :index %1 :amount %2) amounts))
 
 (def budget-context
   {:users [(factory :user)]
@@ -38,13 +36,13 @@
               :period-count 12
               :start-date (t/local-date 2017 1 1)
               :items [{:account-id "Salary"
-                       :periods (->budget-item-periods (repeat 12 2000))}
+                       :periods (->budget-item-periods (repeat 12 2000M))}
                       {:account-id "Bonus"
-                       :periods (->budget-item-periods [0 0 1000 0 0 0 0 0 0 0 0 0])}
+                       :periods (->budget-item-periods [0M 0M 1000M 0M 0M 0M 0M 0M 0M 0M 0M 0M])}
                       {:account-id "Rent"
-                       :periods (->budget-item-periods (repeat 12 800))}
+                       :periods (->budget-item-periods (repeat 12 800M))}
                       {:account-id "Groceries"
-                       :periods (->budget-item-periods (repeat 12 200))}]}]})
+                       :periods (->budget-item-periods (repeat 12 200M))}]}]})
 
 (deftest prepare-budget-for-display
   (let [context (serialization/realize storage-spec budget-context)
@@ -57,102 +55,102 @@
                   :start-date (t/local-date 2017 1 1)
                   :items [{:caption "Income"
                            :style :header
-                           :data [{:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 3000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}]}
+                           :data [{:value 2000M}
+                                  {:value 2000M}
+                                  {:value 3000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}]}
                           {:caption "Bonus"
                            :style :data
-                           :data [{:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}
-                                  {:value (bigdec 0)}]}
+                           :data [{:value 0M}
+                                  {:value 0M}
+                                  {:value 1000M}
+                                  {:value 0M}
+                                  {:value 0M}
+                                  {:value 0M}
+                                  {:value 0M}
+                                  {:value 0M}
+                                  {:value 0M}
+                                  {:value 0M}
+                                  {:value 0M}
+                                  {:value 0M}]}
                           {:caption "Salary"
                            :style :data
-                           :data [{:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 2000)}]}
+                           :data [{:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}
+                                  {:value 2000M}]}
                           {:caption "Expense"
                            :style :header
-                           :data [{:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}]}
+                           :data [{:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}]}
                           {:caption "Groceries"
                            :style :data
-                           :data [{:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}
-                                  {:value (bigdec 200)}]}
+                           :data [{:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}
+                                  {:value 200M}]}
                           {:caption "Rent"
                            :style :data
-                           :data [{:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}
-                                  {:value (bigdec 800)}]}
+                           :data [{:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}
+                                  {:value 800M}]}
                           {:caption "Net"
                            :style :summary
-                           :data [{:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 2000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}
-                                  {:value (bigdec 1000)}]}]}]
+                           :data [{:value 1000M}
+                                  {:value 1000M}
+                                  {:value 2000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}
+                                  {:value 1000M}]}]}]
     (is (= expected actual))))
 
 (deftest get-a-budget-period-label

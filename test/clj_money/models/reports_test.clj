@@ -45,152 +45,152 @@
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 724)}
+                            :amount 724M}
                            {:action :debit
                             :account-id "FIT"
-                            :amount (bigdec 200)}
+                            :amount 200M}
                            {:action :debit
                             :account-id "Social Security"
-                            :amount (bigdec 62)}
+                            :amount 62M}
                            {:action :debit
                             :account-id "Medicare"
-                            :amount (bigdec 15)}
+                            :amount 15M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1001)}]}
+                            :amount 1001M}]}
                   {:transaction-date (t/local-date 2016 1 15)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 725)}
+                            :amount 725M}
                            {:action :debit
                             :account-id "FIT"
-                            :amount (bigdec 200)}
+                            :amount 200M}
                            {:action :debit
                             :account-id "Social Security"
-                            :amount (bigdec 62)}
+                            :amount 62M}
                            {:action :debit
                             :account-id "Medicare"
-                            :amount (bigdec 15)}
+                            :amount 15M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1002)}]}
+                            :amount 1002M}]}
                   {:transaction-date (t/local-date 2016 2 1)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 726)}
+                            :amount 726M}
                            {:action :debit
                             :account-id "FIT"
-                            :amount (bigdec 200)}
+                            :amount 200M}
                            {:action :debit
                             :account-id "Social Security"
-                            :amount (bigdec 62)}
+                            :amount 62M}
                            {:action :debit
                             :account-id "Medicare"
-                            :amount (bigdec 15)}
+                            :amount 15M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1003)}]}
+                            :amount 1003M}]}
                   {:transaction-date (t/local-date 2016 2 15)
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount (bigdec 1004)}
+                            :amount 1004M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount (bigdec 1004)}]}
+                            :amount 1004M}]}
 
                   ; groceries
                   {:transaction-date (t/local-date 2016 1 3)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 100)}
+                            :amount 100M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
+                            :amount 100M}]}
                   {:transaction-date (t/local-date 2016 1 10)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 100)}
+                            :amount 100M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
+                            :amount 100M}]}
                   {:transaction-date (t/local-date 2016 1 17)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 100)}
+                            :amount 100M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
+                            :amount 100M}]}
                   {:transaction-date (t/local-date 2016 1 24)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 100)}
+                            :amount 100M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
+                            :amount 100M}]}
                   {:transaction-date (t/local-date 2016 1 31)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 100)}
+                            :amount 100M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
+                            :amount 100M}]}
                   {:transaction-date (t/local-date 2016 2 7)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 101)}
+                            :amount 101M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
+                            :amount 101M}]}
                   {:transaction-date (t/local-date 2016 2 14)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 101)}
+                            :amount 101M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
+                            :amount 101M}]}
                   {:transaction-date (t/local-date 2016 2 21)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 101)}
+                            :amount 101M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
+                            :amount 101M}]}
                   {:transaction-date (t/local-date 2016 2 28)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount (bigdec 101)}
+                            :amount 101M}
                            {:action :credit
                             :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
+                            :amount 101M}]}
                   ; rent
                   {:transaction-date (t/local-date 2016 1 4)
                    :description "Landlord"
                    :items [{:action :debit
                             :account-id "Rent"
-                            :amount (bigdec 700)}
+                            :amount 700M}
                            {:action :credit
                             :account-id "Checking"
-                            :amount (bigdec 700)}]}
+                            :amount 700M}]}
                   {:transaction-date (t/local-date 2016 2 4)
                    :description "Landlord"
                    :items [{:action :debit
                              :account-id "Rent"
-                             :amount (bigdec 700)}
+                             :amount 700M}
                            {:action :credit
                              :account-id "Checking"
-                             :amount (bigdec 700)}]}]})
+                             :amount 700M}]}]})
 
 (deftest create-an-income-statement
   (let [context (serialization/realize storage-spec income-statement-context)
@@ -199,41 +199,41 @@
                                                   (t/local-date 2016 1 1)
                                                   (t/local-date 2016 1 31)))
         expected [{:caption "Income"
-                   :value (bigdec 2003)
+                   :value 2003M
                    :style :header}
                   {:caption "Salary"
-                   :value (bigdec 2003)
+                   :value 2003M
                    :style :data
                    :depth 0}
                   {:caption "Expense"
-                   :value (bigdec 1754)
+                   :value 1754M
                    :style :header}
                   {:caption "Groceries"
-                   :value (bigdec 500)
+                   :value 500M
                    :style :data
                    :depth 0}
                   {:caption "Rent"
-                   :value (bigdec 700)
+                   :value 700M
                    :style :data
                    :depth 0}
                   {:caption "Taxes"
-                   :value (bigdec 554)
+                   :value 554M
                    :style :data
                    :depth 0}
                   {:caption "FIT"
-                   :value (bigdec 400)
+                   :value 400M
                    :style :data
                    :depth 1}
                   {:caption "Medicare"
-                   :value (bigdec 30)
+                   :value 30M
                    :style :data
                    :depth 1}
                   {:caption "Social Security"
-                   :value (bigdec 124)
+                   :value 124M
                    :style :data
                    :depth 1}
                   {:caption "Net"
-                   :value (bigdec 249)
+                   :value 249M
                    :style :summary}]]
     (is (= expected actual) "The report renders the corect data")))
 
@@ -243,24 +243,24 @@
                                       (-> context :entities first :id)
                                       (t/local-date 2016 1 31))
         expected [{:caption "Asset"
-                   :value (bigdec 749)
+                   :value 749M
                    :style :header}
                   {:caption "Checking"
-                   :value (bigdec 749)
+                   :value 749M
                    :style :data
                    :depth 0}
                   {:caption "Liability"
-                   :value (bigdec 500)
+                   :value 500M
                    :style :header}
                   {:caption "Credit Card"
-                   :value (bigdec 500)
+                   :value 500M
                    :style :data
                    :depth 0}
                   {:caption "Equity"
-                   :value (bigdec 249)
+                   :value 249M
                    :style :header}
                   {:caption "Retained Earnings"
-                   :value (bigdec 249)
+                   :value 249M
                    :style :data
                    :depth 0}]]
     (is (= expected actual) "The rpoert renders the correct data")))

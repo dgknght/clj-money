@@ -62,14 +62,14 @@
                    :description "Paycheck"
                    :entity-id entity-id
                    :items [{:account-id (:id checking)
-                            :amount (bigdec 1000)
+                            :amount 1000M
                             :action :debit
-                            :balance (bigdec 1000)
+                            :balance 1000M
                             :index 0}
                            {:account-id (:id salary)
-                            :amount (bigdec 1000)
+                            :amount 1000M
                             :action :credit
-                            :balance (bigdec 1000)
+                            :balance 1000M
                             :index 0}]}]]
     (is (= expected actual) "The transaction should be retrievable")))
 
@@ -79,10 +79,10 @@
                           :description "Paycheck"
                           :items [{:action :debit
                                    :account-id "Checking"
-                                   :amount (bigdec 1000)}
+                                   :amount 1000M}
                                   {:action :credit
                                    :account-id "Salary"
-                                   :amount (bigdec 1000)}]}]}))
+                                   :amount 1000M}]}]}))
 
 (deftest update-a-transaction
   (let [context (serialization/realize storage-spec update-context)
@@ -115,18 +115,18 @@
             :entity-id (-> context :entities first :id)
             :items [{:action :debit
                      :account-id (:id checking)
-                     :amount (bigdec 1001)
-                     :balance (bigdec 1001)
+                     :amount 1001M
+                     :balance 1001M
                      :index 0}
                     {:action :credit
                      :account-id (:id salary)
-                     :amount (bigdec 901)
-                     :balance (bigdec 901)
+                     :amount 901M
+                     :balance 901M
                      :index 0}
                     {:action :credit
                      :account-id (:id bonus)
-                     :amount (bigdec 100)
-                     :balance (bigdec 100)
+                     :amount 100M
+                     :balance 100M
                      :index 0}]}]
 
     (when (not= expected actual)
