@@ -5,12 +5,16 @@
   (:import java.text.DecimalFormat
            org.joda.time.format.DateTimeFormat))
 
-(def NumberFormat (DecimalFormat. "#,##0.00"))
+(def number-formats
+  {:standard (DecimalFormat. "#,##0.00")
+   :no-comma (DecimalFormat. "0.00")})
 
 (defn format-number
   "Format a number with 2 decimal places and groups separated with commas"
-  [value]
-  (.format NumberFormat value))
+  ([value] (format-number value {}))
+  ([value options]
+   (.format (number-formats (or (:format options) :standard))
+            value)))
 
 (def DateFormat (DateTimeFormat/forPattern "M/d/y"))
 
