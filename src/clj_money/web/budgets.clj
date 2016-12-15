@@ -438,7 +438,7 @@
                            (map #(% item))
                            (map bigdec)
                            (map-indexed #(hash-map :index %1 :amount %2))))
-      (select-keys [:budget-id :account-id :periods])))
+      (select-keys [:id :budget-id :account-id :periods])))
 
 (defn create-item
   "Creates an budget item"
