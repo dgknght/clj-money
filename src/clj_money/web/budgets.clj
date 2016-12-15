@@ -356,8 +356,9 @@
   [:div.form-group
    [:label.control-label (period-label budget (:index period))]
    [:input.form-control {:type :number
+                         :step "0.01"
                          :name (format "period-%s" (:index period))
-                         :value (:amount period)}]])
+                         :value (format-number (:amount period) {:format :no-comma})}]])
 
 (defn- period-input-group
   [budget periods]
@@ -374,7 +375,9 @@
     [:div.row
      [:div.col-md-8
       (map #(period-input-group budget %)
-           (or (:periods item)
+           (or (->> item
+                    :periods
+                    (partition 3))
                (->> budget
                     :period-count
                     range
