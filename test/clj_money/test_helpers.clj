@@ -99,3 +99,7 @@
   (map #(update-in % [:accounts] (fn [accounts]
                                    (simplify-accounts accounts additional-attributes)))
        groups)))
+
+(defn ->budget-item-periods
+  [amounts]
+  (map-indexed #(hash-map :index %1 :amount %2) amounts))

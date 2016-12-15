@@ -8,15 +8,11 @@
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
             [clj-money.web.budgets :as budgets]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db ->budget-item-periods]]))
 
 (def storage-spec (env :db))
 
 (use-fixtures :each (partial reset-db storage-spec))
-
-(defn- ->budget-item-periods
-  [amounts]
-  (map-indexed #(hash-map :index %1 :amount %2) amounts))
 
 (def budget-context
   {:users [(factory :user)]
