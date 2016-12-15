@@ -149,3 +149,8 @@
         (into [])
         (set-balances-in-account-groups storage-spec as-of)
         transform-balance-sheet)))
+
+(defn budget
+  "Returns a budget report"
+  [storage-spec budget-id as-of]
+  )
