@@ -476,19 +476,47 @@
 (deftest create-a-budget-report
   (let [context (serialization/realize storage-spec budget-report-context)
         actual (reports/budget storage-spec (-> context :budgets first :id) (t/local-date 2016 2 29))
-        expected {:name "2016"
-                  :start-date (t/local-date 2016 1 1)
-                  :period :month
-                  :period-count 12
-                  :items [{:account-id "Salary"
+        expected {:title "2016"
+                  :items [{:caption "Income"
+                           :style :header
                            :budget 4000M
                            :actual 4010M
                            :difference 10M
                            :percent-difference 0.0025M
+                           :actual-per-month 2005M}
+                          {:caption "Salary"
+                           :style :data
+                           :budget 4000M
+                           :actual 4010M
+                           :difference 10M
+                           :percent-difference 0.0025M
+                           :actual-per-month 2005M}
+                          {:caption "Expense"
+                           :style :header
+                           :budget 0M
+                           :actual 0M
+                           :difference 0M
+                           :percent-difference 0M
+                           :actual-per-month 0M}
+                          {:caption "Groceries"
+                           :style :data
+                           :budget 900M
+                           :actual 904M
+                           :difference -4M
+                           :percent-difference 0.0044M
                            :actual-per-month 2005M}]}]
     
-    (pprint {:expected expected
+    #_(pprint {:expected expected
              :actual actual
              :diff (diff expected actual)})
     
     (is (= expected actual) "The function products the correct data")))
+
+; TODO
+; create a budget report with nesting levels rolled up
+; e.g.
+; instead of:
+; Entertainment/Drinks 100 110 -10
+; Entertainment/Movies  80  75   5
+; it would be:
+; Entertainment        180 185  -5

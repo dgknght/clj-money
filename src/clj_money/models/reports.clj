@@ -1,9 +1,12 @@
 (ns clj-money.models.reports
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.inflection :refer [humanize]]
+            [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]))
 
 (declare set-balance-deltas)
@@ -150,7 +153,33 @@
         (set-balances-in-account-groups storage-spec as-of)
         transform-balance-sheet)))
 
+(defn- ->budget-report-record
+  [storage budget as-of account]
+  (let [item (->> (:items budget)
+                  (filter #(= (:id account) (:account-id %)))
+                  first)
+        budget-amount (if item
+                        (reduce + (map :amount (:periods item)))
+                        0M) ; TODO only total the periods up to and including the as-of date
+        actual-amount (transactions/balance-delta storage (:id account) (:start-date budget) as-of)]
+    {:caption (:name account)
+     :style :data
+     :budget budget-amount
+     :actual actual-amount
+     :difference (if (accounts/left-side? account)
+                   (- budget-amount actual-amount)
+                   (- actual-amount budget-amount))}))
+
 (defn budget
   "Returns a budget report"
   [storage-spec budget-id as-of]
-  )
+  (with-storage [s storage-spec]
+    (let [budget (budgets/find-by-id s budget-id)
+          items (->> (accounts/select-by-entity-id s
+                                                   (:entity-id budget)
+                                                   {:include #{:income :expense}})
+                     (map #(->budget-report-record s budget as-of %)))]
+      (-> budget
+          (assoc :items items)
+          (rename-keys {:name :title})
+          (select-keys [:items :title])))))
