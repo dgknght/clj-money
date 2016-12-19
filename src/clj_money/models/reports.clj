@@ -159,27 +159,41 @@
                   (filter #(= (:id account) (:account-id %)))
                   first)
         budget-amount (if item
-                        (reduce + (->> item
-                                       :periods
-                                       (take period-count)
-                                       (map :amount)))
+                        (reduce + 0M (->> item
+                                          :periods
+                                          (take period-count)
+                                          (map :amount)))
                         0M) ; TODO only total the periods up to and including the as-of date
-        actual-amount (transactions/balance-delta storage (:id account) (:start-date budget) as-of)]
-    {:caption (:name account)
-     :style :data
-     :budget budget-amount
-     :actual actual-amount
-     :difference (if (accounts/left-side? account)
-                   (- budget-amount actual-amount)
-                   (- actual-amount budget-amount))}))
+        actual-amount (transactions/balance-delta storage (:id account)
+                                                  (:start-date budget)
+                                                  as-of)
+        difference (if (accounts/left-side? account)
+                     (- budget-amount actual-amount)
+                     (- actual-amount budget-amount))]
+    (with-precision 10
+      {:caption (:name account)
+       :style :data
+       :budget budget-amount
+       :actual actual-amount
+       :difference difference
+       :percent-difference (when (not= 0M budget-amount)
+                             (/ difference budget-amount)) 
+       :actual-per-period (/ actual-amount period-count)})))
 
 (defn- budget-group-header
-  [account-type records]
-  {:caption account-type
-   :style :header
-   :budget (reduce + (map :budget records))
-   :actual (reduce + (map :actual records))
-   :difference (reduce + (map :difference records))})
+  [period-count account-type records]
+  (let [budget (reduce + (map :budget records))
+        actual (reduce + (map :actual records))
+        difference (reduce + (map :difference records))]
+    (with-precision 10
+      {:caption (humanize account-type)
+       :style :header
+       :budget budget
+       :actual actual
+       :difference difference
+       :percent-difference (when (not= budget 0)
+                             (/ difference budget))
+       :actual-per-period  (/ actual period-count)})))
 
 (defn- process-budget-group
   [storage budget as-of [account-type items]]
@@ -188,7 +202,7 @@
                      (map #(->budget-report-record storage budget period-count as-of %))
                      (sort-by :difference))]
     (conj records
-          (budget-group-header account-type records))))
+          (budget-group-header period-count account-type records))))
 
 (defn budget
   "Returns a budget report"
