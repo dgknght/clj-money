@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
+            [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [schema.core :as schema]
             [clj-money.validation :as validation]
@@ -16,7 +17,9 @@
                                               select-budgets-by-entity-id
                                               select-budget-items-by-budget-id
                                               delete-budget]])
-  (:import org.joda.time.LocalDate))
+  (:import (org.joda.time LocalDate
+                          Months
+                          Weeks)))
 
 (def BudgetBase
   {:name schema/Str
@@ -251,3 +254,33 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-budget s id)))
+
+(defmulti end-date
+  #(:period %))
+
+(defmethod end-date :month
+  [{:keys [start-date period-count]}]
+  (.minusDays (.plusMonths start-date period-count) 1))
+
+(defmethod end-date :week
+  [{:keys [start-date period-count]}]
+  (.minusDays (.plusWeeks start-date period-count) 1))
+
+(defmulti period-containing
+  (fn [budget _]
+    (:period budget)))
+
+(defn contains-date?
+  [budget date]
+  (and (>= 0 (compare (:start-date budget) date))
+       (<= 0 (compare (end-date budget) date))))
+
+(defmethod period-containing :month
+  [{:keys [start-date period-count] :as budget} date]
+  (when (contains-date? budget date)
+    (.getMonths (Months/monthsBetween start-date date))))
+
+(defmethod period-containing :week
+  [budget date]
+  (when (contains-date? budget date)
+    (.getWeeks (Weeks/weeksBetween (:start-date budget) date))))
