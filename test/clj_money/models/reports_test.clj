@@ -506,6 +506,8 @@
                            :percent-difference 0.0044M
                            :actual-per-month 2005M}]}]
     
+    #_(pprint {:result actual})
+
     #_(pprint {:expected expected
              :actual actual
              :diff (diff expected actual)})

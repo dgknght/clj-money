@@ -154,12 +154,15 @@
         transform-balance-sheet)))
 
 (defn- ->budget-report-record
-  [storage budget as-of account]
+  [storage budget period-count as-of account]
   (let [item (->> (:items budget)
                   (filter #(= (:id account) (:account-id %)))
                   first)
         budget-amount (if item
-                        (reduce + (map :amount (:periods item)))
+                        (reduce + (->> item
+                                       :periods
+                                       (take period-count)
+                                       (map :amount)))
                         0M) ; TODO only total the periods up to and including the as-of date
         actual-amount (transactions/balance-delta storage (:id account) (:start-date budget) as-of)]
     {:caption (:name account)
@@ -180,8 +183,9 @@
 
 (defn- process-budget-group
   [storage budget as-of [account-type items]]
-  (let [records (->> items
-                     (map #(->budget-report-record storage budget as-of %))
+  (let [period-count (+ 1 (budgets/period-containing budget as-of))
+        records (->> items
+                     (map #(->budget-report-record storage budget period-count as-of %))
                      (sort-by :difference))]
     (conj records
           (budget-group-header account-type records))))
