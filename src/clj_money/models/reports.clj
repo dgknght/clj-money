@@ -170,6 +170,22 @@
                    (- budget-amount actual-amount)
                    (- actual-amount budget-amount))}))
 
+(defn- budget-group-header
+  [account-type records]
+  {:caption account-type
+   :style :header
+   :budget (reduce + (map :budget records))
+   :actual (reduce + (map :actual records))
+   :difference (reduce + (map :difference records))})
+
+(defn- process-budget-group
+  [storage budget as-of [account-type items]]
+  (let [records (->> items
+                     (map #(->budget-report-record storage budget as-of %))
+                     (sort-by :difference))]
+    (conj records
+          (budget-group-header account-type records))))
+
 (defn budget
   "Returns a budget report"
   [storage-spec budget-id as-of]
@@ -178,7 +194,8 @@
           items (->> (accounts/select-by-entity-id s
                                                    (:entity-id budget)
                                                    {:include #{:income :expense}})
-                     (map #(->budget-report-record s budget as-of %)))]
+                     (group-by :type)
+                     (mapcat #(process-budget-group s budget as-of %)))]
       (-> budget
           (assoc :items items)
           (rename-keys {:name :title})
