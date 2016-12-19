@@ -503,7 +503,7 @@
                            :budget 900M
                            :actual 904M
                            :difference -4M
-                           :percent-difference 0.00444444444M
+                           :percent-difference -0.004444444444M
                            :actual-per-period 452M}
                           {:caption "Rent"
                            :style :data
@@ -511,7 +511,7 @@
                            :actual 1400M
                            :difference 0M
                            :percent-difference 0M
-                           :actual-per-period 1400M}
+                           :actual-per-period 700M}
                           {:caption "Medicare"
                            :style :data
                            :budget 60M
@@ -524,7 +524,7 @@
                            :budget 268M
                            :actual 186M
                            :difference 82M
-                           :percent-difference 0.30M
+                           :percent-difference 0.3059701493M
                            :actual-per-period 93M}
                           {:caption "FIT"
                            :style :data
@@ -539,13 +539,19 @@
                            :actual 0M
                            :difference 400M
                            :percent-difference 1M
-                           :actual-per-period 0M}]}]
+                           :actual-per-period 0M}
+                          {:caption "Net"
+                           :style :summary
+                           :budget 178M
+                           :actual 875M
+                           :difference 697M
+                           :percent-difference 3.91573033M
+                           :actual-per-period 437.50M}]}]
 
-    (pprint {:expected expected
-             :actual actual
-             :diff (diff expected actual)})
+    (when (not= expected actual)
+      (pprint {:diff (diff expected actual)}))
     
-    #_(is (= expected actual) "The function products the correct data")))
+    (is (= expected actual) "The function products the correct data")))
 
 ; TODO
 ; create a budget report with nesting levels rolled up
