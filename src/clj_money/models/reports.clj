@@ -211,8 +211,9 @@
     (let [budget (budgets/find-by-id s budget-id)
           items (->> (accounts/select-by-entity-id s
                                                    (:entity-id budget)
-                                                   {:include #{:income :expense}})
+                                                   {:types #{:income :expense}})
                      (group-by :type)
+                     (sort-by  #(.indexOf [:income :expense] (first %)))
                      (mapcat #(process-budget-group s budget as-of %)))]
       (-> budget
           (assoc :items items)
