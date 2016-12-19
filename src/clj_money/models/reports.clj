@@ -214,7 +214,8 @@
                                                    {:types #{:income :expense}})
                      (group-by :type)
                      (sort-by  #(.indexOf [:income :expense] (first %)))
-                     (mapcat #(process-budget-group s budget as-of %)))]
+                     (mapcat #(process-budget-group s budget as-of %))
+                     (remove #(= 0M (:actual %) (:budget %))))]
       (-> budget
           (assoc :items items)
           (rename-keys {:name :title})
