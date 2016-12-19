@@ -493,9 +493,9 @@
                            :actual-per-month 2005M}
                           {:caption "Expense"
                            :style :header
-                           :budget 0M
-                           :actual 0M
-                           :difference 0M
+                           :budget 3828M
+                           :actual 3135M
+                           :difference 693M
                            :percent-difference 0M
                            :actual-per-month 0M}
                           {:caption "Groceries"
@@ -504,7 +504,42 @@
                            :actual 904M
                            :difference -4M
                            :percent-difference 0.0044M
-                           :actual-per-month 2005M}]}]
+                           :actual-per-month 2005M}
+                          {:caption "Rent"
+                           :style :data
+                           :budget 1400M
+                           :actual 1400M
+                           :difference 0M
+                           :percent-difference 0M
+                           :actual-per-month 1400M}
+                          {:caption "Medicare"
+                           :style :data
+                           :budget 60M
+                           :actual 45M
+                           :difference 15M
+                           :percent-difference 0.25M
+                           :actual-per-month 22.5M}
+                          {:caption "Social Security"
+                           :style :data
+                           :budget 268M
+                           :actual 186M
+                           :difference 82M
+                           :percent-difference 0.30M
+                           :actual-per-month 93M}
+                          {:caption "FIT"
+                           :style :data
+                           :budget 800M
+                           :actual 600M
+                           :difference 200M
+                           :percent-difference 0.25M
+                           :actual-per-month 300M}
+                          {:caption "Dining"
+                           :style :data
+                           :budget 400M
+                           :actual 0M
+                           :difference 400M
+                           :percent-difference 1M
+                           :actual-per-month 0M}]}]
     
     #_(pprint {:result actual})
 
