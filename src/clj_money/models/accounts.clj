@@ -164,7 +164,7 @@
   ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
   ([storage-spec entity-id options]
    (with-storage [s storage-spec]
-     (let [types (or (:include options)
+     (let [types (or (:types options)
                      (set account-types))]
        (->> (select-accounts-by-entity-id s entity-id)
             (map prepare-for-return)
