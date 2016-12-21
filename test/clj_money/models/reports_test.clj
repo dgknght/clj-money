@@ -542,15 +542,13 @@
                            :actual-per-period 0M}
                           {:caption "Net"
                            :style :summary
-                           :budget 178M
+                           :budget 172M
                            :actual 875M
-                           :difference 697M
-                           :percent-difference 3.91573033M
+                           :difference 703M
+                           :percent-difference 4.087209302M
                            :actual-per-period 437.50M}]}]
-
     (when (not= expected actual)
       (pprint {:diff (diff expected actual)}))
-    
     (is (= expected actual) "The function products the correct data")))
 
 ; TODO
