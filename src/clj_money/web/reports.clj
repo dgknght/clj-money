@@ -10,6 +10,7 @@
                                     format-date
                                     parse-date]]
             [clj-money.web.shared :refer :all]
+            [clj-money.models.budgets :as budgets]
             [clj-money.models.reports :as reports]))
 
 (defmulti render-report
@@ -57,6 +58,23 @@
                                           entity-id
                                           as-of))])
 
+(defn- budget-report-row
+  [record]
+  [:tr
+   [:td (:caption record)]])
+
+(defmethod render-report :budget
+  [{:keys [entity-id budget-id as-of] :as params}]
+  [:table.table.table-striped
+   (let [budget (if budget-id
+                  (budgets/find-by-id (env :db) budget-id)
+                  (first (budgets/select-by-entity-id (env :db) entity-id))) ; TODO find the current budget
+         as-of (or as-of
+                   (budgets/end-date budget))] ; TODO this is returning an incorrect value
+     (map budget-report-row (reports/budget (env :db)
+                                            budget
+                                            as-of)))])
+
 (defmulti render-filter
   (fn [params]
     (:type params)))
@@ -86,6 +104,16 @@
                                      :value (format-date (:as-of params))}]]
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
+(defmethod render-filter :budget
+  [params]
+  [:form {:action "#" :method :get}
+   [:div.form-group
+    [:label.control-label {:for :as-of} "As of"]
+    [:input.form-control.date-field {:type :text
+                                     :name :as-of
+                                     :value (format-date (:as-of params))}]]
+   [:input.btn.btn-primary {:type :submit :value "Show"}]])
+
 (defn render
   [params]
   (let [params (-> params
@@ -106,7 +134,10 @@
                       :url (format "/entities/%s/reports/income-statement" (:entity-id params))}
                      {:id :balance-sheet
                       :caption "Balance Sheet"
-                      :url (format "/entities/%s/reports/balance-sheet" (:entity-id params))}]
+                      :url (format "/entities/%s/reports/balance-sheet" (:entity-id params))}
+                     {:id :budget
+                      :caption "Budget"
+                      :url (format "/entities/%s/reports/budget" (:entity-id params))}]
                     (:type params))]]
       [:div.row
        [:div.col-md-4.col-md-offset-1
