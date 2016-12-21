@@ -230,9 +230,11 @@
 
 (defn budget
   "Returns a budget report"
-  [storage-spec budget-id as-of]
+  [storage-spec budget-or-id as-of]
   (with-storage [s storage-spec]
-    (let [budget (budgets/find-by-id s budget-id)
+    (let [budget (if (map? budget-or-id)
+                   budget-or-id
+                   (budgets/find-by-id s budget-or-id))
           period-count (+ 1 (budgets/period-containing budget as-of))
           items (->> (accounts/select-by-entity-id s
                                                    (:entity-id budget)
