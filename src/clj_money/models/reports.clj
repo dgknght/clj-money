@@ -196,26 +196,52 @@
        :actual-per-period  (/ actual period-count)})))
 
 (defn- process-budget-group
-  [storage budget as-of [account-type items]]
-  (let [period-count (+ 1 (budgets/period-containing budget as-of))
-        records (->> items
+  [storage budget period-count as-of [account-type items]]
+  (let [records (->> items
                      (map #(->budget-report-record storage budget period-count as-of %))
                      (sort-by :difference))]
     (conj records
           (budget-group-header period-count account-type records))))
+
+(defn- append-summary
+  [period-count records]
+  (let [income (->> records
+                    (filter #(= "Income" (:caption %)))
+                    first)
+        expense (->> records
+                     (filter #(= "Expense" (:caption %)))
+                     first)
+        budget (->> [income expense]
+                    (map #(:budget %))
+                    (apply -))
+        actual (->> [income expense]
+                    (map #(:actual %))
+                    (apply -))
+        difference (- actual budget)]
+    (with-precision 10
+      (concat records [{:caption "Net"
+                        :style :summary
+                        :budget budget
+                        :actual actual
+                        :difference difference
+                        :percent-difference (when (not= 0M budget)
+                                              (/ difference budget))
+                        :actual-per-period (/ actual period-count)}]))))
 
 (defn budget
   "Returns a budget report"
   [storage-spec budget-id as-of]
   (with-storage [s storage-spec]
     (let [budget (budgets/find-by-id s budget-id)
+          period-count (+ 1 (budgets/period-containing budget as-of))
           items (->> (accounts/select-by-entity-id s
                                                    (:entity-id budget)
                                                    {:types #{:income :expense}})
                      (group-by :type)
                      (sort-by  #(.indexOf [:income :expense] (first %)))
-                     (mapcat #(process-budget-group s budget as-of %))
-                     (remove #(= 0M (:actual %) (:budget %))))]
+                     (mapcat #(process-budget-group s budget period-count as-of %))
+                     (remove #(= 0M (:actual %) (:budget %)))
+                     (append-summary period-count))]
       (-> budget
           (assoc :items items)
           (rename-keys {:name :title})
