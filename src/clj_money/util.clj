@@ -13,8 +13,9 @@
   "Format a number with 2 decimal places and groups separated with commas"
   ([value] (format-number value {}))
   ([value options]
-   (.format (number-formats (or (:format options) :standard))
-            value)))
+   (when value
+     (.format (number-formats (or (:format options) :standard))
+              value))))
 
 (def DateFormat (DateTimeFormat/forPattern "M/d/y"))
 
