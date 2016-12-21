@@ -113,8 +113,8 @@
     (text-input-field transaction
                       :transaction-date
                       {:autofocus true
-                       :class "date-field"}
-                      format-date)
+                       :class "date-field"
+                       :format-fn format-date})
     (text-input-field transaction :description)
     [:table.table.table-striped
      [:tr
