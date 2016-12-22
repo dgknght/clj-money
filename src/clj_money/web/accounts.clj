@@ -13,7 +13,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.schema :as schema]
-            [clj-money.web.money-shared :refer [account-options]])
+            [clj-money.web.money-shared :refer [account-options budget-monitors]])
   (:use [clj-money.web.shared :refer :all]))
 
 (defn- account-row
@@ -77,9 +77,8 @@
   ([entity-id] (index entity-id {}))
   ([entity-id options]
    (layout
-     "Accounts" options
-     [:div.row
-      [:div.col-md-6
+     "Accounts" (assoc options :side-bar (budget-monitors entity-id))
+     (html
        [:table.table.table-striped
         [:tr
          [:th.col-sm-6 "Name"]
@@ -90,7 +89,7 @@
        [:a.btn.btn-primary
         {:href (format "/entities/%s/accounts/new" entity-id)
          :title "Click here to add a new account."}
-        "Add"]]])))
+        "Add"]))))
 
 (defn- transaction-item-row
   [{:keys [transaction-id
@@ -130,9 +129,9 @@
   ([id options]
    (let [account (accounts/find-by-id (env :db) id)]
      (layout
-       (format "Account - %s" (:name account)) options
-       [:div.row
-        [:div.col-md-6
+       (format "Account - %s" (:name account))
+       (assoc options :side-bar (budget-monitors (:entity-id account)))
+       (html
          [:table.table.table-striped.table-hover
           [:tr
            [:th.text-right "Date"]
@@ -151,7 +150,7 @@
           "Add"]
          "&nbsp;"
          [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))}
-          "Back"]]]))))
+          "Back"])))))
 
 (defn- form-fields
   "Renders the form fields for an account"
