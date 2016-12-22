@@ -474,10 +474,10 @@
   [storage-spec account-id start end]
   (let [t1 (find-last-item-before storage-spec account-id (tc/to-long start))
         t2 (find-last-item-on-or-before storage-spec account-id (tc/to-long end))
-        prior-balance (if t1 (:balance t1) 0)]
+        prior-balance (if t1 (:balance t1) 0M)]
     (if t2
       (- (:balance t2) prior-balance)
-      0)))
+      0M)))
 
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
@@ -485,4 +485,4 @@
   (let [t (find-last-item-on-or-before storage-spec account-id (tc/to-long as-of))]
     (if t
       (:balance t)
-      (bigdec 0))))
+      0M)))

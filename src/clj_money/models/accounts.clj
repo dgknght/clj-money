@@ -161,10 +161,14 @@
 
 (defn select-by-entity-id
   "Returns a list of all accounts in the system"
-  [storage-spec entity-id]
-  (with-storage [s storage-spec]
-    (map prepare-for-return
-         (select-accounts-by-entity-id s entity-id))))
+  ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
+  ([storage-spec entity-id options]
+   (with-storage [s storage-spec]
+     (let [types (or (:types options)
+                     (set account-types))]
+       (->> (select-accounts-by-entity-id s entity-id)
+            (map prepare-for-return)
+            (filter #(types (:type %))))))))
 
 (defn- append-children
   [account all-accounts]
@@ -221,7 +225,7 @@
   (with-storage [s storage-spec]
     (delete-account s id)))
 
-(defn- left-side?
+(defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
   [account]
   (#{:asset :expense} (:type account)))

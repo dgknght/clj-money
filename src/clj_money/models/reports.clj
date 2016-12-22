@@ -1,9 +1,12 @@
 (ns clj-money.models.reports
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.inflection :refer [humanize]]
+            [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]))
 
 (declare set-balance-deltas)
@@ -149,3 +152,99 @@
         (into [])
         (set-balances-in-account-groups storage-spec as-of)
         transform-balance-sheet)))
+
+(defn- ->budget-report-record
+  [storage budget period-count as-of account]
+  (let [item (->> (:items budget)
+                  (filter #(= (:id account) (:account-id %)))
+                  first)
+        budget-amount (if item
+                        (reduce + 0M (->> item
+                                          :periods
+                                          (take period-count)
+                                          (map :amount)))
+                        0M) ; TODO only total the periods up to and including the as-of date
+        actual-amount (transactions/balance-delta storage (:id account)
+                                                  (:start-date budget)
+                                                  as-of)
+        difference (if (accounts/left-side? account)
+                     (- budget-amount actual-amount)
+                     (- actual-amount budget-amount))]
+    (with-precision 10
+      {:caption (:name account)
+       :style :data
+       :budget budget-amount
+       :actual actual-amount
+       :difference difference
+       :percent-difference (when (not= 0M budget-amount)
+                             (/ difference budget-amount)) 
+       :actual-per-period (/ actual-amount period-count)})))
+
+(defn- budget-group-header
+  [period-count account-type records]
+  (let [budget (reduce + (map :budget records))
+        actual (reduce + (map :actual records))
+        difference (reduce + (map :difference records))]
+    (with-precision 10
+      {:caption (humanize account-type)
+       :style :header
+       :budget budget
+       :actual actual
+       :difference difference
+       :percent-difference (when (not= budget 0)
+                             (/ difference budget))
+       :actual-per-period  (/ actual period-count)})))
+
+(defn- process-budget-group
+  [storage budget period-count as-of [account-type items]]
+  (let [records (->> items
+                     (map #(->budget-report-record storage budget period-count as-of %))
+                     (sort-by :difference))]
+    (conj records
+          (budget-group-header period-count account-type records))))
+
+(defn- append-summary
+  [period-count records]
+  (let [income (->> records
+                    (filter #(= "Income" (:caption %)))
+                    first)
+        expense (->> records
+                     (filter #(= "Expense" (:caption %)))
+                     first)
+        budget (->> [income expense]
+                    (map #(:budget %))
+                    (apply -))
+        actual (->> [income expense]
+                    (map #(:actual %))
+                    (apply -))
+        difference (- actual budget)]
+    (with-precision 10
+      (concat records [{:caption "Net"
+                        :style :summary
+                        :budget budget
+                        :actual actual
+                        :difference difference
+                        :percent-difference (when (not= 0M budget)
+                                              (/ difference budget))
+                        :actual-per-period (/ actual period-count)}]))))
+
+(defn budget
+  "Returns a budget report"
+  [storage-spec budget-or-id as-of]
+  (with-storage [s storage-spec]
+    (let [budget (if (map? budget-or-id)
+                   budget-or-id
+                   (budgets/find-by-id s budget-or-id))
+          period-count (+ 1 (budgets/period-containing budget as-of))
+          items (->> (accounts/select-by-entity-id s
+                                                   (:entity-id budget)
+                                                   {:types #{:income :expense}})
+                     (group-by :type)
+                     (sort-by  #(.indexOf [:income :expense] (first %)))
+                     (mapcat #(process-budget-group s budget period-count as-of %))
+                     (remove #(= 0M (:actual %) (:budget %)))
+                     (append-summary period-count))]
+      (-> budget
+          (assoc :items items)
+          (rename-keys {:name :title})
+          (select-keys [:items :title])))))

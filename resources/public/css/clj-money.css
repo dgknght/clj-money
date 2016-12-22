@@ -38,3 +38,8 @@
   font-weight: bold;
   font-size: 120%;
 }
+
+.negative {
+  background: #ce403b;
+  color: white;
+}

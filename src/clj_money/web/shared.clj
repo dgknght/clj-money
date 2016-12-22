@@ -7,6 +7,7 @@
             [hiccup.page :refer :all]
             [clojure.string :as s]
             [cemerick.friend :as friend]
+            [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities])
@@ -213,28 +214,29 @@
 
 (defn- input-field
   "Renders a HTML input field"
-  ([model attribute options] (input-field model attribute options identity))
-  ([model attribute options format-fn]
+  ([model attribute options]
    [:div.form-group {:class (when (validation/has-error? model attribute)"has-error")}
     (when-not (:suppress-label? options)
       [:label.control-label {:for attribute} (humanize attribute)])
     [:input.form-control (merge options {:id attribute
                                          :name attribute
-                                         :value (format-fn (get model attribute))})]
+                                         :value ((or (:format-fn options)
+                                                     identity) (get model attribute))})]
     (when (validation/has-error? model)
       (map #(vector :span.help-block %) (validation/get-errors model attribute)))]))
 
 (defn text-input-field
   ([model attribute] (text-input-field model attribute {}))
-  ([model attribute options] (text-input-field model attribute options identity))
-  ([model attribute options format-fn]
-   (input-field model attribute (merge options {:type :text}) format-fn)))
+  ([model attribute options]
+   (input-field model attribute (merge options {:type :text}))))
 
 (defn number-input-field
   ([model attribute] (number-input-field model attribute {}))
   ([model attribute options]
-   (input-field model attribute (merge options {:type :number
-                                                :step "0.01"}))))
+   (input-field model attribute (merge {:format-fn #(format-number % {:format :no-comma})}
+                                       options
+                                       {:type :number
+                                        :step "0.01"}))))
 
 (defn password-input-field
   ([model attribute] (password-input-field model attribute {}))
