@@ -153,46 +153,55 @@
            [:div {:class (str "alert alert-" (name css-class))} message]))
        alerts))
 
+(defn- head
+  [page-title options]
+  [:head
+   [:meta  {:charset "utf-8"}]
+   [:meta  {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
+   [:meta  {:name "viewport" :content "width=device-width, initial-scale=1"}]
+   "<!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->"
+
+   [:meta  {:name "description" :content "Double-entry account system"}]
+   [:meta  {:name "author" :content "Doug Knight"}]
+   [:link  {:rel "icon" :href "../../favicon.ico"}]
+   [:title (str "clj-money - " (if-let [site-title (:site-title options)]
+                                 site-title
+                                 page-title))]
+
+   "<!-- jQuery -->"
+   [:script {:src "/js/jquery-3.1.0.min.js"}]
+   [:script {:src "/js/jquery-ui.min.js"}]
+   [:script {:src "/js/jquery-startup.js"}]
+   [:script {:src "/js/bootstrap.min.js"}]
+
+   "<!-- Bootstrap core CSS -->"
+   [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/jquery-ui.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/jquery-ui.structure.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/clj-money.css"}]
+   ])
+
 (defn layout
   "Renders content inside a standard page template"
   [page-title options & content]
   (html5
     [:html {:lang "en"}
-     [:head
-      [:meta  {:charset "utf-8"}]
-      [:meta  {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
-      [:meta  {:name "viewport" :content "width=device-width, initial-scale=1"}]
-      "<!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->"
-
-      [:meta  {:name "description" :content "Double-entry account system"}]
-      [:meta  {:name "author" :content "Doug Knight"}]
-      [:link  {:rel "icon" :href "../../favicon.ico"}]
-      [:title (str "clj-money - " (if-let [site-title (:site-title options)]
-                                    site-title
-                                    page-title))]
-
-      "<!-- jQuery -->"
-      [:script {:src "/js/jquery-3.1.0.min.js"}]
-      [:script {:src "/js/jquery-ui.min.js"}]
-      [:script {:src "/js/jquery-startup.js"}]
-      [:script {:src "/js/bootstrap.min.js"}]
-
-      "<!-- Bootstrap core CSS -->"
-      [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
-      [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
-      [:link {:rel "stylesheet" :href "/css/jquery-ui.min.css"}]
-      [:link {:rel "stylesheet" :href "/css/jquery-ui.structure.min.css"}]
-      [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]
-      [:link {:rel "stylesheet" :href "/css/clj-money.css"}]
-      ]
+     (head page-title options)
      [:body
       (primary-nav (:entity options))
       [:div.container {:style "margin-top: 2em;"}
        (html
-         [:h1#page-title page-title]
-         (if-let [alerts (:alerts options)]
-           (render-alerts alerts))
-         content)]]]))
+         (let [side-bar (:side-bar options)]
+           [:div.row
+            [:div {:class (format "col-md-%s" (if side-bar 8 12))}
+             [:h1#page-title page-title]
+             (if-let [alerts (:alerts options)]
+               (render-alerts alerts))
+             content]
+            (if side-bar
+              [:div.col-md-4 side-bar])]))]]]))
 
 (defn- input-element
   [name value options]
