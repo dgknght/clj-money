@@ -153,7 +153,7 @@
            [:div {:class (str "alert alert-" (name css-class))} message]))
        alerts))
 
-(defn- head
+(defn head
   [page-title options]
   [:head
    [:meta  {:charset "utf-8"}]
@@ -183,25 +183,25 @@
    [:link {:rel "stylesheet" :href "/css/clj-money.css"}]
    ])
 
-(defn layout
+(defmacro layout
   "Renders content inside a standard page template"
   [page-title options & content]
-  (html5
+  `(html5
     [:html {:lang "en"}
-     (head page-title options)
+     (head ~page-title ~options)
      [:body
-      (primary-nav (:entity options))
+      (primary-nav (:entity ~options))
       [:div.container {:style "margin-top: 2em;"}
        (html
-         (let [side-bar (:side-bar options)]
+         (let [side-bar# (:side-bar ~options)]
            [:div.row
-            [:div {:class (format "col-md-%s" (if side-bar 8 12))}
-             [:h1#page-title page-title]
-             (if-let [alerts (:alerts options)]
-               (render-alerts alerts))
-             content]
-            (if side-bar
-              [:div.col-md-4 side-bar])]))]]]))
+            [:div {:class (format "col-md-%s" (if side-bar# 8 12))}
+             [:h1#page-title ~page-title]
+             (if-let [alerts# (:alerts ~options)]
+               (render-alerts alerts#))
+             ~@content]
+            (if side-bar#
+              [:div.col-md-4 side-bar#])]))]]]))
 
 (defn- input-element
   [name value options]
