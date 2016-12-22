@@ -183,7 +183,7 @@
    [:link {:rel "stylesheet" :href "/css/clj-money.css"}]
    ])
 
-(defmacro layout
+(defmacro with-layout
   "Renders content inside a standard page template"
   [page-title options & content]
   `(html5

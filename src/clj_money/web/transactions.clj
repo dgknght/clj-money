@@ -41,8 +41,7 @@
 (defn index
   ([entity-id] (index entity-id {}))
   ([entity-id options]
-   (layout
-     "Transactions" options
+   (with-layout "Transactions" options
      [:div.row
       [:div.col-md-6
        [:table.table.table-striped
@@ -148,8 +147,7 @@
                      :transaction-date (t/today)}
                     {}))
   ([params transaction options]
-   (layout
-     "New Transaction" options
+   (with-layout "New Transaction" options
      [:div.row
       [:div.col-md-6
        [:form {:action (cond-> (path "/entities"
@@ -194,8 +192,7 @@
 (defn edit
   ([id-or-trans] (edit id-or-trans {}))
   ([id-or-trans options]
-   (layout
-     "New Transaction" options
+   (with-layout "New Transaction" options
      [:div.row
       [:div.col-md-6
        (let [transaction (if (map? id-or-trans)

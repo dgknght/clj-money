@@ -156,8 +156,7 @@
                                         (default-end-date))
                           :as-of (or (parse-date (:as-of params))
                                      (default-end-date))))]
-    (layout
-      "Reports" {}
+    (with-layout "Reports" {}
       [:div.row
        [:div.col-md-12
         (tabbed-nav [{:id :income-statement

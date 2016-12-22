@@ -16,6 +16,12 @@
             [clj-money.web.money-shared :refer [account-options budget-monitors]])
   (:use [clj-money.web.shared :refer :all]))
 
+(defmacro with-accounts-layout
+  [page-title entity-id options & content]
+  `(with-layout
+     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
+     ~@content))
+
 (defn- account-row
   "Renders a single account row"
   [account depth]
@@ -72,18 +78,11 @@
      [:td "&nbsp;"]]
     (map account-and-children-rows accounts)))
 
-(defmacro accounts-layout
-  [page-title entity-id options & content]
-  `(layout
-     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
-     ~@content))
-
 (defn index
   "Renders the list of accounts"
   ([entity-id] (index entity-id {}))
   ([entity-id options]
-   (accounts-layout
-     "Accounts" entity-id options
+   (with-accounts-layout "Accounts" entity-id options
      [:table.table.table-striped
       [:tr
        [:th.col-sm-6 "Name"]
@@ -133,8 +132,7 @@
   ([id] (show id {}))
   ([id options]
    (let [account (accounts/find-by-id (env :db) id)]
-     (accounts-layout
-       (format "Account - %s" (:name account)) (:entity-id account) options
+     (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
        [:table.table.table-striped.table-hover
         [:tr
          [:th.text-right "Date"]
@@ -179,8 +177,7 @@
   "Renders the new account form"
   ([entity-id] (new-account entity-id {:entity-id entity-id}))
   ([entity-id account]
-   (accounts-layout
-     "New account" entity-id {}
+   (with-accounts-layout "New account" entity-id {}
      [:div.row
       [:div.col-md-6
        [:form {:action (str "/entities/" entity-id "/accounts")
@@ -203,8 +200,7 @@
   (let [account (if (map? id-or-account)
                   id-or-account
                   (accounts/find-by-id (env :db) (Integer. id-or-account)))]
-    (accounts-layout
-      "Edit account" (:entity-id account) {}
+    (with-accounts-layout "Edit account" (:entity-id account) {}
       [:div.row
        [:div.col-md-6
         [:form {:action (format "/accounts/%s" (:id account))

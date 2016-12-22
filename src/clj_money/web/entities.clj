@@ -52,8 +52,7 @@
   "Renders the list of entities that belong to the currently
   authenticated user"
   []
-  (layout
-    "Entities" {}
+  (with-layout "Entities" {}
     [:div.row
      [:div.col-md-6
       (entity-table)
@@ -63,8 +62,7 @@
   "Renders a form for adding a new entity"
   ([] (new-entity {}))
   ([entity]
-   (layout
-     "New entity" {}
+   (with-layout "New entity" {}
      [:div.row
       [:div.col-md-6
        [:form {:action "/entities" :method :post}
@@ -82,8 +80,7 @@
 (defn edit-entity
   "Renders the edit form"
   [id]
-  (layout
-    "Edit entity" {}
+  (with-layout "Edit entity" {}
     [:div.row
      [:div.col-md-6
       [:form {:action (format "/entities/%s" id) :method :post}
