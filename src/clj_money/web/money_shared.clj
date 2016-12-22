@@ -23,3 +23,7 @@
      true (map #(rename-keys % {:id :value
                                 :name :caption}))
      (contains? options :include-none?) (concat [{:value "" :caption "None"}]))))
+
+(defn budget-monitors
+  [entity-id]
+  [:h3 "Budget monitors"])
