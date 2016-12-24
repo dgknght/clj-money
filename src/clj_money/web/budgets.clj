@@ -375,14 +375,15 @@
     [:div.row
      [:div.col-md-8
       (map #(period-input-group budget %)
-           (or (->> item
-                    :periods
-                    (partition 3))
-               (->> budget
-                    :period-count
-                    range
-                    (map #(hash-map :index % :amount 0M))
-                    (partition 3))))]]
+           (if (:periods item)
+             (->> item
+                  :periods
+                  (partition 3))
+             (->> budget
+                  :period-count
+                  range
+                  (map #(hash-map :index % :amount 0M))
+                  (partition 3))))]]
     [:input {:type :hidden :name :method :value :detail}]
     [:button.btn.btn-primary {:type :submit
                               :title "Click here to save this budget item."} "Save"]
