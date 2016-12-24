@@ -559,3 +559,9 @@
 ; Entertainment/Movies  80  75   5
 ; it would be:
 ; Entertainment        180 185  -5
+
+(deftest create-a-budget-monitor
+  (let [context (serialization/realize storage-spec budget-report-context)
+        groceries (-> context :accounts (get 6))
+        actual (budgets/monitor storage-spec (:id groceries)) ]
+    ))
