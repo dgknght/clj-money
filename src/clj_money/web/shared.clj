@@ -242,10 +242,10 @@
 (defn number-input-field
   ([model attribute] (number-input-field model attribute {}))
   ([model attribute options]
-   (input-field model attribute (merge {:format-fn #(format-number % {:format :no-comma})}
+   (input-field model attribute (merge {:format-fn #(format-number % {:format :no-comma})
+                                        :step "0.01"}
                                        options
-                                       {:type :number
-                                        :step "0.01"}))))
+                                       {:type :number}))))
 
 (defn password-input-field
   ([model attribute] (password-input-field model attribute {}))
