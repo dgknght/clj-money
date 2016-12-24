@@ -79,7 +79,8 @@
     (select-field budget :period [{:value :week    :caption "Week"}
                                   {:value :month   :caption "Month"}
                                   {:value :quarter :caption "Quarter"}])
-    (number-input-field budget :period-count)
+    (number-input-field budget :period-count {:step "1"
+                                              :format-fn #(format-number % {:format :integer})})
     (text-input-field budget :start-date {:class "date-field"
                                           :format-fn format-date})
     [:button.btn.btn-primary {:type :submit} "Save"]
