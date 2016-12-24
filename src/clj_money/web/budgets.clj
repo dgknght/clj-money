@@ -64,7 +64,8 @@
          [:th.text-right "Start date"]
          [:th "&nbsp;"]]
         (map budget-row (budgets/select-by-entity-id (env :db) entity-id))]
-       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" entity-id)} "Add"]]])))
+       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" entity-id)}
+        "Add"]]])))
 
 (defn default-start-date
   []
@@ -79,10 +80,12 @@
                                   {:value :month   :caption "Month"}
                                   {:value :quarter :caption "Quarter"}])
     (number-input-field budget :period-count)
-    (text-input-field budget :start-date {:class "date-field" :format-fn format-date})
+    (text-input-field budget :start-date {:class "date-field"
+                                          :format-fn format-date})
     [:button.btn.btn-primary {:type :submit} "Save"]
     "&nbsp;"
-    [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]))
+    [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))}
+     "Back"]))
 
 (defn new-budget
   ([entity-id]
