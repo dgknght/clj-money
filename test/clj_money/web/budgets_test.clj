@@ -49,6 +49,7 @@
                   :period :month
                   :period-count 12
                   :start-date (t/local-date 2017 1 1)
+                  :end-date (t/local-date 2017 12 31)
                   :items [{:caption "Income"
                            :style :header
                            :data [{:value 2000M}

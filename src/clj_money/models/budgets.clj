@@ -5,6 +5,7 @@
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [schema.core :as schema]
+            [clj-money.util :as util]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
@@ -61,6 +62,7 @@
   [storage budget]
   (-> budget
       (update-in [:start-date] tc/to-local-date)
+      (update-in [:end-date] tc/to-local-date)
       (update-in [:period] keyword)
       (assoc :items (select-items-by-budget-id storage (:id budget)))))
 
@@ -74,10 +76,22 @@
   [budget]
   (dissoc budget :items))
 
+(defmulti end-date
+  #(:period %))
+
+(defmethod end-date :month
+  [{:keys [start-date period-count]}]
+  (.minusDays (.plusMonths start-date period-count) 1))
+
+(defmethod end-date :week
+  [{:keys [start-date period-count]}]
+  (.minusDays (.plusWeeks start-date period-count) 1))
+
 (defn- before-save
   [budget]
   (-> budget
       (update-in [:start-date] tc/to-long)
+      (assoc :end-date (tc/to-long (end-date budget)))
       (update-in [:period] name)))
 
 (defn- period-count-must-be-greater-than-one
@@ -254,17 +268,6 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-budget s id)))
-
-(defmulti end-date
-  #(:period %))
-
-(defmethod end-date :month
-  [{:keys [start-date period-count]}]
-  (.minusDays (.plusMonths start-date period-count) 1))
-
-(defmethod end-date :week
-  [{:keys [start-date period-count]}]
-  (.minusDays (.plusWeeks start-date period-count) 1))
 
 (defmulti period-containing
   (fn [budget _]
