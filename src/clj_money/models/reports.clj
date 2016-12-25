@@ -248,3 +248,16 @@
           (assoc :items items)
           (rename-keys {:name :title})
           (select-keys [:items :title])))))
+
+(defn monitor
+  "Returns a mini-report for a specified account against a budget period"
+  ([storage-spec account]
+   (monitor storage-spec account {}))
+  ([storage-spec account options]
+   (with-storage [s storage-spec]
+     (let [as-of (or (:as-of options)
+                     (t/today))
+           budget (budgets/find-by-date s (:entity-id account) as-of)]
+       {:account account
+        :period {:total-budget ()}
+        :budget {}}))))

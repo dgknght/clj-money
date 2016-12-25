@@ -563,5 +563,22 @@
 (deftest create-a-budget-monitor
   (let [context (serialization/realize storage-spec budget-report-context)
         groceries (-> context :accounts (get 6))
-        actual (budgets/monitor storage-spec (:id groceries)) ]
-    ))
+        actual (reports/monitor storage-spec groceries)
+        ; half-way through january
+        expected {:account groceries
+                  :period {:total-budget 450M
+                           :prorated-budget 225M
+                           :budget-percent 0.5M
+                           :actual 200M
+                           :actual-percent 0.4M}
+                  :budget {:total-budget 5400M
+                           :prorated-budget 225M
+                           :budget-percent 0.041M
+                           :actual 200M
+                           :actual-percent 0.037M}}]
+
+    (pprint {:expected expected
+             :actual actual
+             :diff (diff expected actual)})
+
+    #_(is (= expected actual "The correct information is returned"))))
