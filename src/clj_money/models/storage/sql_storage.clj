@@ -343,6 +343,15 @@
                               (h/where [:= :id id])
                               (h/limit 1)))))
 
+  (find-budget-by-date
+    [_ date]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :budgets)
+                              (h/where [:and
+                                        [:<= :start-date date]
+                                        [:>= :end-date date]])
+                              (h/limit 1)))))
+
   (select-budgets-by-entity-id
     [_ entity-id]
     (query db-spec (-> (h/select :*)

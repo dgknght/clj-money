@@ -14,6 +14,7 @@
                                               create-budget-item
                                               update-budget-item
                                               find-budget-by-id
+                                              find-budget-by-date
                                               find-budget-item-by-id
                                               select-budgets-by-entity-id
                                               select-budget-items-by-budget-id
@@ -130,6 +131,13 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-budget-by-id s id)
+         (prepare-for-return s))))
+
+(defn find-by-date
+  "Returns the budget containing the specified date"
+  [storage-spec entity-id date]
+  (with-storage [s storage-spec]
+    (->> (find-budget-by-date s (tc/to-long date))
          (prepare-for-return s))))
 
 (defn reload

@@ -126,6 +126,10 @@
     [this id]
     "Returns the specified budget")
 
+  (find-budget-by-date
+    [this date]
+    "Returns the budget containing the specified date")
+
   (select-budgets-by-entity-id
     [this entity-id]
     "Returns budgets for the specified entity")

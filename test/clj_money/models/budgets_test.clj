@@ -18,13 +18,16 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def budget-context
+(def base-context
   {:users [{:email "john@doe.com"
             :first-name "John"
             :last-name "Doe"
             :password "please01"}]
    :entities [{:user-id "john@doe.com"
                :name "Personal"}]})
+
+(def budget-context
+  base-context)
 
 (defn- attributes
   [context]
@@ -115,16 +118,11 @@
       result)))
 
 (def delete-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}]
-   :budgets [{:name "2017"
-              :period :month
-              :period-count 12
-              :start-date (t/local-date 2017 1 1)}]})
+  (merge base-context
+         {:budgets [{:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)}]}))
 
 (deftest delete-a-budget
   (let [context (serialization/realize storage-spec delete-context)
@@ -138,16 +136,11 @@
         "The budget is absent after delete")))
 
 (def update-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}]
-   :budgets [{:name "2017"
-              :period :month
-              :period-count 12
-              :start-date (t/local-date 2017 1 1)}]})
+  (merge base-context
+         {:budgets [{:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)}]}))
 
 (deftest update-a-budget
   (let [context (serialization/realize storage-spec update-context)
@@ -163,27 +156,21 @@
 
 ;; Items
 (def budget-item-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}
-              {:user-id "john@doe.com"
-               :name "Business"}]
-   :accounts [{:name "Salary"
-               :type :income}
-              {:name "Rent"
-               :type :expense}
-              {:name "Groceries"
-               :type :expense}
-              {:name "Sales"
-               :type :income
-               :entity-id "Business"}]
-   :budgets [{:name "2017"
-              :start-date (t/local-date 2017 1 1)
-              :period :month
-              :period-count 12}]})
+  (-> base-context
+      (update-in [:entities] #(conj % {:name "Business"}))
+      (merge {:accounts [{:name "Salary"
+                          :type :income}
+                         {:name "Rent"
+                          :type :expense}
+                         {:name "Groceries"
+                          :type :expense}
+                         {:name "Sales"
+                          :type :income
+                          :entity-id "Business"}]
+              :budgets [{:name "2017"
+                         :start-date (t/local-date 2017 1 1)
+                         :period :month
+                         :period-count 12}]})))
 
 (defn- budget-item-attributes
   [context]
@@ -248,24 +235,19 @@
       item)))
 
 (def update-budget-item-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}]
-   :accounts [{:name "Salary"
-               :type :income}
-              {:name "Rent"
-               :type :expense}]
-   :budgets [{:name "2017"
-             :period :month
-             :period-count 12
-             :start-date (t/local-date 2017 1 1)
-             :items [{:account-id "Salary"
-                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 2000M))}
-                     {:account-id "Rent"
-                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 850M))}]}]})
+  (merge base-context
+         {:accounts [{:name "Salary"
+                      :type :income}
+                     {:name "Rent"
+                      :type :expense}]
+          :budgets [{:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)
+                     :items [{:account-id "Salary"
+                              :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 2000M))}
+                             {:account-id "Rent"
+                              :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 850M))}]}]}))
 
 (deftest update-a-budget-item
   (let [context (serialization/realize storage-spec update-budget-item-context)
@@ -376,3 +358,30 @@
                  (assoc budget :period :week)
                  (t/local-date 2017 1 25)))
           "It returns the index of the period containing the date"))))
+
+(def find-by-date-context
+  (merge base-context
+         {:budgets [{:name "2016"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2016 1 1)}
+                    {:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)}]}))
+
+(deftest find-a-budget-by-date
+  (let [context (serialization/realize storage-spec find-by-date-context)
+        entity-id (-> context :entities first :id)
+        tests [{:description "before any budgets"
+                :date (t/local-date 2015 12 31)
+                :expected nil}
+               {:description "start of a budget"
+                :date (t/local-date 2016 1 1)
+                :expected "2016"}]]
+    (doseq [{:keys [expected date description]} tests]
+      (testing description
+        (is (= expected
+               (->> date
+                    (budgets/find-by-date storage-spec entity-id)
+                    :name)))))))
