@@ -4,6 +4,7 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
+            [clj-time.periodic :refer [periodic-seq]]
             [schema.core :as schema]
             [clj-money.util :as util]
             [clj-money.validation :as validation]
@@ -21,7 +22,8 @@
                                               delete-budget]])
   (:import (org.joda.time LocalDate
                           Months
-                          Weeks)))
+                          Weeks
+                          Days)))
 
 (def BudgetBase
   {:name schema/Str
@@ -296,10 +298,30 @@
   (when (contains-date? budget date)
     (.getWeeks (Weeks/weeksBetween (:start-date budget) date))))
 
-(defmulti percent-of-period
-  (fn [budget _ _]
-    (:period budget)))
+(defmulti period-seq
+  :period)
 
-(defmethod percent-of-period :month
-  [budget period-index as-of]
-  0.5M)
+(defmethod period-seq :month
+  [budget]
+  (->> Months/ONE
+       (periodic-seq (:start-date budget))
+       (take (:period-count budget))
+       (partition 2 1)
+       (map (fn [[start next-start]]
+              (let [end (t/minus next-start Days/ONE)]
+              {:start start
+               :end end
+               :interval (t/interval (tc/to-date-time start)
+                                     (tc/to-date-time end))})))))
+
+(defn percent-of-period
+  [budget as-of]
+  (let [period (->> (period-seq budget)
+                    (filter #(t/within? (:interval %) (tc/to-date-time as-of)))
+                    first)
+        days-in-period (t/in-days (:interval period))]
+
+    (pprint {:period period
+             :days-in-period days-in-period})
+
+    1M))
