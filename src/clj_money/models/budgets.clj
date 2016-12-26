@@ -295,3 +295,11 @@
   [budget date]
   (when (contains-date? budget date)
     (.getWeeks (Weeks/weeksBetween (:start-date budget) date))))
+
+(defmulti percent-of-period
+  (fn [budget _ _]
+    (:period budget)))
+
+(defmethod percent-of-period :month
+  [budget period-index as-of]
+  0.5M)

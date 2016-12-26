@@ -257,7 +257,20 @@
    (with-storage [s storage-spec]
      (let [as-of (or (:as-of options)
                      (t/today))
-           budget (budgets/find-by-date s (:entity-id account) as-of)]
+           budget (budgets/find-by-date s (:entity-id account) as-of)
+           item (->> budget
+                     :items
+                     (filter #(= (:id account) (:account-id %)))
+                     first)
+           period-index (budgets/period-containing budget as-of)
+           total-budget (reduce + (->> item
+                                       :periods
+                                       (map :amount)
+                                       (take (+ 1 period-index))))
+           percent-of-period (budgets/percent-of-period budget
+                                                        period-index
+                                                        as-of)]
        {:account account
-        :period {:total-budget ()}
+        :period {:total-budget total-budget
+                 :prorated-budget (with-precision 5 (* percent-of-period total-budget))}
         :budget {}}))))
