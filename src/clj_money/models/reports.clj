@@ -263,13 +263,21 @@
                      (filter #(= (:id account) (:account-id %)))
                      first)
            period-index (:index (budgets/period-containing budget as-of))
-           total-budget (reduce + (->> item
+           period-budget (reduce + (->> item
                                        :periods
                                        (map :amount)
                                        (take (+ 1 period-index))))
            percent-of-period (budgets/percent-of-period budget
-                                                        as-of)]
-       {:account account
-        :period {:total-budget total-budget
-                 :prorated-budget (with-precision 5 (* percent-of-period total-budget))}
-        :budget {}}))))
+                                                        as-of)
+           actual (transactions/balance-delta s
+                                              (:id account)
+                                              (:start budget)
+                                              as-of)]
+       (with-precision 5
+         {:account account
+          :period {:total-budget period-budget
+                   :budget-percent percent-of-period
+                   :prorated-budget (* percent-of-period period-budget)
+                   :actual actual
+                   :actual-percent (/ actual period-budget)}
+          :budget {:total-budget 0M}})))))

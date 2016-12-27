@@ -570,10 +570,10 @@
                                 {:as-of (t/local-date 2016 1 15)})
         expected {:account groceries
                   :period {:total-budget 450M
-                           :prorated-budget 225M
-                           :budget-percent 0.5M
+                           :prorated-budget 217.74M
+                           :budget-percent 15/31
                            :actual 200M
-                           :actual-percent 0.4M}
+                           :actual-percent 2/5}
                   :budget {:total-budget 5400M
                            :prorated-budget 225M
                            :budget-percent 0.041M
