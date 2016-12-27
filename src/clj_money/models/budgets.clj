@@ -298,30 +298,32 @@
   (when (contains-date? budget date)
     (.getWeeks (Weeks/weeksBetween (:start-date budget) date))))
 
-(defmulti period-seq
-  :period)
+(def period-map
+  {:month Months/ONE
+   :week Weeks/ONE
+   :quarter Months/THREE})
 
-(defmethod period-seq :month
+(defn period-seq
+  "Returns a sequence of the periods in the budget based on
+  :start-date, :period, :period-count"
   [budget]
-  (->> Months/ONE
-       (periodic-seq (:start-date budget))
-       (take (:period-count budget))
-       (partition 2 1)
-       (map (fn [[start next-start]]
-              (let [end (t/minus next-start Days/ONE)]
-              {:start start
-               :end end
-               :interval (t/interval (tc/to-date-time start)
-                                     (tc/to-date-time end))})))))
+    (->> ((:period budget) period-map)
+         (periodic-seq (:start-date budget))
+         (take (:period-count budget))
+         (partition 2 1)
+         (map (fn [[start next-start]]
+                (let [end (t/minus next-start Days/ONE)]
+                  {:start start
+                   :end end
+                   :interval (t/interval (tc/to-date-time start)
+                                         (tc/to-date-time next-start))})))))
 
 (defn percent-of-period
   [budget as-of]
   (let [period (->> (period-seq budget)
-                    (filter #(t/within? (:interval %) (tc/to-date-time as-of)))
+                    (filter #(t/within? (tc/to-date-time (:start %)) (tc/to-date-time (:end %)) (tc/to-date-time as-of)))
                     first)
-        days-in-period (t/in-days (:interval period))]
-
-    (pprint {:period period
-             :days-in-period days-in-period})
-
-    1M))
+        days-in-period (t/in-days (:interval period))
+        days (+ 1 (t/in-days (t/interval (tc/to-date-time (:start period))
+                                         (tc/to-date-time as-of))))]
+    (with-precision 5 (/ days days-in-period))))

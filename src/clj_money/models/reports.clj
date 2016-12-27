@@ -268,7 +268,6 @@
                                        (map :amount)
                                        (take (+ 1 period-index))))
            percent-of-period (budgets/percent-of-period budget
-                                                        period-index
                                                         as-of)]
        {:account account
         :period {:total-budget total-budget
