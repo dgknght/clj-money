@@ -156,9 +156,7 @@
 
 (defn- ->budget-report-record
   [storage budget period-count as-of account]
-  (let [item (->> (:items budget)
-                  (filter #(= (:id account) (:account-id %)))
-                  first)
+  (let [item (budgets/find-item-by-account budget account)
         budget-amount (if item
                         (reduce + 0M (->> item
                                           :periods
@@ -267,10 +265,7 @@
      (let [as-of (or (:as-of options)
                      (t/today))
            budget (budgets/find-by-date s (:entity-id account) as-of)
-           item (->> budget
-                     :items
-                     (filter #(= (:id account) (:account-id %)))
-                     first)
+           item (budgets/find-item-by-account budget account)
            period (budgets/period-containing budget as-of)
            period-budget (reduce + (->> item
                                        :periods

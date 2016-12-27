@@ -177,6 +177,17 @@
          (find-budget-item-by-id s)
          prepare-item-for-return)))
 
+(defn find-item-by-account
+  "Finds the item in the specified budget associated with the specified account"
+  [budget account-or-id]
+  (let [account-id (if (map? account-or-id)
+                     (:id account-or-id)
+                     account-or-id)]
+    (->> budget
+         :items
+         (filter #(= account-id (:account-id %)))
+         first)))
+
 (defn- budget-item-account-belongs-to-budget-entity
   [storage budget item]
   {:model item
