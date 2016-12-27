@@ -72,6 +72,14 @@
   (with-storage [s storage-spec]
     (find-entity-by-id s id)))
 
+(defn find-by-name
+  "Finds the entity having the specified name
+  for the specified user"
+  [storage-spec user entity-name]
+  (->> (select storage-spec (:id user))
+       (filter #(= entity-name (:name %)))
+       first))
+
 (defn update
   "Updates the specified entity"
   [storage-spec entity]

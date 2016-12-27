@@ -1,8 +1,7 @@
 (ns clj-money.db
   (:require [ragtime.jdbc :as jdbc]
             [ragtime.repl :as rt]
-            [environ.core :refer [env]])
-  #_(:use [clj-money.config :as config]))
+            [environ.core :refer [env]]))
 
 (defn ragtime-config []
   {:datastore (jdbc/sql-database (env :db))
