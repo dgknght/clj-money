@@ -235,7 +235,7 @@
     (let [budget (if (map? budget-or-id)
                    budget-or-id
                    (budgets/find-by-id s budget-or-id))
-          period-count (+ 1 (budgets/period-containing budget as-of))
+          period-count (+ 1 (:index (budgets/period-containing budget as-of)))
           items (->> (accounts/select-by-entity-id s
                                                    (:entity-id budget)
                                                    {:types #{:income :expense}})
@@ -262,7 +262,7 @@
                      :items
                      (filter #(= (:id account) (:account-id %)))
                      first)
-           period-index (budgets/period-containing budget as-of)
+           period-index (:index (budgets/period-containing budget as-of))
            total-budget (reduce + (->> item
                                        :periods
                                        (map :amount)

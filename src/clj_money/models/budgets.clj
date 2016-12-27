@@ -279,25 +279,6 @@
   (with-storage [s storage-spec]
     (delete-budget s id)))
 
-(defmulti period-containing
-  (fn [budget _]
-    (:period budget)))
-
-(defn contains-date?
-  [budget date]
-  (and (>= 0 (compare (:start-date budget) date))
-       (<= 0 (compare (end-date budget) date))))
-
-(defmethod period-containing :month
-  [{:keys [start-date period-count] :as budget} date]
-  (when (contains-date? budget date)
-    (.getMonths (Months/monthsBetween start-date date))))
-
-(defmethod period-containing :week
-  [budget date]
-  (when (contains-date? budget date)
-    (.getWeeks (Weeks/weeksBetween (:start-date budget) date))))
-
 (def period-map
   {:month Months/ONE
    :week Weeks/ONE
@@ -307,22 +288,36 @@
   "Returns a sequence of the periods in the budget based on
   :start-date, :period, :period-count"
   [budget]
-    (->> ((:period budget) period-map)
-         (periodic-seq (:start-date budget))
-         (take (:period-count budget))
-         (partition 2 1)
-         (map (fn [[start next-start]]
-                (let [end (t/minus next-start Days/ONE)]
-                  {:start start
-                   :end end
-                   :interval (t/interval (tc/to-date-time start)
-                                         (tc/to-date-time next-start))})))))
+  (->> ((:period budget) period-map)
+       (periodic-seq (:start-date budget))
+       (partition 2 1)
+       (map-indexed (fn [index [start next-start]]
+                      {:start start
+                       :end (t/minus next-start Days/ONE)
+                       :index index
+                       :interval (t/interval (tc/to-date-time start)
+                                             (tc/to-date-time next-start))}))
+       (take (:period-count budget))))
+
+(defn- within-period?
+  "Returns a boolean value indicating whether or not
+  the specified date is in the specified period"
+  [period date]
+  (t/within?
+    (tc/to-date-time (:start period))
+    (tc/to-date-time (:end period))
+    (tc/to-date-time date)))
+
+(defn period-containing
+  "Returns the budget period containing the specified date"
+  [budget date]
+  (->> (period-seq budget)
+       (filter #(within-period? % (tc/to-date-time date)))
+       first))
 
 (defn percent-of-period
   [budget as-of]
-  (let [period (->> (period-seq budget)
-                    (filter #(t/within? (tc/to-date-time (:start %)) (tc/to-date-time (:end %)) (tc/to-date-time as-of)))
-                    first)
+  (let [period (period-containing budget as-of)
         days-in-period (t/in-days (:interval period))
         days (+ 1 (t/in-days (t/interval (tc/to-date-time (:start period))
                                          (tc/to-date-time as-of))))]
