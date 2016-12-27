@@ -568,18 +568,19 @@
         actual (reports/monitor storage-spec
                                 groceries
                                 {:as-of (t/local-date 2016 1 15)})
-        expected {:account groceries
+        expected {:caption "Groceries"
                   :period {:total-budget 450M
                            :prorated-budget 217.74M
-                           :budget-percent 15/31
+                           :percentage 15/31
                            :actual 200M
-                           :actual-percent 2/5}
+                           :actual-percent 0.44444M}
                   :budget {:total-budget 5400M
-                           :prorated-budget 225M
-                           :budget-percent 0.041M
+                           :prorated-budget 221.31M
+                           :percentage 15/366
                            :actual 200M
-                           :actual-percent 0.037M}}]
+                           :actual-percent 0.037037M}}]
 
-    (pprint {:diff (diff expected actual)})
+    (if-not (= expected actual)
+      (pprint {:diff (diff expected actual)}))
 
-    #_(is (= expected actual "The correct information is returned"))))
+    (is (= expected actual) "The correct information is returned")))

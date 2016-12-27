@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
+            [clj-time.coerce :as tc]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.helpers :refer [with-storage]]
@@ -249,6 +250,14 @@
           (rename-keys {:name :title})
           (select-keys [:items :title])))))
 
+(defn- monitor-item
+  [budget actual percentage]
+  {:total-budget budget
+   :actual actual
+   :percentage percentage
+   :prorated-budget (* percentage budget)
+   :actual-percent (/ actual budget)})
+
 (defn monitor
   "Returns a mini-report for a specified account against a budget period"
   ([storage-spec account]
@@ -262,22 +271,31 @@
                      :items
                      (filter #(= (:id account) (:account-id %)))
                      first)
-           period-index (:index (budgets/period-containing budget as-of))
+           period (budgets/period-containing budget as-of)
            period-budget (reduce + (->> item
                                        :periods
                                        (map :amount)
-                                       (take (+ 1 period-index))))
+                                       (take (+ 1 (:index period)))))
+           total-budget (reduce + (->> item
+                                       :periods
+                                       (map :amount)))
            percent-of-period (budgets/percent-of-period budget
                                                         as-of)
-           actual (transactions/balance-delta s
+           period-actual (transactions/balance-delta s
                                               (:id account)
-                                              (:start budget)
-                                              as-of)]
+                                              (:start period)
+                                              as-of)
+           total-actual (transactions/balance-delta s
+                                                    (:id account)
+                                                    (:start-date budget)
+                                                    as-of)
+           percent-of-total (->> [as-of (:end-date budget)]
+                                 (map tc/to-date-time)
+                                 (map #(t/interval (tc/to-date-time (:start-date budget)) %))
+                                 (map t/in-days)
+                                 (map #(+ 1 %))
+                                 (apply /))]
        (with-precision 5
-         {:account account
-          :period {:total-budget period-budget
-                   :budget-percent percent-of-period
-                   :prorated-budget (* percent-of-period period-budget)
-                   :actual actual
-                   :actual-percent (/ actual period-budget)}
-          :budget {:total-budget 0M}})))))
+         {:caption (:name account)
+          :period (monitor-item period-budget period-actual percent-of-period)
+          :budget (monitor-item total-budget total-actual percent-of-total)})))))
