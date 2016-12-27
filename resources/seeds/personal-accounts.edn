@@ -23,7 +23,7 @@
                     {:name "Car"
                      :parent-id "Fixed"}
                     {:name "House"
-                     :parent-id "Fixes"}]
+                     :parent-id "Fixed"}]
             :liability [{:name "Credit card"}
                         {:name "Loans"}
                         {:name "Home Loan"
