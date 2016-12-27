@@ -31,8 +31,10 @@
 (defn- create-entities
   [storage-spec context entities]
   (mapv (fn [attributes]
-         (entities/create storage-spec (resolve-user context attributes)))
-       entities))
+          (if (:id attributes)
+            attributes
+            (entities/create storage-spec (resolve-user context attributes))))
+        entities))
 
 (defn- realize-entities
   [storage-spec context]
