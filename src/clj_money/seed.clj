@@ -2,6 +2,8 @@
   (:require [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
             [clj-money.serialization :refer [realize]]
+            [clj-money.models.helpers :refer [with-storage
+                                              with-transacted-storage]]
             [clj-money.models.entities :as entities]
             [clj-money.models.users :as users]))
 
@@ -22,11 +24,11 @@
 
 (defn seed
   [user entity identifier]
-  (pprint
+  (with-transacted-storage [s (env :db)]
     (->> identifier
          (format "resources/seeds/%s.edn")
          slurp
          read-string
-         (append-user (env :db) user)
-         (append-entity (env :db) entity)
-         (realize (env :db)))))
+         (append-user s user)
+         (append-entity s entity)
+         (realize s))))
