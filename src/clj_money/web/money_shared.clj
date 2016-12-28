@@ -26,4 +26,9 @@
 
 (defn budget-monitors
   [entity-id]
-  [:h3 "Budget monitors"])
+  (html
+    [:h3 "Budget monitors"]
+    [:h4 "Dining"]
+    [:span.budget-monitor {:data-max 100
+                           :data-value 44
+                           :data-pacer 40}]))

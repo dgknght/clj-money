@@ -63,5 +63,9 @@ $(function() {
     return false;
   });
 
+  // Date Pickers
   $(".date-field").datepicker();
+
+  // Budget Monitors
+  $(".budget-monitor").budgetMonitor({});
 });
