@@ -28,7 +28,7 @@
   "Renders a row in the transaction table"
   [transaction]
   [:tr
-   [:td (:transaction-date transaction)]
+   [:td (format-date (:transaction-date transaction))]
    [:td (:description transaction)]
    [:td
     [:div.btn-group
