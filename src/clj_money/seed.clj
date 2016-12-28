@@ -35,12 +35,14 @@
   (let [entity (->> (:entities context)
                     (filter #(= entity-name (:name %)))
                     first)]
-    (update-in context
-               [:accounts]
-               (fnil #(concat (accounts/select-by-entity-id storage-spec
-                                                            (:id entity))
-                              %)
-                     []))))
+    (if (-> context :accounts map?)
+      context
+      (update-in context
+                 [:accounts]
+                 (fnil #(concat (accounts/select-by-entity-id storage-spec
+                                                              (:id entity))
+                                %)
+                       [])))))
 
 (defn seed
   [user entity identifier]
