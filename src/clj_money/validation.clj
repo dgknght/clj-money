@@ -6,12 +6,14 @@
             [schema.coerce :as coerce]
             [schema.utils :as schema-utils]
             [clj-time.core :as t]
+            [clj-time.coerce :as tc]
             [clj-money.util :refer [parse-date]]
             [clj-money.inflection :refer [singular
                                           humanize
                                           ordinal]]
             [clj-money.schema :refer [friendly-message]])
-  (:import org.joda.time.LocalDate))
+  (:import org.joda.time.LocalDate
+           java.util.Date))
 
 (defn- apply-rule
   "Applies the rule to the context, returning an 
@@ -78,9 +80,9 @@
   (when (= LocalDate schema)
     (coerce/safe
       (fn [value]
-        (if (string? value)
-          (parse-date value)
-          value)))))
+        (cond
+          (string? value) (parse-date value)
+          :else (tc/to-local-date value))))))
 
 (defn- full-humanized-message
   "Accepts a tuple containg an attribute key and a schema
