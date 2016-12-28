@@ -95,6 +95,7 @@
                          "FIT"
                          "Social Security"
                          "Medicare"
+                         "Rent"
                          "Checking"]
                         (map (fn [account-name]
                                [(keywordize account-name)
@@ -111,4 +112,19 @@
                   (map #(periodic-seq % Months/ONE))
                   (apply interleave)
                   (take 24)
-                  (map #(generate-salary-transaction s entity % accounts)))))))
+                  (map #(generate-salary-transaction s entity % accounts))))
+
+      ; Rent
+      (dorun (->> (periodic-seq (t/plus start-date Days/ONE) Months/ONE)
+                  (take 12)
+                  (map #(transactions/create
+                          s
+                          {:entity-id (:id entity)
+                           :transaction-date %
+                           :description "Landloard"
+                           :items [{:action :debit
+                                    :account-id (-> accounts :rent :id)
+                                    :amount 750M}
+                                   {:action :credit
+                                    :account-id (-> accounts :checking :id)
+                                    :amount 750M}]})))))))
