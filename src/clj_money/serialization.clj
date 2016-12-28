@@ -59,6 +59,14 @@
       (assoc account :parent-id (:id parent)))
     account))
 
+(defn- create-account
+  [storage-spec context attributes]
+  (if (:id attributes)
+    attributes
+    (accounts/create storage-spec (->> attributes
+                                       (resolve-entity context)
+                                       (resolve-parent storage-spec)))))
+
 (defn- create-accounts
   "Creates the specified accounts.
   
@@ -72,10 +80,7 @@
                                       acct-list))
                                accounts)
                        accounts)]
-    (mapv #(accounts/create storage-spec (->> %
-                                              (resolve-entity context)
-                                              (resolve-parent storage-spec)))
-          account-list)))
+    (mapv #(create-account storage-spec context %) account-list)))
 
 (defn- realize-accounts
   [storage-spec context]
