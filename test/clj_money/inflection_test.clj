@@ -9,6 +9,14 @@
     (doseq [{:keys [input expected]} tests]
       (is (= expected (humanize input))))))
 
+(deftest keywordize-a-string
+  (let [tests [{:input "Test"         :expected :test}
+               {:input "Another test" :expected :another-test}
+               {:input "HTML"         :expected :html}]]
+    (doseq [{:keys [input expected]} tests]
+      (is (= expected (keywordize input))
+          (format "expected \"%s\" to return %s" input expected)))))
+
 (deftest ordinalize-a-number
   (let [tests [{:input 1  :expected "1st"}
                {:input 2  :expected "2nd"}
