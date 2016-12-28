@@ -96,7 +96,9 @@
                          "Social Security"
                          "Medicare"
                          "Rent"
-                         "Checking"]
+                         "Groceries"
+                         "Checking"
+                         "Credit card"]
                         (map (fn [account-name]
                                [(keywordize account-name)
                                 (->> all-accounts
@@ -127,4 +129,34 @@
                                     :amount 750M}
                                    {:action :credit
                                     :account-id (-> accounts :checking :id)
-                                    :amount 750M}]})))))))
+                                    :amount 750M}]}))))
+
+      ; Groceries
+      (dorun (->> (periodic-seq (t/plus start-date Days/TWO) Weeks/ONE)
+                  (take 52)
+                  (map #(transactions/create
+                          s
+                          {:entity-id (:id entity)
+                           :transaction-date %
+                           :description "Market Street"
+                           :items [{:action :debit
+                                    :account-id (-> accounts :groceries :id)
+                                    :amount 89M}
+                                   {:action :credit
+                                    :account-id (-> accounts :credit-card :id)
+                                    :amount 89M}]}))))
+
+      ; Credit card
+      (dorun (->> (periodic-seq (t/plus start-date (Days/days 10)) Months/ONE)
+                  (take 12)
+                  (map #(transactions/create
+                          s
+                          {:entity-id (:id entity)
+                           :transaction-date %
+                           :description "Discover Card"
+                           :items [{:action :debit
+                                    :account-id (-> accounts :credit-card :id)
+                                    :amount 325M}
+                                   {:action :credit
+                                    :account-id (-> accounts :checking :id)
+                                    :amount 325M}]})))))))
