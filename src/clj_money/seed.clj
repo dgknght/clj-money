@@ -4,6 +4,7 @@
             [clj-time.core :as t]
             [clj-time.periodic :refer [periodic-seq]]
             [clj-time.format :refer [parse-local-date]]
+            [clj-money.inflection :refer [keywordize]]
             [clj-money.serialization :refer [realize]]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage]]
@@ -89,41 +90,25 @@
     (let [user (users/find-by-email s email)
           entity (entities/find-by-name s user entity-name)
           start-date (parse-local-date start-date)
-          accounts (accounts/select-by-entity-id s (:id entity))
-          [salary
-           fit
-           social-security
-           medicare
-           checking] (map (fn [account-name]
-                            (->> accounts
-                                 (filter #(= account-name (:name %)))
-                                 first))
-                          ["Salary"
-                           "FIT"
-                           "Social Security"
-                           "Medicare"
-                           "Checking"])]
+          all-accounts (accounts/select-by-entity-id s (:id entity))
+          accounts (->> ["Salary"
+                         "FIT"
+                         "Social Security"
+                         "Medicare"
+                         "Checking"]
+                        (map (fn [account-name]
+                               [(keywordize account-name)
+                                (->> all-accounts
+                                     (filter #(= account-name (:name %)))
+                                     first)]))
+                        (into {}))]
+
+      (when (some nil? (vals accounts))
+        (throw (RuntimeException. (str "At least one account could not be found. " accounts))))
 
       ; Salary
-      (->> Months/ONE
-           (periodic-seq start-date)
-           (take 12)
-           (map #(generate-salary-transaction s
-                                              entity
-                                              %
-                                              {:salary salary
-                                               :fit fit
-                                               :social-security social-security
-                                               :medicare medicare
-                                               :checking checking})))
-      (pprint (->> Months/ONE
-           (periodic-seq (t/plus start-date (Days/days 14)))
-           (take 12)
-           (map #(generate-salary-transaction s
-                                              entity
-                                              %
-                                              {:salary salary
-                                               :fit fit
-                                               :social-security social-security
-                                               :medicare medicare
-                                               :checking checking})))))))
+      (dorun (->> [start-date (t/plus start-date (Days/days 14))]
+                  (map #(periodic-seq % Months/ONE))
+                  (apply interleave)
+                  (take 24)
+                  (map #(generate-salary-transaction s entity % accounts)))))))
