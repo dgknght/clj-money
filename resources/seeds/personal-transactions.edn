@@ -1,0 +1,17 @@
+{:transactions [{:transaction-date #inst "2016-01-01"
+                 :description "Paycheck"
+                 :items [{:action :credit
+                          :account-id "Salary"
+                          :amount 2000M}
+                         {:action :debit
+                          :account-id "FIT"
+                          :amount 400M}
+                         {:action :debit
+                          :account-id "Social Security"
+                          :amount 124M}
+                         {:action :debit
+                          :account-id "Medicare"
+                          :amount 29M}
+                         {:action :debit
+                          :account-id "Checking"
+                          :amount 1447M}]}]}
