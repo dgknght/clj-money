@@ -7,7 +7,9 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
-            [clj-money.models.accounts :as accounts])
+            [clj-money.models.entities :as entities]
+            [clj-money.models.accounts :as accounts]
+            [clj-money.models.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
 (defn account-options
@@ -24,11 +26,20 @@
                                 :name :caption}))
      (contains? options :include-none?) (concat [{:value "" :caption "None"}]))))
 
+(defn- budget-monitor
+  [monitor]
+  (html
+    [:h4 (:caption monitor)]
+    [:span.budget-monitor {:data-max (:total-budget monitor)
+                           :data-value (:actual monitor)
+                           :data-pacer (:percentage monitor)}]))
+
 (defn budget-monitors
   [entity-id]
   (html
     [:h3 "Budget monitors"]
-    [:h4 "Dining"]
-    [:span.budget-monitor {:data-max 100
-                           :data-value 44
-                           :data-pacer 40}]))
+    (->> ["Groceries"]
+         (map (comp #(reports/monitor (env :db) %)
+                    #(accounts/find-by-name (env :db) entity-id %)))
+         (remove empty?)
+         (map budget-monitor))))
