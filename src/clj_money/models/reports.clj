@@ -3,7 +3,7 @@
             [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-money.util :refer [pprint-and-return format-date]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.accounts :as accounts]
@@ -260,37 +260,39 @@
   "Returns a mini-report for a specified account against a budget period"
   ([storage-spec account]
    (monitor storage-spec account {}))
-  ([storage-spec account options]
+  ([storage-spec account {as-of :as-of :or {as-of (t/today)}}]
    (with-storage [s storage-spec]
-     (let [as-of (or (:as-of options)
-                     (t/today))
-           budget (budgets/find-by-date s (:entity-id account) as-of)
-           item (budgets/find-item-by-account budget account)
-           period (budgets/period-containing budget as-of)
-           period-budget (reduce + (->> item
-                                        :periods
-                                        (map :amount)
-                                        (take (+ 1 (:index period)))))
-           total-budget (reduce + (->> item
-                                       :periods
-                                       (map :amount)))
-           percent-of-period (budgets/percent-of-period budget
+     (when-let [budget (budgets/find-by-date s (:entity-id account) as-of)]
+       (when-let [item (budgets/find-item-by-account budget account)]
+         (let [period (budgets/period-containing budget as-of)
+               period-budget (reduce + (->> item
+                                            :periods
+                                            (map :amount)
+                                            (take (+ 1 (:index period)))))
+               total-budget (reduce + (->> item
+                                           :periods
+                                           (map :amount)))
+               percent-of-period (budgets/percent-of-period budget
+                                                            as-of)
+               period-actual (transactions/balance-delta s
+                                                         (:id account)
+                                                         (:start period)
+                                                         as-of)
+               total-actual (transactions/balance-delta s
+                                                        (:id account)
+                                                        (:start-date budget)
                                                         as-of)
-           period-actual (transactions/balance-delta s
-                                                     (:id account)
-                                                     (:start period)
-                                                     as-of)
-           total-actual (transactions/balance-delta s
-                                                    (:id account)
-                                                    (:start-date budget)
-                                                    as-of)
-           percent-of-total (->> [as-of (:end-date budget)]
-                                 (map tc/to-date-time)
-                                 (map #(t/interval (tc/to-date-time (:start-date budget)) %))
-                                 (map t/in-days)
-                                 (map #(+ 1 %))
-                                 (apply /))]
-       (with-precision 5
+               percent-of-total (->> [as-of (:end-date budget)]
+                                     (map tc/to-date-time)
+                                     (map #(t/interval (tc/to-date-time (:start-date budget)) %))
+                                     (map t/in-days)
+                                     (map #(+ 1 %))
+                                     (apply /))]
+           (with-precision 5
+             {:caption (:name account)
+              :period (monitor-item period-budget period-actual percent-of-period)
+              :budget (monitor-item total-budget total-actual percent-of-total)}))
          {:caption (:name account)
-          :period (monitor-item period-budget period-actual percent-of-period)
-          :budget (monitor-item total-budget total-actual percent-of-total)})))))
+          :message "There is no budget item for this account"})
+       {:caption (:name account)
+        :message (format "There is no budget for %s" (format-date as-of))}))))

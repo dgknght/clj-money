@@ -44,6 +44,10 @@
   color: white;
 }
 
+.note {
+  font-family: italic;
+}
+
 /* This should be moved to a place where it can be packaged with budget-monitor.js */
 .budget-monitor {
   display: inline-block;

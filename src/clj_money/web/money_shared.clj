@@ -26,13 +26,20 @@
                                 :name :caption}))
      (contains? options :include-none?) (concat [{:value "" :caption "None"}]))))
 
+(defn- paced-progress-bar
+  [data]
+  [:span.budget-monitor {:data-max (:total-budget data)
+                             :data-value (:actual data)
+                             :data-pacer (:percentage data)}])
+
 (defn- budget-monitor
   [monitor]
   (html
     [:h4 (:caption monitor)]
-    [:span.budget-monitor {:data-max (:total-budget monitor)
-                           :data-value (:actual monitor)
-                           :data-pacer (:percentage monitor)}]))
+    (when (:message monitor)
+      [:span.note (:message monitor)])
+    (when (:period monitor)
+      (paced-progress-bar (:period monitor)))))
 
 (defn budget-monitors
   [entity-id]
