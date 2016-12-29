@@ -19,7 +19,7 @@
 (defmacro with-accounts-layout
   [page-title entity-id options & content]
   `(with-layout
-     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
+     ~page-title (assoc ~options :side-bar (budget-monitors (Integer. ~entity-id)))
      ~@content))
 
 (defn- account-row
