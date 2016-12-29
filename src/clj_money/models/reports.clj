@@ -268,18 +268,18 @@
            item (budgets/find-item-by-account budget account)
            period (budgets/period-containing budget as-of)
            period-budget (reduce + (->> item
-                                       :periods
-                                       (map :amount)
-                                       (take (+ 1 (:index period)))))
+                                        :periods
+                                        (map :amount)
+                                        (take (+ 1 (:index period)))))
            total-budget (reduce + (->> item
                                        :periods
                                        (map :amount)))
            percent-of-period (budgets/percent-of-period budget
                                                         as-of)
            period-actual (transactions/balance-delta s
-                                              (:id account)
-                                              (:start period)
-                                              as-of)
+                                                     (:id account)
+                                                     (:start period)
+                                                     as-of)
            total-actual (transactions/balance-delta s
                                                     (:id account)
                                                     (:start-date budget)
