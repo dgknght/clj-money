@@ -154,6 +154,15 @@
     (is (= "edited" (:name retrieved))
         "The retrieved value reflects the updated")))
 
+(deftest find-a-budget-by-date
+  (let [context (serialization/realize storage-spec update-context)]
+    (testing "when no budget matches"
+      (is (nil? (budgets/find-by-date storage-spec (t/local-date 2016 1 1)))))
+    (testing "when a budget is mached"
+      (is (= "2017"
+             (:name (budgets/find-by-date storage-spec
+                                          (t/local-date 2017 1 1))))))))
+
 ;; Items
 (def budget-item-context
   (-> base-context
