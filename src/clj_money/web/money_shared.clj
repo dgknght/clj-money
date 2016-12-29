@@ -30,7 +30,7 @@
   [data]
   [:span.budget-monitor {:data-max (:total-budget data)
                              :data-value (:actual data)
-                             :data-pacer (:percentage data)}])
+                             :data-pacer (:prorated-budget data)}])
 
 (defn- budget-monitor
   [monitor]
@@ -39,7 +39,13 @@
     (when (:message monitor)
       [:span.note (:message monitor)])
     (when (:period monitor)
-      (paced-progress-bar (:period monitor)))))
+      (html
+        [:h5 "This Period"]
+        (paced-progress-bar (:period monitor))))
+    (when (:budget monitor)
+      (html
+        [:h5 "This Budget"]
+        (paced-progress-bar (:budget monitor))))))
 
 (defn budget-monitors
   [entity-id]
