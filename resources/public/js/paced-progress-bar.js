@@ -1,5 +1,5 @@
 (function( $ ) {
-  jQuery.fn.budgetMonitor = function(options) {
+  jQuery.fn.pacedProgressBar = function(options) {
     var elem = $(this);
 
     var canvas = document.createElement("canvas");

@@ -173,7 +173,7 @@
    [:script {:src "/js/jquery-ui.min.js"}]
    [:script {:src "/js/jquery-startup.js"}]
    [:script {:src "/js/bootstrap.min.js"}]
-   [:script {:src "/js/budget-monitor.js"}]
+   [:script {:src "/js/paced-progress-bar.js"}]
 
    "<!-- Bootstrap core CSS -->"
    [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
