@@ -262,16 +262,14 @@
    (monitor storage-spec account {}))
   ([storage-spec account {as-of :as-of :or {as-of (t/today)}}]
    (with-storage [s storage-spec]
-     (when-let [budget (budgets/find-by-date s (:entity-id account) as-of)]
-       (when-let [item (budgets/find-item-by-account budget account)]
+     (if-let [budget (budgets/find-by-date s (:entity-id account) as-of)]
+       (if-let [item (budgets/find-item-by-account budget account)]
          (let [period (budgets/period-containing budget as-of)
-               period-budget (reduce + (->> item
+               period-budget (:amount (get (:periods item) (:index period)))
+               total-budget (reduce + (->> item
                                             :periods
                                             (map :amount)
                                             (take (+ 1 (:index period)))))
-               total-budget (reduce + (->> item
-                                           :periods
-                                           (map :amount)))
                percent-of-period (budgets/percent-of-period budget
                                                             as-of)
                period-actual (transactions/balance-delta s
