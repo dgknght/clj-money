@@ -268,8 +268,7 @@
                period-budget (:amount (get (:periods item) (:index period)))
                total-budget (reduce + (->> item
                                             :periods
-                                            (map :amount)
-                                            (take (+ 1 (:index period)))))
+                                            (map :amount)))
                percent-of-period (budgets/percent-of-period budget
                                                             as-of)
                period-actual (transactions/balance-delta s
