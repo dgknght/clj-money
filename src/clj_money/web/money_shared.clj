@@ -7,6 +7,8 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
+            [clj-money.util :refer [format-number]]
+            [clj-money.inflection :refer [humanize]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.reports :as reports])
@@ -28,24 +30,29 @@
 
 (defn- paced-progress-bar
   [data]
-  [:span.budget-monitor {:data-max (:total-budget data)
+  [:span.paced-progress-bar {:data-max (:total-budget data)
                              :data-value (:actual data)
                              :data-pacer (:prorated-budget data)}])
 
+(defn- budget-monitor-section
+  [header data]
+  (html
+    [:h5 header]
+    [:div.pull-right (-> data :total-budget format-number)]
+    [:div (-> data :actual format-number)]
+    (paced-progress-bar data)))
+
 (defn- budget-monitor
   [monitor]
-  (html
-    [:h4 (:caption monitor)]
+  [:div.panel.panel-default
+   [:div.panel-heading
+    [:h4 (:caption monitor)]]
+   [:div.panel-body
     (when (:message monitor)
       [:span.note (:message monitor)])
-    (when (:period monitor)
-      (html
-        [:h5 "This Period"]
-        (paced-progress-bar (:period monitor))))
-    (when (:budget monitor)
-      (html
-        [:h5 "This Budget"]
-        (paced-progress-bar (:budget monitor))))))
+    (map #(when-let [data (% monitor)]
+            (budget-monitor-section (humanize %) data))
+         [:period :budget])]])
 
 (defn budget-monitors
   [entity-id]

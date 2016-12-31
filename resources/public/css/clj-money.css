@@ -49,14 +49,14 @@
 }
 
 /* This should be moved to a place where it can be packaged with budget-monitor.js */
-.budget-monitor {
+.paced-progress-bar {
   display: inline-block;
   box-sizing: border-box;
   width: 100%;
   height: 32px;
 }
 
-.budget-monitor-canvas {
+.paced-progress-bar-canvas {
   box-sizing: border-box;
   width: 100%;
   height: 100%;

@@ -9,29 +9,31 @@
 
       var context = canvas.getContext("2d");
 
-      var height = options.height || 96;
+      var height = options.height || this.offsetHeight;
       var width = options.width || this.offsetWidth;
+
+      canvas.height = height;
+      canvas.width = width;
+
+      // Current value
+      var valuePercent = null;
+      if (data.value <= data.pacer) {
+        context.fillStyle = options.goodCurrentValueColor || "#1aa33c";
+        valuePercent = data.value / data.max;
+      } else {
+        context.fillStyle = options.badCurrentValueColor || "#d1311f";
+        valuePercent = 1;
+      }
+      var valueXOffset = 1;
+      var valueYOffset = 1;
+      var valueHeight = height - (valueYOffset * 2);
+      var valueWidth = (width - (valueXOffset * 2)) * valuePercent;
+      context.fillRect(valueXOffset, valueYOffset, valueWidth, valueHeight);
 
       // Border
       context.strokeStyle = options.borderColor || "black";
       context.lineWidth = 2;
       context.strokeRect(1, 2, width-2, height-2);
-
-      // Current value
-      if (data.value <= data.pacer) {
-        context.fillStyle = options.goodCurrentValueColor || "#1aa33c";
-      } else {
-        context.fillStyle = options.badCurrentValueColor || "#d1311f";
-      }
-      var valueXOffset = 2;
-      var valueYOffset = 4;
-      var valueHeight = height - (valueYOffset * 2);
-      var valueWidth = (width - (valueXOffset * 2)) * (data.value / data.max);
-      var availableValueWidth = width - (valueXOffset * 2);
-      if (valueWidth > availableValueWidth) {
-        valueWidth = availableValueWidth;
-      }
-      context.fillRect(valueXOffset, valueYOffset, valueWidth, valueHeight);
 
       // Pacer
       var pacerX = width * (data.pacer / data.max);
@@ -42,8 +44,8 @@
       } else {
         context.strokeStyle = options.badPacerColor || "#d0d622";
       }
-      context.moveTo(pacerX, 0);
-      context.lineTo(pacerX, height);
+      context.moveTo(pacerX, 1);
+      context.lineTo(pacerX, height - 1);
       context.stroke();
     });
   };
