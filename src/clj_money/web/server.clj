@@ -80,6 +80,10 @@
   (POST "/budget-items/:id" {params :params}
         (budgets/update-item params))
 
+  ; Budget monitors
+  (GET "/entities/:entity-id/budget-monitors/new" [entity-id]
+       (budgets/new-monitor (Integer. entity-id)))
+
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
        (transactions/index (Integer. entity-id)))

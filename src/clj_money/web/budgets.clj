@@ -507,3 +507,8 @@
     (if (validation/valid? updated)
       (redirect (format "/budgets/%s" (:budget-id updated)))
       (edit updated))))
+
+(defn new-monitor
+  [entity-id]
+  (with-layout "Budget Monitors" {}
+    "Coming soon..."))

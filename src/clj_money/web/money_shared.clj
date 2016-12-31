@@ -62,4 +62,6 @@
          (map (comp #(reports/monitor (env :db) %)
                     #(accounts/find-by-name (env :db) entity-id %)))
          (remove empty?)
-         (map budget-monitor))))
+         (map budget-monitor))
+    [:a.btn.btn-primary {:href (format "/entities/%s/budget-monitors/new" entity-id)}
+     [:span.glyphicon.glyphicon-plus {:aria-hidden true}]]))
