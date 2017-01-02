@@ -46,7 +46,7 @@
   [monitor]
   [:div.panel.panel-default
    [:div.panel-heading
-    [:h4 (:caption monitor)]]
+    [:strong (:caption monitor)]]
    [:div.panel-body
     (when (:message monitor)
       [:span.note (:message monitor)])
