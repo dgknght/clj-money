@@ -121,35 +121,44 @@
    [:td "&nbsp;"]])
 
 (defn monitors
-  [entity-id]
-  (with-layout "Budget Monitors" {}
-    (let [entity (entities/find-by-id (env :db) entity-id)]
-      [:div.row
-       [:div.col-md-6
-        [:table.table.table-striped
-         [:tr
-          [:th "Account"]
-          [:th "&nbsp;"]]
-         (map monitor-row (->> entity
-                               :monitored-account-id
-                               (map #(accounts/find-by-id %))))]
-        [:form {:action (format "/entities/%s/monitors" (:id entity)) :method :post}
-         [:div.form-group
-          [:label.control-label {:for :account-id} "Add Account"]
-          [:div.input-group
-           [:select.form-control {:id :account-id :name :account_id}
-            (grouped-options-for-accounts (:id entity))]
-           [:span.input-group-btn
-            [:input.btn.btn-primary {:type :submit :value "Add"}]]]]]]])))
+  ([entity-id] (monitors entity-id {}))
+  ([entity-id options]
+   (with-layout "Budget Monitors" options
+     (let [entity (entities/find-by-id (env :db) entity-id)
+           new-monitor (or (:new-monitor options) {})]
+       [:div.row
+        [:div.col-md-6
+         [:table.table.table-striped
+          [:tr
+           [:th "Account"]
+           [:th "&nbsp;"]]
+          (map monitor-row (->> entity
+                                :monitored-account-id
+                                (map #(accounts/find-by-id %))))]
+         [:form {:action (format "/entities/%s/monitors" (:id entity))
+                 :method :post}
+          [:div.form-group
+           [:label.control-label {:for :account-id} "Add Account"]
+           [:div.input-group
+            [:select.form-control {:id :account-id :name :account-id}
+             (grouped-options-for-accounts (:id entity) (:accoun-id new-monitor))]
+            [:span.input-group-btn
+             [:input.btn.btn-primary {:type :submit :value "Add"}]]]]]]]))))
 
 (defn create-monitor
-  [{:keys [account-id entity-id]}]
+  [{:keys [account-id entity-id] :as params}]
   (let [entity (entities/find-by-id (env :db) entity-id)
-        updated (update-in :monitored-account-ids (fnil #(conj % account-id) []))
+        updated (update-in entity
+                           [:monitored-account-ids]
+                           (fnil #(conj % account-id) []))
         result (entities/update (env :db) updated)]
-    (if (validation/valid? result)
+
+    (with-layout "create-monitor" {}
+      [:pre (prn-str result)])
+
+    #_(if (validation/valid? result)
       (redirect (format "/entities/%s/accounts" entity-id))
-      (monitors entity-id))))
+      (monitors {:new-monitor result}))))
 
 (defn delete-monitor
   [params]

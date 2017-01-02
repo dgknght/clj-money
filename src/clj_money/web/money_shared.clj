@@ -29,14 +29,20 @@
      (contains? options :include-none?) (concat [{:value "" :caption "None"}]))))
 
 (defn- opt-group-for-account-type
-  [{account-type :type accounts :accounts}]
+  [{account-type :type accounts :accounts} selected-id]
   [:optgroup {:label (humanize account-type)}
-   (map #(vector :option {:value (:id %)} (:name %)) accounts)])
+   (map #(vector :option
+                 (cond-> {:value (:id %)}
+                   (= selected-id (:id %)) (assoc :selected true))
+                 (:name %))
+        accounts)])
 
 (defn grouped-options-for-accounts
-  [entity-id]
-  (->> (accounts/select-nested-by-entity-id (env :db) entity-id)
-       (map opt-group-for-account-type)))
+  ([entity-id]
+   (grouped-options-for-accounts entity-id nil))
+  ([entity-id selected-id]
+   (->> (accounts/select-nested-by-entity-id (env :db) entity-id)
+        (map #(opt-group-for-account-type % selected-id)))))
 
 (defn- paced-progress-bar
   [data]
