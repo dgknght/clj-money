@@ -74,9 +74,11 @@
   [entity-id]
   (html
     [:h3 "Budget monitors"]
-    (->> ["Groceries"]
+    (->> entity-id
+         (entities/find-by-id (env :db))
+         :monitored-account-ids
          (map (comp #(reports/monitor (env :db) %)
-                    #(accounts/find-by-name (env :db) entity-id %)))
+                    #(accounts/find-by-id (env :db) %)))
          (remove empty?)
          (map budget-monitor))
     [:a.btn.btn-primary {:href (format "/entities/%s/monitors" entity-id)}

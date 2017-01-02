@@ -133,8 +133,8 @@
            [:th "Account"]
            [:th "&nbsp;"]]
           (map monitor-row (->> entity
-                                :monitored-account-id
-                                (map #(accounts/find-by-id %))))]
+                                :monitored-account-ids
+                                (map #(accounts/find-by-id (env :db) %))))]
          [:form {:action (format "/entities/%s/monitors" (:id entity))
                  :method :post}
           [:div.form-group
@@ -152,11 +152,7 @@
                            [:monitored-account-ids]
                            (fnil #(conj % account-id) []))
         result (entities/update (env :db) updated)]
-
-    (with-layout "create-monitor" {}
-      [:pre (prn-str result)])
-
-    #_(if (validation/valid? result)
+    (if (validation/valid? result)
       (redirect (format "/entities/%s/accounts" entity-id))
       (monitors {:new-monitor result}))))
 
