@@ -22,6 +22,7 @@
   "Schema for saved entities"
   {:id s/Int
    :name (s/maybe s/Str)
+   (s/optional-key :user-id) s/Int
    (s/optional-key :created-at) s/Any
    (s/optional-key :updated-at) s/Any})
 
@@ -85,7 +86,11 @@
   [storage-spec entity]
   (with-storage [s storage-spec]
     (let [validated (validate-existing-entity s entity)]
-      (update-entity s entity))))
+      (if (validation/valid? validated)
+        (do
+          (update-entity s validated)
+          (find-by-id storage-spec (:id validated)))
+        validated))))
 
 (defn delete
   "Removes the specifiedy entity from storage"
