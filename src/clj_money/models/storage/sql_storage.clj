@@ -128,7 +128,9 @@
   (update-entity
     [_ entity]
     (let [sql (sql/format (-> (h/update :entities)
-                              (h/sset (->update-set entity :name))
+                              (h/sset (->update-set entity
+                                                    :name
+                                                    :monitored-account-ids))
                               (h/where [:= :id (:id entity)])))]
       (jdbc/execute! db-spec sql)))
 

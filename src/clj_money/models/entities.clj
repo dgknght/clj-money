@@ -13,18 +13,23 @@
                                               update-entity
                                               delete-entity]]))
 
+(def BaseEntity
+  "Shared entity attributes"
+  {:name s/Str
+   (s/optional-key :monitored-account-ids) [s/Int]})
+
 (def NewEntity
   "Schema for unsaved entities"
-  {:name s/Str
-   :user-id s/Int})
+  (merge BaseEntity
+         {:user-id s/Int}))
 
 (def Entity
   "Schema for saved entities"
-  {:id s/Int
-   :name (s/maybe s/Str)
-   (s/optional-key :user-id) s/Int
-   (s/optional-key :created-at) s/Any
-   (s/optional-key :updated-at) s/Any})
+  (merge BaseEntity
+         {:id s/Int
+          (s/optional-key :user-id) s/Int
+          (s/optional-key :created-at) s/Any
+          (s/optional-key :updated-at) s/Any}))
 
 (defn validation-rules
   [schema storage]
@@ -49,6 +54,13 @@
   [storage entity]
   (validate-entity storage Entity entity))
 
+(defn- before-save
+  [entity]
+  (cond-> entity
+
+    (contains? entity :monitored-account-ids)
+    (update-in [:monitored-account-ids] pr-str)))
+
 (defn create
   "Creates a new entity"
   [storage-spec entity]
@@ -59,7 +71,9 @@
                                                       :validated validated})))
       (if (validation/has-error? validated)
         validated
-        (create-entity s validated)))))
+        (->> validated
+             before-save
+             (create-entity s ))))))
 
 (defn select
   "Returns entities for the specified user"
@@ -67,11 +81,18 @@
   (with-storage [s storage-spec]
     (select-entities s user-id)))
 
+(defn- prepare-for-return
+  [entity]
+  (cond-> entity
+    (:monitored-account-ids entity)
+    (update-in [:monitored-account-ids] read-string)))
+
 (defn find-by-id
   "Finds the entity with the specified ID"
   [storage-spec id]
   (with-storage [s storage-spec]
-    (find-entity-by-id s id)))
+    (->> (find-entity-by-id s id)
+         prepare-for-return)))
 
 (defn find-by-name
   "Finds the entity having the specified name
@@ -88,7 +109,9 @@
     (let [validated (validate-existing-entity s entity)]
       (if (validation/valid? validated)
         (do
-          (update-entity s validated)
+          (->> validated
+               before-save
+               (update-entity s))
           (find-by-id storage-spec (:id validated)))
         validated))))
 

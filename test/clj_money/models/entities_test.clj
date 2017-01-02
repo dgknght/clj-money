@@ -74,15 +74,31 @@
 (deftest update-an-entity
   (let [entity (entities/create storage-spec {:name "Entity X"
                                               :user-id (:id user)})
-        updated (assoc entity :name "Entity Y")
+        updated (-> entity
+                    (assoc :name "Entity Y")
+                    (assoc :monitored-account-ids [1 2]))
         result (entities/update storage-spec updated)
-        retrieved (entities/find-by-id storage-spec (:id entity))]
+        retrieved (entities/find-by-id storage-spec (:id entity))
+        expected {:id (:id entity)
+                  :name "Entity Y"
+                  :user-id (:id user)
+                  :monitored-account-ids [1 2]}
+        actual (select-keys retrieved [:id
+                                       :name
+                                       :user-id
+                                       :monitored-account-ids])]
+
+    (if (validation/has-error? result)
+      (pprint {:result result}))
+
     (is (= "Entity Y" (:name result)) "The result contains the correct values")
-    (is (= {:id (:id entity)
-            :name "Entity Y"
-            :user-id (:id user)}
-           (select-keys retrieved [:id :name :user-id]))
-        "The retreived valud has the correct values")))
+
+    (if-not (= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
+
+    (is (= expected actual) "The retreived value has the correct values")))
 
 (deftest delete-an-entity
   (let [entity (entities/create storage-spec {:name "Entity X"
