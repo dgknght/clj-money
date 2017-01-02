@@ -453,3 +453,10 @@
     (doseq [{:keys [description budget date expected]} tests]
       (testing description
         (is (= expected (budgets/percent-of-period budget date)))))))
+
+(def monitor-context
+  (merge base-context
+         {:accounts [{:name "Salary"
+                      :type :income}
+                     {:name "Dining"
+                      :type :expense}]}))

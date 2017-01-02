@@ -28,6 +28,16 @@
                                 :name :caption}))
      (contains? options :include-none?) (concat [{:value "" :caption "None"}]))))
 
+(defn- opt-group-for-account-type
+  [{account-type :type accounts :accounts}]
+  [:optgroup {:label (humanize account-type)}
+   (map #(vector :option {:value (:id %)} (:name %)) accounts)])
+
+(defn grouped-options-for-accounts
+  [entity-id]
+  (->> (accounts/select-nested-by-entity-id (env :db) entity-id)
+       (map opt-group-for-account-type)))
+
 (defn- paced-progress-bar
   [data]
   [:span.paced-progress-bar {:data-max (:total-budget data)
@@ -63,5 +73,5 @@
                     #(accounts/find-by-name (env :db) entity-id %)))
          (remove empty?)
          (map budget-monitor))
-    [:a.btn.btn-primary {:href (format "/entities/%s/budget-monitors/new" entity-id)}
+    [:a.btn.btn-primary {:href (format "/entities/%s/monitors" entity-id)}
      [:span.glyphicon.glyphicon-plus {:aria-hidden true}]]))
