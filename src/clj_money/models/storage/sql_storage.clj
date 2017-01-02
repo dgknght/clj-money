@@ -115,12 +115,6 @@
                        (h/where [:= :user_id user-id])
                        (h/order-by :name))))
 
-  (entity-exists-with-name?
-    [_ user-id name]
-    (exists? db-spec :entities [:and
-                                [:= :user_id user-id]
-                                [:= :name name]]))
-
   (find-entity-by-id
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :entities id)))

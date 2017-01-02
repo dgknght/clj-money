@@ -1,6 +1,7 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
             [schema.core :as s]
@@ -8,7 +9,6 @@
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
-                                              entity-exists-with-name?
                                               find-entity-by-id
                                               update-entity
                                               delete-entity]]))
@@ -23,7 +23,7 @@
   (merge BaseEntity
          {:user-id s/Int}))
 
-(def Entity
+(def ExistingEntity
   "Schema for saved entities"
   (merge BaseEntity
          {:id s/Int
@@ -31,20 +31,26 @@
           (s/optional-key :created-at) s/Any
           (s/optional-key :updated-at) s/Any}))
 
+(defn- name-must-be-unique
+  "Validation rule function that ensures an account
+  name is unique within an entity"
+  [storage {entity-name :name
+            entity-id :id
+            user-id :user-id
+            :as model}]
+  {:model model
+   :errors (let [existing (when (and entity-name user-id)
+                            (->> (select-entities storage user-id)
+                                 (remove #(= (:id %) entity-id))
+                                 (filter #(= (:name %) entity-name))))]
+             (if (seq existing)
+               [[:name "Name is already in use"]]
+               []))})
+
 (defn validation-rules
   [schema storage]
   [(partial validation/apply-schema schema)
-   (fn [{:keys [user-id name] :as model}]
-     {:model model
-      :errors (if (and name
-                       user-id
-                       (entity-exists-with-name? storage user-id name))
-                [[:name "Name is already in use"]]
-                [])})])
-
-(defn- validate-entity
-  [storage schema entity]
-  (validation/validate-model entity (validation-rules Entity storage)))
+   (partial name-must-be-unique storage)])
 
 (defn- validate-new-entity
   [storage entity]
@@ -52,7 +58,7 @@
 
 (defn- validate-existing-entity
   [storage entity]
-  (validate-entity storage Entity entity))
+  (validation/validate-model entity (validation-rules ExistingEntity storage)))
 
 (defn- before-save
   [entity]
