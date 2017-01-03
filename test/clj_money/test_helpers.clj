@@ -84,9 +84,9 @@
   [accounts additional-attributes]
   (map #(if (seq (:children %))
           ( -> %
-               (select-keys (concat [:name :children] additional-attributes))
+               (select-keys (concat [:name :path :children] additional-attributes))
                (update-in [:children] simplify-accounts additional-attributes))
-          (select-keys % [:name]))
+          (select-keys % [:name :path]))
        accounts))
 
 (defn simplify-account-groups
