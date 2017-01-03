@@ -98,7 +98,7 @@
   (GET "/entities/:entity-id/transactions/new" {params :params}
        (transactions/new-transaction (update-in params [:entity-id] #(Integer. %))))
   (POST "/entities/:entity-id/transactions" {params :params}
-        (transactions/create params))
+        (transactions/create (update-in params [:entity-id] #(Integer. %))))
   (GET "/transactions/:id/edit" [id redirect]
        (transactions/edit (Integer. id) {:redirect redirect}))
   (POST "/transactions/:id" req

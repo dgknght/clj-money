@@ -8,12 +8,14 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-money.url :refer :all]
+            [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.schema :as schema]
-            [clj-money.web.money-shared :refer [account-options budget-monitors]])
+            [clj-money.web.money-shared :refer [grouped-options-for-accounts
+                                                budget-monitors]])
   (:use [clj-money.web.shared :refer :all]))
 
 (defmacro with-accounts-layout
@@ -158,13 +160,13 @@
   [account]
   (html
     (text-input-field account :name {:autofocus true})
-    (select-field account :type [{:value :asset     :caption "Asset"}
-                                 {:value :liability :caption "Liability"}
-                                 {:value :equity    :caption "Equity"}
-                                 {:value :income    :caption "Income"}
-                                 {:value :expense   :caption "Expense"}])
-    (select-field account :parent-id (account-options (:entity-id account)
-                                                      {:include-none? true}))
+    (select-field account :type (map #(vector :option {:value %} (humanize %))
+                                     accounts/account-types))
+    (select-field account
+                  :parent-id
+                  (grouped-options-for-accounts (:entity-id account)
+                                                {:include-none? true
+                                                 :selected-id (:parent-id account)}))
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save the account"}]
@@ -178,11 +180,9 @@
   ([entity-id] (new-account entity-id {:entity-id entity-id}))
   ([entity-id account]
    (with-accounts-layout "New account" entity-id {}
-     [:div.row
-      [:div.col-md-6
-       [:form {:action (str "/entities/" entity-id "/accounts")
+     [:form {:action (str "/entities/" entity-id "/accounts")
                :method :post}
-        (form-fields account)]]])))
+        (form-fields account)])))
 
 (defn create
   "Creates the account and redirects to the index page on success, or
@@ -201,11 +201,9 @@
                   id-or-account
                   (accounts/find-by-id (env :db) (Integer. id-or-account)))]
     (with-accounts-layout "Edit account" (:entity-id account) {}
-      [:div.row
-       [:div.col-md-6
-        [:form {:action (format "/accounts/%s" (:id account))
-                :method :post}
-         (form-fields account)]]])))
+      [:form {:action (format "/accounts/%s" (:id account))
+              :method :post}
+       (form-fields account)])))
 
 (defn update
   "Updates the account and redirects to the account list on

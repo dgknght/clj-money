@@ -14,35 +14,32 @@
             [clj-money.models.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
-(defn account-options
-  "Returns a list of account for the specified entity as options ready for
-  use with 'select-field'"
-  ([entity-id] (account-options entity-id {}))
-  ([entity-id options]
-   (cond->> entity-id
-     true (accounts/select-by-entity-id (env :db))
-     (contains? options :types) (filter #(contains? (:types options) (:type %)))
-     true (sort-by :name)
-     true (map #(select-keys % [:id :name]))
-     true (map #(rename-keys % {:id :value
-                                :name :caption}))
-     (contains? options :include-none?) (concat [{:value "" :caption "None"}]))))
+(defn- account-and-children-options
+  [account selected-id]
+  (concat [[:option
+            (cond-> {:value (:id account)}
+              (= selected-id (:id account))
+              (assoc :selected "selected"))
+            (:path account)]]
+          (map #(account-and-children-options % selected-id) (:children account))))
 
 (defn- opt-group-for-account-type
   [{account-type :type accounts :accounts} selected-id]
   [:optgroup {:label (humanize account-type)}
-   (map #(vector :option
-                 (cond-> {:value (:id %)}
-                   (= selected-id (:id %)) (assoc :selected true))
-                 (:name %))
+   (mapcat #(account-and-children-options % selected-id)
         accounts)])
 
 (defn grouped-options-for-accounts
   ([entity-id]
-   (grouped-options-for-accounts entity-id nil))
-  ([entity-id selected-id]
-   (->> (accounts/select-nested-by-entity-id (env :db) entity-id)
-        (map #(opt-group-for-account-type % selected-id)))))
+   (grouped-options-for-accounts entity-id {}))
+  ([entity-id options]
+   (let [optgroups (->> (accounts/select-nested-by-entity-id (env :db) entity-id)
+                        (filter #(or (nil? (:types options))
+                                     ((:types options) (:type %))))
+                        (map #(opt-group-for-account-type % (:selected-id options))))]
+     (if (:include-none? options)
+       (concat [[:option {:value ""} ""]] optgroups)
+       optgroups))))
 
 (defn- paced-progress-bar
   [data]

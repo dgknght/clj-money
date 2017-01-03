@@ -12,7 +12,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
-            [clj-money.web.money-shared :refer [account-options
+            [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]]
             [clj-money.util :refer [format-date]]
             [clj-money.schema :as schema])
@@ -70,8 +70,9 @@
         (hidden-input-element (str "id-" index) id))
       (select-element (str "account-id-" index)
                       (:account-id item)
-                      (account-options entity-id
-                                       {:include-none? true})
+                      (grouped-options-for-accounts entity-id
+                                                    {:include-none? true
+                                                     :selected-id (:account-id item)})
                       {:suppress-label? true}))]
    [:td.col-sm-2
     (text-input-element (str "credit-amount-" index) (:credit-amount item) {:suppress-label? true})]
@@ -189,7 +190,7 @@
         result (transactions/create (env :db) transaction)
         redirect-url (redirect-url (:entity-id result) params)]
     (if (validation/has-error? result)
-      (new-transaction (:entity-id transaction) result {})
+      (new-transaction params result {})
       (redirect redirect-url))))
 
 (defn edit

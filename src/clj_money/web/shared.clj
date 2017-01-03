@@ -259,13 +259,7 @@
     (when-not (:suppress-label? options)
       [:label {:for name} (humanize name)])
     [:select.form-control (merge (dissoc options :suppress-label?) {:id name :name name})
-     (map #(vector :option {:value (:value %)
-                            :selected (if (= value
-                                             (:value %))
-                                        true
-                                        nil)}
-                   (:caption %))
-          option-items)]])
+     option-items]])
 
 (defn select-field
   ([model attribute option-items]

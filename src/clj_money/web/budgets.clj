@@ -17,7 +17,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.schema :as schema]
-            [clj-money.web.money-shared :refer [account-options]])
+            [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
   (:use [clj-money.web.shared :refer :all])
   (:import org.joda.time.Months
            org.joda.time.Weeks
@@ -317,6 +317,15 @@
                                                               "&nbps;"
                                                               (.getMessage e)])}]})))))
 
+(defn- account-form-field
+  [item budget]
+  (select-field item
+                :account-id
+                (grouped-options-for-accounts (:entity-id budget)
+                                              {:types #{:income :expense}
+                                               :selected-id (:account-id item)})
+                {:autofocus true}))
+
 (defmulti item-form-fields
   (fn [item _]
     (-> item :method keyword)))
@@ -326,7 +335,7 @@
   [:div.row
    [:div.col-md-3
     (html
-      (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
+      (account-form-field item budget)
       (number-input-field item :average)
       [:input {:type :hidden :name :method :value :average}]
       [:button.btn.btn-primary {:type :submit
@@ -339,7 +348,7 @@
   [:div.row
    [:div.col-md-3
     (html
-      (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})
+      (account-form-field item budget)
       (number-input-field item :total)
       [:input {:type :hidden :name :method :value :total}]
       [:button.btn.btn-primary {:type :submit
@@ -373,7 +382,7 @@
   (html
     [:div.row
      [:div.col-md-3
-      (select-field item :account-id (account-options (:entity-id budget) {:types #{:income :expense}}) {:autofocus true})]]
+      (account-form-field item budget)]]
     [:div.row
      [:div.col-md-8
       (map #(period-input-group budget %)
