@@ -43,3 +43,22 @@
   background: #ce403b;
   color: white;
 }
+
+.note {
+  font-family: italic;
+}
+
+/* This should be moved to a place where it can be packaged with budget-monitor.js */
+.paced-progress-bar {
+  display: inline-block;
+  box-sizing: border-box;
+  width: 100%;
+  height: 32px;
+}
+
+.paced-progress-bar-canvas {
+  box-sizing: border-box;
+  width: 100%;
+  height: 100%;
+}
+

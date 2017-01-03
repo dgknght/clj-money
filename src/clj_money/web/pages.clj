@@ -7,19 +7,14 @@
 (defn home
   "Renders the home page"
   []
-  (layout "Home"
-          {}
-          (html
-            "Welcome to the accounting application"
-            )))
+  (with-layout "Home" {}
+    "Welcome to the accounting application"))
 
 (defn login
   "Renders the sign in form"
   ([] (login {:username nil :password nil}))
   ([model]
-   (layout
-     "Log in"
-     {}
+   (with-layout "Log in" {}
      [:div.row
       [:div.col-md-6
        [:form {:action "/login" :method :post}

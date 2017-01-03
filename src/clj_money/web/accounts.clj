@@ -13,8 +13,14 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.schema :as schema]
-            [clj-money.web.money-shared :refer [account-options]])
+            [clj-money.web.money-shared :refer [account-options budget-monitors]])
   (:use [clj-money.web.shared :refer :all]))
+
+(defmacro with-accounts-layout
+  [page-title entity-id options & content]
+  `(with-layout
+     ~page-title (assoc ~options :side-bar (budget-monitors (Integer. ~entity-id)))
+     ~@content))
 
 (defn- account-row
   "Renders a single account row"
@@ -76,21 +82,18 @@
   "Renders the list of accounts"
   ([entity-id] (index entity-id {}))
   ([entity-id options]
-   (layout
-     "Accounts" options
-     [:div.row
-      [:div.col-md-6
-       [:table.table.table-striped
-        [:tr
-         [:th.col-sm-6 "Name"]
-         [:th.col-sm-4.text-right "Balance"]
-         [:th.col-sm-2 "&nbsp;"]]
-        (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
-          (map account-rows groups))]
-       [:a.btn.btn-primary
-        {:href (format "/entities/%s/accounts/new" entity-id)
-         :title "Click here to add a new account."}
-        "Add"]]])))
+   (with-accounts-layout "Accounts" entity-id options
+     [:table.table.table-striped
+      [:tr
+       [:th.col-sm-6 "Name"]
+       [:th.col-sm-4.text-right "Balance"]
+       [:th.col-sm-2 "&nbsp;"]]
+      (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
+        (map account-rows groups))]
+     [:a.btn.btn-primary
+      {:href (format "/entities/%s/accounts/new" entity-id)
+       :title "Click here to add a new account."}
+      "Add"])))
 
 (defn- transaction-item-row
   [{:keys [transaction-id
@@ -129,29 +132,26 @@
   ([id] (show id {}))
   ([id options]
    (let [account (accounts/find-by-id (env :db) id)]
-     (layout
-       (format "Account - %s" (:name account)) options
-       [:div.row
-        [:div.col-md-6
-         [:table.table.table-striped.table-hover
-          [:tr
-           [:th.text-right "Date"]
-           [:th "Description"]
-           [:th.text-right "Amount"]
-           [:th.text-right "Balance"]
-           [:th "&nbsp;"]]
-          (map transaction-item-row
-               (transactions/items-by-account (env :db) id))]
-         [:a.btn.btn-primary {:href (-> (path "/entities"
-                                              (:entity-id account)
-                                              "transactions"
-                                              "new")
-                                        (query {:redirect (url-encode (format "/accounts/%s" id))})
-                                        format-url)}
-          "Add"]
-         "&nbsp;"
-         [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))}
-          "Back"]]]))))
+     (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
+       [:table.table.table-striped.table-hover
+        [:tr
+         [:th.text-right "Date"]
+         [:th "Description"]
+         [:th.text-right "Amount"]
+         [:th.text-right "Balance"]
+         [:th "&nbsp;"]]
+        (map transaction-item-row
+             (transactions/items-by-account (env :db) id))]
+       [:a.btn.btn-primary {:href (-> (path "/entities"
+                                            (:entity-id account)
+                                            "transactions"
+                                            "new")
+                                      (query {:redirect (url-encode (format "/accounts/%s" id))})
+                                      format-url)}
+        "Add"]
+       "&nbsp;"
+       [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))}
+        "Back"]))))
 
 (defn- form-fields
   "Renders the form fields for an account"
@@ -177,8 +177,7 @@
   "Renders the new account form"
   ([entity-id] (new-account entity-id {:entity-id entity-id}))
   ([entity-id account]
-   (layout
-     "New account" {}
+   (with-accounts-layout "New account" entity-id {}
      [:div.row
       [:div.col-md-6
        [:form {:action (str "/entities/" entity-id "/accounts")
@@ -198,11 +197,10 @@
 (defn edit
   "Renders the edit form for an account"
   [id-or-account]
-  (layout
-    "Edit account" {}
-    (let [account (if (map? id-or-account)
-                    id-or-account
-                    (accounts/find-by-id (env :db) (Integer. id-or-account)))]
+  (let [account (if (map? id-or-account)
+                  id-or-account
+                  (accounts/find-by-id (env :db) (Integer. id-or-account)))]
+    (with-accounts-layout "Edit account" (:entity-id account) {}
       [:div.row
        [:div.col-md-6
         [:form {:action (format "/accounts/%s" (:id account))

@@ -4,7 +4,9 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
+            [clj-time.periodic :refer [periodic-seq]]
             [schema.core :as schema]
+            [clj-money.util :as util]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
@@ -13,13 +15,15 @@
                                               create-budget-item
                                               update-budget-item
                                               find-budget-by-id
+                                              find-budget-by-date
                                               find-budget-item-by-id
                                               select-budgets-by-entity-id
                                               select-budget-items-by-budget-id
                                               delete-budget]])
   (:import (org.joda.time LocalDate
                           Months
-                          Weeks)))
+                          Weeks
+                          Days)))
 
 (def BudgetBase
   {:name schema/Str
@@ -61,6 +65,7 @@
   [storage budget]
   (-> budget
       (update-in [:start-date] tc/to-local-date)
+      (update-in [:end-date] tc/to-local-date)
       (update-in [:period] keyword)
       (assoc :items (select-items-by-budget-id storage (:id budget)))))
 
@@ -74,9 +79,38 @@
   [budget]
   (dissoc budget :items))
 
+(def period-map
+  {:month Months/ONE
+   :week Weeks/ONE
+   :quarter Months/THREE})
+
+(defn period-seq
+  "Returns a sequence of the periods in the budget based on
+  :start-date, :period, :period-count"
+  [budget]
+  (->> ((:period budget) period-map)
+       (periodic-seq (:start-date budget))
+       (partition 2 1)
+       (map-indexed (fn [index [start next-start]]
+                      {:start start
+                       :end (t/minus next-start Days/ONE)
+                       :index index
+                       :interval (t/interval (tc/to-date-time start)
+                                             (tc/to-date-time next-start))}))
+       (take (:period-count budget))))
+
+(defn end-date
+  [budget]
+  (-> budget
+      period-seq
+      last
+      :end
+      tc/to-local-date))
+
 (defn- before-save
   [budget]
   (-> budget
+      (assoc :end-date (tc/to-long (end-date budget)))
       (update-in [:start-date] tc/to-long)
       (update-in [:period] name)))
 
@@ -118,6 +152,13 @@
     (->> (find-budget-by-id s id)
          (prepare-for-return s))))
 
+(defn find-by-date
+  "Returns the budget containing the specified date"
+  [storage-spec entity-id date]
+  (with-storage [s storage-spec]
+    (->> (find-budget-by-date s (tc/to-long date))
+         (prepare-for-return s))))
+
 (defn reload
   "Returns the lastest version of the specified budget from the data store"
   [storage-spec budget]
@@ -152,6 +193,17 @@
     (->> item-id
          (find-budget-item-by-id s)
          prepare-item-for-return)))
+
+(defn find-item-by-account
+  "Finds the item in the specified budget associated with the specified account"
+  [budget account-or-id]
+  (let [account-id (if (map? account-or-id)
+                     (:id account-or-id)
+                     account-or-id)]
+    (->> budget
+         :items
+         (filter #(= account-id (:account-id %)))
+         first)))
 
 (defn- budget-item-account-belongs-to-budget-entity
   [storage budget item]
@@ -255,32 +307,26 @@
   (with-storage [s storage-spec]
     (delete-budget s id)))
 
-(defmulti end-date
-  #(:period %))
+(defn- within-period?
+  "Returns a boolean value indicating whether or not
+  the specified date is in the specified period"
+  [period date]
+  (t/within?
+    (tc/to-date-time (:start period))
+    (tc/to-date-time (:end period))
+    (tc/to-date-time date)))
 
-(defmethod end-date :month
-  [{:keys [start-date period-count]}]
-  (.minusDays (.plusMonths start-date period-count) 1))
-
-(defmethod end-date :week
-  [{:keys [start-date period-count]}]
-  (.minusDays (.plusWeeks start-date period-count) 1))
-
-(defmulti period-containing
-  (fn [budget _]
-    (:period budget)))
-
-(defn contains-date?
+(defn period-containing
+  "Returns the budget period containing the specified date"
   [budget date]
-  (and (>= 0 (compare (:start-date budget) date))
-       (<= 0 (compare (end-date budget) date))))
+  (->> (period-seq budget)
+       (filter #(within-period? % (tc/to-date-time date)))
+       first))
 
-(defmethod period-containing :month
-  [{:keys [start-date period-count] :as budget} date]
-  (when (contains-date? budget date)
-    (.getMonths (Months/monthsBetween start-date date))))
-
-(defmethod period-containing :week
-  [budget date]
-  (when (contains-date? budget date)
-    (.getWeeks (Weeks/weeksBetween (:start-date budget) date))))
+(defn percent-of-period
+  [budget as-of]
+  (let [period (period-containing budget as-of)
+        days-in-period (t/in-days (:interval period))
+        days (+ 1 (t/in-days (t/interval (tc/to-date-time (:start period))
+                                         (tc/to-date-time as-of))))]
+    (with-precision 5 (/ days days-in-period))))

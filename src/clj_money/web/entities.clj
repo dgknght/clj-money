@@ -6,7 +6,10 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [cemerick.friend :as friend]
+            [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
+            [clj-money.models.accounts :as accounts]
+            [clj-money.web.money-shared :refer [grouped-options-for-accounts]]
             [clj-money.schema :as schema])
   (:use clj-money.web.shared))
 
@@ -52,8 +55,7 @@
   "Renders the list of entities that belong to the currently
   authenticated user"
   []
-  (layout
-    "Entities" {}
+  (with-layout "Entities" {}
     [:div.row
      [:div.col-md-6
       (entity-table)
@@ -63,8 +65,7 @@
   "Renders a form for adding a new entity"
   ([] (new-entity {}))
   ([entity]
-   (layout
-     "New entity" {}
+   (with-layout "New entity" {}
      [:div.row
       [:div.col-md-6
        [:form {:action "/entities" :method :post}
@@ -82,8 +83,7 @@
 (defn edit-entity
   "Renders the edit form"
   [id]
-  (layout
-    "Edit entity" {}
+  (with-layout "Edit entity" {}
     [:div.row
      [:div.col-md-6
       [:form {:action (format "/entities/%s" id) :method :post}
@@ -113,3 +113,58 @@
     (redirect "/entities")
     (catch Exception e
       (index {:alerts [{:type :danger :message (.getMessage e)}]}))))
+
+(defn- monitor-row
+  [account]
+  [:tr
+   [:td (:name account)]
+   [:td "&nbsp;"]])
+
+(defn monitors
+  ([entity-id] (monitors entity-id {}))
+  ([entity-id options]
+   (with-layout "Budget Monitors" options
+     (let [entity (entities/find-by-id (env :db) entity-id)
+           new-monitor (or (:new-monitor options) {})]
+       [:div.row
+        [:div.col-md-6
+         [:table.table.table-striped
+          [:tr
+           [:th "Account"]
+           [:th "&nbsp;"]]
+          (map monitor-row (->> entity
+                                :monitored-account-ids
+                                (map #(accounts/find-by-id (env :db) %))))]
+         [:form {:action (format "/entities/%s/monitors" (:id entity))
+                 :method :post}
+          [:div.form-group
+           [:label.control-label {:for :account-id} "Add Account"]
+           [:div.input-group
+            [:select.form-control {:id :account-id :name :account-id}
+             (grouped-options-for-accounts (:id entity) (:accoun-id new-monitor))]
+            [:span.input-group-btn
+             [:input.btn.btn-primary {:type :submit :value "Add"}]]]]]]]))))
+
+(defn create-monitor
+  [{:keys [account-id entity-id]}]
+  (let [entity (entities/find-by-id (env :db) entity-id)
+        updated (update-in entity
+                           [:monitored-account-ids]
+                           (fnil #(conj % account-id) []))
+        result (entities/update (env :db) updated)]
+    (if (validation/valid? result)
+      (redirect (format "/entities/%s/accounts" entity-id))
+      (monitors entity-id {:new-monitor result}))))
+
+(defn delete-monitor
+  [{:keys [account-id entity-id]}]
+  (let [entity (entities/find-by-id (env :db) entity-id)
+        updated (update-in entity
+                           [:monitored-account-ids]
+                           #(->> %
+                                 (remove (fn [id] (= id account-id)))
+                                 (into [])))
+        result (entities/update (env :db) updated)]
+    (if (validation/valid? result)
+      (redirect (format "/entities/%s/accounts" entity-id))
+      (monitors entity-id {:new-monitor result}))))

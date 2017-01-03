@@ -25,10 +25,6 @@
   (select-entities
     [this user-id]
     "Returns the entities belonging to the specified user")
-  (entity-exists-with-name?
-    [this user-id name]
-    "Returns a boolean value indicating whether or not an entity exists for
-    the specified user with the specified name")
   (find-entity-by-id
     [this id]
     "Returns the entity having the specified ID")
@@ -125,6 +121,10 @@
   (find-budget-by-id
     [this id]
     "Returns the specified budget")
+
+  (find-budget-by-date
+    [this date]
+    "Returns the budget containing the specified date")
 
   (select-budgets-by-entity-id
     [this entity-id]

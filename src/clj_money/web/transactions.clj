@@ -12,16 +12,23 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
-            [clj-money.web.money-shared :refer [account-options]]
+            [clj-money.web.money-shared :refer [account-options
+                                                budget-monitors]]
             [clj-money.util :refer [format-date]]
             [clj-money.schema :as schema])
   (:use [clj-money.web.shared :refer :all]))
+
+(defmacro with-transactions-layout
+  [page-title entity-id options & content]
+  `(with-layout
+     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
+     ~@content))
 
 (defn- transaction-row
   "Renders a row in the transaction table"
   [transaction]
   [:tr
-   [:td (:transaction-date transaction)]
+   [:td (format-date (:transaction-date transaction))]
    [:td (:description transaction)]
    [:td
     [:div.btn-group
@@ -41,20 +48,17 @@
 (defn index
   ([entity-id] (index entity-id {}))
   ([entity-id options]
-   (layout
-     "Transactions" options
-     [:div.row
-      [:div.col-md-6
-       [:table.table.table-striped
-        [:tr
-         [:th.col-sm-2 "Date"]
-         [:th.col-sm-8 "Description"]
-         [:th.col-sm-2 "&nbsp;"]]
-        (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
-       [:a.btn.btn-primary
-        {:href (str"/entities/" entity-id "/transactions/new")
-         :title "Click here to enter a new transaction."}
-        "Add"]]])))
+   (with-transactions-layout "Transactions" entity-id options
+     [:table.table.table-striped
+      [:tr
+       [:th.col-sm-2 "Date"]
+       [:th.col-sm-8 "Description"]
+       [:th.col-sm-2 "&nbsp;"]]
+      (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
+     [:a.btn.btn-primary
+      {:href (str"/entities/" entity-id "/transactions/new")
+       :title "Click here to enter a new transaction."}
+      "Add"])))
 
 (defn- item-row
   "Renders an individual row for a transaction item"
@@ -148,19 +152,16 @@
                      :transaction-date (t/today)}
                     {}))
   ([params transaction options]
-   (layout
-     "New Transaction" options
-     [:div.row
-      [:div.col-md-6
-       [:form {:action (cond-> (path "/entities"
-                                     (:entity-id params)
-                                     "transactions")
-                         (contains? params :redirect) (query {:redirect (-> params
-                                                                            :redirect
-                                                                            url-encode)})
-                         true format-url)
-               :method :post}
-        (form-fields transaction (redirect-url (:entity-id params) params))]]])))
+   (with-transactions-layout "New Transaction" (:entity-id params) options
+     [:form {:action (cond-> (path "/entities"
+                                   (:entity-id params)
+                                   "transactions")
+                       (contains? params :redirect) (query {:redirect (-> params
+                                                                          :redirect
+                                                                          url-encode)})
+                       true format-url)
+             :method :post}
+      (form-fields transaction (redirect-url (:entity-id params) params))])))
 
 (defn- valid-item?
   [{account-id :account-id :as item}]
@@ -194,24 +195,21 @@
 (defn edit
   ([id-or-trans] (edit id-or-trans {}))
   ([id-or-trans options]
-   (layout
-     "New Transaction" options
-     [:div.row
-      [:div.col-md-6
-       (let [transaction (if (map? id-or-trans)
-                           id-or-trans
-                           (transactions/find-by-id (env :db) id-or-trans))
-             action (cond-> (path "/transactions"
-                                  (:id transaction))
+   (let [transaction (if (map? id-or-trans)
+                       id-or-trans
+                       (transactions/find-by-id (env :db) id-or-trans))
+         action (cond-> (path "/transactions"
+                              (:id transaction))
 
-                      (:redirect options)
-                      (query {:redirect (url-encode (:redirect options))})
+                  (:redirect options)
+                  (query {:redirect (url-encode (:redirect options))})
 
-                      true
-                      format-url)]
-         [:form {:action action
-                 :method :post}
-          (form-fields transaction (redirect-url (:entity-id transaction) options))])]])))
+                  true
+                  format-url)]
+     (with-transactions-layout "New Transaction" (:entity-id transaction) options
+       [:form {:action action
+               :method :post}
+        (form-fields transaction (redirect-url (:entity-id transaction) options))]))))
 
 (defn update
   [params]

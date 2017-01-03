@@ -80,6 +80,18 @@
   (POST "/budget-items/:id" {params :params}
         (budgets/update-item params))
 
+  ; Budget monitors
+  (GET "/entities/:entity-id/monitors" [entity-id]
+       (entities/monitors (Integer. entity-id)))
+  (POST "/entities/:entity-id/monitors" {params :params}
+        (entities/create-monitor (-> params
+                                     (update-in [:entity-id] #(Integer. %))
+                                     (update-in [:account-id] #(Integer. %)))))
+  (POST "/entities/:entity-id/monitors/:account-id/delete" {params :params}
+        (entities/delete-monitor (-> params
+                                     (update-in [:entity-id] #(Integer. %))
+                                     (update-in [:account-id] #(Integer. %)))))
+
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]
        (transactions/index (Integer. entity-id)))

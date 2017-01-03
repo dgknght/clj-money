@@ -31,8 +31,10 @@
 (defn- create-entities
   [storage-spec context entities]
   (mapv (fn [attributes]
-         (entities/create storage-spec (resolve-user context attributes)))
-       entities))
+          (if (:id attributes)
+            attributes
+            (entities/create storage-spec (resolve-user context attributes))))
+        entities))
 
 (defn- realize-entities
   [storage-spec context]
@@ -57,11 +59,28 @@
       (assoc account :parent-id (:id parent)))
     account))
 
+(defn- create-account
+  [storage-spec context attributes]
+  (if (:id attributes)
+    attributes
+    (accounts/create storage-spec (->> attributes
+                                       (resolve-entity context)
+                                       (resolve-parent storage-spec)))))
+
 (defn- create-accounts
+  "Creates the specified accounts.
+  
+  Accounts can be a sequence of maps containing account properties,
+  or a map where the keys are account types and the values
+  are vectors of account properties"
   [storage-spec context accounts]
-  (mapv #(accounts/create storage-spec (->> %
-                                            (resolve-entity context)
-                                            (resolve-parent storage-spec))) accounts))
+  (let [account-list (if (map? accounts)
+                       (mapcat (fn [[account-type acct-list]]
+                                 (map #(assoc % :type account-type)
+                                      acct-list))
+                               accounts)
+                       accounts)]
+    (mapv #(create-account storage-spec context %) account-list)))
 
 (defn- realize-accounts
   [storage-spec context]

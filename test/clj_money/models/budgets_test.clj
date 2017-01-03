@@ -18,13 +18,16 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def budget-context
+(def base-context
   {:users [{:email "john@doe.com"
             :first-name "John"
             :last-name "Doe"
             :password "please01"}]
    :entities [{:user-id "john@doe.com"
                :name "Personal"}]})
+
+(def budget-context
+  base-context)
 
 (defn- attributes
   [context]
@@ -115,16 +118,11 @@
       result)))
 
 (def delete-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}]
-   :budgets [{:name "2017"
-              :period :month
-              :period-count 12
-              :start-date (t/local-date 2017 1 1)}]})
+  (merge base-context
+         {:budgets [{:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)}]}))
 
 (deftest delete-a-budget
   (let [context (serialization/realize storage-spec delete-context)
@@ -138,52 +136,59 @@
         "The budget is absent after delete")))
 
 (def update-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}]
-   :budgets [{:name "2017"
-              :period :month
-              :period-count 12
-              :start-date (t/local-date 2017 1 1)}]})
+  (merge base-context
+         {:budgets [{:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)}]}))
 
 (deftest update-a-budget
   (let [context (serialization/realize storage-spec update-context)
         budget (-> context :budgets first)
-        updated (budgets/update storage-spec (assoc budget :name "edited"))
+        updated (-> budget
+                    (assoc :name "edited")
+                    (assoc :start-date (t/local-date 2016 1 1)))
+        result (budgets/update storage-spec updated)
         retrieved (budgets/find-by-id storage-spec (:id budget))]
-    (is (validation/valid? updated)
+    (is (validation/valid? result)
         "The budget is valid")
-    (is (= "edited" (:name updated))
+    (is (= "edited" (:name result))
         "The returned value reflects the update")
+    (is (= (t/local-date 2016 12 31)
+           (:end-date result))
+        "the returned value reflects the recalculated end date")
     (is (= "edited" (:name retrieved))
-        "The retrieved value reflects the updated")))
+        "The retrieved value reflects the updated")
+    (is (= (t/local-date 2016 12 31)
+           (:end-date retrieved))
+        "The retrieved value reflects the recalculated end date")))
+
+(deftest find-a-budget-by-date
+  (let [context (serialization/realize storage-spec update-context)]
+    (testing "when no budget matches"
+      (is (nil? (budgets/find-by-date storage-spec (t/local-date 2016 1 1)))))
+    (testing "when a budget is mached"
+      (is (= "2017"
+             (:name (budgets/find-by-date storage-spec
+                                          (t/local-date 2017 1 1))))))))
 
 ;; Items
 (def budget-item-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}
-              {:user-id "john@doe.com"
-               :name "Business"}]
-   :accounts [{:name "Salary"
-               :type :income}
-              {:name "Rent"
-               :type :expense}
-              {:name "Groceries"
-               :type :expense}
-              {:name "Sales"
-               :type :income
-               :entity-id "Business"}]
-   :budgets [{:name "2017"
-              :start-date (t/local-date 2017 1 1)
-              :period :month
-              :period-count 12}]})
+  (-> base-context
+      (update-in [:entities] #(conj % {:name "Business"}))
+      (merge {:accounts [{:name "Salary"
+                          :type :income}
+                         {:name "Rent"
+                          :type :expense}
+                         {:name "Groceries"
+                          :type :expense}
+                         {:name "Sales"
+                          :type :income
+                          :entity-id "Business"}]
+              :budgets [{:name "2017"
+                         :start-date (t/local-date 2017 1 1)
+                         :period :month
+                         :period-count 12}]})))
 
 (defn- budget-item-attributes
   [context]
@@ -248,24 +253,19 @@
       item)))
 
 (def update-budget-item-context
-  {:users [{:email "john@doe.com"
-            :first-name "John"
-            :last-name "Doe"
-            :password "please01"}]
-   :entities [{:user-id "john@doe.com"
-               :name "Personal"}]
-   :accounts [{:name "Salary"
-               :type :income}
-              {:name "Rent"
-               :type :expense}]
-   :budgets [{:name "2017"
-             :period :month
-             :period-count 12
-             :start-date (t/local-date 2017 1 1)
-             :items [{:account-id "Salary"
-                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 2000M))}
-                     {:account-id "Rent"
-                      :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 850M))}]}]})
+  (merge base-context
+         {:accounts [{:name "Salary"
+                      :type :income}
+                     {:name "Rent"
+                      :type :expense}]
+          :budgets [{:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)
+                     :items [{:account-id "Salary"
+                              :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 2000M))}
+                             {:account-id "Rent"
+                              :periods (map-indexed #(hash-map :index %1 :amount %2) (repeat 12 850M))}]}]}))
 
 (deftest update-a-budget-item
   (let [context (serialization/realize storage-spec update-budget-item-context)
@@ -361,18 +361,111 @@
     (doseq [{:keys [period tests]} all-tests]
       (testing (format "period %s" period)
         (doseq [{:keys [date expected]} tests]
-          (is (= expected (budgets/period-containing
-                            (assoc budget :period period)
-                            date))
-              (format "Given a budget starting on 1/1/2017, %s produces" date expected)))))
+          (is (= expected (:index (budgets/period-containing
+                                    (assoc budget :period period)
+                                    date)))
+              (format "Given a budget starting on 1/1/2017, %s produces %s" date expected)))))
 
     (testing "monthly budget"
-      (is (= 3 (budgets/period-containing
-                 (assoc budget :period :month)
-                 (t/local-date 2017 4 3)))
+      (is (= 3 (:index (budgets/period-containing
+                         (assoc budget :period :month)
+                         (t/local-date 2017 4 3))))
           "It returns the index of the period containing the date"))
     (testing "weekly budget"
-      (is (= 3 (budgets/period-containing
+      (is (= 3 (:index (budgets/period-containing
                  (assoc budget :period :week)
-                 (t/local-date 2017 1 25)))
+                 (t/local-date 2017 1 25))))
           "It returns the index of the period containing the date"))))
+
+(def find-by-date-context
+  (merge base-context
+         {:budgets [{:name "2016"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2016 1 1)}
+                    {:name "2017"
+                     :period :month
+                     :period-count 12
+                     :start-date (t/local-date 2017 1 1)}]}))
+
+(deftest find-a-budget-by-date
+  (let [context (serialization/realize storage-spec find-by-date-context)
+        entity-id (-> context :entities first :id)
+        tests [{:description "before any budgets"
+                :date (t/local-date 2015 12 31)
+                :expected nil}
+               {:description "start of a budget"
+                :date (t/local-date 2016 1 1)
+                :expected "2016"}]]
+    (doseq [{:keys [expected date description]} tests]
+      (testing description
+        (is (= expected
+               (->> date
+                    (budgets/find-by-date storage-spec entity-id)
+                    :name)))))))
+
+(deftest calculate-a-percent-of-a-period
+  (let [tests [{:description "the first day of a month"
+                :budget {:period :month
+                         :period-count 12
+                         :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 1)
+                :expected 1/31}
+               {:description "the 15th day of a month"
+                :budget {:period :month
+                         :period-count 12
+                         :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 4 15)
+                :expected 1/2}
+               {:description "the last day of a month"
+                :budget {:period :month
+                         :period-count 12
+                         :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 31)
+                :expected 1/1}
+               {:description "the first day of a week"
+                :budget {:period :week
+                         :period-count 8
+                         :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 1)
+                :expected 1/7}
+               {:description "the 4th day of a week"
+                :budget {:period :week
+                         :period-count 8
+                         :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 4)
+                :expected 4/7}
+               {:description "the last day of a week"
+                :budget {:period :week
+                         :period-count 8
+                         :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 7)
+                :expected 1/1}
+               {:description "the 1st day of a quarter"
+                :budget {:period :quarter
+                                       :period-count 4
+                                       :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 1)
+                :expected 1/91}
+               {:description "the 1st day of the 2nd month of a quarter"
+                :budget {:period :quarter
+                         :period-count 4
+                         :start-date (t/local-date 2015 1 1)}
+                :date (t/local-date 2015 2 1)
+                :expected 16/45}
+               {:description "the last day of a quarter"
+                :budget {:period :quarter
+                         :period-count 4
+                         :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 3 31)
+                :expected 1/1}]]
+    (doseq [{:keys [description budget date expected]} tests]
+      (testing description
+        (is (= expected (budgets/percent-of-period budget date)))))))
+
+(def monitor-context
+  (merge base-context
+         {:accounts [{:name "Salary"
+                      :type :income}
+                     {:name "Dining"
+                      :type :expense}]}))

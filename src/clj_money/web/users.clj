@@ -13,9 +13,7 @@
   ([] (new-user {}))
   ([user] (new-user user []))
   ([user options]
-   (layout
-     "Sign up"
-     options
+   (with-layout "Sign up" options
      [:div.row
       [:div.col-md-6
        [:form {:action "/users" :method :post}

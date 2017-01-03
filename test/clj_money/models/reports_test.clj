@@ -559,3 +559,29 @@
 ; Entertainment/Movies  80  75   5
 ; it would be:
 ; Entertainment        180 185  -5
+
+(deftest create-a-budget-monitor
+  (let [context (serialization/realize storage-spec budget-report-context)
+        groceries (-> context :accounts (get 6))
+
+        ; half-way through january
+        actual (-> (reports/monitor storage-spec
+                                groceries
+                                {:as-of (t/local-date 2016 1 15)})
+                   (dissoc :account))
+        expected {:caption "Groceries"
+                  :period {:total-budget 450M
+                           :prorated-budget 217.74M
+                           :percentage 15/31
+                           :actual 200M
+                           :actual-percent 0.44444M}
+                  :budget {:total-budget 5400M
+                           :prorated-budget 221.31M
+                           :percentage 15/366
+                           :actual 200M
+                           :actual-percent 0.037037M}}]
+
+    (if-not (= expected actual)
+      (pprint {:diff (diff expected actual)}))
+
+    (is (= expected actual) "The correct information is returned")))

@@ -2,7 +2,8 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-time.coerce :as tc]
+            [clj-money.util :refer [pprint-and-return format-date]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.accounts :as accounts]
@@ -155,9 +156,7 @@
 
 (defn- ->budget-report-record
   [storage budget period-count as-of account]
-  (let [item (->> (:items budget)
-                  (filter #(= (:id account) (:account-id %)))
-                  first)
+  (let [item (budgets/find-item-by-account budget account)
         budget-amount (if item
                         (reduce + 0M (->> item
                                           :periods
@@ -235,7 +234,7 @@
     (let [budget (if (map? budget-or-id)
                    budget-or-id
                    (budgets/find-by-id s budget-or-id))
-          period-count (+ 1 (budgets/period-containing budget as-of))
+          period-count (+ 1 (:index (budgets/period-containing budget as-of)))
           items (->> (accounts/select-by-entity-id s
                                                    (:entity-id budget)
                                                    {:types #{:income :expense}})
@@ -248,3 +247,52 @@
           (assoc :items items)
           (rename-keys {:name :title})
           (select-keys [:items :title])))))
+
+(defn- monitor-item
+  [budget actual percentage]
+  {:total-budget budget
+   :actual actual
+   :percentage percentage
+   :prorated-budget (* percentage budget)
+   :actual-percent (/ actual budget)})
+
+(defn monitor
+  "Returns a mini-report for a specified account against a budget period"
+  ([storage-spec account]
+   (monitor storage-spec account {}))
+  ([storage-spec account {as-of :as-of :or {as-of (t/today)}}]
+   (with-storage [s storage-spec]
+     (if-let [budget (budgets/find-by-date s (:entity-id account) as-of)]
+       (if-let [item (budgets/find-item-by-account budget account)]
+         (let [period (budgets/period-containing budget as-of)
+               period-budget (:amount (get (:periods item) (:index period)))
+               total-budget (reduce + (->> item
+                                            :periods
+                                            (map :amount)))
+               percent-of-period (budgets/percent-of-period budget
+                                                            as-of)
+               period-actual (transactions/balance-delta s
+                                                         (:id account)
+                                                         (:start period)
+                                                         as-of)
+               total-actual (transactions/balance-delta s
+                                                        (:id account)
+                                                        (:start-date budget)
+                                                        as-of)
+               percent-of-total (->> [as-of (:end-date budget)]
+                                     (map tc/to-date-time)
+                                     (map #(t/interval (tc/to-date-time (:start-date budget)) %))
+                                     (map t/in-days)
+                                     (map #(+ 1 %))
+                                     (apply /))]
+           (with-precision 5
+             {:caption (:name account)
+              :account account
+              :period (monitor-item period-budget period-actual percent-of-period)
+              :budget (monitor-item total-budget total-actual percent-of-total)}))
+         {:caption (:name account)
+          :account account
+          :message "There is no budget item for this account"})
+       {:caption (:name account)
+        :account account
+        :message (format "There is no budget for %s" (format-date as-of))}))))

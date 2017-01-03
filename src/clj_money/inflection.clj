@@ -10,6 +10,14 @@
       (string/replace #"[_-]" " ")
       string/capitalize))
 
+(defn keywordize
+  "Accepts a human-friendly string and returns a kabob-case keyword"
+  [value]
+  (-> value
+      (string/replace #"\b[A-Z]+" #(string/lower-case %1))
+      (string/replace #"\s+" "-")
+      keyword))
+
 (defn ordinal
   "Accepts a number and returns a string expressing the value
   as an ordinal. E.g., 1 => '1st'"

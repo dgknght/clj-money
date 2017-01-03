@@ -30,6 +30,7 @@
    [:td (:period budget)]
    [:td.text-right (:period-count budget)]
    [:td.text-right (format-date (:start-date budget))]
+   [:td.text-right (format-date (:end-date budget))]
    [:td
     [:div.btn-group
      (glyph-button :pencil
@@ -53,8 +54,7 @@
 (defn index
   ([entity-id] (index entity-id {}))
   ([entity-id options]
-   (layout
-     "Budgets" options
+   (with-layout "Budgets" options
      [:div.row
       [:div.col-md-6
        [:table.table.table-striped
@@ -63,9 +63,11 @@
          [:th "Period"]
          [:th.text-right "Period count"]
          [:th.text-right "Start date"]
+         [:th.text-right "End date"]
          [:th "&nbsp;"]]
         (map budget-row (budgets/select-by-entity-id (env :db) entity-id))]
-       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" entity-id)} "Add"]]])))
+       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" entity-id)}
+        "Add"]]])))
 
 (defn default-start-date
   []
@@ -79,11 +81,14 @@
     (select-field budget :period [{:value :week    :caption "Week"}
                                   {:value :month   :caption "Month"}
                                   {:value :quarter :caption "Quarter"}])
-    (number-input-field budget :period-count)
-    (text-input-field budget :start-date {:class "date-field" :format-fn format-date})
+    (number-input-field budget :period-count {:step "1"
+                                              :format-fn #(format-number % {:format :integer})})
+    (text-input-field budget :start-date {:class "date-field"
+                                          :format-fn format-date})
     [:button.btn.btn-primary {:type :submit} "Save"]
     "&nbsp;"
-    [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]))
+    [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))}
+     "Back"]))
 
 (defn new-budget
   ([entity-id]
@@ -94,8 +99,7 @@
                             :period-count 12
                             :start-date start-date})))
   ([entity-id budget]
-   (layout
-     "New budget" {}
+   (with-layout "New budget" {}
      [:div.row
       [:div.col-md-3
        [:form {:action (format "/entities/%s/budgets" entity-id)
@@ -246,38 +250,36 @@
   "Renders the budet details"
   [id]
   (let [budget (for-display id)]
-  (layout
-    (str "Budget: " (:name budget)) {}
-    [:div.row
-     [:div.col-md-12
-      [:table.table.table-striped
-       (html
-       (budget-header-row budget)
-       (map budget-item-row (:items budget)))]
-      [:div.btn-group
-       [:button.btn.btn-primary.dropdown-toggle
-        {:type "button"
-         :data-toggle "dropdown"
-         :aria-haspopup true
-         :aria-expanded false}
-        "Add"
+    (with-layout (str "Budget: " (:name budget)) {}
+      [:div.row
+       [:div.col-md-12
+        [:table.table.table-striped
+         (html
+           (budget-header-row budget)
+           (map budget-item-row (:items budget)))]
+        [:div.btn-group
+         [:button.btn.btn-primary.dropdown-toggle
+          {:type "button"
+           :data-toggle "dropdown"
+           :aria-haspopup true
+           :aria-expanded false}
+          "Add"
+          "&nbsp;"
+          [:span.caret]]
+         [:ul.dropdown-menu
+          [:li
+           [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
+          [:li
+           [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]
+          [:li
+           [:a {:href (format "/budgets/%s/items/new/detail" (:id budget))} "By period"]]]]
         "&nbsp;"
-        [:span.caret]]
-       [:ul.dropdown-menu
-        [:li
-         [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
-        [:li
-         [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]
-        [:li
-         [:a {:href (format "/budgets/%s/items/new/detail" (:id budget))} "By period"]]]]
-      "&nbsp;"
-      [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
+        [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
 (defn edit
   "Renders an edit form for the specified budget"
   [id-or-budget]
-  (layout
-    "Edit budget" {}
+  (with-layout "Edit budget" {}
     (let [budget (if (map? id-or-budget)
                    id-or-budget
                    (budgets/find-by-id (env :db) id-or-budget))]
@@ -375,14 +377,15 @@
     [:div.row
      [:div.col-md-8
       (map #(period-input-group budget %)
-           (or (->> item
-                    :periods
-                    (partition 3))
-               (->> budget
-                    :period-count
-                    range
-                    (map #(hash-map :index % :amount 0M))
-                    (partition 3))))]]
+           (if (:periods item)
+             (->> item
+                  :periods
+                  (partition 3))
+             (->> budget
+                  :period-count
+                  range
+                  (map #(hash-map :index % :amount 0M))
+                  (partition 3))))]]
     [:input {:type :hidden :name :method :value :detail}]
     [:button.btn.btn-primary {:type :submit
                               :title "Click here to save this budget item."} "Save"]
@@ -393,11 +396,10 @@
   "Renders a form for creating a new item"
   [{budget-id :budget-id :as item}]
   (let [budget (budgets/find-by-id (env :db) budget-id)]
-    (layout
-      (str "Budget " (:name budget) ": New item") {}
+    (with-layout (str "Budget " (:name budget) ": New item") {}
       [:form {:action (format "/budgets/%s/items" budget-id)
-                :method :post}
-         (item-form-fields item budget)])))
+              :method :post}
+       (item-form-fields item budget)])))
 
 (defmulti extract-periods
   (fn [item _]
@@ -484,8 +486,7 @@
                (budgets/find-item-by-id (env :db) item-or-id))
         budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
-    (layout
-      (format "Budget %s: %s" (:name budget) (:name account)) {}
+    (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {}
       [:form {:action (format "/budget-items/%s" (:id item))
               :method :post}
        (-> item
@@ -508,3 +509,8 @@
     (if (validation/valid? updated)
       (redirect (format "/budgets/%s" (:budget-id updated)))
       (edit updated))))
+
+(defn new-monitor
+  [entity-id]
+  (with-layout "Budget Monitors" {}
+    "Coming soon..."))

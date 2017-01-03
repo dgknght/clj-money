@@ -25,5 +25,7 @@
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
-            "rollback" ["run" "-m" "clj-money.db/rollback"]}
+            "rollback" ["run" "-m" "clj-money.db/rollback"]
+            "seed" ["run" "-m" "clj-money.seed/seed"]
+            "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]}
   :profiles {:production {:env {:production true}}})

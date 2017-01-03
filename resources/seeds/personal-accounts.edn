@@ -1,0 +1,34 @@
+{:accounts {:income [{:name "Salary"}
+                     {:name "Bonus"}]
+            :expense [{:name "Taxes"}
+                      {:name "FIT"
+                       :parent-id "Taxes"}
+                      {:name "Social Security"
+                       :parent-id "Taxes"}
+                      {:name "Medicare"
+                       :parent-id "Taxes"}
+                      {:name "Rent"}
+                      {:name "Groceries"}
+                      {:name "Dining"}]
+            :asset [{:name "Current"}
+                    {:name "Checking"
+                     :parent-id "Current"}
+                    {:name "Savings"
+                     :parent-id "Current"}
+                    {:name "Car"
+                     :parent-id "Savings"}
+                    {:name "Reserve"
+                     :parent-id "Savings"}
+                    {:name "Fixed"}
+                    {:name "Car"
+                     :parent-id "Fixed"}
+                    {:name "House"
+                     :parent-id "Fixed"}]
+            :liability [{:name "Credit card"}
+                        {:name "Loans"}
+                        {:name "Home Loan"
+                         :parent-id "Loans"}
+                        {:name "Auto Loan"
+                         :parent-id "Loans"}]
+            :equity [{:name "Opening balances"}
+                     {:name "Accumulated"}]}}

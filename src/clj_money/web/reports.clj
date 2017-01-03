@@ -47,7 +47,7 @@
 (defmethod render-report :income-statement
   [{:keys [entity-id start-date end-date]}]
   (html
-    [:h1 (format "Income Statement: %s to %s"
+    [:h2 (format "Income Statement: %s to %s"
                  (format-date start-date)
                  (format-date end-date))]
     [:table.table.table-striped
@@ -59,7 +59,7 @@
 (defmethod render-report :balance-sheet
   [{:keys [entity-id as-of]}]
   (html
-    [:h1 (format "Balance Sheet as of %s" (format-date as-of))]
+    [:h2 (format "Balance Sheet as of %s" (format-date as-of))]
     [:table.table.table-striped
      (map report-row (reports/balance-sheet (env :db)
                                             entity-id
@@ -89,7 +89,7 @@
         as-of (or as-of
                   (budgets/end-date budget))]
     (html
-      [:h1 (format "Budget %s as of %s" (:name budget) (format-date as-of))]
+      [:h2 (format "Budget %s as of %s" (:name budget) (format-date as-of))]
       [:table.table
        [:tr
         [:th "Account"]
@@ -156,8 +156,7 @@
                                         (default-end-date))
                           :as-of (or (parse-date (:as-of params))
                                      (default-end-date))))]
-    (layout
-      "Reports" {}
+    (with-layout "Reports" {}
       [:div.row
        [:div.col-md-12
         (tabbed-nav [{:id :income-statement

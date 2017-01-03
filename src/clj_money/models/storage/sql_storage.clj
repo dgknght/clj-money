@@ -115,12 +115,6 @@
                        (h/where [:= :user_id user-id])
                        (h/order-by :name))))
 
-  (entity-exists-with-name?
-    [_ user-id name]
-    (exists? db-spec :entities [:and
-                                [:= :user_id user-id]
-                                [:= :name name]]))
-
   (find-entity-by-id
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :entities id)))
@@ -128,7 +122,9 @@
   (update-entity
     [_ entity]
     (let [sql (sql/format (-> (h/update :entities)
-                              (h/sset (->update-set entity :name))
+                              (h/sset (->update-set entity
+                                                    :name
+                                                    :monitored-account-ids))
                               (h/where [:= :id (:id entity)])))]
       (jdbc/execute! db-spec sql)))
 
@@ -343,6 +339,15 @@
                               (h/where [:= :id id])
                               (h/limit 1)))))
 
+  (find-budget-by-date
+    [_ date]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :budgets)
+                              (h/where [:and
+                                        [:<= :start-date date]
+                                        [:>= :end-date date]])
+                              (h/limit 1)))))
+
   (select-budgets-by-entity-id
     [_ entity-id]
     (query db-spec (-> (h/select :*)
@@ -356,7 +361,8 @@
                                                     :name
                                                     :period
                                                     :period-count
-                                                    :start-date))
+                                                    :start-date
+                                                    :end-date))
                               (h/where [:= :id (:id budget)])))]
       (jdbc/execute! db-spec sql)))
 

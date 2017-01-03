@@ -60,6 +60,12 @@
          select-users
          (map prepare-user-for-return))))
 
+(defn find-by-email
+  "Returns the user having the specified email"
+  [storage-spec email]
+  (with-storage [s storage-spec]
+    (find-user-by-email s email)))
+
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend

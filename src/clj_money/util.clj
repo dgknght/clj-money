@@ -1,13 +1,15 @@
 (ns clj-money.util
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t])
   (:import java.text.DecimalFormat
            org.joda.time.format.DateTimeFormat))
 
 (def number-formats
   {:standard (DecimalFormat. "#,##0.00")
-   :no-comma (DecimalFormat. "0.00")})
+   :no-comma (DecimalFormat. "0.00")
+   :integer  (DecimalFormat. "0")})
 
 (defn format-number
   "Format a number with 2 decimal places and groups separated with commas"
@@ -49,3 +51,7 @@
   (println message)
   (pprint value)
   value)
+
+(defn pprint-and-return-l
+  [value message]
+  (pprint-and-return message value))
