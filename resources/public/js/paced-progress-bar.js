@@ -18,8 +18,6 @@
       // Current value
       var valuePercent = null;
 
-      console.log(data);
-
       if (data.value > data.max) {
         context.fillStyle = options.badCurrentValueColor || "#d1311f";
         valuePercent = 1;
