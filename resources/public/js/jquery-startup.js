@@ -67,5 +67,5 @@ $(function() {
   $(".date-field").datepicker();
 
   // Budget Monitors
-  $(".paced-progress-bar").pacedProgressBar({});
+  $(".paced-progress-bar").pacedProgressBar({borderColor: "#CCC"});
 });

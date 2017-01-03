@@ -56,7 +56,10 @@
     [:h5 header]
     [:div.pull-right (-> data :total-budget format-number)]
     [:div (-> data :actual format-number)]
-    (paced-progress-bar data)))
+    [:span {:title (format "Target: %s, Actual: %s"
+                           (-> data :prorated-budget format-number)
+                           (-> data :actual format-number))}
+     (paced-progress-bar data)]))
 
 (defn- budget-monitor
   [monitor]

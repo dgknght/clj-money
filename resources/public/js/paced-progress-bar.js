@@ -17,12 +17,19 @@
 
       // Current value
       var valuePercent = null;
-      if (data.value <= data.pacer) {
-        context.fillStyle = options.goodCurrentValueColor || "#1aa33c";
-        valuePercent = data.value / data.max;
-      } else {
+
+      console.log(data);
+
+      if (data.value > data.max) {
         context.fillStyle = options.badCurrentValueColor || "#d1311f";
         valuePercent = 1;
+      } else {
+        valuePercent = data.value / data.max;
+        if (data.value > data.pacer) {
+          context.fillStyle = options.warnCurrentValueColor || "#d87a0f";
+        } else {
+          context.fillStyle = options.goodCurrentValueColor || "#1aa33c";
+        }
       }
       var valueXOffset = 1;
       var valueYOffset = 1;
