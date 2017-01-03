@@ -565,9 +565,10 @@
         groceries (-> context :accounts (get 6))
 
         ; half-way through january
-        actual (reports/monitor storage-spec
+        actual (-> (reports/monitor storage-spec
                                 groceries
                                 {:as-of (t/local-date 2016 1 15)})
+                   (dissoc :account))
         expected {:caption "Groceries"
                   :period {:total-budget 450M
                            :prorated-budget 217.74M
