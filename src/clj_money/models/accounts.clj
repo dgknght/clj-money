@@ -1,6 +1,7 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
             [schema.core :as s]
             [clj-money.validation :as validation]
@@ -170,10 +171,15 @@
             (map prepare-for-return)
             (filter #(types (:type %))))))))
 
+(defn- append-path
+  [account parent]
+  (assoc account :path (str (:path parent) "/" (:name account))))
+
 (defn- append-children
   [account all-accounts]
   (let [children (->> all-accounts
                       (filter #(= (:id account) (:parent-id %)))
+                      (map #(append-path % account))
                       (map #(append-children % all-accounts))
                       (sort-by :name)
                       vec)]
@@ -191,6 +197,7 @@
    (let [all (select-by-entity-id storage-spec entity-id)
          grouped (->> all
                       (remove :parent-id)
+                      (map #(assoc % :path (:name %)))
                       (map #(append-children % all))
                       (group-by :type))]
      (map #(hash-map :type % :accounts (or

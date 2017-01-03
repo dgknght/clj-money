@@ -78,12 +78,18 @@
         result (simplify-account-groups
                  (accounts/select-nested-by-entity-id storage-spec (:id entity)))
         expected [{:type :asset
-                   :accounts [{:name "Checking"}
+                   :accounts [{:name "Checking"
+                               :path "Checking"}
                               {:name "Savings"
+                               :path "Savings"
                                :children [{:name "Car"
-                                           :children [{:name "Doug"}
-                                                      {:name "Eli"}]}
-                                          {:name "Reserve"}]}]}
+                                           :path "Savings/Car"
+                                           :children [{:name "Doug"
+                                                       :path "Savings/Car/Doug"}
+                                                      {:name "Eli"
+                                                       :path "Savings/Car/Eli"}]}
+                                          {:name "Reserve"
+                                           :path "Savings/Reserve"}]}]}
                   {:type :liability
                    :accounts []}
                   {:type :equity
@@ -92,8 +98,11 @@
                    :accounts []}
                   {:type :expense
                    :accounts [{:name "Taxes"
-                               :children [{:name "Federal Income Tax"}
-                                          {:name "Social Security"}]}]}]]
+                               :path "Taxes"
+                               :children [{:name "Federal Income Tax"
+                                           :path "Taxes/Federal Income Tax"}
+                                          {:name "Social Security"
+                                           :path "Taxes/Social Security"}]}]}]]
     (when-not (= expected result)
       (pprint {:expected expected
                :actual result
