@@ -145,14 +145,23 @@
 (deftest update-a-budget
   (let [context (serialization/realize storage-spec update-context)
         budget (-> context :budgets first)
-        updated (budgets/update storage-spec (assoc budget :name "edited"))
+        updated (-> budget
+                    (assoc :name "edited")
+                    (assoc :start-date (t/local-date 2016 1 1)))
+        result (budgets/update storage-spec updated)
         retrieved (budgets/find-by-id storage-spec (:id budget))]
-    (is (validation/valid? updated)
+    (is (validation/valid? result)
         "The budget is valid")
-    (is (= "edited" (:name updated))
+    (is (= "edited" (:name result))
         "The returned value reflects the update")
+    (is (= (t/local-date 2016 12 31)
+           (:end-date result))
+        "the returned value reflects the recalculated end date")
     (is (= "edited" (:name retrieved))
-        "The retrieved value reflects the updated")))
+        "The retrieved value reflects the updated")
+    (is (= (t/local-date 2016 12 31)
+           (:end-date retrieved))
+        "The retrieved value reflects the recalculated end date")))
 
 (deftest find-a-budget-by-date
   (let [context (serialization/realize storage-spec update-context)]

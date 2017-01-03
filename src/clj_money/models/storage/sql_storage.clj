@@ -361,7 +361,8 @@
                                                     :name
                                                     :period
                                                     :period-count
-                                                    :start-date))
+                                                    :start-date
+                                                    :end-date))
                               (h/where [:= :id (:id budget)])))]
       (jdbc/execute! db-spec sql)))
 
