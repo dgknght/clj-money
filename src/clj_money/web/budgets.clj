@@ -30,6 +30,7 @@
    [:td (:period budget)]
    [:td.text-right (:period-count budget)]
    [:td.text-right (format-date (:start-date budget))]
+   [:td.text-right (format-date (:end-date budget))]
    [:td
     [:div.btn-group
      (glyph-button :pencil
@@ -62,6 +63,7 @@
          [:th "Period"]
          [:th.text-right "Period count"]
          [:th.text-right "Start date"]
+         [:th.text-right "End date"]
          [:th "&nbsp;"]]
         (map budget-row (budgets/select-by-entity-id (env :db) entity-id))]
        [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" entity-id)}
