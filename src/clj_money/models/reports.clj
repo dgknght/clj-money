@@ -287,9 +287,12 @@
                                      (apply /))]
            (with-precision 5
              {:caption (:name account)
+              :account account
               :period (monitor-item period-budget period-actual percent-of-period)
               :budget (monitor-item total-budget total-actual percent-of-total)}))
          {:caption (:name account)
+          :account account
           :message "There is no budget item for this account"})
        {:caption (:name account)
+        :account account
         :message (format "There is no budget for %s" (format-date as-of))}))))

@@ -146,7 +146,7 @@
              [:input.btn.btn-primary {:type :submit :value "Add"}]]]]]]]))))
 
 (defn create-monitor
-  [{:keys [account-id entity-id] :as params}]
+  [{:keys [account-id entity-id]}]
   (let [entity (entities/find-by-id (env :db) entity-id)
         updated (update-in entity
                            [:monitored-account-ids]
@@ -154,8 +154,17 @@
         result (entities/update (env :db) updated)]
     (if (validation/valid? result)
       (redirect (format "/entities/%s/accounts" entity-id))
-      (monitors {:new-monitor result}))))
+      (monitors entity-id {:new-monitor result}))))
 
 (defn delete-monitor
-  [params]
-  )
+  [{:keys [account-id entity-id]}]
+  (let [entity (entities/find-by-id (env :db) entity-id)
+        updated (update-in entity
+                           [:monitored-account-ids]
+                           #(->> %
+                                 (remove (fn [id] (= id account-id)))
+                                 (into [])))
+        result (entities/update (env :db) updated)]
+    (if (validation/valid? result)
+      (redirect (format "/entities/%s/accounts" entity-id))
+      (monitors entity-id {:new-monitor result}))))

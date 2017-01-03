@@ -87,7 +87,7 @@
         (entities/create-monitor (-> params
                                      (update-in [:entity-id] #(Integer. %))
                                      (update-in [:account-id] #(Integer. %)))))
-  (POST "/entities/:entity-id/monitors/:id/delete" {params :params}
+  (POST "/entities/:entity-id/monitors/:account-id/delete" {params :params}
         (entities/delete-monitor (-> params
                                      (update-in [:entity-id] #(Integer. %))
                                      (update-in [:account-id] #(Integer. %)))))
