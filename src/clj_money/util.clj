@@ -51,3 +51,7 @@
   (println message)
   (pprint value)
   value)
+
+(defn pprint-and-return-l
+  [value message]
+  (pprint-and-return message value))
