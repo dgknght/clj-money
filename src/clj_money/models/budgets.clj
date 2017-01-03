@@ -79,22 +79,39 @@
   [budget]
   (dissoc budget :items))
 
-(defmulti end-date
-  #(:period %))
+(def period-map
+  {:month Months/ONE
+   :week Weeks/ONE
+   :quarter Months/THREE})
 
-(defmethod end-date :month
-  [{:keys [start-date period-count]}]
-  (.minusDays (.plusMonths start-date period-count) 1))
+(defn period-seq
+  "Returns a sequence of the periods in the budget based on
+  :start-date, :period, :period-count"
+  [budget]
+  (->> ((:period budget) period-map)
+       (periodic-seq (:start-date budget))
+       (partition 2 1)
+       (map-indexed (fn [index [start next-start]]
+                      {:start start
+                       :end (t/minus next-start Days/ONE)
+                       :index index
+                       :interval (t/interval (tc/to-date-time start)
+                                             (tc/to-date-time next-start))}))
+       (take (:period-count budget))))
 
-(defmethod end-date :week
-  [{:keys [start-date period-count]}]
-  (.minusDays (.plusWeeks start-date period-count) 1))
+(defn end-date
+  [budget]
+  (-> budget
+      period-seq
+      last
+      :end
+      tc/to-local-date))
 
 (defn- before-save
   [budget]
   (-> budget
-      (update-in [:start-date] tc/to-long)
       (assoc :end-date (tc/to-long (end-date budget)))
+      (update-in [:start-date] tc/to-long)
       (update-in [:period] name)))
 
 (defn- period-count-must-be-greater-than-one
@@ -289,26 +306,6 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-budget s id)))
-
-(def period-map
-  {:month Months/ONE
-   :week Weeks/ONE
-   :quarter Months/THREE})
-
-(defn period-seq
-  "Returns a sequence of the periods in the budget based on
-  :start-date, :period, :period-count"
-  [budget]
-  (->> ((:period budget) period-map)
-       (periodic-seq (:start-date budget))
-       (partition 2 1)
-       (map-indexed (fn [index [start next-start]]
-                      {:start start
-                       :end (t/minus next-start Days/ONE)
-                       :index index
-                       :interval (t/interval (tc/to-date-time start)
-                                             (tc/to-date-time next-start))}))
-       (take (:period-count budget))))
 
 (defn- within-period?
   "Returns a boolean value indicating whether or not
