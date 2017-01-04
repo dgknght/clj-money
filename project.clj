@@ -17,7 +17,6 @@
                  [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.6.3"]
-                 [prismatic/schema "1.1.3"]
                  [clj-factory "0.2.1"]
                  [faker "0.2.2"]]
   :min-lein-version "2.0.0"
