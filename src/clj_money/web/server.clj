@@ -75,10 +75,8 @@
   (route POST "/transactions/:id/delete" transactions/delete)
   
   ; Reports
-  (GET "/entities/:entity-id/reports" [entity-id]
-       (reports/render {:entity-id entity-id :type :income-statement}))
-  (GET "/entities/:entity-id/reports/:type" {params :params}
-       (reports/render params)))
+  (route GET "/entities/:entity-id/reports" reports/render)
+  (route GET "/entities/:entity-id/reports/:type" reports/render))
 
 (defroutes routes
   (GET "/" []

@@ -141,10 +141,11 @@
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defn render
-  [params]
+  [{params :params}]
   (let [params (-> params ; TODO separate default based on the report type
                    (update-in [:entity-id] #(Integer. %))
                    (update-in [:type] keyword)
+                   (update-in [:type] (fnil identity :balance-sheet))
                    (assoc :start-date (or (parse-date (:start-date params))
                                           (budgets/default-start-date))
                           :end-date (or (parse-date (:end-date params))
