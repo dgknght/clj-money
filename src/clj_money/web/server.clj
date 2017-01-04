@@ -38,20 +38,13 @@
   (route POST "/entities/:id/delete" entities/delete)
 
   ; Accounts
-  (GET "/entities/:entity-id/accounts" [entity-id]
-       (accounts/index entity-id))
-  (GET "/entities/:entity-id/accounts/new" [entity-id]
-       (accounts/new-account (Integer. entity-id)))
-  (POST "/entities/:entity-id/accounts" {params :params}
-        (accounts/create params))
-  (GET "/accounts/:id" [id]
-       (accounts/show (Integer. id)))
-  (GET "/accounts/:id/edit" [id]
-       (accounts/edit id))
-  (POST "/accounts/:id" req
-        (accounts/update (:params req)))
-  (POST "/accounts/:id/delete" [id]
-        (accounts/delete id))
+  (route GET "/entities/:entity-id/accounts" accounts/index)
+  (route GET "/entities/:entity-id/accounts/new" accounts/new-account)
+  (route POST "/entities/:entity-id/accounts" accounts/create)
+  (route GET "/accounts/:id" accounts/show)
+  (route GET "/accounts/:id/edit" accounts/edit)
+  (route POST "/accounts/:id" accounts/update)
+  (route POST "/accounts/:id/delete" accounts/delete)
 
   (GET "/entities/:entity-id/budgets" [entity-id]
        (budgets/index (Integer. entity-id)))

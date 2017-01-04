@@ -82,20 +82,21 @@
 
 (defn index
   "Renders the list of accounts"
-  ([entity-id] (index entity-id {}))
-  ([entity-id options]
-   (with-accounts-layout "Accounts" entity-id options
-     [:table.table.table-striped
-      [:tr
-       [:th.col-sm-6 "Name"]
-       [:th.col-sm-4.text-right "Balance"]
-       [:th.col-sm-2 "&nbsp;"]]
-      (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
-        (map account-rows groups))]
-     [:a.btn.btn-primary
-      {:href (format "/entities/%s/accounts/new" entity-id)
-       :title "Click here to add a new account."}
-      "Add"])))
+  ([req] (index req {}))
+  ([{params :params} options]
+   (let [entity-id (Integer. (:entity-id params))]
+     (with-accounts-layout "Accounts" entity-id options
+       [:table.table.table-striped
+        [:tr
+         [:th.col-sm-6 "Name"]
+         [:th.col-sm-4.text-right "Balance"]
+         [:th.col-sm-2 "&nbsp;"]]
+        (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
+          (map account-rows groups))]
+       [:a.btn.btn-primary
+        {:href (format "/entities/%s/accounts/new" entity-id)
+         :title "Click here to add a new account."}
+        "Add"]))))
 
 (defn- transaction-item-row
   [{:keys [transaction-id
@@ -131,9 +132,10 @@
 
 (defn show
   "Renders account details, including transactions"
-  ([id] (show id {}))
-  ([id options]
-   (let [account (accounts/find-by-id (env :db) id)]
+  ([req] (show req {}))
+  ([{params :params} options]
+   (let [id (Integer. (:id params))
+         account (accounts/find-by-id (env :db) id)]
      (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
        [:table.table.table-striped.table-hover
         [:tr
@@ -177,17 +179,18 @@
 
 (defn new-account
   "Renders the new account form"
-  ([entity-id] (new-account entity-id {:entity-id entity-id}))
-  ([entity-id account]
-   (with-accounts-layout "New account" entity-id {}
-     [:form {:action (str "/entities/" entity-id "/accounts")
+  ([req] (new-account req {:entity-id (Integer. (-> req :params :entity-id))}))
+  ([{params :params} account]
+   (let [entity-id (Integer. (:entity-id params))]
+     (with-accounts-layout "New account" entity-id {}
+       [:form {:action (str "/entities/" entity-id "/accounts")
                :method :post}
-        (form-fields account)])))
+        (form-fields account)]))))
 
 (defn create
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
-  [params]
+  [{params :params}]
   (let [account (select-keys params [:entity-id :name :type :parent-id])
         saved (accounts/create (env :db) account)]
     (if (validation/has-error? saved)
@@ -196,10 +199,9 @@
 
 (defn edit
   "Renders the edit form for an account"
-  [id-or-account]
-  (let [account (if (map? id-or-account)
-                  id-or-account
-                  (accounts/find-by-id (env :db) (Integer. id-or-account)))]
+  [req]
+  (let [account (or (:account req)
+                    (accounts/find-by-id (env :db) (Integer. (-> req :params :id))))]
     (with-accounts-layout "Edit account" (:entity-id account) {}
       [:form {:action (format "/accounts/%s" (:id account))
               :method :post}
@@ -208,19 +210,19 @@
 (defn update
   "Updates the account and redirects to the account list on
   success or rerenders the edit from on error"
-  [params]
+  [{params :params}]
   (let [account (select-keys params [:id
                                      :name
                                      :type
                                      :parent-id])
         updated (accounts/update (env :db) account)]
     (if (validation/has-error? updated)
-      (edit updated)
+      (edit {:account updated})
       (redirect (format "/entities/%s/accounts" (:entity-id updated))))))
 
 (defn delete
   "Deletes the specified account"
-  [id]
+  [{{id :id} :params}]
   (let [account (accounts/find-by-id (env :db) (Integer. id))]
     (try
       (accounts/delete (env :db) (:id account))
