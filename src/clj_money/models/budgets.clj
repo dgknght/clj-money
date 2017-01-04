@@ -52,6 +52,11 @@
 (def ExistingBudgetItem
   (merge BaseBudgetItem {:id schema/Int}))
 
+(defn default-start-date
+  []
+  (let [now (t/now)]
+    (t/local-date (+ 1 (t/year now)) 1 1)))
+
 (defn- prepare-item-for-return
   [item]
   (update-in item [:periods] read-string))

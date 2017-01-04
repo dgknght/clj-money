@@ -32,11 +32,6 @@
     [:span {:class (str "balance-depth-" (:depth record))}
      (format-number (:value record))]]])
 
-(defn- default-start-date
-  []
-  (let [today (t/today)]
-    (t/local-date (t/year today) 1 1)))
-
 (defn- default-end-date
   []
   (let [today (t/today)]
@@ -151,7 +146,7 @@
                    (update-in [:entity-id] #(Integer. %))
                    (update-in [:type] keyword)
                    (assoc :start-date (or (parse-date (:start-date params))
-                                          (default-start-date))
+                                          (budgets/default-start-date))
                           :end-date (or (parse-date (:end-date params))
                                         (default-end-date))
                           :as-of (or (parse-date (:as-of params))

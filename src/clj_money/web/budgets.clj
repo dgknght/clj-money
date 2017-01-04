@@ -69,11 +69,6 @@
        [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" entity-id)}
         "Add"]]])))
 
-(defn default-start-date
-  []
-  (let [now (t/now)]
-    (t/local-date (+ 1 (t/year now)) 1 1)))
-
 (defn form-fields
   [budget]
   (html
@@ -92,7 +87,7 @@
 
 (defn new-budget
   ([entity-id]
-   (let [start-date (default-start-date)]
+   (let [start-date (budgets/default-start-date)]
      (new-budget entity-id {:entity-id entity-id
                             :name (str (t/year start-date))
                             :period :month
