@@ -7,8 +7,12 @@
 (defn home
   "Renders the home page"
   [_]
-  (with-layout "Home" {}
-    "Welcome to the accounting application"))
+  (with-layout "Home" {:suppress-page-title? true}
+    [:div.jumbotron
+     [:h1 "Welcome!"]
+     [:p
+      "Welcome to the accounting application. This is an implementation
+      of the classic double-entry accounting system."]]))
 
 (defn login
   "Renders the sign in form"

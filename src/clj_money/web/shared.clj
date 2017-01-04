@@ -197,11 +197,12 @@
          (let [side-bar# (:side-bar ~options)]
            [:div.row
             [:div {:class (format "col-md-%s" (if side-bar# 8 12))}
-             [:h1#page-title ~page-title]
+             (when-not (:suppress-page-title? ~options)
+               [:h1#page-title ~page-title])
              (if-let [alerts# (:alerts ~options)]
                (render-alerts alerts#))
              ~@content]
-            (if side-bar#
+            (when side-bar#
               [:div.col-md-4 side-bar#])]))]]]))
 
 (defn- input-element
