@@ -46,30 +46,20 @@
   (route POST "/accounts/:id" accounts/update)
   (route POST "/accounts/:id/delete" accounts/delete)
 
-  (GET "/entities/:entity-id/budgets" [entity-id]
-       (budgets/index (Integer. entity-id)))
-  (GET "/entities/:entity-id/budgets/new" [entity-id]
-       (budgets/new-budget (Integer. entity-id)))
-  (POST "/entities/:entity-id/budgets" {params :params}
-        (budgets/create params))
-  (GET "/budgets/:id/edit" [id]
-       (budgets/edit (Integer. id)))
-  (POST "/budgets/:id" {params :params}
-        (budgets/update params))
-  (POST "/budgets/:id/delete" [id]
-        (budgets/delete (Integer. id)))
-  (GET "/budgets/:id" [id]
-       (budgets/show (Integer. id)))
+  ; Budgets
+  (route GET "/entities/:entity-id/budgets" budgets/index)
+  (route GET "/entities/:entity-id/budgets/new" budgets/new-budget)
+  (route POST "/entities/:entity-id/budgets" budgets/create)
+  (route GET "/budgets/:id/edit" budgets/edit)
+  (route POST "/budgets/:id" budgets/update)
+  (route POST "/budgets/:id/delete" budgets/delete)
+  (route GET "/budgets/:id" budgets/show)
 
   ; Budget items
-  (GET "/budgets/:budget-id/items/new/:method" {params :params}
-       (budgets/new-item (update-in params [:budget-id] #(Integer. %))))
-  (POST "/budgets/:budget-id/items" {params :params}
-        (budgets/create-item params))
-  (GET "/budget-items/:id/edit/:method" [id method]
-       (budgets/edit-item (Integer. id) (keyword method)))
-  (POST "/budget-items/:id" {params :params}
-        (budgets/update-item params))
+  (route GET "/budgets/:budget-id/items/new/:method" budgets/new-item)
+  (route POST "/budgets/:budget-id/items" budgets/create-item)
+  (route GET "/budget-items/:id/edit/:method" budgets/edit-item)
+  (route POST "/budget-items/:id" budgets/update-item)
 
   ; Budget monitors
   (route GET "/entities/:entity-id/monitors" entities/monitors)
