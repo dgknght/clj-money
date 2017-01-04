@@ -79,14 +79,10 @@
   (route GET "/entities/:entity-id/reports/:type" reports/render))
 
 (defroutes routes
-  (GET "/" []
-       (pages/home))
-  (GET "/login" []
-       (pages/login))
-  (GET "/signup" []
-       (users/new-user))
-  (POST "/users" req
-        (users/create-user (:params req)))
+  (route GET "/" pages/home)
+  (route GET "/login" pages/login)
+  (route GET "/signup" users/new-user)
+  (route POST "/users" users/create-user)
   (friend/logout (POST "/logout" [] (redirect "/")))
   (friend/wrap-authorize protected-routes #{:user})
   (ANY "*" req

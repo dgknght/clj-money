@@ -11,8 +11,8 @@
 (defn new-user
   "Renders the sign up form"
   ([] (new-user {}))
-  ([user] (new-user user []))
-  ([user options]
+  ([req] (new-user req{}))
+  ([{user :params} options]
    (with-layout "Sign up" options
      [:div.row
       [:div.col-md-6
@@ -25,7 +25,7 @@
 
 (defn create-user
   "Creates the user, redirects on success"
-  [params]
+  [{params :params}]
   (let [created (users/create (env :db) (select-keys params [:first-name
                                                              :last-name
                                                              :email
