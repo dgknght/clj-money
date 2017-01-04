@@ -24,20 +24,18 @@
             [clj-money.web.reports :as reports]
             [clj-money.web.users :as users]))
 
+(defmacro route
+  [method path & handlers]
+  `(~method ~path req# (->> req# ~@handlers)))
+
 (defroutes protected-routes
   ; Entities
-  (GET "/entities" []
-       (entities/index))
-  (GET "/entities/new" []
-       (entities/new-entity))
-  (POST "/entities" {params :params}
-        (entities/create-entity params))
-  (GET "/entities/:id/edit" [id]
-       (entities/edit-entity id))
-  (POST "/entities/:id" req
-        (entities/update (:params req)))
-  (POST "/entities/:id/delete" [id]
-        (entities/delete id))
+  (route GET "/entities" entities/index)
+  (route GET "/entities/new" entities/new-entity)
+  (route POST "/entities" entities/create-entity)
+  (route GET "/entities/:id/edit" entities/edit-entity)
+  (route POST "/entities/:id" entities/update)
+  (route POST "/entities/:id/delete" entities/delete)
 
   ; Accounts
   (GET "/entities/:entity-id/accounts" [entity-id]
@@ -81,16 +79,9 @@
         (budgets/update-item params))
 
   ; Budget monitors
-  (GET "/entities/:entity-id/monitors" [entity-id]
-       (entities/monitors (Integer. entity-id)))
-  (POST "/entities/:entity-id/monitors" {params :params}
-        (entities/create-monitor (-> params
-                                     (update-in [:entity-id] #(Integer. %))
-                                     (update-in [:account-id] #(Integer. %)))))
-  (POST "/entities/:entity-id/monitors/:account-id/delete" {params :params}
-        (entities/delete-monitor (-> params
-                                     (update-in [:entity-id] #(Integer. %))
-                                     (update-in [:account-id] #(Integer. %)))))
+  (route GET "/entities/:entity-id/monitors" entities/monitors)
+  (route POST "/entities/:entity-id/monitors" entities/create-monitor)
+  (route POST "/entities/:entity-id/monitors/:account-id/delete" entities/delete-monitor)
 
   ; Transactions
   (GET "/entities/:entity-id/transactions" [entity-id]

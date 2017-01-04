@@ -54,7 +54,7 @@
 (defn index
   "Renders the list of entities that belong to the currently
   authenticated user"
-  []
+  [_]
   (with-layout "Entities" {}
     [:div.row
      [:div.col-md-6
@@ -63,26 +63,24 @@
 
 (defn new-entity
   "Renders a form for adding a new entity"
-  ([] (new-entity {}))
-  ([entity]
+  [{{entity :entity} :params}]
    (with-layout "New entity" {}
      [:div.row
       [:div.col-md-6
        [:form {:action "/entities" :method :post}
-        (entity-form-fields entity)]]])))
+        (entity-form-fields entity)]]]))
 
 (defn create-entity
   "Creates the entity and redirects to the index on success, 
   or displays the entity from on failuer"
-  [{entity-name :name :as params}]
+  [{params :params}]
   (let [user (friend/current-authentication)
-        entity (entities/create (env :db) {:name entity-name
-                                           :user-id (:id user)})]
+        entity (entities/create (env :db) (assoc params :user-id (:id user)))]
     (redirect "/entities")))
 
 (defn edit-entity
   "Renders the edit form"
-  [id]
+  [{{id :id} :params}]
   (with-layout "Edit entity" {}
     [:div.row
      [:div.col-md-6
@@ -93,7 +91,7 @@
 (defn update
   "Updates the entity and redirects to index on success or
   renders edit on error"
-  [params]
+  [{params :params}]
   (let [id (Integer. (:id params))
         entity (entities/find-by-id (env :db) id)
         updated (-> params
@@ -107,7 +105,7 @@
 
 (defn delete
   "Removes the entity from the system"
-  [id]
+  [{{id :id} :params}]
   (try
     (entities/delete (env :db) (Integer. id))
     (redirect "/entities")
@@ -121,11 +119,9 @@
    [:td "&nbsp;"]])
 
 (defn monitors
-  ([entity-id] (monitors entity-id {}))
-  ([entity-id options]
-   (with-layout "Budget Monitors" options
-     (let [entity (entities/find-by-id (env :db) entity-id)
-           new-monitor (or (:new-monitor options) {})]
+  [{{entity-id :entity-id} :params}]
+   (with-layout "Budget Monitors" {}
+     (let [entity (entities/find-by-id (env :db) (Integer. entity-id))]
        [:div.row
         [:div.col-md-6
          [:table.table.table-striped
@@ -141,13 +137,16 @@
            [:label.control-label {:for :account-id} "Add Account"]
            [:div.input-group
             [:select.form-control {:id :account-id :name :account-id}
-             (grouped-options-for-accounts (:id entity) (:accoun-id new-monitor))]
+             (grouped-options-for-accounts (:id entity))]
             [:span.input-group-btn
-             [:input.btn.btn-primary {:type :submit :value "Add"}]]]]]]]))))
+             [:input.btn.btn-primary {:type :submit :value "Add"}]]]]]]])))
 
 (defn create-monitor
-  [{:keys [account-id entity-id]}]
-  (let [entity (entities/find-by-id (env :db) entity-id)
+  [{params :params}]
+  (let [{:keys [account-id entity-id]} (-> params
+                                           (update-in [:entity-id] #(Integer. %))
+                                           (update-in [:account-id] #(Integer. %)))
+        entity (entities/find-by-id (env :db) entity-id)
         updated (update-in entity
                            [:monitored-account-ids]
                            (fnil #(conj % account-id) []))
@@ -157,8 +156,10 @@
       (monitors entity-id {:new-monitor result}))))
 
 (defn delete-monitor
-  [{:keys [account-id entity-id]}]
-  (let [entity (entities/find-by-id (env :db) entity-id)
+  [{params :params}]
+  (let [[account-id entity-id] (->> ((juxt :account-id :entity-id) params)
+                                    (map #(Integer. %)))
+        entity (entities/find-by-id (env :db) entity-id)
         updated (update-in entity
                            [:monitored-account-ids]
                            #(->> %
