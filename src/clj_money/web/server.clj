@@ -24,103 +24,65 @@
             [clj-money.web.reports :as reports]
             [clj-money.web.users :as users]))
 
+(defmacro route
+  [method path & handlers]
+  `(~method ~path req# (->> req# ~@handlers)))
+
 (defroutes protected-routes
   ; Entities
-  (GET "/entities" []
-       (entities/index))
-  (GET "/entities/new" []
-       (entities/new-entity))
-  (POST "/entities" {params :params}
-        (entities/create-entity params))
-  (GET "/entities/:id/edit" [id]
-       (entities/edit-entity id))
-  (POST "/entities/:id" req
-        (entities/update (:params req)))
-  (POST "/entities/:id/delete" [id]
-        (entities/delete id))
+  (route GET "/entities" entities/index)
+  (route GET "/entities/new" entities/new-entity)
+  (route POST "/entities" entities/create-entity)
+  (route GET "/entities/:id/edit" entities/edit-entity)
+  (route POST "/entities/:id" entities/update)
+  (route POST "/entities/:id/delete" entities/delete)
 
   ; Accounts
-  (GET "/entities/:entity-id/accounts" [entity-id]
-       (accounts/index entity-id))
-  (GET "/entities/:entity-id/accounts/new" [entity-id]
-       (accounts/new-account (Integer. entity-id)))
-  (POST "/entities/:entity-id/accounts" {params :params}
-        (accounts/create params))
-  (GET "/accounts/:id" [id]
-       (accounts/show (Integer. id)))
-  (GET "/accounts/:id/edit" [id]
-       (accounts/edit id))
-  (POST "/accounts/:id" req
-        (accounts/update (:params req)))
-  (POST "/accounts/:id/delete" [id]
-        (accounts/delete id))
+  (route GET "/entities/:entity-id/accounts" accounts/index)
+  (route GET "/entities/:entity-id/accounts/new" accounts/new-account)
+  (route POST "/entities/:entity-id/accounts" accounts/create)
+  (route GET "/accounts/:id" accounts/show)
+  (route GET "/accounts/:id/edit" accounts/edit)
+  (route POST "/accounts/:id" accounts/update)
+  (route POST "/accounts/:id/delete" accounts/delete)
 
-  (GET "/entities/:entity-id/budgets" [entity-id]
-       (budgets/index (Integer. entity-id)))
-  (GET "/entities/:entity-id/budgets/new" [entity-id]
-       (budgets/new-budget (Integer. entity-id)))
-  (POST "/entities/:entity-id/budgets" {params :params}
-        (budgets/create params))
-  (GET "/budgets/:id/edit" [id]
-       (budgets/edit (Integer. id)))
-  (POST "/budgets/:id" {params :params}
-        (budgets/update params))
-  (POST "/budgets/:id/delete" [id]
-        (budgets/delete (Integer. id)))
-  (GET "/budgets/:id" [id]
-       (budgets/show (Integer. id)))
+  ; Budgets
+  (route GET "/entities/:entity-id/budgets" budgets/index)
+  (route GET "/entities/:entity-id/budgets/new" budgets/new-budget)
+  (route POST "/entities/:entity-id/budgets" budgets/create)
+  (route GET "/budgets/:id/edit" budgets/edit)
+  (route POST "/budgets/:id" budgets/update)
+  (route POST "/budgets/:id/delete" budgets/delete)
+  (route GET "/budgets/:id" budgets/show)
 
   ; Budget items
-  (GET "/budgets/:budget-id/items/new/:method" {params :params}
-       (budgets/new-item (update-in params [:budget-id] #(Integer. %))))
-  (POST "/budgets/:budget-id/items" {params :params}
-        (budgets/create-item params))
-  (GET "/budget-items/:id/edit/:method" [id method]
-       (budgets/edit-item (Integer. id) (keyword method)))
-  (POST "/budget-items/:id" {params :params}
-        (budgets/update-item params))
+  (route GET "/budgets/:budget-id/items/new/:method" budgets/new-item)
+  (route POST "/budgets/:budget-id/items" budgets/create-item)
+  (route GET "/budget-items/:id/edit/:method" budgets/edit-item)
+  (route POST "/budget-items/:id" budgets/update-item)
 
   ; Budget monitors
-  (GET "/entities/:entity-id/monitors" [entity-id]
-       (entities/monitors (Integer. entity-id)))
-  (POST "/entities/:entity-id/monitors" {params :params}
-        (entities/create-monitor (-> params
-                                     (update-in [:entity-id] #(Integer. %))
-                                     (update-in [:account-id] #(Integer. %)))))
-  (POST "/entities/:entity-id/monitors/:account-id/delete" {params :params}
-        (entities/delete-monitor (-> params
-                                     (update-in [:entity-id] #(Integer. %))
-                                     (update-in [:account-id] #(Integer. %)))))
+  (route GET "/entities/:entity-id/monitors" entities/monitors)
+  (route POST "/entities/:entity-id/monitors" entities/create-monitor)
+  (route POST "/entities/:entity-id/monitors/:account-id/delete" entities/delete-monitor)
 
   ; Transactions
-  (GET "/entities/:entity-id/transactions" [entity-id]
-       (transactions/index (Integer. entity-id)))
-  (GET "/entities/:entity-id/transactions/new" {params :params}
-       (transactions/new-transaction (update-in params [:entity-id] #(Integer. %))))
-  (POST "/entities/:entity-id/transactions" {params :params}
-        (transactions/create (update-in params [:entity-id] #(Integer. %))))
-  (GET "/transactions/:id/edit" [id redirect]
-       (transactions/edit (Integer. id) {:redirect redirect}))
-  (POST "/transactions/:id" req
-        (transactions/update (:params req)))
-  (POST "/transactions/:id/delete" {params :params}
-        (transactions/delete (update-in params [:id] #(Integer. %))))
+  (route GET "/entities/:entity-id/transactions" transactions/index)
+  (route GET "/entities/:entity-id/transactions/new" transactions/new-transaction)
+  (route POST "/entities/:entity-id/transactions" transactions/create)
+  (route GET "/transactions/:id/edit" transactions/edit)
+  (route POST "/transactions/:id" transactions/update)
+  (route POST "/transactions/:id/delete" transactions/delete)
   
   ; Reports
-  (GET "/entities/:entity-id/reports" [entity-id]
-       (reports/render {:entity-id entity-id :type :income-statement}))
-  (GET "/entities/:entity-id/reports/:type" {params :params}
-       (reports/render params)))
+  (route GET "/entities/:entity-id/reports" reports/render)
+  (route GET "/entities/:entity-id/reports/:type" reports/render))
 
 (defroutes routes
-  (GET "/" []
-       (pages/home))
-  (GET "/login" []
-       (pages/login))
-  (GET "/signup" []
-       (users/new-user))
-  (POST "/users" req
-        (users/create-user (:params req)))
+  (route GET "/" pages/home)
+  (route GET "/login" pages/login)
+  (route GET "/signup" users/new-user)
+  (route POST "/users" users/create-user)
   (friend/logout (POST "/logout" [] (redirect "/")))
   (friend/wrap-authorize protected-routes #{:user})
   (ANY "*" req

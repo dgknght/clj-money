@@ -6,14 +6,14 @@
 
 (defn home
   "Renders the home page"
-  []
+  [_]
   (with-layout "Home" {}
     "Welcome to the accounting application"))
 
 (defn login
   "Renders the sign in form"
-  ([] (login {:username nil :password nil}))
-  ([model]
+  ([] (login {:params {:username nil :password nil}}))
+  ([{model :params}]
    (with-layout "Log in" {}
      [:div.row
       [:div.col-md-6

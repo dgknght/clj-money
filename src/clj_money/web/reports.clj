@@ -32,11 +32,6 @@
     [:span {:class (str "balance-depth-" (:depth record))}
      (format-number (:value record))]]])
 
-(defn- default-start-date
-  []
-  (let [today (t/today)]
-    (t/local-date (t/year today) 1 1)))
-
 (defn- default-end-date
   []
   (let [today (t/today)]
@@ -146,12 +141,13 @@
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defn render
-  [params]
+  [{params :params}]
   (let [params (-> params ; TODO separate default based on the report type
                    (update-in [:entity-id] #(Integer. %))
                    (update-in [:type] keyword)
+                   (update-in [:type] (fnil identity :balance-sheet))
                    (assoc :start-date (or (parse-date (:start-date params))
-                                          (default-start-date))
+                                          (budgets/default-start-date))
                           :end-date (or (parse-date (:end-date params))
                                         (default-end-date))
                           :as-of (or (parse-date (:as-of params))
