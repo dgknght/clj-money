@@ -46,19 +46,20 @@
                     :title "Click here to remove this transaction."})]]])
 
 (defn index
-  ([entity-id] (index entity-id {}))
-  ([entity-id options]
-   (with-transactions-layout "Transactions" entity-id options
-     [:table.table.table-striped
-      [:tr
-       [:th.col-sm-2 "Date"]
-       [:th.col-sm-8 "Description"]
-       [:th.col-sm-2 "&nbsp;"]]
-      (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
-     [:a.btn.btn-primary
-      {:href (str"/entities/" entity-id "/transactions/new")
-       :title "Click here to enter a new transaction."}
-      "Add"])))
+  ([req] (index req {}))
+  ([{params :params} options]
+   (let [entity-id (Integer. (:entity-id params))]
+     (with-transactions-layout "Transactions" entity-id options
+       [:table.table.table-striped
+        [:tr
+         [:th.col-sm-2 "Date"]
+         [:th.col-sm-8 "Description"]
+         [:th.col-sm-2 "&nbsp;"]]
+        (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
+       [:a.btn.btn-primary
+        {:href (str"/entities/" entity-id "/transactions/new")
+         :title "Click here to enter a new transaction."}
+        "Add"]))))
 
 (defn- item-row
   "Renders an individual row for a transaction item"
@@ -145,24 +146,24 @@
       (format "/entities/%s/transactions" entity-id)))
 
 (defn new-transaction
-  ([params]
+  ([{params :params}]
    (new-transaction params
-                    {:entity-id (:entity-id params)
+                    {:entity-id (Integer. (:entity-id params))
                      :items [{:action :debit}
                              {:action :credit}]
                      :transaction-date (t/today)}
                     {}))
   ([params transaction options]
-   (with-transactions-layout "New Transaction" (:entity-id params) options
+   (with-transactions-layout "New Transaction" (:entity-id transaction) options
      [:form {:action (cond-> (path "/entities"
-                                   (:entity-id params)
+                                   (:entity-id transaction)
                                    "transactions")
                        (contains? params :redirect) (query {:redirect (-> params
                                                                           :redirect
                                                                           url-encode)})
                        true format-url)
              :method :post}
-      (form-fields transaction (redirect-url (:entity-id params) params))])))
+      (form-fields transaction (redirect-url (:entity-id transaction) params))])))
 
 (defn- valid-item?
   [{account-id :account-id :as item}]
@@ -182,7 +183,7 @@
        (map ->transaction-item)))
 
 (defn create
-  [params]
+  [{params :params}]
   (let [transaction (-> params
                         (assoc :items (extract-items params))
                         (select-keys [:entity-id :transaction-date :description :items])
@@ -194,26 +195,26 @@
       (redirect redirect-url))))
 
 (defn edit
-  ([id-or-trans] (edit id-or-trans {}))
-  ([id-or-trans options]
-   (let [transaction (if (map? id-or-trans)
-                       id-or-trans
-                       (transactions/find-by-id (env :db) id-or-trans))
+  ([req] (edit req {}))
+  ([{params :params transaction :transaction} options]
+   (let [id (Integer. (:id params))
+         transaction (or transaction
+                         (transactions/find-by-id (env :db) id))
          action (cond-> (path "/transactions"
                               (:id transaction))
 
-                  (:redirect options)
-                  (query {:redirect (url-encode (:redirect options))})
+                  (:redirect params)
+                  (query {:redirect (url-encode (:redirect params))})
 
                   true
                   format-url)]
      (with-transactions-layout "New Transaction" (:entity-id transaction) options
        [:form {:action action
                :method :post}
-        (form-fields transaction (redirect-url (:entity-id transaction) options))]))))
+        (form-fields transaction (redirect-url (:entity-id transaction) params))]))))
 
 (defn update
-  [params]
+  [{params :params}]
   (let [transaction (-> params
                         (select-keys [:id
                                       :transaction-date
@@ -226,7 +227,7 @@
       (redirect redirect-url))))
 
 (defn delete
-  [{id :id :as params}]
+  [{{id :id :as params} :params}]
   (let [transaction (transactions/find-by-id (env :db) id)
         redirect-url (redirect-url (:entity-id transaction) params)]
     (transactions/delete (env :db) id)

@@ -67,18 +67,12 @@
   (route POST "/entities/:entity-id/monitors/:account-id/delete" entities/delete-monitor)
 
   ; Transactions
-  (GET "/entities/:entity-id/transactions" [entity-id]
-       (transactions/index (Integer. entity-id)))
-  (GET "/entities/:entity-id/transactions/new" {params :params}
-       (transactions/new-transaction (update-in params [:entity-id] #(Integer. %))))
-  (POST "/entities/:entity-id/transactions" {params :params}
-        (transactions/create (update-in params [:entity-id] #(Integer. %))))
-  (GET "/transactions/:id/edit" [id redirect]
-       (transactions/edit (Integer. id) {:redirect redirect}))
-  (POST "/transactions/:id" req
-        (transactions/update (:params req)))
-  (POST "/transactions/:id/delete" {params :params}
-        (transactions/delete (update-in params [:id] #(Integer. %))))
+  (route GET "/entities/:entity-id/transactions" transactions/index)
+  (route GET "/entities/:entity-id/transactions/new" transactions/new-transaction)
+  (route POST "/entities/:entity-id/transactions" transactions/create)
+  (route GET "/transactions/:id/edit" transactions/edit)
+  (route POST "/transactions/:id" transactions/update)
+  (route POST "/transactions/:id/delete" transactions/delete)
   
   ; Reports
   (GET "/entities/:entity-id/reports" [entity-id]
