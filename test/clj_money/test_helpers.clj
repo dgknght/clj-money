@@ -33,13 +33,13 @@
   "Asserts the expected validation error"
   [attribute message & body]
   `(let [result# ~@body
-         found-message# (validation/get-errors result# ~attribute)]
+         found-message# (validation/error-messages result# ~attribute)]
      (is (not (nil? found-message#))
          (format "Expected error \"%s\" on %s, but no error was found"
                  ~message
                  ~attribute))
      (is (= [~message]
-            (validation/get-errors result# ~attribute))
+            (validation/error-messages result# ~attribute))
          (format "Expected error \"%s\" on %s, but received %s instead"
                  ~message
                  ~attribute
