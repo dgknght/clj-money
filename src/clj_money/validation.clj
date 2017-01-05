@@ -1,6 +1,7 @@
 (ns clj-money.validation
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec :as s]
             [clojure.string :as string]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
@@ -27,19 +28,11 @@
     first-name-is-present
     [model]
     (:first-name model))"
-  [rules model]
-  (let [errors (->> rules
-                    (remove #(% model))
-                    (map meta)
-                    (reduce (fn [result rule]
-                              (update-in result
-                                         [(::attribute rule)]
-                                         (fnil #(conj % (::message rule))
-                                               [])))
-                            {}))]
-    (if (seq errors)
-      (assoc model ::errors errors)
-      model)))
+  [spec model]
+  (let [explanation (s/explain-data spec model)]
+    (if explanation
+      (assoc model ::errors explanation)
+      (assoc model ::valid true))))
 
 (defn has-error?
   "Returns true if the specified model contains validation errors"
@@ -51,13 +44,27 @@
 (defn valid?
   "Returns false if the model has any validation errors"
   [model]
-  (not (has-error? model)))
+  (::valid model))
+
+(defn- problem->message
+  [problem]
+  (let [attribute (-> problem :pred (nth 2))]
+    [attribute
+     (if (= 'contains? (-> problem :pred first))
+       (str (humanize attribute) " is required")
+       "Something ain't right.")]))
 
 (defn error-messages
   "Returns the errors from the specified model. If given only a model, 
   returns a map of all errors. If given a model and a key, returns the 
   errors for the specified key from wihin the model."
   ([model]
-   (::errors model))
+   (->> model
+        ::errors
+        :clojure.spec/problems
+        (map problem->message)
+        (reduce (fn [result [k message]]
+                  (update-in result [k] (fnil #(conj % message) [])))
+                {})))
   ([model attribute]
-   ((::errors model) attribute)))
+   (attribute (error-messages model))))
