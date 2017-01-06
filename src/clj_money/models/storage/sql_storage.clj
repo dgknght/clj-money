@@ -54,8 +54,8 @@
 
 (defn- insert
   "Inserts a record into the specified table"
-  [db-spec table model]
-  (->> model
+  [db-spec table model & allowed-keys]
+  (->> (select-keys model allowed-keys)
        ->sql-keys
        (jdbc/insert! db-spec table)
        first
@@ -83,7 +83,10 @@
   ; Users
   (create-user
     [_ user]
-    (insert db-spec :users user))
+    (insert db-spec :users user :first-name
+                                :last-name
+                                :email
+                                :password))
 
   (select-users
     [_]
@@ -102,7 +105,9 @@
   ; Entities
   (create-entity
     [_ entity]
-    (insert db-spec :entities entity))
+    (insert db-spec :entities entity :name
+                                     :user-id
+                                     :monitored-account-ids))
 
   (select-entities
     [_ user-id]
@@ -131,7 +136,11 @@
   ; Accounts
   (create-account
     [_ account]
-    (insert db-spec :accounts account))
+    (insert db-spec :accounts account :name
+                                      :type
+                                      :entity-id
+                                      :parent-id
+                                      :balance))
 
   (find-account-by-id
     [_ id]
@@ -185,7 +194,9 @@
 
   (create-transaction
     [_ transaction]
-    (insert db-spec :transactions transaction))
+    (insert db-spec :transactions transaction :entity-id
+                                              :description
+                                              :transaction-date))
 
   (find-transaction-by-id
     [_ id]
@@ -213,7 +224,12 @@
   ; Transaction Items
   (create-transaction-item
     [_ transaction-item]
-    (insert db-spec :transaction_items transaction-item))
+    (insert db-spec :transaction_items transaction-item :transaction-id
+                                                        :account-id
+                                                        :action
+                                                        :amount
+                                                        :index
+                                                        :balance))
 
   (select-transaction-items-by-transaction-id
     [_ transaction-id]
@@ -326,7 +342,12 @@
   ; Budgets
   (create-budget
     [_ budget]
-    (insert db-spec :budgets budget))
+    (insert db-spec :budgets budget :entity-id
+                                    :name
+                                    :period
+                                    :period-count
+                                    :start-date
+                                    :end-date))
 
   (find-budget-by-id
     [_ id]
@@ -369,7 +390,9 @@
   ; Budget items
   (create-budget-item
     [_ budget-item]
-    (insert db-spec :budget_items budget-item))
+    (insert db-spec :budget_items budget-item :budget-id
+                                              :account-id
+                                              :periods))
 
   (update-budget-item
     [_ budget-item]
