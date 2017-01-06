@@ -51,7 +51,7 @@
       (if (validation/valid? validated)
         (->> validated
              before-save
-             (create-entity s ))
+             (create-entity s))
         validated))))
 
 (defn select
