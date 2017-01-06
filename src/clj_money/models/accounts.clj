@@ -75,18 +75,12 @@
     true
     (update-in [:type] keyword)))
 
-(defn- name-must-be-unique
-  "Validation rule function that ensures an account
-  name is unique within an entity"
-  [storage {account-name :name entity-id :entity-id :as model}]
-  {:model model
-   :errors (let [existing (when (and account-name entity-id)
-                            (->> (select-accounts-by-name storage entity-id account-name)
-                                 (remove #(= (:id %) (:id model)))
-                                 (filter #(= (:parent-id %) (:parent-id model)))))]
-             (if (seq existing)
-               [[:name "Name is already in use"]]
-               []))})
+(defn- name-is-unique?
+  [storage {:keys [id parent-id name entity-id]}]
+  (->> (select-accounts-by-name storage entity-id name)
+       (remove #(= (:id %) id))
+       (filter #(= (:parent-id %) parent-id))
+       empty?))
 
 (defn- parent-has-same-type?
   "Validation rule that ensure an account
@@ -96,18 +90,29 @@
       (= type
          (:type (find-by-id storage parent-id)))))
 
+(defn- validation-rules
+  [storage]
+  (map (fn [{:keys [path message val-fn]}]
+         (validation/create-rule (partial val-fn storage)
+                                 path
+                                 message))
+       [{:val-fn name-is-unique?
+         :path [:name]
+         :message "Name is already in use"}
+        {:val-fn parent-has-same-type?
+         :path [:type]
+         :message "Type must match the parent type"}]))
+
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
   (with-storage [s storage-spec]
     (let [prepared (->> account
-                         (before-validation s))
-          parent-type-rule (validation/create-rule (partial parent-has-same-type? s)
-                                                   [:type]
-                                                   "Parent must have the same type")
-          validated (validation/validate ::new-account
-                                         prepared
-                                         parent-type-rule)]
+                        (before-validation s))
+          validated (apply validation/validate
+                           ::new-account
+                           prepared
+                           (validation-rules s))]
       (if (validation/has-error? validated)
         validated
         (->> validated

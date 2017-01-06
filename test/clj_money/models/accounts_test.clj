@@ -147,7 +147,7 @@
                                                         :type :expense
                                                         :parent-id (:id household)
                                                         :entity-id (:id entity)})]
-    (is (validation/valid? household-repair) "A name can be dulicated across parents")))
+    (is (empty? (validation/error-messages household-repair)) "A name can be dulicated across parents")))
 
 (deftest create-a-child-account
   (let [savings (accounts/create storage-spec {:name "Savings"
@@ -157,7 +157,7 @@
                                            :type :asset
                                            :parent-id (:id savings)
                                            :entity-id (:id entity)})]
-    (is (validation/valid? car) "The model should not have any errors")))
+    (is (empty? (validation/error-messages car)) "The model should not have any errors")))
 
 (deftest child-must-have-same-type-as-parent
   (let [savings (accounts/create storage-spec {:name "Savings"
