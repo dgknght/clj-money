@@ -23,9 +23,9 @@
 
 (def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
 
-(s/def ::first-name validation/non-zero-length-string?)
-(s/def ::last-name validation/non-zero-length-string?)
-(s/def ::password validation/non-zero-length-string?)
+(s/def ::first-name validation/non-empty-string?)
+(s/def ::last-name validation/non-empty-string?)
+(s/def ::password validation/non-empty-string?)
 (s/def ::email (s/and string? (partial re-matches EmailPattern)))
 (s/def ::new-user (s/keys :req-un [::first-name ::last-name ::password ::email]))
 

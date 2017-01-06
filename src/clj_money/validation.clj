@@ -12,15 +12,15 @@
   (:import org.joda.time.LocalDate
            java.util.Date))
 
-(defn non-zero-length-string?
+(defn non-empty-string?
   [value]
   (and (string? value)
        (pos? (count value))))
 
-(defn- interpret-zero-length-string-failure
+(defn- interpret-empty-string-failure
   [problem]
   (when (and (symbol? (:pred problem))
-             (= 'non-zero-length-string? (:pred problem)))
+             (= 'non-empty-string? (:pred problem)))
     (let [attribute (-> problem :path first)]
       [attribute (format "%s cannot be empty" (humanize attribute))])))
 
@@ -38,16 +38,10 @@
     (let [attribute (-> problem :pred (nth 2))]
       [attribute (format "%s is required" (humanize attribute))])))
 
-(defn- interpret-empty-string-failure
-  [problem]
-  (when (= 'non-zero-length-string? (-> problem :pred))
-    (let [attribute (-> problem :path first)]
-      [attribute (format "%s is required" (humanize attribute))])))
-
 (def problem-interpreters
   [interpret-required-failure
    interpret-regex-failure
-   interpret-zero-length-string-failure])
+   interpret-empty-string-failure])
 
 (defn- problem->message
   [problem]
