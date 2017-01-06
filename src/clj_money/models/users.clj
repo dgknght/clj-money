@@ -9,8 +9,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.storage :refer [create-user
                                               select-users
-                                              find-user-by-email
-                                              user-exists-with-email?]]))
+                                              find-user-by-email]]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -30,27 +29,20 @@
 (s/def ::email (s/and string? (partial re-matches EmailPattern)))
 (s/def ::new-user (s/keys :req-un [::first-name ::last-name ::password ::email]))
 
-; TODO some of this really belongs in the validation namespace
-(defn- validate-email-is-unique
+(defn- email-is-unique?
   [storage user]
-  (if (user-exists-with-email? storage (:email user))
-    (-> user
-        (update-in [:clj-money.validation/errors :email] (fnil #(conj % "Email is already taken") []))
-        (assoc :clj-money.validation/valid? false))
-    user))
-
-(defn- validate-new-user
-  [storage user]
-  (let [result (validation/validate ::new-user user)]
-    (if (validation/valid? result)
-      (validate-email-is-unique storage result)
-      result)))
+  (nil? (find-user-by-email storage (:email user))))
 
 (defn create
   "Creates a new user record"
   [storage-spec user]
   (with-storage [s storage-spec]
-    (let [validated (validate-new-user s user)]
+    (let [unique-email-rule (validation/create-rule (partial email-is-unique? s)
+                                                    [:email]
+                                                    "Email is already taken")
+          validated (validation/validate ::new-user
+                                         user
+                                         unique-email-rule)]
       (if (validation/valid? validated)
         (->> user
              prepare-user-for-insertion

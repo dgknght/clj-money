@@ -99,10 +99,6 @@
          (query db-spec)
          first))
 
-  (user-exists-with-email?
-    [this email]
-    (exists? db-spec :users [:= :email email]))
-
   ; Entities
   (create-entity
     [_ entity]

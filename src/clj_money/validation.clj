@@ -63,14 +63,33 @@
                  (update-in result [k] (fnil #(conj % message) [])))
                {})))
 
+(defn- perform-additional-validation
+  "Performs validation that is not suitable for clojure.spec. E.g., database checks
+  for unique values."
+  [model rules]
+  (let [violations (->> rules
+                        (remove #(% model))
+                        (map (comp (juxt ::path ::message) meta))
+                        (reduce (fn [result [path message]]
+                                  (update-in result path (fnil #(conj % message) [])))
+                                {}))]
+    (if (seq violations)
+      (assoc model ::valid? false ::errors violations)
+      (assoc model ::valid? true))))
+
+(defmacro create-rule
+  "Given a predicate function an error message and a map path,
+  returns a validation rule that can be passed to the validate function"
+  [pred path message]
+  `(vary-meta ~pred assoc ::path ~path ::message ~message))
+
 (defn validate
   "Validates the specified model using the specified spec"
-  [spec model]
-  (let [explanation (s/explain-data spec model)]
-    (if explanation
-      (assoc model ::errors (interpret-problems explanation)
-                   ::valid? false)
-      (assoc model ::valid? true))))
+  [spec model & rules]
+  (if-let [explanation (s/explain-data spec model)]
+    (assoc model ::errors (interpret-problems explanation)
+           ::valid? false)
+    (perform-additional-validation model rules)))
 
 (defn has-error?
   "Returns true if the specified model contains validation errors"
