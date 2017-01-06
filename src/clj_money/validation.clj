@@ -38,10 +38,23 @@
     (let [attribute (-> problem :pred (nth 2))]
       [attribute (format "%s is required" (humanize attribute))])))
 
+(defn- interpret-set-inclusion-failure
+  [problem]
+  (when (set? (:pred problem))
+    (let [attribute (-> problem :path first)]
+      [attribute
+       (format "%s must be one of: %s"
+               (humanize attribute)
+               (->> problem
+                    :pred
+                    (map name)
+                    (string/join ", ")))])))
+
 (def problem-interpreters
   [interpret-required-failure
    interpret-regex-failure
-   interpret-empty-string-failure])
+   interpret-empty-string-failure
+   interpret-set-inclusion-failure])
 
 (defn- problem->message
   [problem]
