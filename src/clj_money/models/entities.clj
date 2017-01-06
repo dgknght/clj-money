@@ -20,21 +20,14 @@
 (s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::monitored-account-ids]))
 (s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::monitored-account-ids ::user-id]))
 
-;(defn- name-must-be-unique
-;  "Validation rule function that ensures an account
-;  name is unique within an entity"
-;  [storage {entity-name :name
-;            entity-id :id
-;            user-id :user-id
-;            :as model}]
-;  {:model model
-;   :errors (let [existing (when (and entity-name user-id)
-;                            (->> (select-entities storage user-id)
-;                                 (remove #(= (:id %) entity-id))
-;                                 (filter #(= (:name %) entity-name))))]
-;             (if (seq existing)
-;               [[:name "Name is already in use"]]
-;               []))})
+(defn- name-is-unique?
+  [storage {entity-name :name
+            user-id :user-id
+            entity-id :id}]
+  (->> (select-entities storage user-id)
+       (remove #(= (:id %) entity-id))
+       (filter #(= (:name %) entity-name))
+       empty?))
 
 (defn- before-save
   [entity]
@@ -47,7 +40,10 @@
   "Creates a new entity"
   [storage-spec entity]
   (with-storage [s storage-spec]
-    (let [validated (validation/validate ::new-entity entity)]
+    (let [unique-name-rule (validation/create-rule (partial name-is-unique? s)
+                                                   [:name]
+                                                   "Name is already in use")
+          validated (validation/validate ::new-entity entity unique-name-rule)]
       (if (validation/valid? validated)
         (->> validated
              before-save

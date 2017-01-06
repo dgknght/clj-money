@@ -30,11 +30,7 @@
       (testing "The name can be duplicated between two different users"
         (let [other-entity (entities/create storage-spec
                                             (assoc attributes :user-id (:id other-user)))]
-          (is (number? (:id other-entity)))))))
-  (testing "Attributes are coerced into the correct types"
-    (let [result (entities/create storage-spec {:user-id (str (:id user))
-                                                :name "Coerced"})]
-      (is (number? (:id result))))))
+          (is (number? (:id other-entity))))))))
 
 (deftest attempt-to-create-an-invalid-entity
   (testing "Name is required"
