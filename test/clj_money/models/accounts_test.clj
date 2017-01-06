@@ -121,17 +121,6 @@
       (is (= expected
              accounts)))))
 
-(deftest values-are-coerced-on-create
-  (try
-    (let [result (accounts/create storage-spec
-                                  (-> attributes
-                                      (update-in [:entity-id] str)
-                                      (assoc :name "Coerced")))]
-      (is (number? (:id result))))
-    (catch clojure.lang.ExceptionInfo e
-      (pprint (ex-data e))
-      (is false "Unexpected validation error"))))
-
 (deftest duplicate-name-across-entities
   (let [other-entity (entities/create storage-spec {:name "My other life"
                                                     :user-id (:id user)})
@@ -173,13 +162,14 @@
 (deftest child-must-have-same-type-as-parent
   (let [savings (accounts/create storage-spec {:name "Savings"
                                                :type :asset
-                                               :entity-id (:id entity)})
-        fit (accounts/create storage-spec {:name "Federal income tax"
-                                           :type :expense
-                                           :parent-id (:id savings)
-                                           :entity-id (:id entity)})]
-    (is (= ["Type must match the parent type"]
-           (validation/get-errors fit :type)) "The model should not be valid")))
+                                               :entity-id (:id entity)})]
+    (assert-validation-error
+      :type
+      "Type must match the parent type"
+      (accounts/create storage-spec {:name "Federal income tax"
+                                     :type :expense
+                                     :parent-id (:id savings)
+                                     :entity-id (:id entity)}))))
 
 (deftest name-is-required
   (assert-validation-error
@@ -206,7 +196,7 @@
           updated (accounts/update storage-spec (assoc account :name "New name"))]
       (is (not (validation/has-error? updated))
           (format "Unexpected validation error: %s"
-                  (validation/get-errors updated)) )
+                  (validation/error-messages updated)) )
       (is (= "New name" (:name updated)) "The updated account is returned"))
     (catch clojure.lang.ExceptionInfo e
       (pprint (ex-data e))
@@ -226,7 +216,7 @@
         updated (accounts/update storage-spec {:id (:id house)
                                                :parent-id (:id fixed-assets)
                                                :entity-id (:entity-id house)})]
-    (is (validation/valid? updated) "The account has no validation errors")
+    (is (empty? (validation/error-messages updated)) "The account has no validation errors")
     (is (= (:id fixed-assets)
            (:parent-id updated)) "The returned account has the correct parent-id value")) )
 

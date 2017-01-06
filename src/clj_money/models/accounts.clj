@@ -1,9 +1,9 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec :as s]
             [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
-            [schema.core :as s]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-account
@@ -19,21 +19,13 @@
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
-(def NewAccount
-  {:entity-id s/Int
-   :name s/Str
-   :type (s/enum :asset :liability :equity :income :expense)
-   (s/optional-key :parent-id) s/Int})
-
-(def Account
-  {:id s/Int
-   :entity-id s/Int
-   (s/optional-key :balance) BigDecimal
-   (s/optional-key :name) s/Str
-   (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)
-   (s/optional-key :parent-id) s/Int
-   (s/optional-key :created-at) s/Any
-   (s/optional-key :updated-at) s/Any})
+(s/def ::id integer?)
+(s/def ::entity-id integer?)
+(s/def ::name validation/non-empty-string?)
+(s/def ::type #{:asset :liability :equity :income :expense})
+(s/def ::parent-id integer?)
+(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id]))
+(s/def ::existing-account (s/keys :req-un [::id] :opt-un [::entity-id ::name ::type ::parent-id]))
 
 (declare find-by-id)
 (defn- before-validation
@@ -96,41 +88,26 @@
                [[:name "Name is already in use"]]
                []))})
 
-(defn- must-have-same-type-as-parent
+(defn- parent-has-same-type?
   "Validation rule that ensure an account
   has the same type as its parent"
   [storage {:keys [parent-id type] :as model}]
-  {:model model
-   :errors (if (and type
-                    parent-id
-                    (let [parent (find-by-id storage parent-id)]
-                      (not (= type
-                              (:type parent)))))
-             [[:type "Type must match the parent type"]]
-             [])})
-
-(defn- validation-rules
-  "Returns the account validation rules"
-  [storage schema]
-  [(partial validation/apply-schema schema)
-   (partial name-must-be-unique storage)
-   (partial must-have-same-type-as-parent storage)])
-
-(defn- validate-new-account
-  [storage account]
-  (validation/validate-model account (validation-rules storage NewAccount)))
-
-(defn- validate-account
-  [storage account]
-  (validation/validate-model account (validation-rules storage Account)))
+  (or (nil? parent-id)
+      (= type
+         (:type (find-by-id storage parent-id)))))
 
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
   (with-storage [s storage-spec]
-    (let [validated (->> account
-                         (before-validation s)
-                         (validate-new-account s))]
+    (let [prepared (->> account
+                         (before-validation s))
+          parent-type-rule (validation/create-rule (partial parent-has-same-type? s)
+                                                   [:type]
+                                                   "Parent must have the same type")
+          validated (validation/validate ::new-account
+                                         prepared
+                                         parent-type-rule)]
       (if (validation/has-error? validated)
         validated
         (->> validated
@@ -214,7 +191,7 @@
   (with-storage [s storage-spec]
     (let [validated (->> account
                          (before-validation s)
-                         (validate-account s))]
+                         (validation/validate ::existing-account))]
       (if (validation/has-error? validated)
         validated
         (do
