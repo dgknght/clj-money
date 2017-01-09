@@ -23,6 +23,17 @@
              (= 'non-empty-string? pred))
     [path (format "%s cannot be empty" (humanize (last path)))]))
 
+(defn positive-big-dec?
+  [value]
+  (and (instance? BigDecimal value)
+       (pos? value)))
+
+(defn- interpret-positive-big-dec-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'positive-big-dec? pred))
+    [path (format "%s must be a positive number" (humanize (last path)))]))
+
 (defn- interpret-regex-failure
   [{:keys [path pred]}]
   (when (and (coll? pred)
@@ -63,6 +74,7 @@
   [interpret-required-failure
    interpret-regex-failure
    interpret-empty-string-failure
+   interpret-positive-big-dec-failure
    interpret-collection-count-failure
    interpret-set-inclusion-failure
    interpret-unknown-failure])
