@@ -34,12 +34,7 @@
   [attribute message & body]
   `(let [result# ~@body
          found-message# (validation/error-messages result# ~attribute)]
-     (is (not (nil? found-message#))
-         (format "Expected error \"%s\" on %s, but no error was found"
-                 ~message
-                 ~attribute))
-     (is (= [~message]
-            (validation/error-messages result# ~attribute))
+     (is (= [~message] found-message#)
          (format "Expected error \"%s\" on %s, but received %s instead"
                  ~message
                  ~attribute

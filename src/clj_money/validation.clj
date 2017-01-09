@@ -41,10 +41,10 @@
     [path (format "%s is not valid" (humanize (last path)))]))
 
 (defn- interpret-required-failure
-  [{:keys [path pred]}]
+  [{:keys [path pred in] :as problem}]
   (when (and (coll? pred)
              (= 'contains? (first pred)))
-    [[(nth pred 2)] (format "%s is required" (humanize (nth pred 2)))]))
+    [(concat in [(nth pred 2)]) (format "%s is required" (humanize (nth pred 2)))]))
 
 (defn- interpret-set-inclusion-failure
   [{:keys [pred path]}]

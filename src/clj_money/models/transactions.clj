@@ -1,9 +1,9 @@
 (ns clj-money.models.transactions
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec :as s]
             [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
-            [schema.core :as schema]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
@@ -24,34 +24,31 @@
                                               delete-transaction
                                               delete-transaction-item
                                               delete-transaction-items-by-transaction-id]])
-  (:import java.util.Date
-           org.joda.time.LocalDate))
+  (:import org.joda.time.LocalDate))
 
-(def BaseTransaction
-  {:description schema/Str
-   :transaction-date LocalDate
-   :items [{:account-id schema/Int
-            :action (schema/enum :debit :credit)
-            :amount BigDecimal
-            :balance BigDecimal
-            (schema/optional-key :next-item-id) schema/Int
-            (schema/optional-key :previous-item-id) schema/Int}]})
-
-(def NewTransaction
-  (merge BaseTransaction
-         {:entity-id schema/Int}))
-
-(def Transaction
-  (-> BaseTransaction
-      (assoc :id schema/Int
-             (schema/optional-key :entity-id) schema/Any
-             (schema/optional-key :updated-at) schema/Any
-             (schema/optional-key :created-at) schema/Any)
-      (assoc-in [:items 0 (schema/optional-key :updated-at)] schema/Any)
-      (assoc-in [:items 0 (schema/optional-key :created-at)] schema/Any)
-      (assoc-in [:items 0 (schema/optional-key :index)] schema/Any)
-      (assoc-in [:items 0 (schema/optional-key :transaction-id)] schema/Int)
-      (assoc-in [:items 0 (schema/optional-key :id)] schema/Int)))
+(s/def ::account-id integer?)
+(s/def ::action #{:debit :credit})
+(s/def ::amount validation/positive-big-dec?)
+(s/def ::balance (partial instance? BigDecimal))
+(s/def ::description validation/non-empty-string?)
+(s/def ::transaction-date (partial instance? LocalDate))
+(s/def ::id integer?)
+(s/def ::entity-id integer?)
+(s/def ::index integer?)
+(s/def ::transaction-item (s/keys :req-un [::account-id
+                                           ::action
+                                           ::amount]
+                                  :opt-un [::balance
+                                           ::index]))
+(s/def ::items (s/coll-of ::transaction-item :min-count 2))
+(s/def ::new-transaction (s/keys :req-un [::description
+                                          ::transaction-date
+                                          ::items
+                                          ::entity-id]))
+(s/def ::existing-transaction (s/keys :req-un [::id
+                                               ::transaction-date
+                                               ::items
+                                               ::entity-id]))
 
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
@@ -74,16 +71,6 @@
        account (polarize-item-amount account))
      item)))
 
-(defn- item-amount-must-be-greater-than-zero
-  [transaction]
-  (let [errors (map #(when (> 0 (:amount %))
-                       "Amout must be greater than zero")
-                    (:items transaction))]
-    {:model transaction
-     :errors (if (seq (filter identity errors))
-               [[:items errors]]
-               [])}))
-
 (defn- item-amount-sum
   "Returns the sum of items in the transaction having
   the specified action"
@@ -93,30 +80,13 @@
                    (filter #(= action (:action %)))
                    (map :amount))))
 
-(defn- sum-of-credits-must-equal-sum-of-debits
+(defn- ^{:clj-money.validation/message "The total debits does not match the total credits"
+         :clj-money.validation/path [:items]}
+  sum-of-credits-must-equal-sum-of-debits
   [transaction]
-  (let [[debits credits] (map #(item-amount-sum transaction %)
-                              [:debit :credit])]
-    {:model transaction
-     :errors (if (= debits credits)
-               []
-               [[:items
-                 (str "The total debits (" debits ") does not match the total credits (" credits ")")]])}))
-
-(defn- items-must-be-present
-  [{:keys [items] :as transaction}]
-  {:model transaction
-   :errors (if (or (nil? items) (<= 2 (count items)))
-             []
-             [[:items
-               "The transaction must have at least two items"]])})
-
-(defn- validation-rules
-  [schema]
-  [(partial validation/apply-schema schema)
-   items-must-be-present
-   item-amount-must-be-greater-than-zero
-   sum-of-credits-must-equal-sum-of-debits])
+  (->> [:debit :credit]
+       (map #(item-amount-sum transaction %))
+       (apply =)))
 
 (defn- before-item-validation
   [item]
@@ -306,9 +276,9 @@
                                         :balance (:balance final)}))))))
 
 (defn- validate
-  [schema transaction]
-  (-> (before-validation transaction)
-      (validation/validate-model (validation-rules schema))))
+  [spec transaction]
+  (let [prepared (before-validation transaction)]
+    (validation/validate spec transaction #'sum-of-credits-must-equal-sum-of-debits)))
 
 (defn- append-items
   [storage transaction]
@@ -330,7 +300,7 @@
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (let [validated (validate NewTransaction transaction)]
+  (let [validated (validate ::new-transaction transaction)]
     (if (validation/has-error? validated)
       validated
       (with-transacted-storage [storage storage-spec]
@@ -407,7 +377,7 @@
   "Updates the specified transaction"
   [storage-spec transaction]
   (with-transacted-storage [storage storage-spec]
-    (let [validated (validate Transaction transaction)]
+    (let [validated (validate ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
         (let [dereferenced-base-items (process-removals
