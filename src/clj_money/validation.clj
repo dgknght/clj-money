@@ -18,48 +18,58 @@
        (pos? (count value))))
 
 (defn- interpret-empty-string-failure
-  [problem]
-  (when (and (symbol? (:pred problem))
-             (= 'non-empty-string? (:pred problem)))
-    (let [attribute (-> problem :path first)]
-      [attribute (format "%s cannot be empty" (humanize attribute))])))
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'non-empty-string? pred))
+    [path (format "%s cannot be empty" (humanize (last path)))]))
 
 (defn- interpret-regex-failure
-  [problem]
-  (when (and (coll? (:pred problem))
-             (= 're-matches (-> problem :pred second)))
-    (let [attribute (-> problem :path first)]
-      [attribute (format "%s is not valid" (humanize attribute))])))
+  [{:keys [path pred]}]
+  (when (and (coll? pred)
+             (= 're-matches (second pred)))
+    [path (format "%s is not valid" (humanize (last path)))]))
 
 (defn- interpret-required-failure
-  [problem]
-  (when (and (coll? (:pred problem))
-             (= 'contains? (-> problem :pred first)))
-    (let [attribute (-> problem :pred (nth 2))]
-      [attribute (format "%s is required" (humanize attribute))])))
+  [{:keys [path pred]}]
+  (when (and (coll? pred)
+             (= 'contains? (first pred)))
+    [[(nth pred 2)] (format "%s is required" (humanize (nth pred 2)))]))
 
 (defn- interpret-set-inclusion-failure
-  [problem]
-  (when (set? (:pred problem))
-    (let [attribute (-> problem :path first)]
-      [attribute
-       (format "%s must be one of: %s"
-               (humanize attribute)
-               (->> problem
-                    :pred
-                    (map name)
-                    (string/join ", ")))])))
+  [{:keys [pred path]}]
+  (when (set? pred)
+    [path
+     (format "%s must be one of: %s"
+             (humanize (last path))
+             (->> pred
+                  (map name)
+                  (string/join ", ")))]))
+
+(defn- interpret-collection-count-failure
+  [{:keys [pred path]}]
+  (when (and (seq? pred)
+             (or (= (first pred) '<=)
+                 (= (first pred) 'clojure.core/<=)))
+    [(first path)
+     (format "Count must be greater than or equal to %s" (second pred))]))
+
+(defn- interpret-unknown-failure
+  [{:keys [pred path] :as problem}]
+  (pprint {:interpret-unknown-failure problem
+           :class (class pred)})
+  [path (format "The attribute at %s is not valid" path)])
 
 (def problem-interpreters
   [interpret-required-failure
    interpret-regex-failure
    interpret-empty-string-failure
-   interpret-set-inclusion-failure])
+   interpret-collection-count-failure
+   interpret-set-inclusion-failure
+   interpret-unknown-failure])
 
 (defn- problem->message
   [problem]
-  (or (some #(% problem) problem-interpreters)
-      (throw (RuntimeException. (str "Unable to make sense of the problem: " problem)))))
+  (some #(% problem) problem-interpreters))
 
 (defn- interpret-problems
   [explanation]
@@ -67,7 +77,7 @@
        :clojure.spec/problems
        (map problem->message)
        (reduce (fn [result [k message]]
-                 (update-in result [k] (fnil #(conj % message) [])))
+                 (update-in result k (fnil #(conj % message) [])))
                {})))
 
 (defn- perform-additional-validation
