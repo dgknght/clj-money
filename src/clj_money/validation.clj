@@ -61,7 +61,7 @@
   (when (and (seq? pred)
              (or (= (first pred) '<=)
                  (= (first pred) 'clojure.core/<=)))
-    [(first path)
+    [path
      (format "Count must be greater than or equal to %s" (second pred))]))
 
 (defn- interpret-unknown-failure
