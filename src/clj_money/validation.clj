@@ -5,7 +5,6 @@
             [clojure.string :as string]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [parse-date]]
             [clj-money.inflection :refer [singular
                                           humanize
                                           ordinal]])

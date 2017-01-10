@@ -34,7 +34,7 @@
     #"(?<year>\d{4})-(?<month>\d{2})-(?<day>\d{2})"
     :groups [:year :month :day]}])
 
-(defn parse-date
+(defn parse-local-date
   "Parses the specified date value"
   [date-string]
   (when date-string
@@ -54,7 +54,7 @@
     value
 
     (string? value)
-    (parse-date value)))
+    (parse-local-date value)))
 
 (defn pprint-and-return
   [message value]
