@@ -3,7 +3,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            #_[clj-money.models.budgets :as budgets]
+            [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]))
 
 (defn- create-users
@@ -131,9 +131,9 @@
   (assoc budget :items (->> items
                             (map #(resolve-account context %))
                             (mapv #(assoc % :budget-id (:id budget)))
-                            #_(mapv #(budgets/create-item storage-spec %)))))
+                            (mapv #(budgets/create-item storage-spec %)))))
 
-#_(defn- create-budgets
+(defn- create-budgets
   [storage-spec context budgets]
   (mapv (fn [attributes]
           (->> attributes
@@ -142,7 +142,7 @@
                (append-budget-items storage-spec context (:items attributes))))
         budgets))
 
-#_(defn- realize-budgets
+(defn- realize-budgets
   [storage-spec context]
   (update-in context [:budgets] #(create-budgets storage-spec context %)))
 
@@ -153,5 +153,5 @@
       (realize-users storage-spec)
       (realize-entities storage-spec)
       (realize-accounts storage-spec)
-      #_(realize-budgets storage-spec)
+      (realize-budgets storage-spec)
       (realize-transactions storage-spec)))

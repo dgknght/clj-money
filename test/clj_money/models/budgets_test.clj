@@ -150,7 +150,7 @@
                     (assoc :start-date (t/local-date 2016 1 1)))
         result (budgets/update storage-spec updated)
         retrieved (budgets/find-by-id storage-spec (:id budget))]
-    (is (validation/valid? result)
+    (is (empty? (validation/error-messages result))
         "The budget is valid")
     (is (= "edited" (:name result))
         "The returned value reflects the update")
@@ -202,7 +202,7 @@
   (let [context (serialization/realize storage-spec budget-item-context)
         item (budgets/create-item storage-spec (budget-item-attributes context))
         budget (budgets/reload storage-spec (-> context :budgets first))]
-    (is (validation/valid? item) "The new item is valid")
+    (is (empty? (validation/error-messages item)) "The new item is valid")
     (is (not (nil? (:id item))) "The new item has an id value")
     (is (= 1 (-> budget :items count)) "The item is returned with the budget after create")))
 

@@ -1,11 +1,11 @@
 (ns clj-money.models.budgets
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec :as s]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [clj-time.periodic :refer [periodic-seq]]
-            [schema.core :as schema]
             [clj-money.util :as util]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
@@ -25,32 +25,22 @@
                           Weeks
                           Days)))
 
-(def BudgetBase
-  {:name schema/Str
-   :start-date LocalDate
-   :period (schema/enum :week :month :quarter)
-   :period-count schema/Int})
-
-(def NewBudget
-  (merge BudgetBase
-         {:entity-id schema/Int}))
-
-(def ExistingBudget
-  (merge BudgetBase {:id schema/Int}))
-
-(def BudgetItemPeriod
-  {:index schema/Int
-   :amount BigDecimal})
-
-(def BaseBudgetItem
-  {:account-id schema/Int
-   :periods [BudgetItemPeriod]})
-
-(def NewBudgetItem
-  (merge BaseBudgetItem {:budget-id schema/Int}))
-
-(def ExistingBudgetItem
-  (merge BaseBudgetItem {:id schema/Int}))
+(s/def ::id integer?)
+(s/def ::name string?)
+(s/def ::start-date (partial instance? LocalDate))
+(s/def ::period #{:week :month :quarter})
+(s/def ::period-count validation/positive-integer?)
+(s/def ::entity-id integer?)
+(s/def ::new-budget (s/keys :req-un [::name ::start-date ::period ::period-count ::entity-id]))
+(s/def ::existing-budget (s/keys :req-un [::id ::name ::start-date ::period ::period-count] :opt-un [::entity-id]))
+(s/def ::index integer?)
+(s/def ::amount decimal?)
+(s/def ::budget-item-period (s/keys :req-un [::index ::amount]))
+(s/def ::periods (s/coll-of ::budget-item-period :min-count 1))
+(s/def ::account-id integer?)
+(s/def ::budget-id integer?)
+(s/def ::new-budget-item (s/keys :req-un [::account-id ::periods ::budget-id]))
+(s/def ::existing-budget-item (s/keys :req-un [::id ::account-id ::budget-item-periods] :opt-un [::budget-id]))
 
 (defn default-start-date
   []
@@ -82,7 +72,9 @@
 
 (defn- before-validation
   [budget]
-  (dissoc budget :items))
+  (-> budget
+      (update-in [:start-date] util/ensure-local-date)
+      (dissoc :items)))
 
 (def period-map
   {:month Months/ONE
@@ -127,22 +119,16 @@
              [[:period-count "Period count must be greater than zero"]]
              [])})
 
-(defn- validation-rules
-  [schema]
-  [(partial validation/apply-schema schema)
-   period-count-must-be-greater-than-one])
-
 (defn- validate
-  [schema budget]
-  (-> budget
-      before-validation
-      (validation/validate-model (validation-rules schema))))
+  [spec budget]
+  (let [prepared (before-validation budget)]
+    (validation/validate spec prepared)))
 
 (defn create
   "Creates a new budget"
   [storage-spec budget]
   (with-storage [s storage-spec]
-    (let [validated (validate NewBudget budget)]
+    (let [validated (validate ::new-budget budget)]
       (if (validation/has-error? validated)
         validated
         (->> validated
@@ -177,7 +163,7 @@
   "Updates the specified budget"
   [storage-spec budget]
   (with-storage [s storage-spec]
-    (let [validated (validate ExistingBudget
+    (let [validated (validate ::existing-budget
                               (select-keys budget [:id
                                                    :name
                                                    :period
@@ -223,39 +209,43 @@
              [])})
 
 (defn- budget-item-has-correct-number-of-periods
-  [storage budget item]
+  [budget item]
   {:model item
    :errors (if (= (:period-count budget) (count (:periods item)))
              []
              ; the extra square brackets here are a bit of a hack
              [[:periods ["Number of periods must match the budget \"Period count\" value"]]])})
 
-(defn- budget-item-account-is-unique
-  [storage budget item]
-  {:model item
-   :errors (if (->> (:items budget)
-                    (filter #(= (:account-id item) (:account-id %)))
-                    (remove #(= (:id item) (:id %)))
-                    seq)
-             [[:account-id "Account is already in the budget"]]
-             [])})
+(defn- budget-item-account-is-unique?
+  [budget item]
+  (->> (:items budget)
+       (filter #(= (:account-id item) (:account-id %)))
+       (remove #(= (:id item) (:id %)))
+       empty?))
 
 (defn- item-validation-rules
-  [storage schema budget]
-  [(partial validation/apply-schema schema)
-   (partial budget-item-account-is-unique storage budget)
-   (partial budget-item-account-belongs-to-budget-entity storage budget)
-   (partial budget-item-has-correct-number-of-periods storage budget)])
+  [storage budget]
+  [(validation/create-rule (partial budget-item-account-is-unique? budget)
+                           [:acount-id]
+                           "Account is already in the budget")
+   (validation/create-rule (partial budget-item-account-belongs-to-budget-entity storage budget)
+                           [:account-id]
+                           "Account must be long to the same entity as the budget")
+   (validation/create-rule (partial budget-item-has-correct-number-of-periods budget)
+                           [:periods]
+                           "The number of periods must match the number of budget periods")])
 
 (defn- before-item-validation
   [item]
   item)
 
 (defn- validate-item
-  [storage schema budget item]
-  (-> item
-      before-item-validation
-      (validation/validate-model (item-validation-rules storage schema budget))))
+  [storage spec budget item]
+  (let [prepared (before-item-validation item)]
+    (apply validation/validate
+           spec
+           prepared
+           (item-validation-rules storage budget))))
 
 (defn- before-save-item
   [item]
@@ -266,7 +256,7 @@
   [storage-spec item]
   (with-storage [s storage-spec]
     (let [budget (when (:budget-id item) (find-by-id s (:budget-id item)))
-          validated (validate-item s NewBudgetItem budget item)]
+          validated (validate-item s ::new-budget-item budget item)]
       (if (validation/has-error? validated)
         validated
         (->> validated
@@ -293,7 +283,7 @@
                       :budget-id
                       (find-by-id s))
           validated (validate-item s
-                                   ExistingBudgetItem
+                                   ::existing-budget-item
                                    budget
                                    (select-keys item [:id
                                                       :account-id

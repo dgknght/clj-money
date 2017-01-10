@@ -22,9 +22,20 @@
              (= 'non-empty-string? pred))
     [path (format "%s cannot be empty" (humanize (last path)))]))
 
+(defn positive-integer?
+  [value]
+  (and (integer? value)
+       (pos? value)))
+
+(defn- interpret-positive-integer-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'positive-integer? pred))
+    [path (format "%s must be greater than zero" (humanize (last path)))]))
+
 (defn positive-big-dec?
   [value]
-  (and (instance? BigDecimal value)
+  (and (decimal? value)
        (pos? value)))
 
 (defn- interpret-positive-big-dec-failure
@@ -71,15 +82,20 @@
 
 (defn- interpret-type-failure
   [{:keys [pred path] :as problem}]
-   (when (and (seq pred)
-              (= 'instance? (second pred)))
-     [path (format "%s must be an instance of %s" (-> path last humanize) (nth pred 2))]))
+  (when (and (seq? pred)
+             (= 'instance? (second pred)))
+    (let [humanized (-> path last humanize)
+          message (if (:val problem)
+                    (format "%s must be an instance of %s" humanized (nth pred 2))   
+                    (format "%s is required" humanized))]
+      [path message])))
 
 (def problem-interpreters
   [interpret-required-failure
    interpret-regex-failure
    interpret-empty-string-failure
    interpret-positive-big-dec-failure
+   interpret-positive-integer-failure
    interpret-collection-count-failure
    interpret-set-inclusion-failure
    interpret-type-failure
