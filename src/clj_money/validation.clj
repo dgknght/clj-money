@@ -69,6 +69,12 @@
            :class (class pred)})
   [path (format "The attribute at %s is not valid" path)])
 
+(defn- interpret-type-failure
+  [{:keys [pred path] :as problem}]
+   (when (and (seq pred)
+              (= 'instance? (second pred)))
+     [path (format "%s must be an instance of %s" (-> path last humanize) (nth pred 2))]))
+
 (def problem-interpreters
   [interpret-required-failure
    interpret-regex-failure
@@ -76,6 +82,7 @@
    interpret-positive-big-dec-failure
    interpret-collection-count-failure
    interpret-set-inclusion-failure
+   interpret-type-failure
    interpret-unknown-failure])
 
 (defn- problem->message
