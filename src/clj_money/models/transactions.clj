@@ -4,6 +4,7 @@
             [clojure.spec :as s]
             [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
+            [clj-money.util :refer [ensure-local-date]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
@@ -100,7 +101,9 @@
 (defn- before-validation
   "Performs operations required before validation"
   [transaction]
-  (update-in transaction [:items] #(map before-item-validation %)))
+  (-> transaction
+      (update-in [:transaction-date] ensure-local-date)
+      (update-in [:items] #(map before-item-validation %))))
 
 (defn- before-save
   "Returns a transaction ready for insertion into the
@@ -278,7 +281,7 @@
 (defn- validate
   [spec transaction]
   (let [prepared (before-validation transaction)]
-    (validation/validate spec transaction #'sum-of-credits-must-equal-sum-of-debits)))
+    (validation/validate spec prepared #'sum-of-credits-must-equal-sum-of-debits)))
 
 (defn- append-items
   [storage transaction]

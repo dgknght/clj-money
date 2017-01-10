@@ -4,7 +4,8 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t])
   (:import java.text.DecimalFormat
-           org.joda.time.format.DateTimeFormat))
+           org.joda.time.format.DateTimeFormat
+           org.joda.time.LocalDate))
 
 (def number-formats
   {:standard (DecimalFormat. "#,##0.00")
@@ -44,6 +45,16 @@
                                                     (map #(Integer. %))))))
                             date-patterns)]
       (apply t/local-date ((juxt :year :month :day) parsed)))))
+
+(defn ensure-local-date
+  "Ensures that the specified value is a local date"
+  [value]
+  (cond
+    (instance? LocalDate value)
+    value
+
+    (string? value)
+    (parse-date value)))
 
 (defn pprint-and-return
   [message value]
