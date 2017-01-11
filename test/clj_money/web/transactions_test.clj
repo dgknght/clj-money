@@ -47,15 +47,15 @@
         [checking
          salary] (:accounts context)
         entity-id (-> context :entities first :id)
-        _ (transactions/create {:entity-id entity-id
-                                :transaction-date "3/2/2016"
-                                :description "Paycheck"
-                                :account-id-0 (str (:id checking))
-                                :debit-amount-0 "1000"
-                                :credit-amount-0 ""
-                                :account-id-1 (str (:id salary))
-                                :debit-amount-1 ""
-                                :credit-amount-1 "1000"})
+        _ (transactions/create {:params {:entity-id entity-id
+                                         :transaction-date "3/2/2016"
+                                         :description "Paycheck"
+                                         :account-id-0 (str (:id checking))
+                                         :debit-amount-0 "1000"
+                                         :credit-amount-0 ""
+                                         :account-id-1 (str (:id salary))
+                                         :debit-amount-1 ""
+                                         :credit-amount-1 "1000"}})
         actual (map simplify-transaction
                     (transm/select-by-entity-id storage-spec entity-id))
         expected [{:transaction-date (t/local-date 2016 3 2)
@@ -90,25 +90,25 @@
          salary
          bonus] (:accounts context)
         [trans] (:transactions context)
-        _ (transactions/update {:id (str (:id trans))
-                                :transaction-date "2016-01-02"
-                                :description "Employer"
-                                :id-0 (-> trans :items first :id str)
-                                :account-id-0 (str (:id checking))
-                                :credit-amount-0 ""
-                                :debit-amount-0 "1001"
-                                :id-1 (-> trans :items second :id str)
-                                :account-id-1 (str (:id salary))
-                                :credit-amount-1 "901"
-                                :debit-amount-1 ""
-                                :id-2 ""
-                                :account-id-2 (str (:id bonus))
-                                :credit-amount-2 "100"
-                                :debit-amount-2 ""
-                                :id-3 ""
-                                :account-id-3 ""
-                                :credit-amount-3 ""
-                                :debit-amount-3 ""})
+        _ (transactions/update {:params {:id (str (:id trans))
+                                         :transaction-date "2016-01-02"
+                                         :description "Employer"
+                                         :id-0 (-> trans :items first :id str)
+                                         :account-id-0 (str (:id checking))
+                                         :credit-amount-0 ""
+                                         :debit-amount-0 "1001"
+                                         :id-1 (-> trans :items second :id str)
+                                         :account-id-1 (str (:id salary))
+                                         :credit-amount-1 "901"
+                                         :debit-amount-1 ""
+                                         :id-2 ""
+                                         :account-id-2 (str (:id bonus))
+                                         :credit-amount-2 "100"
+                                         :debit-amount-2 ""
+                                         :id-3 ""
+                                         :account-id-3 ""
+                                         :credit-amount-3 ""
+                                         :debit-amount-3 ""}})
         actual (simplify-transaction (transm/find-by-id storage-spec (:id trans)))
         expected {:transaction-date (t/local-date 2016 1 2)
             :description "Employer"
