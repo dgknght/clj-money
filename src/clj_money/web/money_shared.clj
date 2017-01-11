@@ -80,7 +80,7 @@
   [entity-id]
   (html
     [:h3 "Budget monitors"]
-    (->> entity-id
+    (->> (Integer. entity-id)
          (entities/find-by-id (env :db))
          :monitored-account-ids
          (map (comp #(reports/monitor (env :db) %)

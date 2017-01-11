@@ -95,12 +95,11 @@
         entity (entities/find-by-id (env :db) id)
         updated (-> params
                     (select-keys [:name])
-                    (assoc :id id))]
-    (try
-      (entities/update (env :db) updated)
-      (redirect "/entities")
-      (catch clojure.lang.ExceptionInfo e
-        (edit-entity (schema/append-errors updated (ex-data e)))))))
+                    (assoc :id id))
+        result (entities/update (env :db) updated)]
+    (if (validation/has-error? result)
+      (edit-entity updated)
+      (redirect "/entities"))))
 
 (defn delete
   "Removes the entity from the system"

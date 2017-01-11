@@ -93,6 +93,7 @@
   [item]
   (cond-> item
     true (assoc :balance (bigdec 0))
+    (string? (:account-id item)) (update-in [:account-id] #(Integer. %))
     (nil? (:id item)) (dissoc :id)
     (and
       (string? (:id item))
