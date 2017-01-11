@@ -9,8 +9,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.web.money-shared :refer [grouped-options-for-accounts]]
-            [clj-money.schema :as schema])
+            [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
   (:use clj-money.web.shared))
 
 (defn- entity-row

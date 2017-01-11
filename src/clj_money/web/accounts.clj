@@ -13,7 +13,6 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
-            [clj-money.schema :as schema]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]])
   (:use [clj-money.web.shared :refer :all]))
