@@ -130,7 +130,7 @@
   [storage-spec context items budget]
   (assoc budget :items (->> items
                             (map #(resolve-account context %))
-                            (mapv #(assoc % :budget-id (:id budget)))
+                            (map #(assoc % :budget-id (:id budget)))
                             (mapv #(budgets/create-item storage-spec %)))))
 
 (defn- create-budgets

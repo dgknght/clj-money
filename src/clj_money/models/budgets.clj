@@ -40,7 +40,7 @@
 (s/def ::account-id integer?)
 (s/def ::budget-id integer?)
 (s/def ::new-budget-item (s/keys :req-un [::account-id ::periods ::budget-id]))
-(s/def ::existing-budget-item (s/keys :req-un [::id ::account-id ::budget-item-periods] :opt-un [::budget-id]))
+(s/def ::existing-budget-item (s/keys :req-un [::id ::account-id ::periods] :opt-un [::budget-id]))
 
 (defn default-start-date
   []
@@ -198,23 +198,16 @@
 
 (defn- budget-item-account-belongs-to-budget-entity
   [storage budget item]
-  {:model item
-   :errors (if-let [account (accounts/find-by-id storage (:account-id item))]
-             (let [entity-ids (->> [account budget]
-                                   (map :entity-id)
-                                   (into #{}))]
-               (if (= 1 (count entity-ids))
-                 []
-                 [[:account-id "Account must belong to the same entity as the budget"]]))
-             [])})
+  (if-let [account (accounts/find-by-id storage (:account-id item))]
+    (= 1 (->> [account budget]
+              (map :entity-id)
+              (into #{})
+              count))
+    false))
 
 (defn- budget-item-has-correct-number-of-periods
   [budget item]
-  {:model item
-   :errors (if (= (:period-count budget) (count (:periods item)))
-             []
-             ; the extra square brackets here are a bit of a hack
-             [[:periods ["Number of periods must match the budget \"Period count\" value"]]])})
+  (= (:period-count budget) (count (:periods item))))
 
 (defn- budget-item-account-is-unique?
   [budget item]
@@ -230,10 +223,10 @@
                            "Account is already in the budget")
    (validation/create-rule (partial budget-item-account-belongs-to-budget-entity storage budget)
                            [:account-id]
-                           "Account must be long to the same entity as the budget")
+                           "Account must belong to the same entity as the budget")
    (validation/create-rule (partial budget-item-has-correct-number-of-periods budget)
                            [:periods]
-                           "The number of periods must match the number of budget periods")])
+                           "Number of periods must match the budget \"Period count\" value")])
 
 (defn- before-item-validation
   [item]
@@ -249,7 +242,7 @@
 
 (defn- before-save-item
   [item]
-  (update-in item [:periods] prn-str))
+  (update-in item [:periods] (comp prn-str vec)))
 
 (defn create-item
   "Adds a new budget item to an existing budget"
