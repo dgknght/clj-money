@@ -16,7 +16,6 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
-            [clj-money.schema :as schema]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
   (:use [clj-money.web.shared :refer :all])
   (:import org.joda.time.Months
@@ -237,7 +236,7 @@
                                (map #(hash-map :value %)))}])))
     items))
 
-(defn- for-display
+(defn for-display
   "Returns a budget that has been prepared for rendering in the UI"
   [id]
   (-> (budgets/find-by-id (env :db) id)

@@ -14,8 +14,7 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]]
-            [clj-money.util :refer [format-date]]
-            [clj-money.schema :as schema])
+            [clj-money.util :refer [format-date]])
   (:use [clj-money.web.shared :refer :all]))
 
 (defmacro with-transactions-layout
@@ -223,7 +222,7 @@
         updated (transactions/update (env :db) transaction)
         redirect-url (redirect-url (:entity-id updated) params)]
     (if (validation/has-error? updated)
-      (edit transaction {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/get-errors updated))}]})
+      (edit transaction {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/error-messages updated))}]})
       (redirect redirect-url))))
 
 (defn delete

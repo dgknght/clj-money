@@ -234,7 +234,7 @@
                                          :value ((or (:format-fn options)
                                                      identity) (get model attribute))})]
     (when (validation/has-error? model)
-      (map #(vector :span.help-block %) (validation/get-errors model attribute)))]))
+      (map #(vector :span.help-block %) (validation/error-messages model attribute)))]))
 
 (defn text-input-field
   ([model attribute] (text-input-field model attribute {}))

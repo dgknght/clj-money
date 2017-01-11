@@ -48,8 +48,8 @@
                                           ::entity-id]))
 (s/def ::existing-transaction (s/keys :req-un [::id
                                                ::transaction-date
-                                               ::items
-                                               ::entity-id]))
+                                               ::items]
+                                      :opt-un [::entity-id]))
 
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
@@ -96,12 +96,16 @@
     (nil? (:id item)) (dissoc :id)
     (and
       (string? (:id item))
-      (empty? (:id item))) (dissoc :id)))
+      (empty? (:id item))) (dissoc :id)
+    (and
+      (string? (:id item))
+      (not (empty? (:id item)))) (update-in [:id] #(Integer. %))))
 
 (defn- before-validation
   "Performs operations required before validation"
   [transaction]
   (-> transaction
+      (update-in [:id] #(when % (Integer. %)))
       (update-in [:transaction-date] ensure-local-date)
       (update-in [:items] #(map before-item-validation %))))
 
