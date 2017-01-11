@@ -70,7 +70,7 @@
                   data#))))))
 
 (defmacro assert-throws-validation-exception
-  "Tests to see if the specified code raises a schema validation
+  "Tests to see if the specified code raises a validation
   exception with the specified violation errors"
   [validation-errors & body]
   `(assert-throws-ex-info {:error ~validation-errors} ~@body))
