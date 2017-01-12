@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
             [clojure.string :as string]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [clj-money.inflection :refer [singular
@@ -76,8 +77,9 @@
 
 (defn- interpret-unknown-failure
   [{:keys [pred path] :as problem}]
-  (pprint {:interpret-unknown-failure problem
-           :class (class pred)})
+
+  (log/debug "interpret-unknown-failure " problem)
+
   [path (format "The attribute at %s is not valid" path)])
 
 (defn- interpret-type-failure
