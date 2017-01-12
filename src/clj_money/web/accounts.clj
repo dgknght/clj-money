@@ -193,7 +193,7 @@
   (let [account (select-keys params [:entity-id :name :type :parent-id])
         saved (accounts/create (env :db) account)]
     (if (validation/has-error? saved)
-      (new-account (:entity-id saved) saved)
+      (new-account {:params (select-keys saved [:entity-id])} saved)
       (redirect (str "/entities/" (:entity-id params) "/accounts")))))
 
 (defn edit
