@@ -4,7 +4,9 @@
             [clojure.spec :as s]
             [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
+            [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
@@ -26,21 +28,25 @@
 (s/def ::parent-id integer?)
 (s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id]))
 (s/def ::existing-account (s/keys :req-un [::id] :opt-un [::entity-id ::name ::type ::parent-id]))
+; :balance and :children-balance are not specified because they are always calculated and not passed in
+
+(def ^:private coercion-rules
+  [(coercion/rule :integer [:id])
+   (coercion/rule :keyword [:type])
+   (coercion/rule :integer [:entity-id])
+   (coercion/rule :integer [:parent-id])])
 
 (declare find-by-id)
 (defn- before-validation
   "Adjust account data for validation"
   [storage account]
   (cond-> account
+    true (coercion/coerce coercion-rules)
 
     ; If no entity is specified, try to look it up
-    (and (:id account) (nil? (:entity-id account)))
-    (assoc :entity-id (:entity-id (find-by-id storage
-                                              (Integer. (:id account)))))
-
-    ; make sure type is a keyword
-    (string? (:type account))
-    (update-in [:type] keyword)
+    (and (:id account)
+         (nil? (:entity-id account)))
+    (assoc :entity-id (:entity-id (find-by-id storage (:id account))))
 
     ; strip out empty string for parent-id
     (and (string? (:parent-id account))
@@ -107,8 +113,7 @@
   "Creates a new account in the system"
   [storage-spec account]
   (with-storage [s storage-spec]
-    (let [prepared (->> account
-                        (before-validation s))
+    (let [prepared (before-validation s account)
           validated (apply validation/validate
                            ::new-account
                            prepared
