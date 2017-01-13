@@ -102,12 +102,15 @@
       (string? (:id item))
       (not (empty? (:id item)))) (update-in [:id] #(Integer. %))))
 
+(def ^:private coercion-rules
+  [(coercion/rule :integer [:id])
+   (coercion/rule :integer [:entity-id])
+   (coercion/rule :local-date [:transaction-date])])
+
 (defn- before-validation
   "Performs operations required before validation"
   [transaction]
-  (-> transaction
-      (update-in [:id] #(when % (Integer. %)))
-      (update-in [:transaction-date] ensure-local-date)
+  (-> (coercion/coerce transaction coercion-rules)
       (update-in [:items] #(map before-item-validation %))))
 
 (defn- before-save
