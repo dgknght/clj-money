@@ -40,18 +40,17 @@
 (defn- before-validation
   "Adjust account data for validation"
   [storage account]
-  (cond-> account
-    true (coercion/coerce coercion-rules)
+  (let [coerced (coercion/coerce account coercion-rules)]
+    (cond-> coerced
+      ; If no entity is specified, try to look it up
+      (and (:id coerced)
+           (nil? (:entity-id coerced)))
+      (assoc :entity-id (:entity-id (find-by-id storage (:id coerced))))
 
-    ; If no entity is specified, try to look it up
-    (and (:id account)
-         (nil? (:entity-id account)))
-    (assoc :entity-id (:entity-id (find-by-id storage (:id account))))
-
-    ; strip out empty string for parent-id
-    (and (string? (:parent-id account))
-         (empty? (:parent-id account)))
-    (dissoc :parent-id)))
+      ; strip out empty string for parent-id
+      (and (string? (:parent-id coerced))
+           (empty? (:parent-id coerced)))
+      (dissoc :parent-id))))
 
 (defn- before-create
   "Adjust account data prior to creation"
