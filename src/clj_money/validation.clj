@@ -12,6 +12,12 @@
   (:import org.joda.time.LocalDate
            java.util.Date))
 
+(defn- interpret-integer-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'integer? pred))
+    [path (format "%s must be an integer" (humanize (last path)))]))
+
 (defn non-empty-string?
   [value]
   (and (string? value)
@@ -94,6 +100,7 @@
 
 (def problem-interpreters
   [interpret-required-failure
+   interpret-integer-failure
    interpret-regex-failure
    interpret-empty-string-failure
    interpret-positive-big-dec-failure
