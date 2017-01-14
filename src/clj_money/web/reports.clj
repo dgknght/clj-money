@@ -104,26 +104,14 @@
 (defmethod render-filter :income-statement
   [params]
   [:form {:action "#" :method :get}
-   [:div.form-group
-    [:label.control-label {:for :start-date} "Start Date"]
-    [:input.form-control.date-field {:type :text
-                                     :name :start-date
-                                     :value (format-date (:start-date params))}]]
-   [:div.form-group
-    [:label {:for :end-date} "End Date"]
-    [:input.form-control.date-field {:type :text
-                                     :name :end-date
-                                     :value (format-date (:end-date params))}]]
+   (date-input-field params :start-date)
+   (date-input-field params :end-date)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defmethod render-filter :balance-sheet
   [params]
   [:form {:action "#" :method :get}
-   [:div.form-group
-    [:label.control-label {:for :start-date} "As of"]
-    [:input.form-control.date-field {:type :text
-                                     :name :as-of
-                                     :value (format-date (:as-of params))}]]
+   (date-input-field params :as-of)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defmethod render-filter :budget
@@ -133,11 +121,7 @@
     [:label.control-label {:for :budget-id} "Budget"]
     [:select.form-control {:name "budget-id"}
      (map #(vector :option {:value (:id %)} (:name %)) (budgets/select-by-entity-id (env :db) (Integer. (:entity-id params))))] ]
-   [:div.form-group
-    [:label.control-label {:for :as-of} "As of"]
-    [:input.form-control.date-field {:type :text
-                                     :name :as-of
-                                     :value (format-date (:as-of params))}]]
+   (date-input-field params :as-of)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defn render

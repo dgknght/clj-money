@@ -79,8 +79,7 @@
                                       [:week :month :quarter]))
     (number-input-field budget :period-count {:step "1"
                                               :format-fn #(format-number % {:format :integer})})
-    (text-input-field budget :start-date {:class "date-field"
-                                          :format-fn format-date})
+    (date-input-field budget :start-date)
     [:button.btn.btn-primary {:type :submit} "Save"]
     "&nbsp;"
     [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))}

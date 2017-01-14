@@ -64,7 +64,23 @@ $(function() {
   });
 
   // Date Pickers
-  $(".date-field").datepicker();
+  $(".date-field input").datepicker();
+  $(".date-field button").click(function() {
+    try {
+      var container = this.closest('.date-field');
+      var input = $(container).find('input');
+      var datepicker = input.datepicker('widget');
+      if (datepicker.is(':visible')) {
+        input.datepicker('hide');
+      } else {
+        input.datepicker('show');
+      }
+    } catch (e) {
+      console.log(e);
+    } finally {
+      return false;
+    }
+  });
 
   // Budget Monitors
   $(".paced-progress-bar").pacedProgressBar({borderColor: "#CCC"});

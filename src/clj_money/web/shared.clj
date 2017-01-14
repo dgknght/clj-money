@@ -7,7 +7,8 @@
             [hiccup.page :refer :all]
             [clojure.string :as s]
             [cemerick.friend :as friend]
-            [clj-money.util :refer [format-number]]
+            [clj-money.util :refer [format-number
+                                    format-date]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities])
@@ -223,18 +224,39 @@
   [name value]
   [:input {:type :hidden :name name :value value}])
 
+(defmacro ^:private form-group
+  [model attribute suppress-label? & body]
+  `(vector :div.form-group {:class (when (validation/has-error? ~model ~attribute)
+                                     "has-error")}
+           (when-not ~suppress-label?
+             [:label.control-label {:for ~attribute} (humanize ~attribute)])
+           ~@body 
+           (when (validation/has-error? ~model)
+             (map #(vector :span.help-block %) (validation/error-messages ~model ~attribute)))))
+
 (defn- input-field
   "Renders a HTML input field"
   ([model attribute options]
-   [:div.form-group {:class (when (validation/has-error? model attribute)"has-error")}
-    (when-not (:suppress-label? options)
-      [:label.control-label {:for attribute} (humanize attribute)])
-    [:input.form-control (merge options {:id attribute
-                                         :name attribute
-                                         :value ((or (:format-fn options)
-                                                     identity) (get model attribute))})]
-    (when (validation/has-error? model)
-      (map #(vector :span.help-block %) (validation/error-messages model attribute)))]))
+   (form-group model attribute (:suppress-label? options)
+     [:input.form-control (merge options {:id attribute
+                                          :name attribute
+                                          :value ((or (:format-fn options)
+                                                      identity) (get model attribute))})])))
+
+(defn date-input-field
+  ([model attribute] (date-input-field model attribute {}))
+  ([model attribute options]
+   (form-group model attribute (:suppress-label? options)
+               [:div.input-group.date-field
+                [:input.form-control
+                 (merge {:format-fn format-date}
+                        options
+                        {:id attribute
+                         :name attribute
+                         :value (format-date (get model attribute))})]
+                [:span.input-group-btn {:title "Click here to select a date."}
+                 [:button.btn.btn-default
+                  [:span.glyphicon.glyphicon-calendar {:aria-hidden true}]]]])))
 
 (defn text-input-field
   ([model attribute] (text-input-field model attribute {}))
