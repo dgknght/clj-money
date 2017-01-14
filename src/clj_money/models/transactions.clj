@@ -5,6 +5,7 @@
             [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
             [clj-money.util :refer [ensure-local-date]]
+            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
