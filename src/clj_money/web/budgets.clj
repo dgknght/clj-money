@@ -294,9 +294,10 @@
                                     :period-count
                                     :start-date])
         updated (budgets/update (env :db) budget)]
-    (if (validation/valid? updated)
-      (redirect (format "/entities/%s/budgets" (:entity-id updated)))
-      (edit updated))))
+    (if (validation/has-error? updated)
+      (edit {:params (select-keys updated [:id])
+             :budget updated})
+      (redirect (format "/entities/%s/budgets" (:entity-id updated))))))
 
 (defn delete
   "Deletes the specified budget and redirects to the budget index page"

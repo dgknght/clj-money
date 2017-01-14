@@ -7,6 +7,7 @@
             [clj-time.coerce :as tc]
             [clj-time.periodic :refer [periodic-seq]]
             [clj-money.util :as util]
+            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
@@ -70,10 +71,21 @@
   (with-storage [s storage-spec]
     (map #(prepare-for-return s %) (select-budgets-by-entity-id s entity-id))))
 
+(def ^:private coercion-rules
+  [(coercion/rule :integer [:id])
+   (coercion/rule :integer [:entity-id])
+   (coercion/rule :local-date [:start-date])
+   (coercion/rule :keyword [:period])
+   (coercion/rule :integer [:period-count])])
+
+(defn- coerce
+  [budget]
+  (coercion/coerce budget coercion-rules))
+
 (defn- before-validation
   [budget]
   (-> budget
-      (update-in [:start-date] util/ensure-local-date)
+      coerce
       (dissoc :items)))
 
 (def period-map
@@ -163,15 +175,15 @@
   "Updates the specified budget"
   [storage-spec budget]
   (with-storage [s storage-spec]
-    (let [validated (validate ::existing-budget
-                              (select-keys budget [:id
-                                                   :name
-                                                   :period
-                                                   :period-count
-                                                   :start-date]))]
+    (let [validated (validate ::existing-budget budget)]
       (if (validation/valid? validated)
         (do
-          (->> validated
+          (->> (select-keys validated
+                            [:id
+                             :name
+                             :period
+                             :period-count
+                             :start-date])
                before-save
                (update-budget s))
           (reload s validated))
