@@ -73,7 +73,8 @@
   (html
     (text-input-field budget :name {:autofocus true})
     (select-field budget :period (map #(vector :option
-                                               {:value %}
+                                               {:value %
+                                                :selected (= (:period budget) %)}
                                                (humanize %))
                                       [:week :month :quarter]))
     (number-input-field budget :period-count {:step "1"
