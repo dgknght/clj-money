@@ -1,114 +1,155 @@
 (ns clj-money.validation
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec :as s]
             [clojure.string :as string]
-            [schema.core :as schema]
-            [schema.coerce :as coerce]
-            [schema.utils :as schema-utils]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [parse-date]]
             [clj-money.inflection :refer [singular
                                           humanize
-                                          ordinal]]
-            [clj-money.schema :refer [friendly-message]])
+                                          ordinal]])
   (:import org.joda.time.LocalDate
            java.util.Date))
 
-(defn- apply-rule
-  "Applies the rule to the context, returning an 
-  updated context. The context contains
-  {:model  the model being validated
-  :errors the list of validation errors}"
-  [context rule]
-  (let [{validated :model
-         errors :errors} (rule (:model context))]
-    (-> context
-        (update-in [:errors] #(concat  % errors))
-        (assoc :model validated))))
+(defn- interpret-integer-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'integer? pred))
+    [path (format "%s must be an integer" (humanize (last path)))]))
 
-(defn validate-model
-  "Validates the specified model using the specified rules.
-  If any violations are found, they are added to the model
-  in a sequence under the key :clj-money.validation/errors.
-  
-  A rule is simply a function that accepts the model and
-  returns a map containing the following
+(defn non-empty-string?
+  [value]
+  (and (string? value)
+       (pos? (count value))))
 
-  {:model  The model (in case it was updated by the rule)
-   :errors A sequence of tuples containing the key in the 1st postion
-           and a rule violation in the 2nd}"
+(defn- interpret-empty-string-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'non-empty-string? pred))
+    [path (format "%s cannot be empty" (humanize (last path)))]))
+
+(defn positive-integer?
+  [value]
+  (and (integer? value)
+       (pos? value)))
+
+(defn- interpret-positive-integer-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'positive-integer? pred))
+    [path (format "%s must be greater than zero" (humanize (last path)))]))
+
+(defn positive-big-dec?
+  [value]
+  (and (decimal? value)
+       (pos? value)))
+
+(defn- interpret-positive-big-dec-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'positive-big-dec? pred))
+    [path (format "%s must be a positive number" (humanize (last path)))]))
+
+(defn- interpret-regex-failure
+  [{:keys [path pred]}]
+  (when (and (coll? pred)
+             (= 're-matches (second pred)))
+    [path (format "%s is not valid" (humanize (last path)))]))
+
+(defn- interpret-required-failure
+  [{:keys [path pred in] :as problem}]
+  (when (and (coll? pred)
+             (= 'contains? (first pred)))
+    [(concat in [(nth pred 2)]) (format "%s is required" (humanize (nth pred 2)))]))
+
+(defn- interpret-set-inclusion-failure
+  [{:keys [pred path]}]
+  (when (set? pred)
+    [path
+     (format "%s must be one of: %s"
+             (humanize (last path))
+             (->> pred
+                  (map name)
+                  (string/join ", ")))]))
+
+(defn- interpret-collection-count-failure
+  [{:keys [pred path]}]
+  (when (and (seq? pred)
+             (or (= (first pred) '<=)
+                 (= (first pred) 'clojure.core/<=)))
+    [path
+     (format "Count must be greater than or equal to %s" (second pred))]))
+
+(defn- interpret-unknown-failure
+  [{:keys [pred path] :as problem}]
+
+  (log/debug "interpret-unknown-failure " problem)
+
+  [path (format "The attribute at %s is not valid" path)])
+
+(defn- interpret-type-failure
+  [{:keys [pred path] :as problem}]
+  (when (and (seq? pred)
+             (= 'instance? (second pred)))
+    (let [humanized (-> path last humanize)
+          message (if (:val problem)
+                    (format "%s must be an instance of %s" humanized (nth pred 2))   
+                    (format "%s is required" humanized))]
+      [path message])))
+
+(def problem-interpreters
+  [interpret-required-failure
+   interpret-integer-failure
+   interpret-regex-failure
+   interpret-empty-string-failure
+   interpret-positive-big-dec-failure
+   interpret-positive-integer-failure
+   interpret-collection-count-failure
+   interpret-set-inclusion-failure
+   interpret-type-failure
+   interpret-unknown-failure])
+
+(defn- problem->message
+  [problem]
+  (some #(% problem) problem-interpreters))
+
+(defn- interpret-problems
+  [explanation]
+  (->> explanation
+       :clojure.spec/problems
+       (map problem->message)
+       (reduce (fn [result [k message]]
+                 (update-in result k (fnil #(conj % message) [])))
+               {})))
+
+(defn- perform-additional-validation
+  "Performs validation that is not suitable for clojure.spec. E.g., database checks
+  for unique values."
   [model rules]
-  (let [{validated :model
-         errors :errors} (reduce apply-rule
-                                 {:errors []
-                                  :model model}
-                                 rules)]
-    (if (seq errors)
-      (assoc validated ::errors (->> errors
-                                     (group-by first)
-                                     (map (fn [[k tuples]]
-                                            (let [error-list (map second tuples)
-                                                  error-list (if (vector? (k model))
-                                                                          (first error-list)
-                                                                          error-list)]
-                                              [k error-list])))
-                                     (into {})))
-      validated)))
+  (let [violations (->> rules
+                        (remove #(% model))
+                        (map (comp (juxt ::path ::message) meta))
+                        (reduce (fn [result [path message]]
+                                  (update-in result path (fnil #(conj % message) [])))
+                                {}))]
+    (if (seq violations)
+      (assoc model ::valid? false ::errors violations)
+      (assoc model ::valid? true))))
 
-;; Schema validation
-(defn- int-matcher
-  [schema]
-  (when (= schema/Int schema)
-    (coerce/safe
-      (fn [value]
-        (if (and (string? value) (re-matches #"\d+" value))
-          (Integer. value)
-          value)))))
+(defmacro create-rule
+  "Given a predicate function an error message and a map path,
+  returns a validation rule that can be passed to the validate function"
+  [pred path message]
+  `(vary-meta ~pred assoc ::path ~path ::message ~message))
 
-(defn- nil-matcher
-  [schema]
-  (when (= schema/Str schema)
-    (coerce/safe
-      (fn [value]
-        (if (and (string? value) (= 0 (count value)))
-          nil
-          value)))))
-
-(defn- local-date-matcher
-  [schema]
-  (when (= LocalDate schema)
-    (coerce/safe
-      (fn [value]
-        (cond
-          (string? value) (parse-date value)
-          :else (tc/to-local-date value))))))
-
-(defn- full-humanized-message
-  "Accepts a tuple containg an attribute key and a schema
-  violation expresion and returns a human-friendly message"
-  [[attr-key expr]]
-  (let [humanized (if (vector? expr)
-                    (vec (map #(when %
-                                 (into {} (map full-humanized-message %))) expr))
-                    (str (humanize attr-key) " " (friendly-message expr)))]
-    [attr-key humanized]))
-
-(defn apply-schema
-  "A rule function that coerces and applies a schema to a model"
-  [schema model]
-  (let [coercer (coerce/coercer schema
-                                (coerce/first-matcher [int-matcher
-                                                       local-date-matcher
-                                                       nil-matcher
-                                                       coerce/json-coercion-matcher]))
-        result (coercer model)
-        errors (if (schema-utils/error? result)
-               (vec (map full-humanized-message
-                         (schema-utils/error-val result)))
-               [])]
-    {:model (dissoc result :error)
-     :errors errors}))
+(defn validate
+  "Validates the specified model using the specified spec"
+  [spec model & rules]
+  (if-let [explanation (s/explain-data spec model)]
+    (assoc model ::errors (interpret-problems explanation)
+           ::valid? false)
+    (perform-additional-validation model rules)))
 
 (defn has-error?
   "Returns true if the specified model contains validation errors"
@@ -120,28 +161,13 @@
 (defn valid?
   "Returns false if the model has any validation errors"
   [model]
-  (not (has-error? model)))
+  (::valid? model))
 
-(defn- extract-message
-  "Accepts a validation error key/value pair 
-  performs any necessary adjustments to make it readable
-  and the current level of nesting"
-  [[k v]]
-  (if (-> v first string?)
-    v
-    (filter identity
-            (map-indexed (fn [index err]
-                           (when err
-                             (str (ordinal (+ 1 index)) " " (singular (humanize k)) ": " (string/join ", " (map second (seq err))))))
-                         v))))
-
-(defn get-errors
+(defn error-messages
   "Returns the errors from the specified model. If given only a model, 
   returns a map of all errors. If given a model and a key, returns the 
   errors for the specified key from wihin the model."
-  [model & attr-keys]
-  (if (seq attr-keys)
-    (get-in model (concat [::errors] attr-keys))
-    (->> (get model ::errors)
-         (mapcat #(extract-message %))
-         vec)))
+  ([model]
+   (::errors model))
+  ([model attribute]
+   (attribute (error-messages model))))

@@ -33,13 +33,8 @@
   "Asserts the expected validation error"
   [attribute message & body]
   `(let [result# ~@body
-         found-message# (validation/get-errors result# ~attribute)]
-     (is (not (nil? found-message#))
-         (format "Expected error \"%s\" on %s, but no error was found"
-                 ~message
-                 ~attribute))
-     (is (= [~message]
-            (validation/get-errors result# ~attribute))
+         found-message# (validation/error-messages result# ~attribute)]
+     (is (= [~message] found-message#)
          (format "Expected error \"%s\" on %s, but received %s instead"
                  ~message
                  ~attribute
@@ -75,7 +70,7 @@
                   data#))))))
 
 (defmacro assert-throws-validation-exception
-  "Tests to see if the specified code raises a schema validation
+  "Tests to see if the specified code raises a validation
   exception with the specified violation errors"
   [validation-errors & body]
   `(assert-throws-ex-info {:error ~validation-errors} ~@body))

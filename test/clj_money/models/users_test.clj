@@ -35,18 +35,20 @@
              (select-keys user [:first-name :last-name :email]))
           "The map should contain the user properties"))))
 
+(deftest try-to-create-with-duplicate-email
+  (testing "Email is unique"
+    (users/create storage-spec attributes)
+    (assert-validation-error
+      :email
+      "Email is already taken"
+      (users/create storage-spec attributes))))
+
 (deftest try-to-create-with-invalid-data
   (testing "Email is required"
     (assert-validation-error
       :email
       "Email is required"
       (users/create storage-spec (dissoc attributes :email))))
-  (testing "Email is unique"
-    (users/create storage-spec attributes)
-    (assert-validation-error
-      :email
-      "Email is already taken"
-      (users/create storage-spec attributes)))
   (testing "Email must be a valid email address"
     (assert-validation-error
       :email
@@ -60,7 +62,7 @@
   (testing "First name cannot be empty"
     (assert-validation-error
       :first-name
-      "First name is required"
+      "First name cannot be empty"
       (users/create storage-spec (assoc attributes :first-name "")))
     (assert-validation-error
       :last-name
@@ -69,8 +71,8 @@
   (testing "Last name cannot be empty"
     (assert-validation-error
       :last-name
-      "Last name is required"
-      (users/create storage-spec (dissoc attributes :last-name)))))
+      "Last name cannot be empty"
+      (users/create storage-spec (assoc attributes :last-name "")))))
 
 (deftest authenticate-a-user
   (let [user (users/create storage-spec attributes)

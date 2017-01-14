@@ -78,7 +78,7 @@
   (let [context (serialization/realize storage-spec budget-context)
         entity (-> context :entities first)
         result (budgets/create storage-spec (assoc (attributes context) :start-date "3/2/2016"))]
-    (is (validation/valid? result) "The budget should be valid with a string start date.")
+    (is (empty? (validation/error-messages result)) "The budget should be valid with a string start date.")
     (is (= (t/local-date 2016 3 2) (:start-date result)) "The result should have the correct start date value")))
 
 (deftest period-is-required
@@ -150,7 +150,7 @@
                     (assoc :start-date (t/local-date 2016 1 1)))
         result (budgets/update storage-spec updated)
         retrieved (budgets/find-by-id storage-spec (:id budget))]
-    (is (validation/valid? result)
+    (is (empty? (validation/error-messages result))
         "The budget is valid")
     (is (= "edited" (:name result))
         "The returned value reflects the update")
@@ -202,7 +202,7 @@
   (let [context (serialization/realize storage-spec budget-item-context)
         item (budgets/create-item storage-spec (budget-item-attributes context))
         budget (budgets/reload storage-spec (-> context :budgets first))]
-    (is (validation/valid? item) "The new item is valid")
+    (is (empty? (validation/error-messages item)) "The new item is valid")
     (is (not (nil? (:id item))) "The new item has an id value")
     (is (= 1 (-> budget :items count)) "The item is returned with the budget after create")))
 
@@ -282,7 +282,7 @@
                        :items
                        (filter #(= (:id rent) (:account-id %)))
                        first)]
-    (is (validation/valid? result) "The item is valid for update")
+    (is (empty? (validation/error-messages result)) "The item is valid after update")
     (is (= [950M 850M 850M] (->> result :periods (take 3) (map :amount))) "The returned value contains the updates")
     (is (= [950M 850M 850M] (->> retrieved :periods (take 3) (map :amount))) "The retreived value contains the updates")))
 

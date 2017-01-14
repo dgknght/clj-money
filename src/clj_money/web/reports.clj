@@ -9,7 +9,7 @@
             [clj-time.core :as t]
             [clj-money.util :refer [format-number
                                     format-date
-                                    parse-date]]
+                                    parse-local-date]]
             [clj-money.web.shared :refer :all]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.reports :as reports]))
@@ -146,11 +146,11 @@
                    (update-in [:entity-id] #(Integer. %))
                    (update-in [:type] keyword)
                    (update-in [:type] (fnil identity :balance-sheet))
-                   (assoc :start-date (or (parse-date (:start-date params))
+                   (assoc :start-date (or (parse-local-date (:start-date params))
                                           (budgets/default-start-date))
-                          :end-date (or (parse-date (:end-date params))
+                          :end-date (or (parse-local-date (:end-date params))
                                         (default-end-date))
-                          :as-of (or (parse-date (:as-of params))
+                          :as-of (or (parse-local-date (:as-of params))
                                      (default-end-date))))]
     (with-layout "Reports" {}
       [:div.row

@@ -16,7 +16,6 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
-            [clj-money.schema :as schema]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
   (:use [clj-money.web.shared :refer :all])
   (:import org.joda.time.Months
@@ -74,7 +73,8 @@
   (html
     (text-input-field budget :name {:autofocus true})
     (select-field budget :period (map #(vector :option
-                                               {:value %}
+                                               {:value %
+                                                :selected (= (:period budget) %)}
                                                (humanize %))
                                       [:week :month :quarter]))
     (number-input-field budget :period-count {:step "1"
@@ -237,7 +237,7 @@
                                (map #(hash-map :value %)))}])))
     items))
 
-(defn- for-display
+(defn for-display
   "Returns a budget that has been prepared for rendering in the UI"
   [id]
   (-> (budgets/find-by-id (env :db) id)
@@ -295,9 +295,10 @@
                                     :period-count
                                     :start-date])
         updated (budgets/update (env :db) budget)]
-    (if (validation/valid? updated)
-      (redirect (format "/entities/%s/budgets" (:entity-id updated)))
-      (edit updated))))
+    (if (validation/has-error? updated)
+      (edit {:params (select-keys updated [:id])
+             :budget updated})
+      (redirect (format "/entities/%s/budgets" (:entity-id updated))))))
 
 (defn delete
   "Deletes the specified budget and redirects to the budget index page"

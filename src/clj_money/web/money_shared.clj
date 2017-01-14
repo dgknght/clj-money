@@ -33,7 +33,7 @@
   ([entity-id]
    (grouped-options-for-accounts entity-id {}))
   ([entity-id options]
-   (let [optgroups (->> (accounts/select-nested-by-entity-id (env :db) entity-id)
+   (let [optgroups (->> (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))
                         (filter #(or (nil? (:types options))
                                      ((:types options) (:type %))))
                         (map #(opt-group-for-account-type % (:selected-id options))))]
@@ -80,7 +80,7 @@
   [entity-id]
   (html
     [:h3 "Budget monitors"]
-    (->> entity-id
+    (->> (Integer. entity-id)
          (entities/find-by-id (env :db))
          :monitored-account-ids
          (map (comp #(reports/monitor (env :db) %)

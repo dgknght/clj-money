@@ -49,7 +49,7 @@
   (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create storage-spec (attributes context))]
     (testing "return value includes the new id"
-      (is (validation/valid? transaction))
+      (is (empty? (validation/error-messages transaction)))
       (is (number? (:id transaction)) "A map with the new ID is returned"))
     (testing "transaction can be retrieved"
       (let [retrieved (transactions/find-by-id storage-spec (:id transaction))]
@@ -97,14 +97,14 @@
   (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create storage-spec (-> (attributes context)
                                                           (assoc :transaction-date "3/2/2016")))]
-    (is (validation/valid? transaction) "The transaction is valid")
+    (is (empty? (validation/error-messages transaction)) "The transaction is valid")
     (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
 
 (deftest create-a-transaction-intl-string-date
   (let [context (serialization/realize storage-spec create-context)
         transaction (transactions/create storage-spec (-> (attributes context)
                                                           (assoc :transaction-date "2016-03-02")))]
-    (is (validation/valid? transaction) "The transaction is valid")
+    (is (empty? (validation/error-messages transaction)) "The transaction is valid")
     (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
 
 (deftest transaction-date-is-required
@@ -120,12 +120,13 @@
     (is (validation/has-error? transaction :entity-id))))
 
 (deftest items-are-required
-  (let [context (serialization/realize storage-spec create-context)
-        transaction (transactions/create
-                      storage-spec
-                      (-> (attributes context)
-                          (assoc :items [])))]
-    (is (validation/has-error? transaction :items))))
+  (let [context (serialization/realize storage-spec create-context)]
+    (assert-validation-error :items "Count must be greater than or equal to 2"
+                             (transactions/create
+                               storage-spec
+                               (-> context
+                                   attributes
+                                   (assoc :items []))))))
 
 (deftest item-account-id-is-required
   (let [context (serialization/realize storage-spec create-context)

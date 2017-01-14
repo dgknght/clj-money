@@ -1,16 +1,15 @@
 (ns clj-money.models.users
   (:require [clojure.tools.logging :as log]
+            [clojure.spec :as s]
             [clojure.set :refer [rename-keys]]
             [clojure.pprint :refer [pprint]]
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
-            [schema.core :as s]
             [clj-money.models.helpers :refer [with-storage]]
-            [clj-money.validation :refer :all]
+            [clj-money.validation :as validation]
             [clj-money.models.storage :refer [create-user
                                               select-users
-                                              find-user-by-email
-                                              user-exists-with-email?]]))
+                                              find-user-by-email]]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -24,33 +23,32 @@
 
 (def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
 
-(def NewUser
-  "Schema for a new user"
-  {:first-name s/Str
-   :last-name s/Str
-   :email (s/pred (partial re-matches EmailPattern) "invalid format")
-   :password s/Str})
+(s/def ::first-name validation/non-empty-string?)
+(s/def ::last-name validation/non-empty-string?)
+(s/def ::password validation/non-empty-string?)
+(s/def ::email (s/and string? (partial re-matches EmailPattern)))
+(s/def ::new-user (s/keys :req-un [::first-name ::last-name ::password ::email]))
 
-(defn- validate-new-user
+(defn- email-is-unique?
   [storage user]
-  (validate-model user [(partial apply-schema NewUser)
-                        (fn [model]
-                          {:model model
-                           :errors (if (user-exists-with-email? storage (:email model))
-                                     [[:email "Email is already taken"]]
-                                     [])})]))
+  (nil? (find-user-by-email storage (:email user))))
 
 (defn create
   "Creates a new user record"
   [storage-spec user]
   (with-storage [s storage-spec]
-    (let [validated (validate-new-user s user)]
-      (if (has-error? validated)
-        validated
+    (let [unique-email-rule (validation/create-rule (partial email-is-unique? s)
+                                                    [:email]
+                                                    "Email is already taken")
+          validated (validation/validate ::new-user
+                                         user
+                                         unique-email-rule)]
+      (if (validation/valid? validated)
         (->> user
              prepare-user-for-insertion
              (create-user s)
-             prepare-user-for-return)))))
+             prepare-user-for-return)
+        validated))))
 
 (defn select
   "Lists the users in the database"

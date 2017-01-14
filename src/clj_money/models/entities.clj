@@ -1,10 +1,10 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec :as s]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
-            [schema.core :as s]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-entity
@@ -13,52 +13,21 @@
                                               update-entity
                                               delete-entity]]))
 
-(def BaseEntity
-  "Shared entity attributes"
-  {:name s/Str
-   (s/optional-key :monitored-account-ids) [s/Int]})
+(s/def ::name string?)
+(s/def ::id integer?)
+(s/def ::user-id integer?)
+(s/def ::monitored-account-ids (s/coll-of integer?))
+(s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::monitored-account-ids]))
+(s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::monitored-account-ids ::user-id]))
 
-(def NewEntity
-  "Schema for unsaved entities"
-  (merge BaseEntity
-         {:user-id s/Int}))
-
-(def ExistingEntity
-  "Schema for saved entities"
-  (merge BaseEntity
-         {:id s/Int
-          (s/optional-key :user-id) s/Int
-          (s/optional-key :created-at) s/Any
-          (s/optional-key :updated-at) s/Any}))
-
-(defn- name-must-be-unique
-  "Validation rule function that ensures an account
-  name is unique within an entity"
+(defn- name-is-unique?
   [storage {entity-name :name
-            entity-id :id
             user-id :user-id
-            :as model}]
-  {:model model
-   :errors (let [existing (when (and entity-name user-id)
-                            (->> (select-entities storage user-id)
-                                 (remove #(= (:id %) entity-id))
-                                 (filter #(= (:name %) entity-name))))]
-             (if (seq existing)
-               [[:name "Name is already in use"]]
-               []))})
-
-(defn validation-rules
-  [schema storage]
-  [(partial validation/apply-schema schema)
-   (partial name-must-be-unique storage)])
-
-(defn- validate-new-entity
-  [storage entity]
-  (validation/validate-model entity (validation-rules NewEntity storage)))
-
-(defn- validate-existing-entity
-  [storage entity]
-  (validation/validate-model entity (validation-rules ExistingEntity storage)))
+            entity-id :id}]
+  (->> (select-entities storage user-id)
+       (remove #(= (:id %) entity-id))
+       (filter #(= (:name %) entity-name))
+       empty?))
 
 (defn- before-save
   [entity]
@@ -71,15 +40,15 @@
   "Creates a new entity"
   [storage-spec entity]
   (with-storage [s storage-spec]
-    (let [validated (validate-new-entity s entity)]
-      (when (not validated)
-        (throw (ex-info "The validated data is null" {:entity entity
-                                                      :validated validated})))
-      (if (validation/has-error? validated)
-        validated
+    (let [unique-name-rule (validation/create-rule (partial name-is-unique? s)
+                                                   [:name]
+                                                   "Name is already in use")
+          validated (validation/validate ::new-entity entity unique-name-rule)]
+      (if (validation/valid? validated)
         (->> validated
              before-save
-             (create-entity s ))))))
+             (create-entity s))
+        validated))))
 
 (defn select
   "Returns entities for the specified user"
@@ -112,7 +81,7 @@
   "Updates the specified entity"
   [storage-spec entity]
   (with-storage [s storage-spec]
-    (let [validated (validate-existing-entity s entity)]
+    (let [validated (validation/validate ::existing-entity entity)]
       (if (validation/valid? validated)
         (do
           (->> validated

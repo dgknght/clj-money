@@ -1,10 +1,12 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec :as s]
             [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
-            [schema.core :as s]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
+            [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
@@ -19,41 +21,36 @@
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
-(def NewAccount
-  {:entity-id s/Int
-   :name s/Str
-   :type (s/enum :asset :liability :equity :income :expense)
-   (s/optional-key :parent-id) s/Int})
+(s/def ::id integer?)
+(s/def ::entity-id integer?)
+(s/def ::name validation/non-empty-string?)
+(s/def ::type #{:asset :liability :equity :income :expense})
+(s/def ::parent-id integer?)
+(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id]))
+(s/def ::existing-account (s/keys :req-un [::id] :opt-un [::entity-id ::name ::type ::parent-id]))
+; :balance and :children-balance are not specified because they are always calculated and not passed in
 
-(def Account
-  {:id s/Int
-   :entity-id s/Int
-   (s/optional-key :balance) BigDecimal
-   (s/optional-key :name) s/Str
-   (s/optional-key :type) (s/enum :asset :liability :equity :income :expense)
-   (s/optional-key :parent-id) s/Int
-   (s/optional-key :created-at) s/Any
-   (s/optional-key :updated-at) s/Any})
+(def ^:private coercion-rules
+  [(coercion/rule :integer [:id])
+   (coercion/rule :keyword [:type])
+   (coercion/rule :integer [:entity-id])
+   (coercion/rule :integer [:parent-id])])
 
 (declare find-by-id)
 (defn- before-validation
   "Adjust account data for validation"
   [storage account]
-  (cond-> account
+  (let [coerced (coercion/coerce account coercion-rules)]
+    (cond-> coerced
+      ; If no entity is specified, try to look it up
+      (and (:id coerced)
+           (nil? (:entity-id coerced)))
+      (assoc :entity-id (:entity-id (find-by-id storage (:id coerced))))
 
-    ; If no entity is specified, try to look it up
-    (and (:id account) (nil? (:entity-id account)))
-    (assoc :entity-id (:entity-id (find-by-id storage
-                                              (Integer. (:id account)))))
-
-    ; make sure type is a keyword
-    (string? (:type account))
-    (update-in [:type] keyword)
-
-    ; strip out empty string for parent-id
-    (and (string? (:parent-id account))
-         (empty? (:parent-id account)))
-    (dissoc :parent-id)))
+      ; strip out empty string for parent-id
+      (and (string? (:parent-id coerced))
+           (empty? (:parent-id coerced)))
+      (dissoc :parent-id))))
 
 (defn- before-create
   "Adjust account data prior to creation"
@@ -83,54 +80,43 @@
     true
     (update-in [:type] keyword)))
 
-(defn- name-must-be-unique
-  "Validation rule function that ensures an account
-  name is unique within an entity"
-  [storage {account-name :name entity-id :entity-id :as model}]
-  {:model model
-   :errors (let [existing (when (and account-name entity-id)
-                            (->> (select-accounts-by-name storage entity-id account-name)
-                                 (remove #(= (:id %) (:id model)))
-                                 (filter #(= (:parent-id %) (:parent-id model)))))]
-             (if (seq existing)
-               [[:name "Name is already in use"]]
-               []))})
+(defn- name-is-unique?
+  [storage {:keys [id parent-id name entity-id]}]
+  (->> (select-accounts-by-name storage entity-id name)
+       (remove #(= (:id %) id))
+       (filter #(= (:parent-id %) parent-id))
+       empty?))
 
-(defn- must-have-same-type-as-parent
+(defn- parent-has-same-type?
   "Validation rule that ensure an account
   has the same type as its parent"
   [storage {:keys [parent-id type] :as model}]
-  {:model model
-   :errors (if (and type
-                    parent-id
-                    (let [parent (find-by-id storage parent-id)]
-                      (not (= type
-                              (:type parent)))))
-             [[:type "Type must match the parent type"]]
-             [])})
+  (or (nil? parent-id)
+      (= type
+         (:type (find-by-id storage parent-id)))))
 
 (defn- validation-rules
-  "Returns the account validation rules"
-  [storage schema]
-  [(partial validation/apply-schema schema)
-   (partial name-must-be-unique storage)
-   (partial must-have-same-type-as-parent storage)])
-
-(defn- validate-new-account
-  [storage account]
-  (validation/validate-model account (validation-rules storage NewAccount)))
-
-(defn- validate-account
-  [storage account]
-  (validation/validate-model account (validation-rules storage Account)))
+  [storage]
+  (map (fn [{:keys [path message val-fn]}]
+         (validation/create-rule (partial val-fn storage)
+                                 path
+                                 message))
+       [{:val-fn name-is-unique?
+         :path [:name]
+         :message "Name is already in use"}
+        {:val-fn parent-has-same-type?
+         :path [:type]
+         :message "Type must match the parent type"}]))
 
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
   (with-storage [s storage-spec]
-    (let [validated (->> account
-                         (before-validation s)
-                         (validate-new-account s))]
+    (let [prepared (before-validation s account)
+          validated (apply validation/validate
+                           ::new-account
+                           prepared
+                           (validation-rules s))]
       (if (validation/has-error? validated)
         validated
         (->> validated
@@ -214,7 +200,7 @@
   (with-storage [s storage-spec]
     (let [validated (->> account
                          (before-validation s)
-                         (validate-account s))]
+                         (validation/validate ::existing-account))]
       (if (validation/has-error? validated)
         validated
         (do

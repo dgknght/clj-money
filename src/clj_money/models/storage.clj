@@ -13,10 +13,6 @@
   (find-user-by-email
     [this email]
     "Returns the user having the specified email")
-  (user-exists-with-email?
-    [this email]
-    "Returns a boolean value indicating whether or not a user exists with
-    the specified email")
 
   ; Entities
   (create-entity
