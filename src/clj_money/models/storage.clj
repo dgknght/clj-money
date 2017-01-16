@@ -57,7 +57,13 @@
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]
+    [this entity-id options]
     "Returns transactions for the specified entity")
+
+  (count-transactions-by-entity-id
+    [this entity-id]
+    "Returns the number of transactions for the specified entity")
+
   (create-transaction
     [this transaction]
     "Creates a new transaction record")

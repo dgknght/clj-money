@@ -10,6 +10,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
+                                              count-transactions-by-entity-id
                                               create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
@@ -300,14 +301,34 @@
               (select-transaction-items-by-transaction-id storage)
               (map prepare-item-for-return))))
 
+(s/def ::page validation/positive-integer?)
+(s/def ::per-page validation/positive-integer?)
+(s/def ::select-options (s/keys :req-un [::page ::per-page]))
+
 (defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"
+  ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
+  ([storage-spec entity-id options]
+   (let [coerced-options (coercion/coerce options [(coercion/rule :integer [:page])
+                                                   (coercion/rule :integer [:per-page])])
+         parsed-options (if (s/valid? ::select-options coerced-options)
+                          coerced-options
+                          {:page 0
+                           :per-page 10})]
+
+     (pprint {:parsed-options parsed-options})
+
+     (with-storage [s storage-spec]
+       (->>
+         (select-transactions-by-entity-id s entity-id parsed-options)
+         (map prepare-for-return)
+         (map #(append-items s %)))))))
+
+(defn count-by-entity-id
+  "Returns the number of transactions that belong to the specified entity"
   [storage-spec entity-id]
   (with-storage [s storage-spec]
-    (->>
-      (select-transactions-by-entity-id s entity-id)
-      (map prepare-for-return)
-      (map #(append-items s %)))))
+    (count-transactions-by-entity-id s entity-id)))
 
 (defn create
   "Creates a new transaction"

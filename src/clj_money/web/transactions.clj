@@ -44,6 +44,14 @@
                     :data-confirm "Are you sure you want to delete this transaction?"
                     :title "Click here to remove this transaction."})]]])
 
+(defn page-menu
+  [entity-id total-count {:keys [page per-page] :or {page 0 per-page 10}}]
+  [:ul.pagination
+   (map #(vector :li {:class (when (= page %))}
+                 [:a {:href (format "/entities/%s/transactions?page=%s&per-page=%s" entity-id % per-page)}
+                  (str (+ 1 %))])
+        (range (Math/ceil (/ total-count (Integer. per-page)))))])
+
 (defn index
   ([req] (index req {}))
   ([{params :params} options]
@@ -54,11 +62,19 @@
          [:th.col-sm-2 "Date"]
          [:th.col-sm-8 "Description"]
          [:th.col-sm-2 "&nbsp;"]]
-        (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
-       [:a.btn.btn-primary
-        {:href (str"/entities/" entity-id "/transactions/new")
-         :title "Click here to enter a new transaction."}
-        "Add"]))))
+        (map transaction-row
+             (transactions/select-by-entity-id (env :db)
+                                               entity-id
+                                               {:page (or (:page params) 0)
+                                                :per-page (or (:per-page params) 10)}))]
+       (page-menu entity-id
+                  (transactions/count-by-entity-id (env :db) entity-id)
+                  (select-keys params [:page :per-page]))
+       [:p
+        [:a.btn.btn-primary
+         {:href (str"/entities/" entity-id "/transactions/new")
+          :title "Click here to enter a new transaction."}
+         "Add"]]))))
 
 (defn- item-row
   "Renders an individual row for a transaction item"
