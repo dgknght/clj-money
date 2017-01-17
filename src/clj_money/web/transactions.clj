@@ -9,6 +9,7 @@
             [ring.util.codec :refer [url-encode]]
             [clj-time.core :as t]
             [clj-money.url :refer :all]
+            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
@@ -44,13 +45,20 @@
                     :data-confirm "Are you sure you want to delete this transaction?"
                     :title "Click here to remove this transaction."})]]])
 
+(def ^:private pagination-rules
+  (coercion/rules :integer [:page] [:per-page] [:total]))
+
 (defn page-menu
-  [entity-id total-count {:keys [page per-page] :or {page 0 per-page 10}}]
-  [:ul.pagination
-   (map #(vector :li {:class (when (= page %))}
-                 [:a {:href (format "/entities/%s/transactions?page=%s&per-page=%s" entity-id % per-page)}
-                  (str (+ 1 %))])
-        (range (Math/ceil (/ total-count (Integer. per-page)))))])
+  [options]
+  [:nav {:aria-label "Page navigation"}
+   [:ul.pagination
+    (let [{:keys [url page per-page total]} (-> options
+                                                (select-keys [:page :per-page :total :url])
+                                                (coercion/coerce pagination-rules))]
+      (map #(vector :li {:class (when (= % (Integer. page)) "active")}
+                    [:a {:href (-> url (query {:page % :per-page per-page}) format-url)}
+                     (str (+ 1 %))])
+           (range (Math/ceil (/ total per-page)))))]])
 
 (defn index
   ([req] (index req {}))
@@ -67,9 +75,8 @@
                                                entity-id
                                                {:page (or (:page params) 0)
                                                 :per-page (or (:per-page params) 10)}))]
-       (page-menu entity-id
-                  (transactions/count-by-entity-id (env :db) entity-id)
-                  (select-keys params [:page :per-page]))
+       (page-menu  (assoc params :url (-> (path "/entities" entity-id "transactions")) 
+                                 :total (transactions/count-by-entity-id (env :db) entity-id)))
        [:p
         [:a.btn.btn-primary
          {:href (str"/entities/" entity-id "/transactions/new")
