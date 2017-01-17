@@ -315,9 +315,6 @@
                           coerced-options
                           {:page 0
                            :per-page 10})]
-
-     (pprint {:parsed-options parsed-options})
-
      (with-storage [s storage-spec]
        (->>
          (select-transactions-by-entity-id s entity-id parsed-options)
