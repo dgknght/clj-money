@@ -21,3 +21,14 @@
                                 :url (url/path "/somewhere" "something")
                                 :total "15"})]
     (is (= expected actual))))
+
+(deftest supply-defaults
+  (let [expected [:nav {:aria-label "Page navigation"}
+                  [:ul.pagination
+                   [[:li {:class "active"} ; extra nesting
+                    [:a {:href "/somewhere/something?page=0&per-page=10"} "1"]]
+                   [:li {:class nil}
+                    [:a {:href "/somewhere/something?page=1&per-page=10"} "2"]]]]]
+        actual (pagination/nav {:url (url/path "/somewhere" "something")
+                                :total "15"})]
+    (is (= expected actual))))
