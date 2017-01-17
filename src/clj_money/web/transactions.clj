@@ -11,6 +11,7 @@
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
+            [clj-money.pagination :as pagination]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
@@ -45,21 +46,6 @@
                     :data-confirm "Are you sure you want to delete this transaction?"
                     :title "Click here to remove this transaction."})]]])
 
-(def ^:private pagination-rules
-  (coercion/rules :integer [:page] [:per-page] [:total]))
-
-(defn page-menu
-  [options]
-  [:nav {:aria-label "Page navigation"}
-   [:ul.pagination
-    (let [{:keys [url page per-page total]} (-> options
-                                                (select-keys [:page :per-page :total :url])
-                                                (coercion/coerce pagination-rules))]
-      (map #(vector :li {:class (when (= % (Integer. page)) "active")}
-                    [:a {:href (-> url (query {:page % :per-page per-page}) format-url)}
-                     (str (+ 1 %))])
-           (range (Math/ceil (/ total per-page)))))]])
-
 (defn index
   ([req] (index req {}))
   ([{params :params} options]
@@ -75,8 +61,9 @@
                                                entity-id
                                                {:page (or (:page params) 0)
                                                 :per-page (or (:per-page params) 10)}))]
-       (page-menu  (assoc params :url (-> (path "/entities" entity-id "transactions")) 
-                                 :total (transactions/count-by-entity-id (env :db) entity-id)))
+       (pagination/nav (assoc params
+                              :url (-> (path "/entities" entity-id "transactions")) 
+                              :total (transactions/count-by-entity-id (env :db) entity-id)))
        [:p
         [:a.btn.btn-primary
          {:href (str"/entities/" entity-id "/transactions/new")
