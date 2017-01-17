@@ -14,6 +14,10 @@
    :coerce-fn (or (rule-key @fns) 
                   (throw (RuntimeException. (format "No coercion function found for key %s" rule-key))))})
 
+(defn rules
+  [rule-key & paths]
+  (map #(rule rule-key %) paths))
+
 (register-coerce-fn :integer    #(if (integer? %) % (Integer. %)))
 (register-coerce-fn :decimal    #(if (decimal? %) % (bigdec %)))
 (register-coerce-fn :keyword    #(if (keyword? %) % (keyword %)))
