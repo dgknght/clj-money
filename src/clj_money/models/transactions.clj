@@ -376,6 +376,16 @@
   (with-storage [s storage-spec]
     (count-transaction-items-by-account-id s account-id)))
 
+(defn unreconciled-items-by-account
+  "Returns the unreconciled transaction items for the specified account"
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (let [account (accounts/find-by-id storage-spec account-id)]
+      (map #(prepare-item-for-return % account)
+           (select-transaction-items-by-account-id s
+                                                   account-id
+                                                   {:reconciled false})))))
+
 (defn- process-item-upserts
   "Process items in a transaction update operation"
   [storage items]
