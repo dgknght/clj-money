@@ -9,7 +9,9 @@
             [ring.util.codec :refer [url-encode]]
             [clj-time.core :as t]
             [clj-money.url :refer :all]
+            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
+            [clj-money.pagination :as pagination]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
@@ -54,11 +56,18 @@
          [:th.col-sm-2 "Date"]
          [:th.col-sm-8 "Description"]
          [:th.col-sm-2 "&nbsp;"]]
-        (map transaction-row (transactions/select-by-entity-id (env :db) entity-id))]
-       [:a.btn.btn-primary
-        {:href (str"/entities/" entity-id "/transactions/new")
-         :title "Click here to enter a new transaction."}
-        "Add"]))))
+        (map transaction-row
+             (transactions/select-by-entity-id (env :db)
+                                               entity-id
+                                               (pagination/prepare-options params)))]
+       (pagination/nav (assoc params
+                              :url (-> (path "/entities" entity-id "transactions")) 
+                              :total (transactions/count-by-entity-id (env :db) entity-id)))
+       [:p
+        [:a.btn.btn-primary
+         {:href (str"/entities/" entity-id "/transactions/new")
+          :title "Click here to enter a new transaction."}
+         "Add"]]))))
 
 (defn- item-row
   "Renders an individual row for a transaction item"

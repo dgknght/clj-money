@@ -10,6 +10,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
+                                              count-transactions-by-entity-id
                                               create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
@@ -18,6 +19,7 @@
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
                                               select-transaction-items-by-account-id
+                                              count-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
@@ -300,14 +302,31 @@
               (select-transaction-items-by-transaction-id storage)
               (map prepare-item-for-return))))
 
+(s/def ::page validation/positive-integer?)
+(s/def ::per-page validation/positive-integer?)
+(s/def ::select-options (s/keys :req-un [::page ::per-page]))
+
 (defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"
+  ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
+  ([storage-spec entity-id options]
+   (let [coerced-options (coercion/coerce options [(coercion/rule :integer [:page])
+                                                   (coercion/rule :integer [:per-page])])
+         parsed-options (if (s/valid? ::select-options coerced-options)
+                          coerced-options
+                          {:page 0
+                           :per-page 10})]
+     (with-storage [s storage-spec]
+       (->>
+         (select-transactions-by-entity-id s entity-id parsed-options)
+         (map prepare-for-return)
+         (map #(append-items s %)))))))
+
+(defn count-by-entity-id
+  "Returns the number of transactions that belong to the specified entity"
   [storage-spec entity-id]
   (with-storage [s storage-spec]
-    (->>
-      (select-transactions-by-entity-id s entity-id)
-      (map prepare-for-return)
-      (map #(append-items s %)))))
+    (count-transactions-by-entity-id s entity-id)))
 
 (defn create
   "Creates a new transaction"
@@ -341,12 +360,21 @@
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
+  ([storage-spec account-id]
+   (items-by-account storage-spec account-id {}))
+  ([storage-spec account-id options]
+   (with-storage [s storage-spec]
+     (let [account (accounts/find-by-id storage-spec account-id)]
+       (map #(prepare-item-for-return % account)
+            (select-transaction-items-by-account-id s
+                                                    account-id
+                                                    options))))))
+
+(defn count-items-by-account
+  "Returns the number of transaction items in the account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (let [account (accounts/find-by-id storage-spec account-id)]
-      (->> account-id
-           (select-transaction-items-by-account-id s)
-           (map #(prepare-item-for-return % account))))))
+    (count-transaction-items-by-account-id s account-id)))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"
