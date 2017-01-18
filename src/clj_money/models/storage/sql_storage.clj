@@ -69,6 +69,12 @@
       (assoc :updated-at (t/now))
       ->sql-keys))
 
+(defn- append-paging
+  [sql options]
+  (cond-> sql
+    (:per-page options) (h/limit (:per-page options))
+    (:page options) (h/offset (* (:per-page options) (:page options)))))
+
 (defn- query
   "Executes a SQL query and maps field names into
   clojure keys"
@@ -204,10 +210,8 @@
     (let [sql (-> (h/select :*)
                   (h/from :transactions)
                   (h/where [:= :entity-id entity-id])
-                  (h/order-by [:transaction-date :desc]))
-          sql (cond-> sql
-                (:per-page options) (h/limit (:per-page options))
-                (:page options) (h/offset (* (:per-page options) (:page options))))]
+                  (h/order-by [:transaction-date :desc])
+                  (append-paging options))]
       (query db-spec sql)))
 
   (count-transactions-by-entity-id
@@ -264,12 +268,23 @@
                       (h/order-by [:action :desc] [:amount :desc]))))
 
   (select-transaction-items-by-account-id
-    [_ account-id]
+    [this account-id]
+    (.select-transaction-items-by-account-id this account-id {}))
+
+  (select-transaction-items-by-account-id
+    [_ account-id options]
     (query db-spec (-> (h/select :i.* :t.transaction_date :t.description)
                       (h/from [:transaction_items :i])
                       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
                       (h/where [:= :i.account_id account-id])
-                      (h/order-by [:i.index :desc]))))
+                      (h/order-by [:i.index :desc])
+                      (append-paging options))))
+
+  (count-transaction-items-by-account-id
+    [this account-id]
+    (query-scalar db-spec (-> (h/select :%count.*)
+                              (h/from :transaction_items)
+                              (h/where [:= :account_id account-id]))))
 
   (select-transaction-items-by-account-id-and-starting-index
     [_ account-id index]

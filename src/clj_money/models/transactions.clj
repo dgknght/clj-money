@@ -19,6 +19,7 @@
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
                                               select-transaction-items-by-account-id
+                                              count-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
@@ -359,12 +360,21 @@
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
+  ([storage-spec account-id]
+   (items-by-account storage-spec account-id {}))
+  ([storage-spec account-id options]
+   (with-storage [s storage-spec]
+     (let [account (accounts/find-by-id storage-spec account-id)]
+       (map #(prepare-item-for-return % account)
+            (select-transaction-items-by-account-id s
+                                                    account-id
+                                                    options))))))
+
+(defn count-items-by-account
+  "Returns the number of transaction items in the account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (let [account (accounts/find-by-id storage-spec account-id)]
-      (->> account-id
-           (select-transaction-items-by-account-id s)
-           (map #(prepare-item-for-return % account))))))
+    (count-transaction-items-by-account-id s account-id)))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"

@@ -10,6 +10,7 @@
             [clj-money.url :refer :all]
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number]]
+            [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
@@ -144,7 +145,13 @@
          [:th.text-right "Balance"]
          [:th "&nbsp;"]]
         (map transaction-item-row
-             (transactions/items-by-account (env :db) id))]
+             (transactions/items-by-account (env :db)
+                                            id
+                                            (pagination/prepare-options params)))]
+       (pagination/nav (assoc params
+                              :url (-> (path "/accounts"
+                                             (:id account)))
+                              :total (transactions/count-items-by-account (env :db) (:id account))))
        [:a.btn.btn-primary {:href (-> (path "/entities"
                                             (:entity-id account)
                                             "transactions"

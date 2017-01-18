@@ -45,3 +45,13 @@
                   total]} (validate-options options)
           page-count (Math/ceil (/ total per-page))]
       (map #(nav-item % page per-page url) (range page-count)))]])
+
+(defn prepare-options
+  "Accepts a map of parameters (as from a web request) and returns
+  the values suitable to be passed to the data layer to
+  select the correct section of a list"
+  [options]
+  (-> options
+      (select-keys [:page :per-page])
+      (update-in [:page] (fnil #(Integer. %) 0))
+      (update-in [:per-page] (fnil #(Integer. %) 10))))

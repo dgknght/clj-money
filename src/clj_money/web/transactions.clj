@@ -59,8 +59,7 @@
         (map transaction-row
              (transactions/select-by-entity-id (env :db)
                                                entity-id
-                                               {:page (or (:page params) 0)
-                                                :per-page (or (:per-page params) 10)}))]
+                                               (pagination/prepare-options params)))]
        (pagination/nav (assoc params
                               :url (-> (path "/entities" entity-id "transactions")) 
                               :total (transactions/count-by-entity-id (env :db) entity-id)))
