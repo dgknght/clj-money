@@ -127,18 +127,21 @@
   (let [summary (->> groups
                      (map (juxt :type :value))
                      (into {}))
-        retained (- (:income summary) (:expense summary))]
-    (->> groups
-         (map (fn [entry]
-                (if (= :equity (:type entry))
-                  (-> entry 
-                      (update-in [:accounts] #(conj % {:name "Retained Earnings"
-                                                       :balance retained
-                                                       :children-balance 0}))
-                      (update-in [:value] #(+ %1 retained)))
-                  entry)))
-         (remove #(#{:income :expense} (:type %)))
-         (mapcat transform-account-group))))
+        retained (- (:income summary) (:expense summary))
+        records (->> groups
+                     (map (fn [entry]
+                            (if (= :equity (:type entry))
+                              (-> entry
+                                  (update-in [:accounts] #(conj % {:name "Retained Earnings"
+                                                                   :balance retained
+                                                                   :children-balance 0}))
+                                  (update-in [:value] #(+ %1 retained)))
+                              entry)))
+                     (remove #(#{:income :expense} (:type %)))
+                     (mapcat transform-account-group))]
+    (concat records [{:caption "Liabilities + Equity"
+                      :value (+ retained (:equity summary) (:liability summary))
+                      :style :summary}])))
 
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
