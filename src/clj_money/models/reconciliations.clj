@@ -5,11 +5,13 @@
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage]]
             [clj-money.models.storage :refer [create-reconciliation
-                                              select-reconciliations-by-account-id]]))
+                                              select-reconciliations-by-account-id]])
+  (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
+(s/def ::end-of-period #(instance? LocalDate %))
 
-(s/def ::new-reconciliation (s/keys :req-un [::account-id]))
+(s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period]))
 
 (defn- before-validation
   [reconciliation]
