@@ -1,5 +1,6 @@
 (ns clj-money.serialization
   (:require [clojure.pprint :refer [pprint]]
+            [clj-money.models.helpers :refer [with-transacted-storage]]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -7,14 +8,14 @@
             [clj-money.models.transactions :as transactions]))
 
 (defn- create-users
-  [storage-spec users]
+  [storage users]
   (mapv (fn [attributes]
-         (users/create storage-spec attributes))
+         (users/create storage attributes))
        users))
 
 (defn- realize-users
-  [storage-spec context]
-  (update-in context [:users] #(create-users storage-spec %)))
+  [storage context]
+  (update-in context [:users] #(create-users storage %)))
 
 (defn- find-user
   [context email]
@@ -29,16 +30,16 @@
   (update-in model [:user-id] #(:id (find-user context %))))
 
 (defn- create-entities
-  [storage-spec context entities]
+  [storage context entities]
   (mapv (fn [attributes]
           (if (:id attributes)
             attributes
-            (entities/create storage-spec (resolve-user context attributes))))
+            (entities/create storage (resolve-user context attributes))))
         entities))
 
 (defn- realize-entities
-  [storage-spec context]
-  (update-in context [:entities] #(create-entities storage-spec context %)))
+  [storage context]
+  (update-in context [:entities] #(create-entities storage context %)))
 
 (defn- find-entity
   [context entity-name]
@@ -53,19 +54,19 @@
   (update-in model [:entity-id] #(:id (find-entity context %))))
 
 (defn- resolve-parent
-  [storage-spec account]
+  [storage account]
   (if (:parent-id account)
-    (let [parent (accounts/find-by-name storage-spec (:entity-id account) (:parent-id account))]
+    (let [parent (accounts/find-by-name storage (:entity-id account) (:parent-id account))]
       (assoc account :parent-id (:id parent)))
     account))
 
 (defn- create-account
-  [storage-spec context attributes]
+  [storage context attributes]
   (if (:id attributes)
     attributes
-    (accounts/create storage-spec (->> attributes
+    (accounts/create storage (->> attributes
                                        (resolve-entity context)
-                                       (resolve-parent storage-spec)))))
+                                       (resolve-parent storage)))))
 
 (defn- create-accounts
   "Creates the specified accounts.
@@ -73,18 +74,18 @@
   Accounts can be a sequence of maps containing account properties,
   or a map where the keys are account types and the values
   are vectors of account properties"
-  [storage-spec context accounts]
+  [storage context accounts]
   (let [account-list (if (map? accounts)
                        (mapcat (fn [[account-type acct-list]]
                                  (map #(assoc % :type account-type)
                                       acct-list))
                                accounts)
                        accounts)]
-    (mapv #(create-account storage-spec context %) account-list)))
+    (mapv #(create-account storage context %) account-list)))
 
 (defn- realize-accounts
-  [storage-spec context]
-  (update-in context [:accounts] #(create-accounts storage-spec context %)))
+  [storage context]
+  (update-in context [:accounts] #(create-accounts storage context %)))
 
 (defn- find-account
   [context account-name]
@@ -114,44 +115,45 @@
                                          items))))
 
 (defn- create-transactions
-  [storage-spec context transactions]
+  [storage context transactions]
   []
   (mapv (fn [attributes]
-         (transactions/create storage-spec (->> attributes
+         (transactions/create storage (->> attributes
                                             (resolve-entity context)
                                             (prepare-items context))))
        transactions))
 
 (defn- realize-transactions
-  [storage-spec context]
-  (update-in context [:transactions] #(create-transactions storage-spec context %)))
+  [storage context]
+  (update-in context [:transactions] #(create-transactions storage context %)))
 
 (defn- append-budget-items
-  [storage-spec context items budget]
+  [storage context items budget]
   (assoc budget :items (->> items
                             (map #(resolve-account context %))
                             (map #(assoc % :budget-id (:id budget)))
-                            (mapv #(budgets/create-item storage-spec %)))))
+                            (mapv #(budgets/create-item storage %)))))
 
 (defn- create-budgets
-  [storage-spec context budgets]
+  [storage context budgets]
   (mapv (fn [attributes]
           (->> attributes
                (resolve-entity context)
-               (budgets/create storage-spec)
-               (append-budget-items storage-spec context (:items attributes))))
+               (budgets/create storage)
+               (append-budget-items storage context (:items attributes))))
         budgets))
 
 (defn- realize-budgets
-  [storage-spec context]
-  (update-in context [:budgets] #(create-budgets storage-spec context %)))
+  [storage context]
+  (update-in context [:budgets] #(create-budgets storage context %)))
 
 (defn realize
   "Realizes a test context"
   [storage-spec input]
+  (with-transacted-storage [s storage-spec]
   (->> input
-      (realize-users storage-spec)
-      (realize-entities storage-spec)
-      (realize-accounts storage-spec)
-      (realize-budgets storage-spec)
-      (realize-transactions storage-spec)))
+      (realize-users s)
+      (realize-entities s)
+      (realize-accounts s)
+      (realize-budgets s)
+      (realize-transactions s))))
