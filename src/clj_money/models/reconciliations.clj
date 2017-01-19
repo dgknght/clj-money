@@ -7,6 +7,10 @@
             [clj-money.models.storage :refer [create-reconciliation
                                               select-reconciliations-by-account-id]]))
 
+(s/def ::account-id integer?)
+
+(s/def ::new-reconciliation (s/keys :req-un [::account-id]))
+
 (defn- before-validation
   [reconciliation]
   (update-in reconciliation [:status] (fnil identity :new)))
@@ -23,14 +27,22 @@
       (update-in [:end-of-period] tc/to-local-date)
       (update-in [:status] keyword)))
 
+(defn- validate
+  [reconciliation]
+  (validation/validate ::new-reconciliation reconciliation))
+
 (defn create
   "Creates a new reconciliation record"
   [storage-spec reconciliation]
   (with-transacted-storage [s storage-spec]
-    (->> reconciliation
-         before-validation
-         before-save
-         (create-reconciliation s ))))
+    (let [validated (->> reconciliation
+                         before-validation
+                         validate)]
+      (if (validation/valid? validated)
+        (->> validated
+             before-save
+             (create-reconciliation s ))
+        validated))))
 
 (defn find-by-account-id
   "Returns the reconciliations for the specified account"
