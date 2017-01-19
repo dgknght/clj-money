@@ -71,6 +71,7 @@
    (if (map? item)
      (cond-> item
        true (update-in [:action] keyword)
+       true (assoc :reconciled? false)
        (:transaction-date item) (update-in [:transaction-date] tc/to-local-date)
        account (polarize-item-amount account))
      item)))

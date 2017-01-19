@@ -118,6 +118,15 @@
     [this transaction-id]
     "Deletes the transaction items having the specified id")
 
+  ; Reconciliations
+  (create-reconciliation
+    [this reconciliation]
+    "Creates a new reconciliation record")
+
+  (select-reconciliations-by-account-id
+    [this account-id]
+    "Returns reconciliation records for the specified account")
+
   ; Budgets
   (create-budget
     [this budget]

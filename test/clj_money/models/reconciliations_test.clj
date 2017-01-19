@@ -4,6 +4,7 @@
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.test-helpers :refer [reset-db
                                             assert-validation-error]]
             [clj-money.serialization :as serialization]
@@ -63,7 +64,7 @@
                             :account-id "Checking"
                             :amount 53M}]}]})
 
-(deftest reconcile-an-account
+(deftest create-an-incomplete-reconciliation
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -76,7 +77,39 @@
                        (filter #(= (:id checking) (:account-id %))))
         reconciliation {:account-id (:id checking)
                         :balance 447M
+                        :end-of-period (t/local-date 2017 1 31)
                         :item-ids (map :id [paycheck landlord safeway])}
+        result (reconciliations/create storage-spec reconciliation)
+        retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
+    (is (empty? (validation/error-messages result)) "The result contains no validation errors")
+    (is retrieved "The reconciliation can be retrieved")
+    (testing "transaction items are not marked as reconciled"
+      (is (= #{false}
+             (->> context
+                  :transactions
+                  (map #(transactions/reload storage-spec %))
+                  (mapcat :items)
+                  (filter #(= (:id checking) (:account-id %)))
+                  (map :reconciled?)
+                  set))
+          "None of the transaction items should be marked as reconcilied"))))
+
+(deftest create-a-complete-reconciliation
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        [paycheck
+         landlord
+         kroger
+         safeway] (->> context
+                       :transactions
+                       (mapcat :items)
+                       (filter #(= (:id checking) (:account-id %))))
+        reconciliation {:account-id (:id checking)
+                        :balance 447M
+                        :end-of-period (t/local-date 2017 1 31)
+                        :item-ids (map :id [paycheck landlord safeway])
+                        :status :complete}
         result (reconciliations/create storage-spec reconciliation)
         retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
@@ -90,3 +123,23 @@
                   (filter #(= (:id checking) (:account-id %)))
                   (map :reconciled?)))
           "Each transaction item included in the reconciliation should be marked as reconciled"))))
+
+(deftest attempt-to-create-a-reconciliation-without-an-account-id
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        [paycheck
+         landlord
+         kroger
+         safeway] (->> context
+                       :transactions
+                       (mapcat :items)
+                       (filter #(= (:id checking) (:account-id %))))
+        result (reconciliations/create storage-spec
+                                       {:balance 447M
+                                        :item-ids (map :id [paycheck landlord safeway])})]
+    (is (validation/has-error? result :account-id))))
+
+; Test attempt to create a reconciliation without an end date
+; Test attempt to create a reconciliation an invalid status
+; Test attempt to complete a reconciliation that is not in balance

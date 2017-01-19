@@ -379,6 +379,20 @@
                   :transaction_items
                   ["transaction_id = ?" transaction-id]))
 
+  ; Reconciliations
+  (create-reconciliation
+    [_ reconciliation]
+    (insert db-spec :reconciliations reconciliation :account-id
+                                                    :end-of-period
+                                                    :status))
+
+  (select-reconciliations-by-account-id
+    [_ account-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from :reconciliations)
+                       (h/where [:= :account-id account-id]))))
+
+
   ; Budgets
   (create-budget
     [_ budget]
