@@ -10,8 +10,9 @@
 
 (s/def ::account-id integer?)
 (s/def ::end-of-period #(instance? LocalDate %))
+(s/def ::status #{:new :completed})
 
-(s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period]))
+(s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status]))
 
 (defn- before-validation
   [reconciliation]

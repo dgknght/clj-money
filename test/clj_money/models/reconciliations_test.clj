@@ -109,7 +109,7 @@
                         :balance 447M
                         :end-of-period (t/local-date 2017 1 31)
                         :item-ids (map :id [paycheck landlord safeway])
-                        :status :complete}
+                        :status :completed}
         result (reconciliations/create storage-spec reconciliation)
         retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
@@ -156,6 +156,25 @@
                                         :balance 447M
                                         :item-ids (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :end-of-period))))
+
+(deftest attempt-to-create-a-reconciliation-with-and-invalid-status
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        [paycheck
+         landlord
+         kroger
+         safeway] (->> context
+                       :transactions
+                       (mapcat :items)
+                       (filter #(= (:id checking) (:account-id %))))
+        result (reconciliations/create storage-spec
+                                       {:account-id (:id checking)
+                                        :end-of-period (t/local-date 2017 1 31)
+                                        :status :bouncy
+                                        :balance 447M
+                                        :item-ids (map :id [paycheck landlord safeway])})]
+    (is (validation/has-error? result :status))))
 
 ; Test attempt to create a reconciliation an invalid status
 ; Test attempt to complete a reconciliation that is not in balance
