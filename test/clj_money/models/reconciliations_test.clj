@@ -77,8 +77,7 @@
                        (filter #(= (:id checking) (:account-id %))))
         reconciliation {:account-id (:id checking)
                         :balance 447M
-                        :end-of-period (t/local-date 2017 1 31)
-                        :item-ids (map :id [paycheck landlord safeway])}
+                        :end-of-period (t/local-date 2017 1 31)}
         result (reconciliations/create storage-spec reconciliation)
         retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")

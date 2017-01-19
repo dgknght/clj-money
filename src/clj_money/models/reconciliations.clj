@@ -73,7 +73,8 @@
         (let [created (->> validated
                            before-save
                            (create-reconciliation s))]
-          (set-transaction-items-reconciled s (:id created) (:item-ids validated))
+          (when (and (:item-ids validated) (seq (:item-ids validated)))
+            (set-transaction-items-reconciled s (:id created) (:item-ids validated)))
           (after-read created))
         validated))))
 
