@@ -263,7 +263,10 @@
                   {:caption "Retained Earnings"
                    :value 249M
                    :style :data
-                   :depth 0}]]
+                   :depth 0}
+                  {:caption "Liabilities + Equity"
+                   :value 749M
+                   :style :summary}]]
     (is (= expected actual) "The rpoert renders the correct data")))
 
 (def budget-report-context
