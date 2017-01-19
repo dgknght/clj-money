@@ -5,7 +5,8 @@
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage]]
             [clj-money.models.storage :refer [create-reconciliation
-                                              select-reconciliations-by-account-id]])
+                                              select-reconciliations-by-account-id
+                                              set-transaction-items-reconciled]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
@@ -42,9 +43,11 @@
                          before-validation
                          validate)]
       (if (validation/valid? validated)
-        (->> validated
-             before-save
-             (create-reconciliation s ))
+        (let [created (->> validated
+                           before-save
+                           (create-reconciliation s ))]
+          (set-transaction-items-reconciled s (:id created) (:item-ids validated))
+          (after-read created))
         validated))))
 
 (defn find-by-account-id

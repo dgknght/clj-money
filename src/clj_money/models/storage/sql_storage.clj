@@ -93,6 +93,13 @@
        vals
        first))
 
+(defn- transaction-item-base-query
+  []
+  (-> (h/select :i.* :t.transaction_date :t.description, [:r.status "reconciliation_status"])
+      (h/from [:transaction_items :i])
+      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
+      (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
+
 (deftype SqlStorage [db-spec]
   Storage
 
@@ -262,10 +269,9 @@
 
   (select-transaction-items-by-transaction-id
     [_ transaction-id]
-    (query db-spec (-> (h/select :*)
-                      (h/from :transaction_items)
-                      (h/where [:= :transaction_id transaction-id])
-                      (h/order-by [:action :desc] [:amount :desc]))))
+    (query db-spec (-> (transaction-item-base-query)
+                       (h/where [:= :transaction_id transaction-id])
+                       (h/order-by [:action :desc] [:amount :desc]))))
 
   (select-transaction-items-by-account-id
     [this account-id]
@@ -273,12 +279,10 @@
 
   (select-transaction-items-by-account-id
     [_ account-id options]
-    (query db-spec (-> (h/select :i.* :t.transaction_date :t.description)
-                      (h/from [:transaction_items :i])
-                      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-                      (h/where [:= :i.account_id account-id])
-                      (h/order-by [:i.index :desc])
-                      (append-paging options))))
+    (query db-spec (-> (transaction-item-base-query)
+                       (h/where [:= :i.account_id account-id])
+                       (h/order-by [:i.index :desc])
+                       (append-paging options))))
 
   (count-transaction-items-by-account-id
     [this account-id]
@@ -378,6 +382,13 @@
     (jdbc/delete! db-spec
                   :transaction_items
                   ["transaction_id = ?" transaction-id]))
+
+  (set-transaction-items-reconciled
+    [_ reconciliation-id transaction-item-ids]
+    (jdbc/execute! db-spec (-> (h/update :transaction_items)
+                               (h/sset {:reconciliation_id reconciliation-id})
+                               (h/where [:in :id transaction-item-ids])
+                               sql/format)))
 
   ; Reconciliations
   (create-reconciliation

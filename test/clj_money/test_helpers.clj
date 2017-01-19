@@ -5,7 +5,8 @@
             [clojure.tools.logging :as log]
             [clj-money.validation :as validation]))
 
-(def all-tables ["transaction_items"
+(def all-tables ["reconciliations"
+                 "transaction_items"
                  "transactions"
                  "accounts"
                  "budgets"
