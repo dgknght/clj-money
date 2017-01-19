@@ -318,6 +318,13 @@
         (query db-spec)
         first))
 
+  (find-transaction-items-by-ids
+    [_ ids]
+    (->> (-> (h/select :*)
+             (h/from :transaction_items)
+             (h/where [:in :id ids]))
+        (query db-spec)))
+
   (select-transaction-items-preceding-date
     [_ account-id transaction-date]
     (query db-spec (-> (h/select :i.*)

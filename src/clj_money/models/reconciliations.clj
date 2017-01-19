@@ -1,7 +1,10 @@
 (ns clj-money.models.reconciliations
   (:require [clojure.spec :as s]
+            [clojure.pprint :refer [pprint]]
             [clj-time.coerce :as tc]
             [clj-money.validation :as validation]
+            [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage]]
             [clj-money.models.storage :refer [create-reconciliation
@@ -31,21 +34,45 @@
       (update-in [:end-of-period] tc/to-local-date)
       (update-in [:status] keyword)))
 
+(defn- is-in-balance?
+  [storage reconciliation]
+  (or (= :new (:status reconciliation))
+      (let [account (accounts/find-by-id storage (:account-id reconciliation))
+            starting-balance (or  (->> (:account-id reconciliation)
+                                       (select-reconciliations-by-account-id storage)
+                                       (sort-by :end-of-balance)
+                                       last
+                                       :balance)
+                                 0M)
+            delta (->> (transactions/find-items-by-ids storage
+                                                       (:item-ids reconciliation))
+                       (map #(accounts/polarize-amount % account))
+                       (reduce +))]
+        (= (:balance reconciliation)
+           (+ starting-balance delta)))))
+
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule (partial is-in-balance? storage)
+                           [:balance]
+                           "The account balance must match the statement balance.")])
+
 (defn- validate
-  [reconciliation]
-  (validation/validate ::new-reconciliation reconciliation))
+  [rules reconciliation]
+  (apply validation/validate
+         ::new-reconciliation
+         (before-validation reconciliation)
+         rules))
 
 (defn create
   "Creates a new reconciliation record"
   [storage-spec reconciliation]
   (with-transacted-storage [s storage-spec]
-    (let [validated (->> reconciliation
-                         before-validation
-                         validate)]
+    (let [validated (validate (validation-rules s) reconciliation)]
       (if (validation/valid? validated)
         (let [created (->> validated
                            before-save
-                           (create-reconciliation s ))]
+                           (create-reconciliation s))]
           (set-transaction-items-reconciled s (:id created) (:item-ids validated))
           (after-read created))
         validated))))

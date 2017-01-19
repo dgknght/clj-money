@@ -176,5 +176,21 @@
                                         :item-ids (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :status))))
 
-; Test attempt to create a reconciliation an invalid status
-; Test attempt to complete a reconciliation that is not in balance
+(deftest attempt-to-create-a-reconciliation-that-is-not-balanced
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        [paycheck
+         landlord
+         kroger
+         safeway] (->> context
+                       :transactions
+                       (mapcat :items)
+                       (filter #(= (:id checking) (:account-id %))))
+        result (reconciliations/create storage-spec
+                                       {:account-id (:id checking)
+                                        :end-of-period (t/local-date 2017 1 31)
+                                        :status :completed
+                                        :balance 10M
+                                        :item-ids (map :id [paycheck landlord safeway])})]
+    (is (validation/has-error? result :balance))))

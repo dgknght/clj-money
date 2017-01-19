@@ -16,6 +16,7 @@
                                               find-transaction-by-id
                                               update-transaction
                                               find-transaction-item-by-id
+                                              find-transaction-items-by-ids
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
                                               select-transaction-items-by-account-id
@@ -358,6 +359,12 @@
     (->> (find-transaction-by-id s id)
          prepare-for-return
          (append-items s))))
+
+(defn find-items-by-ids
+  [storage-spec ids]
+  (with-storage [s storage-spec]
+    (->> (find-transaction-items-by-ids s ids)
+         (map prepare-item-for-return))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
