@@ -9,6 +9,7 @@
                                               with-transacted-storage]]
             [clj-money.models.storage :refer [create-reconciliation
                                               select-reconciliations-by-account-id
+                                              find-new-reconciliation-by-account-id
                                               set-transaction-items-reconciled]])
   (:import org.joda.time.LocalDate))
 
@@ -87,3 +88,11 @@
   (with-storage [s storage-spec]
     (map after-read
          (select-reconciliations-by-account-id s account-id))))
+
+(defn find-working
+  "Returns the uncompleted reconciliation for the specified
+  account, if one exists"
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (when-let [reconciliation (find-new-reconciliation-by-account-id s account-id)]
+      (after-read reconciliation))))

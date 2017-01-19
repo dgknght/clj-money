@@ -128,10 +128,12 @@
   (create-reconciliation
     [this reconciliation]
     "Creates a new reconciliation record")
-
   (select-reconciliations-by-account-id
     [this account-id]
     "Returns reconciliation records for the specified account")
+  (find-new-reconciliation-by-account-id
+    [this account-id]
+    "Returns the first reconciliation with status :new for the specified account")
 
   ; Budgets
   (create-budget

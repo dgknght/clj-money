@@ -410,6 +410,13 @@
                        (h/from :reconciliations)
                        (h/where [:= :account-id account-id]))))
 
+  (find-new-reconciliation-by-account-id
+    [_ account-id]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :reconciliations)
+                              (h/where [:and [:= :status "new"]
+                                        [:= :account-id account-id]])
+                              (h/limit 1)))))
 
   ; Budgets
   (create-budget

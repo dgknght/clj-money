@@ -244,3 +244,29 @@
                                         :balance 10M
                                         :item-ids (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :balance))))
+
+(def ^:private working-rec-context
+  (assoc reconciliation-context
+         :reconciliations
+         [{:account-id "Checking"
+           :end-of-period (t/local-date 2017 1 1)
+           :balance 447M
+           :status :new
+           :item-ids [{:transaction-date (t/local-date 2017 1 1)
+                       :account-id "Salary"
+                       :amount 1000M}
+                      {:transaction-date (t/local-date 2017 1 2)
+                       :account-id "Rent"
+                       :amount 500M}
+                      {:transaction-date (t/local-date 2017 1 10)
+                       :account-id "Groceries"
+                       :amount 53M}]}]))
+
+(deftest find-the-working-reconciliation
+  (let [context (serialization/realize storage-spec
+                                       working-rec-context)
+        checking (-> context :accounts first)
+        reconciliation (reconciliations/find-working storage-spec (:id checking))]
+    (is reconciliation "A reconciliation is returned")))
+
+; Test that any given transaction item cannot be included in more than one reconciliation at the validation level

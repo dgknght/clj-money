@@ -1,11 +1,13 @@
 (ns clj-money.serialization
   (:require [clojure.pprint :refer [pprint]]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.models.helpers :refer [with-transacted-storage]]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.models.transactions :as transactions]
+            [clj-money.models.reconciliations :as reconciliations]))
 
 (defn- create-users
   [storage users]
@@ -147,6 +149,37 @@
   [storage context]
   (update-in context [:budgets] #(create-budgets storage context %)))
 
+(defn- resolve-transaction-item-ids
+  [context items]
+  (->> items
+       (map #(resolve-account context %))
+       (mapv (fn [{:keys [transaction-date account-id amount]}]
+               (->> context
+                    :transactions
+                    (filter #(= transaction-date (:transaction-date %)))
+                    (mapcat :items)
+                    (filter #(and (= account-id (:account-id %))
+                                  (= amount (:amount %))))
+                    (map :id)
+                    first)))))
+
+(defn- resolve-reconciliation-transaction-item-ids
+  [context reconciliation]
+  (update-in reconciliation [:item-ids] #(resolve-transaction-item-ids context %)))
+
+(defn- create-reconciliations
+  [storage context reconciliations]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-account context)
+               (resolve-reconciliation-transaction-item-ids context)
+               (reconciliations/create storage)))
+        reconciliations))
+
+(defn- realize-reconciliations
+  [storage context]
+  (update-in context [:reconciliations] #(create-reconciliations storage context %)))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
@@ -156,4 +189,5 @@
       (realize-entities s)
       (realize-accounts s)
       (realize-budgets s)
-      (realize-transactions s))))
+      (realize-transactions s)
+      (realize-reconciliations s))))
