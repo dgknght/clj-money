@@ -208,6 +208,24 @@
                                         :balance "notanumber"})]
     (is (validation/has-error? result :balance))))
 
+(deftest attempt-to-create-a-reconciliation-with-invalid-item-ids
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        [paycheck
+         landlord
+         kroger
+         safeway] (->> context
+                       :transactions
+                       (mapcat :items)
+                       (filter #(= (:id checking) (:account-id %))))
+        result (reconciliations/create storage-spec
+                                       {:account-id (:id checking)
+                                        :end-of-period (t/local-date 2017 1 31)
+                                        :balance 10M
+                                        :item-ids "notvalid"})]
+    (is (validation/has-error? result :item-ids))))
+
 (deftest attempt-to-create-a-reconciliation-that-is-not-balanced
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
