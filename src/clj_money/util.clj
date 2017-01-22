@@ -16,16 +16,22 @@
   "Format a number with 2 decimal places and groups separated with commas"
   ([value] (format-number value {}))
   ([value options]
+   (try
    (when value
      (.format (number-formats (or (:format options) :standard))
-              value))))
+              value))
+   (catch Exception e
+     (log/warn "Unable to format number \"" value "\"")))))
 
 (def DateFormat (DateTimeFormat/forPattern "M/d/y"))
 
 (defn format-date
   "Formats a date (without time) in the standard US format"
   [value]
-  (.print DateFormat value))
+  (try
+    (.print DateFormat value)
+    (catch Exception e
+      (log/warn "Unable to format date value \"" value "\""))))
 
 (def date-patterns
   [{:pattern #"(\d{1,2})/(\d{1,2})/(\d{4})"

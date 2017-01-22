@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-time.coerce :as tc]
             [clj-money.validation :as validation]
+            [clj-money.coercion :as coercion]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-storage
@@ -22,9 +23,17 @@
 
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-ids]))
 
+(def ^:private coercion-rules
+  [(coercion/rule :local-date [:end-of-period])
+   (coercion/rule :decimal [:balance])
+   (coercion/rule :integer [:account-id])
+   (coercion/rule :integer-collection [:item-ids])])
+
 (defn- before-validation
   [reconciliation]
-  (update-in reconciliation [:status] (fnil identity :new)))
+  (-> reconciliation
+      (coercion/coerce coercion-rules)
+      (update-in [:status] (fnil identity :new))))
 
 (defn- before-save
   [reconciliation]

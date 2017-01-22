@@ -108,6 +108,7 @@
            transaction-date
            description
            polarized-amount
+           reconciled?
            account-id
            balance] :as item}]
   [:tr
@@ -115,6 +116,9 @@
    [:td description]
    [:td.text-right polarized-amount]
    [:td.text-right balance]
+   [:td.text-center [:span.glyphicon
+                     {:aria-hidden "true"
+                      :class (if reconciled? "glyphicon-check" "glyphicon-unchecked")}]]
    [:td
     [:span.btn-group
      (glyph-button :pencil
@@ -148,6 +152,7 @@
          [:th "Description"]
          [:th.text-right "Amount"]
          [:th.text-right "Balance"]
+         [:th.text-center "Rec."]
          [:th "&nbsp;"]]
         (map transaction-item-row
              (transactions/items-by-account (env :db)

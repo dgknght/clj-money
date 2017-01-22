@@ -1,12 +1,15 @@
 (ns clj-money.web.reconciliations
   (:require [environ.core :refer [env]]
             [clj-time.core :as t]
+            [ring.util.response :refer :all]
+            [clj-money.validation :as validation]
             [clj-money.util :as util]
             [clj-money.web.shared :refer [with-layout
                                           date-input-field
                                           number-input-field]]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.models.transactions :as transactions]
+            [clj-money.models.reconciliations :as reconciliations]))
 
 (defn- reconciliation-item-row
   [account transaction-item]
@@ -17,6 +20,7 @@
                        (accounts/polarize-amount account)
                        util/format-number)]
    [:td.text-center [:input {:type :checkbox
+                             :name "item-ids"
                              :value (:id transaction-item)}]]])
 
 (defn new-reconciliation
@@ -40,6 +44,10 @@
                                    :value "Finish"
                                    :title "Click here to complete the reconciliation."}]
           "&nbsp;"
+          [:input.btn.btn-default {:type :submit
+                                   :value "Save"
+                                   :title "Click here to save the reconciliation and complete it later."}]
+          "&nbsp;"
           [:a.btn.btn-default
            {:href (format "/entities/%s/accounts" (:entity-id account))
             :title "Click here to return to the list of accounts."}
@@ -56,8 +64,14 @@
                                                             account-id))]]]]))))
 
 (defn create
-  [params]
-  "create")
+  [{params :params}]
+  (let [reconciliation (cond-> params
+                         (= "Finish" (:submit params))
+                         (assoc params :status :completed))
+        result (reconciliations/create (env :db) reconciliation)]
+    (if (validation/has-error? result)
+      (new-reconciliation {:params params} result)
+      (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn show
   [params]

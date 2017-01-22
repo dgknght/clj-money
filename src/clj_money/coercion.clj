@@ -1,5 +1,6 @@
 (ns clj-money.coercion
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clj-money.util :refer [parse-local-date]]))
 
 (def ^:private fns (atom {}))
@@ -22,6 +23,11 @@
 (register-coerce-fn :decimal    #(if (decimal? %) % (bigdec %)))
 (register-coerce-fn :keyword    #(if (keyword? %) % (keyword %)))
 (register-coerce-fn :local-date #(if (string? %) (parse-local-date %) %))
+(register-coerce-fn :integer-collection #(if (and (seq %) (every? (fn [v] (integer? v)) %))
+                                           %
+                                           (mapv (fn [value]
+                                                   (Integer. value))
+                                                %)))
 
 (defn coerce
   "Given a model and a list of coercion rules, applies the rules to the model"
