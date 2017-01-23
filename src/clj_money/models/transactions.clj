@@ -392,7 +392,7 @@
       (map #(prepare-item-for-return % account)
            (select-transaction-items-by-account-id s
                                                    account-id
-                                                   {:reconciled false})))))
+                                                   {:reconciled? false})))))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"

@@ -30,7 +30,7 @@
    (let [account-id (Integer. (:account-id params))
          account (accounts/find-by-id (env :db) account-id)
          previous-balance (reconciliations/previous-balance (env :db) (:id account))]
-     (with-layout "Reconcile account" {}
+     (with-layout (format "Reconcile account: %s" (:name account)) {}
        [:form {:action (format "/accounts/%s/reconciliations" account-id)
                :method :post}
         [:div.row
@@ -43,10 +43,12 @@
                                  :disabled true}]]
           (number-input-field reconciliation :balance)
           [:input.btn.btn-primary {:type :submit
+                                   :name :submit
                                    :value "Finish"
                                    :title "Click here to complete the reconciliation."}]
           "&nbsp;"
           [:input.btn.btn-default {:type :submit
+                                   :name :submit
                                    :value "Save"
                                    :title "Click here to save the reconciliation and complete it later."}]
           "&nbsp;"
@@ -69,7 +71,7 @@
   [{params :params}]
   (let [reconciliation (cond-> params
                          (= "Finish" (:submit params))
-                         (assoc params :status :completed))
+                         (assoc :status :completed))
         result (reconciliations/create (env :db) reconciliation)]
     (if (validation/has-error? result)
       (new-reconciliation {:params params} result)
