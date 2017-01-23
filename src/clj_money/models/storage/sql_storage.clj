@@ -401,6 +401,7 @@
   (create-reconciliation
     [_ reconciliation]
     (insert db-spec :reconciliations reconciliation :account-id
+                                                    :balance
                                                     :end-of-period
                                                     :status))
 
