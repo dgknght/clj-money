@@ -20,14 +20,20 @@
   (map #(rule rule-key %) paths))
 
 (register-coerce-fn :integer    #(if (integer? %) % (Integer. %)))
-(register-coerce-fn :decimal    #(if (decimal? %) % (bigdec %)))
+(register-coerce-fn :decimal    #(if (decimal? %) % (try
+                                                      (bigdec %)
+                                                      (catch NumberFormatException e
+                                                        %))))
 (register-coerce-fn :keyword    #(if (keyword? %) % (keyword %)))
 (register-coerce-fn :local-date #(if (string? %) (parse-local-date %) %))
 (register-coerce-fn :integer-collection #(if (and (seq %) (every? (fn [v] (integer? v)) %))
                                            %
                                            (mapv (fn [value]
-                                                   (Integer. value))
-                                                %)))
+                                                   (try
+                                                     (Integer. value)
+                                                     (catch IllegalArgumentException e
+                                                       value)))
+                                                 %)))
 
 (defn coerce
   "Given a model and a list of coercion rules, applies the rules to the model"
