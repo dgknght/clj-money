@@ -47,16 +47,22 @@
       (update-in [:end-of-period] tc/to-local-date)
       (update-in [:status] keyword)))
 
+(defn previous-balance
+  "Returns the last reconciled balance for an account"
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (or  (->> account-id
+              (select-reconciliations-by-account-id s)
+              (sort-by :end-of-balance)
+              last
+              :balance)
+        0M)))
+
 (defn- is-in-balance?
   [storage reconciliation]
   (or (= :new (:status reconciliation))
       (let [account (accounts/find-by-id storage (:account-id reconciliation))
-            starting-balance (or  (->> (:account-id reconciliation)
-                                       (select-reconciliations-by-account-id storage)
-                                       (sort-by :end-of-balance)
-                                       last
-                                       :balance)
-                                 0M)
+            starting-balance (previous-balance storage (:account-id reconciliation))
             delta (->> (transactions/find-items-by-ids storage
                                                        (:item-ids reconciliation))
                        (map #(accounts/polarize-amount % account))
