@@ -131,6 +131,12 @@
   (select-reconciliations-by-account-id
     [this account-id]
     "Returns reconciliation records for the specified account")
+  (find-reconciliation-by-id
+    [this id]
+    "Returns the specified reconciliation")
+  (find-last-complete-reconciliation-by-account-id
+    [this account-id]
+    "Returns the specified reconciliation")
   (find-new-reconciliation-by-account-id
     [this account-id]
     "Returns the first reconciliation with status :new for the specified account")

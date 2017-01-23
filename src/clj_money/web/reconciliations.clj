@@ -24,48 +24,55 @@
                              :name "item-ids"
                              :value (:id transaction-item)}]]])
 
+(defn- reconciliation-form
+  [reconciliation]
+  (let [account (accounts/find-by-id (env :db) (:account-id reconciliation))
+        previous-balance (reconciliations/previous-balance (env :db) (:id account))]
+    (with-layout (format "Reconcile account: %s" (:name account)) {}
+      [:form {:action (format "/accounts/%s/reconciliations" (:id account))
+              :method :post}
+       [:div.row
+        [:div.col-md-4
+         (date-input-field reconciliation :end-of-period {:autofocus true})
+         [:div.form-group
+          [:label.control-label {:for :previous-balance} "Previous balance"]
+          [:input.form-control {:name :previous-balance
+                                :value (util/format-number previous-balance)
+                                :disabled true}]]
+         (number-input-field reconciliation :balance)
+         [:input.btn.btn-primary {:type :submit
+                                  :name :submit
+                                  :value "Finish"
+                                  :title "Click here to complete the reconciliation."}]
+         "&nbsp;"
+         [:input.btn.btn-default {:type :submit
+                                  :name :submit
+                                  :value "Save"
+                                  :title "Click here to save the reconciliation and complete it later."}]
+         "&nbsp;"
+         [:a.btn.btn-default
+          {:href (format "/entities/%s/accounts" (:entity-id account))
+           :title "Click here to return to the list of accounts."}
+          "Back"]]
+        [:div.col-md-8
+         [:table.table.table-striped.table-hover
+          [:tr
+           [:th.col-sm-2.text-right "Date"]
+           [:th.col-sm-5 "Description"]
+           [:th.col-sm-3.text-right "Amount"]
+           [:th.col-sm-2.text-center "Rec."]]
+          (map #(reconciliation-item-row account %)
+               (transactions/unreconciled-items-by-account (env :db)
+                                                           (:id account)))]]]])))
+
 (defn new-reconciliation
   ([req] (new-reconciliation req {:end-of-period (t/today)}))
   ([{params :params} reconciliation]
    (let [account-id (Integer. (:account-id params))
-         account (accounts/find-by-id (env :db) account-id)
-         previous-balance (reconciliations/previous-balance (env :db) (:id account))]
-     (with-layout (format "Reconcile account: %s" (:name account)) {}
-       [:form {:action (format "/accounts/%s/reconciliations" account-id)
-               :method :post}
-        [:div.row
-         [:div.col-md-4
-          (date-input-field reconciliation :end-of-period {:autofocus true})
-          [:div.form-group
-           [:label.control-label {:for :previous-balance} "Previous balance"]
-           [:input.form-control {:name :previous-balance
-                                 :value (util/format-number previous-balance)
-                                 :disabled true}]]
-          (number-input-field reconciliation :balance)
-          [:input.btn.btn-primary {:type :submit
-                                   :name :submit
-                                   :value "Finish"
-                                   :title "Click here to complete the reconciliation."}]
-          "&nbsp;"
-          [:input.btn.btn-default {:type :submit
-                                   :name :submit
-                                   :value "Save"
-                                   :title "Click here to save the reconciliation and complete it later."}]
-          "&nbsp;"
-          [:a.btn.btn-default
-           {:href (format "/entities/%s/accounts" (:entity-id account))
-            :title "Click here to return to the list of accounts."}
-           "Back"]]
-         [:div.col-md-8
-          [:table.table.table-striped.table-hover
-           [:tr
-            [:th.col-sm-2.text-right "Date"]
-            [:th.col-sm-5 "Description"]
-            [:th.col-sm-3.text-right "Amount"]
-            [:th.col-sm-2.text-center "Rec."]]
-           (map #(reconciliation-item-row account %)
-                (transactions/unreconciled-items-by-account (env :db)
-                                                            account-id))]]]]))))
+         working-rec (reconciliations/find-working (env :db) account-id)]
+     (if working-rec
+       (redirect (format "/reconciliations/%s/edit" (:id working-rec)))
+       (reconciliation-form (assoc params :account-id account-id))))))
 
 (defn create
   [{params :params}]
@@ -82,8 +89,9 @@
   "show")
 
 (defn edit
-  [params]
-  "edit")
+  [{params :params}]
+  (let [reconciliation (reconciliations/find-by-id (env :db) (Integer. (:id params)))]
+    (reconciliation-form reconciliation)))
 
 (defn delete
   [params]

@@ -412,11 +412,28 @@
                                                     :end-of-period
                                                     :status))
 
+  (find-reconciliation-by-id
+    [_ id]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :reconciliations)
+                              (h/where [:= :id id])
+                              (h/limit 1)))))
+
   (select-reconciliations-by-account-id
     [_ account-id]
     (query db-spec (-> (h/select :*)
                        (h/from :reconciliations)
                        (h/where [:= :account-id account-id]))))
+
+  (find-last-complete-reconciliation-by-account-id
+    [_ account-id]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :reconciliations)
+                              (h/where [:and
+                                        [:= :account-id account-id]
+                                        [:= :status "completed"]])
+                              (h/order-by [:end_of_period :desc])
+                              (h/limit 1)))))
 
   (find-new-reconciliation-by-account-id
     [_ account-id]
