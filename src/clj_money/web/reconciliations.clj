@@ -1,5 +1,6 @@
 (ns clj-money.web.reconciliations
-  (:require [environ.core :refer [env]]
+  (:require [clojure.pprint :refer [pprint]]
+            [environ.core :refer [env]]
             [clj-time.core :as t]
             [ring.util.response :refer :all]
             [clj-money.validation :as validation]
@@ -27,7 +28,8 @@
   ([req] (new-reconciliation req {:end-of-period (t/today)}))
   ([{params :params} reconciliation]
    (let [account-id (Integer. (:account-id params))
-         account (accounts/find-by-id (env :db) account-id)]
+         account (accounts/find-by-id (env :db) account-id)
+         previous-balance (reconciliations/previous-balance (env :db) (:id account))]
      (with-layout "Reconcile account" {}
        [:form {:action (format "/accounts/%s/reconciliations" account-id)
                :method :post}
@@ -37,7 +39,7 @@
           [:div.form-group
            [:label.control-label {:for :previous-balance} "Previous balance"]
            [:input.form-control {:name :previous-balance
-                                 :value "0.00"
+                                 :value (util/format-number previous-balance)
                                  :disabled true}]]
           (number-input-field reconciliation :balance)
           [:input.btn.btn-primary {:type :submit
