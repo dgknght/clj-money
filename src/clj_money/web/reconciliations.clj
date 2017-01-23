@@ -1,4 +1,5 @@
 (ns clj-money.web.reconciliations
+  (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
@@ -29,7 +30,9 @@
   (let [account (accounts/find-by-id (env :db) (:account-id reconciliation))
         previous-balance (reconciliations/previous-balance (env :db) (:id account))]
     (with-layout (format "Reconcile account: %s" (:name account)) {}
-      [:form {:action (format "/accounts/%s/reconciliations" (:id account))
+      [:form {:action (if (:id reconciliation)
+                        (format "/reconciliations/%s" (:id reconciliation))
+                        (format "/accounts/%s/reconciliations" (:id account)))
               :method :post}
        [:div.row
         [:div.col-md-4
@@ -89,9 +92,19 @@
   "show")
 
 (defn edit
+  ([{{id :id} :params :as req}]
+   (edit req (reconciliations/find-by-id (env :db) (Integer. id))))
+  ([_ reconciliation]
+   (reconciliation-form reconciliation)))
+
+(defn update
   [{params :params}]
-  (let [reconciliation (reconciliations/find-by-id (env :db) (Integer. (:id params)))]
-    (reconciliation-form reconciliation)))
+  (let [result (->> params
+                    (select-keys [:id :account-id :balance :item-ids])
+                    (reconciliations/update (env :db)))]
+    (if (validation/has-error? result)
+      (edit {:params {:id (:id result)}} reconciliation)
+      (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn delete
   [params]

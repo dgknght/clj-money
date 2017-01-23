@@ -80,6 +80,7 @@
   (route POST "/accounts/:account-id/reconciliations" reconciliations/create)
   (route GET "/reconciliations/:id" reconciliations/show)
   (route GET "/reconciliations/:id/edit" reconciliations/edit)
+  (route POST "/reconciliations/:id" reconciliations/update)
   (route POST "/reconciliations/:id/delete" reconciliations/delete)
   
   ; Reports
