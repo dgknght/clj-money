@@ -103,7 +103,7 @@
                     (select-keys [:id :account-id :balance :item-ids])
                     (reconciliations/update (env :db)))]
     (if (validation/has-error? result)
-      (edit {:params {:id (:id result)}} reconciliation)
+      (edit {:params {:id (:id result)}} result)
       (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn delete
