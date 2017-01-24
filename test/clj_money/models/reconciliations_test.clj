@@ -301,7 +301,7 @@
              [:reconciliations]
              #(conj % {:account-id "Checking"
                        :end-of-period (t/local-date 2017 1 2)
-                       :balance 1500M
+                       :balance 500M
                        :status :new
                        :item-ids [{:transaction-date (t/local-date 2017 1 2)
                                    :amount 500M}]})))
@@ -337,6 +337,17 @@
     (is (empty? (validation/error-messages result)) "The item has no validation errors")
     (is (= 1499M (:balance retrieved)) "The retrieved value has the correct balance after update")))
 
+(deftest complete-a-working-reconciliation
+  (let [context (serialization/realize storage-spec
+                                       working-reconciliation-context)
+        checking (-> context :accounts first)
+        reconciliation (-> context :reconciliations last)
+        updated (assoc reconciliation :status :completed)
+        result (reconciliations/update storage-spec updated)
+        retrieved (reconciliations/reload storage-spec updated)]
+    (is (empty? (validation/error-messages result)) "The funciton completes without validation errors")
+    (is (= (:status retrieved) :completed) "The retrieved value has the correct satus")))
+
 (deftest attempt-to-complete-a-working-reconciliation-that-is-not-balanced
   (let [context (serialization/realize storage-spec
                                        working-reconciliation-context)
@@ -353,8 +364,6 @@
         result (reconciliations/update storage-spec updated)]
     (is (validation/has-error? result :balance))))
 
-
-; Test the completion of a working reconciliation
 ; Test that a completed reconciliation cannot be updated
 ; Test that a completed reconciliation can be deleted if it is the most recent
 ; Test that a completed reconciliation cannot be deleted if it is not the most recent

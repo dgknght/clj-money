@@ -84,6 +84,9 @@
   (select-transaction-items-by-transaction-id
     [this transaction-id]
     "Returns the transaction items belonging to the specified transaction")
+  (select-transaction-items-by-reconciliation-id
+    [this reconciliation-id]
+    "Returns the transaction items belonging to the specified reconciliation")
   (select-transaction-items-by-account-id
     [this account-id] [this account-id options]
     "Returns the transaction items belonging to the specified account")

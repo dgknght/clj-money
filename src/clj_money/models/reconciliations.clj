@@ -12,6 +12,7 @@
             [clj-money.models.storage :refer [create-reconciliation
                                               update-reconciliation
                                               select-reconciliations-by-account-id
+                                              select-transaction-items-by-reconciliation-id
                                               find-reconciliation-by-id
                                               find-last-complete-reconciliation-by-account-id
                                               find-new-reconciliation-by-account-id
@@ -61,6 +62,7 @@
               :balance)
         0M)))
 
+; TODO this still isn't ensureing that they are only loaded once, need to rework it
 (defn- ensure-transaction-items
   [storage {item-ids :item-ids :as reconciliation}]
   (update-in reconciliation
@@ -122,6 +124,14 @@
          (before-validation reconciliation)
          rules))
 
+(defn- append-transaction-item-ids
+  [storage reconciliation]
+  (assoc reconciliation
+         :item-ids
+         (mapv :id (select-transaction-items-by-reconciliation-id
+                     storage
+                     (:id reconciliation)))))
+
 (defn create
   "Creates a new reconciliation record"
   [storage-spec reconciliation]
@@ -135,7 +145,9 @@
                            (create-reconciliation s))]
           (when (and (:item-ids validated) (seq (:item-ids validated)))
             (set-transaction-items-reconciled s (:id created) (:item-ids validated)))
-          (after-read created))
+          (->> created
+               (append-transaction-item-ids s)
+               after-read))
         validated))))
 
 (defn find-by-account-id
@@ -151,6 +163,7 @@
   (with-storage [s storage-spec]
     (->> id
          (find-reconciliation-by-id s)
+         (append-transaction-item-ids s)
          after-read)))
 
 (defn reload
