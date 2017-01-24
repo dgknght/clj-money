@@ -2,12 +2,21 @@
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.models.helpers :refer [with-transacted-storage]]
+            [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]))
+
+(defn- throw-on-invalid
+  [model]
+  (if (validation/has-error? model)
+    (throw (ex-info (format "Unable to create the model. %s"
+                            (prn-str (validation/error-messages model)))
+                    model))
+    model))
 
 (defn- create-users
   [storage users]
@@ -150,22 +159,25 @@
   (update-in context [:budgets] #(create-budgets storage context %)))
 
 (defn- resolve-transaction-item-ids
-  [context items]
-  (->> items
-       (map #(resolve-account context %))
-       (mapv (fn [{:keys [transaction-date account-id amount]}]
-               (->> context
-                    :transactions
-                    (filter #(= transaction-date (:transaction-date %)))
-                    (mapcat :items)
-                    (filter #(and (= account-id (:account-id %))
-                                  (= amount (:amount %))))
-                    (map :id)
-                    first)))))
+  [context account-id items]
+  (mapv (fn [{:keys [transaction-date amount]}]
+          (->> context
+               :transactions
+               (filter #(= transaction-date (:transaction-date %)))
+               (mapcat :items)
+               (filter #(and (= account-id (:account-id %))
+                             (= amount (:amount %))))
+               (map :id)
+               first))
+        items))
 
 (defn- resolve-reconciliation-transaction-item-ids
   [context reconciliation]
-  (update-in reconciliation [:item-ids] #(resolve-transaction-item-ids context %)))
+  (update-in reconciliation
+             [:item-ids]
+             #(resolve-transaction-item-ids context
+                                            (:account-id reconciliation)
+                                            %)))
 
 (defn- create-reconciliations
   [storage context reconciliations]
@@ -173,7 +185,8 @@
           (->> attributes
                (resolve-account context)
                (resolve-reconciliation-transaction-item-ids context)
-               (reconciliations/create storage)))
+               (reconciliations/create storage)
+               throw-on-invalid))
         reconciliations))
 
 (defn- realize-reconciliations
