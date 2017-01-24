@@ -120,3 +120,8 @@
   (with-storage [s storage-spec]
     (when-let [reconciliation (find-new-reconciliation-by-account-id s account-id)]
       (after-read reconciliation))))
+
+(defn update
+  "Updates the specified reconciliation"
+  [storage-spec reconciliation]
+  )
