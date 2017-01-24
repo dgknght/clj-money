@@ -269,4 +269,27 @@
         reconciliation (reconciliations/find-working storage-spec (:id checking))]
     (is reconciliation "A reconciliation is returned")))
 
+(def previous-balance-context
+  (assoc reconciliation-context
+         :reconciliations
+         [{:account-id "Checking"
+           :end-of-period (t/local-date 2017 1 1)
+           :balance 1000M
+           :status :completed
+           :item-ids [{:transaction-date (t/local-date 2017 1 1)
+                       :amount 1000M}]}
+          {:account-id "Checking"
+           :end-of-period (t/local-date 2017 1 2)
+           :balance 1500M
+           :status :new
+           :item-ids [{:transaction-date (t/local-date 2017 1 2)
+                       :amount 500M}]}]))
+
+(deftest find-the-previous-reconciled-balance
+  (let [context (serialization/realize storage-spec previous-balance-context)
+        checking (-> context :accounts first)]
+    (is (= 1000M (reconciliations/previous-balance storage-spec (:id checking)))
+        "The previous balance is the balance of the last completed reconciliation")))
+
 ; Test that any given transaction item cannot be included in more than one reconciliation at the validation level
+; Test that the transaction item references the account being reconciled
