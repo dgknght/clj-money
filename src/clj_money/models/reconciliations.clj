@@ -63,7 +63,9 @@
   [storage {item-ids :item-ids :as reconciliation}]
   (update-in reconciliation
          [::items]
-         (fnil identity (transactions/find-items-by-ids storage item-ids))))
+         (fnil identity (if item-ids
+                          (transactions/find-items-by-ids storage item-ids)
+                          []))))
 
 (defn- is-in-balance?
   [storage reconciliation]
@@ -88,6 +90,17 @@
               set)
          #{account-id})))
 
+(defn- items-do-not-belong-to-another-reconciliation?
+  [storage {id :id :as reconciliation}]
+  (let [reconciliation-ids (->> reconciliation
+                                (ensure-transaction-items storage)
+                                ::items
+                                (map :reconciliation-id)
+                                (filter identity)
+                                set)]
+    (or (empty? reconciliation-ids)
+        (= reconciliation-ids #{id}))))
+
 (defn- validation-rules
   [storage]
   [(validation/create-rule (partial is-in-balance? storage)
@@ -95,7 +108,10 @@
                            "The account balance must match the statement balance.")
    (validation/create-rule (partial items-belong-to-account? storage)
                            [:item-ids]
-                           "All items must belong to the account being reconciled")])
+                           "All items must belong to the account being reconciled")
+   (validation/create-rule (partial items-do-not-belong-to-another-reconciliation? storage)
+                           [:item-ids]
+                           "No items may belong to another reconcilidation")])
 
 (defn- validate
   [rules reconciliation]

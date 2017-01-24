@@ -286,7 +286,7 @@
         reconciliation (reconciliations/find-working storage-spec (:id checking))]
     (is reconciliation "A reconciliation is returned")))
 
-(def previous-balance-context
+(def ^:private existing-reconciliation-context
   (assoc reconciliation-context
          :reconciliations
          [{:account-id "Checking"
@@ -294,18 +294,35 @@
            :balance 1000M
            :status :completed
            :item-ids [{:transaction-date (t/local-date 2017 1 1)
-                       :amount 1000M}]}
-          {:account-id "Checking"
-           :end-of-period (t/local-date 2017 1 2)
-           :balance 1500M
-           :status :new
-           :item-ids [{:transaction-date (t/local-date 2017 1 2)
-                       :amount 500M}]}]))
+                       :amount 1000M}]}]))
+
+(def ^:private working-reconciliation-context
+  (update-in existing-reconciliation-context
+             [:reconciliations]
+             #(conj % {:account-id "Checking"
+                       :end-of-period (t/local-date 2017 1 2)
+                       :balance 1500M
+                       :status :new
+                       :item-ids [{:transaction-date (t/local-date 2017 1 2)
+                                   :amount 500M}]})))
 
 (deftest find-the-previous-reconciled-balance
-  (let [context (serialization/realize storage-spec previous-balance-context)
+  (let [context (serialization/realize storage-spec working-reconciliation-context)
         checking (-> context :accounts first)]
     (is (= 1000M (reconciliations/previous-balance storage-spec (:id checking)))
         "The previous balance is the balance of the last completed reconciliation")))
 
-; Test that any given transaction item cannot be included in more than one reconciliation at the validation level
+(deftest transaction-item-can-only-belong-to-one-reconciliation
+  (let [context (serialization/realize storage-spec
+                                       existing-reconciliation-context)
+        checking (-> context :accounts first)
+        item (->> (:transactions context)
+                  (mapcat :items)
+                  (filter #(= (:id checking) (:account-id %)))
+                  first)
+        result (reconciliations/create storage-spec {:account-id (:id checking)
+                                                     :end-of-period (t/local-date 2017 1 31)
+                                                     :balance 1500M
+                                                     :item-ids [(:id item)]})]
+    (is (validation/has-error? result :item-ids)
+        "An item ID that is already reconconciled should be invalid")))
