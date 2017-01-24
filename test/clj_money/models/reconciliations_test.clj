@@ -309,4 +309,3 @@
         "The previous balance is the balance of the last completed reconciliation")))
 
 ; Test that any given transaction item cannot be included in more than one reconciliation at the validation level
-; Test that the transaction item references the account being reconciled
