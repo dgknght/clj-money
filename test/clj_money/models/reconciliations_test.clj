@@ -326,3 +326,19 @@
                                                      :item-ids [(:id item)]})]
     (is (validation/has-error? result :item-ids)
         "An item ID that is already reconconciled should be invalid")))
+
+(deftest update-a-working-reconciliation
+  (let [context (serialization/realize storage-spec
+                                       working-reconciliation-context)
+        reconciliation (-> context :reconciliations last)
+        updated (assoc reconciliation :balance 1499M)
+        result (reconciliations/update storage-spec updated)
+        retrieved (reconciliations/find-by-id storage-spec (:id reconciliation))]
+    (is (empty? (validation/error-messages result)) "The item has no validation errors")
+    (is (= 1499M (:balance retrieved)) "The retrieved value has the correct balance after update")))
+
+
+; Test the completion of a working reconciliation
+; Test that a completed reconciliation cannot be updated
+; Test that a completed reconciliation can be deleted if it is the most recent
+; Test that a completed reconciliation cannot be deleted if it is not the most recent

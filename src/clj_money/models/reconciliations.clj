@@ -10,6 +10,7 @@
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage]]
             [clj-money.models.storage :refer [create-reconciliation
+                                              update-reconciliation
                                               select-reconciliations-by-account-id
                                               find-reconciliation-by-id
                                               find-last-complete-reconciliation-by-account-id
@@ -25,6 +26,7 @@
 (s/def ::item-ids (s/coll-of ::item-id))
 
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-ids]))
+(s/def ::existing-reconciliation (s/keys :req-un [::id ::account-id ::end-of-period ::status ::balance] :opt-un [::item-ids]))
 
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:end-of-period])
@@ -114,9 +116,9 @@
                            "No items may belong to another reconcilidation")])
 
 (defn- validate
-  [rules reconciliation]
+  [spec rules reconciliation]
   (apply validation/validate
-         ::new-reconciliation
+         spec
          (before-validation reconciliation)
          rules))
 
@@ -124,7 +126,9 @@
   "Creates a new reconciliation record"
   [storage-spec reconciliation]
   (with-transacted-storage [s storage-spec]
-    (let [validated (validate (validation-rules s) reconciliation)]
+    (let [validated (validate ::new-reconciliation
+                              (validation-rules s)
+                              reconciliation)]
       (if (validation/valid? validated)
         (let [created (->> validated
                            before-save
@@ -149,6 +153,11 @@
          (find-reconciliation-by-id s)
          after-read)))
 
+(defn reload
+  "Returns the same reconciliation reloaded from the data store"
+  [storage-spec {id :id}]
+  (find-by-id storage-spec id))
+
 (defn find-working
   "Returns the uncompleted reconciliation for the specified
   account, if one exists"
@@ -160,4 +169,14 @@
 (defn update
   "Updates the specified reconciliation"
   [storage-spec reconciliation]
-  )
+  (with-storage [s storage-spec]
+    (let [validated (validate ::existing-reconciliation
+                              (validation-rules s)
+                              reconciliation)]
+      (if (validation/valid? validated)
+        (do
+          (->> validated
+               before-save
+               (update-reconciliation s))
+          (reload s validated))
+        validated))))

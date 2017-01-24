@@ -443,6 +443,17 @@
                                         [:= :account-id account-id]])
                               (h/limit 1)))))
 
+  (update-reconciliation
+    [_ reconciliation]
+    (let [sql (sql/format (-> (h/update :reconciliations)
+                              (h/sset (->update-set reconciliation
+                                                    :account-id
+                                                    :balance
+                                                    :status
+                                                    :end-of-period))
+                              (h/where [:= :id (:id reconciliation)])))]
+      (jdbc/execute! db-spec sql)))
+
   ; Budgets
   (create-budget
     [_ budget]

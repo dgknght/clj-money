@@ -140,6 +140,9 @@
   (find-new-reconciliation-by-account-id
     [this account-id]
     "Returns the first reconciliation with status :new for the specified account")
+  (update-reconciliation
+    [this reconciliation]
+    "Updates the specified reconciliation")
 
   ; Budgets
   (create-budget
