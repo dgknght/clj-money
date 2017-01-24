@@ -337,6 +337,22 @@
     (is (empty? (validation/error-messages result)) "The item has no validation errors")
     (is (= 1499M (:balance retrieved)) "The retrieved value has the correct balance after update")))
 
+(deftest attempt-to-complete-a-working-reconciliation-that-is-not-balanced
+  (let [context (serialization/realize storage-spec
+                                       working-reconciliation-context)
+        checking (-> context :accounts first)
+        reconciliation (-> context :reconciliations last)
+        updated (-> reconciliation
+                    (assoc :status :completed)
+                    (update-in [:item-ids] #(conj % (->> context
+                                                         :transactions
+                                                         (mapcat :items)
+                                                         (filter (fn [i] (= (:id checking) (:account-id i))))
+                                                         last
+                                                         :id))))
+        result (reconciliations/update storage-spec updated)]
+    (is (validation/has-error? result :balance))))
+
 
 ; Test the completion of a working reconciliation
 ; Test that a completed reconciliation cannot be updated
