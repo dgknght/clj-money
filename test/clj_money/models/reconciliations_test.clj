@@ -364,6 +364,15 @@
         result (reconciliations/update storage-spec updated)]
     (is (validation/has-error? result :balance))))
 
+(deftest attempt-to-update-a-completed-reconciliation
+  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+        reconciliation (-> context :reconciliations first)
+        updated (assoc reconciliation :balance 1M)
+        result (reconciliations/update storage-spec updated)
+        retrieved (reconciliations/reload storage-spec reconciliation)]
+    (is (validation/has-error? result :status) "A validation error is present")
+    (is (= 1000M (:balance retrieved)) "The new valud is not saved")))
+
 ; Test that a completed reconciliation cannot be updated
 ; Test that a completed reconciliation can be deleted if it is the most recent
 ; Test that a completed reconciliation cannot be deleted if it is not the most recent

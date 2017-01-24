@@ -71,6 +71,23 @@
                           (transactions/find-items-by-ids storage item-ids)
                           []))))
 
+(defn- append-transaction-item-ids
+  [storage reconciliation]
+  (assoc reconciliation
+         :item-ids
+         (mapv :id (select-transaction-items-by-reconciliation-id
+                     storage
+                     (:id reconciliation)))))
+
+(defn find-by-id
+  "Returns the specified reconciliation"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (->> id
+         (find-reconciliation-by-id s)
+         (append-transaction-item-ids s)
+         after-read)))
+
 (defn- is-in-balance?
   [storage reconciliation]
   (or (= :new (:status reconciliation))
@@ -105,6 +122,11 @@
     (or (empty? reconciliation-ids)
         (= reconciliation-ids #{id}))))
 
+(defn- can-be-updated?
+  [storage {:keys [status id]}]
+  (or (nil? id)
+      (= :new (:status (find-by-id storage id)))))
+
 (defn- validation-rules
   [storage]
   [(validation/create-rule (partial is-in-balance? storage)
@@ -115,7 +137,10 @@
                            "All items must belong to the account being reconciled")
    (validation/create-rule (partial items-do-not-belong-to-another-reconciliation? storage)
                            [:item-ids]
-                           "No items may belong to another reconcilidation")])
+                           "No items may belong to another reconcilidation")
+   (validation/create-rule (partial can-be-updated? storage)
+                           [:status]
+                           "A completed reconciliation cannot be updated")])
 
 (defn- validate
   [spec rules reconciliation]
@@ -123,14 +148,6 @@
          spec
          (before-validation reconciliation)
          rules))
-
-(defn- append-transaction-item-ids
-  [storage reconciliation]
-  (assoc reconciliation
-         :item-ids
-         (mapv :id (select-transaction-items-by-reconciliation-id
-                     storage
-                     (:id reconciliation)))))
 
 (defn create
   "Creates a new reconciliation record"
@@ -156,15 +173,6 @@
   (with-storage [s storage-spec]
     (map after-read
          (select-reconciliations-by-account-id s account-id))))
-
-(defn find-by-id
-  "Returns the specified reconciliation"
-  [storage-spec id]
-  (with-storage [s storage-spec]
-    (->> id
-         (find-reconciliation-by-id s)
-         (append-transaction-item-ids s)
-         after-read)))
 
 (defn reload
   "Returns the same reconciliation reloaded from the data store"
