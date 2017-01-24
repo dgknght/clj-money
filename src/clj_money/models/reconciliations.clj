@@ -59,23 +59,43 @@
               :balance)
         0M)))
 
+(defn- ensure-transaction-items
+  [storage {item-ids :item-ids :as reconciliation}]
+  (update-in reconciliation
+         [::items]
+         (fnil identity (transactions/find-items-by-ids storage item-ids))))
+
 (defn- is-in-balance?
   [storage reconciliation]
   (or (= :new (:status reconciliation))
       (let [account (accounts/find-by-id storage (:account-id reconciliation))
             starting-balance (previous-balance storage (:account-id reconciliation))
-            delta (->> (transactions/find-items-by-ids storage
-                                                       (:item-ids reconciliation))
+            delta (->> reconciliation
+                       (ensure-transaction-items storage)
+                       ::items
                        (map #(accounts/polarize-amount % account))
                        (reduce +))]
         (= (:balance reconciliation)
            (+ starting-balance delta)))))
 
+(defn- items-belong-to-account?
+  [storage {account-id :account-id :as reconciliation}]
+  (or (nil? (:item-ids reconciliation))
+      (= (->> reconciliation
+              (ensure-transaction-items storage)
+              ::items
+              (map :account-id)
+              set)
+         #{account-id})))
+
 (defn- validation-rules
   [storage]
   [(validation/create-rule (partial is-in-balance? storage)
                            [:balance]
-                           "The account balance must match the statement balance.")])
+                           "The account balance must match the statement balance.")
+   (validation/create-rule (partial items-belong-to-account? storage)
+                           [:item-ids]
+                           "All items must belong to the account being reconciled")])
 
 (defn- validate
   [rules reconciliation]

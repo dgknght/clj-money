@@ -226,6 +226,23 @@
                                         :item-ids "notvalid"})]
     (is (validation/has-error? result :item-ids))))
 
+(deftest attempt-to-create-a-reconciliation-with-transaction-items-from-another-account
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        [checking
+         salary] (:accounts context)
+        paycheck (->> context
+                      :transactions
+                      (mapcat :items)
+                      (filter #(= (:id salary) (:account-id %)))
+                      first)
+        result (reconciliations/create storage-spec
+                                       {:account-id (:id checking)
+                                        :end-of-period (t/local-date 2017 1 31)
+                                        :balance 10M
+                                        :item-ids [(:id paycheck)]})]
+    (is (validation/has-error? result :item-ids))))
+
 (deftest attempt-to-create-a-reconciliation-that-is-not-balanced
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
