@@ -24,6 +24,7 @@
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
+                                              select-transaction-items-by-reconciliation-id
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
                                               delete-transaction
@@ -60,7 +61,7 @@
   [item]
   (update-in item [:action] name))
 
-(defn- polarize-item-amount
+(defn polarize-item-amount
   [item account]
   (assoc item :polarized-amount (accounts/polarize-amount item account)))
 
@@ -323,6 +324,13 @@
          (select-transactions-by-entity-id s entity-id parsed-options)
          (map prepare-for-return)
          (map #(append-items s %)))))))
+
+(defn select-items-by-reconciliation-id
+  "Returns the transaction items associated with the specified reconciliation"
+  [storage-spec reconciliation-id]
+  (with-storage [s storage-spec]
+    (map prepare-item-for-return
+         (select-transaction-items-by-reconciliation-id s reconciliation-id))))
 
 (defn count-by-entity-id
   "Returns the number of transactions that belong to the specified entity"
