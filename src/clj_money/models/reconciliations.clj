@@ -52,18 +52,18 @@
 
 (defn- after-read
   [reconciliation]
-  (-> reconciliation
-      (update-in [:end-of-period] tc/to-local-date)
-      (update-in [:status] keyword)))
+  (when reconciliation
+    (-> reconciliation
+        (update-in [:end-of-period] tc/to-local-date)
+        (update-in [:status] keyword))))
 
-(defn previous-balance
+(defn find-last-completed
   "Returns the last reconciled balance for an account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (or  (->> account-id
-              (find-last-complete-reconciliation-by-account-id s)
-              :balance)
-        0M)))
+    (->> account-id
+         (find-last-complete-reconciliation-by-account-id s)
+         after-read)))
 
 ; TODO this still isn't ensureing that they are only loaded once, need to rework it
 (defn- ensure-transaction-items
@@ -95,7 +95,8 @@
   [storage reconciliation]
   (or (= :new (:status reconciliation))
       (let [account (accounts/find-by-id storage (:account-id reconciliation))
-            starting-balance (previous-balance storage (:account-id reconciliation))
+            starting-balance (or (:balance (find-last-completed storage (:account-id reconciliation)))
+                                 0M)
             delta (->> reconciliation
                        (ensure-transaction-items storage)
                        ::items
@@ -130,6 +131,13 @@
   (or (nil? id)
       (= :new (:status (find-by-id storage id)))))
 
+(defn- is-after-last-reconciliation?
+  [storage reconciliation]
+  (let [last-completed (find-last-completed storage (:account-id reconciliation))]
+    (or (nil? last-completed)
+        (> 0 (compare (:end-of-period last-completed)
+                      (:end-of-period reconciliation))))))
+
 (defn- validation-rules
   [storage]
   [(validation/create-rule (partial is-in-balance? storage)
@@ -141,6 +149,9 @@
    (validation/create-rule (partial items-do-not-belong-to-another-reconciliation? storage)
                            [:item-ids]
                            "No items may belong to another reconcilidation")
+   (validation/create-rule (partial is-after-last-reconciliation? storage)
+                           [:end-of-period]
+                           "End of period must be after the latest reconciliation")
    (validation/create-rule (partial can-be-updated? storage)
                            [:status]
                            "A completed reconciliation cannot be updated")])

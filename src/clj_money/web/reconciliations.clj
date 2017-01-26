@@ -42,7 +42,8 @@
 (defn- reconciliation-form
   [reconciliation]
   (let [account (accounts/find-by-id (env :db) (:account-id reconciliation))
-        previous-balance (reconciliations/previous-balance (env :db) (:id account))
+        last-completed (reconciliations/find-last-completed (env :db) (:id account))
+        previous-balance (or (:balance last-completed) 0M)
         reconciled-item-total (reconciled-item-total account reconciliation)]
     (with-layout (format "Reconcile account: %s" (:name account)) {}
 

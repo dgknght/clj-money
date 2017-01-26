@@ -64,6 +64,26 @@
                             :account-id "Checking"
                             :amount 53M}]}]})
 
+(def ^:private existing-reconciliation-context
+  (assoc reconciliation-context
+         :reconciliations
+         [{:account-id "Checking"
+           :end-of-period (t/local-date 2017 1 1)
+           :balance 1000M
+           :status :completed
+           :item-ids [{:transaction-date (t/local-date 2017 1 1)
+                       :amount 1000M}]}]))
+
+(def ^:private working-reconciliation-context
+  (update-in existing-reconciliation-context
+             [:reconciliations]
+             #(conj % {:account-id "Checking"
+                       :end-of-period (t/local-date 2017 1 2)
+                       :balance 500M
+                       :status :new
+                       :item-ids [{:transaction-date (t/local-date 2017 1 2)
+                                   :amount 500M}]})))
+
 (deftest an-incomplete-reconciliation-can-be-created
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
@@ -193,7 +213,16 @@
     (is (= ["End of period must be a date"] (validation/error-messages result :end-of-period)) "The result contains the correct error message")))
 
 (deftest end-of-period-must-come-after-the-previous-end-of-period
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec
+                                       existing-reconciliation-context)
+        checking (-> context :accounts first)
+        reconciliation {:account-id (:id checking)
+                        :balance 447M
+                        :end-of-period (t/local-date 2016 12 31)}
+        result (reconciliations/create storage-spec reconciliation)]
+    (is (= ["End of period must be after the latest reconciliation"]
+           (validation/error-messages result :end-of-period))
+        "The result contains the correct error message")))
 
 (deftest status-must-be-new-or-completed
   (let [context (serialization/realize storage-spec
@@ -306,30 +335,10 @@
         reconciliation (reconciliations/find-working storage-spec (:id checking))]
     (is reconciliation "A reconciliation is returned")))
 
-(def ^:private existing-reconciliation-context
-  (assoc reconciliation-context
-         :reconciliations
-         [{:account-id "Checking"
-           :end-of-period (t/local-date 2017 1 1)
-           :balance 1000M
-           :status :completed
-           :item-ids [{:transaction-date (t/local-date 2017 1 1)
-                       :amount 1000M}]}]))
-
-(def ^:private working-reconciliation-context
-  (update-in existing-reconciliation-context
-             [:reconciliations]
-             #(conj % {:account-id "Checking"
-                       :end-of-period (t/local-date 2017 1 2)
-                       :balance 500M
-                       :status :new
-                       :item-ids [{:transaction-date (t/local-date 2017 1 2)
-                                   :amount 500M}]})))
-
-(deftest find-the-previous-reconciled-balance
+(deftest find-the-last-completed-reconciliation
   (let [context (serialization/realize storage-spec working-reconciliation-context)
         checking (-> context :accounts first)]
-    (is (= 1000M (reconciliations/previous-balance storage-spec (:id checking)))
+    (is (= 1000M (:balance (reconciliations/find-last-completed storage-spec (:id checking))))
         "The previous balance is the balance of the last completed reconciliation")))
 
 (deftest transaction-item-can-only-belong-to-one-reconciliation
