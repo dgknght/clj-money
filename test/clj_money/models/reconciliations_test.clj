@@ -16,7 +16,7 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def reconciliation-context
+(def ^:private reconciliation-context
   {:users [{:email "john@doe.com"
             :first-name "John"
             :last-name "Doe"
@@ -64,7 +64,7 @@
                             :account-id "Checking"
                             :amount 53M}]}]})
 
-(deftest create-an-incomplete-reconciliation
+(deftest an-incomplete-reconciliation-can-be-created
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -93,7 +93,7 @@
                   set))
           "None of the transaction items should be marked as reconcilied"))))
 
-(deftest create-a-complete-reconciliation
+(deftest a-complete-reconciliation-can-be-created
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -123,7 +123,7 @@
                   (map :reconciled?)))
           "Each transaction item included in the reconciliation should be marked as reconciled"))))
 
-(deftest attempt-to-create-a-reconciliation-without-an-account-id
+(deftest account-id-is-required
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -139,7 +139,7 @@
                                         :item-ids (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :account-id))))
 
-(deftest attempt-to-create-a-reconciliation-without-an-end-of-period
+(deftest end-of-period-is-required
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -156,7 +156,46 @@
                                         :item-ids (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :end-of-period))))
 
-(deftest attempt-to-create-a-reconciliation-with-and-invalid-status
+(deftest end-of-period-can-be-an-international-date-string
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        reconciliation {:account-id (:id checking)
+                        :balance 447M
+                        :end-of-period "2017-01-01"}
+        result (reconciliations/create storage-spec reconciliation)
+        retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
+    (is (empty? (validation/error-messages result)) "The result contains no validation errors")
+    (is retrieved "The reconciliation can be retrieved")
+    (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
+
+(deftest end-of-period-can-be-a-US-date-string
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        reconciliation {:account-id (:id checking)
+                        :balance 447M
+                        :end-of-period "1/1/2017"}
+        result (reconciliations/create storage-spec reconciliation)
+        retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
+    (is (empty? (validation/error-messages result)) "The result contains no validation errors")
+    (is retrieved "The reconciliation can be retrieved")
+    (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
+
+(deftest end-of-period-cannot-be-a-non-date-string
+  (let [context (serialization/realize storage-spec
+                                       reconciliation-context)
+        checking (-> context :accounts first)
+        reconciliation {:account-id (:id checking)
+                        :balance 447M
+                        :end-of-period "notadate"}
+        result (reconciliations/create storage-spec reconciliation)]
+    (is (= ["End of period must be a date"] (validation/error-messages result :end-of-period)) "The result contains the correct error message")))
+
+(deftest end-of-period-must-come-after-the-previous-end-of-period
+  (is false "need to write the test"))
+
+(deftest status-must-be-new-or-completed
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -175,7 +214,7 @@
                                         :item-ids (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :status))))
 
-(deftest attempt-to-create-a-reconciliation-without-a-balance
+(deftest balance-must-match-the-calculated-balance
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -191,7 +230,7 @@
                                         :end-of-period (t/local-date 2017 1 31)})]
     (is (validation/has-error? result :balance))))
 
-(deftest attempt-to-create-a-reconciliation-with-an-invalid-balance
+(deftest balance-cannot-be-a-non-number-string
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -208,7 +247,7 @@
                                         :balance "notanumber"})]
     (is (validation/has-error? result :balance))))
 
-(deftest attempt-to-create-a-reconciliation-with-invalid-item-ids
+(deftest item-ids-cannot-be-a-non-number-string
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -226,7 +265,7 @@
                                         :item-ids "notvalid"})]
     (is (validation/has-error? result :item-ids))))
 
-(deftest attempt-to-create-a-reconciliation-with-transaction-items-from-another-account
+(deftest item-ids-must-reference-items-that-belong-to-the-account-being-reconciled
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         [checking
@@ -242,25 +281,6 @@
                                         :balance 10M
                                         :item-ids [(:id paycheck)]})]
     (is (validation/has-error? result :item-ids))))
-
-(deftest attempt-to-create-a-reconciliation-that-is-not-balanced
-  (let [context (serialization/realize storage-spec
-                                       reconciliation-context)
-        checking (-> context :accounts first)
-        [paycheck
-         landlord
-         kroger
-         safeway] (->> context
-                       :transactions
-                       (mapcat :items)
-                       (filter #(= (:id checking) (:account-id %))))
-        result (reconciliations/create storage-spec
-                                       {:account-id (:id checking)
-                                        :end-of-period (t/local-date 2017 1 31)
-                                        :status :completed
-                                        :balance 10M
-                                        :item-ids (map :id [paycheck landlord safeway])})]
-    (is (validation/has-error? result :balance))))
 
 (def ^:private working-rec-context
   (assoc reconciliation-context
@@ -327,7 +347,7 @@
     (is (validation/has-error? result :item-ids)
         "An item ID that is already reconconciled should be invalid")))
 
-(deftest update-a-working-reconciliation
+(deftest a-working-reconciliation-can-be-updated
   (let [context (serialization/realize storage-spec
                                        working-reconciliation-context)
         reconciliation (-> context :reconciliations last)
@@ -337,7 +357,7 @@
     (is (empty? (validation/error-messages result)) "The item has no validation errors")
     (is (= 1499M (:balance retrieved)) "The retrieved value has the correct balance after update")))
 
-(deftest complete-a-working-reconciliation
+(deftest a-working-reconciliation-can-be-completed
   (let [context (serialization/realize storage-spec
                                        working-reconciliation-context)
         checking (-> context :accounts first)
@@ -348,7 +368,7 @@
     (is (empty? (validation/error-messages result)) "The funciton completes without validation errors")
     (is (= (:status retrieved) :completed) "The retrieved value has the correct satus")))
 
-(deftest attempt-to-complete-a-working-reconciliation-that-is-not-balanced
+(deftest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
   (let [context (serialization/realize storage-spec
                                        working-reconciliation-context)
         checking (-> context :accounts first)
@@ -364,7 +384,7 @@
         result (reconciliations/update storage-spec updated)]
     (is (validation/has-error? result :balance))))
 
-(deftest attempt-to-update-a-completed-reconciliation
+(deftest a-completed-reconciliation-cannot-be-updated
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
         reconciliation (-> context :reconciliations first)
         updated (assoc reconciliation :balance 1M)
@@ -373,7 +393,5 @@
     (is (validation/has-error? result :status) "A validation error is present")
     (is (= 1000M (:balance retrieved)) "The new valud is not saved")))
 
-; End of period must be after the previous end of period
-; Test that a completed reconciliation cannot be updated
 ; Test that a completed reconciliation can be deleted if it is the most recent
 ; Test that a completed reconciliation cannot be deleted if it is not the most recent
