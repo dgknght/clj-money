@@ -373,6 +373,7 @@
     (is (validation/has-error? result :status) "A validation error is present")
     (is (= 1000M (:balance retrieved)) "The new valud is not saved")))
 
+; End of period must be after the previous end of period
 ; Test that a completed reconciliation cannot be updated
 ; Test that a completed reconciliation can be deleted if it is the most recent
 ; Test that a completed reconciliation cannot be deleted if it is not the most recent
