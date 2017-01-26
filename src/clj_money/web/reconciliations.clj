@@ -58,10 +58,17 @@
         [:div.col-md-4
          (date-input-field reconciliation :end-of-period {:autofocus true})
          [:div.form-group
+          [:label.control-label {:for :end-of-previous-period} "End of prev. period"]
+          [:input.form-control {:name :end-of-previous-period
+                                :value (when last-completed
+                                         (util/format-date (:end-of-period last-completed)))
+                                :disabled true}]]
+         [:div.form-group
           [:label.control-label {:for :previous-balance} "Previous balance"]
           [:input.form-control {:name :previous-balance
                                 :value (util/format-number previous-balance)
                                 :disabled true}]]
+         [:div.form-group
           [:label.control-label {:for :reconciled-balance} "Reconciled balance"]
           [:input.form-control {:name :reconciled-balance
                                 :value (util/format-number
@@ -69,7 +76,7 @@
                                            0M
                                            (+ previous-balance
                                               reconciled-item-total)))
-                                :disabled true}] 
+                                :disabled true}]]
          (number-input-field reconciliation :balance)
          [:input.btn.btn-primary {:type :submit
                                   :name :submit
