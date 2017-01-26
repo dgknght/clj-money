@@ -3,6 +3,7 @@
   (:require [clojure.spec :as s]
             [clojure.pprint :refer [pprint]]
             [clj-time.coerce :as tc]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.accounts :as accounts]
@@ -16,7 +17,8 @@
                                               find-reconciliation-by-id
                                               find-last-complete-reconciliation-by-account-id
                                               find-new-reconciliation-by-account-id
-                                              set-transaction-items-reconciled]])
+                                              set-transaction-items-reconciled
+                                              unreconcile-transaction-items-by-reconciliation-id]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
@@ -27,12 +29,13 @@
 (s/def ::item-ids (s/coll-of ::item-id))
 
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-ids]))
-(s/def ::existing-reconciliation (s/keys :req-un [::id ::account-id ::end-of-period ::status ::balance] :opt-un [::item-ids]))
+(s/def ::existing-reconciliation (s/keys :req-un [::id ::end-of-period ::status ::balance] :opt-un [::account-id ::item-ids]))
 
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:end-of-period])
    (coercion/rule :decimal [:balance])
    (coercion/rule :integer [:account-id])
+   (coercion/rule :integer [:id])
    (coercion/rule :integer-collection [:item-ids])])
 
 (defn- before-validation
@@ -187,17 +190,25 @@
     (when-let [reconciliation (find-new-reconciliation-by-account-id s account-id)]
       (after-read reconciliation))))
 
+(defn- set-account-id
+  [storage reconciliation]
+  (let [existing (find-by-id storage (Integer. (:id reconciliation)))]
+    (assoc reconciliation :account-id (:account-id existing))))
+
 (defn update
   "Updates the specified reconciliation"
   [storage-spec reconciliation]
   (with-storage [s storage-spec]
-    (let [validated (validate ::existing-reconciliation
-                              (validation-rules s)
-                              reconciliation)]
+    (let [validated (->> reconciliation
+                         (set-account-id s)
+                         (validate ::existing-reconciliation (validation-rules s)))]
       (if (validation/valid? validated)
         (do
           (->> validated
                before-save
                (update-reconciliation s))
+          (unreconcile-transaction-items-by-reconciliation-id s (:id validated))
+          (when (and (:item-ids validated) (seq (:item-ids validated)))
+            (set-transaction-items-reconciled s (:id validated) (:item-ids validated)))
           (reload s validated))
         validated))))

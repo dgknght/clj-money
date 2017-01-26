@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
+            [hiccup.core :refer :all]
             [ring.util.response :refer :all]
             [clj-money.validation :as validation]
             [clj-money.util :as util]
@@ -23,13 +24,31 @@
                        util/format-number)]
    [:td.text-center [:input {:type :checkbox
                              :name "item-ids"
+                             :checked (not (nil? (:reconciliation-id transaction-item)))
                              :value (:id transaction-item)}]]])
+
+(defn- reconciled-item-total
+  [account reconciliation]
+  (if (:id reconciliation)
+    (reduce +
+            0M
+            (->> reconciliation
+                 :id
+                 (transactions/select-items-by-reconciliation-id (env :db))
+                 (map #(transactions/polarize-item-amount % account))
+                 (map :polarized-amount)))
+    0M))
 
 (defn- reconciliation-form
   [reconciliation]
   (let [account (accounts/find-by-id (env :db) (:account-id reconciliation))
-        previous-balance (reconciliations/previous-balance (env :db) (:id account))]
+        previous-balance (reconciliations/previous-balance (env :db) (:id account))
+        reconciled-item-total (reconciled-item-total account reconciliation)]
     (with-layout (format "Reconcile account: %s" (:name account)) {}
+
+      (when (validation/has-error? reconciliation)
+        [:pre (prn-str (validation/error-messages reconciliation))])
+
       [:form {:action (if (:id reconciliation)
                         (format "/reconciliations/%s" (:id reconciliation))
                         (format "/accounts/%s/reconciliations" (:id account)))
@@ -42,6 +61,14 @@
           [:input.form-control {:name :previous-balance
                                 :value (util/format-number previous-balance)
                                 :disabled true}]]
+          [:label.control-label {:for :reconciled-balance} "Reconciled balance"]
+          [:input.form-control {:name :reconciled-balance
+                                :value (util/format-number
+                                         (if (= 0M reconciled-item-total)
+                                           0M
+                                           (+ previous-balance
+                                              reconciled-item-total)))
+                                :disabled true}] 
          (number-input-field reconciliation :balance)
          [:input.btn.btn-primary {:type :submit
                                   :name :submit
@@ -99,11 +126,12 @@
 
 (defn update
   [{params :params}]
-  (let [result (->> params
-                    (select-keys [:id :account-id :balance :item-ids])
-                    (reconciliations/update (env :db)))]
+  (let [result (reconciliations/update (env :db)
+                                       (cond-> params
+                                         (= "Finish" (:submit params))
+                                         (assoc :status :completed)))]
     (if (validation/has-error? result)
-      (edit {:params {:id (:id result)}} result)
+      (edit {} result)
       (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn delete
