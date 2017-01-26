@@ -126,6 +126,9 @@
   (set-transaction-items-reconciled
     [this reconciliation-id transaction-item-ids]
     "Updates the specified transaction items to indicate they belong to a reconciliation")
+  (unreconcile-transaction-items-by-reconciliation-id
+    [this reconciliation-id]
+    "Unsets the reconciliation ID to null for all matching values")
 
   ; Reconciliations
   (create-reconciliation

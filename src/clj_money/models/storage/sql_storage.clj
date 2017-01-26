@@ -409,6 +409,13 @@
                                (h/where [:in :id transaction-item-ids])
                                sql/format)))
 
+  (unreconcile-transaction-items-by-reconciliation-id
+      [_ reconciliation-id]
+      (jdbc/execute! db-spec (-> (h/update :transaction_items)
+                                 (h/sset {:reconciliation_id nil})
+                                 (h/where [:= :reconciliation-id reconciliation-id])
+                                 sql/format)))
+
   ; Reconciliations
   (create-reconciliation
     [_ reconciliation]
