@@ -140,8 +140,8 @@
   (find-reconciliation-by-id
     [this id]
     "Returns the specified reconciliation")
-  (find-last-complete-reconciliation-by-account-id
-    [this account-id]
+  (find-last-reconciliation-by-account-id
+    [this account-id] [this accont-id status]
     "Returns the specified reconciliation")
   (find-new-reconciliation-by-account-id
     [this account-id]
@@ -149,6 +149,9 @@
   (update-reconciliation
     [this reconciliation]
     "Updates the specified reconciliation")
+  (delete-reconciliation
+    [this id]
+    "Removes the reconciliation from the system")
 
   ; Budgets
   (create-budget

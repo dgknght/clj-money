@@ -393,6 +393,22 @@
         result (reconciliations/update storage-spec updated)]
     (is (validation/has-error? result :balance))))
 
+(deftest the-amount-and-action-of-a-reconciled-item-cannot-be-changed
+  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+        reconciliation-id (-> context :reconciliations first :id)
+        item (first (transactions/select-items-by-reconciliation-id storage-spec reconciliation-id))
+        transaction (transactions/find-by-id storage-spec (:transaction-id item))]
+    (is (thrown? Exception (transactions/update storage-spec (update-in transaction [:items]
+                                                                    #(map (fn [item]
+                                                                            (assoc item :amount 1M))))))
+        "An amount cannot be changed")
+    (is (thrown? Exception (transactions/update storage-spec (update-in transaction [:items]
+                                                                    #(map (fn [item]
+                                                                            (update-in item [:action] (fn [a] (if (= :credit a)
+                                                                                                                :debit
+                                                                                                                :credit))))))))
+        "An action cannot be changed")))
+
 (deftest a-completed-reconciliation-cannot-be-updated
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
         reconciliation (-> context :reconciliations first)
@@ -402,5 +418,30 @@
     (is (validation/has-error? result :status) "A validation error is present")
     (is (= 1000M (:balance retrieved)) "The new valud is not saved")))
 
-; Test that a completed reconciliation can be deleted if it is the most recent
-; Test that a completed reconciliation cannot be deleted if it is not the most recent
+(deftest the-most-recent-completed-reconciliation-can-be-deleted
+  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+        reconciliation-id (-> context :reconciliations first :id)
+        _ (reconciliations/delete storage-spec reconciliation-id)
+        retrieved (reconciliations/find-by-id storage-spec reconciliation-id)
+        items (transactions/select-items-by-reconciliation-id storage-spec reconciliation-id)]
+    (is (nil? retrieved) "The reconciliation cannot be retrieved after delete")
+    (is (empty? items) "The reconciliation is not associated with any items after delete")))
+
+(deftest a-working-reconciliation-can-be-deleted
+  (let [context (serialization/realize storage-spec working-reconciliation-context)
+        reconciliation-id (-> context :reconciliations second :id)
+        _ (reconciliations/delete storage-spec reconciliation-id)
+        retrieved (reconciliations/find-by-id storage-spec reconciliation-id)
+        items (transactions/select-items-by-reconciliation-id storage-spec reconciliation-id)]
+    (is (nil? retrieved) "The reconciliation cannot be retrieved after delete")
+    (is (empty? items) "The reconciliation is not associated with any items after delete")))
+
+(deftest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
+  (let [context (serialization/realize storage-spec working-reconciliation-context)
+        reconciliation-id (-> context :reconciliations first :id)]
+    (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
+             (reconciliations/delete storage-spec reconciliation-id))
+        "an exception should be thrown")
+    (is (reconciliations/find-by-id storage-spec reconciliation-id) "The reconciliation can still be retrieved")
+    (is (not (empty? (transactions/select-items-by-reconciliation-id storage-spec reconciliation-id)))
+        "The transaction items are still associated with the reconciliation")))

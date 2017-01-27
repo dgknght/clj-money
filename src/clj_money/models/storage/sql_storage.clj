@@ -8,6 +8,7 @@
             [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
@@ -437,15 +438,19 @@
                        (h/from :reconciliations)
                        (h/where [:= :account-id account-id]))))
 
-  (find-last-complete-reconciliation-by-account-id
-    [_ account-id]
-    (first (query db-spec (-> (h/select :*)
-                              (h/from :reconciliations)
-                              (h/where [:and
-                                        [:= :account-id account-id]
-                                        [:= :status "completed"]])
-                              (h/order-by [:end_of_period :desc])
-                              (h/limit 1)))))
+  (find-last-reconciliation-by-account-id
+    [this account-id]
+    (.find-last-reconciliation-by-account-id this account-id nil))
+
+  (find-last-reconciliation-by-account-id
+    [_ account-id status]
+    (let [sql (-> (h/select :*)
+                  (h/from :reconciliations)
+                  (h/where [:= :account-id account-id])
+                  (h/order-by [:end_of_period :desc])
+                  (h/limit 1))]
+      (first (query db-spec (cond-> sql
+                              status (h/merge-where [:= :status (name status)]))))))
 
   (find-new-reconciliation-by-account-id
     [_ account-id]
@@ -465,6 +470,10 @@
                                                     :end-of-period))
                               (h/where [:= :id (:id reconciliation)])))]
       (jdbc/execute! db-spec sql)))
+
+  (delete-reconciliation
+    [_ id]
+    (jdbc/delete! db-spec :reconciliations ["id = ?" id]))
 
   ; Budgets
   (create-budget

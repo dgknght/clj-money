@@ -15,10 +15,11 @@
                                               select-reconciliations-by-account-id
                                               select-transaction-items-by-reconciliation-id
                                               find-reconciliation-by-id
-                                              find-last-complete-reconciliation-by-account-id
+                                              find-last-reconciliation-by-account-id
                                               find-new-reconciliation-by-account-id
                                               set-transaction-items-reconciled
-                                              unreconcile-transaction-items-by-reconciliation-id]])
+                                              unreconcile-transaction-items-by-reconciliation-id
+                                              delete-reconciliation]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
@@ -61,9 +62,7 @@
   "Returns the last reconciled balance for an account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (->> account-id
-         (find-last-complete-reconciliation-by-account-id s)
-         after-read)))
+    (after-read (find-last-reconciliation-by-account-id s account-id :completed))))
 
 ; TODO this still isn't ensureing that they are only loaded once, need to rework it
 (defn- ensure-transaction-items
@@ -76,11 +75,12 @@
 
 (defn- append-transaction-item-ids
   [storage reconciliation]
-  (assoc reconciliation
-         :item-ids
-         (mapv :id (select-transaction-items-by-reconciliation-id
-                     storage
-                     (:id reconciliation)))))
+  (when reconciliation
+    (assoc reconciliation
+           :item-ids
+           (mapv :id (select-transaction-items-by-reconciliation-id
+                       storage
+                       (:id reconciliation))))))
 
 (defn find-by-id
   "Returns the specified reconciliation"
@@ -223,3 +223,17 @@
             (set-transaction-items-reconciled s (:id validated) (:item-ids validated)))
           (reload s validated))
         validated))))
+
+(defn delete
+  "Removes the specified reconciliation from the system. (Only the most recent may be deleted.)"
+  [storage-spec id]
+  (with-transacted-storage [s storage-spec]
+    (let [reconciliation (find-by-id s id)
+          most-recent (find-last-reconciliation-by-account-id
+                        s
+                        (:account-id reconciliation))]
+      (when (not= id (:id most-recent))
+        (throw (ex-info "Only the most recent reconciliation may be deleted" {:specified-reconciliation reconciliation
+                                                                              :most-recent-reconciliation most-recent})))
+      (unreconcile-transaction-items-by-reconciliation-id s id)
+      (delete-reconciliation s id))))
