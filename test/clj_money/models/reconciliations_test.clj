@@ -143,6 +143,9 @@
                   (map :reconciled?)))
           "Each transaction item included in the reconciliation should be marked as reconciled"))))
 
+(deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
+  (is false "need to write the test"))
+
 (deftest account-id-is-required
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
@@ -397,17 +400,24 @@
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
         reconciliation-id (-> context :reconciliations first :id)
         item (first (transactions/select-items-by-reconciliation-id storage-spec reconciliation-id))
-        transaction (transactions/find-by-id storage-spec (:transaction-id item))]
-    (is (thrown? Exception (transactions/update storage-spec (update-in transaction [:items]
-                                                                    #(map (fn [item]
-                                                                            (assoc item :amount 1M))))))
-        "An amount cannot be changed")
-    (is (thrown? Exception (transactions/update storage-spec (update-in transaction [:items]
-                                                                    #(map (fn [item]
-                                                                            (update-in item [:action] (fn [a] (if (= :credit a)
-                                                                                                                :debit
-                                                                                                                :credit))))))))
-        "An action cannot be changed")))
+        transaction (transactions/find-by-id storage-spec (:transaction-id item))
+        result1 (transactions/update storage-spec (update-in transaction [:items]
+                                                             #(map (fn [item]
+                                                                     (assoc item :amount 1M))
+                                                                   %)))
+        result2 (transactions/update storage-spec (update-in transaction [:items]
+                                                             #(map (fn [item]
+                                                                     (update-in item [:action] (fn [a] (if (= :credit a)
+                                                                                                         :debit
+                                                                                                         :credit))))
+                                                                   %)))]
+    (is (= ["A reconciled transaction cannot be changed"]
+           (validation/error-messages result1 :items)))
+    (is (= ["A reconciled transaction cannot be changed"]
+           (validation/error-messages result2 :items)))))
+
+(deftest a-reconciled-transaction-item-cannot-be-deleted
+  (is false "need to write the test"))
 
 (deftest a-completed-reconciliation-cannot-be-updated
   (let [context (serialization/realize storage-spec existing-reconciliation-context)

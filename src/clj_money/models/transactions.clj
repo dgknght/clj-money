@@ -95,6 +95,10 @@
        (map #(item-amount-sum transaction %))
        (apply =)))
 
+(defn- no-reconciled-items-changed?
+  [storage transaction]
+  false)
+
 (defn- before-item-validation
   [item]
   (cond-> item
@@ -293,9 +297,15 @@
                                         :balance (:balance final)}))))))
 
 (defn- validate
-  [spec transaction]
+  [storage spec transaction]
   (let [prepared (before-validation transaction)]
-    (validation/validate spec prepared #'sum-of-credits-must-equal-sum-of-debits)))
+    (validation/validate
+      spec
+      prepared
+      #'sum-of-credits-must-equal-sum-of-debits
+      (validation/create-rule (partial no-reconciled-items-changed? storage)
+                              "A reconciled transaction item cannot be changed"
+                              [:items]))))
 
 (defn- append-items
   [storage transaction]
@@ -341,7 +351,7 @@
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (let [validated (validate ::new-transaction transaction)]
+  (let [validated (validate nil ::new-transaction transaction)]
     (if (validation/has-error? validated)
       validated
       (with-transacted-storage [storage storage-spec]
@@ -443,7 +453,7 @@
   "Updates the specified transaction"
   [storage-spec transaction]
   (with-transacted-storage [storage storage-spec]
-    (let [validated (validate ::existing-transaction transaction)]
+    (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
         (let [dereferenced-base-items (process-removals
