@@ -411,9 +411,9 @@
                                                                                                          :debit
                                                                                                          :credit))))
                                                                    %)))]
-    (is (= ["A reconciled transaction cannot be changed"]
+    (is (= ["A reconciled transaction item cannot be changed"]
            (validation/error-messages result1 :items)))
-    (is (= ["A reconciled transaction cannot be changed"]
+    (is (= ["A reconciled transaction item cannot be changed"]
            (validation/error-messages result2 :items)))))
 
 (deftest a-reconciled-transaction-item-cannot-be-deleted

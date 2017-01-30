@@ -95,10 +95,6 @@
        (map #(item-amount-sum transaction %))
        (apply =)))
 
-(defn- no-reconciled-items-changed?
-  [storage transaction]
-  false)
-
 (defn- before-item-validation
   [item]
   (cond-> item
@@ -296,6 +292,27 @@
          (accounts/update storage-spec {:id account-id
                                         :balance (:balance final)}))))))
 
+(declare reload)
+(defn- no-reconciled-items-changed?
+  [storage transaction]
+  (if (:id transaction)
+    (let [existing (reload storage transaction)
+          reconciled (->> existing
+                          :items
+                          (filter :reconciled?)
+                          (map #(select-keys % [:id :amount :account-id :action]))
+                          set)
+          ids (->> reconciled
+                   (map :id)
+                   set)
+          incoming (->> transaction
+                        :items
+                        (filter #(ids (:id %)))
+                        (map #(select-keys % [:id :amount :account-id :action]))
+                        set)]
+      (= incoming reconciled))
+    true))
+
 (defn- validate
   [storage spec transaction]
   (let [prepared (before-validation transaction)]
@@ -304,8 +321,8 @@
       prepared
       #'sum-of-credits-must-equal-sum-of-debits
       (validation/create-rule (partial no-reconciled-items-changed? storage)
-                              "A reconciled transaction item cannot be changed"
-                              [:items]))))
+                              [:items]
+                              "A reconciled transaction item cannot be changed"))))
 
 (defn- append-items
   [storage transaction]
@@ -351,10 +368,10 @@
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (let [validated (validate nil ::new-transaction transaction)]
-    (if (validation/has-error? validated)
-      validated
-      (with-transacted-storage [storage storage-spec]
+  (with-transacted-storage [storage storage-spec]
+    (let [validated (validate storage ::new-transaction transaction)]
+      (if (validation/has-error? validated)
+        validated
         (let [items-with-balances (calculate-balances-and-indexes storage
                                                                   (:transaction-date validated)
                                                                   (:items validated))
