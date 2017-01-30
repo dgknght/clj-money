@@ -161,14 +161,17 @@
 (defn- resolve-transaction-item-ids
   [context account-id items]
   (mapv (fn [{:keys [transaction-date amount]}]
-          (->> context
+          (or (->> context
                :transactions
                (filter #(= transaction-date (:transaction-date %)))
                (mapcat :items)
                (filter #(and (= account-id (:account-id %))
                              (= amount (:amount %))))
                (map :id)
-               first))
+               first)
+              (throw (Exception. (format "Unable to find a transaction with date=%s, amount=%s"
+                                         transaction-date
+                                         amount)))))
         items))
 
 (defn- resolve-reconciliation-transaction-item-ids
