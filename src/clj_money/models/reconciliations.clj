@@ -138,6 +138,24 @@
         (> 0 (compare (:end-of-period last-completed)
                       (:end-of-period reconciliation))))))
 
+(defn find-working
+  "Returns the uncompleted reconciliation for the specified
+  account, if one exists"
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (when-let [reconciliation (find-new-reconciliation-by-account-id s account-id)]
+      (after-read reconciliation))))
+
+(defn- working-reconciliation-exists?
+  [storage {:keys [account-id id] :as rec}]
+  (when account-id
+    (when-let [existing (find-working storage account-id)]
+      (or (nil? id) (not= id (:id existing))))))
+
+(defn- no-working-reconciliation-exists?
+  [storage reconciliation]
+  (not (working-reconciliation-exists? storage reconciliation)))
+
 (defn- validation-rules
   [storage]
   [(validation/create-rule (partial is-in-balance? storage)
@@ -154,7 +172,10 @@
                            "End of period must be after the latest reconciliation")
    (validation/create-rule (partial can-be-updated? storage)
                            [:status]
-                           "A completed reconciliation cannot be updated")])
+                           "A completed reconciliation cannot be updated")
+   (validation/create-rule (partial no-working-reconciliation-exists? storage)
+                           [:account-id]
+                           "A new reconciliation cannot be created while a working reconciliation already exists")])
 
 (defn- validate
   [spec rules reconciliation]
@@ -192,14 +213,6 @@
   "Returns the same reconciliation reloaded from the data store"
   [storage-spec {id :id}]
   (find-by-id storage-spec id))
-
-(defn find-working
-  "Returns the uncompleted reconciliation for the specified
-  account, if one exists"
-  [storage-spec account-id]
-  (with-storage [s storage-spec]
-    (when-let [reconciliation (find-new-reconciliation-by-account-id s account-id)]
-      (after-read reconciliation))))
 
 (defn- set-account-id
   [storage reconciliation]

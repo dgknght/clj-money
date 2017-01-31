@@ -144,7 +144,15 @@
           "Each transaction item included in the reconciliation should be marked as reconciled"))))
 
 (deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec working-reconciliation-context)
+        checking (-> context :accounts first)
+        result (reconciliations/create storage-spec {:account-id (:id checking)
+                                                     :balance 1M
+                                                     :status :new
+                                                     :end-of-period (t/local-date 2017 2 28)})]
+    (is (not (validation/valid? result)) "The result is not valid")
+    (is (= ["A new reconciliation cannot be created while a working reconciliation already exists"]
+           (validation/error-messages result :account-id)))))
 
 (deftest account-id-is-required
   (let [context (serialization/realize storage-spec
