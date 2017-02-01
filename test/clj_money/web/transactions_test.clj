@@ -31,10 +31,7 @@
 
 (defn- simplify-transaction-item
   [item]
-  (dissoc item :id
-          :transaction-id
-          :updated-at
-          :created-at))
+  (select-keys item [:account-id :amount :action :balance :index]))
 
 (defn- simplify-transaction
   [transaction]

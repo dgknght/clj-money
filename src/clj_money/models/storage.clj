@@ -84,6 +84,9 @@
   (select-transaction-items-by-transaction-id
     [this transaction-id]
     "Returns the transaction items belonging to the specified transaction")
+  (select-transaction-items-by-reconciliation-id
+    [this reconciliation-id]
+    "Returns the transaction items belonging to the specified reconciliation")
   (select-transaction-items-by-account-id
     [this account-id] [this account-id options]
     "Returns the transaction items belonging to the specified account")
@@ -99,6 +102,9 @@
   (find-transaction-item-by-id
     [this id]
     "Returns the transaction item having the specified id")
+  (find-transaction-items-by-ids
+    [this id]
+    "Returns the transaction items having the specified ids")
   (select-transaction-items-preceding-date
     [this account-id transaction-date]
     "Returns the transaction items preceding the specifed date in descending order by seqence")
@@ -117,6 +123,35 @@
   (delete-transaction-items-by-transaction-id
     [this transaction-id]
     "Deletes the transaction items having the specified id")
+  (set-transaction-items-reconciled
+    [this reconciliation-id transaction-item-ids]
+    "Updates the specified transaction items to indicate they belong to a reconciliation")
+  (unreconcile-transaction-items-by-reconciliation-id
+    [this reconciliation-id]
+    "Unsets the reconciliation ID to null for all matching values")
+
+  ; Reconciliations
+  (create-reconciliation
+    [this reconciliation]
+    "Creates a new reconciliation record")
+  (select-reconciliations-by-account-id
+    [this account-id]
+    "Returns reconciliation records for the specified account")
+  (find-reconciliation-by-id
+    [this id]
+    "Returns the specified reconciliation")
+  (find-last-reconciliation-by-account-id
+    [this account-id] [this accont-id status]
+    "Returns the specified reconciliation")
+  (find-new-reconciliation-by-account-id
+    [this account-id]
+    "Returns the first reconciliation with status :new for the specified account")
+  (update-reconciliation
+    [this reconciliation]
+    "Updates the specified reconciliation")
+  (delete-reconciliation
+    [this id]
+    "Removes the reconciliation from the system")
 
   ; Budgets
   (create-budget

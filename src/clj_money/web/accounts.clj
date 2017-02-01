@@ -46,6 +46,11 @@
                    {:level :default
                     :size :extra-small
                     :title "Click here to view transactions for this account"})
+     (glyph-button :check
+                   (format "/accounts/%s/reconciliations/new" (:id account))
+                   {:level :default
+                    :size :extra-small
+                    :title "Click here to reconcile this account"})
      (glyph-button :remove
                    (format "/accounts/%s/delete" (:id account))
                    {:level :danger
@@ -103,6 +108,7 @@
            transaction-date
            description
            polarized-amount
+           reconciled?
            account-id
            balance] :as item}]
   [:tr
@@ -110,6 +116,9 @@
    [:td description]
    [:td.text-right polarized-amount]
    [:td.text-right balance]
+   [:td.text-center [:span.glyphicon
+                     {:aria-hidden "true"
+                      :class (if reconciled? "glyphicon-check" "glyphicon-unchecked")}]]
    [:td
     [:span.btn-group
      (glyph-button :pencil
@@ -119,16 +128,22 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this transaction."})
+     (let [can-delete? (->> transaction-id
+                            (transactions/find-by-id (env :db))
+                            transactions/can-delete?)]
      (glyph-button :remove
                    (-> (path "/transactions" transaction-id "delete")
                        (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                        format-url)
                    {:level :danger
+                    :disabled (not can-delete?)
                     :size :extra-small
-                    :title "Click here to remove this transaction."
+                    :title (if can-delete?
+                             "Click here to remove this transaction."
+                             "This transaction contains reconciled items and cannot be removed.")
                     :data-method :post
                     :data-confirm "Are you sure you want to remove this transaction?"
-                    :method :post})]]])
+                    :method :post}))]]])
 
 (defn show
   "Renders account details, including transactions"
@@ -143,6 +158,7 @@
          [:th "Description"]
          [:th.text-right "Amount"]
          [:th.text-right "Balance"]
+         [:th.text-center "Rec."]
          [:th "&nbsp;"]]
         (map transaction-item-row
              (transactions/items-by-account (env :db)
@@ -152,15 +168,24 @@
                               :url (-> (path "/accounts"
                                              (:id account)))
                               :total (transactions/count-items-by-account (env :db) (:id account))))
-       [:a.btn.btn-primary {:href (-> (path "/entities"
-                                            (:entity-id account)
-                                            "transactions"
-                                            "new")
-                                      (query {:redirect (url-encode (format "/accounts/%s" id))})
-                                      format-url)}
+       [:a.btn.btn-primary
+        {:href (-> (path "/entities"
+                         (:entity-id account)
+                         "transactions"
+                         "new")
+                   (query {:redirect (url-encode (format "/accounts/%s" id))})
+                   format-url)
+         :title "Click here to add a new transaction."}
         "Add"]
        "&nbsp;"
-       [:a.btn.btn-default {:href (format "/entities/%s/accounts" (:entity-id account))}
+       [:a.btn.btn-default
+        {:href (format "/accounts/%s/reconciliations/new" (:id account))
+         :title "Click here to reconcile this account."}
+        "Reconcile"]
+       "&nbsp;"
+       [:a.btn.btn-default
+        {:href (format "/entities/%s/accounts" (:entity-id account))
+         :title "Click here to return to the list of accounts."}
         "Back"]))))
 
 (defn- form-fields

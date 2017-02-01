@@ -38,13 +38,17 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this transaction."})
-     (glyph-button :remove
-                   (format "/transactions/%s/delete" (:id transaction))
-                   {:level :danger
-                    :size :extra-small
-                    :data-method :post
-                    :data-confirm "Are you sure you want to delete this transaction?"
-                    :title "Click here to remove this transaction."})]]])
+     (let [can-delete? (transactions/can-delete? transaction)]
+       (glyph-button :remove
+                     (format "/transactions/%s/delete" (:id transaction))
+                     {:level :danger
+                      :disabled (not can-delete?)
+                      :size :extra-small
+                      :data-method :post
+                      :data-confirm "Are you sure you want to delete this transaction?"
+                      :title (if can-delete?
+                               "Click here to remove this transaction."
+                               "This transaction contains reconciled items and cannot be removed")}))]]])
 
 (defn index
   ([req] (index req {}))

@@ -8,6 +8,7 @@
             [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
@@ -92,6 +93,13 @@
        first
        vals
        first))
+
+(defn- transaction-item-base-query
+  []
+  (-> (h/select :i.* :t.transaction_date :t.description, [:r.status "reconciliation_status"])
+      (h/from [:transaction_items :i])
+      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
+      (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -262,10 +270,14 @@
 
   (select-transaction-items-by-transaction-id
     [_ transaction-id]
-    (query db-spec (-> (h/select :*)
-                      (h/from :transaction_items)
-                      (h/where [:= :transaction_id transaction-id])
-                      (h/order-by [:action :desc] [:amount :desc]))))
+    (query db-spec (-> (transaction-item-base-query)
+                       (h/where [:= :transaction_id transaction-id])
+                       (h/order-by [:action :desc] [:amount :desc]))))
+
+  (select-transaction-items-by-reconciliation-id
+    [_ reconciliation-id]
+    (query db-spec (-> (transaction-item-base-query)
+                       (h/where [:= :reconciliation_id reconciliation-id]))))
 
   (select-transaction-items-by-account-id
     [this account-id]
@@ -273,12 +285,17 @@
 
   (select-transaction-items-by-account-id
     [_ account-id options]
-    (query db-spec (-> (h/select :i.* :t.transaction_date :t.description)
-                      (h/from [:transaction_items :i])
-                      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-                      (h/where [:= :i.account_id account-id])
-                      (h/order-by [:i.index :desc])
-                      (append-paging options))))
+    (let [sql (-> (transaction-item-base-query)
+                  (h/where [:= :i.account_id account-id])
+                  (h/order-by [:i.index :desc])
+                  (append-paging options))
+          sql (cond-> sql
+                (contains? options :reconciled?)
+                (h/merge-where (if (:reconciled? options)
+                                 [:= :r.status "completed"]
+                                 [:or [:= :r.status nil]
+                                      [:= :r.status "new"]])))]
+      (query db-spec sql)))
 
   (count-transaction-items-by-account-id
     [this account-id]
@@ -313,6 +330,13 @@
             (h/limit 1))
         (query db-spec)
         first))
+
+  (find-transaction-items-by-ids
+    [_ ids]
+    (->> (-> (h/select :*)
+             (h/from :transaction_items)
+             (h/where [:in :id ids]))
+        (query db-spec)))
 
   (select-transaction-items-preceding-date
     [_ account-id transaction-date]
@@ -378,6 +402,78 @@
     (jdbc/delete! db-spec
                   :transaction_items
                   ["transaction_id = ?" transaction-id]))
+
+  (set-transaction-items-reconciled
+    [_ reconciliation-id transaction-item-ids]
+    (jdbc/execute! db-spec (-> (h/update :transaction_items)
+                               (h/sset {:reconciliation_id reconciliation-id})
+                               (h/where [:in :id transaction-item-ids])
+                               sql/format)))
+
+  (unreconcile-transaction-items-by-reconciliation-id
+      [_ reconciliation-id]
+      (jdbc/execute! db-spec (-> (h/update :transaction_items)
+                                 (h/sset {:reconciliation_id nil})
+                                 (h/where [:= :reconciliation-id reconciliation-id])
+                                 sql/format)))
+
+  ; Reconciliations
+  (create-reconciliation
+    [_ reconciliation]
+    (insert db-spec :reconciliations reconciliation :account-id
+                                                    :balance
+                                                    :end-of-period
+                                                    :status))
+
+  (find-reconciliation-by-id
+    [_ id]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :reconciliations)
+                              (h/where [:= :id id])
+                              (h/limit 1)))))
+
+  (select-reconciliations-by-account-id
+    [_ account-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from :reconciliations)
+                       (h/where [:= :account-id account-id]))))
+
+  (find-last-reconciliation-by-account-id
+    [this account-id]
+    (.find-last-reconciliation-by-account-id this account-id nil))
+
+  (find-last-reconciliation-by-account-id
+    [_ account-id status]
+    (let [sql (-> (h/select :*)
+                  (h/from :reconciliations)
+                  (h/where [:= :account-id account-id])
+                  (h/order-by [:end_of_period :desc])
+                  (h/limit 1))]
+      (first (query db-spec (cond-> sql
+                              status (h/merge-where [:= :status (name status)]))))))
+
+  (find-new-reconciliation-by-account-id
+    [_ account-id]
+    (first (query db-spec (-> (h/select :*)
+                              (h/from :reconciliations)
+                              (h/where [:and [:= :status "new"]
+                                        [:= :account-id account-id]])
+                              (h/limit 1)))))
+
+  (update-reconciliation
+    [_ reconciliation]
+    (let [sql (sql/format (-> (h/update :reconciliations)
+                              (h/sset (->update-set reconciliation
+                                                    :account-id
+                                                    :balance
+                                                    :status
+                                                    :end-of-period))
+                              (h/where [:= :id (:id reconciliation)])))]
+      (jdbc/execute! db-spec sql)))
+
+  (delete-reconciliation
+    [_ id]
+    (jdbc/delete! db-spec :reconciliations ["id = ?" id]))
 
   ; Budgets
   (create-budget

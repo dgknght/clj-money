@@ -21,6 +21,7 @@
             [clj-money.web.accounts :as accounts]
             [clj-money.web.budgets :as budgets]
             [clj-money.web.transactions :as transactions]
+            [clj-money.web.reconciliations :as reconciliations]
             [clj-money.web.reports :as reports]
             [clj-money.web.users :as users]))
 
@@ -73,6 +74,14 @@
   (route GET "/transactions/:id/edit" transactions/edit)
   (route POST "/transactions/:id" transactions/update)
   (route POST "/transactions/:id/delete" transactions/delete)
+
+  ; Reconciliations
+  (route GET "/accounts/:account-id/reconciliations/new" reconciliations/new-reconciliation)
+  (route POST "/accounts/:account-id/reconciliations" reconciliations/create)
+  (route GET "/reconciliations/:id" reconciliations/show)
+  (route GET "/reconciliations/:id/edit" reconciliations/edit)
+  (route POST "/reconciliations/:id" reconciliations/update)
+  (route POST "/reconciliations/:id/delete" reconciliations/delete)
   
   ; Reports
   (route GET "/entities/:entity-id/reports" reports/render)

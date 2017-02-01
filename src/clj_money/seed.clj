@@ -123,7 +123,7 @@
                           s
                           {:entity-id (:id entity)
                            :transaction-date %
-                           :description "Landloard"
+                           :description "Landlord"
                            :items [{:action :debit
                                     :account-id (-> accounts :rent :id)
                                     :amount 750M}

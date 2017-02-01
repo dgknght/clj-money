@@ -12,6 +12,17 @@
   (:import org.joda.time.LocalDate
            java.util.Date))
 
+(defn local-date?
+  [value]
+  (instance? LocalDate value))
+
+(defn- interpret-local-date-failure
+  [{:keys [path pred] :as problem}]
+  (when (and (list? pred)
+             (= 'instance? (first pred))
+             (= LocalDate (second pred)))
+    [path (format "%s must be a date" (humanize (last path)))]))
+
 (defn- interpret-integer-failure
   [{:keys [path pred]}]
   (when (and (symbol? pred)
@@ -108,6 +119,7 @@
    interpret-collection-count-failure
    interpret-set-inclusion-failure
    interpret-type-failure
+   interpret-local-date-failure
    interpret-unknown-failure])
 
 (defn- problem->message

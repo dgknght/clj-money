@@ -16,6 +16,7 @@
                                               find-transaction-by-id
                                               update-transaction
                                               find-transaction-item-by-id
+                                              find-transaction-items-by-ids
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
                                               select-transaction-items-by-account-id
@@ -23,6 +24,7 @@
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
+                                              select-transaction-items-by-reconciliation-id
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
                                               delete-transaction
@@ -59,7 +61,7 @@
   [item]
   (update-in item [:action] name))
 
-(defn- polarize-item-amount
+(defn polarize-item-amount
   [item account]
   (assoc item :polarized-amount (accounts/polarize-amount item account)))
 
@@ -71,6 +73,7 @@
    (if (map? item)
      (cond-> item
        true (update-in [:action] keyword)
+       true (assoc :reconciled? (= "completed" (:reconciliation-status item)))
        (:transaction-date item) (update-in [:transaction-date] tc/to-local-date)
        account (polarize-item-amount account))
      item)))
@@ -127,7 +130,8 @@
 (defn- prepare-for-return
   "Returns a transaction that is ready for public use"
   [transaction]
-  (update-in transaction [:transaction-date] tc/to-local-date))
+  (when transaction
+    (update-in transaction [:transaction-date] tc/to-local-date)))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -289,18 +293,46 @@
          (accounts/update storage-spec {:id account-id
                                         :balance (:balance final)}))))))
 
+(declare reload)
+(defn- no-reconciled-items-changed?
+  [storage transaction]
+  (if (:id transaction)
+    (let [existing (reload storage transaction)
+          reconciled (->> existing
+                          :items
+                          (filter :reconciled?)
+                          (map #(select-keys % [:id :amount :account-id :action]))
+                          set)
+          ids (->> reconciled
+                   (map :id)
+                   set)
+          incoming (->> transaction
+                        :items
+                        (filter #(ids (:id %)))
+                        (map #(select-keys % [:id :amount :account-id :action]))
+                        set)]
+      (= incoming reconciled))
+    true))
+
 (defn- validate
-  [spec transaction]
+  [storage spec transaction]
   (let [prepared (before-validation transaction)]
-    (validation/validate spec prepared #'sum-of-credits-must-equal-sum-of-debits)))
+    (validation/validate
+      spec
+      prepared
+      #'sum-of-credits-must-equal-sum-of-debits
+      (validation/create-rule (partial no-reconciled-items-changed? storage)
+                              [:items]
+                              "A reconciled transaction item cannot be changed"))))
 
 (defn- append-items
   [storage transaction]
-  (assoc transaction
-         :items
-         (->> (:id transaction)
-              (select-transaction-items-by-transaction-id storage)
-              (map prepare-item-for-return))))
+  (when transaction
+    (assoc transaction
+           :items
+           (->> (:id transaction)
+                (select-transaction-items-by-transaction-id storage)
+                (map prepare-item-for-return)))))
 
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
@@ -322,6 +354,13 @@
          (map prepare-for-return)
          (map #(append-items s %)))))))
 
+(defn select-items-by-reconciliation-id
+  "Returns the transaction items associated with the specified reconciliation"
+  [storage-spec reconciliation-id]
+  (with-storage [s storage-spec]
+    (map prepare-item-for-return
+         (select-transaction-items-by-reconciliation-id s reconciliation-id))))
+
 (defn count-by-entity-id
   "Returns the number of transactions that belong to the specified entity"
   [storage-spec entity-id]
@@ -331,10 +370,10 @@
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (let [validated (validate ::new-transaction transaction)]
-    (if (validation/has-error? validated)
-      validated
-      (with-transacted-storage [storage storage-spec]
+  (with-transacted-storage [storage storage-spec]
+    (let [validated (validate storage ::new-transaction transaction)]
+      (if (validation/has-error? validated)
+        validated
         (let [items-with-balances (calculate-balances-and-indexes storage
                                                                   (:transaction-date validated)
                                                                   (:items validated))
@@ -358,6 +397,21 @@
          prepare-for-return
          (append-items s))))
 
+(defn find-by-item-id
+  "Returns the transaction that has the specified transaction item"
+  [storage-spec item-id]
+  (with-storage [s storage-spec]
+    (when-let [transaction-id (->> item-id
+                                   (find-transaction-item-by-id s)
+                                   :transaction-id)]
+      (find-by-id s transaction-id))))
+
+(defn find-items-by-ids
+  [storage-spec ids]
+  (with-storage [s storage-spec]
+    (->> (find-transaction-items-by-ids s ids)
+         (map prepare-item-for-return))))
+
 (defn items-by-account
   "Returns the transaction items for the specified account"
   ([storage-spec account-id]
@@ -375,6 +429,16 @@
   [storage-spec account-id]
   (with-storage [s storage-spec]
     (count-transaction-items-by-account-id s account-id)))
+
+(defn unreconciled-items-by-account
+  "Returns the unreconciled transaction items for the specified account"
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (let [account (accounts/find-by-id storage-spec account-id)]
+      (map #(prepare-item-for-return % account)
+           (select-transaction-items-by-account-id s
+                                                   account-id
+                                                   {:reconciled? false})))))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"
@@ -417,7 +481,7 @@
   "Updates the specified transaction"
   [storage-spec transaction]
   (with-transacted-storage [storage storage-spec]
-    (let [validated (validate ::existing-transaction transaction)]
+    (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
         (let [dereferenced-base-items (process-removals
@@ -455,11 +519,30 @@
                  {:account-id (:account-id %)
                   :index -1
                   :balance 0}))))
+
+(defn can-delete?
+  [transaction]
+  (->> transaction
+       :items
+       (filter :reconciled?)
+       empty?))
+
+(defn- ensure-deletable
+  "Throws an exception if the transaction cannot be deleted"
+  [transaction]
+  (let [reconciled-items (->> transaction
+                              :items
+                              (map :reconciled?))]
+    (when   (seq reconciled-items)
+      (throw (ex-info "A transaction with reconciled items cannot be deleted."
+                      {:reconciled-items reconciled-items})))))
+
 (defn delete
   "Removes the specified transaction from the system"
   [storage-spec transaction-id]
   (with-storage [s storage-spec]
     (let [transaction (find-by-id s transaction-id)
+          _ (ensure-deletable transaction)
           preceding-items (get-preceding-items s transaction)]
       (delete-transaction-items-by-transaction-id s transaction-id)
       (delete-transaction s transaction-id)
