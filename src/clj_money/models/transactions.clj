@@ -130,7 +130,8 @@
 (defn- prepare-for-return
   "Returns a transaction that is ready for public use"
   [transaction]
-  (update-in transaction [:transaction-date] tc/to-local-date))
+  (when transaction
+    (update-in transaction [:transaction-date] tc/to-local-date)))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -326,11 +327,12 @@
 
 (defn- append-items
   [storage transaction]
-  (assoc transaction
-         :items
-         (->> (:id transaction)
-              (select-transaction-items-by-transaction-id storage)
-              (map prepare-item-for-return))))
+  (when transaction
+    (assoc transaction
+           :items
+           (->> (:id transaction)
+                (select-transaction-items-by-transaction-id storage)
+                (map prepare-item-for-return)))))
 
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
@@ -394,6 +396,15 @@
     (->> (find-transaction-by-id s id)
          prepare-for-return
          (append-items s))))
+
+(defn find-by-item-id
+  "Returns the transaction that has the specified transaction item"
+  [storage-spec item-id]
+  (with-storage [s storage-spec]
+    (when-let [transaction-id (->> item-id
+                                   (find-transaction-item-by-id s)
+                                   :transaction-id)]
+      (find-by-id s transaction-id))))
 
 (defn find-items-by-ids
   [storage-spec ids]
@@ -508,11 +519,23 @@
                  {:account-id (:account-id %)
                   :index -1
                   :balance 0}))))
+
+(defn- ensure-deletable
+  "Throws an exception if the transaction cannot be deleted"
+  [transaction]
+  (let [reconciled-items (->> transaction
+                              :items
+                              (map :reconciled?))]
+    (when   (seq reconciled-items)
+      (throw (ex-info "A transaction with reconciled items cannot be deleted."
+                      {:reconciled-items reconciled-items})))))
+
 (defn delete
   "Removes the specified transaction from the system"
   [storage-spec transaction-id]
   (with-storage [s storage-spec]
     (let [transaction (find-by-id s transaction-id)
+          _ (ensure-deletable transaction)
           preceding-items (get-preceding-items s transaction)]
       (delete-transaction-items-by-transaction-id s transaction-id)
       (delete-transaction s transaction-id)

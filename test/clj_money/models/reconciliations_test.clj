@@ -425,7 +425,18 @@
            (validation/error-messages result2 :items)))))
 
 (deftest a-reconciled-transaction-item-cannot-be-deleted
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+        item-id (-> context :reconciliations first :item-ids first)
+        transaction-id (:id (transactions/find-by-item-id storage-spec item-id))]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"A transaction with reconciled items cannot be deleted."
+                            (transactions/delete storage-spec transaction-id))
+          "An exception is raised")
+    (is (do
+          (try
+            (transactions/delete storage-spec transaction-id)
+            (catch clojure.lang.ExceptionInfo e nil))
+          (transactions/find-by-item-id storage-spec item-id))
+        "The transaction can be retrieved after the delete has been denied")))
 
 (deftest a-completed-reconciliation-cannot-be-updated
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
