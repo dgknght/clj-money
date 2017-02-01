@@ -520,6 +520,13 @@
                   :index -1
                   :balance 0}))))
 
+(defn can-delete?
+  [transaction]
+  (->> transaction
+       :items
+       (filter :reconciled?)
+       empty?))
+
 (defn- ensure-deletable
   "Throws an exception if the transaction cannot be deleted"
   [transaction]

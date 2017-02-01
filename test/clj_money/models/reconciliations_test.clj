@@ -474,3 +474,14 @@
     (is (reconciliations/find-by-id storage-spec reconciliation-id) "The reconciliation can still be retrieved")
     (is (not (empty? (transactions/select-items-by-reconciliation-id storage-spec reconciliation-id)))
         "The transaction items are still associated with the reconciliation")))
+
+(deftest check-if-a-transaction-can-be-deleted
+  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+        [t1 t2] (->> context
+                     :transactions
+                     (take 2)
+                     (map #(transactions/reload storage-spec %)))]
+    (is (not (transactions/can-delete? t1))
+        "A transaction with a reconciled item cannot be deleted")
+    (is (transactions/can-delete? t2)
+        "A transaction with no reconciled items can be deleted")))

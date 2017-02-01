@@ -128,16 +128,22 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this transaction."})
+     (let [can-delete? (->> transaction-id
+                            (transactions/find-by-id (env :db))
+                            transactions/can-delete?)]
      (glyph-button :remove
                    (-> (path "/transactions" transaction-id "delete")
                        (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                        format-url)
                    {:level :danger
+                    :disabled (not can-delete?)
                     :size :extra-small
-                    :title "Click here to remove this transaction."
+                    :title (if can-delete?
+                             "Click here to remove this transaction."
+                             "This transaction contains reconciled items and cannot be removed.")
                     :data-method :post
                     :data-confirm "Are you sure you want to remove this transaction?"
-                    :method :post})]]])
+                    :method :post}))]]])
 
 (defn show
   "Renders account details, including transactions"
