@@ -33,3 +33,43 @@
              :exchange :nasdaq}]
            (map #(select-keys % [:name :symbol :exchange]) commodities))
         "The commodity can be retrieved after create")))
+
+(deftest entity-id-is-required
+  (is false "need to write the test"))
+
+(deftest name-is-required
+  (is false "need to write the test"))
+
+(deftest name-is-unique-for-an-entity-and-exchange
+  (is false "need to write the test"))
+
+(deftest name-can-be-duplicated-between-exchanges
+  (is false "need to write the test"))
+
+(deftest name-can-be-duplicated-between-entities
+  (is false "need to write the test"))
+
+(deftest symbol-is-required
+  (is false "need to write the test"))
+
+(deftest symbol-is-unique-for-an-entity-and-exchange
+  (is false "need to write the test"))
+
+(deftest symbol-can-be-duplicated-between-exchanges
+  (is false "need to write the test"))
+
+(deftest symbol-can-be-duplicated-between-entities
+  (is false "need to write the test"))
+
+(deftest exchange-is-required
+  (is false "need to write the test"))
+
+(deftest exchange-must-be-a-valid-exchange
+  (testing "it can be :nyse"
+    (is false "need to write the test"))
+  (testing "it can be :nasdaq"
+    (is false "need to write the test"))
+  (testing "it can be :fund"
+    (is false "need to write the test"))
+  (testing "it cannot be anything other than :nyse, :nasdaq, or :fund"
+    (is false "need to write the test")))
