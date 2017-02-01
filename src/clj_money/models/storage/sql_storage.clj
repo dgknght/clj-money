@@ -208,6 +208,27 @@
                                  [:= :entity_id entity-id]
                                  [:= :name name]]))))
 
+  ; Commodities
+(create-commodity
+  [_ commodity]
+  (insert db-spec :commodities commodity :name
+                                         :symbol
+                                         :exchange
+                                         :entity-id))
+
+  (select-commodities-by-entity-id
+    [this entity-id]
+    (.select-commodities-by-entity-id this entity-id {}))
+
+  (select-commodities-by-entity-id
+    [_ entity-id options]
+    (let [sql (-> (h/select :*)
+                  (h/from :commodities)
+                  (h/where [:= :entity-id entity-id])
+                  (h/order-by [:exchange :name])
+                  (append-paging options))]
+      (query db-spec sql)))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

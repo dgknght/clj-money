@@ -54,6 +54,16 @@
     [this entity-id name]
     "Returns the account in the specified entity with the specified name")
 
+  ; Commodities
+  (create-commodity
+    [this commodity]
+    "Creates a new commodity record")
+
+  (select-commodities-by-entity-id
+    [this entity-id]
+    [this entity-id options]
+    "Returns a list of commodities for the specified entity")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

@@ -11,6 +11,7 @@
                  "accounts"
                  "budgets"
                  "budget_items"
+                 "commodities"
                  "entities"
                  "users"])
 
