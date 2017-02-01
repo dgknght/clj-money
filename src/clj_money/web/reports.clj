@@ -152,7 +152,7 @@
 
       ; This layout should change based on report
       [:div.row
-       [:div.col-md-2
+       [:div#report-settings.col-md-2
         (render-filter params)]
        [:div.col-md-10
         (render-report params)]])))

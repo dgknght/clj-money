@@ -204,7 +204,7 @@
                (render-alerts alerts#))
              ~@content]
             (when side-bar#
-              [:div.col-md-4 side-bar#])]))]]]))
+              [:div#side-bar.col-md-4 side-bar#])]))]]]))
 
 (defn- input-element
   [name value options]

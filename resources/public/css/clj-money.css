@@ -62,3 +62,8 @@
   height: 100%;
 }
 
+@media print {
+  #side-bar, .btn-group, .btn, .nav, #report-settings {
+    display: none;
+  }
+}
