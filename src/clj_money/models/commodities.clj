@@ -10,7 +10,9 @@
 
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
-(s/def ::new-commodity (s/keys :req-un [::entity-id ::name]))
+(s/def ::symbol validation/non-empty-string?)
+(s/def ::exchange #{:nyse :nasdaq :fund})
+(s/def ::new-commodity (s/keys :req-un [::entity-id ::name ::symbol ::exchange]))
 
 (defn- before-save
   [commodity]

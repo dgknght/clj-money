@@ -60,7 +60,7 @@
         commodities (commodities/select-by-entity-id storage-spec entity-id)]
     (is (= ["Entity id is required"]
            (validation/error-messages result :entity-id))
-        "The result has no error messages")
+        "The result has an error messages")
     (is (empty? (->> commodities
                      (filter #(= "APPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
@@ -72,8 +72,8 @@
         result (commodities/create storage-spec commodity)
         commodities (commodities/select-by-entity-id storage-spec entity-id)]
     (is (= ["Name is required"]
-           (validation/error-messages result :entity-id))
-        "The result has no error messages")
+           (validation/error-messages result :name))
+        "The result has an error messages")
     (is (empty? (->> commodities
                      (filter #(= "APPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
@@ -88,7 +88,17 @@
   (is false "need to write the test"))
 
 (deftest symbol-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (dissoc (attributes context) :symbol)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (= ["Symbol is required"]
+           (validation/error-messages result :symbol))
+        "The result has an error message")
+    (is (empty? (->> commodities
+                     (filter #(= "APPL" (:symbol %)))))
+        "The commodity is not retrieved after create")))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
   (is false "need to write the test"))
@@ -99,15 +109,64 @@
 (deftest symbol-can-be-duplicated-between-entities
   (is false "need to write the test"))
 
+(deftest exchange-can-be-a-string
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (assoc (attributes context) :entity-id (str entity-id))
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (empty? (validation/error-messages result))
+        "The result has no error messages")
+    (is (= [{:name "Apple"
+             :symbol "APPL"
+             :exchange :nasdaq}]
+           (map #(select-keys % [:name :symbol :exchange]) commodities))
+        "The commodity can be retrieved after create")))
+
 (deftest exchange-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (dissoc (attributes context) :exchange)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (= ["Symbol is required"]
+           (validation/error-messages result :exchange))
+        "The result has an error message")
+    (is (empty? (->> commodities
+                     (filter #(= "APPL" (:symbol %)))))
+        "The commodity is not retrieved after create")))
 
 (deftest exchange-must-be-a-valid-exchange
   (testing "it can be :nyse"
-    (is false "need to write the test"))
+    (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (attributes context)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (empty? (validation/error-messages result))
+        "The result has no error messages")))
   (testing "it can be :nasdaq"
-    (is false "need to write the test"))
+    (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (assoc (attributes context) :exchange :nasdaq)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (empty? (validation/error-messages result))
+        "The result has no error messages")))
   (testing "it can be :fund"
-    (is false "need to write the test"))
+    (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (assoc (attributes context) :exchange :fund)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (empty? (validation/error-messages result))
+        "The result has no error messages")))
   (testing "it cannot be anything other than :nyse, :nasdaq, or :fund"
-    (is false "need to write the test")))
+    (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (assoc (attributes context) :exchange :not-a-valid-exchange)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (= ["Exchange must be one of: nasdaq, fund, nyse"]
+           (validation/error-messages result :exchange))
+        "The result has an error messages"))))
