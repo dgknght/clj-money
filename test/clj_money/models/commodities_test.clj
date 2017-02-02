@@ -17,13 +17,31 @@
   {:users [(factory :user)]
    :entities [{:name "Personal"}]})
 
+(defn- attributes
+  [context]
+  {:entity-id (-> context :entities first :id)
+   :exchange :nasdaq
+   :name "Apple"
+   :symbol "APPL"})
+
 (deftest create-a-commodity
   (let [context (serialization/realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
-        commodity {:entity-id entity-id
-                   :exchange :nasdaq
-                   :name "Apple"
-                   :symbol "APPL"}
+        commodity (attributes context)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (empty? (validation/error-messages result))
+        "The result has no error messages")
+    (is (= [{:name "Apple"
+             :symbol "APPL"
+             :exchange :nasdaq}]
+           (map #(select-keys % [:name :symbol :exchange]) commodities))
+        "The commodity can be retrieved after create")))
+
+(deftest entity-id-can-be-a-string
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (assoc (attributes context) :entity-id (str entity-id))
         result (commodities/create storage-spec commodity)
         commodities (commodities/select-by-entity-id storage-spec entity-id)]
     (is (empty? (validation/error-messages result))
@@ -35,10 +53,30 @@
         "The commodity can be retrieved after create")))
 
 (deftest entity-id-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (dissoc (attributes context) :entity-id)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (= ["Entity id is required"]
+           (validation/error-messages result :entity-id))
+        "The result has no error messages")
+    (is (empty? (->> commodities
+                     (filter #(= "APPL" (:symbol %)))))
+        "The commodity is not retrieved after create")))
 
 (deftest name-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (dissoc (attributes context) :name)
+        result (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (= ["Name is required"]
+           (validation/error-messages result :entity-id))
+        "The result has no error messages")
+    (is (empty? (->> commodities
+                     (filter #(= "APPL" (:symbol %)))))
+        "The commodity is not retrieved after create")))
 
 (deftest name-is-unique-for-an-entity-and-exchange
   (is false "need to write the test"))

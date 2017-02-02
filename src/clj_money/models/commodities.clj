@@ -8,6 +8,10 @@
             [clj-money.models.storage :refer [create-commodity
                                               select-commodities-by-entity-id]]))
 
+(s/def ::entity-id integer?)
+(s/def ::name validation/non-empty-string?)
+(s/def ::new-commodity (s/keys :req-un [::entity-id ::name]))
+
 (defn- before-save
   [commodity]
   (update-in commodity [:exchange] name))
@@ -16,14 +20,29 @@
   [commodity]
   (update-in commodity [:exchange] keyword))
 
+(def ^:private coercion-rules
+  [(coercion/rule :integer [:entity-id])])
+
+(defn- before-validation
+  [commodity]
+  (coercion/coerce commodity coercion-rules))
+
+(defn- validate
+  [commodity]
+  (validation/validate ::new-commodity
+                       (before-validation commodity)))
+
 (defn create
   "Creates a new commodity record"
   [storage-spec commodity]
   (with-storage [s storage-spec]
-    (->> commodity
-         before-save
-         (create-commodity s)
-         after-read)))
+    (let [validated (validate commodity)]
+      (if (validation/valid? validated)
+        (->> validated
+             before-save
+             (create-commodity s)
+             after-read)
+        validated))))
 
 (defn select-by-entity-id
   "Returns the commodities belonging to the specified entity"
