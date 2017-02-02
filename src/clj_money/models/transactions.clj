@@ -532,8 +532,8 @@
   [transaction]
   (let [reconciled-items (->> transaction
                               :items
-                              (map :reconciled?))]
-    (when   (seq reconciled-items)
+                              (filter :reconciled?))]
+    (when (seq reconciled-items)
       (throw (ex-info "A transaction with reconciled items cannot be deleted."
                       {:reconciled-items reconciled-items})))))
 
