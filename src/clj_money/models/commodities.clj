@@ -25,20 +25,39 @@
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])])
 
+(defn- name-is-in-use?
+  [storage {:keys [id entity-id exchange] commodity-name :name}]
+  (when (and commodity-name entity-id exchange)
+                 (->> (select-commodities-by-entity-id
+                        storage
+                        entity-id
+                        {:where {:name commodity-name
+                                 :exchange (name exchange)}})
+                      (remove #(= id (:id %)))
+                      seq)))
+
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule #(complement (name-is-in-use? storage %))
+                           [:name]
+                           "Name must be unique for a given exchange")])
+
 (defn- before-validation
   [commodity]
   (coercion/coerce commodity coercion-rules))
 
 (defn- validate
-  [commodity]
-  (validation/validate ::new-commodity
-                       (before-validation commodity)))
+  [storage commodity]
+  (apply validation/validate
+         ::new-commodity
+         (before-validation commodity)
+         (validation-rules storage)))
 
 (defn create
   "Creates a new commodity record"
   [storage-spec commodity]
   (with-storage [s storage-spec]
-    (let [validated (validate commodity)]
+    (let [validated (validate s commodity)]
       (if (validation/valid? validated)
         (->> validated
              before-save

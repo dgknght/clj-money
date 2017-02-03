@@ -70,6 +70,15 @@
       (assoc :updated-at (t/now))
       ->sql-keys))
 
+(defn- append-where
+  [sql options]
+  (if-let [where (:where options)]
+    (reduce (fn [s [k v]]
+              (h/merge-where s [:= k v]))
+            sql
+            where)
+    sql))
+
 (defn- append-paging
   [sql options]
   (cond-> sql
@@ -226,6 +235,7 @@
                   (h/from :commodities)
                   (h/where [:= :entity-id entity-id])
                   (h/order-by [:exchange :name])
+                  (append-where options)
                   (append-paging options))]
       (query db-spec sql)))
 

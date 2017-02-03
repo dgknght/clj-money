@@ -15,7 +15,8 @@
 
 (def ^:private commodity-context
   {:users [(factory :user)]
-   :entities [{:name "Personal"}]})
+   :entities [{:name "Personal"}
+              {:name "Business"}]})
 
 (defn- attributes
   [context]
@@ -79,10 +80,44 @@
         "The commodity is not retrieved after create")))
 
 (deftest name-is-unique-for-an-entity-and-exchange
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (attributes context) 
+        result-1 (commodities/create storage-spec commodity)
+        result-2 (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (empty? (validation/error-messages result-1))
+        "The first is created successfully")
+    (is (= ["Name must be unique for a given exchange"]
+           (validation/error-messages result-2 :name))
+        "The result has an error messages")
+    (is (= 1 (->> commodities
+                  (filter #(= "Apple" (:name %)))
+                  count))
+        "The commodity exists only once after both calls to create")))
 
 (deftest name-can-be-duplicated-between-exchanges
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-1-id (-> context :entities first :id)
+        entity-2-id (-> context :entities second :id)
+        commodity-1 (assoc (attributes context) :entity-id entity-1-id)
+        commodity-2 (assoc (attributes context) :entity-id entity-2-id)
+        result-1 (commodities/create storage-spec commodity-1)
+        result-2 (commodities/create storage-spec commodity-2)
+        commodities-1 (commodities/select-by-entity-id storage-spec entity-1-id)
+        commodities-2 (commodities/select-by-entity-id storage-spec entity-2-id)]
+    (is (empty? (validation/error-messages result-1))
+        "The first is created successfully")
+    (is (empty? (validation/error-messages result-2))
+        "The second is created successfully")
+    (is (->> commodities-1
+             (filter #(= "Apple" (:name %)))
+             first)
+        "The first commodity can be retrieved after create")
+    (is (->> commodities-2
+             (filter #(= "Apple" (:name %)))
+             first)
+        "The second commodity can be retrieved after create")))
 
 (deftest name-can-be-duplicated-between-entities
   (is false "need to write the test"))
