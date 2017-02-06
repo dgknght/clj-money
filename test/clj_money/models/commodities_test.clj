@@ -164,7 +164,7 @@
         commodity (dissoc (attributes context) :exchange)
         result (commodities/create storage-spec commodity)
         commodities (commodities/select-by-entity-id storage-spec entity-id)]
-    (is (= ["Symbol is required"]
+    (is (= ["Exchange is required"]
            (validation/error-messages result :exchange))
         "The result has an error message")
     (is (empty? (->> commodities
@@ -172,36 +172,45 @@
         "The commodity is not retrieved after create")))
 
 (deftest exchange-must-be-a-valid-exchange
-  (testing "it can be :nyse"
-    (let [context (serialization/realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (attributes context)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")))
-  (testing "it can be :nasdaq"
-    (let [context (serialization/realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (assoc (attributes context) :exchange :nasdaq)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")))
-  (testing "it can be :fund"
-    (let [context (serialization/realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (assoc (attributes context) :exchange :fund)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")))
-  (testing "it cannot be anything other than :nyse, :nasdaq, or :fund"
-    (let [context (serialization/realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (assoc (attributes context) :exchange :not-a-valid-exchange)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
-    (is (= ["Exchange must be one of: nasdaq, fund, nyse"]
-           (validation/error-messages result :exchange))
-        "The result has an error messages"))))
+  (let [context (serialization/realize storage-spec commodity-context)]
+    (testing "it can be :nyse"
+      (let [entity-id (-> context :entities first :id)
+            commodity (assoc (attributes context)
+                             :exchange :nyse
+                             :symbol "HD"
+                             :name "Home Depot")
+            result (commodities/create storage-spec commodity)
+            commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        (is (empty? (validation/error-messages result))
+            "The result has no error messages")))
+    (testing "it can be :nasdaq"
+      (let [ entity-id (-> context :entities first :id)
+            commodity (assoc (attributes context)
+                             :exchange :nasdaq
+                             :symbol "APPL"
+                             :name "Apple")
+            result (commodities/create storage-spec commodity)
+            commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        (is (empty? (validation/error-messages result))
+            "The result has no error messages")))
+    (testing "it can be :fund"
+      (let [entity-id (-> context :entities first :id)
+            commodity (assoc (attributes context)
+                             :exchange :fund
+                             :symbol "VFINX"
+                             :name "Vanguard 500 Index")
+            result (commodities/create storage-spec commodity)
+            commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        (is (empty? (validation/error-messages result))
+            "The result has no error messages")))
+    (testing "it cannot be anything other than :nyse, :nasdaq, or :fund"
+      (let [entity-id (-> context :entities first :id)
+            commodity (assoc (attributes context)
+                             :exchange :not-a-valid-exchange
+                             :symbol "NUNYA"
+                             :name "None of your business")
+            result (commodities/create storage-spec commodity)
+            commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        (is (= ["Exchange must be one of: nasdaq, fund, nyse"]
+               (validation/error-messages result :exchange))
+            "The result has an error messages")))))
