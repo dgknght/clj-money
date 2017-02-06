@@ -26,21 +26,35 @@
   [(coercion/rule :integer [:entity-id])])
 
 (defn- name-is-in-use?
-  [storage {:keys [id entity-id exchange] commodity-name :name}]
+  [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]
   (when (and commodity-name entity-id exchange)
-                 (->> (select-commodities-by-entity-id
-                        storage
-                        entity-id
-                        {:where {:name commodity-name
-                                 :exchange (name exchange)}})
-                      (remove #(= id (:id %)))
-                      seq)))
+    (->> (select-commodities-by-entity-id
+           storage
+           entity-id
+           {:where {:name commodity-name
+                    :exchange (name exchange)}})
+         (remove #(= id (:id %)))
+         seq)))
+
+(defn- symbol-is-in-use?
+  [storage {:keys [id entity-id exchange] commodity-symbol :symbol}]
+  (when (and commodity-symbol entity-id exchange)
+    (->> (select-commodities-by-entity-id
+           storage
+           entity-id
+           {:where {:symbol commodity-symbol
+                    :exchange (name exchange)}})
+         (remove #(= id (:id %)))
+         seq)))
 
 (defn- validation-rules
   [storage]
-  [(validation/create-rule #(complement (name-is-in-use? storage %))
+  [(validation/create-rule (complement (partial name-is-in-use? storage))
                            [:name]
-                           "Name must be unique for a given exchange")])
+                           "Name must be unique for a given exchange")
+   (validation/create-rule (complement (partial symbol-is-in-use? storage))
+                           [:symbol]
+                           "Symbol must be unique for a given exchange")])
 
 (defn- before-validation
   [commodity]
