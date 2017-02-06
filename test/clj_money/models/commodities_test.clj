@@ -120,7 +120,18 @@
         "The second commodity can be retrieved after create")))
 
 (deftest name-can-be-duplicated-between-entities
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-1 (-> context :entities first)
+        entity-2 (-> context :entities second)
+        c1 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
+        c2 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-2)))]
+    (is (empty? (validation/error-messages c2)))))
+
+(deftest name-can-be-duplicated-between-exchanges
+  (let [context (serialization/realize storage-spec commodity-context)
+        c1 (commodities/create storage-spec (assoc (attributes context) :exchange :nasdaq))
+        c2 (commodities/create storage-spec (assoc (attributes context) :exchange :nyse))]
+    (is (empty? (validation/error-messages c2)))))
 
 (deftest symbol-is-required
   (let [context (serialization/realize storage-spec commodity-context)
@@ -136,13 +147,35 @@
         "The commodity is not retrieved after create")))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-id (-> context :entities first :id)
+        commodity (attributes context) 
+        result-1 (commodities/create storage-spec commodity)
+        result-2 (commodities/create storage-spec commodity)
+        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+    (is (empty? (validation/error-messages result-1))
+        "The first is created successfully")
+    (is (= ["Symbol must be unique for a given exchange"]
+           (validation/error-messages result-2 :symbol))
+        "The result has an error messages")
+    (is (= 1 (->> commodities
+                  (filter #(= "Apple" (:name %)))
+                  count))
+        "The commodity exists only once after both calls to create")))
 
 (deftest symbol-can-be-duplicated-between-exchanges
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        c1 (commodities/create storage-spec (assoc (attributes context) :exchange :nasdaq))
+        c2 (commodities/create storage-spec (assoc (attributes context) :exchange :nyse))]
+    (is (empty? (validation/error-messages c2)))))
 
 (deftest symbol-can-be-duplicated-between-entities
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodity-context)
+        entity-1 (-> context :entities first)
+        entity-2 (-> context :entities second)
+        c1 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
+        c2 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-2)))]
+    (is (empty? (validation/error-messages c2)))))
 
 (deftest exchange-can-be-a-string
   (let [context (serialization/realize storage-spec commodity-context)
