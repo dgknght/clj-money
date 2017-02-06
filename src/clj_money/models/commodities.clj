@@ -8,10 +8,12 @@
             [clj-money.models.storage :refer [create-commodity
                                               select-commodities-by-entity-id]]))
 
+(def exchanges #{:nyse :nasdaq :fund})
+
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::symbol validation/non-empty-string?)
-(s/def ::exchange #{:nyse :nasdaq :fund})
+(s/def ::exchange exchanges)
 (s/def ::new-commodity (s/keys :req-un [::entity-id ::name ::symbol ::exchange]))
 
 (defn- before-save
@@ -23,7 +25,8 @@
   (update-in commodity [:exchange] keyword))
 
 (def ^:private coercion-rules
-  [(coercion/rule :integer [:entity-id])])
+  [(coercion/rule :integer [:entity-id])
+   (coercion/rule :keyword [:exchange])])
 
 (defn- name-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]

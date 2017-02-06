@@ -111,8 +111,9 @@
 
 (def item-templates
   [{:url "/entities/:entity-id/accounts"     :caption "Accounts"}
-   {:url "/entities/:entity-id/budgets" :caption "Budgets"}
+   {:url "/entities/:entity-id/budgets"      :caption "Budgets"}
    {:url "/entities/:entity-id/transactions" :caption "Transactions"}
+   {:url "/entities/:entity-id/commodities"  :caption "Commodities"}
    {:url "/entities/:entity-id/reports"      :caption "Reports"}])
 
 (defn primary-nav
@@ -289,3 +290,10 @@
    (select-field model attribute option-items {}))
   ([model attribute option-items options]
    (select-element attribute (get model attribute) option-items options)))
+
+(defn options-for-select
+  [models caption-fn value-fn]
+  (map #(vector :option
+                {:value (value-fn %)}
+                (caption-fn %))
+       models))
