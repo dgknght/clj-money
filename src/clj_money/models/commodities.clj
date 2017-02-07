@@ -6,15 +6,19 @@
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [create-commodity
+                                              find-commodity-by-id
+                                              update-commodity
                                               select-commodities-by-entity-id]]))
 
 (def exchanges #{:nyse :nasdaq :fund})
 
+(s/def ::id integer?)
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::symbol validation/non-empty-string?)
 (s/def ::exchange exchanges)
 (s/def ::new-commodity (s/keys :req-un [::entity-id ::name ::symbol ::exchange]))
+(s/def ::existing-commodity (s/keys :req-un [::name ::symbol ::exchange] :opt-un [::id]))
 
 (defn- before-save
   [commodity]
@@ -26,7 +30,8 @@
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])
-   (coercion/rule :keyword [:exchange])])
+   (coercion/rule :keyword [:exchange])
+   (coercion/rule :integer [:id])])
 
 (defn- name-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]
@@ -64,9 +69,9 @@
   (coercion/coerce commodity coercion-rules))
 
 (defn- validate
-  [storage commodity]
+  [storage spec commodity]
   (apply validation/validate
-         ::new-commodity
+         spec
          (before-validation commodity)
          (validation-rules storage)))
 
@@ -74,7 +79,7 @@
   "Creates a new commodity record"
   [storage-spec commodity]
   (with-storage [s storage-spec]
-    (let [validated (validate s commodity)]
+    (let [validated (validate s ::new-commodity commodity)]
       (if (validation/valid? validated)
         (->> validated
              before-save
@@ -89,3 +94,22 @@
     (->> entity-id
          (select-commodities-by-entity-id s)
          (map after-read))))
+
+(defn find-by-id
+  "Returns the commodity having the specified ID"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (after-read (find-commodity-by-id s id))))
+
+(defn update
+  "Updates the specified commodity"
+  [storage-spec commodity]
+  (with-storage [s storage-spec]
+    (let [validated (validate s ::existing-commodity commodity)]
+      (if (validation/valid? validated)
+        (do
+          (->> validated
+               before-save
+               (update-commodity s))
+          (find-by-id s (:id validated)))
+        validated))))

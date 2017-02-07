@@ -247,3 +247,6 @@
         (is (= ["Exchange must be one of: nasdaq, fund, nyse"]
                (validation/error-messages result :exchange))
             "The result has an error messages")))))
+
+; add update test
+; add find-by-id test

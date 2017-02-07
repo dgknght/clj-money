@@ -218,12 +218,32 @@
                                  [:= :name name]]))))
 
   ; Commodities
-(create-commodity
-  [_ commodity]
-  (insert db-spec :commodities commodity :name
-                                         :symbol
-                                         :exchange
-                                         :entity-id))
+  (create-commodity
+    [_ commodity]
+    (insert db-spec :commodities commodity :name
+                                          :symbol
+                                          :exchange
+                                          :entity-id))
+
+  (find-commodity-by-id
+    [_ id]
+    (->> (-> (h/select :*)
+            (h/from :commodities)
+            (h/where [:= :id id])
+            (h/limit 1))
+        (query db-spec )
+        first))
+
+  (update-commodity
+    [_ commodity]
+    (let [sql (sql/format (-> (h/update :commodities)
+                              (h/sset (->update-set commodity
+                                                    :entity-id
+                                                    :name
+                                                    :symbol
+                                                    :exchange))
+                              (h/where [:= :id (:id commodity)])))]
+      (jdbc/execute! db-spec sql)))
 
   (select-commodities-by-entity-id
     [this entity-id]
