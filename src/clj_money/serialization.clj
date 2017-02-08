@@ -6,6 +6,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.commodities :as commodities]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]))
@@ -154,6 +155,18 @@
                (append-budget-items storage context (:items attributes))))
         budgets))
 
+(defn- create-commodities
+  [storage context commodities]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-entity context)
+               (commodities/create storage)))
+        commodities))
+
+(defn- realize-commodities
+  [storage context]
+  (update-in context [:commodities] #(create-commodities storage context %)))
+
 (defn- realize-budgets
   [storage context]
   (update-in context [:budgets] #(create-budgets storage context %)))
@@ -204,6 +217,7 @@
       (realize-users s)
       (realize-entities s)
       (realize-accounts s)
+      (realize-commodities s)
       (realize-budgets s)
       (realize-transactions s)
       (realize-reconciliations s))))

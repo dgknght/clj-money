@@ -248,5 +248,17 @@
                (validation/error-messages result :exchange))
             "The result has an error messages")))))
 
-; add update test
-; add find-by-id test
+(def ^:private existing-commodity-context
+  (assoc commodity-context :commodities [{:name "Apple"
+                                          :symbol "APPL"
+                                          :exchange :nasdaq}]))
+
+(deftest a-commodity-can-be-updated
+  (let [context (serialization/realize storage-spec existing-commodity-context)
+        commodity (-> context :commodities first)
+        result (commodities/update storage-spec (assoc commodity :name "New name"))
+        retrieved (commodities/find-by-id storage-spec (:id commodity))]
+    (is (empty? (validation/error-messages result))
+        "The result has no validation errors")
+    (is (= "New name" (:name result)) "The return value has the correct name")
+    (is (= "New name" (:name retrieved)) "The retrieved value has the correct name")))
