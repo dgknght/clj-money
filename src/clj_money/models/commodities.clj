@@ -16,7 +16,7 @@
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::symbol validation/non-empty-string?)
-(s/def ::exchange exchanges)
+(s/def ::exchange #{:nyse :nasdaq :fund}) ; TODO need to be able to register custom interpretations to resue exchanges
 (s/def ::new-commodity (s/keys :req-un [::entity-id ::name ::symbol ::exchange]))
 (s/def ::existing-commodity (s/keys :req-un [::name ::symbol ::exchange] :opt-un [::id]))
 
