@@ -262,3 +262,11 @@
         "The result has no validation errors")
     (is (= "New name" (:name result)) "The return value has the correct name")
     (is (= "New name" (:name retrieved)) "The retrieved value has the correct name")))
+
+(deftest a-commodity-can-be-deleted
+  (let [context (serialization/realize storage-spec existing-commodity-context)
+        commodity (-> context :commodities first)
+        _ (commodities/delete storage-spec (:id commodity))
+        retrieved (commodities/find-by-id storage-spec (:id commodity))]
+    (is (not retrieved)
+        "The commodity cannot be retrieved after delete")))

@@ -72,6 +72,10 @@
     [this entity-id options]
     "Returns a list of commodities for the specified entity")
 
+  (delete-commodity
+    [this id]
+    "Deletes the specified commodity record")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

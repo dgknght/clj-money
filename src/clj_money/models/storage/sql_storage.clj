@@ -259,6 +259,10 @@
                   (append-paging options))]
       (query db-spec sql)))
 
+  (delete-commodity
+    [_ id]
+    (jdbc/delete! db-spec :commodities ["id = ?" id]))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

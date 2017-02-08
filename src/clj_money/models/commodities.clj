@@ -8,7 +8,8 @@
             [clj-money.models.storage :refer [create-commodity
                                               find-commodity-by-id
                                               update-commodity
-                                              select-commodities-by-entity-id]]))
+                                              select-commodities-by-entity-id
+                                              delete-commodity]]))
 
 (def exchanges #{:nyse :nasdaq :fund})
 
@@ -26,7 +27,8 @@
 
 (defn- after-read
   [commodity]
-  (update-in commodity [:exchange] keyword))
+  (when commodity
+    (update-in commodity [:exchange] keyword)))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])
@@ -113,3 +115,9 @@
                (update-commodity s))
           (find-by-id s (:id validated)))
         validated))))
+
+(defn delete
+  "Removes a commodity from the system"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-commodity s id)))
