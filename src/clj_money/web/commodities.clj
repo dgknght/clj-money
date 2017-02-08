@@ -14,11 +14,19 @@
    [:td (:name commodity)]
    [:td (:exchange commodity)]
    [:td
-    (glyph-button :pencil
-                  (format "/commodities/%s/edit" (:id commodity))
-                  {:level :info
-                   :size :extra-small
-                   :title "Click here to edit this commodity"})]])
+    [:div.btn-group
+     (glyph-button :pencil
+                   (format "/commodities/%s/edit" (:id commodity))
+                   {:level :info
+                    :size :extra-small
+                    :title "Click here to edit this commodity"})
+     (glyph-button :remove
+                   (format "/commodities/%s/delete" (:id commodity))
+                   {:level :danger
+                    :size :extra-small
+                    :data-method :post
+                    :data-confirm "Are you sure you want to delete this account?"
+                    :title "Click here to remove this commodity"})]]])
 
 (defn index
   [{params :params}]
@@ -106,5 +114,7 @@
       (redirect (format "/entities/%s/commodities" (:entity-id result))))))
 
 (defn delete
-  [req]
-  "delete")
+  [{params :params}]
+  (let [commodity (commodities/find-by-id (env :db) (Integer. (:id params)))]
+    (commodities/delete (env :db) (:id commodity))
+    (redirect (format "/entities/%s/commodities" (:entity-id commodity)))))
