@@ -121,3 +121,11 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-commodity s id)))
+
+(defn create-price
+  [storage-spec price]
+  )
+
+(defn select-prices-by-commodity-id
+  [storage-spec commodity-id]
+  [])

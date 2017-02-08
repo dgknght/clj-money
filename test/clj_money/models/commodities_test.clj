@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
+            [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
@@ -270,3 +271,38 @@
         retrieved (commodities/find-by-id storage-spec (:id commodity))]
     (is (not retrieved)
         "The commodity cannot be retrieved after delete")))
+
+(deftest a-price-can-be-addied-for-a-commodity
+  (let [context (serialization/realize storage-spec existing-commodity-context)
+        commodity (-> context :commodities first)
+        price (commodities/create-price storage-spec {:commodity-id (:id commodity)
+                                                      :trade-date (t/local-date 2017 3 2)
+                                                      :value 12.34M})
+        prices (commodities/select-prices-by-commodity-id storage-spec (:id commodity))]
+    (is (integer? (:id price))
+        "The result contains an ID value")
+    (is (empty? (validation/error-messages price))
+        "The result does not contain any validation errors")
+    (is (seq (filter #(= (t/local-date 2017 3 2) (:trade-date %)) prices))
+        "The price can be retrieved after create")))
+
+(deftest price-commodity-id-is-required
+  (is false "need to write the test"))
+
+(deftest price-trade-date-is-required
+  (is false "need to write the test"))
+
+(deftest price-trace-date-must-be-a-date
+  (is false "need to write the test"))
+
+(deftest price-trace-date-must-be-a-string-date
+  (is false "need to write the test"))
+
+(deftest price-value-is-required
+  (is false "need to write the test"))
+
+(deftest price-value-must-be-a-number
+  (is false "need to write the test"))
+
+(deftest price-value-can-be-a-string-number
+  (is false "need to write the test"))
