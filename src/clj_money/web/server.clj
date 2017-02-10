@@ -82,9 +82,6 @@
   (route GET "/commodities/:commodity-id/prices" prices/index)
   (route GET "/commodities/:commodity-id/prices/new" prices/new-price)
   (route POST "/commodities/:commodity-id/prices" prices/create)
-  (route GET "/prices/:id" prices/show)
-  (route GET "/prices/:id/edit" prices/edit)
-  (route POST "/prices/:id" prices/update)
   (route POST "/prices/:id/delete" prices/delete)
 
   ; Transactions

@@ -35,9 +35,10 @@
 (defn- trade-date-exists?
   [storage {:keys [id commodity-id trade-date]}]
   (seq (remove #(and id (= id (:id %)))
-               (select-prices-by-commodity-id storage
-                                              commodity-id
-                                              {:trade-date (tc/to-long trade-date)}))))
+               (select-prices-by-commodity-id
+                 storage
+                 commodity-id
+                 {:where { :trade-date (tc/to-long trade-date)}}))))
 
 (defn- validation-rules
   [storage]

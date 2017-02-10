@@ -12,8 +12,17 @@
 (defn- price-row
   [price]
   [:tr
-   [:td (format-date (:trade-date price))]
-   [:td (format-number (:price price))]])
+   [:td.text-right (format-date (:trade-date price))]
+   [:td.text-right (format-number (:price price))]
+   [:td
+    [:div.btn-group
+     (glyph-button :remove
+                   (format "/prices/%s/delete" (:id price))
+                   {:level :danger
+                    :size :extra-small
+                    :title "Click here to remove this price"
+                    :data-method :post
+                    :data-confirm "Are you sure you want to remove this price?"})]]])
 
 (defn index
   [{params :params}]
@@ -22,11 +31,12 @@
         prices (prices/select-by-commodity-id (env :db) (:id commodity))]
     (with-layout (format "Prices for %s" (:symbol commodity)) {}
       [:div.row
-       [:div.col-md-6
+       [:div.col-md-3
         [:table.table.table-striped
          [:tr
-          [:th "Trade date"]
-          [:th "Price"]
+          [:th.text-right "Trade date"]
+          [:th.text-right "Price"]
+          [:th "&nbsp;"]
           (map price-row prices)]]
         [:a.btn.btn-primary
          {:href (format "/commodities/%s/prices/new" (:id commodity))
@@ -67,18 +77,8 @@
       (new-price {:params params} result)
       (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
 
-(defn show
-  [req]
-  "show")
-
-(defn edit
-  [req]
-  "edit")
-
-(defn update
-  [req]
-  "update")
-
 (defn delete
-  [req]
-  "delete")
+  [{params :params}]
+  (let [price (prices/find-by-id (env :db) (Integer. (:id params)))]
+    (prices/delete (env :db) (:id price))
+    (redirect (format "/commodities/%s/prices" (:commodity-id price)))))
