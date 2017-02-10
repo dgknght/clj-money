@@ -99,7 +99,18 @@
         "The the duplicate price is not saved")))
 
 (deftest trade-date-can-be-a-string-date
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec price-context)
+        commodity (-> context :commodities first)
+        price (prices/create storage-spec {:commodity-id (:id commodity)
+                                           :trade-date "2017-03-02"
+                                           :price 12.34M})
+        prices (prices/select-by-commodity-id storage-spec (:id commodity))]
+    (is (integer? (:id price))
+        "The result contains an ID value")
+    (is (empty? (validation/error-messages price))
+        "The result does not contain any validation errors")
+    (is (seq (filter #(= (t/local-date 2017 3 2) (:trade-date %)) prices))
+        "The price can be retrieved after create")))
 
 (deftest price-is-required
   (let [context (serialization/realize storage-spec price-context)

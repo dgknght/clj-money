@@ -23,7 +23,8 @@
   (update-in price [:trade-date] tc/to-local-date))
 
 (def ^:private coercion-rules
-  [(coercion/rule :decimal [:price])])
+  [(coercion/rule :decimal [:price])
+   (coercion/rule :local-date [:trade-date])])
 
 (defn- trade-date-exists?
   [storage {:keys [commodity-id trade-date]}]
