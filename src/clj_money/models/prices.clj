@@ -9,7 +9,8 @@
             [clj-money.models.storage :refer [create-price
                                               find-price-by-id
                                               update-price
-                                              select-prices-by-commodity-id]]))
+                                              select-prices-by-commodity-id
+                                              delete-price]]))
 
 (s/def ::commodity-id integer?)
 (s/def ::trade-date (partial instance? org.joda.time.LocalDate))
@@ -87,3 +88,8 @@
                before-save
                (update-price s))
           (find-by-id s (:id price)))))))
+
+(defn delete
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-price s id)))

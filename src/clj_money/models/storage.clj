@@ -93,6 +93,10 @@
     [this price]
     "Updates the specified price record")
 
+  (delete-price
+    [this id]
+    "Deletes the specified price record")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

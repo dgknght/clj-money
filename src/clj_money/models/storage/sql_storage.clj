@@ -297,6 +297,10 @@
                               (h/where [:= :id (:id price)])))]
       (jdbc/execute! db-spec sql)))
 
+  (delete-price
+    [_ id]
+    (jdbc/delete! db-spec :prices ["id = ?" id]))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

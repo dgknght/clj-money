@@ -167,3 +167,11 @@
         "The result does not have any validation errors")
     (is (= 10.00M (:price retrieved))
         "The retrieved map has the correct values")))
+
+(deftest a-price-can-be-deleted
+  (let [context (serialization/realize storage-spec existing-price-context)
+        price (-> context :prices first)
+        _ (prices/delete storage-spec (:id price))
+        prices (prices/select-by-commodity-id storage-spec (:commodity-id price))]
+    (is (empty? (filter #(= (:id price) (:id %))  prices))
+        "The result is not retrieved after delete")))
