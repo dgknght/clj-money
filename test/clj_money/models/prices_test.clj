@@ -78,7 +78,25 @@
         "The price cannot be retrieved after create")))
 
 (deftest trade-date-must-be-unique
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec price-context)
+        commodity (-> context :commodities first)
+        price-1 (prices/create storage-spec {:commodity-id (:id commodity)
+                                           :trade-date (t/local-date 2017 3 2)
+                                           :price 12.34M})
+        price-2 (prices/create storage-spec {:commodity-id (:id commodity)
+                                           :trade-date (t/local-date 2017 3 2)
+                                           :price 43.21M})
+        prices (prices/select-by-commodity-id storage-spec (:id commodity))]
+    (is (integer? (:id price-1))
+        "The first result contains an ID value")
+    (is (nil? (:id price-2))
+        "The duplicate value does not receive an ID")
+    (is (empty? (validation/error-messages price-1))
+        "The first result does not contain any validation errors")
+    (is (= ["Trade date must be unique"] (validation/error-messages price-2 :trade-date))
+        "The duplicate value has an error message")
+    (is (= [12.34M] (map :price prices))
+        "The the duplicate price is not saved")))
 
 (deftest trade-date-can-be-a-string-date
   (is false "need to write the test"))

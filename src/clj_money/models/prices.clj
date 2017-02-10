@@ -25,19 +25,31 @@
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])])
 
+(defn- trade-date-exists?
+  [storage {:keys [commodity-id trade-date]}]
+  (seq (select-prices-by-commodity-id storage
+                                      commodity-id
+                                      {:trade-date (tc/to-long trade-date)})))
+
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule (complement (partial trade-date-exists? storage))
+                           [:trade-date]
+                           "Trade date must be unique")])
+
 (defn- before-validation
   [price]
   (coercion/coerce price coercion-rules))
 
 (defn- validate
-  [spec model]
+  [storage spec model]
   (let [prepared (before-validation model)]
-    (validation/validate spec prepared)))
+    (apply validation/validate spec prepared (validation-rules storage))))
 
 (defn create
   [storage-spec price]
   (with-storage [s storage-spec]
-    (let [validated (validate ::new-price price)]
+    (let [validated (validate s ::new-price price)]
       (if (validation/has-error? validated)
         validated
         (->> validated

@@ -280,6 +280,7 @@
                   (h/from :prices)
                   (h/where [:= :commodity-id commodity-id])
                   (h/order-by [:trade-date :desc])
+                  (append-where options)
                   (append-paging options))]
       (query db-spec sql)))
 
