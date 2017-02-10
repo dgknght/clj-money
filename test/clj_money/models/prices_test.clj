@@ -152,3 +152,18 @@
         "The result does not contain any validation errors")
     (is (seq (filter #(= (t/local-date 2017 3 2) (:trade-date %)) prices))
         "The price can be retrieved after create")))
+
+(def ^:private existing-price-context
+  (assoc price-context :prices [{:commodity-id "APPL"
+                                 :trade-date (t/local-date 2017 3 2)
+                                 :price 12.34M}]))
+
+(deftest a-price-can-be-updated
+  (let [context (serialization/realize storage-spec existing-price-context)
+        price (-> context :prices first)
+        result (prices/update storage-spec (assoc price :price "10"))
+        retrieved (prices/find-by-id storage-spec (:id price))]
+    (is (empty? (validation/error-messages result))
+        "The result does not have any validation errors")
+    (is (= 10.00M (:price retrieved))
+        "The retrieved map has the correct values")))

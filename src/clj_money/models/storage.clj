@@ -85,6 +85,14 @@
     [this commodity-id] [this commodity-id options]
     "Returns a list of prices for the specified commodity")
 
+  (find-price-by-id
+    [this id]
+    "Returns the price having the specified ID")
+
+  (update-price
+    [this price]
+    "Updates the specified price record")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

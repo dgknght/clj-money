@@ -284,6 +284,19 @@
                   (append-paging options))]
       (query db-spec sql)))
 
+  (find-price-by-id
+    [_ id]
+    (->clojure-keys (jdbc/get-by-id db-spec :prices id)) )
+
+  (update-price
+    [_ price]
+    (let [sql (sql/format (-> (h/update :prices)
+                              (h/sset (->update-set price
+                                                    :trade-date
+                                                    :price))
+                              (h/where [:= :id (:id price)])))]
+      (jdbc/execute! db-spec sql)))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]
