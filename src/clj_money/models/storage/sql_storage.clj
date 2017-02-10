@@ -263,6 +263,26 @@
     [_ id]
     (jdbc/delete! db-spec :commodities ["id = ?" id]))
 
+  ; Prices
+  (create-price
+    [_ price]
+    (insert db-spec :prices price :commodity-id
+                                  :trade-date
+                                  :price))
+
+  (select-prices-by-commodity-id
+    [this commodity-id]
+    (.select-prices-by-commodity-id this commodity-id {}))
+
+  (select-prices-by-commodity-id
+    [_ commodity-id options]
+    (let [sql (-> (h/select :*)
+                  (h/from :prices)
+                  (h/where [:= :commodity-id commodity-id])
+                  (h/order-by :trade-date :desc)
+                  (append-paging options))]
+      (query db-spec sql)))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

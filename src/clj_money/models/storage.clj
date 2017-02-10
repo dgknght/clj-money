@@ -76,6 +76,15 @@
     [this id]
     "Deletes the specified commodity record")
 
+  ; Prices
+  (create-price
+    [this price]
+    "Creates a new commodity price record")
+
+  (select-prices-by-commodity-id
+    [this commodity-id] [this commodity-id options]
+    "Returns a list of prices for the specified commodity")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]
