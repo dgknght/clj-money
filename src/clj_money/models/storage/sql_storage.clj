@@ -279,7 +279,7 @@
     (let [sql (-> (h/select :*)
                   (h/from :prices)
                   (h/where [:= :commodity-id commodity-id])
-                  (h/order-by :trade-date :desc)
+                  (h/order-by [:trade-date :desc])
                   (append-paging options))]
       (query db-spec sql)))
 
