@@ -20,6 +20,11 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this commodity"})
+     (glyph-button :usd
+                   (format "/commodities/%s/prices" (:id commodity))
+                   {:level :default
+                    :size :extra-small
+                    :title "Click here to manage prices for this commodity"})
      (glyph-button :remove
                    (format "/commodities/%s/delete" (:id commodity))
                    {:level :danger

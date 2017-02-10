@@ -21,6 +21,7 @@
             [clj-money.web.accounts :as accounts]
             [clj-money.web.budgets :as budgets]
             [clj-money.web.commodities :as commodities]
+            [clj-money.web.prices :as prices]
             [clj-money.web.transactions :as transactions]
             [clj-money.web.reconciliations :as reconciliations]
             [clj-money.web.reports :as reports]
@@ -76,6 +77,15 @@
   (route GET "/commodities/:id/edit" commodities/edit)
   (route POST "/commodities/:id" commodities/update)
   (route POST "/commodities/:id/delete" commodities/delete)
+
+  ; Prices
+  (route GET "/commodities/:commodity-id/prices" prices/index)
+  (route GET "/commodities/:commodity-id/prices/new" prices/new-price)
+  (route POST "/commodities/:commodity-id/prices" prices/create)
+  (route GET "/prices/:id" prices/show)
+  (route GET "/prices/:id/edit" prices/edit)
+  (route POST "/prices/:id" prices/update)
+  (route POST "/prices/:id/delete" prices/delete)
 
   ; Transactions
   (route GET "/entities/:entity-id/transactions" transactions/index)

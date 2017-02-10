@@ -29,7 +29,8 @@
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])
-   (coercion/rule :local-date [:trade-date])])
+   (coercion/rule :local-date [:trade-date])
+   (coercion/rule :integer [:commodity-id])])
 
 (defn- trade-date-exists?
   [storage {:keys [id commodity-id trade-date]}]
