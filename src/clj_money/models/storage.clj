@@ -54,6 +54,53 @@
     [this entity-id name]
     "Returns the account in the specified entity with the specified name")
 
+  ; Commodities
+  (create-commodity
+    [this commodity]
+    "Creates a new commodity record")
+
+  (find-commodity-by-id
+    [this id]
+    "Returns the specified commodity record")
+
+  (update-commodity
+    [this commodity]
+    "Updates the specified commodity")
+
+  (select-commodities-by-entity-id
+    [this entity-id]
+    [this entity-id options]
+    "Returns a list of commodities for the specified entity")
+
+  (delete-commodity
+    [this id]
+    "Deletes the specified commodity record")
+
+  ; Prices
+  (create-price
+    [this price]
+    "Creates a new commodity price record")
+
+  (select-prices-by-commodity-id
+    [this commodity-id] [this commodity-id options]
+    "Returns a list of prices for the specified commodity")
+
+  (find-price-by-id
+    [this id]
+    "Returns the price having the specified ID")
+
+  (update-price
+    [this price]
+    "Updates the specified price record")
+
+  (delete-price
+    [this id]
+    "Deletes the specified price record")
+
+  (delete-prices-by-commodity-id
+    [this commodity-id]
+    "Deletes all prices for the specified commodity")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

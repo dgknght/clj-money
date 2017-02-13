@@ -6,6 +6,8 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]))
@@ -158,6 +160,41 @@
   [storage context]
   (update-in context [:budgets] #(create-budgets storage context %)))
 
+(defn- create-commodities
+  [storage context commodities]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-entity context)
+               (commodities/create storage)))
+        commodities))
+
+(defn- realize-commodities
+  [storage context]
+  (update-in context [:commodities] #(create-commodities storage context %)))
+
+(defn- find-commodity
+  [context ticker-symbol]
+  (->> context
+       :commodities
+       (filter #(= (:symbol %) ticker-symbol))
+       first))
+
+(defn- resolve-commodity
+  [context model]
+  (update-in model [:commodity-id] #(:id (find-commodity context %))))
+
+(defn- create-prices
+  [storage context prices]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-commodity context)
+               (prices/create storage)))
+        prices))
+
+(defn- realize-prices
+  [storage context]
+  (update-in context [:prices] #(create-prices storage context %)))
+
 (defn- resolve-transaction-item-ids
   [context account-id items]
   (mapv (fn [{:keys [transaction-date amount]}]
@@ -204,6 +241,8 @@
       (realize-users s)
       (realize-entities s)
       (realize-accounts s)
+      (realize-commodities s)
+      (realize-prices s)
       (realize-budgets s)
       (realize-transactions s)
       (realize-reconciliations s))))

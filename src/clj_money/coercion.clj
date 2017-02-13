@@ -51,7 +51,7 @@
                                                       (catch NumberFormatException e
                                                         %))))
 (register-coerce-fn :keyword    #(if (keyword? %) % (keyword %)))
-(register-coerce-fn :local-date #(if (string? %) (parse-local-date %) %))
+(register-coerce-fn :local-date #(if (string? %) (or (parse-local-date %) %) %))
 (register-coerce-fn :integer-collection parse-integer-collection)
 
 (defn coerce

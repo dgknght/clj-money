@@ -70,11 +70,26 @@
       (assoc :updated-at (t/now))
       ->sql-keys))
 
+(defn- append-where
+  [sql options]
+  (if-let [where (:where options)]
+    (reduce (fn [s [k v]]
+              (h/merge-where s [:= k v]))
+            sql
+            where)
+    sql))
+
 (defn- append-paging
   [sql options]
   (cond-> sql
     (:per-page options) (h/limit (:per-page options))
     (:page options) (h/offset (* (:per-page options) (:page options)))))
+
+(defn- append-limit
+  [sql options]
+  (if-let [limit (:limit options)]
+    (h/limit sql limit)
+    sql))
 
 (defn- query
   "Executes a SQL query and maps field names into
@@ -207,6 +222,95 @@
                        (h/where [:and
                                  [:= :entity_id entity-id]
                                  [:= :name name]]))))
+
+  ; Commodities
+  (create-commodity
+    [_ commodity]
+    (insert db-spec :commodities commodity :name
+                                          :symbol
+                                          :exchange
+                                          :entity-id))
+
+  (find-commodity-by-id
+    [_ id]
+    (->> (-> (h/select :*)
+            (h/from :commodities)
+            (h/where [:= :id id])
+            (h/limit 1))
+        (query db-spec )
+        first))
+
+  (update-commodity
+    [_ commodity]
+    (let [sql (sql/format (-> (h/update :commodities)
+                              (h/sset (->update-set commodity
+                                                    :entity-id
+                                                    :name
+                                                    :symbol
+                                                    :exchange))
+                              (h/where [:= :id (:id commodity)])))]
+      (jdbc/execute! db-spec sql)))
+
+  (select-commodities-by-entity-id
+    [this entity-id]
+    (.select-commodities-by-entity-id this entity-id {}))
+
+  (select-commodities-by-entity-id
+    [_ entity-id options]
+    (let [sql (-> (h/select :*)
+                  (h/from :commodities)
+                  (h/where [:= :entity-id entity-id])
+                  (h/order-by [:exchange :name])
+                  (append-where options)
+                  (append-paging options))]
+      (query db-spec sql)))
+
+  (delete-commodity
+    [_ id]
+    (jdbc/delete! db-spec :commodities ["id = ?" id]))
+
+  ; Prices
+  (create-price
+    [_ price]
+    (insert db-spec :prices price :commodity-id
+                                  :trade-date
+                                  :price))
+
+  (select-prices-by-commodity-id
+    [this commodity-id]
+    (.select-prices-by-commodity-id this commodity-id {}))
+
+  (select-prices-by-commodity-id
+    [_ commodity-id options]
+    (let [sql (-> (h/select :*)
+                  (h/from :prices)
+                  (h/where [:= :commodity-id commodity-id])
+                  (h/order-by [:trade-date :desc])
+                  (append-where options)
+                  (append-limit options)
+                  (append-paging options))]
+      (query db-spec sql)))
+
+  (find-price-by-id
+    [_ id]
+    (->clojure-keys (jdbc/get-by-id db-spec :prices id)) )
+
+  (update-price
+    [_ price]
+    (let [sql (sql/format (-> (h/update :prices)
+                              (h/sset (->update-set price
+                                                    :trade-date
+                                                    :price))
+                              (h/where [:= :id (:id price)])))]
+      (jdbc/execute! db-spec sql)))
+
+  (delete-price
+    [_ id]
+    (jdbc/delete! db-spec :prices ["id = ?" id]))
+
+  (delete-prices-by-commodity-id
+    [_ commodity-id]
+    (jdbc/delete! db-spec :prices ["commodity_id = ?" commodity-id]))
 
   ; Transactions
   (select-transactions-by-entity-id
