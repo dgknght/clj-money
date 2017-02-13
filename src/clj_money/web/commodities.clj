@@ -3,9 +3,11 @@
   (:require [environ.core :refer [env]]
             [ring.util.response :refer :all]
             [hiccup.core :refer :all]
+            [clj-money.util :refer [format-number]]
             [clj-money.web.shared :refer :all]
             [clj-money.validation :as validation]
-            [clj-money.models.commodities :as commodities]))
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]))
 
 (defn- commodity-row
   [commodity]
@@ -13,6 +15,9 @@
    [:td (:symbol commodity)]
    [:td (:name commodity)]
    [:td (:exchange commodity)]
+   [:td.text-right
+    (format-number (:price (prices/most-recent (env :db)
+                                       (:id commodity))))]
    [:td
     [:div.btn-group
      (glyph-button :pencil
@@ -43,8 +48,9 @@
         [:table.table.table-striped
          [:tr
           [:th.col-md-3 "Symbol"]
-          [:th.col-md-4 "Name"]
-          [:th.col-md-3 "Exchange"]
+          [:th.col-md-3 "Name"]
+          [:th.col-md-2 "Exchange"]
+          [:th.col-md-2.text-right "Last price"]
           [:th.col-md-2 "&nbsp;"]]
          (map commodity-row commodities)]
         [:a.btn.btn-primary
@@ -57,7 +63,7 @@
   (html
     [:div.row
      [:div.col-sm-6
-      (text-input-field commodity :symbol)]
+      (text-input-field commodity :symbol {:autofocus true})]
      [:div.col-sm-6
       (select-field commodity :exchange (options-for-select commodities/exchanges name identity))]]
     [:div.row

@@ -85,6 +85,12 @@
     (:per-page options) (h/limit (:per-page options))
     (:page options) (h/offset (* (:per-page options) (:page options)))))
 
+(defn- append-limit
+  [sql options]
+  (if-let [limit (:limit options)]
+    (h/limit sql limit)
+    sql))
+
 (defn- query
   "Executes a SQL query and maps field names into
   clojure keys"
@@ -281,6 +287,7 @@
                   (h/where [:= :commodity-id commodity-id])
                   (h/order-by [:trade-date :desc])
                   (append-where options)
+                  (append-limit options)
                   (append-paging options))]
       (query db-spec sql)))
 

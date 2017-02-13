@@ -95,3 +95,10 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-price s id)))
+
+(defn most-recent
+  [storage-spec commodity-id]
+  (with-storage [s storage-spec]
+    (-> (select-prices-by-commodity-id s commodity-id {:limit 1})
+        first
+        after-read)))

@@ -175,3 +175,20 @@
         prices (prices/select-by-commodity-id storage-spec (:commodity-id price))]
     (is (empty? (filter #(= (:id price) (:id %))  prices))
         "The result is not retrieved after delete")))
+
+(def ^:private multi-price-context
+  (assoc price-context :prices [{:commodity-id "APPL"
+                                 :trade-date (t/local-date 2017 2 27)
+                                 :price 12.34M}
+                                {:commodity-id "APPL"
+                                 :trade-date (t/local-date 2017 3 2)
+                                 :price 12.20}
+                                {:commodity-id "APPL"
+                                 :trade-date (t/local-date 2017 3 1)
+                                 :price 12.00}]))
+
+(deftest get-the-most-recent-price-for-a-commodity
+  (let [context (serialization/realize storage-spec multi-price-context)
+        commodity (-> context :commodities first)
+        price (prices/most-recent storage-spec (:id commodity))]
+    (is (= 12.20M (:price price)) "The must recent price is returned")))
