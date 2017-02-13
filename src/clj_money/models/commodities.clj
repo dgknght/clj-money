@@ -4,11 +4,13 @@
             [clojure.spec :as s]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              with-transacted-storage]]
             [clj-money.models.storage :refer [create-commodity
                                               find-commodity-by-id
                                               update-commodity
                                               select-commodities-by-entity-id
+                                              delete-prices-by-commodity-id
                                               delete-commodity]]))
 
 (def exchanges #{:nyse :nasdaq :fund})
@@ -119,5 +121,6 @@
 (defn delete
   "Removes a commodity from the system"
   [storage-spec id]
-  (with-storage [s storage-spec]
+  (with-transacted-storage [s storage-spec]
+    (delete-prices-by-commodity-id s id)
     (delete-commodity s id)))

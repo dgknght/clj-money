@@ -308,6 +308,10 @@
     [_ id]
     (jdbc/delete! db-spec :prices ["id = ?" id]))
 
+  (delete-prices-by-commodity-id
+    [_ commodity-id]
+    (jdbc/delete! db-spec :prices ["commodity_id = ?" commodity-id]))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

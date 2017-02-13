@@ -8,7 +8,8 @@
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.models.commodities :as commodities]))
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]))
 
 (def storage-spec (env :db))
 
@@ -271,3 +272,22 @@
         retrieved (commodities/find-by-id storage-spec (:id commodity))]
     (is (not retrieved)
         "The commodity cannot be retrieved after delete")))
+
+(def ^:private commodity-with-prices-context
+  (assoc existing-commodity-context :prices [{:commodity-id "APPL"
+                                              :trade-date (t/local-date 2016 2 27)
+                                              :price 10.00M}
+                                             {:commodity-id "APPL"
+                                              :trade-date (t/local-date 2016 3 2)
+                                              :price 10.50M}]))
+
+(deftest deleting-a-commodity-deletes-the-prices
+  (let [context (serialization/realize storage-spec commodity-with-prices-context)
+        commodity (-> context :commodities first)
+        prices-before (prices/select-by-commodity-id storage-spec (:id commodity))
+        _ (commodities/delete storage-spec (:id commodity))
+        prices-after (prices/select-by-commodity-id storage-spec (:id commodity))]
+    (is (not (empty? prices-before))
+        "The commodity prices exist before delete")
+    (is (empty? prices-after)
+        "The commodity prices are absent after delete")))

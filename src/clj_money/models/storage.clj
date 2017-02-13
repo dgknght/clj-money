@@ -97,6 +97,10 @@
     [this id]
     "Deletes the specified price record")
 
+  (delete-prices-by-commodity-id
+    [this commodity-id]
+    "Deletes all prices for the specified commodity")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]
