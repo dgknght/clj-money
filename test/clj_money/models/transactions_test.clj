@@ -37,9 +37,11 @@
          groceries] (:accounts context)]
     {:transaction-date (t/local-date 2016 3 2)
      :description "Paycheck"
+     :memo "final, partial"
      :entity-id (-> context :entities first :id)
      :items [{:account-id (:id checking)
               :action :debit
+              :memo "conf # 123"
               :amount 1000M}
              {:account-id (:id salary)
               :action :credit
@@ -58,7 +60,9 @@
                (count (:items retrieved))) "The items are returned with the transaction")
         (is (= (t/local-date 2016 3 2)
                (:transaction-date retrieved))
-            "The transaction date is correct")))))
+            "The transaction date is correct")
+        (is (= "final, partial" (:memo retrieved)) "The transaction memo is correct")
+        (is (= ["conf # 123" nil] (map :memo (:items retrieved))) "The item memos are correct")))))
 
 (deftest rollback-on-failure
   (let [call-count (atom 0)]

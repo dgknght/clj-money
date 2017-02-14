@@ -337,7 +337,8 @@
     [_ transaction]
     (insert db-spec :transactions transaction :entity-id
                                               :description
-                                              :transaction-date))
+                                              :transaction-date
+                                              :memo))
 
   (find-transaction-by-id
     [_ id]
@@ -358,7 +359,8 @@
                               (h/sset (->update-set
                                         transaction
                                         :description
-                                        :transaction-date))
+                                        :transaction-date
+                                        :memo))
                               (h/where [:= :id (:id transaction)])))]
       (jdbc/execute! db-spec sql)))
 
@@ -370,7 +372,8 @@
                                                         :action
                                                         :amount
                                                         :index
-                                                        :balance))
+                                                        :balance
+                                                        :memo))
 
   (select-transaction-items-by-transaction-id
     [_ transaction-id]
@@ -469,6 +472,7 @@
     (let [sql (sql/format (-> (h/update :transaction_items)
                               (h/sset (->update-set transaction-item
                                                     :amount
+                                                    :memo
                                                     :action
                                                     :index
                                                     :balance
