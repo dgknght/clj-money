@@ -77,7 +77,7 @@
   "Renders an individual row for a transaction item"
   [entity-id index item]
   [:tr
-   [:td.col-sm-8
+   [:td.col-sm-4
     (html
       (when-let [id (:id item)]
         (hidden-input-element (str "id-" index) id))
@@ -87,6 +87,8 @@
                                                     {:include-none? true
                                                      :selected-id (:account-id item)})
                       {:suppress-label? true}))]
+   [:td.col-sm-4
+    (text-input-element (str "memo-" index) (:memo item) {:suppress-label? true}) ]
    [:td.col-sm-2
     (text-input-element (str "credit-amount-" index) (:credit-amount item) {:suppress-label? true})]
    [:td.col-sm-2
@@ -112,7 +114,7 @@
     (-> item
         (assoc :action action
                :amount amount)
-        (update-in [:account-id] #(Integer. %))
+        (update-in [:account-id] #(Integer. %)) ; TODO let coercion handle this
         (dissoc :credit-amount :debit-amount))))
 
 (defn- items-for-form
@@ -128,11 +130,18 @@
 (defn- form-fields
   [transaction back-url]
   (html
-    (date-input-field transaction :transaction-date)
-    (text-input-field transaction :description)
+    [:div.row
+     [:div.col-md-6
+      (date-input-field transaction :transaction-date)]
+     [:div.col-md-6
+      (text-input-field transaction :description)]]
+    [:div.row
+     [:div.col-md-12
+      (text-input-field transaction :memo)]]
     [:table.table.table-striped
      [:tr
       [:th "Account"]
+      [:th "Memo"]
       [:th "Credit"]
       [:th "Debit"]]
      (take 10 (items-for-form transaction))]
@@ -183,7 +192,7 @@
   [params]
   (->> (iterate inc 0)
        (map (fn [index]
-               (let [attr [:id :account-id :debit-amount :credit-amount]
+               (let [attr [:id :account-id :debit-amount :credit-amount :memo]
                      indexed-attr (map #(keyword (str (name %) "-" index)) attr)
                      item (zipmap attr (map #(% params) indexed-attr))]
                  item))) 
@@ -194,8 +203,8 @@
   [{params :params}]
   (let [transaction (-> params
                         (assoc :items (extract-items params))
-                        (select-keys [:entity-id :transaction-date :description :items])
-                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount]))))
+                        (select-keys [:entity-id :transaction-date :description :items :memo])
+                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount :memo]))))
         result (transactions/create (env :db) transaction)
         redirect-url (redirect-url (:entity-id result) params)]
     (if (validation/has-error? result)
@@ -226,7 +235,8 @@
   (let [transaction (-> params
                         (select-keys [:id
                                       :transaction-date
-                                      :description])
+                                      :description
+                                      :memo])
                         (assoc :items (extract-items params)))
         updated (transactions/update (env :db) transaction)
         redirect-url (redirect-url (:entity-id updated) params)]
