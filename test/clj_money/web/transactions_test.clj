@@ -31,7 +31,7 @@
 
 (defn- simplify-transaction-item
   [item]
-  (select-keys item [:account-id :amount :action :balance :index]))
+  (select-keys item [:account-id :amount :action :balance :index :memo]))
 
 (defn- simplify-transaction
   [transaction]
@@ -44,12 +44,14 @@
         [checking
          salary] (:accounts context)
         entity-id (-> context :entities first :id)
-        _ (transactions/create {:params {:entity-id entity-id
+        result (transactions/create {:params {:entity-id entity-id
                                          :transaction-date "3/2/2016"
                                          :description "Paycheck"
+                                         :memo "Partial payment, final"
                                          :account-id-0 (str (:id checking))
                                          :debit-amount-0 "1000"
                                          :credit-amount-0 ""
+                                         :memo-0 "conf # 123"
                                          :account-id-1 (str (:id salary))
                                          :debit-amount-1 ""
                                          :credit-amount-1 "1000"}})
@@ -57,17 +59,21 @@
                     (transm/select-by-entity-id storage-spec entity-id))
         expected [{:transaction-date (t/local-date 2016 3 2)
                    :description "Paycheck"
+                   :memo "Partial payment, final"
                    :entity-id entity-id
                    :items [{:account-id (:id checking)
+                            :memo "conf # 123"
                             :amount 1000M
                             :action :debit
                             :balance 1000M
                             :index 0}
                            {:account-id (:id salary)
+                            :memo nil
                             :amount 1000M
                             :action :credit
                             :balance 1000M
                             :index 0}]}]]
+    (is (empty? (validation/error-messages result)) "The result should be valid")
     (is (= expected actual) "The transaction should be retrievable")))
 
 (def update-context

@@ -37,6 +37,7 @@
 (s/def ::amount validation/positive-big-dec?)
 (s/def ::balance (partial instance? BigDecimal))
 (s/def ::description validation/non-empty-string?)
+(s/def ::memo #(or (nil? %) (string? %)))
 (s/def ::transaction-date (partial instance? LocalDate))
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
@@ -45,21 +46,27 @@
                                            ::action
                                            ::amount]
                                   :opt-un [::balance
-                                           ::index]))
+                                           ::index
+                                           ::memo]))
 (s/def ::items (s/coll-of ::transaction-item :min-count 2))
 (s/def ::new-transaction (s/keys :req-un [::description
                                           ::transaction-date
                                           ::items
-                                          ::entity-id]))
+                                          ::entity-id]
+                                 :opt-un [::memo]))
 (s/def ::existing-transaction (s/keys :req-un [::id
                                                ::transaction-date
                                                ::items]
-                                      :opt-un [::entity-id]))
+                                      :opt-un [::entity-id
+                                               ::memo]))
 
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
-  (update-in item [:action] name))
+  (cond-> item
+    true (update-in [:action] name)
+    (and (string? (:memo item))
+         (empty? (:memo item))) (dissoc :memo)))
 
 (defn polarize-item-amount
   [item account]
