@@ -116,21 +116,25 @@
         expected {:transaction-date (t/local-date 2016 1 2)
             :description "Employer"
             :entity-id (-> context :entities first :id)
+            :memo nil
             :items [{:action :debit
                      :account-id (:id checking)
                      :amount 1001M
                      :balance 1001M
-                     :index 0}
+                     :index 0
+                     :memo nil}
                     {:action :credit
                      :account-id (:id salary)
                      :amount 901M
                      :balance 901M
-                     :index 0}
+                     :index 0
+                     :memo nil}
                     {:action :credit
                      :account-id (:id bonus)
                      :amount 100M
                      :balance 100M
-                     :index 0}]}]
+                     :index 0
+                     :memo nil}]}]
 
     (when (not= expected actual)
       (pprint {:expected expected
