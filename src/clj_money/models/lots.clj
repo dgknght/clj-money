@@ -10,6 +10,15 @@
             [clj-money.models.storage :refer [create-lot
                                               select-lots-by-commodity-id]]))
 
+(s/def ::account-id integer?)
+(s/def ::commodity-id integer?)
+(s/def ::purchase-date validation/local-date?)
+(s/def ::shares-purchased decimal?)
+(s/def ::new-lot (s/keys :req-un [::account-id
+                                  ::commodity-id
+                                  ::purchase-date
+                                  ::shares-purchased]))
+
 (defn- before-save
   [lot]
   (-> lot
@@ -20,13 +29,20 @@
   [lot]
   (update-in lot [:purchase-date] tc/to-local-date))
 
+(defn- validate
+  [storage spec lot]
+  (validation/validate spec lot))
+
 (defn create
   [storage-spec lot]
   (with-storage [s storage-spec]
-    (->> lot
-         before-save
-         (create-lot s )
-         after-read)))
+    (let [validated (validate s ::new-lot lot)]
+      (if (validation/valid? validated)
+        (->> validated
+             before-save
+             (create-lot s)
+             after-read)
+        validated))))
 
 (defn select-by-commodity-id
   [storage-spec commodity-id]
