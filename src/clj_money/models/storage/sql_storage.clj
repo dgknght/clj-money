@@ -312,6 +312,21 @@
     [_ commodity-id]
     (jdbc/delete! db-spec :prices ["commodity_id = ?" commodity-id]))
 
+  ; Lots
+  (create-lot
+    [_ lot]
+    (insert db-spec :lots lot :commodity-id
+                              :account-id
+                              :purchase-date
+                              :shares-purchased
+                              :shares-owned))
+
+  (select-lots-by-commodity-id
+    [_ commodity-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from :lots)
+                       (h/where [:= :commodity_id commodity-id]))))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

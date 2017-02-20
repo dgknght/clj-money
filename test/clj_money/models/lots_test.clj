@@ -18,6 +18,8 @@
 (def ^:private lot-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
+   :accounts [{:name "IRA"
+               :type :asset}]
    :commodities [{:name "Apple"
                   :symbol "APPL"
                   :exchange :nasdaq}]})
@@ -25,13 +27,15 @@
 (deftest create-a-lot
   (let [context (serialization/realize storage-spec lot-context)
         commodity (-> context :commodities first)
+        account (-> context :accounts first)
         result (lots/create storage-spec {:commodity-id (:id commodity)
+                                          :account-id (:id account)
                                           :purchase-date (t/local-date 2017 3 2)
-                                          :shares 100M})
+                                          :shares-purchased 100M})
         lots (lots/select-by-commodity-id storage-spec (:id commodity))]
     (is (:id result) "The result receives an ID value")
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
     (is (= [{:purchase-date (t/local-date 2017 3 2)
-             :shares 100M}]
-           (map #(select-keys % [:purchase-date :shares]) lots))
+             :shares-owned 100M}]
+           (map #(select-keys % [:purchase-date :shares-owned]) lots))
         "The value is retrieved after create")))
