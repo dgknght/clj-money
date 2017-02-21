@@ -6,7 +6,8 @@
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
             [clj-money.validation :as validation]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              defcreate]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
                                               find-entity-by-id
@@ -30,11 +31,12 @@
        empty?))
 
 (defn- before-save
-  [entity]
-  (cond-> entity
+  ([entity] (before-save nil entity))
+  ([_ entity]
+   (cond-> entity
 
-    (contains? entity :monitored-account-ids)
-    (update-in [:monitored-account-ids] pr-str)))
+     (contains? entity :monitored-account-ids)
+     (update-in [:monitored-account-ids] pr-str))))
 
 (defn- validation-rules
   [storage]
@@ -46,16 +48,11 @@
   [storage spec entity]
   (validation/validate spec (validation-rules storage) entity))
 
-(defn create
-  "Creates a new entity"
-  [storage-spec entity]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::new-entity entity)]
-      (if (validation/valid? validated)
-        (->> validated
-             before-save
-             (create-entity s))
-        validated))))
+(def create
+  (defcreate {:before-save before-save
+              :create create-entity
+              :spec ::new-entity
+              :rules-fn validation-rules}))
 
 (defn select
   "Returns entities for the specified user"
