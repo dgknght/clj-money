@@ -1,5 +1,6 @@
 (ns clj-money.models.helpers
   (:require [clojure.pprint :refer [pprint]]
+            [clj-money.validation :as validation]
             [clj-money.models.storage :refer [with-transaction]]
             [clj-money.models.storage.sql-storage])
   (:import clj_money.models.storage.sql_storage.SqlStorage
@@ -53,3 +54,28 @@
   `(let [s# (storage* ~(second binding))
          f# (fn* [~(first binding)] ~@body)]
      (with-transaction s# f#)))
+
+(def ^:private create-fn-keys
+  [:before-save
+   :create
+   :after-reader])
+
+(defn defcreate
+  [options]
+  (fn [storage-spec model]
+    (with-storage [s storage-spec]
+      (let [validated (validation/validate (:spec options)
+                                           (or (:rules options)
+                                               (when-let [rules-fn (:rules-fn options)]
+                                                 ((:rules-fn options) s))
+                                               [])
+                                           model)]
+        (if (validation/valid? validated)
+          (->> create-fn-keys
+               (map #(or
+                       (% options)
+                       (fn [_ model] model)))
+               (reduce (fn [model f]
+                         (f s model))
+                       model))
+          validated)))))

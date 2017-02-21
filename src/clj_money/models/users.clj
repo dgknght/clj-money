@@ -5,7 +5,8 @@
             [clojure.pprint :refer [pprint]]
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              defcreate]]
             [clj-money.validation :as validation]
             [clj-money.models.storage :refer [create-user
                                               select-users
@@ -13,13 +14,14 @@
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
-  [user]
+  [storage user]
   (update-in user [:password] hash-bcrypt))
 
 (defn prepare-user-for-return
   "Prepares a user record for return to the caller"
-  [user]
-  (dissoc user :password))
+  ([user] (prepare-user-for-return nil user))
+  ([storage user]
+   (dissoc user :password)))
 
 (def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
 
@@ -39,21 +41,12 @@
                            [:email]
                            "Email is already taken")])
 
-(defn- validate
-  [storage spec user]
-  (validation/validate spec (validation-rules storage) user))
-
-(defn create
-  "Creates a new user record"
-  [storage-spec user]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::new-user user)]
-      (if (validation/valid? validated)
-        (->> user
-             prepare-user-for-insertion
-             (create-user s)
-             prepare-user-for-return)
-        validated))))
+(def create
+  (defcreate {:spec ::new-user
+              :rules-fn validation-rules
+              :create create-user
+              :before-save prepare-user-for-insertion
+              :after-read prepare-user-for-return}))
 
 (defn select
   "Lists the users in the database"
