@@ -7,7 +7,8 @@
             [clojure.reflect :refer :all]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage
-                                              defcreate]]
+                                              defcreate
+                                              defupdate]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
                                               find-entity-by-id
@@ -44,10 +45,6 @@
                            [:name]
                            "Name is already in use")])
 
-(defn- validate
-  [storage spec entity]
-  (validation/validate spec (validation-rules storage) entity))
-
 (def create
   (defcreate {:before-save before-save
               :create create-entity
@@ -81,18 +78,12 @@
        (filter #(= entity-name (:name %)))
        first))
 
-(defn update
-  "Updates the specified entity"
-  [storage-spec entity]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::existing-entity entity)]
-      (if (validation/valid? validated)
-        (do
-          (->> validated
-               before-save
-               (update-entity s))
-          (find-by-id storage-spec (:id validated)))
-        validated))))
+(def update
+  (defupdate {:update update-entity
+              :spec ::existing-entity
+              :rule-fn validation-rules
+              :before-save before-save
+              :find find-by-id}))
 
 (defn delete
   "Removes the specifiedy entity from storage"

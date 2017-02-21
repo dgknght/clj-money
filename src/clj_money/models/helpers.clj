@@ -60,16 +60,20 @@
    :create
    :after-reader])
 
+(defn- validate
+  [options s model]
+  (validation/validate (:spec options)
+                       (or (:rules options)
+                           (when-let [rules-fn (:rules-fn options)]
+                             ((:rules-fn options) s))
+                           [])
+                       model))
+
 (defn defcreate
   [options]
   (fn [storage-spec model]
     (with-storage [s storage-spec]
-      (let [validated (validation/validate (:spec options)
-                                           (or (:rules options)
-                                               (when-let [rules-fn (:rules-fn options)]
-                                                 ((:rules-fn options) s))
-                                               [])
-                                           model)]
+      (let [validated (validate options s model)]
         (if (validation/valid? validated)
           (->> create-fn-keys
                (map #(or
@@ -78,4 +82,21 @@
                (reduce (fn [model f]
                          (f s model))
                        model))
+          validated)))))
+
+(defn defupdate
+  [options]
+  (fn [storage-spec model]
+    (with-storage [s storage-spec]
+      (let [validated (validate options s model)]
+        (if (validation/valid? validated)
+          (do
+            (->> [:before-save :update]
+                 (map #(or
+                         (% options)
+                         (fn [_ model] model)))
+                 (reduce (fn [model f]
+                           (f s model))
+                         model))
+            ((:find options) s (:id model)))
           validated)))))
