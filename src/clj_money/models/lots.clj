@@ -29,9 +29,16 @@
   [lot]
   (update-in lot [:purchase-date] tc/to-local-date))
 
+(defn- before-validation
+  [lot]
+  (coercion/coerce lot [(coercion/rule :local-date [:purchase-date])
+                        (coercion/rule :decimal [:shares-purchased])
+                        (coercion/rule :integer [:account-id])
+                        (coercion/rule :integer [:commodity-id])]))
+
 (defn- validate
   [storage spec lot]
-  (validation/validate spec lot))
+  (validation/validate spec (before-validation lot)))
 
 (defn create
   [storage-spec lot]
