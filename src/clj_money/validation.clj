@@ -157,11 +157,12 @@
 
 (defn validate
   "Validates the specified model using the specified spec"
-  [spec model & rules]
-  (if-let [explanation (s/explain-data spec model)]
-    (assoc model ::errors (interpret-problems explanation)
-           ::valid? false)
-    (perform-additional-validation model rules)))
+  ([spec model] (validate spec [] model))
+  ([spec rules model]
+   (if-let [explanation (s/explain-data spec model)]
+     (assoc model ::errors (interpret-problems explanation)
+            ::valid? false)
+     (perform-additional-validation model rules))))
 
 (defn has-error?
   "Returns true if the specified model contains validation errors"

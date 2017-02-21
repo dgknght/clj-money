@@ -52,8 +52,9 @@
 
 (defn- validate
   [storage spec model]
-  (let [prepared (before-validation model)]
-    (apply validation/validate spec prepared (validation-rules storage))))
+  (->> model
+       before-validation
+       (validation/validate spec (validation-rules storage))))
 
 (defn create
   [storage-spec price]

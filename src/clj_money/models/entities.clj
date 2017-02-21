@@ -36,14 +36,21 @@
     (contains? entity :monitored-account-ids)
     (update-in [:monitored-account-ids] pr-str)))
 
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule (partial name-is-unique? storage)
+                           [:name]
+                           "Name is already in use")])
+
+(defn- validate
+  [storage spec entity]
+  (validation/validate spec (validation-rules storage) entity))
+
 (defn create
   "Creates a new entity"
   [storage-spec entity]
   (with-storage [s storage-spec]
-    (let [unique-name-rule (validation/create-rule (partial name-is-unique? s)
-                                                   [:name]
-                                                   "Name is already in use")
-          validated (validation/validate ::new-entity entity unique-name-rule)]
+    (let [validated (validate s ::new-entity entity)]
       (if (validation/valid? validated)
         (->> validated
              before-save
@@ -81,7 +88,7 @@
   "Updates the specified entity"
   [storage-spec entity]
   (with-storage [s storage-spec]
-    (let [validated (validation/validate ::existing-entity entity)]
+    (let [validated (validate s ::existing-entity entity)]
       (if (validation/valid? validated)
         (do
           (->> validated

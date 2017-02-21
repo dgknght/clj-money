@@ -133,8 +133,9 @@
 
 (defn- validate
   [spec budget]
-  (let [prepared (before-validation budget)]
-    (validation/validate spec prepared)))
+  (->> budget
+       before-validation
+       (validation/validate spec)))
 
 (defn create
   "Creates a new budget"
@@ -246,11 +247,9 @@
 
 (defn- validate-item
   [storage spec budget item]
-  (let [prepared (before-item-validation item)]
-    (apply validation/validate
-           spec
-           prepared
-           (item-validation-rules storage budget))))
+  (->> item
+       before-item-validation
+       (validation/validate spec (item-validation-rules storage budget))))
 
 (defn- before-save-item
   [item]

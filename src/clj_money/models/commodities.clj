@@ -74,10 +74,11 @@
 
 (defn- validate
   [storage spec commodity]
-  (apply validation/validate
+  (->> commodity
+       before-validation
+       (validation/validate
          spec
-         (before-validation commodity)
-         (validation-rules storage)))
+         (validation-rules storage))))
 
 (defn create
   "Creates a new commodity record"

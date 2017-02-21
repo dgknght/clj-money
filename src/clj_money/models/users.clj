@@ -33,16 +33,21 @@
   [storage user]
   (nil? (find-user-by-email storage (:email user))))
 
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule (partial email-is-unique? storage)
+                           [:email]
+                           "Email is already taken")])
+
+(defn- validate
+  [storage spec user]
+  (validation/validate spec (validation-rules storage) user))
+
 (defn create
   "Creates a new user record"
   [storage-spec user]
   (with-storage [s storage-spec]
-    (let [unique-email-rule (validation/create-rule (partial email-is-unique? s)
-                                                    [:email]
-                                                    "Email is already taken")
-          validated (validation/validate ::new-user
-                                         user
-                                         unique-email-rule)]
+    (let [validated (validate s ::new-user user)]
       (if (validation/valid? validated)
         (->> user
              prepare-user-for-insertion

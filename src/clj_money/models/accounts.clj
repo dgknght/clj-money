@@ -108,15 +108,17 @@
          :path [:type]
          :message "Type must match the parent type"}]))
 
+(defn- validate
+  [storage spec account]
+  (->> account
+       (before-validation storage)
+       (validation/validate spec (validation-rules storage))))
+
 (defn create
   "Creates a new account in the system"
   [storage-spec account]
   (with-storage [s storage-spec]
-    (let [prepared (before-validation s account)
-          validated (apply validation/validate
-                           ::new-account
-                           prepared
-                           (validation-rules s))]
+    (let [validated (validate s ::new-account account)]
       (if (validation/has-error? validated)
         validated
         (->> validated
@@ -198,9 +200,7 @@
   "Updates the specified account"
   [storage-spec account]
   (with-storage [s storage-spec]
-    (let [validated (->> account
-                         (before-validation s)
-                         (validation/validate ::existing-account))]
+    (let [validated (validate s ::existing-account  account)]
       (if (validation/has-error? validated)
         validated
         (do

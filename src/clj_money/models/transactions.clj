@@ -321,16 +321,18 @@
       (= incoming reconciled))
     true))
 
+(defn- validation-rules
+  [storage]
+  [#'sum-of-credits-must-equal-sum-of-debits
+   (validation/create-rule (partial no-reconciled-items-changed? storage)
+                           [:items]
+                           "A reconciled transaction item cannot be changed")])
+
 (defn- validate
   [storage spec transaction]
-  (let [prepared (before-validation transaction)]
-    (validation/validate
-      spec
-      prepared
-      #'sum-of-credits-must-equal-sum-of-debits
-      (validation/create-rule (partial no-reconciled-items-changed? storage)
-                              [:items]
-                              "A reconciled transaction item cannot be changed"))))
+  (->> transaction
+       before-validation
+       (validation/validate spec (validation-rules storage))))
 
 (defn- append-items
   [storage transaction]

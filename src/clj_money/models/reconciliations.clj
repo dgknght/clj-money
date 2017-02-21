@@ -179,10 +179,9 @@
 
 (defn- validate
   [spec rules reconciliation]
-  (apply validation/validate
-         spec
-         (before-validation reconciliation)
-         rules))
+  (->> reconciliation
+       before-validation
+       (validation/validate spec rules)))
 
 (defn create
   "Creates a new reconciliation record"
