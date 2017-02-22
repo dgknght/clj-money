@@ -55,11 +55,6 @@
          f# (fn* [~(first binding)] ~@body)]
      (with-transaction s# f#)))
 
-(def ^:private create-fn-keys
-  [:before-save
-   :create
-   :after-reader])
-
 (defn- validate
   [options s model]
   (validation/validate (:spec options)
@@ -69,19 +64,23 @@
                            [])
                        model))
 
+(defn- process-options
+  [options storage model & fn-keys]
+  (->> fn-keys
+       (map #(or
+               (% options)
+               (fn [_ model] model)))
+       (reduce (fn [model f]
+                 (f storage model))
+               model)))
+
 (defn defcreate
   [options]
   (fn [storage-spec model]
     (with-storage [s storage-spec]
       (let [validated (validate options s model)]
         (if (validation/valid? validated)
-          (->> create-fn-keys
-               (map #(or
-                       (% options)
-                       (fn [_ model] model)))
-               (reduce (fn [model f]
-                         (f s model))
-                       model))
+          (process-options options s model :before-save :create :after-read)
           validated)))))
 
 (defn defupdate
@@ -91,12 +90,6 @@
       (let [validated (validate options s model)]
         (if (validation/valid? validated)
           (do
-            (->> [:before-save :update]
-                 (map #(or
-                         (% options)
-                         (fn [_ model] model)))
-                 (reduce (fn [model f]
-                           (f s model))
-                         model))
+            (process-options options s model :before-save :update)
             ((:find options) s (:id model)))
           validated)))))
