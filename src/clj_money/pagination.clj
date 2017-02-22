@@ -23,7 +23,7 @@
 
 (defn- validate-options
   [options]
-  (let [coerced (coercion/coerce options menu-coercion-rules)]
+  (let [coerced (coercion/coerce menu-coercion-rules options)]
     (if (s/valid? ::pagination-options coerced)
       (merge {:page 0 :per-page 10} coerced)
       (throw (RuntimeException. (str "Invalid pagination options: "

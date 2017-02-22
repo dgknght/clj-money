@@ -48,7 +48,7 @@
 
 (defn- before-validation
   [price]
-  (coercion/coerce price coercion-rules))
+  (coercion/coerce coercion-rules price))
 
 (defn- validate
   [storage spec model]

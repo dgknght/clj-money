@@ -42,24 +42,23 @@
 (defn- before-validation
   "Adjust account data for validation"
   [storage account]
-  (let [coerced (coercion/coerce account coercion-rules)]
-    (cond-> coerced
-      ; If no entity is specified, try to look it up
-      (and (:id coerced)
-           (nil? (:entity-id coerced)))
-      (assoc :entity-id (:entity-id (find-by-id storage (:id coerced))))
+  (cond-> account
+    ; If no entity is specified, try to look it up
+    (and (:id account)
+         (nil? (:entity-id account)))
+    (assoc :entity-id (:entity-id (find-by-id storage (:id account))))
 
-      ; strip out empty string for parent-id
-      (and (string? (:parent-id coerced))
-           (empty? (:parent-id coerced)))
-      (dissoc :parent-id))))
+    ; strip out empty string for parent-id
+    (and (string? (:parent-id account))
+         (empty? (:parent-id account)))
+    (dissoc :parent-id)))
 
 (defn- before-save
   "Adjusts account data for saving in the database"
   [storage account]
   (-> account
       (update-in [:balance] (fnil identity 0M))
-      (update-in [:type] (fnil name "asset"))))
+      (update-in [:type] #(when % (name %)))))
 
 (defn- after-read
   "Adjusts account data read from the database for use"
@@ -111,6 +110,7 @@
               :after-read after-read
               :create create-account
               :rules-fn validation-rules
+              :coercion-rules coercion-rules
               :spec ::new-account}))
 
 (defn find-by-id
@@ -188,6 +188,7 @@
               :update update-account
               :find find-by-id
               :spec ::existing-account
+              :coercion-rules coercion-rules
               :rules-fn validation-rules}))
 
 (defn delete

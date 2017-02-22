@@ -78,14 +78,9 @@
    (coercion/rule :keyword [:period])
    (coercion/rule :integer [:period-count])])
 
-(defn- coerce
-  [budget]
-  (coercion/coerce budget coercion-rules))
-
 (defn- before-validation
   [budget]
-  (-> budget
-      coerce
+  (-> (coercion/coerce coercion-rules budget)
       (dissoc :items)))
 
 (def period-map

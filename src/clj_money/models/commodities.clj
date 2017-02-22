@@ -70,7 +70,7 @@
 
 (defn- before-validation
   [commodity]
-  (coercion/coerce commodity coercion-rules))
+  (coercion/coerce coercion-rules commodity))
 
 (defn- validate
   [storage spec commodity]

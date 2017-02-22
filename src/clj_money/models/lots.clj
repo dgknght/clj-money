@@ -31,10 +31,11 @@
 
 (defn- before-validation
   [lot]
-  (coercion/coerce lot [(coercion/rule :local-date [:purchase-date])
-                        (coercion/rule :decimal [:shares-purchased])
-                        (coercion/rule :integer [:account-id])
-                        (coercion/rule :integer [:commodity-id])]))
+  (coercion/coerce [(coercion/rule :local-date [:purchase-date])
+                    (coercion/rule :decimal [:shares-purchased])
+                    (coercion/rule :integer [:account-id])
+                    (coercion/rule :integer [:commodity-id])]
+                   lot ))
 
 (defn- validate
   [storage spec lot]

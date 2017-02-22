@@ -4,7 +4,7 @@
             [clojure.spec :as s]
             [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [ensure-local-date]]
+            [clj-money.util :refer [ensure-local-date pprint-and-return]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
@@ -123,7 +123,7 @@
 (defn- before-validation
   "Performs operations required before validation"
   [transaction]
-  (-> (coercion/coerce transaction coercion-rules)
+  (-> (coercion/coerce coercion-rules transaction)
       (update-in [:items] #(map before-item-validation %))))
 
 (defn- before-save
@@ -290,6 +290,7 @@
   ([storage-spec items transaction-date]
    (doseq [[account-id items] (group-by :account-id items)]
      (let [last-item (last items) ; these should already be sorted
+           account (accounts/find-by-id storage-spec account-id)
            subsequent-items (if transaction-date
                               (subsequent-items storage-spec last-item transaction-date)
                               (subsequent-items storage-spec last-item))
@@ -297,8 +298,7 @@
                          (assoc last-item :storage storage-spec)
                          subsequent-items)]
        (when-not (::skip-account-update final)
-         (accounts/update storage-spec {:id account-id
-                                        :balance (:balance final)}))))))
+         (accounts/update storage-spec (assoc account :balance (:balance final))))))))
 
 (declare reload)
 (defn- no-reconciled-items-changed?
@@ -351,8 +351,9 @@
   "Returns the transactions that belong to the specified entity"
   ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
   ([storage-spec entity-id options]
-   (let [coerced-options (coercion/coerce options [(coercion/rule :integer [:page])
-                                                   (coercion/rule :integer [:per-page])])
+   (let [coerced-options (coercion/coerce [(coercion/rule :integer [:page])
+                                           (coercion/rule :integer [:per-page])]
+                                          options )
          parsed-options (if (s/valid? ::select-options coerced-options)
                           coerced-options
                           {:page 0
