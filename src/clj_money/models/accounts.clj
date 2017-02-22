@@ -7,7 +7,9 @@
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              defcreate
+                                              defupdate]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
@@ -52,21 +54,17 @@
            (empty? (:parent-id coerced)))
       (dissoc :parent-id))))
 
-(defn- before-create
-  "Adjust account data prior to creation"
-  [storage account]
-  (assoc account :balance (bigdec 0)))
-
 (defn- before-save
   "Adjusts account data for saving in the database"
   [storage account]
-  (cond-> account
-    ; convert account type from keyword to string
-    (:type account) (update-in [:type] name)))
+  (-> account
+      (update-in [:balance] (fnil identity 0M))
+      (update-in [:type] (fnil name "asset"))))
 
-(defn- prepare-for-return
+(defn- after-read
   "Adjusts account data read from the database for use"
-  [account]
+  ([account] (after-read nil account))
+  ([_ account]
   (cond-> account
 
     ; Remove :parent-id if it's nil
@@ -78,7 +76,7 @@
     ; :type should already be present
     ; and should be a keyword
     true
-    (update-in [:type] keyword)))
+    (update-in [:type] keyword))))
 
 (defn- name-is-unique?
   [storage {:keys [id parent-id name entity-id]}]
@@ -108,37 +106,25 @@
          :path [:type]
          :message "Type must match the parent type"}]))
 
-(defn- validate
-  [storage spec account]
-  (->> account
-       (before-validation storage)
-       (validation/validate spec (validation-rules storage))))
-
-(defn create
-  "Creates a new account in the system"
-  [storage-spec account]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::new-account account)]
-      (if (validation/has-error? validated)
-        validated
-        (->> validated
-             (before-create s)
-             (before-save s)
-             (create-account s)
-             prepare-for-return)))))
+(def create
+  (defcreate {:before-save before-save
+              :after-read after-read
+              :create create-account
+              :rules-fn validation-rules
+              :spec ::new-account}))
 
 (defn find-by-id
   "Returns the account having the specified id"
   [storage-spec id]
   (when id
     (with-storage [s storage-spec]
-      (prepare-for-return (find-account-by-id s id)))))
+      (after-read (find-account-by-id s id)))))
 
 (defn find-by-name
   "Returns the account having the specified name"
   [storage-spec entity-id account-name]
   (with-storage [s storage-spec]
-    (prepare-for-return
+    (after-read
       (find-account-by-entity-id-and-name s
                                           entity-id
                                           account-name))))
@@ -156,7 +142,7 @@
      (let [types (or (:types options)
                      (set account-types))]
        (->> (select-accounts-by-entity-id s entity-id)
-            (map prepare-for-return)
+            (map after-read)
             (filter #(types (:type %))))))))
 
 (defn- append-path
@@ -196,21 +182,13 @@
                                          []))
           types))))
 
-(defn update
-  "Updates the specified account"
-  [storage-spec account]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::existing-account  account)]
-      (if (validation/has-error? validated)
-        validated
-        (do
-          (->> validated
-               (before-save s)
-               (update-account s))
-          (->> validated
-               :id
-               (find-by-id s)
-               prepare-for-return))))))
+(def update
+  (defupdate {:before-save before-save
+              :after-read after-read
+              :update update-account
+              :find find-by-id
+              :spec ::existing-account
+              :rules-fn validation-rules}))
 
 (defn delete
   "Removes the account from the system"
