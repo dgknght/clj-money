@@ -118,3 +118,21 @@
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (not (empty? (validation/error-messages result :shares-purchased))) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
+
+(def ^:private existing-lot-context
+  (assoc lot-context :lots [{:account-id "IRA"
+                             :commodity-id "APPL"
+                             :shares-purchased 100M
+                             :shares-owned 100M
+                             :purchase-date (t/local-date 2016 3 2)}]))
+
+(deftest update-a-lot
+  (let [context (serialization/realize storage-spec existing-lot-context)
+        lot (-> context :lots first)
+        updated (update-in lot [:shares-owned] #(- % 30M))
+        result (lots/update storage-spec updated)
+        retrieved (lots/find-by-id storage-spec (:id lot))]
+    (is (empty? (validation/error-messages result))
+        "The result contains no validation errors")
+    (is (= 70M (:shares-owned retrieved))
+        "The retrieved map contains the updated value")))

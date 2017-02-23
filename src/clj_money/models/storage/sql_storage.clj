@@ -234,9 +234,9 @@
   (find-commodity-by-id
     [_ id]
     (->> (-> (h/select :*)
-            (h/from :commodities)
-            (h/where [:= :id id])
-            (h/limit 1))
+             (h/from :commodities)
+             (h/where [:= :id id])
+             (h/limit 1))
         (query db-spec )
         first))
 
@@ -326,6 +326,22 @@
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
                        (h/where [:= :commodity_id commodity-id]))))
+
+  (update-lot
+    [_ lot]
+    (let [sql (sql/format (-> (h/update :lots)
+                              (h/sset (->update-set lot
+                                                    :purchase-date
+                                                    :account-id
+                                                    :commodity-id
+                                                    :shares-owned
+                                                    :shares-purchased))
+                              (h/where [:= :id (:id lot)])))]
+      (jdbc/execute! db-spec sql)))
+
+  (find-lot-by-id
+    [_ id]
+    (->clojure-keys (jdbc/get-by-id db-spec :lots id)))
 
   ; Transactions
   (select-transactions-by-entity-id

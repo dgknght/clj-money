@@ -13,6 +13,7 @@
                  "budget_items"
                  "commodities"
                  "prices"
+                 "lots"
                  "entities"
                  "users"])
 

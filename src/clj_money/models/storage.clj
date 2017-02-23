@@ -110,6 +110,14 @@
     [this commodity-id]
     "Returns the lots for the specified commodity")
 
+  (update-lot
+    [this lot]
+    "Updates the specified lot record")
+
+  (find-lot-by-id
+    [this id]
+    "Returns the lot having the specified id")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

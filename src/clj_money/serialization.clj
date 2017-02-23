@@ -8,6 +8,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
+            [clj-money.models.lots :as lots]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]))
@@ -195,6 +196,19 @@
   [storage context]
   (update-in context [:prices] #(create-prices storage context %)))
 
+(defn- create-lots
+  [storage context lots]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-commodity context)
+               (resolve-account context)
+               (lots/create storage)))
+        lots))
+
+(defn- realize-lots
+  [storage context]
+  (update-in context [:lots] #(create-lots storage context %)))
+
 (defn- resolve-transaction-item-ids
   [context account-id items]
   (mapv (fn [{:keys [transaction-date amount]}]
@@ -243,6 +257,7 @@
       (realize-accounts s)
       (realize-commodities s)
       (realize-prices s)
+      (realize-lots s)
       (realize-budgets s)
       (realize-transactions s)
       (realize-reconciliations s))))

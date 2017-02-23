@@ -10,16 +10,26 @@
                                               defcreate
                                               defupdate]]
             [clj-money.models.storage :refer [create-lot
-                                              select-lots-by-commodity-id]]))
+                                              select-lots-by-commodity-id
+                                              update-lot
+                                              find-lot-by-id]]))
 
+(s/def ::id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::purchase-date validation/local-date?)
 (s/def ::shares-purchased decimal?)
+(s/def ::shares-owned decimal?)
 (s/def ::new-lot (s/keys :req-un [::account-id
                                   ::commodity-id
                                   ::purchase-date
                                   ::shares-purchased]))
+(s/def ::existing-lot (s/keys :req-un [::id
+                                       ::account-id
+                                       ::commodity-id
+                                       ::purchase-date
+                                       ::shares-purchased
+                                       ::shares-owned]))
 
 (defn- before-save
   [_ lot]
@@ -51,3 +61,18 @@
     (->> commodity-id
          (select-lots-by-commodity-id s)
          (map after-read))))
+
+(defn find-by-id
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (->> id
+         (find-lot-by-id s)
+         after-read)))
+
+(def update
+  (defupdate {:before-save before-save
+              :update update-lot
+              :after-read after-read
+              :spec ::existing-lot
+              :coercion-rules coercion-rules
+              :find find-by-id}))
