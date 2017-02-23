@@ -1,5 +1,7 @@
 (ns clj-money.models.helpers
   (:require [clojure.pprint :refer [pprint]]
+            [clj-money.util :refer [pprint-and-return]]
+            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.storage :refer [with-transaction]]
             [clj-money.models.storage.sql-storage])
@@ -57,12 +59,18 @@
 
 (defn- validate
   [options s model]
-  (validation/validate (:spec options)
-                       (or (:rules options)
-                           (when-let [rules-fn (:rules-fn options)]
-                             ((:rules-fn options) s))
-                           [])
-                       model))
+  (let [rules (or (:rules options)
+                  (when-let [rules-fn (:rules-fn options)]
+                    ((:rules-fn options) s))
+                  [])
+        before-validation (or (:before-validation options)
+                              identity)
+        coercion-rules (or (:coercion-rules options)
+                           [])]
+    (->> model
+         (coercion/coerce coercion-rules)
+         before-validation
+         (validation/validate (:spec options) rules))))
 
 (defn- process-options
   [options storage model & fn-keys]
@@ -80,7 +88,7 @@
     (with-storage [s storage-spec]
       (let [validated (validate options s model)]
         (if (validation/valid? validated)
-          (process-options options s model :before-save :create :after-read)
+          (process-options options s validated :before-save :create :after-read)
           validated)))))
 
 (defn defupdate
