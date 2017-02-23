@@ -8,8 +8,8 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
-                                              defcreate
-                                              defupdate]]
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
@@ -106,7 +106,7 @@
          :message "Type must match the parent type"}]))
 
 (def create
-  (defcreate {:before-save before-save
+  (create-fn {:before-save before-save
               :after-read after-read
               :create create-account
               :rules-fn validation-rules
@@ -183,7 +183,7 @@
           types))))
 
 (def update
-  (defupdate {:before-save before-save
+  (update-fn {:before-save before-save
               :after-read after-read
               :update update-account
               :find find-by-id

@@ -7,8 +7,8 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
-                                              defcreate
-                                              defupdate]]
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-lot
                                               select-lots-by-commodity-id
                                               update-lot
@@ -49,7 +49,7 @@
    (coercion/rule :integer [:commodity-id])])
 
 (def create
-  (defcreate {:before-save before-save
+  (create-fn {:before-save before-save
               :create create-lot
               :after-read after-read
               :spec ::new-lot
@@ -70,7 +70,7 @@
          after-read)))
 
 (def update
-  (defupdate {:before-save before-save
+  (update-fn {:before-save before-save
               :update update-lot
               :after-read after-read
               :spec ::existing-lot

@@ -7,8 +7,8 @@
             [clojure.reflect :refer :all]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage
-                                              defcreate
-                                              defupdate]]
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
                                               find-entity-by-id
@@ -46,7 +46,7 @@
                            "Name is already in use")])
 
 (def create
-  (defcreate {:before-save before-save
+  (create-fn {:before-save before-save
               :create create-entity
               :spec ::new-entity
               :rules-fn validation-rules}))
@@ -79,7 +79,7 @@
        first))
 
 (def update
-  (defupdate {:update update-entity
+  (update-fn {:update update-entity
               :spec ::existing-entity
               :rule-fn validation-rules
               :before-save before-save

@@ -12,8 +12,8 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
-                                              defcreate
-                                              defupdate]]
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-budget
                                               update-budget
                                               create-budget-item
@@ -129,7 +129,7 @@
              [])})
 
 (def create
-  (defcreate {:before-save before-save
+  (create-fn {:before-save before-save
               :create create-budget
               :spec ::new-budget
               :before-validation before-validation
@@ -160,7 +160,7 @@
          (after-read s))))
 
 (def update
-  (defupdate {:spec ::existing-budget
+  (update-fn {:spec ::existing-budget
               :before-validation before-validation
               :before-save before-save
               :update update-budget

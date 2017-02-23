@@ -6,7 +6,7 @@
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [clj-money.models.helpers :refer [with-storage
-                                              defcreate]]
+                                              create-fn]]
             [clj-money.validation :as validation]
             [clj-money.models.storage :refer [create-user
                                               select-users
@@ -42,7 +42,7 @@
                            "Email is already taken")])
 
 (def create
-  (defcreate {:spec ::new-user
+  (create-fn {:spec ::new-user
               :rules-fn validation-rules
               :create create-user
               :before-save prepare-user-for-insertion

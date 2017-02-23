@@ -82,7 +82,7 @@
                  (f storage model))
                model)))
 
-(defn defcreate
+(defn create-fn
   [options]
   (fn [storage-spec model]
     (with-storage [s storage-spec]
@@ -91,7 +91,7 @@
           (process-options options s validated :before-save :create :after-read)
           validated)))))
 
-(defn defupdate
+(defn update-fn
   [options]
   (fn [storage-spec model]
     (with-storage [s storage-spec]
