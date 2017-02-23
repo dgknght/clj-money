@@ -177,6 +177,7 @@
     [_ account]
     (insert db-spec :accounts account :name
                                       :type
+                                      :content-type
                                       :entity-id
                                       :parent-id
                                       :balance))

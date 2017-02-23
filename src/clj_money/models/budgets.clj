@@ -82,7 +82,7 @@
    (coercion/rule :integer [:period-count])])
 
 (defn- before-validation
-  [budget]
+  [_ budget]
   (dissoc budget :items))
 
 (def period-map

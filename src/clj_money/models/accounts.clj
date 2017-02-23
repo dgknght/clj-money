@@ -27,9 +27,10 @@
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::type #{:asset :liability :equity :income :expense})
+(s/def ::content-type #{:currency :commodity :commodities})
 (s/def ::parent-id integer?)
-(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id]))
-(s/def ::existing-account (s/keys :req-un [::id] :opt-un [::entity-id ::name ::type ::parent-id]))
+(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id ::content-type]))
+(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::content-type ::name] :opt-un [::parent-id]))
 ; :balance and :children-balance are not specified because they are always calculated and not passed in
 
 (def ^:private coercion-rules
@@ -51,31 +52,31 @@
     ; strip out empty string for parent-id
     (and (string? (:parent-id account))
          (empty? (:parent-id account)))
-    (dissoc :parent-id)))
+    (dissoc :parent-id)
+
+    true
+    (update-in [:content-type] (fnil identity :currency))))
 
 (defn- before-save
   "Adjusts account data for saving in the database"
   [storage account]
   (-> account
       (update-in [:balance] (fnil identity 0M))
-      (update-in [:type] #(when % (name %)))))
+      (update-in [:type] name)
+      (update-in [:content-type] name)))
 
 (defn- after-read
   "Adjusts account data read from the database for use"
   ([account] (after-read nil account))
   ([_ account]
-  (cond-> account
-
-    ; Remove :parent-id if it's nil
-    (and
-      (contains? account :parent-id)
-      (nil? (:parent-id account)))
-    (dissoc :parent-id)
-
-    ; :type should already be present
-    ; and should be a keyword
-    true
-    (update-in [:type] keyword))))
+   (-> account
+       (update-in [:type] keyword)
+       (update-in [:content-type] keyword)
+       (cond->
+         (and ; Remove :parent-id if it's nil
+           (contains? account :parent-id)
+           (nil? (:parent-id account)))
+         (dissoc :parent-id)))))
 
 (defn- name-is-unique?
   [storage {:keys [id parent-id name entity-id]}]
@@ -109,6 +110,7 @@
   (create-fn {:before-save before-save
               :after-read after-read
               :create create-account
+              :before-validation before-validation
               :rules-fn validation-rules
               :coercion-rules coercion-rules
               :spec ::new-account}))

@@ -64,12 +64,12 @@
                     ((:rules-fn options) s))
                   [])
         before-validation (or (:before-validation options)
-                              identity)
+                              (fn [_ m] (identity m)))
         coercion-rules (or (:coercion-rules options)
                            [])]
     (->> model
          (coercion/coerce coercion-rules)
-         before-validation
+         (before-validation s)
          (validation/validate (:spec options) rules))))
 
 (defn- process-options
