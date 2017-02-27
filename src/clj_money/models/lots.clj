@@ -12,7 +12,8 @@
             [clj-money.models.storage :refer [create-lot
                                               select-lots-by-commodity-id
                                               update-lot
-                                              find-lot-by-id]]))
+                                              find-lot-by-id]]
+            [clj-money.models.accounts :as accounts]))
 
 (s/def ::id integer?)
 (s/def ::account-id integer?)
@@ -42,6 +43,27 @@
   ([_ lot]
    (update-in lot [:purchase-date] tc/to-local-date)))
 
+(defn- before-validation
+  [storage lot]
+  (assoc lot :account (accounts/find-by-id storage (:account-id lot))))
+
+(defn- account-is-an-asset?
+  [_ lot]
+  (= :asset (-> lot :account :type)))
+
+(defn- account-has-commodities-content?
+  [_ lot]
+  (= :commodities (-> lot :account :content-type)))
+
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule (partial account-is-an-asset? storage)
+                           [:account-id]
+                           "The account must be an asset account")
+   (validation/create-rule (partial account-has-commodities-content? storage)
+                           [:account-id]
+                           "The account must be a commodities account")])
+
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:purchase-date])
    (coercion/rule :decimal [:shares-purchased])
@@ -50,6 +72,8 @@
 
 (def create
   (create-fn {:before-save before-save
+              :before-validation before-validation
+              :rules-fn validation-rules
               :create create-lot
               :after-read after-read
               :spec ::new-lot
@@ -71,6 +95,8 @@
 
 (def update
   (update-fn {:before-save before-save
+              :before-validation before-validation
+              :rules-fn validation-rules
               :update update-lot
               :after-read after-read
               :spec ::existing-lot

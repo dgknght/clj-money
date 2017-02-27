@@ -19,7 +19,13 @@
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
    :accounts [{:name "IRA"
-               :type :asset}]
+               :type :asset
+               :content-type :commodities}
+              {:name "Dining"
+               :type :expense}
+              {:name "Checking"
+               :type :asset
+               :content-type :currency}]
    :commodities [{:name "Apple"
                   :symbol "APPL"
                   :exchange :nasdaq}]})
@@ -63,8 +69,31 @@
     (is (not (empty? (validation/error-messages result :account-id))) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
+(deftest account-id-must-reference-an-asset-account
+  (let [context (serialization/realize storage-spec lot-context)
+        commodity (-> context :commodities first)
+        [_ dining _] (-> context :accounts)
+        result (lots/create storage-spec {:commodity-id (:id commodity)
+                                          :account-id (:id dining)
+                                          :purchase-date (t/local-date 2017 3 2)
+                                          :shares-purchased 100M})
+        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+    (is (nil? (:id result)) "The result does not receive an ID value")
+    (is (not (empty? (validation/error-messages result :account-id))) "The result contains a validation error")
+    (is (empty? lots) "The value is not retrieved after create")))
+
 (deftest account-id-must-reference-an-account-with-content-type-commodities
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec lot-context)
+        commodity (-> context :commodities first)
+        [_ _ checking] (-> context :accounts)
+        result (lots/create storage-spec {:commodity-id (:id commodity)
+                                          :account-id (:id checking)
+                                          :purchase-date (t/local-date 2017 3 2)
+                                          :shares-purchased 100M})
+        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+    (is (nil? (:id result)) "The result does not receive an ID value")
+    (is (not (empty? (validation/error-messages result :account-id))) "The result contains a validation error")
+    (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-date-is-required
   (let [context (serialization/realize storage-spec lot-context)

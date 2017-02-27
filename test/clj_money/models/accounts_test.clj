@@ -240,9 +240,7 @@
                                               :content-type :not-valid})
         retrieved (accounts/find-by-id storage-spec (:id result))]
     (is (seq (validation/error-messages result :content-type))
-        "The result has a validation error")
-    (is (= :commodity (:content-type result) (:content-type retrieved))
-        "The result has the current content type")))
+        "The result has a validation error")))
 
 (deftest update-an-account
   (try
