@@ -46,4 +46,8 @@
     (is (= "Purchase 100 shares of APPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
 
 ; Purchasing a commodity creates a price record
+; Purchasing a commodity creates a lot transaction record
 ; A new price causes the account value to change on the home page and in reports
+; Selling a commodity creates a price record
+; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
+; Selling a commodity creates a lot transaction record
