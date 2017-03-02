@@ -1,5 +1,9 @@
 (ns clj-money.trading)
 
-(defn create
+(defn buy
   [storage-spec purchase]
+  )
+
+(defn sell
+  [storage-spec sale]
   )

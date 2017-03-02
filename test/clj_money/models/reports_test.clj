@@ -269,6 +269,12 @@
                    :style :summary}]]
     (is (= expected actual) "The rpoert renders the correct data")))
 
+(deftest balance-sheet-report-with-commodities
+  ; The newest price as of the report date is used for commodities
+  ; unrealized gains are included in the equity section
+  (is false "need to write the test"))
+
+
 (def budget-report-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
