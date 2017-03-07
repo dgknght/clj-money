@@ -344,6 +344,28 @@
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :lots id)))
 
+  ; Lot transactions
+  (create-lot-transaction
+    [_ lot-transaction]
+    (insert db-spec
+            :lot_transactions
+            lot-transaction
+            :account-id
+            :commodity-id
+            :trade-date
+            :action
+            :shares
+            :price))
+
+  (select-lot-transactions
+    [_ criteria]
+    (query db-spec (-> (h/select :*)
+                       (h/from :lot_transactions)
+                       (h/where [:and
+                                  [:= :account-id (:account-id criteria)]
+                                  [:= :commodity-id (:commodity-id criteria)]])
+                       (h/order-by :trade_date))))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

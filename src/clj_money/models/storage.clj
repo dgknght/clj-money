@@ -118,6 +118,15 @@
     [this id]
     "Returns the lot having the specified id")
 
+  ; Lot transactions
+  (create-lot-transaction
+    [this lot-transaction]
+    "Creates a lot transaction record")
+
+  (select-lot-transactions
+    [this criteria]
+    "Returns a list of matching lot transactions")
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]
