@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
+            [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
@@ -9,10 +10,18 @@
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-lot-transaction
-                                              select-lot-transactions]]))
+                                              select-lot-transactions]])
+  (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
-(s/def ::new-lot-transaction (s/keys :req-un [::account-id]))
+(s/def ::commodity-id integer?)
+(s/def ::trade-date (partial instance? LocalDate))
+(s/def ::new-lot-transaction (s/keys :req-un [::account-id
+                                              ::commodity-id
+                                              ::trade-date]))
+
+(def ^:private coercion-rules
+  [(coercion/rule :local-date [:trade-date])])
 
 (defn- before-save
   [_ lot-transaction]
@@ -30,6 +39,7 @@
 
 (def create
   (create-fn {:before-save before-save
+              :coercion-rules coercion-rules
               :spec ::new-lot-transaction
               :create create-lot-transaction
               :after-read after-read}))

@@ -27,20 +27,22 @@
               {:name "Opening balances"
                :type :equity}]})
 
+(defn- attributes
+  [context]
+  {:account-id (-> context :accounts first :id)
+   :commodity-id (-> context :commodities first :id)
+   :trade-date (t/local-date 2017 3 2)
+   :action :buy
+   :shares 100M
+   :price 10M})
+
 (deftest create-a-lot-transaction
   (let [context (serialization/realize storage-spec lot-transaction-context)
-        [ira] (:accounts context)
-        [commodity] (:commodities context)
-        lot-transaction {:account-id (:id ira)
-                         :commodity-id (:id commodity)
-                         :trade-date (t/local-date 2017 3 2)
-                         :action :buy
-                         :shares 100M
-                         :price 10M}
+        lot-transaction (attributes context)
         result (lot-transactions/create storage-spec lot-transaction)
-        retrieved (->> (lot-transactions/select storage-spec
-                                                {:account-id (:id ira)
-                                                 :commodity-id (:id commodity)})
+        criteria {:account-id (-> context :accounts first :id)
+                  :commodity-id (-> context :commodities first :id)}
+        retrieved (->> (lot-transactions/select storage-spec criteria)
                        (map #(dissoc % :id :created-at :updated-at)))]
     (is (empty? (validation/error-messages result)) "The result has no validation errors")
     (is (:id result) "The result contains an ID")
@@ -48,16 +50,64 @@
         "The retrieved value is the same as the stored value.")))
 
 (deftest account-id-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec lot-transaction-context)
+        lot-transaction (dissoc (attributes context) :account-id)
+        result (lot-transactions/create storage-spec lot-transaction)
+        criteria {:account-id (-> context :accounts first :id)
+                  :commodity-id (-> context :commodities first :id)}
+        retrieved (lot-transactions/select storage-spec criteria)]
+    (is (= ["Account id is required"]
+           (validation/error-messages result :account-id))
+        "The result has a validation error")
+    (is (nil? (:id result)) "The result does not contain an ID")
+    (is (= [] retrieved) "The value is not retrieved")))
 
 (deftest commodity-id-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec lot-transaction-context)
+        lot-transaction (dissoc (attributes context) :commodity-id)
+        result (lot-transactions/create storage-spec lot-transaction)
+        criteria {:account-id (-> context :accounts first :id)
+                  :commodity-id (-> context :commodities first :id)}
+        retrieved (lot-transactions/select storage-spec criteria)]
+    (is (= ["Commodity id is required"]
+           (validation/error-messages result :commodity-id))
+        "The result has a validation error")
+    (is (nil? (:id result)) "The result does not contain an ID")
+    (is (= [] retrieved) "The value is not retrieved")))
 
 (deftest trade-date-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec lot-transaction-context)
+        lot-transaction (dissoc (attributes context) :trade-date)
+        result (lot-transactions/create storage-spec lot-transaction)
+        criteria {:account-id (-> context :accounts first :id)
+                  :commodity-id (-> context :commodities first :id)}
+        retrieved (lot-transactions/select storage-spec criteria)]
+    (is (= ["Trade date is required"]
+           (validation/error-messages result :trade-date))
+        "The result has a validation error")
+    (is (nil? (:id result)) "The result does not contain an ID")
+    (is (= [] retrieved) "The value is not retrieved")))
 
 (deftest trade-date-can-be-a-string-date
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec lot-transaction-context)
+        lot-transaction (assoc (attributes context)
+                               :trade-date
+                               "3/2/2017")
+        result (lot-transactions/create storage-spec lot-transaction)
+        criteria {:account-id (-> context :accounts first :id)
+                  :commodity-id (-> context :commodities first :id)}
+        retrieved (->> (lot-transactions/select storage-spec criteria)
+                       (map #(dissoc % :id :created-at :updated-at)))
+        expected {:trade-date (t/local-date 2017 3 2)
+                  :account-id (-> context :accounts first :id)
+                  :commodity-id (-> context :commodities first :id)
+                  :action :buy
+                  :shares 100M
+                  :price 10M}]
+    (is (empty? (validation/error-messages result)) "The result has no validation errors")
+    (is (:id result) "The result contains an ID")
+    (is (= [expected] retrieved)
+        "The retrieved value is the same as the stored value.")))
 
 (deftest trade-date-can-must-be-a-date
   (is false "need to write the test"))
