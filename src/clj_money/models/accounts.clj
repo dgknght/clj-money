@@ -13,6 +13,7 @@
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
+                                              select-accounts
                                               select-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
@@ -211,3 +212,10 @@
   (let [polarizer (* (if (left-side? account) 1 -1)
                      (if (= :debit (:action transaction-item)) 1 -1))]
     (* (:amount transaction-item) polarizer)))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-accounts s)
+         (map after-read))))

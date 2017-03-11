@@ -70,6 +70,13 @@
       (assoc :updated-at (t/now))
       ->sql-keys))
 
+(defn- map->where
+  [m]
+  (reduce (fn [result [k v]]
+            (conj result [:= k v]))
+          [:and]
+          m))
+
 (defn- append-where
   [sql options]
   (if-let [where (:where options)]
@@ -223,6 +230,16 @@
                        (h/where [:and
                                  [:= :entity_id entity-id]
                                  [:= :name name]]))))
+
+  (select-accounts
+    [_ criteria]
+    (when-not (some #(% criteria) [:parent-id :entity-id])
+      (throw (ex-info
+              "The criteria must specify parent-id or entity-id"
+              {:criteria criteria})))
+    (query db-spec (-> (h/select :*)
+                       (h/from :accounts)
+                       (h/where (map->where criteria)))))
 
   ; Commodities
   (create-commodity

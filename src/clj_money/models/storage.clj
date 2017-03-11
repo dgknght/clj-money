@@ -53,6 +53,9 @@
   (select-accounts-by-name
     [this entity-id name]
     "Returns the account in the specified entity with the specified name")
+  (select-accounts
+    [this criteria]
+    "Returns the accounts matching the specified criteria")
 
   ; Commodities
   (create-commodity
