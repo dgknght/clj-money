@@ -50,21 +50,30 @@
                                           :account-id (:id ira)
                                           :trade-date (t/local-date 2016 1 2)
                                           :shares 100M
-                                          :amount 1000M})]
-    (is (:lot result) "The result contains a lot representing the purchased shares")
-    (is (:lot-transaction result) "The result contains a lot-transaction")
-    (is (:transaction result) "The result contains the transaction associated with the purchase")
+                                          :value 1000M})]
+    (is (:transaction result)
+        "The result contains the transaction associated with the purchase")
+    (is (empty? (-> result :transaction validation/error-messages))
+        "The transaction is valid")
+    (is (:lot result)
+        "The result contains a lot representing the purchased shares")
+    (is (empty? (-> result :lot validation/error-messages))
+        "The lot is valid")
+    (is (:lot-transaction result)
+        "The result contains a lot-transaction")
+    (is (empty? (-> result :lot-transaction validation/error-messages))
+        "The lot transaction is valud")
     (is (= "Purchase 100 shares of APPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
 
 (deftest a-purchase-creates-a-lot-record
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)
         commodity (-> context :commodities first)
-        _ (trading/buy storage-spec {:commodity-id (:id commodity)
+        result (trading/buy storage-spec {:commodity-id (:id commodity)
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
                                      :shares 100M
-                                     :amount 1000M})
+                                     :value 1000M})
         expected [{:trade-date (t/local-date 2016 1 2)
                    :commodity-id (:id commodity)
                    :account-id (:id ira)
@@ -81,7 +90,7 @@
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
                                      :shares 100M
-                                     :amount 1000M})
+                                     :value 1000M})
         expected [{:transaction-date (t/local-date 2016 1 2)
                    :action :buy
                    :quantity 100M}]
@@ -97,7 +106,7 @@
                                              :account-id (:id ira)
                                              :trade-date (t/local-date 2016 1 2)
                                              :shares 100M
-                                             :amount 1000M})
+                                             :value 1000M})
         expected [{:commodity-id (:id commodity)
                    :trade-date (t/local-date 2016 1 2)
                    :price 10M}]
@@ -118,10 +127,10 @@
       (update-in [:transactions] #(concat % [{:transaction-date 2016 3 2
                                               :description "Purchase 100 shares of APPL at $10.00"
                                               :items [{:action :credit
-                                                       :amount 1000M
+                                                       :value 1000M
                                                        :account-id "IRA"}
                                                       {:action :debit
-                                                       :amount 1000M
+                                                       :value 1000M
                                                        :account-id "APPL"}]}]))))
 
 (deftest sell-a-commodity
@@ -132,7 +141,7 @@
                                            :account-id (:id ira)
                                            :trade-date (t/local-date 2017 3 2)
                                            :shares 25M
-                                           :amount 375M})]
+                                           :value 375M})]
     (is (:lots result)
         "The result contains the lots affected")
     (is (:lot-transactions result)
