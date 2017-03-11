@@ -74,12 +74,17 @@
                                      :trade-date (t/local-date 2016 1 2)
                                      :shares 100M
                                      :value 1000M})
-        expected [{:trade-date (t/local-date 2016 1 2)
+        expected [{:purchase-date (t/local-date 2016 1 2)
                    :commodity-id (:id commodity)
                    :account-id (:id ira)
                    :shares-purchased 100M
                    :shares-owned 100M}]
-        actual (lots/select-by-commodity-id storage-spec (:id commodity))]
+        actual (map #(select-keys % [:purchase-date
+                                     :commodity-id
+                                     :account-id
+                                     :shares-purchased
+                                     :shares-owned])
+                    (lots/select-by-commodity-id storage-spec (:id commodity)))]
     (is (= expected actual) "The lot can be retrieved from the database")))
 
 (deftest a-purchase-creates-a-lot-transaction-recrd
