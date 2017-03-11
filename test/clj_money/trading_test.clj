@@ -127,7 +127,8 @@
         expected [{:commodity-id (:id commodity)
                    :trade-date (t/local-date 2016 1 2)
                    :price 10M}]
-        actual (prices/select-by-commodity-id storage-spec (:id commodity))]
+        actual (map #(select-keys % [:commodity-id :trade-date :price])
+                    (prices/select-by-commodity-id storage-spec (:id commodity)))]
     (is (= expected actual) "The price can be retrieved from the database")))
 
 (def ^:private sell-context

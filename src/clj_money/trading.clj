@@ -8,14 +8,18 @@
             [clj-money.models.helpers :refer [with-transacted-storage]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.lots :as lots]
             [clj-money.models.lot-transactions :as lot-transactions]))
 
-(defn- calculate-price
+(defn- create-price
   "Given a context, calculates and appends the share price"
-  [{:keys [shares value] :as context}]
-  (assoc context :price (/ value shares)))
+  [{:keys [storage shares value commodity-id trade-date] :as context}]
+  (assoc context :price (prices/create storage
+                                       {:commodity-id commodity-id
+                                        :trade-date trade-date
+                                        :price (/ value shares)})))
 
 (defn- acquire-commodity
   "Given a purchase context, appends the commodity"
@@ -49,7 +53,9 @@
                                        create-commodity-account]))))
 
 (defn- purchase-transaction-description
-  [{:keys [shares price] {symbol :symbol} :commodity}]
+  [{:keys [shares]
+    {symbol :symbol} :commodity
+    {price :price} :price}]
   (format "Purchase %s shares of %s at %s"
           shares
           symbol
@@ -86,13 +92,15 @@
   [{storage :storage :as context}]
   (assoc context
          :lot-transaction
-         (lot-transactions/create storage (-> context
-                                              (select-keys [:account-id
-                                                            :commodity-id
-                                                            :trade-date
-                                                            :shares
-                                                            :price])
-                                              (assoc :action :buy)))))
+         (lot-transactions/create
+           storage
+           (-> context
+               (select-keys [:account-id
+                             :commodity-id
+                             :trade-date
+                             :shares])
+               (assoc :action :buy)
+               (assoc :price (-> context :price :price))))))
 
 ; expect
 ; :commodity-id
@@ -106,7 +114,7 @@
     (->> (assoc purchase :storage s)
          acquire-commodity
          acquire-accounts
-         calculate-price
+         create-price
          create-transaction
          create-lot
          create-lot-transaction)
