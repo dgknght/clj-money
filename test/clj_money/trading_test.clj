@@ -91,12 +91,24 @@
                                      :trade-date (t/local-date 2016 1 2)
                                      :shares 100M
                                      :value 1000M})
-        expected [{:transaction-date (t/local-date 2016 1 2)
+        expected [{:trade-date (t/local-date 2016 1 2)
                    :action :buy
-                   :quantity 100M}]
-        actual (lot-transactions/select storage-spec {:commodity-id (:id commodity)
-                                                      :account-id (:id ira)})]
-    (is (= expected actual) "The lot transaction can be retrieved from the database")))
+                   :shares 100M
+                   :price 10M
+                   :account-id (:id ira)
+                   :commodity-id (:id commodity)}]
+        actual (map #(select-keys % [:trade-date
+                                     :action
+                                     :shares
+                                     :price
+                                     :account-id
+                                     :commodity-id])
+                    (lot-transactions/select
+                      storage-spec
+                      {:commodity-id (:id commodity)
+                       :account-id (:id ira)}))]
+    (is (= expected actual)
+        "The lot transaction can be retrieved from the database")))
 
 (deftest a-purchase-creates-a-price-record
   (let [context (serialization/realize storage-spec purchase-context)
