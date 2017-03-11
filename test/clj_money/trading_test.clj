@@ -115,10 +115,10 @@
         ira (-> context :accounts first)
         commodity (-> context :commodities first)
         _ (trading/buy storage-spec {:commodity-id (:id commodity)
-                                             :account-id (:id ira)
-                                             :trade-date (t/local-date 2016 1 2)
-                                             :shares 100M
-                                             :value 1000M})
+                                     :account-id (:id ira)
+                                     :trade-date (t/local-date 2016 1 2)
+                                     :shares 100M
+                                     :value 1000M})
         expected [{:commodity-id (:id commodity)
                    :trade-date (t/local-date 2016 1 2)
                    :price 10M}]
