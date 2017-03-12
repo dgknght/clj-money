@@ -150,6 +150,23 @@
        (sort-by :created-at) ; this is FIFO, need to handle FILO
        first))
 
+(defn- process-lot-sale
+  [context lot shares-to-sell]
+  (let [shares-owned (:shares-owned lot)
+        [shares-sold
+         remaining-shares-to-sell
+         new-lot-balance] (if (>= shares-owned shares-to-sell)
+                            [shares-to-sell
+                             0
+                             (- shares-owned shares-to-sell)]
+                            [shares-owned
+                             (- shares-to-sell shares-owned)
+                             0])
+        adj-lot (lots/update (:storage context)
+                             (assoc lot :shares-owned new-lot-balance))
+        adj-context (update-in context [:lots] #(conj % adj-lot))]
+    [adj-context remaining-shares-to-sell]))
+
 (defn- process-lot-sales
   "Given a sell context, processes the lot changes and appends
   the new lot transactions and the affected lots"
@@ -157,19 +174,10 @@
   (loop [context (assoc context :lots [])
          shares-remaining (:shares context)]
     (if-let [lot (find-lot context)]
-      (let [shares-owned (:shares-owned lot)
-            [shares-sold
-             shares-to-be-sold
-             new-lot-balance] (if (>= shares-owned shares-remaining)
-                                  [shares-remaining
-                                   0
-                                   (- shares-owned shares-remaining)]
-                                  [shares-owned
-                                   (- shares-remaining shares-owned)
-                                   0])
-            adj-lot (assoc lot :shares-owned new-lot-balance)
-            adj-context (update-in context [:lots] #(conj % adj-lot))]
-        (lots/update (:storage context) adj-lot)
+      (let [[adj-context
+             shares-to-be-sold] (process-lot-sale context
+                                                  lot
+                                                  shares-remaining)]
         (if (= 0 shares-to-be-sold)
           adj-context
           (recur adj-context shares-to-be-sold)))
