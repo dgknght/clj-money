@@ -161,7 +161,7 @@
         result (trading/sell storage-spec {:commodity-id (:id commodity)
                                            :account-id (:id ira)
                                            :trade-date (t/local-date 2017 3 2)
-                                           :shares 25M
+                                           :shares 100M
                                            :value 375M})]
     (is (:price result)
         "The result contains a price")

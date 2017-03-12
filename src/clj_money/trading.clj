@@ -154,18 +154,25 @@
   "Given a sell context, processes the lot changes and appends
   the new lot transactions and the affected lots"
   [context]
-  (loop [context context
+  (loop [context (assoc context :lots [])
          shares-remaining (:shares context)]
     (if-let [lot (find-lot context)]
       (let [shares-owned (:shares-owned lot)
-            lot-balance (- shares-owned shares-remaining)
-            adj-lot (assoc lot :shares-owned (if (< lot-balance 0)
-                                               0
-                                               lot-balance))]
-
-        (throw (ex-info "not implemented" {}))
-
-        (recur context (- shares-remaining (:shares-owned adj-lot))))
+            [shares-sold
+             shares-to-be-sold
+             new-lot-balance] (if (>= shares-owned shares-remaining)
+                                  [shares-remaining
+                                   0
+                                   (- shares-owned shares-remaining)]
+                                  [shares-owned
+                                   (- shares-remaining shares-owned)
+                                   0])
+            adj-lot (assoc lot :shares-owned new-lot-balance)
+            adj-context (update-in context [:lots] #(conj % adj-lot))]
+        (lots/update (:storage context) adj-lot)
+        (if (= 0 shares-to-be-sold)
+          adj-context
+          (recur adj-context shares-to-be-sold)))
       (throw (ex-info "Unable to find a lot to sell the shares"
                       {:context context})))))
 
