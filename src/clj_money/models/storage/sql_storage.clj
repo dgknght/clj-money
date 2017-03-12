@@ -1,5 +1,6 @@
 (ns clj-money.models.storage.sql-storage
   (:require [clojure.tools.logging :as log]
+            [clojure.spec :as s]
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
@@ -11,6 +12,10 @@
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
+
+(s/def ::account-id integer?)
+(s/def ::commodity-id integer?)
+(s/def ::lot-criteria (s/keys :req-un [::account-id ::commodity-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -360,6 +365,16 @@
   (find-lot-by-id
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :lots id)))
+
+  (select-lots
+    [_ criteria]
+    (when-not (s/valid? ::lot-criteria criteria)
+      (throw (ex-info
+              "The criteria must specify account-id and commodity-id"
+              {:criteria criteria})))
+    (query db-spec (-> (h/select :*)
+                       (h/from :lots)
+                       (h/where (map->where criteria)))))
 
   ; Lot transactions
   (create-lot-transaction

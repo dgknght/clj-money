@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
-            [clj-money.util :refer [format-number]]
+            [clj-money.util :refer [format-number
+                                    pprint-and-return]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-transacted-storage]]
@@ -61,7 +62,7 @@
           symbol
           (format-number price {:format :commodity-price})))
 
-(defn- create-transaction
+(defn- create-purchase-transaction
   "Given a purchase context, creates the general currency
   transaction"
   [{:keys [storage trade-date value] :as context}]
@@ -76,6 +77,24 @@
                      :account-id (:account-id context)
                      :amount value}
                     {:action :debit
+                     :account-id (-> context :commodity-account :id)
+                     :amount value}]})))
+
+(defn- create-sale-transaction
+  "Given a purchase context, creates the general currency
+  transaction"
+  [{:keys [storage trade-date value] :as context}]
+  (assoc context
+         :transaction
+         (transactions/create
+           storage
+           {:entity-id (-> context :account :entity-id)
+            :transaction-date trade-date
+            :description (purchase-transaction-description context)
+            :items [{:action :debit
+                     :account-id (:account-id context)
+                     :amount value}
+                    {:action :credit
                      :account-id (-> context :commodity-account :id)
                      :amount value}]})))
 
@@ -115,12 +134,47 @@
          acquire-commodity
          acquire-accounts
          create-price
-         create-transaction
+         create-purchase-transaction
          create-lot
          create-lot-transaction)
     ; validate the input
     ))
 
+(defn- find-lot
+  "Given a sell context, finds the next lot containing
+  shares that can be sold"
+  [{:keys [storage] :as context}]
+  (->> (select-keys context [:commodity-id :account-id])
+       (lots/search storage)
+       (filter #(> (:shares-owned %) 0)) ; should really do this in the database query
+       (sort-by :created-at) ; this is FIFO, need to handle FILO
+       first))
+
+(defn- process-lot-sales
+  "Given a sell context, processes the lot changes and appends
+  the new lot transactions and the affected lots"
+  [context]
+  (loop [context context
+         shares-remaining (:shares context)]
+    (if-let [lot (find-lot context)]
+      (let [shares-owned (:shares-owned lot)
+            lot-balance (- shares-owned shares-remaining)
+            adj-lot (assoc lot :shares-owned (if (< lot-balance 0)
+                                               0
+                                               lot-balance))]
+
+        (throw (ex-info "not implemented" {}))
+
+        (recur context (- shares-remaining (:shares-owned adj-lot))))
+      (throw (ex-info "Unable to find a lot to sell the shares"
+                      {:context context})))))
+
 (defn sell
   [storage-spec sale]
-  )
+  (with-transacted-storage [s storage-spec]
+    (->> (assoc sale :storage s)
+         acquire-commodity
+         acquire-accounts
+         create-price
+         create-sale-transaction
+         process-lot-sales)))

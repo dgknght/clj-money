@@ -133,9 +133,9 @@
 
 (def ^:private sell-context
   (-> purchase-context
-      (merge {:lots [{:commodity-id "AAPL"
+      (merge {:lots [{:commodity-id "APPL"
                       :account-id "IRA"
-                      :trade-date (t/local-date 2016 3 2)
+                      :purchase-date (t/local-date 2016 3 2)
                       :shares-purchased 100M
                       :shares-owned 100M}]
               :lot-transactions [{:transaction-date (t/local-date 2016 3 2)
@@ -145,11 +145,14 @@
       (update-in [:transactions] #(concat % [{:transaction-date 2016 3 2
                                               :description "Purchase 100 shares of APPL at $10.00"
                                               :items [{:action :credit
-                                                       :value 1000M
+                                                       :amount 1000M
                                                        :account-id "IRA"}
                                                       {:action :debit
-                                                       :value 1000M
+                                                       :amount 1000M
                                                        :account-id "APPL"}]}]))))
+
+(deftest buying-a-commodity-reduces-the-balance-of-the-account
+  (is false "need to write the test"))
 
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec sell-context)
@@ -160,12 +163,29 @@
                                            :trade-date (t/local-date 2017 3 2)
                                            :shares 25M
                                            :value 375M})]
+    (is (:price result)
+        "The result contains a price")
+    (is (empty? (-> result :price validation/error-messages))
+        "The price is valid")
     (is (:lots result)
         "The result contains the lots affected")
+    (if (seq (:lots result))
+      (doseq [lot (:lots result)]
+        (is (empty? (validation/error-messages lot))
+            "Each lot is valid")))
     (is (:lot-transactions result)
         "The result contains a list of lot transactions create by the trade")
+    (if (seq (:lot-transactions result))
+      (doseq [lot-transaction (:lot-transactions result)]
+        (is (empty? (validation/error-messages lot-transaction))
+            "Each lot transaction is valid")))
     (is (:transaction result)
-        "The result contains the transaction record")))
+        "The result contains the transaction record")
+    (is (empty? (-> result :transaction validation/error-messages))
+        "Thhe transaction is valid")))
+
+(deftest selling-a-commodity-increases-the-balance-of-the-account
+  (is false "need to write the test"))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 ; Selling a commodity creates a lot transaction record

@@ -121,6 +121,10 @@
     [this id]
     "Returns the lot having the specified id")
 
+  (select-lots
+    [this criteria]
+    "Returns the lots matching the specified criteria")
+
   ; Lot transactions
   (create-lot-transaction
     [this lot-transaction]

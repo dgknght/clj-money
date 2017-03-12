@@ -11,6 +11,7 @@
                                               update-fn]]
             [clj-money.models.storage :refer [create-lot
                                               select-lots-by-commodity-id
+                                              select-lots
                                               update-lot
                                               find-lot-by-id]]
             [clj-money.models.accounts :as accounts]))
@@ -102,3 +103,10 @@
               :spec ::existing-lot
               :coercion-rules coercion-rules
               :find find-by-id}))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-lots s)
+         (map after-read))))
