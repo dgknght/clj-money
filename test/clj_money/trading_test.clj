@@ -9,6 +9,7 @@
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.validation :as validation]
+            [clj-money.models.accounts :as accounts]
             [clj-money.models.lots :as lots]
             [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]
@@ -131,6 +132,19 @@
                     (prices/select-by-commodity-id storage-spec (:id commodity)))]
     (is (= expected actual) "The price can be retrieved from the database")))
 
+(deftest buying-a-commodity-reduces-the-balance-of-the-account
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        _ (trading/buy storage-spec {:commodity-id (:id commodity)
+                                     :account-id (:id ira)
+                                     :trade-date (t/local-date 2016 1 2)
+                                     :shares 100M
+                                     :value 999M})
+        new-balance (->> (accounts/reload storage-spec ira)
+                         :balance)]
+    (is (= 1001M new-balance) "The account balance decreases by the amount of the purchase")))
+
 (def ^:private sell-context
   (-> purchase-context
       (merge {:lots [{:commodity-id "APPL"
@@ -152,9 +166,6 @@
                                                       {:action :debit
                                                        :amount 1000M
                                                        :account-id "APPL"}]}]))))
-
-(deftest buying-a-commodity-reduces-the-balance-of-the-account
-  (is false "need to write the test"))
 
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec sell-context)
@@ -187,7 +198,22 @@
         "Thhe transaction is valid")))
 
 (deftest selling-a-commodity-increases-the-balance-of-the-account
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        _ (trading/buy storage-spec {:commodity-id (:id commodity)
+                                     :account-id (:id ira)
+                                     :trade-date (t/local-date 2016 1 2)
+                                     :shares 100M
+                                     :value 1000M})
+        _ (trading/sell storage-spec {:commodity-id (:id commodity)
+                                      :account-id (:id ira)
+                                      :trade-date (t/local-date 2017 1 2)
+                                      :shares 50M
+                                      :value 560M})
+        new-balance (->> (accounts/reload storage-spec ira)
+                         :balance)]
+    (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 ; Selling a commodity creates a lot transaction record
