@@ -138,9 +138,11 @@
                       :purchase-date (t/local-date 2016 3 2)
                       :shares-purchased 100M
                       :shares-owned 100M}]
-              :lot-transactions [{:transaction-date (t/local-date 2016 3 2)
+              :lot-transactions [{:commodity-id "APPL"
+                                  :account-id "IRA"
+                                  :trade-date (t/local-date 2016 3 2)
                                   :action :buy
-                                  :quantity 100M
+                                  :shares 100M
                                   :price 10M}]})
       (update-in [:transactions] #(concat % [{:transaction-date 2016 3 2
                                               :description "Purchase 100 shares of APPL at $10.00"
@@ -161,7 +163,7 @@
         result (trading/sell storage-spec {:commodity-id (:id commodity)
                                            :account-id (:id ira)
                                            :trade-date (t/local-date 2017 3 2)
-                                           :shares 100M
+                                           :shares 25M
                                            :value 375M})]
     (is (:price result)
         "The result contains a price")

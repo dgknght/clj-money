@@ -164,14 +164,22 @@
                              0])
         adj-lot (lots/update (:storage context)
                              (assoc lot :shares-owned new-lot-balance))
-        adj-context (update-in context [:lots] #(conj % adj-lot))]
+        lot-trans (lot-transactions/create (:storage context)
+                                           (-> context
+                                               (select-keys [:account-id :commodity-id :trade-date])
+                                               (assoc :action :sell
+                                                      :shares shares-sold
+                                                      :price (-> context :price :price))))
+        adj-context (-> context
+                        (update-in [:lots] #(conj % adj-lot))
+                        (update-in [:lot-transactions] #(conj % lot-trans)))]
     [adj-context remaining-shares-to-sell]))
 
 (defn- process-lot-sales
   "Given a sell context, processes the lot changes and appends
   the new lot transactions and the affected lots"
   [context]
-  (loop [context (assoc context :lots [])
+  (loop [context (assoc context :lots [] :lot-transactions [])
          shares-remaining (:shares context)]
     (if-let [lot (find-lot context)]
       (let [[adj-context
