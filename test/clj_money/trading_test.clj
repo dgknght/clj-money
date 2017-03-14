@@ -234,8 +234,35 @@
                    :shares-owned 75M}]]
     (is (= expected lots) "The lot is updated to reflect the sale")))
 
+(deftest selling-a-commodity-creates-a-lot-transaction-record
+  (let [context (serialization/realize storage-spec sell-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        _ (trading/sell storage-spec {:commodity-id (:id commodity)
+                                      :account-id (:id ira)
+                                      :trade-date (t/local-date 2017 3 2)
+                                      :shares 25M
+                                      :value 375M})
+        lot-transactions (map #(dissoc % :id :created-at :updated-at)
+                              (lot-transactions/select
+                                storage-spec
+                                {:account-id (:id ira)
+                                 :commodity-id (:id commodity)}))
+        expected [{:trade-date (t/local-date 2016 3 2)
+                   :account-id (:id ira)
+                   :commodity-id (:id commodity)
+                   :action :buy
+                   :price 10M
+                   :shares 100M}
+                  {:trade-date (t/local-date 2017 3 2)
+                   :account-id (:id ira)
+                   :commodity-id (:id commodity)
+                   :action :sell
+                   :price 15M
+                   :shares 25M}]]
+    (is (= expected lot-transactions) "The lot transaction is created with proper data")))
+
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
-; Selling a commodity creates a lot transaction record
 ; Selling a commodity creates a transaction record
 ; Selling a commodity for a profit credits the capital gains account
 ; Selling a commodity for a loss debits the capital gains account
