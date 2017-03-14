@@ -197,7 +197,7 @@
     (is (empty? (-> result :transaction validation/error-messages))
         "Thhe transaction is valid")))
 
-(deftest selling-a-commodity-increases-the-balance-of-the-account
+(deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)
         commodity (-> context :commodities first)
@@ -214,6 +214,25 @@
         new-balance (->> (accounts/reload storage-spec ira)
                          :balance)]
     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
+
+(deftest selling-a-commodity-updates-a-lot-record
+  (let [context (serialization/realize storage-spec sell-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        _ (trading/sell storage-spec {:commodity-id (:id commodity)
+                                      :account-id (:id ira)
+                                      :trade-date (t/local-date 2017 3 2)
+                                      :shares 25M
+                                      :value 375M})
+        lots (map #(dissoc % :id :created-at :updated-at)
+                  (lots/search storage-spec {:account-id (:id ira)
+                                             :commodity-id (:id commodity)}))
+        expected [{:purchase-date (t/local-date 2016 3 2)
+                   :account-id (:id ira)
+                   :commodity-id (:id commodity)
+                   :shares-purchased 100M
+                   :shares-owned 75M}]]
+    (is (= expected lots) "The lot is updated to reflect the sale")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 ; Selling a commodity creates a lot transaction record
