@@ -84,19 +84,29 @@
   "Given a purchase context, creates the general currency
   transaction"
   [{:keys [storage trade-date value] :as context}]
-  (assoc context
-         :transaction
-         (transactions/create
-           storage
-           {:entity-id (-> context :account :entity-id)
-            :transaction-date trade-date
-            :description (purchase-transaction-description context)
-            :items [{:action :debit
-                     :account-id (:account-id context)
-                     :amount value}
-                    {:action :credit
-                     :account-id (-> context :commodity-account :id)
-                     :amount value}]})))
+  (let [total-gains (reduce + (map :amount (:gains context)))
+        items (-> (mapv (fn [{:keys [amount description]}]
+                          {:action :credit
+                           :account-id (:id (if (< amount 0)
+                                              (:capital-loss-account context)
+                                              (:capital-gains-account context)))
+                           :amount amount
+                           :memo description})
+                         (:gains context))
+                  (conj {:action :debit
+                         :account-id (:account-id context)
+                         :amount value})
+                  (conj {:action :credit
+                         :account-id (-> context :commodity-account :id)
+                         :amount (- value gains)}))]
+    (assoc context
+           :transaction
+           (transactions/create
+             storage
+             {:entity-id (-> context :account :entity-id)
+              :transaction-date trade-date
+              :description (purchase-transaction-description context)
+              :items items}))))
 
 (defn- create-lot
   "Given a purchase context, creates and appends the commodity lot"
@@ -123,15 +133,14 @@
 ; :value
 (defn buy
   [storage-spec purchase]
+  ; TODO Validate the input
   (with-transacted-storage [s storage-spec]
     (->> (assoc purchase :storage s)
          acquire-commodity
          acquire-accounts
          create-price
          create-purchase-transaction
-         create-lot)
-    ; validate the input
-    ))
+         create-lot)))
 
 (defn- find-lot
   "Given a sell context, finds the next lot containing
@@ -155,24 +164,34 @@
                             [shares-owned
                              (- shares-to-sell shares-owned)
                              0])
+        sale-price (-> context :price :price)
         adj-lot (lots/update (:storage context)
                              (assoc lot :shares-owned new-lot-balance))
+        gain (- (* shares-sold (:price lot))
+                (* shares-sold sale-price))
         lot-trans (lot-transactions/create (:storage context)
                                            {:trade-date (:trade-date context)
                                             :lot-id (:id adj-lot)
                                             :action :sell
                                             :shares shares-sold
-                                            :price (-> context :price :price)})
-        adj-context (-> context
-                        (update-in [:lots] #(conj % adj-lot))
-                        (update-in [:lot-transactions] #(conj % lot-trans)))]
-    [adj-context remaining-shares-to-sell]))
+                                            :price sale-price})]
+    [(-> context
+         (update-in [:lots] #(conj % adj-lot))
+         (update-in [:lot-transactions] #(conj % lot-trans))
+         (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
+                                                            shares-sold
+                                                            (-> context :commodity :symbol)
+                                                            sale-price )
+                                       :amount gain})))
+     remaining-shares-to-sell]))
 
 (defn- process-lot-sales
   "Given a sell context, processes the lot changes and appends
   the new lot transactions and the affected lots"
   [context]
-  (loop [context (assoc context :lots [] :lot-transactions [])
+  (loop [context (assoc context :lots []
+                                :lot-transactions []
+                                :gains [])
          shares-remaining (:shares context)]
     (if-let [lot (find-lot context)]
       (let [[adj-context

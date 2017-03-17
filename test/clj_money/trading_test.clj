@@ -284,6 +284,7 @@
                    :action :credit
                    :account-id (:id capital-gains)
                    :amount 125M
+                   :memo "Sold 25 shares of APPL at 15.00"
                    :balance 125M
                    :index 1}]]
     (is (= expected gains-items) "The capital gains account is credit the correct amount")))
@@ -293,3 +294,4 @@
 ; Selling a commodity for a profit credits the capital gains account
 ; Selling a commodity for a loss debits the capital gains account
 ; A commodity transaction can have a fee
+; input must be valid
