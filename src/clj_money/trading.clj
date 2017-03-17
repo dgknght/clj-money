@@ -192,5 +192,5 @@
          acquire-commodity
          acquire-accounts
          create-price
-         create-sale-transaction
-         process-lot-sales)))
+         process-lot-sales
+         create-sale-transaction)))

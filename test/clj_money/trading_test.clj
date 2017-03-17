@@ -13,6 +13,7 @@
             [clj-money.models.lots :as lots]
             [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]
+            [clj-money.models.transactions :as transactions]
             [clj-money.trading :as trading]))
 
 (def storage-spec (env :db))
@@ -30,7 +31,9 @@
                :parent-id "IRA"
                :content-type :commodity}
               {:name "Opening balances"
-               :type :income}]
+               :type :income}
+              {:name "Capital Gains"
+               :type :expense}]
    :commodities [{:name "Apple, Inc."
                   :symbol "APPL"
                   :exchange :nasdaq}]
@@ -253,6 +256,37 @@
                    :price 15M
                    :shares 25M}]]
     (is (= expected lot-transactions) "The lot transaction is created with proper data")))
+
+(deftest selling-a-commodity-for-a-profit-credits-capital-gains
+  (let [context (serialization/realize storage-spec sell-context)
+        ira (-> context :accounts first)
+        capital-gains (-> context :accounts last)
+        commodity (-> context :commodities first)
+        _ (trading/sell storage-spec {:commodity-id (:id commodity)
+                                      :account-id (:id ira)
+                                      :trade-date (t/local-date 2017 3 2)
+                                      :shares 25M
+                                      :value 375M})
+        expected [{:trade-date (t/local-date 2016 3 2)
+                   :account-id (:id ira)
+                   :commodity-id (:id commodity)
+                   :action :buy
+                   :price 10M
+                   :shares 100M}
+                  {:trade-date (t/local-date 2017 3 2)
+                   :account-id (:id ira)
+                   :commodity-id (:id commodity)
+                   :action :sell
+                   :price 15M
+                   :shares 25M}]
+        gains-items (transactions/search-items storage-spec {:account-id (:id capital-gains)})
+        expected [{:transaction-date (t/local-date 2017 3 2)
+                   :action :credit
+                   :account-id (:id capital-gains)
+                   :amount 125M
+                   :balance 125M
+                   :index 1}]]
+    (is (= expected gains-items) "The capital gains account is credit the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 ; Selling a commodity creates a transaction record

@@ -616,6 +616,13 @@
                                  (h/where [:= :reconciliation-id reconciliation-id])
                                  sql/format)))
 
+  (select-transaction-items
+    [_ criteria]
+    (query db-spec (-> (h/select :*)
+                      (h/from [:transaction_items :i])
+                      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
+                      (h/where (map->where criteria)))))
+
   ; Reconciliations
   (create-reconciliation
     [_ reconciliation]

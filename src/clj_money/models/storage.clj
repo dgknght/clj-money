@@ -209,6 +209,9 @@
   (unreconcile-transaction-items-by-reconciliation-id
     [this reconciliation-id]
     "Unsets the reconciliation ID to null for all matching values")
+  (select-transaction-items
+    [this criteria]
+    "Returns a list of transaction items matching the criteria")
 
   ; Reconciliations
   (create-reconciliation

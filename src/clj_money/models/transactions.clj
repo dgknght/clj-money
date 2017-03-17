@@ -17,6 +17,7 @@
                                               update-transaction
                                               find-transaction-item-by-id
                                               find-transaction-items-by-ids
+                                              select-transaction-items
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
                                               select-transaction-items-by-account-id
@@ -589,3 +590,9 @@
     (if t
       (:balance t)
       0M)))
+
+(defn search-items
+  "Returns transaction items matching the specified criteria"
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (select-transaction-items s criteria)))
