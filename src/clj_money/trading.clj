@@ -101,25 +101,19 @@
 (defn- create-lot
   "Given a purchase context, creates and appends the commodity lot"
   [{:keys [storage trade-date shares commodity-id account-id] :as context}]
-  (assoc context :lot (lots/create storage {:account-id account-id
-                                            :commodity-id commodity-id
-                                            :purchase-date trade-date
-                                            :shares-purchased shares})))
-
-(defn- create-lot-transaction
-  "Given a context, creates and appends the lot transaction"
-  [{storage :storage :as context}]
-  (assoc context
-         :lot-transaction
-         (lot-transactions/create
-           storage
-           (-> context
-               (select-keys [:account-id
-                             :commodity-id
-                             :trade-date
-                             :shares])
-               (assoc :action :buy)
-               (assoc :price (-> context :price :price))))))
+  (let [lot (lots/create storage {:account-id account-id
+                                                  :commodity-id commodity-id
+                                                  :purchase-date trade-date
+                                                  :shares-purchased shares})
+        lot-transaction (lot-transactions/create
+                          storage
+                          (-> context
+                              (select-keys [:trade-date
+                                            :shares])
+                              (assoc :lot-id (:id lot))
+                              (assoc :action :buy)
+                              (assoc :price (-> context :price :price))))]
+    (assoc context :lot lot :lot-transaction lot-transaction)))
 
 ; expect
 ; :commodity-id
@@ -135,8 +129,7 @@
          acquire-accounts
          create-price
          create-purchase-transaction
-         create-lot
-         create-lot-transaction)
+         create-lot)
     ; validate the input
     ))
 
@@ -165,11 +158,11 @@
         adj-lot (lots/update (:storage context)
                              (assoc lot :shares-owned new-lot-balance))
         lot-trans (lot-transactions/create (:storage context)
-                                           (-> context
-                                               (select-keys [:account-id :commodity-id :trade-date])
-                                               (assoc :action :sell
-                                                      :shares shares-sold
-                                                      :price (-> context :price :price))))
+                                           {:trade-date (:trade-date context)
+                                            :lot-id (:id adj-lot)
+                                            :action :sell
+                                            :shares shares-sold
+                                            :price (-> context :price :price)})
         adj-context (-> context
                         (update-in [:lots] #(conj % adj-lot))
                         (update-in [:lot-transactions] #(conj % lot-trans)))]

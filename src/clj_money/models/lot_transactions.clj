@@ -13,20 +13,16 @@
                                               select-lot-transactions]])
   (:import org.joda.time.LocalDate))
 
-(s/def ::account-id integer?)
-(s/def ::commodity-id integer?)
+(s/def ::lot-id integer?)
 (s/def ::trade-date (partial instance? LocalDate))
 (s/def ::action #{:buy :sell})
 (s/def ::shares decimal?)
 (s/def ::price decimal?)
-(s/def ::new-lot-transaction (s/keys :req-un [::account-id
-                                              ::commodity-id
+(s/def ::new-lot-transaction (s/keys :req-un [::lot-id
                                               ::trade-date
                                               ::action
                                               ::shares
                                               ::price]))
-
-(s/def ::select-criteria (s/keys :req-un [::account-id ::commodity-id]))
 
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:trade-date])])
@@ -54,10 +50,6 @@
 
 (defn select
   [storage-spec criteria]
-  (if (s/valid? ::select-criteria criteria)
-    (with-storage [s storage-spec]
-      (map after-read
-           (select-lot-transactions s criteria)))
-    (throw (ex-info "The criteria is incomplete."
-                    {:criteria criteria
-                     :explanation (s/explain-data ::select-criteria criteria)}))))
+  (with-storage [s storage-spec]
+    (map after-read
+         (select-lot-transactions s criteria))))

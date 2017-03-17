@@ -92,27 +92,20 @@
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)
         commodity (-> context :commodities first)
-        _ (trading/buy storage-spec {:commodity-id (:id commodity)
-                                     :account-id (:id ira)
-                                     :trade-date (t/local-date 2016 1 2)
-                                     :shares 100M
-                                     :value 1000M})
+        result (trading/buy storage-spec {:commodity-id (:id commodity)
+                                          :account-id (:id ira)
+                                          :trade-date (t/local-date 2016 1 2)
+                                          :shares 100M
+                                          :value 1000M})
         expected [{:trade-date (t/local-date 2016 1 2)
                    :action :buy
                    :shares 100M
                    :price 10M
-                   :account-id (:id ira)
-                   :commodity-id (:id commodity)}]
-        actual (map #(select-keys % [:trade-date
-                                     :action
-                                     :shares
-                                     :price
-                                     :account-id
-                                     :commodity-id])
+                   :lot-id (-> result :lot :id)}]
+        actual (map #(dissoc % :id :created-at :updated-at)
                     (lot-transactions/select
                       storage-spec
-                      {:commodity-id (:id commodity)
-                       :account-id (:id ira)}))]
+                      {:lot-id (-> result :lot :id)}))]
     (is (= expected actual)
         "The lot transaction can be retrieved from the database")))
 
@@ -152,8 +145,9 @@
                       :purchase-date (t/local-date 2016 3 2)
                       :shares-purchased 100M
                       :shares-owned 100M}]
-              :lot-transactions [{:commodity-id "APPL"
-                                  :account-id "IRA"
+              :lot-transactions [{:lot-id {:account-id "IRA"
+                                           :commodity-id "APPL"
+                                           :purchase-date (t/local-date 2016 3 2)}
                                   :trade-date (t/local-date 2016 3 2)
                                   :action :buy
                                   :shares 100M
@@ -238,6 +232,7 @@
   (let [context (serialization/realize storage-spec sell-context)
         ira (-> context :accounts first)
         commodity (-> context :commodities first)
+        lot (-> context :lots first)
         _ (trading/sell storage-spec {:commodity-id (:id commodity)
                                       :account-id (:id ira)
                                       :trade-date (t/local-date 2017 3 2)
@@ -246,17 +241,14 @@
         lot-transactions (map #(dissoc % :id :created-at :updated-at)
                               (lot-transactions/select
                                 storage-spec
-                                {:account-id (:id ira)
-                                 :commodity-id (:id commodity)}))
+                                {:lot-id (:id lot)}))
         expected [{:trade-date (t/local-date 2016 3 2)
-                   :account-id (:id ira)
-                   :commodity-id (:id commodity)
+                   :lot-id (:id lot)
                    :action :buy
                    :price 10M
                    :shares 100M}
                   {:trade-date (t/local-date 2017 3 2)
-                   :account-id (:id ira)
-                   :commodity-id (:id commodity)
+                   :lot-id (:id lot)
                    :action :sell
                    :price 15M
                    :shares 25M}]]

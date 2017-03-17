@@ -13,9 +13,11 @@
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
+(s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::lot-criteria (s/keys :req-un [::account-id ::commodity-id]))
+(s/def ::lot-transaction-criteria (s/keys :req-un [::lot-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -77,10 +79,12 @@
 
 (defn- map->where
   [m]
-  (reduce (fn [result [k v]]
-            (conj result [:= k v]))
-          [:and]
-          m))
+  (if (= 1 (count m))
+    [:= (-> m keys first) (-> m vals first)]
+    (reduce (fn [result [k v]]
+              (conj result [:= k v]))
+            [:and]
+            m)))
 
 (defn- append-where
   [sql options]
@@ -370,7 +374,7 @@
     [_ criteria]
     (when-not (s/valid? ::lot-criteria criteria)
       (throw (ex-info
-              "The criteria must specify account-id and commodity-id"
+              "The criteria must specify lot-id"
               {:criteria criteria})))
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
@@ -382,8 +386,7 @@
     (insert db-spec
             :lot_transactions
             lot-transaction
-            :account-id
-            :commodity-id
+            :lot-id
             :trade-date
             :action
             :shares
@@ -391,11 +394,13 @@
 
   (select-lot-transactions
     [_ criteria]
+    (when-not (s/valid? ::lot-transaction-criteria criteria)
+      (throw (ex-info
+              "The criteria is not valid"
+              {:criteria criteria})))
     (query db-spec (-> (h/select :*)
                        (h/from :lot_transactions)
-                       (h/where [:and
-                                  [:= :account-id (:account-id criteria)]
-                                  [:= :commodity-id (:commodity-id criteria)]])
+                       (h/where (map->where criteria))
                        (h/order-by :trade_date))))
 
   ; Transactions
