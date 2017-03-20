@@ -267,11 +267,16 @@
 
 (deftest selling-a-commodity-for-a-profit-credits-capital-gains
   (let [context (serialization/realize storage-spec sell-context)
-        ira (-> context :accounts first)
-        capital-gains (-> context :accounts last)
+        [ira
+         _
+         _
+         capital-gains
+         capital-loss] (:accounts context)
         commodity (-> context :commodities first)
         _ (trading/sell storage-spec {:commodity-id (:id commodity)
                                       :account-id (:id ira)
+                                      :capital-gains-account capital-gains
+                                      :capital-loss-account capital-loss
                                       :trade-date (t/local-date 2017 3 2)
                                       :shares 25M
                                       :value 375M})
@@ -287,15 +292,24 @@
                    :action :sell
                    :price 15M
                    :shares 25M}]
-        gains-items (transactions/search-items storage-spec {:account-id (:id capital-gains)})
+        gains-items (->> {:account-id (:id capital-gains)}
+                         (transactions/search-items storage-spec)
+                         (map #(dissoc % :id
+                                         :entity-id
+                                         :transaction-id
+                                         :reconciled?
+                                         :reconciliation-id
+                                         :created-at
+                                         :updated-at)))
         expected [{:transaction-date (t/local-date 2017 3 2)
+                   :description "Sell 25 shares of APPL at 15.000"
                    :action :credit
                    :account-id (:id capital-gains)
                    :amount 125M
-                   :memo "Sold 25 shares of APPL at 15.00"
+                   :memo "Sell 25 shares of APPL at 15.00"
                    :balance 125M
-                   :index 1}]]
-    (is (= expected gains-items) "The capital gains account is credit the correct amount")))
+                   :index 0}]]
+    (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 ; Selling a commodity creates a transaction record

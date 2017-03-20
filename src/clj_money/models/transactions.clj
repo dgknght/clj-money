@@ -595,4 +595,6 @@
   "Returns transaction items matching the specified criteria"
   [storage-spec criteria]
   (with-storage [s storage-spec]
-    (select-transaction-items s criteria)))
+    (->> criteria
+         (select-transaction-items s)
+         (map prepare-item-for-return))))

@@ -618,7 +618,7 @@
 
   (select-transaction-items
     [_ criteria]
-    (query db-spec (-> (h/select :*)
+    (query db-spec (-> (h/select :i.* :t.transaction-date :t.description)
                       (h/from [:transaction_items :i])
                       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
                       (h/where (map->where criteria)))))

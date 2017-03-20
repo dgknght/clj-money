@@ -53,6 +53,15 @@
                                       [find-commodity-account
                                        create-commodity-account]))))
 
+(defn- sale-transaction-description
+  [{:keys [shares]
+    {symbol :symbol} :commodity
+    {price :price} :price}]
+  (format "Sell %s shares of %s at %s"
+          shares
+          symbol
+          (format-number price {:format :commodity-price})))
+
 (defn- purchase-transaction-description
   [{:keys [shares]
     {symbol :symbol} :commodity
@@ -105,7 +114,7 @@
              storage
              {:entity-id (-> context :account :entity-id)
               :transaction-date trade-date
-              :description (purchase-transaction-description context)
+              :description (sale-transaction-description context)
               :items items}))))
 
 (defn- create-lot
