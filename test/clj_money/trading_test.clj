@@ -71,6 +71,27 @@
         "The lot transaction is valud")
     (is (= "Purchase 100 shares of APPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
 
+(deftest purchase-requires-a-commodity-id
+  (is false "need to write the test"))
+
+(deftest purchase-requires-an-account-id
+  (is false "need to write the test"))
+
+(deftest account-id-must-reference-a-commodities-account
+  (is false "need to write the test"))
+
+(deftest purchase-requires-a-trade-date
+  (is false "need to write the test"))
+
+(deftest purchase-trade-date-can-be-a-date-string
+  (is false "need to write the test"))
+
+(deftest purchase-requires-a-number-of-shares
+  (is false "need to write the test"))
+
+(deftest purchase-requires-a-value
+  (is false "need to write the test"))
+
 (deftest a-purchase-creates-a-lot-record
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)
@@ -202,6 +223,33 @@
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")))
 
+(deftest sales-requires-an-account-id
+  (is false "need to write the test"))
+
+(deftest sale-account-id-must-reference-a-commodities-account
+  (is false "need to write the test"))
+
+(deftest sales-requires-a-commodity-id
+  (is false "need to write the test"))
+
+(deftest sales-requires-a-trade-date
+  (is false "need to write the test"))
+
+(deftest sale-trade-date-can-be-a-date-string
+  (is false "need to write the test"))
+
+(deftest sales-requires-a-number-of-shares
+  (is false "need to write the test"))
+
+(deftest sales-requires-a-value
+  (is false "need to write the test"))
+
+(deftest sales-requires-a-capital-gains-account-id
+  (is false "need to write the test"))
+
+(deftest sales-requires-a-capital-loss-account-id
+  (is false "need to write the test"))
+
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
   (let [context (serialization/realize storage-spec purchase-context)
         [ira
@@ -331,7 +379,5 @@
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 ; Selling a commodity creates a transaction record
-; Selling a commodity for a profit credits the capital gains account
 ; Selling a commodity for a loss debits the capital gains account
 ; A commodity transaction can have a fee
-; input must be valid
