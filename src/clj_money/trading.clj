@@ -98,7 +98,7 @@
                          :amount value})
                   (conj {:action :credit
                          :account-id (-> context :commodity-account :id)
-                         :amount (- value gains)}))]
+                         :amount (- value total-gains)}))]
     (assoc context
            :transaction
            (transactions/create
@@ -165,10 +165,15 @@
                              (- shares-to-sell shares-owned)
                              0])
         sale-price (-> context :price :price)
+        purchase-price (->> {:lot-id (:id lot)}
+                            (lot-transactions/select (:storage context))
+                            (filter #(= :buy (:action %)))
+                            first
+                            :price)
         adj-lot (lots/update (:storage context)
                              (assoc lot :shares-owned new-lot-balance))
-        gain (- (* shares-sold (:price lot))
-                (* shares-sold sale-price))
+        gain (- (* shares-sold sale-price)
+                (* shares-sold purchase-price))
         lot-trans (lot-transactions/create (:storage context)
                                            {:trade-date (:trade-date context)
                                             :lot-id (:id adj-lot)

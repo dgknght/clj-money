@@ -33,6 +33,8 @@
               {:name "Opening balances"
                :type :income}
               {:name "Capital Gains"
+               :type :income}
+              {:name "Capital Loss"
                :type :expense}]
    :commodities [{:name "Apple, Inc."
                   :symbol "APPL"
@@ -166,10 +168,16 @@
 
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec sell-context)
-        ira (-> context :accounts first)
+        [ira
+         _
+         _
+         capital-gains
+         capital-loss] (:accounts context)
         commodity (-> context :commodities first)
         result (trading/sell storage-spec {:commodity-id (:id commodity)
                                            :account-id (:id ira)
+                                           :capital-gains-account capital-gains
+                                           :capital-loss-account capital-loss
                                            :trade-date (t/local-date 2017 3 2)
                                            :shares 25M
                                            :value 375M})]
@@ -192,7 +200,7 @@
     (is (:transaction result)
         "The result contains the transaction record")
     (is (empty? (-> result :transaction validation/error-messages))
-        "Thhe transaction is valid")))
+        "The transaction is valid")))
 
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
   (let [context (serialization/realize storage-spec purchase-context)
