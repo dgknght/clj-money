@@ -107,15 +107,16 @@
                          :amount value})
                   (conj {:action :credit
                          :account-id (-> context :commodity-account :id)
-                         :amount (- value total-gains)}))]
-    (assoc context
-           :transaction
-           (transactions/create
+                         :amount (- value total-gains)}))
+        transaction (transactions/create
              storage
              {:entity-id (-> context :account :entity-id)
               :transaction-date trade-date
               :description (sale-transaction-description context)
-              :items items}))))
+              :items items})]
+    (if (validation/has-error? transaction)
+      (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction}))
+      (assoc context :transaction transaction))))
 
 (defn- create-lot
   "Given a purchase context, creates and appends the commodity lot"

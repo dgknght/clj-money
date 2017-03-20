@@ -204,28 +204,40 @@
 
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
+        [ira
+         _
+         _
+         capital-gains
+         capital-loss] (:accounts context)
         commodity (-> context :commodities first)
         _ (trading/buy storage-spec {:commodity-id (:id commodity)
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
                                      :shares 100M
                                      :value 1000M})
-        _ (trading/sell storage-spec {:commodity-id (:id commodity)
-                                      :account-id (:id ira)
-                                      :trade-date (t/local-date 2017 1 2)
-                                      :shares 50M
-                                      :value 560M})
+        result (trading/sell storage-spec {:commodity-id (:id commodity)
+                                           :account-id (:id ira)
+                                           :capital-gains-account capital-gains
+                                           :capital-loss-account capital-loss
+                                           :trade-date (t/local-date 2017 3 2)
+                                           :shares 50M
+                                           :value 560M})
         new-balance (->> (accounts/reload storage-spec ira)
                          :balance)]
     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 
 (deftest selling-a-commodity-updates-a-lot-record
   (let [context (serialization/realize storage-spec sell-context)
-        ira (-> context :accounts first)
+        [ira
+         _
+         _
+         capital-gains
+         capital-loss] (:accounts context)
         commodity (-> context :commodities first)
         _ (trading/sell storage-spec {:commodity-id (:id commodity)
                                       :account-id (:id ira)
+                                      :capital-gains-account capital-gains
+                                      :capital-loss-account capital-loss
                                       :trade-date (t/local-date 2017 3 2)
                                       :shares 25M
                                       :value 375M})
@@ -241,11 +253,17 @@
 
 (deftest selling-a-commodity-creates-a-lot-transaction-record
   (let [context (serialization/realize storage-spec sell-context)
-        ira (-> context :accounts first)
+        [ira
+         _
+         _
+         capital-gains
+         capital-loss] (:accounts context)
         commodity (-> context :commodities first)
         lot (-> context :lots first)
         _ (trading/sell storage-spec {:commodity-id (:id commodity)
                                       :account-id (:id ira)
+                                      :capital-gains-account capital-gains
+                                      :capital-loss-account capital-loss
                                       :trade-date (t/local-date 2017 3 2)
                                       :shares 25M
                                       :value 375M})
