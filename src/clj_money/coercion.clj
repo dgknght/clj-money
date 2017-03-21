@@ -45,7 +45,10 @@
             %))
        value))
 
-(register-coerce-fn :integer    #(if (integer? %) % (Integer. %)))
+(register-coerce-fn :integer    #(if (integer? %)
+                                   %
+                                   (when (re-matches #"\A\d+\z" %)
+                                     (Integer. %))))
 (register-coerce-fn :decimal    #(if (decimal? %) % (try
                                                       (bigdec %)
                                                       (catch NumberFormatException e
