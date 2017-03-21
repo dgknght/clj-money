@@ -1,5 +1,6 @@
 (ns clj-money.models.helpers
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -98,6 +99,6 @@
       (let [validated (validate options s model)]
         (if (validation/valid? validated)
           (do
-            (process-options options s model :before-save :update)
-            ((:find options) s (:id model)))
+            (process-options options s validated :before-save :update)
+            ((:find options) s (:id validated)))
           validated)))))
