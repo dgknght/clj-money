@@ -223,6 +223,7 @@
                               (h/sset (->update-set account
                                                     :name
                                                     :type
+                                                    :content-type
                                                     :parent-id
                                                     :balance))
                               (h/where [:= :id (:id account)])))]

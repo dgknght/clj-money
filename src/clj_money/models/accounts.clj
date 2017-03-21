@@ -29,7 +29,7 @@
 (s/def ::name validation/non-empty-string?)
 (s/def ::type #{:asset :liability :equity :income :expense})
 (s/def ::content-type #{:currency :commodity :commodities})
-(s/def ::parent-id integer?)
+(s/def ::parent-id (s/nilable integer?))
 (s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id ::content-type]))
 (s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::content-type ::name] :opt-un [::parent-id]))
 ; :balance and :children-balance are not specified because they are always calculated and not passed in
@@ -37,6 +37,7 @@
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
    (coercion/rule :keyword [:type])
+   (coercion/rule :keyword [:content-type])
    (coercion/rule :integer [:entity-id])
    (coercion/rule :integer [:parent-id])])
 

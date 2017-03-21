@@ -145,6 +145,52 @@
                     :data-confirm "Are you sure you want to remove this transaction?"
                     :method :post}))]]])
 
+(defmulti ^:private show-account
+  (fn [account params]
+    (:content-type account)))
+
+(defmethod ^:private show-account :currency
+  [account params]
+  [:table.table.table-striped.table-hover
+   [:tr
+    [:th.text-right "Date"]
+    [:th "Description"]
+    [:th.text-right "Amount"]
+    [:th.text-right "Balance"]
+    [:th.text-center "Rec."]
+    [:th "&nbsp;"]]
+   (map transaction-item-row
+        (transactions/items-by-account (env :db)
+                                       (:id account)
+                                       (pagination/prepare-options params)))]
+  (pagination/nav (assoc params
+                         :url (-> (path "/accounts"
+                                        (:id account)))
+                         :total (transactions/count-items-by-account (env :db) (:id account))))
+  [:a.btn.btn-primary
+   {:href (-> (path "/entities"
+                    (:entity-id account)
+                    "transactions"
+                    "new")
+              (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
+              format-url)
+    :title "Click here to add a new transaction."}
+   "Add"]
+  "&nbsp;"
+  [:a.btn.btn-default
+   {:href (format "/accounts/%s/reconciliations/new" (:id account))
+    :title "Click here to reconcile this account."}
+   "Reconcile"]
+  "&nbsp;"
+  [:a.btn.btn-default
+   {:href (format "/entities/%s/accounts" (:entity-id account))
+    :title "Click here to return to the list of accounts."}
+   "Back"])
+
+(defmethod show-account :commodities
+  [account params]
+  "This is an investment account")
+
 (defn show
   "Renders account details, including transactions"
   ([req] (show req {}))
@@ -152,41 +198,7 @@
    (let [id (Integer. (:id params))
          account (accounts/find-by-id (env :db) id)]
      (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
-       [:table.table.table-striped.table-hover
-        [:tr
-         [:th.text-right "Date"]
-         [:th "Description"]
-         [:th.text-right "Amount"]
-         [:th.text-right "Balance"]
-         [:th.text-center "Rec."]
-         [:th "&nbsp;"]]
-        (map transaction-item-row
-             (transactions/items-by-account (env :db)
-                                            id
-                                            (pagination/prepare-options params)))]
-       (pagination/nav (assoc params
-                              :url (-> (path "/accounts"
-                                             (:id account)))
-                              :total (transactions/count-items-by-account (env :db) (:id account))))
-       [:a.btn.btn-primary
-        {:href (-> (path "/entities"
-                         (:entity-id account)
-                         "transactions"
-                         "new")
-                   (query {:redirect (url-encode (format "/accounts/%s" id))})
-                   format-url)
-         :title "Click here to add a new transaction."}
-        "Add"]
-       "&nbsp;"
-       [:a.btn.btn-default
-        {:href (format "/accounts/%s/reconciliations/new" (:id account))
-         :title "Click here to reconcile this account."}
-        "Reconcile"]
-       "&nbsp;"
-       [:a.btn.btn-default
-        {:href (format "/entities/%s/accounts" (:entity-id account))
-         :title "Click here to return to the list of accounts."}
-        "Back"]))))
+       (show-account account params)))))
 
 (defn- form-fields
   "Renders the form fields for an account"
@@ -195,6 +207,10 @@
     (text-input-field account :name {:autofocus true})
     (select-field account :type (map #(vector :option {:value %} (humanize %))
                                      accounts/account-types))
+    (select-field account
+                  :content-type
+                  (map #(vector :option {:value %} (humanize %))
+                       [:currency :commodities]))
     (select-field account
                   :parent-id
                   (grouped-options-for-accounts (:entity-id account)
@@ -236,6 +252,9 @@
     (with-accounts-layout "Edit account" (:entity-id account) {}
       [:form {:action (format "/accounts/%s" (:id account))
               :method :post}
+       [:input {:type :hidden
+                :name "entity-id"
+                :value (:entity-id account)}]
        (form-fields account)])))
 
 (defn update
@@ -245,6 +264,8 @@
   (let [account (select-keys params [:id
                                      :name
                                      :type
+                                     :entity-id
+                                     :content-type
                                      :parent-id])
         updated (accounts/update (env :db) account)]
     (if (validation/has-error? updated)
