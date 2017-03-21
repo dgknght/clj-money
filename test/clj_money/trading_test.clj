@@ -48,15 +48,19 @@
                             :account-id "Opening balances"
                             :amount 2000M}]}]})
 
+(defn- purchase-attributes
+  [context]
+  {:commodity-id (-> context :commodities first :id)
+   :account-id (-> context :accounts first :id)
+   :trade-date (t/local-date 2016 1 2)
+   :shares 100M
+   :value 1000M})
+
 (deftest purchase-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)
         commodity (-> context :commodities first)
-        result (trading/buy storage-spec {:commodity-id (:id commodity)
-                                          :account-id (:id ira)
-                                          :trade-date (t/local-date 2016 1 2)
-                                          :shares 100M
-                                          :value 1000M})]
+        result (trading/buy storage-spec (purchase-attributes context))]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (is (empty? (-> result :transaction validation/error-messages))
@@ -72,7 +76,15 @@
     (is (= "Purchase 100 shares of APPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
 
 (deftest purchase-requires-a-commodity-id
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             (purchase-attributes)
+                                             (dissoc :commodity-id)))]
+    (is (= ["Commodity id is required"]
+           (validation/error-messages result :commodity-id))
+        "The validation message indicates the error")))
 
 (deftest purchase-requires-an-account-id
   (is false "need to write the test"))

@@ -14,6 +14,9 @@
             [clj-money.models.lots :as lots]
             [clj-money.models.lot-transactions :as lot-transactions]))
 
+(s/def ::commodity-id integer?)
+(s/def ::purchase (s/keys :req-un [::commodity-id]))
+
 (defn- create-price
   "Given a context, calculates and appends the share price"
   [{:keys [storage shares value commodity-id trade-date] :as context}]
@@ -145,12 +148,15 @@
   [storage-spec purchase]
   ; TODO Validate the input
   (with-transacted-storage [s storage-spec]
-    (->> (assoc purchase :storage s)
-         acquire-commodity
-         acquire-accounts
-         create-price
-         create-purchase-transaction
-         create-lot)))
+    (let [validated (validation/validate ::purchase purchase)]
+      (if (validation/valid? validated)
+        (->> (assoc validated :storage s)
+             acquire-commodity
+             acquire-accounts
+             create-price
+             create-purchase-transaction
+             create-lot)
+        validated))))
 
 (defn- find-lot
   "Given a sell context, finds the next lot containing
