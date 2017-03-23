@@ -87,22 +87,54 @@
         "The validation message indicates the error")))
 
 (deftest purchase-requires-an-account-id
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             (purchase-attributes)
+                                             (dissoc :account-id)))]
+    (is (= ["Account id is required"]
+           (validation/error-messages result :account-id))
+        "The validation message indicates the error")))
 
 (deftest account-id-must-reference-a-commodities-account
   (is false "need to write the test"))
 
 (deftest purchase-requires-a-trade-date
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             (purchase-attributes)
+                                             (dissoc :trade-date)))]
+    (is (= ["Trade date is required"]
+           (validation/error-messages result :trade-date))
+        "The validation message indicates the error")))
 
 (deftest purchase-trade-date-can-be-a-date-string
   (is false "need to write the test"))
 
 (deftest purchase-requires-a-number-of-shares
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             (purchase-attributes)
+                                             (dissoc :shares)))]
+    (is (= ["Shares is required"]
+           (validation/error-messages result :shares))
+        "The validation message indicates the error")))
 
 (deftest purchase-requires-a-value
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             (purchase-attributes)
+                                             (dissoc :value)))]
+    (is (= ["Value is required"]
+           (validation/error-messages result :value))
+        "The validation message indicates the error")))
 
 (deftest a-purchase-creates-a-lot-record
   (let [context (serialization/realize storage-spec purchase-context)
@@ -199,21 +231,27 @@
                                                        :amount 1000M
                                                        :account-id "APPL"}]}]))))
 
+(defn- sale-attributes
+  [context]
+  {:commodity-id (-> context :commodities first :id)
+   :account-id (-> context :accounts first :id)
+   :capital-gains-account-id (->> context
+                                  :accounts
+                                  (filter #(= "Capital Gains" (:name %)))
+                                  first
+                                  :id)
+   :capital-loss-account-id (->> context
+                                 :accounts
+                                 (filter #(= "Capital Loss" (:name %)))
+                                 first
+                                 :id)
+   :trade-date (t/local-date 2017 3 2)
+   :shares 25M
+   :value 375M})
+
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec sell-context)
-        [ira
-         _
-         _
-         capital-gains
-         capital-loss] (:accounts context)
-        commodity (-> context :commodities first)
-        result (trading/sell storage-spec {:commodity-id (:id commodity)
-                                           :account-id (:id ira)
-                                           :capital-gains-account capital-gains
-                                           :capital-loss-account capital-loss
-                                           :trade-date (t/local-date 2017 3 2)
-                                           :shares 25M
-                                           :value 375M})]
+        result (trading/sell storage-spec (sale-attributes context))]
     (is (:price result)
         "The result contains a price")
     (is (empty? (-> result :price validation/error-messages))
@@ -236,71 +274,97 @@
         "The transaction is valid")))
 
 (deftest sales-requires-an-account-id
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :account-id)))]
+    (is (= ["Account id is required"]
+           (validation/error-messages result :account-id))
+        "The correct validation error is present")))
 
 (deftest sale-account-id-must-reference-a-commodities-account
   (is false "need to write the test"))
 
 (deftest sales-requires-a-commodity-id
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :commodity-id)))]
+    (is (= ["Commodity id is required"]
+           (validation/error-messages result :commodity-id))
+        "The correct validation error is present")))
 
 (deftest sales-requires-a-trade-date
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :trade-date)))]
+    (is (= ["Trade date is required"]
+           (validation/error-messages result :trade-date))
+        "The correct validation error is present")))
 
 (deftest sale-trade-date-can-be-a-date-string
   (is false "need to write the test"))
 
 (deftest sales-requires-a-number-of-shares
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :shares)))]
+    (is (= ["Shares is required"]
+           (validation/error-messages result :shares))
+        "The correct validation error is present")))
 
 (deftest sales-requires-a-value
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :value)))]
+    (is (= ["Value is required"]
+           (validation/error-messages result :value))
+        "The correct validation error is present")))
 
 (deftest sales-requires-a-capital-gains-account-id
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :capital-gains-account-id)))]
+    (is (= ["Capital gains account id is required"]
+           (validation/error-messages result :capital-gains-account-id))
+        "The correct validation error is present")))
 
 (deftest sales-requires-a-capital-loss-account-id
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :capital-loss-account-id)))]
+    (is (= ["Capital loss account id is required"]
+           (validation/error-messages result :capital-loss-account-id))
+        "The correct validation error is present")))
 
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
   (let [context (serialization/realize storage-spec purchase-context)
-        [ira
-         _
-         _
-         capital-gains
-         capital-loss] (:accounts context)
+        [ira] (:accounts context)
         commodity (-> context :commodities first)
         _ (trading/buy storage-spec {:commodity-id (:id commodity)
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
                                      :shares 100M
                                      :value 1000M})
-        result (trading/sell storage-spec {:commodity-id (:id commodity)
-                                           :account-id (:id ira)
-                                           :capital-gains-account capital-gains
-                                           :capital-loss-account capital-loss
-                                           :trade-date (t/local-date 2017 3 2)
-                                           :shares 50M
-                                           :value 560M})
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (assoc :shares 50M :value 560M)))
         new-balance (->> (accounts/reload storage-spec ira)
                          :balance)]
     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 
 (deftest selling-a-commodity-updates-a-lot-record
   (let [context (serialization/realize storage-spec sell-context)
-        [ira
-         _
-         _
-         capital-gains
-         capital-loss] (:accounts context)
+        [ira] (:accounts context)
         commodity (-> context :commodities first)
-        _ (trading/sell storage-spec {:commodity-id (:id commodity)
-                                      :account-id (:id ira)
-                                      :capital-gains-account capital-gains
-                                      :capital-loss-account capital-loss
-                                      :trade-date (t/local-date 2017 3 2)
-                                      :shares 25M
-                                      :value 375M})
+        _ (trading/sell storage-spec (-> context
+                                         sale-attributes
+                                         (assoc :shares 25M :value 375M)))
         lots (map #(dissoc % :id :created-at :updated-at)
                   (lots/search storage-spec {:account-id (:id ira)
                                              :commodity-id (:id commodity)}))
@@ -313,20 +377,12 @@
 
 (deftest selling-a-commodity-creates-a-lot-transaction-record
   (let [context (serialization/realize storage-spec sell-context)
-        [ira
-         _
-         _
-         capital-gains
-         capital-loss] (:accounts context)
+        [ira] (:accounts context)
         commodity (-> context :commodities first)
         lot (-> context :lots first)
-        _ (trading/sell storage-spec {:commodity-id (:id commodity)
-                                      :account-id (:id ira)
-                                      :capital-gains-account capital-gains
-                                      :capital-loss-account capital-loss
-                                      :trade-date (t/local-date 2017 3 2)
-                                      :shares 25M
-                                      :value 375M})
+        _ (trading/sell storage-spec (-> context
+                                         sale-attributes
+                                         (assoc :shares 25M :value 375M)))
         lot-transactions (map #(dissoc % :id :created-at :updated-at)
                               (lot-transactions/select
                                 storage-spec
@@ -345,19 +401,11 @@
 
 (deftest selling-a-commodity-for-a-profit-credits-capital-gains
   (let [context (serialization/realize storage-spec sell-context)
-        [ira
-         _
-         _
-         capital-gains
-         capital-loss] (:accounts context)
+        [ira _ _ capital-gains] (:accounts context)
         commodity (-> context :commodities first)
-        _ (trading/sell storage-spec {:commodity-id (:id commodity)
-                                      :account-id (:id ira)
-                                      :capital-gains-account capital-gains
-                                      :capital-loss-account capital-loss
-                                      :trade-date (t/local-date 2017 3 2)
-                                      :shares 25M
-                                      :value 375M})
+        _ (trading/sell storage-spec (-> context
+                                         sale-attributes
+                                         (assoc :shares 25M :value 375M)))
         expected [{:trade-date (t/local-date 2016 3 2)
                    :account-id (:id ira)
                    :commodity-id (:id commodity)

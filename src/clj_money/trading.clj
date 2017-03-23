@@ -15,7 +15,24 @@
             [clj-money.models.lot-transactions :as lot-transactions]))
 
 (s/def ::commodity-id integer?)
-(s/def ::purchase (s/keys :req-un [::commodity-id]))
+(s/def ::account-id integer?)
+(s/def ::capital-gains-account-id integer?)
+(s/def ::capital-loss-account-id integer?)
+(s/def ::trade-date #(instance? org.joda.time.LocalDate %))
+(s/def ::shares decimal?)
+(s/def ::value decimal?)
+(s/def ::purchase (s/keys :req-un [::commodity-id
+                                   ::account-id
+                                   ::trade-date
+                                   ::shares
+                                   ::value]))
+(s/def ::sale (s/keys :req-un [::account-id
+                               ::commodity-id
+                               ::trade-date
+                               ::shares
+                               ::value
+                               ::capital-gains-account-id
+                               ::capital-loss-account-id]))
 
 (defn- create-price
   "Given a context, calculates and appends the share price"
@@ -99,9 +116,9 @@
   (let [total-gains (reduce + (map :amount (:gains context)))
         items (-> (mapv (fn [{:keys [amount description]}]
                           {:action :credit
-                           :account-id (:id (if (< amount 0)
-                                              (:capital-loss-account context)
-                                              (:capital-gains-account context)))
+                           :account-id  (if (< amount 0)
+                                          (:capital-loss-account-id context)
+                                          (:capital-gains-account-id context))
                            :amount amount
                            :memo description})
                          (:gains context))
@@ -118,7 +135,9 @@
               :description (sale-transaction-description context)
               :items items})]
     (if (validation/has-error? transaction)
-      (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction}))
+      (do
+        (pprint {:transaction transaction})
+      (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
       (assoc context :transaction transaction))))
 
 (defn- create-lot
@@ -228,9 +247,12 @@
 (defn sell
   [storage-spec sale]
   (with-transacted-storage [s storage-spec]
-    (->> (assoc sale :storage s)
-         acquire-commodity
-         acquire-accounts
-         create-price
-         process-lot-sales
-         create-sale-transaction)))
+    (let [validated (validation/validate ::sale sale)]
+      (if (validation/has-error? validated)
+        validated
+        (->> (assoc validated :storage s)
+             acquire-commodity
+             acquire-accounts
+             create-price
+             process-lot-sales
+             create-sale-transaction)))))
