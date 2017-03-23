@@ -135,9 +135,7 @@
               :description (sale-transaction-description context)
               :items items})]
     (if (validation/has-error? transaction)
-      (do
-        (pprint {:transaction transaction})
-      (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
+      (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction}))
       (assoc context :transaction transaction))))
 
 (defn- create-lot
@@ -170,9 +168,13 @@
                            [:account-id]
                            "Account must be a commodities account")])
 
+(def ^:private purchase-coercion-rules
+  [(coercion/rule :local-date [:trade-date])])
+
 (defn- validate-purchase
   [storage purchase]
   (->> purchase
+       (coercion/coerce purchase-coercion-rules)
        (validation/validate ::purchase (validation-rules storage))))
 
 ; expect
@@ -262,10 +264,25 @@
       (throw (ex-info "Unable to find a lot to sell the shares"
                       {:context context})))))
 
+(def ^:private sale-coercion-rules
+  [(coercion/rule :local-date [:trade-date])])
+
+(defn sale-validation-rules
+  [storage]
+  [(validation/create-rule (partial account-has-commodities-content? storage)
+                           [:account-id]
+                           "Account must be a commodities account")])
+
+(defn- validate-sale
+  [storage sale]
+  (->> sale
+       (coercion/coerce sale-coercion-rules)
+       (validation/validate ::sale (sale-validation-rules storage))))
+
 (defn sell
   [storage-spec sale]
   (with-transacted-storage [s storage-spec]
-    (let [validated (validation/validate ::sale sale)]
+    (let [validated (validate-sale s sale)]
       (if (validation/has-error? validated)
         validated
         (->> (assoc validated :storage s)

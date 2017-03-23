@@ -127,7 +127,14 @@
         "The validation message indicates the error")))
 
 (deftest purchase-trade-date-can-be-a-date-string
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             (purchase-attributes)
+                                             (assoc :trade-date "3/2/2016")))]
+    (is (empty? (validation/error-messages result))
+        "The transaction is valid")))
 
 (deftest purchase-requires-a-number-of-shares
   (let [context (serialization/realize storage-spec purchase-context)
@@ -298,7 +305,22 @@
         "The correct validation error is present")))
 
 (deftest sale-account-id-must-reference-a-commodities-account
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec
+                                       (update-in sell-context
+                                                  [:accounts]
+                                                  #(conj % {:name "Checking"
+                                                            :type :asset})))
+        checking (->> context
+                      :accounts
+                      (filter #(= "Checking" (:name %)))
+                      first)
+        commodity (-> context :commodities first)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (assoc :account-id (:id checking))))]
+    (is (= ["Account must be a commodities account"]
+           (validation/error-messages result :account-id))
+        "The validation message indicates the error")))
 
 (deftest sales-requires-a-commodity-id
   (let [context (serialization/realize storage-spec sell-context)
@@ -319,7 +341,12 @@
         "The correct validation error is present")))
 
 (deftest sale-trade-date-can-be-a-date-string
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec sell-context)
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (assoc :trade-date "3/2/2017")))]
+    (is (empty?  (validation/error-messages result))
+        "The transaction is value")))
 
 (deftest sales-requires-a-number-of-shares
   (let [context (serialization/realize storage-spec sell-context)
