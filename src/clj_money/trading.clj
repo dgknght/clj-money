@@ -157,6 +157,24 @@
                               (assoc :price (-> context :price :price))))]
     (assoc context :lot lot :lot-transaction lot-transaction)))
 
+(defn- account-has-commodities-content?
+  [storage purchase]
+  (= :commodities (->> purchase
+                       :account-id
+                       (accounts/find-by-id storage) ; TODO eliminate this double lookup of the account
+                       :content-type)))
+
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule (partial account-has-commodities-content? storage)
+                           [:account-id]
+                           "Account must be a commodities account")])
+
+(defn- validate-purchase
+  [storage purchase]
+  (->> purchase
+       (validation/validate ::purchase (validation-rules storage))))
+
 ; expect
 ; :commodity-id
 ; :account-id
@@ -167,7 +185,7 @@
   [storage-spec purchase]
   ; TODO Validate the input
   (with-transacted-storage [s storage-spec]
-    (let [validated (validation/validate ::purchase purchase)]
+    (let [validated (validate-purchase s purchase)]
       (if (validation/valid? validated)
         (->> (assoc validated :storage s)
              acquire-commodity

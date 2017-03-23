@@ -98,7 +98,22 @@
         "The validation message indicates the error")))
 
 (deftest account-id-must-reference-a-commodities-account
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec
+                                       (update-in purchase-context
+                                                  [:accounts]
+                                                  #(conj % {:name "Checking"
+                                                            :type :asset})))
+        checking (->> context
+                      :accounts
+                      (filter #(= "Checking" (:name %)))
+                      first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             (purchase-attributes)
+                                             (assoc :account-id (:id checking))))]
+    (is (= ["Account must be a commodities account"]
+           (validation/error-messages result :account-id))
+        "The validation message indicates the error")))
 
 (deftest purchase-requires-a-trade-date
   (let [context (serialization/realize storage-spec purchase-context)
