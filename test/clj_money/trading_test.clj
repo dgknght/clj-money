@@ -448,18 +448,6 @@
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
-        expected [{:trade-date (t/local-date 2016 3 2)
-                   :account-id (:id ira)
-                   :commodity-id (:id commodity)
-                   :action :buy
-                   :price 10M
-                   :shares 100M}
-                  {:trade-date (t/local-date 2017 3 2)
-                   :account-id (:id ira)
-                   :commodity-id (:id commodity)
-                   :action :sell
-                   :price 15M
-                   :shares 25M}]
         gains-items (->> {:account-id (:id capital-gains)}
                          (transactions/search-items storage-spec)
                          (map #(dissoc % :id
@@ -479,7 +467,31 @@
                    :index 0}]]
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
+(deftest selling-a-commodity-for-a-loss-debits-capital-loss
+  (let [context (serialization/realize storage-spec sell-context)
+        [ira _ _ _ capital-loss] (:accounts context)
+        commodity (-> context :commodities first)
+        _ (trading/sell storage-spec (-> context
+                                         sale-attributes
+                                         (assoc :shares 100M :value 850M)))
+        gains-items (->> {:account-id (:id capital-loss)}
+                         (transactions/search-items storage-spec)
+                         (map #(dissoc % :id
+                                         :entity-id
+                                         :transaction-id
+                                         :reconciled?
+                                         :reconciliation-id
+                                         :created-at
+                                         :updated-at)))
+        expected [{:transaction-date (t/local-date 2017 3 2)
+                   :description "Sell 100 shares of APPL at 8.500"
+                   :action :debit
+                   :account-id (:id capital-loss)
+                   :amount 150M
+                   :memo "Sell 100 shares of APPL at 8.50"
+                   :balance 150M
+                   :index 0}]]
+    (is (= expected gains-items) "The capital loss account is credited the correct amount")))
+
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
-; Selling a commodity creates a transaction record
-; Selling a commodity for a loss debits the capital gains account
 ; A commodity transaction can have a fee

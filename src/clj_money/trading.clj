@@ -115,12 +115,15 @@
   [{:keys [storage trade-date value] :as context}]
   (let [total-gains (reduce + (map :amount (:gains context)))
         items (-> (mapv (fn [{:keys [amount description]}]
-                          {:action :credit
-                           :account-id  (if (< amount 0)
-                                          (:capital-loss-account-id context)
-                                          (:capital-gains-account-id context))
-                           :amount amount
-                           :memo description})
+                          (let [[action account-id] (if (< amount 0)
+                                                      [:debit
+                                                       (:capital-loss-account-id context)]
+                                                      [:credit
+                                                       (:capital-gains-account-id context)])]
+                            {:action action
+                             :account-id account-id
+                             :amount (.abs amount)
+                             :memo description}))
                          (:gains context))
                   (conj {:action :debit
                          :account-id (:account-id context)
