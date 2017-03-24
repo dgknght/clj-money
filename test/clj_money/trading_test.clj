@@ -35,7 +35,11 @@
               {:name "Capital Gains"
                :type :income}
               {:name "Capital Loss"
-               :type :expense}]
+               :type :expense}
+              {:name "Investment Expenses"
+               :type :expense}
+              {:name "Checking"
+               :type :asset}]
    :commodities [{:name "Apple, Inc."
                   :symbol "APPL"
                   :exchange :nasdaq}]
@@ -75,6 +79,23 @@
         "The lot transaction is valud")
     (is (= "Purchase 100 shares of APPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
 
+(deftest purchase-a-commodity-with-a-fee
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        inv-exp (->> context
+                     :accounts
+                     (filter #(= "Investment Expenses" (:name %)))
+                     first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             purchase-attributes
+                                             (assoc :fee 5M
+                                                    :fee-account-id (:id inv-exp))))]
+    (is (= 995M (:balance (accounts/reload storage-spec ira)))
+        "The investment account balance reflects the fee")
+    (is (= 5M (:balance (accounts/reload storage-spec inv-exp)))
+        "The investment expense account reflects the fee")))
+
 (deftest purchase-requires-a-commodity-id
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)
@@ -98,11 +119,7 @@
         "The validation message indicates the error")))
 
 (deftest account-id-must-reference-a-commodities-account
-  (let [context (serialization/realize storage-spec
-                                       (update-in purchase-context
-                                                  [:accounts]
-                                                  #(conj % {:name "Checking"
-                                                            :type :asset})))
+  (let [context (serialization/realize storage-spec purchase-context)
         checking (->> context
                       :accounts
                       (filter #(= "Checking" (:name %)))
@@ -230,29 +247,6 @@
                          :balance)]
     (is (= 1001M new-balance) "The account balance decreases by the amount of the purchase")))
 
-(def ^:private sell-context
-  (-> purchase-context
-      (merge {:lots [{:commodity-id "APPL"
-                      :account-id "IRA"
-                      :purchase-date (t/local-date 2016 3 2)
-                      :shares-purchased 100M
-                      :shares-owned 100M}]
-              :lot-transactions [{:lot-id {:account-id "IRA"
-                                           :commodity-id "APPL"
-                                           :purchase-date (t/local-date 2016 3 2)}
-                                  :trade-date (t/local-date 2016 3 2)
-                                  :action :buy
-                                  :shares 100M
-                                  :price 10M}]})
-      (update-in [:transactions] #(concat % [{:transaction-date 2016 3 2
-                                              :description "Purchase 100 shares of APPL at $10.00"
-                                              :items [{:action :credit
-                                                       :amount 1000M
-                                                       :account-id "IRA"}
-                                                      {:action :debit
-                                                       :amount 1000M
-                                                       :account-id "APPL"}]}]))))
-
 (defn- sale-attributes
   [context]
   {:commodity-id (-> context :commodities first :id)
@@ -271,8 +265,23 @@
    :shares 25M
    :value 375M})
 
+(defn- sell-context
+  []
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        commodity (-> context :commodities first)
+        result  (trading/buy storage-spec {:account-id (:id ira)
+                                           :commodity-id (:id commodity)
+                                           :trade-date (t/local-date 2016 3 2)
+                                           :shares 100M
+                                           :value 1000M})]
+    (assoc context :lots [(:lot result)])))
+
 (deftest sell-a-commodity
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (sell-context)
         result (trading/sell storage-spec (sale-attributes context))]
     (is (:price result)
         "The result contains a price")
@@ -295,8 +304,25 @@
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")))
 
+(deftest sell-a-commodity-with-a-fee
+  (let [context (serialization/realize storage-spec (sell-context))
+        ira (-> context :accounts first)
+        inv-exp (->> context
+                     :accounts
+                     (filter #(= "Investment Expenses" (:name %)))
+                     first)
+        result (trading/sell storage-spec
+                             (-> context
+                                 sale-attributes
+                                 (assoc :fee 5M
+                                        :fee-account-id (:id inv-exp))))]
+    (is (= 1370M (:balance (accounts/reload storage-spec ira)))
+        "The investment account balance reflects the fee")
+    (is (= 5M (:balance (accounts/reload storage-spec inv-exp)))
+        "The investment fee account balance reflects the fee")))
+
 (deftest sales-requires-an-account-id
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :account-id)))]
@@ -305,11 +331,7 @@
         "The correct validation error is present")))
 
 (deftest sale-account-id-must-reference-a-commodities-account
-  (let [context (serialization/realize storage-spec
-                                       (update-in sell-context
-                                                  [:accounts]
-                                                  #(conj % {:name "Checking"
-                                                            :type :asset})))
+  (let [context (serialization/realize storage-spec (sell-context))
         checking (->> context
                       :accounts
                       (filter #(= "Checking" (:name %)))
@@ -323,7 +345,7 @@
         "The validation message indicates the error")))
 
 (deftest sales-requires-a-commodity-id
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :commodity-id)))]
@@ -332,7 +354,7 @@
         "The correct validation error is present")))
 
 (deftest sales-requires-a-trade-date
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :trade-date)))]
@@ -341,7 +363,7 @@
         "The correct validation error is present")))
 
 (deftest sale-trade-date-can-be-a-date-string
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (assoc :trade-date "3/2/2017")))]
@@ -349,7 +371,7 @@
         "The transaction is value")))
 
 (deftest sales-requires-a-number-of-shares
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :shares)))]
@@ -358,7 +380,7 @@
         "The correct validation error is present")))
 
 (deftest sales-requires-a-value
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :value)))]
@@ -367,7 +389,7 @@
         "The correct validation error is present")))
 
 (deftest sales-requires-a-capital-gains-account-id
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :capital-gains-account-id)))]
@@ -376,7 +398,7 @@
         "The correct validation error is present")))
 
 (deftest sales-requires-a-capital-loss-account-id
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :capital-loss-account-id)))]
@@ -401,7 +423,7 @@
     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 
 (deftest selling-a-commodity-updates-a-lot-record
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         [ira] (:accounts context)
         commodity (-> context :commodities first)
         _ (trading/sell storage-spec (-> context
@@ -418,7 +440,7 @@
     (is (= expected lots) "The lot is updated to reflect the sale")))
 
 (deftest selling-a-commodity-creates-a-lot-transaction-record
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         [ira] (:accounts context)
         commodity (-> context :commodities first)
         lot (-> context :lots first)
@@ -442,7 +464,7 @@
     (is (= expected lot-transactions) "The lot transaction is created with proper data")))
 
 (deftest selling-a-commodity-for-a-profit-credits-capital-gains
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         [ira _ _ capital-gains] (:accounts context)
         commodity (-> context :commodities first)
         _ (trading/sell storage-spec (-> context
@@ -468,7 +490,7 @@
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-loss-debits-capital-loss
-  (let [context (serialization/realize storage-spec sell-context)
+  (let [context (serialization/realize storage-spec (sell-context))
         [ira _ _ _ capital-loss] (:accounts context)
         commodity (-> context :commodities first)
         _ (trading/sell storage-spec (-> context
@@ -494,4 +516,3 @@
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
-; A commodity transaction can have a fee

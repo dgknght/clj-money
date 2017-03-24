@@ -94,26 +94,32 @@
 (defn- create-purchase-transaction
   "Given a purchase context, creates the general currency
   transaction"
-  [{:keys [storage trade-date value] :as context}]
-  (assoc context
-         :transaction
-         (transactions/create
-           storage
-           {:entity-id (-> context :account :entity-id)
-            :transaction-date trade-date
-            :description (purchase-transaction-description context)
-            :items [{:action :credit
-                     :account-id (:account-id context)
-                     :amount value}
-                    {:action :debit
-                     :account-id (-> context :commodity-account :id)
-                     :amount value}]})))
+  [{:keys [storage trade-date value fee-account-id] :as context}]
+  (let [fee (or (:fee context) 0M)
+        items (cond-> [{:action :credit
+                        :account-id (:account-id context)
+                        :amount (+ value fee)}
+                       {:action :debit
+                        :account-id (-> context :commodity-account :id)
+                        :amount value}]
+                (not= 0M fee) (conj {:action :debit
+                                     :account-id fee-account-id
+                                     :amount fee}))]
+    (assoc context
+           :transaction
+           (transactions/create
+             storage
+             {:entity-id (-> context :account :entity-id)
+              :transaction-date trade-date
+              :description (purchase-transaction-description context)
+              :items items}))))
 
 (defn- create-sale-transaction
   "Given a purchase context, creates the general currency
   transaction"
   [{:keys [storage trade-date value] :as context}]
   (let [total-gains (reduce + (map :amount (:gains context)))
+        fee (or (:fee context) 0M)
         items (-> (mapv (fn [{:keys [amount description]}]
                           (let [[action account-id] (if (< amount 0)
                                                       [:debit
@@ -127,10 +133,14 @@
                          (:gains context))
                   (conj {:action :debit
                          :account-id (:account-id context)
-                         :amount value})
+                         :amount (- value fee)})
                   (conj {:action :credit
                          :account-id (-> context :commodity-account :id)
                          :amount (- value total-gains)}))
+        items (cond-> items
+                (not= 0M fee) (conj {:action :debit
+                                     :account-id (:fee-account-id context)
+                                     :amount fee}))
         transaction (transactions/create
              storage
              {:entity-id (-> context :account :entity-id)
