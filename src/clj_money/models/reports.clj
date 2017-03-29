@@ -48,6 +48,32 @@
           (partial set-balance-deltas storage-spec start end))
        groups))
 
+(defmulti ^:private account-value-as-of
+  (fn [storage-spec account as-of]
+    (:content-type account)))
+
+(defmethod ^:private account-value-as-of :currency
+  [storage-spec account as-of]
+  (transactions/balance-as-of storage-spec
+                              (:id account)
+                              as-of))
+
+(defmethod ^:private account-value-as-of :commodities
+  [storage-spec account as-of]
+  (transactions/balance-as-of storage-spec
+                              (:id account)
+                              as-of))
+
+(defmethod ^:private account-value-as-of :commodity
+  [storage-spec account as-of]
+
+  (throw (java.lang.RuntimeException. "Not implemented"))
+
+  #_(let [commodity (commodities/select storage-spec {:symbol (:name account)})
+        price (prices/last-price-before (:id commodity) as-of)
+        shares (lots/shares-as-of (:id account) (:id commodity), as-of)]
+    (* shares price)))
+
 (declare set-balances)
 ; TODO combine this with set-balance-delta
 (defn- set-balance
@@ -58,9 +84,7 @@
                                          (:children-balance %2))
                                      0
                                      children)
-        new-balance (transactions/balance-as-of storage-spec
-                                                (:id account)
-                                                as-of)]
+        new-balance (account-value-as-of storage-spec account as-of)]
     (assoc account :children children
                    :children-balance new-children-balance
                    :balance new-balance)))

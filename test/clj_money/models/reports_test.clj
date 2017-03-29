@@ -7,6 +7,7 @@
             [clj-factory.core :refer [factory]]
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
+            [clj-money.trading :as trading]
             [clj-money.models.reports :as reports]
             [clj-money.test-helpers :refer [reset-db
                                             simplify-account-groups
@@ -16,7 +17,7 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def income-statement-context
+(def report-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
    :accounts [{:name "Checking"
@@ -194,7 +195,7 @@
                              :amount 700M}]}]})
 
 (deftest create-an-income-statement
-  (let [context (serialization/realize storage-spec income-statement-context)
+  (let [context (serialization/realize storage-spec report-context)
         actual (into [] (reports/income-statement storage-spec
                                                   (-> context :entities first :id)
                                                   (t/local-date 2016 1 1)
@@ -239,7 +240,7 @@
     (is (= expected actual) "The report renders the corect data")))
 
 (deftest create-a-balance-sheet-report
-  (let [context (serialization/realize storage-spec income-statement-context)
+  (let [context (serialization/realize storage-spec report-context)
         actual (reports/balance-sheet storage-spec
                                       (-> context :entities first :id)
                                       (t/local-date 2016 1 31))
@@ -269,10 +270,83 @@
                    :style :summary}]]
     (is (= expected actual) "The rpoert renders the correct data")))
 
+(def ^:private commodities-context
+  (-> report-context
+      (update-in [:accounts] #(conj % {:name "IRA"
+                                       :type :asset
+                                       :content-type :commodities}))
+      (update-in [:transactions] #(conj % {:transaction-date (t/local-date 2016 1 2)
+                                           :description "Retirement savings"
+                                           :items [{:action :credit
+                                                    :account-id "Checking"
+                                                    :amount 500M}
+                                                   {:action :debit
+                                                    :account-id "IRA"
+                                                    :amount 500M}]}))
+      (assoc :commodities [{:name "Apple, Inc."
+                            :symbol "AAPL"
+                            :exchange :nasdaq}])
+      (assoc :prices [{:trade-date (t/local-date 2017 2 1)
+                       :price 20M
+                       :commodity-id "AAPL"}])))
+
 (deftest balance-sheet-report-with-commodities
-  ; The newest price as of the report date is used for commodities
-  ; unrealized gains are included in the equity section
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec commodities-context)
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        commodity (-> context :commodities first)
+        _ (trading/buy storage-spec {:account-id (:id ira)
+                                     :commodity-id (:id commodity)
+                                     :shares 100M
+                                     :value 500M
+                                     :trade-date (t/local-date 2016 3 2)})
+        report (reports/balance-sheet storage-spec
+                                      (-> context :entities first :id)
+                                      (t/local-date 2017 3 2))
+        expected [{:caption "Asset"
+                   :value 3279M
+                   :style :header}
+                  {:caption "Checking"
+                   :value 1279M
+                   :style :data
+                   :depth 0}
+                  {:caption "IRA"
+                   :value 2000M
+                   :style :data
+                   :depth 0}
+                  {:caption "AAPL"
+                   :value 2000M
+                   :style :data
+                   :depth 1}
+                  {:caption "Liability"
+                   :value 904M
+                   :style :header}
+                  {:caption "Credit Card"
+                   :value 904M
+                   :style :data
+                   :depth 0}
+                  {:caption "Equity"
+                   :value 2375M
+                   :style :header}
+                  {:caption "Retained Earnings"
+                   :value 875M
+                   :style :data
+                   :depth 0}
+                  {:caption "Unrealized Gains"
+                   :value 1500M
+                   :style :data
+                   :depth 0}
+                  {:caption "Liabilities + Equity"
+                   :value 3279M
+                   :style :summary}]]
+
+    (pprint {:expected expected
+             :actual report
+             :diff (diff expected report)})
+
+    (is (= expected report) "The report contains the correct data")))
 
 
 (def budget-report-context

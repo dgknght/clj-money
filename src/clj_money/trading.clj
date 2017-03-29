@@ -48,18 +48,19 @@
   (assoc context :commodity (commodities/find-by-id storage commodity-id)))
 
 (defn- find-commodity-account
-  [storage parent-id symbol]
+  [storage parent symbol]
   (first (accounts/search
            storage
-           {:parent-id parent-id
+           {:parent-id (:id parent)
             :name symbol})))
 
 (defn- create-commodity-account
-  [storage parent-id symbol]
+  [storage parent symbol]
   (accounts/create storage {:name symbol
                             :type :asset
                             :content-type :commodity
-                            :parent-id parent-id}))
+                            :parent-id (:id parent)
+                            :entity-id (:entity-id parent)}))
 
 (defn- acquire-accounts
   "Give a purchase context, acquires the accounts
@@ -67,11 +68,12 @@
   [{:keys [account-id storage]
     {symbol :symbol} :commodity
     :as context}]
-  (-> context
-      (assoc :account (accounts/find-by-id storage account-id))
-      (assoc :commodity-account (some #(% storage account-id symbol)
-                                      [find-commodity-account
-                                       create-commodity-account]))))
+  (let [account (accounts/find-by-id storage account-id)]
+    (-> context
+        (assoc :account account)
+        (assoc :commodity-account (some #(% storage account symbol)
+                                        [find-commodity-account
+                                         create-commodity-account])))))
 
 (defn- sale-transaction-description
   [{:keys [shares]
@@ -198,7 +200,6 @@
 ; :value
 (defn buy
   [storage-spec purchase]
-  ; TODO Validate the input
   (with-transacted-storage [s storage-spec]
     (let [validated (validate-purchase s purchase)]
       (if (validation/valid? validated)
