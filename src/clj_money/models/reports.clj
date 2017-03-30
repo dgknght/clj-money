@@ -8,7 +8,11 @@
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.models.transactions :as transactions]
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]
+            [clj-money.models.lots :as lots]
+            [clj-money.models.lot-transactions :as lot-transactions]))
 
 (declare set-balance-deltas)
 (defn- set-balance-delta
@@ -66,12 +70,27 @@
 
 (defmethod ^:private account-value-as-of :commodity
   [storage-spec account as-of]
-
-  (throw (java.lang.RuntimeException. "Not implemented"))
-
-  #_(let [commodity (commodities/select storage-spec {:symbol (:name account)})
-        price (prices/last-price-before (:id commodity) as-of)
-        shares (lots/shares-as-of (:id account) (:id commodity), as-of)]
+  ; TODO We need a more reliable way to get the commodity
+  ; probalby we should store extra values in the account, like
+  ; {:id 123
+  ;  :name "AAPL"
+  ;  :type :asset
+  ;  :content-type :commodity
+  ;  :extras {:commodity-id 456}}
+  (let [commodity (first (commodities/search storage-spec
+                                             {:entity-id (:entity-id account)
+                                              :symbol (:name account)}))
+        price (:price (prices/most-recent storage-spec (:id commodity) as-of))
+        grouped-lot-transactions (->> {:account-id (:parent-id account) ; The lots are associated with the commodities account
+                                       :commodity-id (:id commodity)}
+                                      (lots/search storage-spec)
+                                      (mapcat #(lot-transactions/select storage-spec {:lot-id (:id %)}))
+                                      (filter #(>= 0 (compare (:trade-date %) as-of)))
+                                      (group-by :action))
+        shares (apply - (map #(->> (% grouped-lot-transactions)
+                                   (map :shares)
+                                   (reduce :+ 0M))
+                             [:buy :sell]))]
     (* shares price)))
 
 (declare set-balances)
