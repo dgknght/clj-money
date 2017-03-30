@@ -125,3 +125,7 @@
                         (map :shares)
                         (reduce :+ 0M))
                   [:buy :sell]))))
+
+(defn unrealized-gains
+  [storage-spec entity-id]
+  0M)

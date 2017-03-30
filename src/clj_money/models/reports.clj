@@ -160,18 +160,26 @@
 
 (defn- transform-balance-sheet
   "Accepts group accounts and returns a report structure"
-  [groups]
+  [storage-spec entity-id groups]
   (let [summary (->> groups
                      (map (juxt :type :value))
                      (into {}))
         retained (- (:income summary) (:expense summary))
+        unrealized-gains (lots/unrealized-gains storage-spec entity-id)
+        unrealized-caption (if (< unrealized-gains 0)
+                             "Unrealized Losses"
+                             "Unrealized Gains")
         records (->> groups
                      (map (fn [entry]
                             (if (= :equity (:type entry))
                               (-> entry
-                                  (update-in [:accounts] #(conj % {:name "Retained Earnings"
-                                                                   :balance retained
-                                                                   :children-balance 0}))
+                                  (update-in [:accounts] #(conj %
+                                                                {:name unrealized-caption
+                                                                 :balance unrealized-gains
+                                                                 :children-balance 0}
+                                                                {:name "Retained Earnings"
+                                                                 :balance retained
+                                                                 :children-balance 0}))
                                   (update-in [:value] #(+ %1 retained)))
                               entry)))
                      (remove #(#{:income :expense} (:type %)))
@@ -192,7 +200,7 @@
           entity-id)
         (into [])
         (set-balances-in-account-groups storage-spec as-of)
-        transform-balance-sheet)))
+        (transform-balance-sheet storage-spec entity-id))))
 
 (defn- ->budget-report-record
   [storage budget period-count as-of account]
