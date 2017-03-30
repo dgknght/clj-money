@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
+            [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
@@ -38,6 +39,7 @@
                (select-prices-by-commodity-id
                  storage
                  commodity-id
+                 (tc/to-long (t/local-date 9999 12 31))
                  {:where { :trade-date (tc/to-long trade-date)}}))))
 
 (defn- validation-rules
@@ -77,7 +79,9 @@
 (defn select-by-commodity-id
   [storage-spec commodity-id]
   (with-storage [s storage-spec]
-    (->> (select-prices-by-commodity-id s commodity-id)
+    (->> (select-prices-by-commodity-id s
+                                        commodity-id
+                                        (tc/to-long (t/local-date 9999 12 31)))
          (map after-read))))
 
 (defn update
@@ -98,8 +102,10 @@
     (delete-price s id)))
 
 (defn most-recent
-  [storage-spec commodity-id]
-  (with-storage [s storage-spec]
-    (-> (select-prices-by-commodity-id s commodity-id {:limit 1})
-        first
-        after-read)))
+  ([storage-spec commodity-id]
+   (most-recent storage-spec commodity-id (t/today)))
+  ([storage-spec commodity-id as-of]
+   (with-storage [s storage-spec]
+     (-> (select-prices-by-commodity-id s commodity-id (tc/to-long as-of) {:limit 1})
+         first
+         after-read))))

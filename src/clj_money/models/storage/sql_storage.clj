@@ -19,6 +19,7 @@
 (s/def ::commodity-id integer?)
 (s/def ::lot-criteria (s/keys :req-un [::account-id ::commodity-id]))
 (s/def ::lot-transaction-criteria (s/keys :req-un [::lot-id]))
+(s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 
 (defn- exists?
