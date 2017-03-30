@@ -10,6 +10,7 @@
                                               find-commodity-by-id
                                               update-commodity
                                               select-commodities-by-entity-id
+                                              select-commodities
                                               delete-prices-by-commodity-id
                                               delete-commodity]]))
 
@@ -105,6 +106,14 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (after-read (find-commodity-by-id s id))))
+
+(defn search
+  "Returns commodities matching the specified criteria"
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-commodities s)
+         (map after-read))))
 
 (defn update
   "Updates the specified commodity"

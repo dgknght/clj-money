@@ -13,11 +13,13 @@
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
+(s/def ::entity-id integer?)
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::lot-criteria (s/keys :req-un [::account-id ::commodity-id]))
 (s/def ::lot-transaction-criteria (s/keys :req-un [::lot-id]))
+(s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -293,6 +295,16 @@
                   (append-paging options))]
       (query db-spec sql)))
 
+  (select-commodities
+    [_ criteria]
+    (when-not (s/valid? ::commodity-criteria criteria)
+      (throw (ex-info
+              "The criteria must specify entity-id"
+              {:criteria criteria})))
+    (query db-spec (-> (h/select :*)
+                       (h/from :commodities)
+                       (h/where (map->where criteria)))))
+
   (delete-commodity
     [_ id]
     (jdbc/delete! db-spec :commodities ["id = ?" id]))
@@ -305,14 +317,16 @@
                                   :price))
 
   (select-prices-by-commodity-id
-    [this commodity-id]
+    [this commodity-id as-of]
     (.select-prices-by-commodity-id this commodity-id {}))
 
   (select-prices-by-commodity-id
-    [_ commodity-id options]
+    [_ commodity-id as-of options]
     (let [sql (-> (h/select :*)
                   (h/from :prices)
-                  (h/where [:= :commodity-id commodity-id])
+                  (h/where [:and
+                            [:= :commodity-id commodity-id]
+                            [:< :trade-date as-of]])
                   (h/order-by [:trade-date :desc])
                   (append-where options)
                   (append-limit options)
