@@ -48,8 +48,8 @@
               :create create-lot-transaction
               :after-read after-read}))
 
+; TODO change this name to "search" for consistancy
 (defn select
   [storage-spec criteria]
   (with-storage [s storage-spec]
-    (map after-read
-         (select-lot-transactions s criteria))))
+    (map after-read (select-lot-transactions s criteria))))
