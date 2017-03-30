@@ -81,16 +81,10 @@
                                              {:entity-id (:entity-id account)
                                               :symbol (:name account)}))
         price (:price (prices/most-recent storage-spec (:id commodity) as-of))
-        grouped-lot-transactions (->> {:account-id (:parent-id account) ; The lots are associated with the commodities account
-                                       :commodity-id (:id commodity)}
-                                      (lots/search storage-spec)
-                                      (mapcat #(lot-transactions/select storage-spec {:lot-id (:id %)}))
-                                      (filter #(>= 0 (compare (:trade-date %) as-of)))
-                                      (group-by :action))
-        shares (apply - (map #(->> (% grouped-lot-transactions)
-                                   (map :shares)
-                                   (reduce :+ 0M))
-                             [:buy :sell]))]
+        shares (lots/shares-as-of storage-spec
+                                  (:parent-id account) ; The lots are associated with the commodities account
+                                  (:id commodity)
+                                  as-of)]
     (* shares price)))
 
 (declare set-balances)

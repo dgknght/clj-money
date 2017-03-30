@@ -14,7 +14,8 @@
                                               select-lots
                                               update-lot
                                               find-lot-by-id]]
-            [clj-money.models.accounts :as accounts]))
+            [clj-money.models.accounts :as accounts]
+            [clj-money.models.lot-transactions :as lot-transactions]))
 
 (s/def ::id integer?)
 (s/def ::account-id integer?)
@@ -110,3 +111,17 @@
     (->> criteria
          (select-lots s)
          (map after-read))))
+
+(defn shares-as-of
+  [storage-spec account-id commodity-id as-of]
+  (let [grouped-lot-transactions (->> {:account-id account-id
+                                       :commodity-id commodity-id}
+                                      ; TODO Combine the following 2 lines into 1 SQL call
+                                      (search storage-spec)
+                                      (mapcat #(lot-transactions/select storage-spec {:lot-id (:id %)}))
+                                      (filter #(>= 0 (compare (:trade-date %) as-of)))
+                                      (group-by :action))]
+    (apply - (map #(->> (% grouped-lot-transactions)
+                        (map :shares)
+                        (reduce :+ 0M))
+                  [:buy :sell]))))
