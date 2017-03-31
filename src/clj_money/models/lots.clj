@@ -11,11 +11,13 @@
                                               update-fn]]
             [clj-money.models.storage :refer [create-lot
                                               select-lots-by-commodity-id
+                                              select-lots-by-entity-id
                                               select-lots
                                               update-lot
                                               find-lot-by-id]]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.lot-transactions :as lot-transactions]))
+            [clj-money.models.lot-transactions :as lot-transactions]
+            [clj-money.models.prices :as prices]))
 
 (s/def ::id integer?)
 (s/def ::account-id integer?)
@@ -127,5 +129,13 @@
                   [:buy :sell]))))
 
 (defn unrealized-gains
-  [storage-spec entity-id]
-  0M)
+  [storage-spec entity-id as-of]
+  (with-storage [s storage-spec]
+
+    (throw (java.lang.RuntimeException. "Not implemented"))
+
+    (let [lots (map after-read (select-lots-by-entity-id s entity-id))
+          commodity-prices (->> lots
+                                (map :commodity-id)
+                                (into #{})
+                                (map #(vector % (prices/most-recent s % as-of))))])))

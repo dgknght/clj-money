@@ -165,6 +165,9 @@
                      (map (juxt :type :value))
                      (into {}))
         retained (- (:income summary) (:expense summary))
+         ; I think I want to rework this and calculate unrealized gains
+         ; and maybe also retained earnings before passing data into this function.
+         ; Then this function can focus on rearranging nested data into report records
         unrealized-gains (lots/unrealized-gains storage-spec entity-id)
         unrealized-caption (if (< unrealized-gains 0)
                              "Unrealized Losses"
