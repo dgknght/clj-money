@@ -113,6 +113,10 @@
     [this lot]
     "Creates a new lot record")
 
+  (select-lots-by-entity-id
+    [this entity-id]
+    "Returns the lots for the specified entity")
+
   (select-lots-by-commodity-id
     [this commodity-id]
     "Returns the lots for the specified commodity")

@@ -364,6 +364,15 @@
                               :shares-purchased
                               :shares-owned))
 
+  (select-lots-by-entity-id
+    [_ entity-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from [:lots :l])
+                       (h/join [:accounts :a] [:= :a.id :l.account_id])
+                       (h/where [:and
+                                 [:= :a.entity_id entity-id]
+                                 [:= :a.content_type "commodities"]]))))
+
   (select-lots-by-commodity-id
     [_ commodity-id]
     (query db-spec (-> (h/select :*)
@@ -390,7 +399,7 @@
     [_ criteria]
     (when-not (s/valid? ::lot-criteria criteria)
       (throw (ex-info
-              "The criteria must specify lot-id"
+              "The criteria must specify account-id and commodity-id"
               {:criteria criteria})))
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
