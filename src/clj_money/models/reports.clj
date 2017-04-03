@@ -109,10 +109,10 @@
 
 (defn- set-balances-in-account-groups
   [storage-spec as-of groups]
-  (map #(set-balances-in-account-group
-          %
-          (partial set-balances storage-spec as-of))
-       groups))
+  (mapv #(set-balances-in-account-group
+           %
+           (partial set-balances storage-spec as-of))
+        groups))
 
 (defn- transform-account
   [account depth]
@@ -160,36 +160,48 @@
 
 (defn- transform-balance-sheet
   "Accepts group accounts and returns a report structure"
-  [storage-spec entity-id groups]
+  [groups]
   (let [summary (->> groups
                      (map (juxt :type :value))
                      (into {}))
         retained (- (:income summary) (:expense summary))
-         ; I think I want to rework this and calculate unrealized gains
-         ; and maybe also retained earnings before passing data into this function.
-         ; Then this function can focus on rearranging nested data into report records
-        unrealized-gains (lots/unrealized-gains storage-spec entity-id)
-        unrealized-caption (if (< unrealized-gains 0)
-                             "Unrealized Losses"
-                             "Unrealized Gains")
         records (->> groups
-                     (map (fn [entry]
-                            (if (= :equity (:type entry))
-                              (-> entry
-                                  (update-in [:accounts] #(conj %
-                                                                {:name unrealized-caption
-                                                                 :balance unrealized-gains
-                                                                 :children-balance 0}
-                                                                {:name "Retained Earnings"
-                                                                 :balance retained
-                                                                 :children-balance 0}))
-                                  (update-in [:value] #(+ %1 retained)))
-                              entry)))
                      (remove #(#{:income :expense} (:type %)))
                      (mapcat transform-account-group))]
     (concat records [{:caption "Liabilities + Equity"
-                      :value (+ retained (:equity summary) (:liability summary))
+                      :value (+ (:equity summary) (:liability summary))
                       :style :summary}])))
+
+(defn- append-retained-earnings
+  [account-groups]
+  (let [summary (->> account-groups
+                     (map (juxt :type :value))
+                     (into {}))
+        retained (- (:income summary) (:expense summary))]
+    (update-in account-groups
+               [2]
+               (fn [entry]
+                 (-> entry
+                     (update-in [:accounts] #(conj %
+                                                   {:name "Retained Earnings"
+                                                    :balance retained
+                                                    :children-balance 0}))
+                     (update-in [:value] #(+ % retained)))))))
+
+(defn- append-unrealized-gains
+  [account-groups storage-spec entity-id as-of]
+  account-groups
+  #_(let [unrealized-gains (lots/unrealized-gains storage-spec entity-id as-of)
+        unrealized-caption (if (< unrealized-gains 0)
+                             "Unrealized Losses"
+                             "Unrealized Gains")]
+    account-groups))
+
+(defn- append-calculated-values
+  [storage-spec entity-id as-of account-groups]
+  (-> account-groups
+      append-retained-earnings
+      (append-unrealized-gains storage-spec entity-id as-of)))
 
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
@@ -201,9 +213,9 @@
    (->> (accounts/select-nested-by-entity-id
           storage-spec
           entity-id)
-        (into [])
         (set-balances-in-account-groups storage-spec as-of)
-        (transform-balance-sheet storage-spec entity-id))))
+        (append-calculated-values storage-spec entity-id as-of)
+        transform-balance-sheet)))
 
 (defn- ->budget-report-record
   [storage budget period-count as-of account]
