@@ -172,30 +172,41 @@
                       :value (+ (:equity summary) (:liability summary))
                       :style :summary}])))
 
+(defn- append-equity-pseudo-account
+  [account-groups caption value]
+  (update-in account-groups
+               [2]
+               (fn [entry]
+                 (-> entry
+                     (update-in [:accounts] #(conj %
+                                                   {:name caption
+                                                    :balance value
+                                                    :children-balance 0}))
+                     (update-in [:value] #(+ % value))))))
+
 (defn- append-retained-earnings
   [account-groups]
   (let [summary (->> account-groups
                      (map (juxt :type :value))
                      (into {}))
-        retained (- (:income summary) (:expense summary))]
-    (update-in account-groups
-               [2]
-               (fn [entry]
-                 (-> entry
-                     (update-in [:accounts] #(conj %
-                                                   {:name "Retained Earnings"
-                                                    :balance retained
-                                                    :children-balance 0}))
-                     (update-in [:value] #(+ % retained)))))))
+        value (- (:income summary) (:expense summary))
+        caption (if (< value 0)
+                  "Retained Losses"
+                  "Retained Earnings")]
+    (append-equity-pseudo-account account-groups
+                                  caption
+                                  value)))
 
 (defn- append-unrealized-gains
   [account-groups storage-spec entity-id as-of]
   account-groups
-  #_(let [unrealized-gains (lots/unrealized-gains storage-spec entity-id as-of)
-        unrealized-caption (if (< unrealized-gains 0)
-                             "Unrealized Losses"
-                             "Unrealized Gains")]
-    account-groups))
+  (let [value (lots/unrealized-gains storage-spec entity-id as-of)
+        caption (if (< value 0)
+                  "Unrealized Losses"
+                  "Unrealized Gains")]
+    (append-equity-pseudo-account account-groups
+                                  caption
+                                  value)))
 
 (defn- append-calculated-values
   [storage-spec entity-id as-of account-groups]
