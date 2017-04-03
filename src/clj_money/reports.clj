@@ -1,4 +1,4 @@
-(ns clj-money.models.reports
+(ns clj-money.reports
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
