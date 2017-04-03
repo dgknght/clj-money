@@ -175,44 +175,41 @@
 (defn- append-equity-pseudo-account
   [account-groups caption value]
   (update-in account-groups
-               [2]
-               (fn [entry]
-                 (-> entry
-                     (update-in [:accounts] #(conj %
-                                                   {:name caption
-                                                    :balance value
-                                                    :children-balance 0}))
-                     (update-in [:value] #(+ % value))))))
+             [2]
+             (fn [entry]
+               (-> entry
+                   (update-in [:accounts] #(concat %
+                                                   [{:name caption
+                                                     :balance value
+                                                     :children-balance 0}]))
+                   (update-in [:value] #(+ % value))))))
 
-(defn- append-retained-earnings
-  [account-groups]
-  (let [summary (->> account-groups
-                     (map (juxt :type :value))
-                     (into {}))
-        value (- (:income summary) (:expense summary))
-        caption (if (< value 0)
-                  "Retained Losses"
-                  "Retained Earnings")]
-    (append-equity-pseudo-account account-groups
-                                  caption
-                                  value)))
+(def ^:private pseudo-accounts
+  [{:positive-caption "Retained Earnings"
+    :negative-caption "Retained Losses"
+    :calc-fn #(let [summary (->> (:account-groups %)
+                             (map (juxt :type :value))
+                             (into {}))]
+            (- (:income summary) (:expense summary))) }
+   {:positive-caption "Unrealized Gains"
+    :negative-caption "Unrealized Losses"
+    :calc-fn #(lots/unrealized-gains (:storage-spec %)
+                                (:entity-id %)
+                                (:as-of %))}])
 
-(defn- append-unrealized-gains
-  [account-groups storage-spec entity-id as-of]
-  account-groups
-  (let [value (lots/unrealized-gains storage-spec entity-id as-of)
-        caption (if (< value 0)
-                  "Unrealized Losses"
-                  "Unrealized Gains")]
-    (append-equity-pseudo-account account-groups
-                                  caption
-                                  value)))
-
-(defn- append-calculated-values
+(defn- append-pseudo-accounts
   [storage-spec entity-id as-of account-groups]
-  (-> account-groups
-      append-retained-earnings
-      (append-unrealized-gains storage-spec entity-id as-of)))
+  (reduce (fn [result {:keys [calc-fn negative-caption positive-caption]}]
+            (let [value (calc-fn {:storage-spec storage-spec
+                                  :entity-id entity-id
+                                  :as-of as-of
+                                  :account-groups result})
+                  caption (if (< value 0)
+                            negative-caption
+                            positive-caption)]
+              (append-equity-pseudo-account result caption value)))
+          account-groups
+          pseudo-accounts))
 
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
@@ -225,7 +222,7 @@
           storage-spec
           entity-id)
         (set-balances-in-account-groups storage-spec as-of)
-        (append-calculated-values storage-spec entity-id as-of)
+        (append-pseudo-accounts storage-spec entity-id as-of)
         transform-balance-sheet)))
 
 (defn- ->budget-report-record
