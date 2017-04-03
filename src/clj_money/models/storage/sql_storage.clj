@@ -319,7 +319,7 @@
 
   (select-prices-by-commodity-id
     [this commodity-id as-of]
-    (.select-prices-by-commodity-id this commodity-id {}))
+    (.select-prices-by-commodity-id this commodity-id as-of {}))
 
   (select-prices-by-commodity-id
     [_ commodity-id as-of options]
