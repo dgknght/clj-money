@@ -178,13 +178,13 @@
                       (map #(assoc % :path (:name %)))
                       (map #(append-children % all))
                       (group-by :type))]
-     (map #(hash-map :type % :accounts (or
-                                         (->> grouped
-                                              %
-                                              (sort-by :name)
-                                              vec)
-                                         []))
-          types))))
+     (mapv #(hash-map :type % :accounts (or
+                                          (->> grouped
+                                               %
+                                               (sort-by :name)
+                                               vec)
+                                          []))
+           types))))
 
 (def update
   (update-fn {:before-save before-save
