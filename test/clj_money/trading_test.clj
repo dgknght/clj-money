@@ -32,9 +32,13 @@
                :content-type :commodity}
               {:name "Opening balances"
                :type :income}
-              {:name "Capital Gains"
+              {:name "Long-term Capital Gains"
                :type :income}
-              {:name "Capital Loss"
+              {:name "Long-term Capital Loss"
+               :type :expense}
+              {:name "Short-term Capital Gains"
+               :type :income}
+              {:name "Short-term Capital Loss"
                :type :expense}
               {:name "Investment Expenses"
                :type :expense}
@@ -251,14 +255,24 @@
   [context]
   {:commodity-id (-> context :commodities first :id)
    :account-id (-> context :accounts first :id)
-   :capital-gains-account-id (->> context
+   :lt-capital-gains-account-id (->> context
                                   :accounts
-                                  (filter #(= "Capital Gains" (:name %)))
+                                  (filter #(= "Long-term Capital Gains" (:name %)))
                                   first
                                   :id)
-   :capital-loss-account-id (->> context
+   :lt-capital-loss-account-id (->> context
                                  :accounts
-                                 (filter #(= "Capital Loss" (:name %)))
+                                 (filter #(= "Long-term Capital Loss" (:name %)))
+                                 first
+                                 :id)
+   :st-capital-gains-account-id (->> context
+                                  :accounts
+                                  (filter #(= "Short-term Capital Gains" (:name %)))
+                                  first
+                                  :id)
+   :st-capital-loss-account-id (->> context
+                                 :accounts
+                                 (filter #(= "Short-term Capital Loss" (:name %)))
                                  first
                                  :id)
    :trade-date (t/local-date 2017 3 2)
@@ -388,22 +402,40 @@
            (validation/error-messages result :value))
         "The correct validation error is present")))
 
-(deftest sales-requires-a-capital-gains-account-id
+(deftest sales-requires-a-long-term-capital-gains-account-id
   (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
-                                              (dissoc :capital-gains-account-id)))]
-    (is (= ["Capital gains account id is required"]
-           (validation/error-messages result :capital-gains-account-id))
+                                              (dissoc :lt-capital-gains-account-id)))]
+    (is (= ["Lt capital gains account id is required"]
+           (validation/error-messages result :lt-capital-gains-account-id))
         "The correct validation error is present")))
 
-(deftest sales-requires-a-capital-loss-account-id
+(deftest sales-requires-a-long-term-capital-loss-account-id
   (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
                                               sale-attributes
-                                              (dissoc :capital-loss-account-id)))]
-    (is (= ["Capital loss account id is required"]
-           (validation/error-messages result :capital-loss-account-id))
+                                              (dissoc :lt-capital-loss-account-id)))]
+    (is (= ["Lt capital loss account id is required"]
+           (validation/error-messages result :lt-capital-loss-account-id))
+        "The correct validation error is present")))
+
+(deftest sales-requires-a-short-term-capital-gains-account-id
+  (let [context (serialization/realize storage-spec (sell-context))
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :st-capital-gains-account-id)))]
+    (is (= ["St capital gains account id is required"]
+           (validation/error-messages result :st-capital-gains-account-id))
+        "The correct validation error is present")))
+
+(deftest sales-requires-a-short-term-capital-loss-account-id
+  (let [context (serialization/realize storage-spec (sell-context))
+        result (trading/sell storage-spec (-> context
+                                              sale-attributes
+                                              (dissoc :st-capital-loss-account-id)))]
+    (is (= ["St capital loss account id is required"]
+           (validation/error-messages result :st-capital-loss-account-id))
         "The correct validation error is present")))
 
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
@@ -463,14 +495,21 @@
                    :shares 25M}]]
     (is (= expected lot-transactions) "The lot transaction is created with proper data")))
 
-(deftest selling-a-commodity-for-a-profit-credits-capital-gains
+(deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
   (let [context (serialization/realize storage-spec (sell-context))
-        [ira _ _ capital-gains] (:accounts context)
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        lt-capital-gains (->> context
+                              :accounts
+                              (filter #(= "Long-term Capital Gains" (:name %)))
+                              first)
         commodity (-> context :commodities first)
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
-        gains-items (->> {:account-id (:id capital-gains)}
+        gains-items (->> {:account-id (:id lt-capital-gains)}
                          (transactions/search-items storage-spec)
                          (map #(dissoc % :id
                                          :entity-id
@@ -482,7 +521,42 @@
         expected [{:transaction-date (t/local-date 2017 3 2)
                    :description "Sell 25 shares of APPL at 15.000"
                    :action :credit
-                   :account-id (:id capital-gains)
+                   :account-id (:id lt-capital-gains)
+                   :amount 125M
+                   :memo "Sell 25 shares of APPL at 15.00"
+                   :balance 125M
+                   :index 0}]]
+    (is (= expected gains-items) "The capital gains account is credited the correct amount")))
+
+(deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
+  (let [context (serialization/realize storage-spec (sell-context))
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        st-capital-gains (->> context
+                              :accounts
+                              (filter #(= "Short-term Capital Gains" (:name %)))
+                              first)
+        commodity (-> context :commodities first)
+        _ (trading/sell storage-spec (-> context
+                                         sale-attributes
+                                         (assoc :shares 25M
+                                                :value 375M
+                                                :trade-date (t/local-date 2017 3 1))))
+        gains-items (->> {:account-id (:id st-capital-gains)}
+                         (transactions/search-items storage-spec)
+                         (map #(dissoc % :id
+                                         :entity-id
+                                         :transaction-id
+                                         :reconciled?
+                                         :reconciliation-id
+                                         :created-at
+                                         :updated-at)))
+        expected [{:transaction-date (t/local-date 2017 3 1)
+                   :description "Sell 25 shares of APPL at 15.000"
+                   :action :credit
+                   :account-id (:id st-capital-gains)
                    :amount 125M
                    :memo "Sell 25 shares of APPL at 15.00"
                    :balance 125M
@@ -491,7 +565,14 @@
 
 (deftest selling-a-commodity-for-a-loss-debits-capital-loss
   (let [context (serialization/realize storage-spec (sell-context))
-        [ira _ _ _ capital-loss] (:accounts context)
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        capital-loss (->> context
+                          :accounts
+                          (filter #(= "Long-term Capital Loss" (:name %)))
+                          first)
         commodity (-> context :commodities first)
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
@@ -516,7 +597,3 @@
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
-; Selling a commodity held less than one year for a profit credits the short term capital gains account
-; Selling a commodity held one year or more for a profit credits the long term capital gains account
-; Selling a commodity held less than one year for a loss debits the short term capital loss account
-; Selling a commodity held one year or more for a loss debits the long term capital loss account

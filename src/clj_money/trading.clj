@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
+            [clj-time.core :as t]
             [clj-money.util :refer [format-number
                                     pprint-and-return]]
             [clj-money.validation :as validation]
@@ -16,8 +17,10 @@
 
 (s/def ::commodity-id integer?)
 (s/def ::account-id integer?)
-(s/def ::capital-gains-account-id integer?)
-(s/def ::capital-loss-account-id integer?)
+(s/def ::lt-capital-gains-account-id integer?)
+(s/def ::lt-capital-loss-account-id integer?)
+(s/def ::st-capital-gains-account-id integer?)
+(s/def ::st-capital-loss-account-id integer?)
 (s/def ::trade-date #(instance? org.joda.time.LocalDate %))
 (s/def ::shares decimal?)
 (s/def ::value decimal?)
@@ -31,8 +34,10 @@
                                ::trade-date
                                ::shares
                                ::value
-                               ::capital-gains-account-id
-                               ::capital-loss-account-id]))
+                               ::lt-capital-gains-account-id
+                               ::lt-capital-loss-account-id
+                               ::st-capital-gains-account-id
+                               ::st-capital-loss-account-id]))
 
 (defn- create-price
   "Given a context, calculates and appends the share price"
@@ -122,12 +127,12 @@
   [{:keys [storage trade-date value] :as context}]
   (let [total-gains (reduce + (map :amount (:gains context)))
         fee (or (:fee context) 0M)
-        items (-> (mapv (fn [{:keys [amount description]}]
-                          (let [[action account-id] (if (< amount 0)
-                                                      [:debit
-                                                       (:capital-loss-account-id context)]
-                                                      [:credit
-                                                       (:capital-gains-account-id context)])]
+        items (-> (mapv (fn [{:keys [amount description long-term?]}]
+                          (let [account-key (keyword (format "%s-capital-%s-account-id"
+                                                             (if long-term? "lt" "st")
+                                                             (if (< amount 0) "loss" "gains")))
+                                action (if (< amount 0) :debit :credit)
+                                account-id (account-key context)]
                             {:action action
                              :account-id account-id
                              :amount (.abs amount)
@@ -243,6 +248,9 @@
                              (assoc lot :shares-owned new-lot-balance))
         gain (- (* shares-sold sale-price)
                 (* shares-sold purchase-price))
+        cut-off-date (t/plus (:purchase-date lot) (t/years 1))
+        long-term? (>= 0 (compare cut-off-date
+                                  (:trade-date context)))
         lot-trans (lot-transactions/create (:storage context)
                                            {:trade-date (:trade-date context)
                                             :lot-id (:id adj-lot)
@@ -256,7 +264,8 @@
                                                             shares-sold
                                                             (-> context :commodity :symbol)
                                                             sale-price )
-                                       :amount gain})))
+                                       :amount gain
+                                       :long-term? long-term?})))
      remaining-shares-to-sell]))
 
 (defn- process-lot-sales
