@@ -341,11 +341,6 @@
                   {:caption "Liabilities + Equity"
                    :value 3279M
                    :style :summary}]]
-
-    (pprint {:expected expected
-             :actual report
-             :diff (diff expected report)})
-
     (is (= expected report) "The report contains the correct data")))
 
 

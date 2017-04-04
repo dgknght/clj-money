@@ -128,14 +128,41 @@
                         (reduce :+ 0M))
                   [:buy :sell]))))
 
+(defn- lot-shares
+  [storage lot-id as-of]
+  (->> {:lot-id lot-id}
+       (lot-transactions/select storage) ; TODO Move date filtering into the database query
+       (filter #(< 0 (compare as-of (:trade-date %))))
+       (map #(* (:shares %) (if (= :buy (:action %)) 1 -1)))
+       (reduce +)))
+
+(defn- lot-unrealized-gains
+  [storage price-fn as-of {:keys [:commodity-id] :as lot}]
+  (let [transactions (lot-transactions/select storage {:lot-id (:id lot)})
+        purchase-price (->> transactions
+                            (filter #(= :buy (:action %)))
+                            first
+                            :price)
+        shares-owned (->> transactions
+                          (filter #(< 0 (compare as-of (:trade-date %))))
+                          (map #(* (:shares %) (if (= :buy (:action %)) 1 -1)))
+                          (reduce +))
+        cost (* purchase-price shares-owned)
+        value (* (price-fn commodity-id) shares-owned)]
+    (- value cost)))
+
 (defn unrealized-gains
   [storage-spec entity-id as-of]
   (with-storage [s storage-spec]
-
-    (throw (java.lang.RuntimeException. "Not implemented"))
-
-    (let [lots (map after-read (select-lots-by-entity-id s entity-id))
+    (let [lots (->> (select-lots-by-entity-id s entity-id)
+                    (map after-read)
+                    (filter #(< 0 (compare as-of (:purchase-date %)))))
           commodity-prices (->> lots
                                 (map :commodity-id)
                                 (into #{})
-                                (map #(vector % (prices/most-recent s % as-of))))])))
+                                (map #(vector % (:price (prices/most-recent s % as-of))))
+                                (into {}))
+          price-fn #(commodity-prices %)]
+      (->> lots
+           (map #(lot-unrealized-gains s price-fn as-of %))
+           (reduce +)))))
