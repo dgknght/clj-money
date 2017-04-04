@@ -265,10 +265,14 @@
                    :value 249M
                    :style :data
                    :depth 0}
+                  {:caption "Unrealized Gains"
+                   :value 0M
+                   :style :data
+                   :depth 0}
                   {:caption "Liabilities + Equity"
                    :value 749M
                    :style :summary}]]
-    (is (= expected actual) "The rpoert renders the correct data")))
+    (is (= expected actual) "The report data is correct")))
 
 (def ^:private commodities-context
   (-> report-context

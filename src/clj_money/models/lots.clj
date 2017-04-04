@@ -165,4 +165,4 @@
           price-fn #(commodity-prices %)]
       (->> lots
            (map #(lot-unrealized-gains s price-fn as-of %))
-           (reduce +)))))
+           (reduce + 0M)))))
