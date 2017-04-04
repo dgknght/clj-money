@@ -516,3 +516,7 @@
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
+; Selling a commodity held less than one year for a profit credits the short term capital gains account
+; Selling a commodity held one year or more for a profit credits the long term capital gains account
+; Selling a commodity held less than one year for a loss debits the short term capital loss account
+; Selling a commodity held one year or more for a loss debits the long term capital loss account
