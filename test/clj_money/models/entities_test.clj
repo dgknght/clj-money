@@ -118,6 +118,6 @@
   (let [entity (entities/create storage-spec {:name "Personal"
                                               :user-id (:id user)
                                               :inventory-method :not-valid})]
-    (is (= ["Inventory method must be fifo or lifo"]
+    (is (= ["Inventory method must be one of: fifo, lifo"]
            (validation/error-messages entity :inventory-method))
         "There is an error message for the attributes")))

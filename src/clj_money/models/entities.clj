@@ -46,12 +46,13 @@
 (defn- after-read
   ([entity] (after-read nil entity))
   ([_ entity]
-   (cond-> entity
-    (:monitored-account-ids entity)
-    (update-in [:monitored-account-ids] read-string)
+   (when entity
+     (cond-> entity
+       (:monitored-account-ids entity)
+       (update-in [:monitored-account-ids] read-string)
 
-    true
-    (update-in [:inventory-method] keyword))))
+       true
+       (update-in [:inventory-method] keyword)))))
 
 (defn- validation-rules
   [storage]
