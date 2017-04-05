@@ -165,7 +165,8 @@
     [_ entity]
     (insert db-spec :entities entity :name
                                      :user-id
-                                     :monitored-account-ids))
+                                     :monitored-account-ids
+                                     :inventory-method))
 
   (select-entities
     [_ user-id]
