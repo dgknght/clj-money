@@ -8,6 +8,7 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-transacted-storage]]
+            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
@@ -79,6 +80,12 @@
         (assoc :commodity-account (some #(% storage account symbol)
                                         [find-commodity-account
                                          create-commodity-account])))))
+
+(defn- acquire-entity
+  [{storage :storage
+    {entity-id :entity-id} :account
+    :as context}]
+  (assoc context :entity (entities/find-by-id storage entity-id)))
 
 (defn- sale-transaction-description
   [{:keys [shares]
@@ -211,6 +218,7 @@
         (->> (assoc validated :storage s)
              acquire-commodity
              acquire-accounts
+             acquire-entity
              create-price
              create-purchase-transaction
              create-lot)
@@ -219,12 +227,15 @@
 (defn- find-lot
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage] :as context}]
-  (->> (select-keys context [:commodity-id :account-id])
-       (lots/search storage)
-       (filter #(> (:shares-owned %) 0)) ; should really do this in the database query
-       (sort-by :created-at) ; this is FIFO, need to handle FILO
-       first))
+  [{:keys [storage entity] :as context}]
+  (let [sort-fn (if (= :lifo (:inventory-method entity))
+                  (partial sort #(compare (:purchase-date %2) (:purchase-date %1)))
+                  (partial sort-by :created-at))]
+    (->> (select-keys context [:commodity-id :account-id])
+         (lots/search storage)
+         (filter #(> (:shares-owned %) 0)) ; should really do this in the database query
+         sort-fn
+         first)))
 
 (defn- process-lot-sale
   [context lot shares-to-sell]
@@ -311,6 +322,7 @@
         (->> (assoc validated :storage s)
              acquire-commodity
              acquire-accounts
+             acquire-entity
              create-price
              process-lot-sales
              create-sale-transaction)))))
