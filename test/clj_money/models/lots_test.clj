@@ -165,3 +165,7 @@
         "The result contains no validation errors")
     (is (= 70M (:shares-owned retrieved))
         "The retrieved map contains the updated value")))
+
+; Test unrealized-gains with:
+;   Date that precedes some purchases
+;   Date that precedes some sales
