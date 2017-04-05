@@ -597,3 +597,72 @@
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
+
+(defn- map-accounts
+  [context & account-names]
+  (map (fn [account-name]
+         (->> context
+              :accounts
+              (filter #(= account-name (:name %)))
+              first))
+       account-names))
+
+(deftest lifo-sale
+  (let [context (serialization/realize
+                  storage-spec
+                  (update-in purchase-context
+                             [:entities 0] #(assoc % :inventory-method :lifo)))
+        commodity (-> context :commodities first)
+        [ira
+         lt-gains
+         st-gains
+         lt-loss
+         st-loss] (map-accounts context
+                                "IRA"
+                                "Long-term Capital Gains"
+                                "Short-term Capital Gains"
+                                "Long-term Capital Gains"
+                                "Short-term Capital Gains")
+        _ (trading/buy storage-spec {:trade-date (t/local-date 2015 3 2)
+                                          :account-id (:id ira)
+                                          :commodity-id (:id commodity)
+                                          :shares 100M
+                                          :value 1000M})
+        _ (trading/buy storage-spec {:trade-date (t/local-date 2016 3 2)
+                                          :account-id (:id ira)
+                                          :commodity-id (:id commodity)
+                                          :shares 100M
+                                          :value 2000M})
+        sale (trading/sell storage-spec {:trade-date (t/local-date 2017 3 2)
+                                      :account-id (:id ira)
+                                      :commodity-id (:id commodity)
+                                      :shares 50M
+                                      :value 1500M
+                                      :lt-capital-gains-account-id (:id lt-gains)
+                                      :st-capital-gains-account-id (:id st-gains)
+                                      :lt-capital-loss-account-id (:id lt-loss)
+                                      :st-capital-loss-account-id (:id st-loss)})
+        actual (->> {:commodity-id (:id commodity)
+                     :account-id (:id ira)}
+                    (lots/search storage-spec)
+                    (sort-by :purchase-date)
+                    (map #(dissoc %
+                                  :id
+                                  :created-at
+                                  :updated-at
+                                  :commodity-id
+                                  :account-id)))
+        expected [{:purchase-date (t/local-date 2015 3 2)
+                   :shares-purchased 100M
+                   :price 10M
+                   :shares-owned 100M}
+                  {:purchase-date (t/local-date 2016 3 2)
+                   :shares-purchased 100M
+                   :price 20M
+                   :shares-owned 50}]]
+
+    (pprint {:expected expected
+             :actual actual
+             :diff (diff expected actual)})
+
+    (is (= expected actual) "Shares are sold from the most recent lot")))
