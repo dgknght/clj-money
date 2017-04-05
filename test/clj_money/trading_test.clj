@@ -26,7 +26,7 @@
    :accounts [{:name "IRA"
                :type :asset
                :content-type :commodities}
-              {:name "APPL"
+              {:name "AAPL"
                :type :asset
                :parent-id "IRA"
                :content-type :commodity}
@@ -45,7 +45,7 @@
               {:name "Checking"
                :type :asset}]
    :commodities [{:name "Apple, Inc."
-                  :symbol "APPL"
+                  :symbol "AAPL"
                   :exchange :nasdaq}]
    :transactions [{:transaction-date (t/local-date 2016 1 1)
                    :description "Opening balance"
@@ -81,7 +81,7 @@
         "The result contains a lot-transaction")
     (is (empty? (-> result :lot-transaction validation/error-messages))
         "The lot transaction is valud")
-    (is (= "Purchase 100 shares of APPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
+    (is (= "Purchase 100 shares of AAPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
 
 (deftest purchase-a-commodity-with-a-fee
   (let [context (serialization/realize storage-spec purchase-context)
@@ -519,11 +519,11 @@
                                          :created-at
                                          :updated-at)))
         expected [{:transaction-date (t/local-date 2017 3 2)
-                   :description "Sell 25 shares of APPL at 15.000"
+                   :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
                    :account-id (:id lt-capital-gains)
                    :amount 125M
-                   :memo "Sell 25 shares of APPL at 15.00"
+                   :memo "Sell 25 shares of AAPL at 15.00"
                    :balance 125M
                    :index 0}]]
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
@@ -554,11 +554,11 @@
                                          :created-at
                                          :updated-at)))
         expected [{:transaction-date (t/local-date 2017 3 1)
-                   :description "Sell 25 shares of APPL at 15.000"
+                   :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
                    :account-id (:id st-capital-gains)
                    :amount 125M
-                   :memo "Sell 25 shares of APPL at 15.00"
+                   :memo "Sell 25 shares of AAPL at 15.00"
                    :balance 125M
                    :index 0}]]
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
@@ -587,11 +587,11 @@
                                          :created-at
                                          :updated-at)))
         expected [{:transaction-date (t/local-date 2017 3 2)
-                   :description "Sell 100 shares of APPL at 8.500"
+                   :description "Sell 100 shares of AAPL at 8.500"
                    :action :debit
                    :account-id (:id capital-loss)
                    :amount 150M
-                   :memo "Sell 100 shares of APPL at 8.50"
+                   :memo "Sell 100 shares of AAPL at 8.50"
                    :balance 150M
                    :index 0}]]
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
