@@ -564,7 +564,7 @@
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-loss-debits-capital-loss
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         ira (->> context
                  :accounts
                  (filter #(= "IRA" (:name %)))
