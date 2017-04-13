@@ -17,7 +17,12 @@
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
-(s/def ::lot-criteria (s/keys :req-un [::account-id ::commodity-id]))
+(defmulti lot-criteria #(contains? % :account-id))
+(defmethod lot-criteria true [_]
+  (s/keys :req-un [::account-id] :req-opt [::commodity-id ::entity-id]))
+(defmethod lot-criteria false [_]
+  (s/keys :req-un [::entity-id] :req-opt [::account-id ::commodity-id]))
+(s/def ::lot-criteria (s/multi-spec lot-criteria #(contains? % :account-id)))
 (s/def ::lot-transaction-criteria (s/keys :req-un [::lot-id]))
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
@@ -399,9 +404,11 @@
   (select-lots
     [_ criteria]
     (when-not (s/valid? ::lot-criteria criteria)
-      (throw (ex-info
-              "The criteria must specify account-id and commodity-id"
-              {:criteria criteria})))
+      (let [explanation (s/explain-data ::lot-criteria criteria)]
+        (throw (ex-info
+                 (str "The criteria is not valid: " explanation)
+                 {:criteria criteria
+                  :explanation explanation}))))
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
                        (h/where (map->where criteria)))))

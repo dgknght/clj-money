@@ -166,6 +166,19 @@
     (is (= 70M (:shares-owned retrieved))
         "The retrieved map contains the updated value")))
 
+(deftest search-lots-by-account
+  (let [context (serialization/realize storage-spec existing-lot-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        actual (map #(dissoc % :updated-at :created-at :id)
+                    (lots/search storage-spec {:account-id (:id ira)}))
+        expected [{:commodity-id (:id commodity)
+                   :account-id (:id ira)
+                   :purchase-date (t/local-date 2016 3 2)
+                   :shares-purchased 100M
+                   :shares-owned 100M}]]
+    (is (= expected actual) "The correct data is returned")))
+
 ; Test unrealized-gains with:
 ;   Date that precedes some purchases
 ;   Date that precedes some sales
