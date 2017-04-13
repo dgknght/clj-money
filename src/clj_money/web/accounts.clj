@@ -14,6 +14,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.lots :as lots]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]])
   (:use [clj-money.web.shared :refer :all]))
@@ -187,9 +188,21 @@
     :title "Click here to return to the list of accounts."}
    "Back"])
 
+(defn- commodity-row
+  [lot]
+  [:tr
+   [:td (:commodity-id lot)]])
+
 (defmethod show-account :commodities
   [account params]
-  "This is an investment account")
+  [:table.table.table-striped.table-hover
+   [:tr
+    [:th "Symbol"]
+    [:th "Shares"]
+    [:th "Price"]
+    [:th "Value"]]
+   (map commodity-row
+        (lots/search (env :db) {:account-id (:id account)}))])
 
 (defn show
   "Renders account details, including transactions"
