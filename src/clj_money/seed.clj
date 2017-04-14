@@ -46,16 +46,20 @@
                        [])))))
 
 (defn seed
-  [user entity identifier]
+  "Seeds an entity with a predefined set of accounts
+
+  USAGE:
+  lein seed john@doe.com Personal personal-accounts"
+  [email entity-name seed-identifier]
   (with-transacted-storage [s (env :db)]
     (pprint
-      (->> identifier
+      (->> seed-identifier
            (format "resources/seeds/%s.edn")
            slurp
            read-string
-           (append-user s user)
-           (append-entity s entity)
-           (append-accounts s entity)
+           (append-user s email)
+           (append-entity s entity-name)
+           (append-accounts s entity-name)
            (realize s)))))
 
 (defn- generate-salary-transaction
@@ -85,6 +89,10 @@
                                  :amount 1447M}]}))
 
 (defn generate-transactions
+  "Seeds an account with transactions
+
+  USAGE
+  lein generate-transactions john@doe.com Personal 2017-01-01"
   [email entity-name start-date]
   (with-transacted-storage [s (env :db)]
     (let [user (users/find-by-email s email)
