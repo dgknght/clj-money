@@ -31,17 +31,17 @@
   [:tr
    [:td
     [:span {:class (format "account-depth-%s" depth)}
-     (:name account)]]
+     (:name account)
+     "&nbsp;"
+     (when (= :currency (:content-type account))
+       [:a.small-add {:href (format "/entities/%s/accounts/new?parent-id=%s" (:entity-id account) (:id account))
+                      :title "Click here to add a child to this account."}
+        "+"])]]
    [:td.text-right
     [:span {:class (format "balance-depth-%s" depth)}
      (format-number (+ (:balance account) (:children-balance account)))]]
    [:td
     [:span.btn-group
-     (glyph-button :pencil
-                   (format "/accounts/%s/edit" (:id account))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this account"})
      (glyph-button :list-alt
                    (format "/accounts/%s" (:id account))
                    {:level :default
@@ -52,6 +52,11 @@
                    {:level :default
                     :size :extra-small
                     :title "Click here to reconcile this account"})
+     (glyph-button :pencil
+                   (format "/accounts/%s/edit" (:id account))
+                   {:level :info
+                    :size :extra-small
+                    :title "Click here to edit this account"})
      (glyph-button :remove
                    (format "/accounts/%s/delete" (:id account))
                    {:level :danger
@@ -239,7 +244,10 @@
 
 (defn new-account
   "Renders the new account form"
-  ([req] (new-account req {:entity-id (Integer. (-> req :params :entity-id))}))
+  ([{params :params :as req}]
+   (new-account req (reduce #(assoc %1 %2 (Integer. (%2 params)))
+                            {}
+                            [:entity-id :parent-id])))
   ([{params :params} account]
    (let [entity-id (Integer. (:entity-id params))]
      (with-accounts-layout "New account" entity-id {}
@@ -251,7 +259,7 @@
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [{params :params}]
-  (let [account (select-keys params [:entity-id :name :type :parent-id])
+  (let [account (select-keys params [:entity-id :name :type :content-type :parent-id])
         saved (accounts/create (env :db) account)]
     (if (validation/has-error? saved)
       (new-account {:params (select-keys saved [:entity-id])} saved)
@@ -277,6 +285,7 @@
   (let [account (select-keys params [:id
                                      :name
                                      :type
+                                     :content-type
                                      :entity-id
                                      :content-type
                                      :parent-id])
