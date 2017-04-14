@@ -200,14 +200,24 @@
 
 (defmethod show-account :commodities
   [account params]
-  [:table.table.table-striped.table-hover
-   [:tr
-    [:th "Symbol"]
-    [:th "Shares"]
-    [:th "Price"]
-    [:th "Value"]]
-   (map commodity-row
-        (lots/search (env :db) {:account-id (:id account)}))])
+  (html
+    (let [lots (lots/search (env :db) {:account-id (:id account)})]
+      [:table.table.table-striped.table-hover
+       [:tr
+        [:th "Symbol"]
+        [:th "Shares"]
+        [:th "Price"]
+        [:th "Value"]]
+       (if (empty? lots)
+         [:tr
+          [:td.empty-table {:colspan 4}
+           "This account does not have any positions"]]
+         (map commodity-row
+              lots))])
+    [:a.btn.btn-primary
+     {:href (format "/accounts/%s/purchases/new" (:id account))
+      :title "Click here to purchase a commodity with this account."}
+     "Purchase"]))
 
 (defn show
   "Renders account details, including transactions"

@@ -62,13 +62,19 @@
   height: 100%;
 }
 
+a.small-add {
+  font-weight: bold;
+  text-decoration: none;
+}
+
+td.empty-table {
+  text-align: center;
+  font-size: 120%;
+  color: #666;
+}
+
 @media print {
   #side-bar, .btn-group, .btn, .nav, #report-settings {
     display: none;
   }
-}
-
-a.small-add {
-  font-weight: bold;
-  text-decoration: none;
 }
