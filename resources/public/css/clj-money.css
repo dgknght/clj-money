@@ -65,9 +65,11 @@
 a.small-add {
   font-weight: bold;
   text-decoration: none;
+  color: #000;
 }
 
 td.empty-table {
+  padding-top: 1em;
   text-align: center;
   font-size: 120%;
   color: #666;
