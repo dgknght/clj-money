@@ -333,7 +333,7 @@
                   (h/from :prices)
                   (h/where [:and
                             [:= :commodity-id commodity-id]
-                            [:< :trade-date as-of]])
+                            [:<= :trade-date as-of]])
                   (h/order-by [:trade-date :desc])
                   (append-where options)
                   (append-limit options)
