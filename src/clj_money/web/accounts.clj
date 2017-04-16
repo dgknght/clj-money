@@ -14,7 +14,9 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.commodities :as commodities]
             [clj-money.models.lots :as lots]
+            [clj-money.models.prices :as prices]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]])
   (:use [clj-money.web.shared :refer :all]))
@@ -194,26 +196,37 @@
    "Back"])
 
 (defn- commodity-row
-  [lot]
-  [:tr
-   [:td (:commodity-id lot)]])
+  [{:keys [commodity shares] :as input}]
+  (let [price (prices/most-recent (env :db) (:id commodity))]
+    [:tr
+     [:td (:symbol commodity)]
+     [:td.text-right shares]
+     [:td.text-right (:price price)]
+     [:td (format-number (* (:price price) shares))]]))
 
 (defmethod show-account :commodities
   [account params]
   (html
-    (let [lots (lots/search (env :db) {:account-id (:id account)})]
+    (let [commodities (->> {:account-id (:id account)}
+                           (lots/search (env :db))
+                           (group-by :commodity-id)
+                           (map (fn [[commodity-id lots]]
+                                  {:commodity (commodities/find-by-id (env :db) commodity-id)
+                                   :shares (->> lots
+                                                (map :shares-owned)
+                                                (reduce +))})))]
       [:table.table.table-striped.table-hover
        [:tr
         [:th "Symbol"]
         [:th "Shares"]
         [:th "Price"]
         [:th "Value"]]
-       (if (empty? lots)
+       (if (empty? commodities)
          [:tr
           [:td.empty-table {:colspan 4}
            "This account does not have any positions"]]
          (map commodity-row
-              lots))])
+              commodities))])
     [:a.btn.btn-primary
      {:href (format "/accounts/%s/purchases/new" (:id account))
       :title "Click here to purchase a commodity with this account."}
