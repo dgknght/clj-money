@@ -106,6 +106,9 @@
    (most-recent storage-spec commodity-id (t/today)))
   ([storage-spec commodity-id as-of]
    (with-storage [s storage-spec]
-     (-> (select-prices-by-commodity-id s commodity-id (tc/to-long as-of) {:limit 1})
+     (-> (select-prices-by-commodity-id s
+                                        commodity-id
+                                        (tc/to-long as-of)
+                                        {:limit 1})
          first
          after-read))))
