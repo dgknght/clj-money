@@ -8,6 +8,8 @@
             [clj-time.core :as t]
             [clj-money.web.shared :refer :all]
             [clj-money.web.money-shared :refer [budget-monitors]]
+            [clj-money.coercion :as coercion]
+            [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.trading :as trading]))
@@ -50,8 +52,15 @@
           "Back"]]]))))
 
 (defn purchase
-  [req]
-  "purchase")
+  [{params :params :as req}]
+  (let [result (trading/buy (env :db) (select-keys params [:account-id
+                                                           :commodity-id
+                                                           :shares
+                                                           :value
+                                                           :trade-date]))]
+    (if (validation/has-error? result)
+      (new-purchase req result)
+      (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn new-sale
   [req]
