@@ -83,6 +83,20 @@
         "The lot transaction is valud")
     (is (= "Purchase 100 shares of AAPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
 
+(deftest purchase-a-commodity-with-string-values
+ (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        result (trading/buy storage-spec (-> context
+                                             purchase-attributes
+                                             (update-in [:account-id] str)
+                                             (update-in [:commodity-id] str)
+                                             (update-in [:shares] str)
+                                             (update-in [:value] str)
+                                             (update-in [:trade-date] str)))]
+    (is (empty? (validation/error-messages result))
+        "The transaction is valid")))
+
 (deftest purchase-a-commodity-with-a-fee
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)

@@ -196,7 +196,11 @@
                            "Account must be a commodities account")])
 
 (def ^:private purchase-coercion-rules
-  [(coercion/rule :local-date [:trade-date])])
+  [(coercion/rule :local-date [:trade-date])
+   (coercion/rule :integer [:account-id])
+   (coercion/rule :integer [:commodity-id])
+   (coercion/rule :decimal [:shares])
+   (coercion/rule :decimal [:value])])
 
 (defn- validate-purchase
   [storage purchase]
