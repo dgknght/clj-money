@@ -95,7 +95,7 @@
 
   ; Trading
   (route GET "/accounts/:account-id/purchases/new" trading/new-purchase)
-  (route POST "/accounts:account-id/purchases" trading/purchase)
+  (route POST "/accounts/:account-id/purchases" trading/purchase)
   (route GET "/accounts/:account-id/sales/new" trading/new-sale)
   (route POST "/accounts/:account-id/sales" trading/sell)
 
