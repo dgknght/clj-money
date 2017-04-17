@@ -45,7 +45,10 @@
             %))
        value))
 
-(register-coerce-fn :integer    #(if (integer? %) % (Integer. %)))
+(register-coerce-fn :integer    #(if (integer? %)
+                                   %
+                                   (when (re-matches #"\A\d+\z" %)
+                                     (Integer. %))))
 (register-coerce-fn :decimal    #(if (decimal? %) % (try
                                                       (bigdec %)
                                                       (catch NumberFormatException e
@@ -56,7 +59,9 @@
 
 (defn coerce
   "Given a model and a list of coercion rules, applies the rules to the model"
-  [model coercions]
+  [coercions model]
+  (when-not (sequential? coercions)
+    (throw (ex-info "The coercions must be a sequence" {:coercisons coercions})))
   (reduce (fn [result {:keys [path coerce-fn]}]
             (if (nil? (get-in result path))
               result

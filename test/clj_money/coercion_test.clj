@@ -7,34 +7,34 @@
 
 (deftest coerce-an-integer
   (let [rules [(coercion/rule :integer [:id])]]
-    (is (= 1 (:id (coercion/coerce {:id "1"} rules)))
+    (is (= 1 (:id (coercion/coerce rules {:id "1"})))
         "An string is parsed into an integer")
-    (is (= 1 (:id (coercion/coerce {:id 1} rules)))
+    (is (= 1 (:id (coercion/coerce rules {:id 1})))
         "An integer remains an integer")
-    (is (nil? (:id (coercion/coerce {:id nil} rules)))
+    (is (nil? (:id (coercion/coerce rules {:id nil})))
         "A nil remails nil")
-    (is (nil? (:id (coercion/coerce {} rules)))
+    (is (nil? (:id (coercion/coerce rules {})))
         "An omitted value is nil")))
 
 (deftest coerce-a-local-date
   (let [rules [(coercion/rule :local-date [:some-date])]]
     (is (= (t/local-date 2017 3 2)
-           (:some-date (coercion/coerce {:some-date "2017-03-02"} rules)))
+           (:some-date (coercion/coerce rules {:some-date "2017-03-02"})))
         "It parses an international date string")
     (is (= (t/local-date 2017 3 2)
-           (:some-date (coercion/coerce {:some-date "3/2/2017"} rules)))
+           (:some-date (coercion/coerce rules {:some-date "3/2/2017"})))
         "It parses an US date string")
     (is (= (t/local-date 2017 3 2)
-           (:some-date (coercion/coerce {:some-date (t/local-date 2017 3 2)} rules)))
+           (:some-date (coercion/coerce rules {:some-date (t/local-date 2017 3 2)})))
         "It leaves a local date alone")))
 
 (deftest coerce-a-decimal
   (let [rules [(coercion/rule :decimal [:amount])]]
     (is (= 100M
-           (:amount (coercion/coerce {:amount "100"} rules)))
+           (:amount (coercion/coerce rules {:amount "100"})))
         "It parses a string")
     (is (= 100M
-           (:amount (coercion/coerce {:amount 100M} rules)))
+           (:amount (coercion/coerce rules {:amount 100M})))
         "It leaves a decimal alone")))
 
 (deftest fn-not-found

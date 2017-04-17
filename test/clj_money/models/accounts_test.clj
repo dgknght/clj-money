@@ -7,6 +7,7 @@
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
+            [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -190,6 +191,57 @@
     "Type must be one of: expense, equity, liability, income, asset"
     (accounts/create storage-spec (assoc attributes :type :invalidtype))))
 
+(def ^:private account-context
+  {:users [(factory :user)]
+   :entities [{:name "Personal"}]})
+
+(deftest content-type-defaults-to-currency
+  (let [context (serialization/realize storage-spec account-context)
+        entity (-> context :entities first)
+        result (accounts/create storage-spec {:entity-id (:id entity)
+                                              :name "Checking"
+                                              :type :asset})
+        retrieved (accounts/find-by-id storage-spec (:id result))]
+    (is (= :currency (:content-type result) (:content-type retrieved))
+        "The result has the current content type")))
+
+(deftest content-type-can-be-commodities
+  (let [context (serialization/realize storage-spec account-context)
+        entity (-> context :entities first)
+        result (accounts/create storage-spec {:entity-id (:id entity)
+                                              :name "Checking"
+                                              :type :asset
+                                              :content-type :commodities})
+        retrieved (accounts/find-by-id storage-spec (:id result))]
+    (is (empty? (validation/error-messages result))
+        "The result has no error messages")
+    (is (= :commodities (:content-type result) (:content-type retrieved))
+        "The result has the current content type")))
+
+(deftest content-type-can-by-commodity
+  (let [context (serialization/realize storage-spec account-context)
+        entity (-> context :entities first)
+        result (accounts/create storage-spec {:entity-id (:id entity)
+                                              :name "Checking"
+                                              :type :asset
+                                              :content-type :commodity})
+        retrieved (accounts/find-by-id storage-spec (:id result))]
+    (is (empty? (validation/error-messages result))
+        "The result has no error messages")
+    (is (= :commodity (:content-type result) (:content-type retrieved))
+        "The result has the current content type")))
+
+(deftest content-type-must-be-currency-commodities-or-commodity
+  (let [context (serialization/realize storage-spec account-context)
+        entity (-> context :entities first)
+        result (accounts/create storage-spec {:entity-id (:id entity)
+                                              :name "Checking"
+                                              :type :asset
+                                              :content-type :not-valid})
+        retrieved (accounts/find-by-id storage-spec (:id result))]
+    (is (seq (validation/error-messages result :content-type))
+        "The result has a validation error")))
+
 (deftest update-an-account
   (try
     (let [account (accounts/create storage-spec attributes)
@@ -202,23 +254,28 @@
       (pprint (ex-data e))
       (is false "unexpected validation error"))))
 
+(def same-parent-context
+  {:users [(factory :user)]
+   :entities [{:name "Personal"}]
+   :accounts [{:name "Current assets"
+               :type :asset}
+              {:name "Fixed assets"
+               :type :asset}
+              {:name "House"
+               :type :asset
+               :parent-id "Current assets"}]})
+
 (deftest change-an-account-parent
-  (let [current-assets (accounts/create storage-spec {:name "Current assets"
-                                                      :type :asset
-                                                      :entity-id (:id entity)})
-        fixed-assets (accounts/create storage-spec {:name "Fixed assets"
-                                                    :type :asset
-                                                    :entity-id (:id entity)})
-        house (accounts/create storage-spec {:name "House"
-                                             :type :asset
-                                             :parent-id (:id current-assets)
-                                             :entity-id (:id entity)})
-        updated (accounts/update storage-spec {:id (:id house)
-                                               :parent-id (:id fixed-assets)
-                                               :entity-id (:entity-id house)})]
-    (is (empty? (validation/error-messages updated)) "The account has no validation errors")
-    (is (= (:id fixed-assets)
-           (:parent-id updated)) "The returned account has the correct parent-id value")) )
+  (let [context (serialization/realize storage-spec same-parent-context)
+        [current fixed house] (:accounts context)
+        updated (assoc house :parent-id (:id fixed))
+        result (accounts/update storage-spec updated)
+        retrieved (accounts/reload storage-spec updated)]
+    (is (empty? (validation/error-messages result)) "The result has no validation errors")
+    (is (= (:id fixed)
+           (:parent-id result)) "The returned account has the correct parent-id value")
+    (is (= (:id fixed)
+           (:parent-id retrieved)) "The retrieved account has the correct parent-id value")) )
 
 (deftest delete-an-account
   (let [account (accounts/create storage-spec attributes)

@@ -1,4 +1,4 @@
-(ns clj-money.models.reports
+(ns clj-money.reports
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
@@ -8,7 +8,11 @@
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.models.transactions :as transactions]
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]
+            [clj-money.models.lots :as lots]
+            [clj-money.models.lot-transactions :as lot-transactions]))
 
 (declare set-balance-deltas)
 (defn- set-balance-delta
@@ -48,6 +52,41 @@
           (partial set-balance-deltas storage-spec start end))
        groups))
 
+(defmulti ^:private account-value-as-of
+  (fn [storage-spec account as-of]
+    (:content-type account)))
+
+(defmethod ^:private account-value-as-of :currency
+  [storage-spec account as-of]
+  (transactions/balance-as-of storage-spec
+                              (:id account)
+                              as-of))
+
+(defmethod ^:private account-value-as-of :commodities
+  [storage-spec account as-of]
+  (transactions/balance-as-of storage-spec
+                              (:id account)
+                              as-of))
+
+(defmethod ^:private account-value-as-of :commodity
+  [storage-spec account as-of]
+  ; TODO We need a more reliable way to get the commodity
+  ; probalby we should store extra values in the account, like
+  ; {:id 123
+  ;  :name "AAPL"
+  ;  :type :asset
+  ;  :content-type :commodity
+  ;  :extras {:commodity-id 456}}
+  (let [commodity (first (commodities/search storage-spec
+                                             {:entity-id (:entity-id account)
+                                              :symbol (:name account)}))
+        price (:price (prices/most-recent storage-spec (:id commodity) as-of))
+        shares (lots/shares-as-of storage-spec
+                                  (:parent-id account) ; The lots are associated with the commodities account
+                                  (:id commodity)
+                                  as-of)]
+    (* shares price)))
+
 (declare set-balances)
 ; TODO combine this with set-balance-delta
 (defn- set-balance
@@ -58,9 +97,7 @@
                                          (:children-balance %2))
                                      0
                                      children)
-        new-balance (transactions/balance-as-of storage-spec
-                                                (:id account)
-                                                as-of)]
+        new-balance (account-value-as-of storage-spec account as-of)]
     (assoc account :children children
                    :children-balance new-children-balance
                    :balance new-balance)))
@@ -72,10 +109,10 @@
 
 (defn- set-balances-in-account-groups
   [storage-spec as-of groups]
-  (map #(set-balances-in-account-group
-          %
-          (partial set-balances storage-spec as-of))
-       groups))
+  (mapv #(set-balances-in-account-group
+           %
+           (partial set-balances storage-spec as-of))
+        groups))
 
 (defn- transform-account
   [account depth]
@@ -129,19 +166,50 @@
                      (into {}))
         retained (- (:income summary) (:expense summary))
         records (->> groups
-                     (map (fn [entry]
-                            (if (= :equity (:type entry))
-                              (-> entry
-                                  (update-in [:accounts] #(conj % {:name "Retained Earnings"
-                                                                   :balance retained
-                                                                   :children-balance 0}))
-                                  (update-in [:value] #(+ %1 retained)))
-                              entry)))
                      (remove #(#{:income :expense} (:type %)))
                      (mapcat transform-account-group))]
     (concat records [{:caption "Liabilities + Equity"
-                      :value (+ retained (:equity summary) (:liability summary))
+                      :value (+ (:equity summary) (:liability summary))
                       :style :summary}])))
+
+(defn- append-equity-pseudo-account
+  [account-groups caption value]
+  (update-in account-groups
+             [2]
+             (fn [entry]
+               (-> entry
+                   (update-in [:accounts] #(concat %
+                                                   [{:name caption
+                                                     :balance value
+                                                     :children-balance 0}]))
+                   (update-in [:value] #(+ % value))))))
+
+(def ^:private pseudo-accounts
+  [{:positive-caption "Retained Earnings"
+    :negative-caption "Retained Losses"
+    :calc-fn #(let [summary (->> (:account-groups %)
+                             (map (juxt :type :value))
+                             (into {}))]
+            (- (:income summary) (:expense summary))) }
+   {:positive-caption "Unrealized Gains"
+    :negative-caption "Unrealized Losses"
+    :calc-fn #(lots/unrealized-gains (:storage-spec %)
+                                (:entity-id %)
+                                (:as-of %))}])
+
+(defn- append-pseudo-accounts
+  [storage-spec entity-id as-of account-groups]
+  (reduce (fn [result {:keys [calc-fn negative-caption positive-caption]}]
+            (let [value (calc-fn {:storage-spec storage-spec
+                                  :entity-id entity-id
+                                  :as-of as-of
+                                  :account-groups result})
+                  caption (if (< value 0)
+                            negative-caption
+                            positive-caption)]
+              (append-equity-pseudo-account result caption value)))
+          account-groups
+          pseudo-accounts))
 
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
@@ -153,8 +221,8 @@
    (->> (accounts/select-nested-by-entity-id
           storage-spec
           entity-id)
-        (into [])
         (set-balances-in-account-groups storage-spec as-of)
+        (append-pseudo-accounts storage-spec entity-id as-of)
         transform-balance-sheet)))
 
 (defn- ->budget-report-record
@@ -299,3 +367,59 @@
        {:caption (:name account)
         :account account
         :message (format "There is no budget for %s" (format-date as-of))}))))
+
+(defn- calculate-lot-cost
+  [storage lot]
+  (let [purchase-tx (->> {:lot-id (:id lot)
+                          :action "buy"
+                          :limit 1}
+                         (lot-transactions/select storage)
+                         first)]
+    (* (:shares-owned lot)
+       (:price purchase-tx))))
+
+(defn- summarize-commodity
+  [storage [commodity-id lots]]
+  (let [commodity (commodities/find-by-id storage commodity-id)
+        shares (->> lots
+                    (map :shares-owned)
+                    (reduce +))
+        cost (->> lots
+                  (map #(calculate-lot-cost storage %))
+                  (reduce +))
+        price (:price (prices/most-recent storage (:id commodity)))
+        value (* price shares)
+        gain (- value cost)]
+    {:caption (format "%s (%s)" (:name commodity) (:symbol commodity))
+     :style :data
+     :shares shares
+     :price price
+     :cost cost
+     :value value
+     :gain gain}))
+
+(defn commodities-account-summary
+  ([storage-spec account-id]
+   (commodities-account-summary storage-spec account-id (t/today)))
+  ([storage-spec account-id as-of]
+   (with-storage [s storage-spec]
+     (let [data (->> {:account-id account-id}
+                     (lots/search s)
+                     (group-by :commodity-id)
+                     (map #(summarize-commodity s %))
+                     (sort-by :caption)
+                     (into []))
+           summary (reduce (fn [result record]
+                             (reduce (fn [r k]
+                                       (update-in r [k] #(+ % (k record))))
+                                     result
+                                     [:cost :value :gain]))
+                           {:caption "Total"
+                            :style :summary
+                            :cost 0M
+                            :value 0M
+                            :gain 0M}
+                           data)]
+       (if (seq data)
+         (conj data summary)
+         [])))))

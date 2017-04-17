@@ -8,6 +8,8 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
+            [clj-money.models.lots :as lots]
+            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]))
@@ -195,6 +197,49 @@
   [storage context]
   (update-in context [:prices] #(create-prices storage context %)))
 
+(defn- create-lots
+  [storage context lots]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-commodity context)
+               (resolve-account context)
+               (lots/create storage)))
+        lots))
+
+(defn- realize-lots
+  [storage context]
+  (update-in context [:lots] #(create-lots storage context %)))
+
+(defn- find-lot
+  [context attr]
+  (let [{:keys [account-id
+                commodity-id
+                purchase-date]} (->> attr
+                                     (resolve-account context)
+                                     (resolve-commodity context))]
+    (->> context
+         :lots
+         (filter #(and (= account-id (:account-id %))
+                       (= commodity-id (:commodity-id %))
+                       (= purchase-date (:purchase-date %))))
+         first)))
+
+(defn- resolve-lot
+  [context model]
+  (update-in model [:lot-id] #(:id (find-lot context %))))
+
+(defn- create-lot-transactions
+  [storage context lot-transactions]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-lot context)
+               (lot-transactions/create storage)))
+        lot-transactions))
+
+(defn- realize-lot-transactions
+  [storage context]
+  (update-in context [:lot-transactions] #(create-lot-transactions storage context %)))
+
 (defn- resolve-transaction-item-ids
   [context account-id items]
   (mapv (fn [{:keys [transaction-date amount]}]
@@ -243,6 +288,8 @@
       (realize-accounts s)
       (realize-commodities s)
       (realize-prices s)
+      (realize-lots s)
+      (realize-lot-transactions s)
       (realize-budgets s)
       (realize-transactions s)
       (realize-reconciliations s))))

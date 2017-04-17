@@ -44,6 +44,16 @@
   color: white;
 }
 
+.gain {
+  font-weight: bold;
+  color: green;
+}
+
+.loss {
+  font-weight: bold;
+  color: red;
+}
+
 .note {
   font-family: italic;
 }
@@ -60,6 +70,19 @@
   box-sizing: border-box;
   width: 100%;
   height: 100%;
+}
+
+a.small-add {
+  font-weight: bold;
+  text-decoration: none;
+  color: #000;
+}
+
+td.empty-table {
+  padding-top: 1em;
+  text-align: center;
+  font-size: 120%;
+  color: #666;
 }
 
 @media print {

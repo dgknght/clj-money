@@ -5,8 +5,11 @@
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
+            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-entity
                                               select-entities
                                               find-entity-by-id
@@ -17,8 +20,9 @@
 (s/def ::id integer?)
 (s/def ::user-id integer?)
 (s/def ::monitored-account-ids (s/coll-of integer?))
-(s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::monitored-account-ids]))
-(s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::monitored-account-ids ::user-id]))
+(s/def ::inventory-method #{:fifo :lifo})
+(s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::monitored-account-ids ::inventory-method]))
+(s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::monitored-account-ids ::user-id ::inventory-method]))
 
 (defn- name-is-unique?
   [storage {entity-name :name
@@ -30,25 +34,42 @@
        empty?))
 
 (defn- before-save
-  [entity]
-  (cond-> entity
+  ([entity] (before-save nil entity))
+  ([_ entity]
+   (cond-> entity
+     (contains? entity :inventory-method)
+     (update-in [:inventory-method] name)
 
-    (contains? entity :monitored-account-ids)
-    (update-in [:monitored-account-ids] pr-str)))
+     (contains? entity :monitored-account-ids)
+     (update-in [:monitored-account-ids] pr-str))))
 
-(defn create
-  "Creates a new entity"
-  [storage-spec entity]
-  (with-storage [s storage-spec]
-    (let [unique-name-rule (validation/create-rule (partial name-is-unique? s)
-                                                   [:name]
-                                                   "Name is already in use")
-          validated (validation/validate ::new-entity entity unique-name-rule)]
-      (if (validation/valid? validated)
-        (->> validated
-             before-save
-             (create-entity s))
-        validated))))
+(defn- after-read
+  ([entity] (after-read nil entity))
+  ([_ entity]
+   (when entity
+     (cond-> entity
+       (:monitored-account-ids entity)
+       (update-in [:monitored-account-ids] read-string)
+
+       true
+       (update-in [:inventory-method] keyword)))))
+
+(defn- validation-rules
+  [storage]
+  [(validation/create-rule (partial name-is-unique? storage)
+                           [:name]
+                           "Name is already in use")])
+
+(def ^:private coercion-rules
+  [(coercion/rule :keyword [:inventory-method])])
+
+(def create
+  (create-fn {:before-save before-save
+              :after-read after-read
+              :create create-entity
+              :spec ::new-entity
+              :rules-fn validation-rules
+              :coercion-rules coercion-rules}))
 
 (defn select
   "Returns entities for the specified user"
@@ -56,18 +77,12 @@
   (with-storage [s storage-spec]
     (select-entities s user-id)))
 
-(defn- prepare-for-return
-  [entity]
-  (cond-> entity
-    (:monitored-account-ids entity)
-    (update-in [:monitored-account-ids] read-string)))
-
 (defn find-by-id
   "Finds the entity with the specified ID"
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-entity-by-id s id)
-         prepare-for-return)))
+         after-read)))
 
 (defn find-by-name
   "Finds the entity having the specified name
@@ -77,18 +92,14 @@
        (filter #(= entity-name (:name %)))
        first))
 
-(defn update
-  "Updates the specified entity"
-  [storage-spec entity]
-  (with-storage [s storage-spec]
-    (let [validated (validation/validate ::existing-entity entity)]
-      (if (validation/valid? validated)
-        (do
-          (->> validated
-               before-save
-               (update-entity s))
-          (find-by-id storage-spec (:id validated)))
-        validated))))
+(def update
+  (update-fn {:update update-entity
+              :spec ::existing-entity
+              :coercion-rules coercion-rules
+              :rule-fn validation-rules
+              :before-save before-save
+              :after-read after-read
+              :find find-by-id}))
 
 (defn delete
   "Removes the specifiedy entity from storage"

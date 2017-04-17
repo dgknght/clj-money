@@ -14,8 +14,13 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.lots :as lots]
+            [clj-money.models.lot-transactions :as lot-transactions]
+            [clj-money.models.prices :as prices]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
-                                                budget-monitors]])
+                                                budget-monitors]]
+            [clj-money.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
 (defmacro with-accounts-layout
@@ -30,17 +35,17 @@
   [:tr
    [:td
     [:span {:class (format "account-depth-%s" depth)}
-     (:name account)]]
+     (:name account)
+     "&nbsp;"
+     (when (= :currency (:content-type account))
+       [:a.small-add {:href (format "/entities/%s/accounts/new?parent-id=%s" (:entity-id account) (:id account))
+                      :title "Click here to add a child to this account."}
+        "+"])]]
    [:td.text-right
     [:span {:class (format "balance-depth-%s" depth)}
      (format-number (+ (:balance account) (:children-balance account)))]]
    [:td
     [:span.btn-group
-     (glyph-button :pencil
-                   (format "/accounts/%s/edit" (:id account))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this account"})
      (glyph-button :list-alt
                    (format "/accounts/%s" (:id account))
                    {:level :default
@@ -51,6 +56,11 @@
                    {:level :default
                     :size :extra-small
                     :title "Click here to reconcile this account"})
+     (glyph-button :pencil
+                   (format "/accounts/%s/edit" (:id account))
+                   {:level :info
+                    :size :extra-small
+                    :title "Click here to edit this account"})
      (glyph-button :remove
                    (format "/accounts/%s/delete" (:id account))
                    {:level :danger
@@ -59,6 +69,7 @@
                     :data-confirm "Are you sure you want to delete this account?"
                     :title "Click here to remove this account"})]]])
 
+; TODO Adjust this so that commodity accounts are omitted
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
   ([account] (account-and-children-rows account 0))
@@ -145,6 +156,93 @@
                     :data-confirm "Are you sure you want to remove this transaction?"
                     :method :post}))]]])
 
+(defmulti ^:private show-account
+  (fn [account params]
+    (:content-type account)))
+
+(defmethod ^:private show-account :currency
+  [account params]
+  (html
+    [:table.table.table-striped.table-hover
+     [:tr
+      [:th.text-right "Date"]
+      [:th "Description"]
+      [:th.text-right "Amount"]
+      [:th.text-right "Balance"]
+      [:th.text-center "Rec."]
+      [:th "&nbsp;"]]
+     (map transaction-item-row
+          (transactions/items-by-account (env :db)
+                                         (:id account)
+                                         (pagination/prepare-options params)))]
+    (pagination/nav (assoc params
+                           :url (-> (path "/accounts"
+                                          (:id account)))
+                           :total (transactions/count-items-by-account (env :db) (:id account))))
+    [:a.btn.btn-primary
+     {:href (-> (path "/entities"
+                      (:entity-id account)
+                      "transactions"
+                      "new")
+                (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
+                format-url)
+      :title "Click here to add a new transaction."}
+     "Add"]
+    "&nbsp;"
+    [:a.btn.btn-default
+     {:href (format "/accounts/%s/reconciliations/new" (:id account))
+      :title "Click here to reconcile this account."}
+     "Reconcile"]
+    "&nbsp;"
+    [:a.btn.btn-default
+     {:href (format "/entities/%s/accounts" (:entity-id account))
+      :title "Click here to return to the list of accounts."}
+     "Back"]))
+
+(defn- commodity-row
+  [{:keys [style caption shares price cost gain value] :as x}]
+  [:tr {:class (format "report-%s" (name style))}
+   [:td caption]
+   [:td.text-right (format-number shares {:format :commodity-price})]
+   [:td.text-right (format-number price {:format :commodity-price})]
+   [:td.text-right (format-number value)]
+   [:td {:class (format "text-right %s" (if (<= 0 gain) "gain" "loss"))}
+    (format-number gain)]])
+
+(defmethod show-account :commodities
+  [account params]
+  (html
+    (let [summary (reports/commodities-account-summary (env :db) (:id account))]
+      [:div.row
+       [:div.col-md-8
+        [:table.table.table-striped.table-hover
+         [:tr
+          [:th "Commodity"]
+          [:th.text-right "Shares"]
+          [:th.text-right "Price"]
+          [:th.text-right "Value"]
+          [:th.text-right "Gain"]]
+         (if (seq summary)
+           (map commodity-row
+                summary)
+           [:tr
+            [:td.empty-table {:colspan 4}
+             "This account does not have any positions"]])]]])
+    [:a.btn.btn-primary
+     {:href (format "/accounts/%s/purchases/new" (:id account))
+      :title "Click here to purchase a commodity with this account."}
+     "Purchase"]))
+
+(defmethod show-account :commodity
+  [account params]
+  (html
+    [:p
+     "Information page for commodity accounts is not ready yet."]
+    [:a.btn.btn-primary
+     {:href (format "/entities/%s/accounts" (:entity-id account))
+      :title "Click here to return to the list of accounts."}
+     "Back"]))
+
 (defn show
   "Renders account details, including transactions"
   ([req] (show req {}))
@@ -152,41 +250,7 @@
    (let [id (Integer. (:id params))
          account (accounts/find-by-id (env :db) id)]
      (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
-       [:table.table.table-striped.table-hover
-        [:tr
-         [:th.text-right "Date"]
-         [:th "Description"]
-         [:th.text-right "Amount"]
-         [:th.text-right "Balance"]
-         [:th.text-center "Rec."]
-         [:th "&nbsp;"]]
-        (map transaction-item-row
-             (transactions/items-by-account (env :db)
-                                            id
-                                            (pagination/prepare-options params)))]
-       (pagination/nav (assoc params
-                              :url (-> (path "/accounts"
-                                             (:id account)))
-                              :total (transactions/count-items-by-account (env :db) (:id account))))
-       [:a.btn.btn-primary
-        {:href (-> (path "/entities"
-                         (:entity-id account)
-                         "transactions"
-                         "new")
-                   (query {:redirect (url-encode (format "/accounts/%s" id))})
-                   format-url)
-         :title "Click here to add a new transaction."}
-        "Add"]
-       "&nbsp;"
-       [:a.btn.btn-default
-        {:href (format "/accounts/%s/reconciliations/new" (:id account))
-         :title "Click here to reconcile this account."}
-        "Reconcile"]
-       "&nbsp;"
-       [:a.btn.btn-default
-        {:href (format "/entities/%s/accounts" (:entity-id account))
-         :title "Click here to return to the list of accounts."}
-        "Back"]))))
+       (show-account account params)))))
 
 (defn- form-fields
   "Renders the form fields for an account"
@@ -195,6 +259,10 @@
     (text-input-field account :name {:autofocus true})
     (select-field account :type (map #(vector :option {:value %} (humanize %))
                                      accounts/account-types))
+    (select-field account
+                  :content-type
+                  (map #(vector :option {:value %} (humanize %))
+                       [:currency :commodities]))
     (select-field account
                   :parent-id
                   (grouped-options-for-accounts (:entity-id account)
@@ -210,7 +278,10 @@
 
 (defn new-account
   "Renders the new account form"
-  ([req] (new-account req {:entity-id (Integer. (-> req :params :entity-id))}))
+  ([{params :params :as req}]
+   (new-account req (reduce #(assoc %1 %2 (Integer. (%2 params)))
+                            {}
+                            [:entity-id :parent-id])))
   ([{params :params} account]
    (let [entity-id (Integer. (:entity-id params))]
      (with-accounts-layout "New account" entity-id {}
@@ -222,7 +293,7 @@
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [{params :params}]
-  (let [account (select-keys params [:entity-id :name :type :parent-id])
+  (let [account (select-keys params [:entity-id :name :type :content-type :parent-id])
         saved (accounts/create (env :db) account)]
     (if (validation/has-error? saved)
       (new-account {:params (select-keys saved [:entity-id])} saved)
@@ -236,6 +307,9 @@
     (with-accounts-layout "Edit account" (:entity-id account) {}
       [:form {:action (format "/accounts/%s" (:id account))
               :method :post}
+       [:input {:type :hidden
+                :name "entity-id"
+                :value (:entity-id account)}]
        (form-fields account)])))
 
 (defn update
@@ -245,6 +319,9 @@
   (let [account (select-keys params [:id
                                      :name
                                      :type
+                                     :content-type
+                                     :entity-id
+                                     :content-type
                                      :parent-id])
         updated (accounts/update (env :db) account)]
     (if (validation/has-error? updated)

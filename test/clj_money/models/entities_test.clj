@@ -102,3 +102,22 @@
         _ (entities/delete storage-spec (:id entity))
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (nil? retrieved) "The entity is not returned after delete")))
+
+(deftest inventory-method-defaults-to-fifo
+  (let [entity (entities/create storage-spec {:name "Personal"
+                                              :user-id (:id user)})]
+    (is (= :fifo (:inventory-method entity)) "The default value is correct")))
+
+(deftest inventory-method-can-be-lifo
+  (let [entity (entities/create storage-spec {:name "Personal"
+                                              :user-id (:id user)
+                                              :inventory-method :lifo})]
+    (is (empty? (validation/error-messages entity)) "The entity is valid")))
+
+(deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
+  (let [entity (entities/create storage-spec {:name "Personal"
+                                              :user-id (:id user)
+                                              :inventory-method :not-valid})]
+    (is (= ["Inventory method must be one of: fifo, lifo"]
+           (validation/error-messages entity :inventory-method))
+        "There is an error message for the attributes")))

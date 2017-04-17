@@ -1,5 +1,9 @@
 (ns clj-money.models.helpers
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
+            [clj-money.util :refer [pprint-and-return]]
+            [clj-money.coercion :as coercion]
+            [clj-money.validation :as validation]
             [clj-money.models.storage :refer [with-transaction]]
             [clj-money.models.storage.sql-storage])
   (:import clj_money.models.storage.sql_storage.SqlStorage
@@ -53,3 +57,48 @@
   `(let [s# (storage* ~(second binding))
          f# (fn* [~(first binding)] ~@body)]
      (with-transaction s# f#)))
+
+(defn- validate
+  [options s model]
+  (let [rules (or (:rules options)
+                  (when-let [rules-fn (:rules-fn options)]
+                    ((:rules-fn options) s))
+                  [])
+        before-validation (or (:before-validation options)
+                              (fn [_ m] (identity m)))
+        coercion-rules (or (:coercion-rules options)
+                           [])]
+    (->> model
+         (coercion/coerce coercion-rules)
+         (before-validation s)
+         (validation/validate (:spec options) rules))))
+
+(defn- process-options
+  [options storage model & fn-keys]
+  (->> fn-keys
+       (map #(or
+               (% options)
+               (fn [_ model] model)))
+       (reduce (fn [model f]
+                 (f storage model))
+               model)))
+
+(defn create-fn
+  [options]
+  (fn [storage-spec model]
+    (with-storage [s storage-spec]
+      (let [validated (validate options s model)]
+        (if (validation/valid? validated)
+          (process-options options s validated :before-save :create :after-read)
+          validated)))))
+
+(defn update-fn
+  [options]
+  (fn [storage-spec model]
+    (with-storage [s storage-spec]
+      (let [validated (validate options s model)]
+        (if (validation/valid? validated)
+          (do
+            (process-options options s validated :before-save :update)
+            ((:find options) s (:id validated)))
+          validated)))))

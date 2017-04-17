@@ -10,7 +10,10 @@
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              with-transacted-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-budget
                                               update-budget
                                               create-budget-item
@@ -57,7 +60,7 @@
   (map prepare-item-for-return
        (select-budget-items-by-budget-id storage budget-id)))
 
-(defn- prepare-for-return
+(defn- after-read
   [storage budget]
   (-> budget
       (update-in [:start-date] tc/to-local-date)
@@ -69,7 +72,7 @@
   "Returns the budgets for the specified entity"
   [storage-spec entity-id]
   (with-storage [s storage-spec]
-    (map #(prepare-for-return s %) (select-budgets-by-entity-id s entity-id))))
+    (map #(after-read s %) (select-budgets-by-entity-id s entity-id))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -78,15 +81,9 @@
    (coercion/rule :keyword [:period])
    (coercion/rule :integer [:period-count])])
 
-(defn- coerce
-  [budget]
-  (coercion/coerce budget coercion-rules))
-
 (defn- before-validation
-  [budget]
-  (-> budget
-      coerce
-      (dissoc :items)))
+  [_ budget]
+  (dissoc budget :items))
 
 (def period-map
   {:month Months/ONE
@@ -117,7 +114,7 @@
       tc/to-local-date))
 
 (defn- before-save
-  [budget]
+  [_ budget]
   (-> budget
       (assoc :end-date (tc/to-long (end-date budget)))
       (update-in [:start-date] tc/to-long)
@@ -131,36 +128,27 @@
              [[:period-count "Period count must be greater than zero"]]
              [])})
 
-(defn- validate
-  [spec budget]
-  (let [prepared (before-validation budget)]
-    (validation/validate spec prepared)))
-
-(defn create
-  "Creates a new budget"
-  [storage-spec budget]
-  (with-storage [s storage-spec]
-    (let [validated (validate ::new-budget budget)]
-      (if (validation/has-error? validated)
-        validated
-        (->> validated
-             before-save
-             (create-budget s)
-             (prepare-for-return s))))))
+(def create
+  (create-fn {:before-save before-save
+              :create create-budget
+              :spec ::new-budget
+              :before-validation before-validation
+              :coercion-rules coercion-rules
+              :after-read after-read}))
 
 (defn find-by-id
   "Returns the specified budget"
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-budget-by-id s id)
-         (prepare-for-return s))))
+         (after-read s))))
 
 (defn find-by-date
   "Returns the budget containing the specified date"
   [storage-spec entity-id date]
   (with-storage [s storage-spec]
     (->> (find-budget-by-date s (tc/to-long date))
-         (prepare-for-return s))))
+         (after-read s))))
 
 (defn reload
   "Returns the lastest version of the specified budget from the data store"
@@ -169,25 +157,14 @@
     (->> budget
          :id
          (find-by-id s)
-         (prepare-for-return s))))
+         (after-read s))))
 
-(defn update
-  "Updates the specified budget"
-  [storage-spec budget]
-  (with-storage [s storage-spec]
-    (let [validated (validate ::existing-budget budget)]
-      (if (validation/valid? validated)
-        (do
-          (->> (select-keys validated
-                            [:id
-                             :name
-                             :period
-                             :period-count
-                             :start-date])
-               before-save
-               (update-budget s))
-          (reload s validated))
-        validated))))
+(def update
+  (update-fn {:spec ::existing-budget
+              :before-validation before-validation
+              :before-save before-save
+              :update update-budget
+              :find find-by-id}))
 
 (defn find-item-by-id
   "Returns the budget item with the specified id"
@@ -246,11 +223,9 @@
 
 (defn- validate-item
   [storage spec budget item]
-  (let [prepared (before-item-validation item)]
-    (apply validation/validate
-           spec
-           prepared
-           (item-validation-rules storage budget))))
+  (->> item
+       before-item-validation
+       (validation/validate spec (item-validation-rules storage budget))))
 
 (defn- before-save-item
   [item]

@@ -283,7 +283,10 @@
     (when-not (:suppress-label? options)
       [:label {:for name} (humanize name)])
     [:select.form-control (merge (dissoc options :suppress-label?) {:id name :name name})
-     option-items]])
+     (map #(if (= value (get-in % [1 :value]))
+             (assoc-in % [1 :selected] true)
+             %)
+          option-items)]])
 
 (defn select-field
   ([model attribute option-items]

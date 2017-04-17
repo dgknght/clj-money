@@ -10,6 +10,7 @@
                                               find-commodity-by-id
                                               update-commodity
                                               select-commodities-by-entity-id
+                                              select-commodities
                                               delete-prices-by-commodity-id
                                               delete-commodity]]))
 
@@ -70,14 +71,15 @@
 
 (defn- before-validation
   [commodity]
-  (coercion/coerce commodity coercion-rules))
+  (coercion/coerce coercion-rules commodity))
 
 (defn- validate
   [storage spec commodity]
-  (apply validation/validate
+  (->> commodity
+       before-validation
+       (validation/validate
          spec
-         (before-validation commodity)
-         (validation-rules storage)))
+         (validation-rules storage))))
 
 (defn create
   "Creates a new commodity record"
@@ -104,6 +106,14 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (after-read (find-commodity-by-id s id))))
+
+(defn search
+  "Returns commodities matching the specified criteria"
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-commodities s)
+         (map after-read))))
 
 (defn update
   "Updates the specified commodity"

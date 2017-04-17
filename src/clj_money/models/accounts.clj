@@ -7,10 +7,13 @@
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-account
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
+                                              select-accounts
                                               select-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
@@ -25,14 +28,16 @@
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::type #{:asset :liability :equity :income :expense})
-(s/def ::parent-id integer?)
-(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id]))
-(s/def ::existing-account (s/keys :req-un [::id] :opt-un [::entity-id ::name ::type ::parent-id]))
+(s/def ::content-type #{:currency :commodity :commodities})
+(s/def ::parent-id (s/nilable integer?))
+(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id ::content-type]))
+(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::content-type ::name] :opt-un [::parent-id]))
 ; :balance and :children-balance are not specified because they are always calculated and not passed in
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
    (coercion/rule :keyword [:type])
+   (coercion/rule :keyword [:content-type])
    (coercion/rule :integer [:entity-id])
    (coercion/rule :integer [:parent-id])])
 
@@ -40,45 +45,40 @@
 (defn- before-validation
   "Adjust account data for validation"
   [storage account]
-  (let [coerced (coercion/coerce account coercion-rules)]
-    (cond-> coerced
-      ; If no entity is specified, try to look it up
-      (and (:id coerced)
-           (nil? (:entity-id coerced)))
-      (assoc :entity-id (:entity-id (find-by-id storage (:id coerced))))
+  (cond-> account
+    ; If no entity is specified, try to look it up
+    (and (:id account)
+         (nil? (:entity-id account)))
+    (assoc :entity-id (:entity-id (find-by-id storage (:id account))))
 
-      ; strip out empty string for parent-id
-      (and (string? (:parent-id coerced))
-           (empty? (:parent-id coerced)))
-      (dissoc :parent-id))))
+    ; strip out empty string for parent-id
+    (and (string? (:parent-id account))
+         (empty? (:parent-id account)))
+    (dissoc :parent-id)
 
-(defn- before-create
-  "Adjust account data prior to creation"
-  [storage account]
-  (assoc account :balance (bigdec 0)))
+    true
+    (update-in [:content-type] (fnil identity :currency))))
 
 (defn- before-save
   "Adjusts account data for saving in the database"
   [storage account]
-  (cond-> account
-    ; convert account type from keyword to string
-    (:type account) (update-in [:type] name)))
+  (-> account
+      (update-in [:balance] (fnil identity 0M))
+      (update-in [:type] name)
+      (update-in [:content-type] name)))
 
-(defn- prepare-for-return
+(defn- after-read
   "Adjusts account data read from the database for use"
-  [account]
-  (cond-> account
-
-    ; Remove :parent-id if it's nil
-    (and
-      (contains? account :parent-id)
-      (nil? (:parent-id account)))
-    (dissoc :parent-id)
-
-    ; :type should already be present
-    ; and should be a keyword
-    true
-    (update-in [:type] keyword)))
+  ([account] (after-read nil account))
+  ([_ account]
+   (-> account
+       (update-in [:type] keyword)
+       (update-in [:content-type] keyword)
+       (cond->
+         (and ; Remove :parent-id if it's nil
+           (contains? account :parent-id)
+           (nil? (:parent-id account)))
+         (dissoc :parent-id)))))
 
 (defn- name-is-unique?
   [storage {:keys [id parent-id name entity-id]}]
@@ -108,35 +108,27 @@
          :path [:type]
          :message "Type must match the parent type"}]))
 
-(defn create
-  "Creates a new account in the system"
-  [storage-spec account]
-  (with-storage [s storage-spec]
-    (let [prepared (before-validation s account)
-          validated (apply validation/validate
-                           ::new-account
-                           prepared
-                           (validation-rules s))]
-      (if (validation/has-error? validated)
-        validated
-        (->> validated
-             (before-create s)
-             (before-save s)
-             (create-account s)
-             prepare-for-return)))))
+(def create
+  (create-fn {:before-save before-save
+              :after-read after-read
+              :create create-account
+              :before-validation before-validation
+              :rules-fn validation-rules
+              :coercion-rules coercion-rules
+              :spec ::new-account}))
 
 (defn find-by-id
   "Returns the account having the specified id"
   [storage-spec id]
   (when id
     (with-storage [s storage-spec]
-      (prepare-for-return (find-account-by-id s id)))))
+      (after-read (find-account-by-id s id)))))
 
 (defn find-by-name
   "Returns the account having the specified name"
   [storage-spec entity-id account-name]
   (with-storage [s storage-spec]
-    (prepare-for-return
+    (after-read
       (find-account-by-entity-id-and-name s
                                           entity-id
                                           account-name))))
@@ -154,7 +146,7 @@
      (let [types (or (:types options)
                      (set account-types))]
        (->> (select-accounts-by-entity-id s entity-id)
-            (map prepare-for-return)
+            (map after-read)
             (filter #(types (:type %))))))))
 
 (defn- append-path
@@ -186,31 +178,22 @@
                       (map #(assoc % :path (:name %)))
                       (map #(append-children % all))
                       (group-by :type))]
-     (map #(hash-map :type % :accounts (or
-                                         (->> grouped
-                                              %
-                                              (sort-by :name)
-                                              vec)
-                                         []))
-          types))))
+     (mapv #(hash-map :type % :accounts (or
+                                          (->> grouped
+                                               %
+                                               (sort-by :name)
+                                               vec)
+                                          []))
+           types))))
 
-(defn update
-  "Updates the specified account"
-  [storage-spec account]
-  (with-storage [s storage-spec]
-    (let [validated (->> account
-                         (before-validation s)
-                         (validation/validate ::existing-account))]
-      (if (validation/has-error? validated)
-        validated
-        (do
-          (->> validated
-               (before-save s)
-               (update-account s))
-          (->> validated
-               :id
-               (find-by-id s)
-               prepare-for-return))))))
+(def update
+  (update-fn {:before-save before-save
+              :after-read after-read
+              :update update-account
+              :find find-by-id
+              :spec ::existing-account
+              :coercion-rules coercion-rules
+              :rules-fn validation-rules}))
 
 (defn delete
   "Removes the account from the system"
@@ -230,3 +213,10 @@
   (let [polarizer (* (if (left-side? account) 1 -1)
                      (if (= :debit (:action transaction-item)) 1 -1))]
     (* (:amount transaction-item) polarizer)))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-accounts s)
+         (map after-read))))

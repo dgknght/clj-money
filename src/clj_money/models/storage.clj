@@ -53,6 +53,9 @@
   (select-accounts-by-name
     [this entity-id name]
     "Returns the account in the specified entity with the specified name")
+  (select-accounts
+    [this criteria]
+    "Returns the accounts matching the specified criteria")
 
   ; Commodities
   (create-commodity
@@ -72,6 +75,10 @@
     [this entity-id options]
     "Returns a list of commodities for the specified entity")
 
+  (select-commodities
+    [this criteria]
+    "Returns a list of commodities matching the specified criteria")
+
   (delete-commodity
     [this id]
     "Deletes the specified commodity record")
@@ -82,7 +89,7 @@
     "Creates a new commodity price record")
 
   (select-prices-by-commodity-id
-    [this commodity-id] [this commodity-id options]
+    [this commodity-id as-of] [this commodity-id options as-of]
     "Returns a list of prices for the specified commodity")
 
   (find-price-by-id
@@ -100,6 +107,40 @@
   (delete-prices-by-commodity-id
     [this commodity-id]
     "Deletes all prices for the specified commodity")
+
+  ; Lots
+  (create-lot
+    [this lot]
+    "Creates a new lot record")
+
+  (select-lots-by-entity-id
+    [this entity-id]
+    "Returns the lots for the specified entity")
+
+  (select-lots-by-commodity-id
+    [this commodity-id]
+    "Returns the lots for the specified commodity")
+
+  (update-lot
+    [this lot]
+    "Updates the specified lot record")
+
+  (find-lot-by-id
+    [this id]
+    "Returns the lot having the specified id")
+
+  (select-lots
+    [this criteria]
+    "Returns the lots matching the specified criteria")
+
+  ; Lot transactions
+  (create-lot-transaction
+    [this lot-transaction]
+    "Creates a lot transaction record")
+
+  (select-lot-transactions
+    [this criteria]
+    "Returns a list of matching lot transactions")
 
   ; Transactions
   (select-transactions-by-entity-id
@@ -176,6 +217,9 @@
   (unreconcile-transaction-items-by-reconciliation-id
     [this reconciliation-id]
     "Unsets the reconciliation ID to null for all matching values")
+  (select-transaction-items
+    [this criteria]
+    "Returns a list of transaction items matching the criteria")
 
   ; Reconciliations
   (create-reconciliation

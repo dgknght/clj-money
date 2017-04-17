@@ -41,8 +41,7 @@
 
 (defn- before-validation
   [reconciliation]
-  (-> reconciliation
-      (coercion/coerce coercion-rules)
+  (-> (coercion/coerce coercion-rules reconciliation)
       (update-in [:status] (fnil identity :new))))
 
 (defn- before-save
@@ -179,10 +178,9 @@
 
 (defn- validate
   [spec rules reconciliation]
-  (apply validation/validate
-         spec
-         (before-validation reconciliation)
-         rules))
+  (->> reconciliation
+       before-validation
+       (validation/validate spec rules)))
 
 (defn create
   "Creates a new reconciliation record"

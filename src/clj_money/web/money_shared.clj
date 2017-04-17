@@ -11,7 +11,7 @@
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.reports :as reports])
+            [clj-money.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
 (defn- account-and-children-options

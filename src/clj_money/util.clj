@@ -10,7 +10,8 @@
 (def number-formats
   {:standard (DecimalFormat. "#,##0.00")
    :no-comma (DecimalFormat. "0.00")
-   :integer  (DecimalFormat. "0")})
+   :integer  (DecimalFormat. "0")
+   :commodity-price (DecimalFormat. "#,##0.000")})
 
 (defn format-number
   "Format a number with 2 decimal places and groups separated with commas"

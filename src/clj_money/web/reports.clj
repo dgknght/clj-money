@@ -12,7 +12,7 @@
                                     parse-local-date]]
             [clj-money.web.shared :refer :all]
             [clj-money.models.budgets :as budgets]
-            [clj-money.models.reports :as reports]))
+            [clj-money.reports :as reports]))
 
 (defmulti render-report
   (fn [params]
