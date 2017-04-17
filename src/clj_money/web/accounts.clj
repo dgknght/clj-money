@@ -162,41 +162,42 @@
 
 (defmethod ^:private show-account :currency
   [account params]
-  [:table.table.table-striped.table-hover
-   [:tr
-    [:th.text-right "Date"]
-    [:th "Description"]
-    [:th.text-right "Amount"]
-    [:th.text-right "Balance"]
-    [:th.text-center "Rec."]
-    [:th "&nbsp;"]]
-   (map transaction-item-row
-        (transactions/items-by-account (env :db)
-                                       (:id account)
-                                       (pagination/prepare-options params)))]
-  (pagination/nav (assoc params
-                         :url (-> (path "/accounts"
-                                        (:id account)))
-                         :total (transactions/count-items-by-account (env :db) (:id account))))
-  [:a.btn.btn-primary
-   {:href (-> (path "/entities"
-                    (:entity-id account)
-                    "transactions"
-                    "new")
-              (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
-              format-url)
-    :title "Click here to add a new transaction."}
-   "Add"]
-  "&nbsp;"
-  [:a.btn.btn-default
-   {:href (format "/accounts/%s/reconciliations/new" (:id account))
-    :title "Click here to reconcile this account."}
-   "Reconcile"]
-  "&nbsp;"
-  [:a.btn.btn-default
-   {:href (format "/entities/%s/accounts" (:entity-id account))
-    :title "Click here to return to the list of accounts."}
-   "Back"])
+  (html
+    [:table.table.table-striped.table-hover
+     [:tr
+      [:th.text-right "Date"]
+      [:th "Description"]
+      [:th.text-right "Amount"]
+      [:th.text-right "Balance"]
+      [:th.text-center "Rec."]
+      [:th "&nbsp;"]]
+     (map transaction-item-row
+          (transactions/items-by-account (env :db)
+                                         (:id account)
+                                         (pagination/prepare-options params)))]
+    (pagination/nav (assoc params
+                           :url (-> (path "/accounts"
+                                          (:id account)))
+                           :total (transactions/count-items-by-account (env :db) (:id account))))
+    [:a.btn.btn-primary
+     {:href (-> (path "/entities"
+                      (:entity-id account)
+                      "transactions"
+                      "new")
+                (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
+                format-url)
+      :title "Click here to add a new transaction."}
+     "Add"]
+    "&nbsp;"
+    [:a.btn.btn-default
+     {:href (format "/accounts/%s/reconciliations/new" (:id account))
+      :title "Click here to reconcile this account."}
+     "Reconcile"]
+    "&nbsp;"
+    [:a.btn.btn-default
+     {:href (format "/entities/%s/accounts" (:entity-id account))
+      :title "Click here to return to the list of accounts."}
+     "Back"]))
 
 (defn- commodity-row
   [{:keys [style caption shares price cost gain value] :as x}]
@@ -205,7 +206,7 @@
    [:td.text-right (format-number shares {:format :commodity-price})]
    [:td.text-right (format-number price {:format :commodity-price})]
    [:td.text-right (format-number value)]
-   [:td {:class (format "text-right %s" (if (< 0 gain) "gain" "loss"))}
+   [:td {:class (format "text-right %s" (if (<= 0 gain) "gain" "loss"))}
     (format-number gain)]])
 
 (defmethod show-account :commodities
