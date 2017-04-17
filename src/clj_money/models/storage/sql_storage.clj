@@ -433,8 +433,9 @@
               {:criteria criteria})))
     (query db-spec (-> (h/select :*)
                        (h/from :lot_transactions)
-                       (h/where (map->where criteria))
-                       (h/order-by :trade_date))))
+                       (h/where (map->where (dissoc criteria :limit)))
+                       (h/order-by :trade_date)
+                       (append-limit criteria))))
 
   ; Transactions
   (select-transactions-by-entity-id
