@@ -44,6 +44,16 @@
   color: white;
 }
 
+.gain {
+  font-weight: bold;
+  color: green;
+}
+
+.loss {
+  font-weight: bold;
+  color: red;
+}
+
 .note {
   font-family: italic;
 }

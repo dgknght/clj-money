@@ -16,6 +16,7 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.lots :as lots]
+            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]])
@@ -67,6 +68,7 @@
                     :data-confirm "Are you sure you want to delete this account?"
                     :title "Click here to remove this account"})]]])
 
+; TODO Adjust this so that commodity accounts are omitted
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
   ([account] (account-and-children-rows account 0))
@@ -196,13 +198,17 @@
    "Back"])
 
 (defn- commodity-row
-  [{:keys [commodity shares] :as input}]
-  (let [price (prices/most-recent (env :db) (:id commodity))]
+  [{:keys [commodity shares cost] :as input}]
+  (let [price (:price (prices/most-recent (env :db) (:id commodity)))
+        value (* price shares)
+        gain (- value cost)]
     [:tr
-     [:td (:symbol commodity)]
-     [:td.text-right shares]
-     [:td.text-right (:price price)]
-     [:td (format-number (* (:price price) shares))]]))
+     [:td (format "%s (%s)" (:name commodity) (:symbol commodity))]
+     [:td.text-right (format-number shares {:format :commodity-price})]
+     [:td.text-right (format-number price {:format :commodity-price})]
+     [:td.text-right (format-number value)]
+     [:td {:class (format "text-right %s" (if (< 0 gain) "gain" "loss"))}
+      (format-number gain)]]))
 
 (defmethod show-account :commodities
   [account params]
@@ -214,23 +220,46 @@
                                   {:commodity (commodities/find-by-id (env :db) commodity-id)
                                    :shares (->> lots
                                                 (map :shares-owned)
-                                                (reduce +))})))]
-      [:table.table.table-striped.table-hover
-       [:tr
-        [:th "Symbol"]
-        [:th "Shares"]
-        [:th "Price"]
-        [:th "Value"]]
-       (if (empty? commodities)
+                                                (reduce +))
+                                   :cost (->> lots
+                                              (map (fn [lot]
+                                                     (let [purchase-tx (->> {:lot-id (:id lot)
+                                                                             :action "buy"
+                                                                             :limit 1}
+                                                                            (lot-transactions/select (env :db))
+                                                                            first)]
+                                                       (* (:shares-owned lot)
+                                                          (:price purchase-tx)))))
+                                              (reduce +))})))]
+      [:div.row
+       [:div.col-md-8
+        [:table.table.table-striped.table-hover
          [:tr
-          [:td.empty-table {:colspan 4}
-           "This account does not have any positions"]]
-         (map commodity-row
-              commodities))])
+          [:th "Commodity"]
+          [:th.text-right "Shares"]
+          [:th.text-right "Price"]
+          [:th.text-right "Value"]
+          [:th.text-right "Gain"]]
+         (if (empty? commodities)
+           [:tr
+            [:td.empty-table {:colspan 4}
+             "This account does not have any positions"]]
+           (map commodity-row
+                commodities))]]])
     [:a.btn.btn-primary
      {:href (format "/accounts/%s/purchases/new" (:id account))
       :title "Click here to purchase a commodity with this account."}
      "Purchase"]))
+
+(defmethod show-account :commodity
+  [account params]
+  (html
+    [:p
+     "Information page for commodity accounts is not ready yet."]
+    [:a.btn.btn-primary
+     {:href (format "/entities/%s/accounts" (:entity-id account))
+      :title "Click here to return to the list of accounts."}
+     "Back"]))
 
 (defn show
   "Renders account details, including transactions"
