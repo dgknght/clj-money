@@ -199,8 +199,8 @@
    "Back"])
 
 (defn- commodity-row
-  [{:keys [caption shares price cost gain value]}]
-  [:tr
+  [{:keys [style caption shares price cost gain value] :as x}]
+  [:tr {:class (format "report-%s" (name style))}
    [:td caption]
    [:td.text-right (format-number shares {:format :commodity-price})]
    [:td.text-right (format-number price {:format :commodity-price})]
@@ -221,12 +221,12 @@
           [:th.text-right "Price"]
           [:th.text-right "Value"]
           [:th.text-right "Gain"]]
-         (if (empty? summary)
+         (if (seq summary)
+           (map commodity-row
+                summary)
            [:tr
             [:td.empty-table {:colspan 4}
-             "This account does not have any positions"]]
-           (map commodity-row
-                summary))]]])
+             "This account does not have any positions"]])]]])
     [:a.btn.btn-primary
      {:href (format "/accounts/%s/purchases/new" (:id account))
       :title "Click here to purchase a commodity with this account."}

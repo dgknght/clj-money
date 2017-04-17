@@ -378,13 +378,20 @@
                    :price 20M
                    :cost 1000M
                    :value 2000M
-                   :gain 1000M}
+                   :gain 1000M
+                   :style :data}
                   {:caption "Microsoft Corp (MSFT)"
                    :shares 100M
                    :price 5M
                    :cost 1000M
                    :value 500M
-                   :gain -500M}]]
+                   :gain -500M
+                   :style :data}
+                  {:caption "Total"
+                   :cost 2000M
+                   :value 2500M
+                   :gain 500M
+                   :style :summary}]]
     (is (= expected actual) "The report contains the correct data")))
 
 
