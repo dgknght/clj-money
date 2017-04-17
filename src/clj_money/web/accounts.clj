@@ -210,27 +210,35 @@
      [:td {:class (format "text-right %s" (if (< 0 gain) "gain" "loss"))}
       (format-number gain)]]))
 
+; TODO move this function to a model or helper namespace
+(defn- calculate-lot-cost
+  [lot]
+  (let [purchase-tx (->> {:lot-id (:id lot)
+                          :action "buy"
+                          :limit 1}
+                         (lot-transactions/select (env :db))
+                         first)]
+    (* (:shares-owned lot)
+       (:price purchase-tx))))
+
+; TODO move this function to a model or helper namespace
+(defn- summarize-lots
+  [[commodity-id lots]]
+  {:commodity (commodities/find-by-id (env :db) commodity-id)
+   :shares (->> lots
+                (map :shares-owned)
+                (reduce +))
+   :cost (->> lots
+              (map calculate-lot-cost)
+              (reduce +))})
+
 (defmethod show-account :commodities
   [account params]
   (html
     (let [commodities (->> {:account-id (:id account)}
                            (lots/search (env :db))
                            (group-by :commodity-id)
-                           (map (fn [[commodity-id lots]]
-                                  {:commodity (commodities/find-by-id (env :db) commodity-id)
-                                   :shares (->> lots
-                                                (map :shares-owned)
-                                                (reduce +))
-                                   :cost (->> lots
-                                              (map (fn [lot]
-                                                     (let [purchase-tx (->> {:lot-id (:id lot)
-                                                                             :action "buy"
-                                                                             :limit 1}
-                                                                            (lot-transactions/select (env :db))
-                                                                            first)]
-                                                       (* (:shares-owned lot)
-                                                          (:price purchase-tx)))))
-                                              (reduce +))})))]
+                           (map summarize-lots))]
       [:div.row
        [:div.col-md-8
         [:table.table.table-striped.table-hover
