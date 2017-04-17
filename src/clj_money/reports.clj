@@ -367,3 +367,43 @@
        {:caption (:name account)
         :account account
         :message (format "There is no budget for %s" (format-date as-of))}))))
+
+(defn- calculate-lot-cost
+  [storage lot]
+  (let [purchase-tx (->> {:lot-id (:id lot)
+                          :action "buy"
+                          :limit 1}
+                         (lot-transactions/select storage)
+                         first)]
+    (* (:shares-owned lot)
+       (:price purchase-tx))))
+
+(defn- summarize-commodity
+  [storage [commodity-id lots]]
+  (let [commodity (commodities/find-by-id storage commodity-id)
+        shares (->> lots
+                    (map :shares-owned)
+                    (reduce +))
+        cost (->> lots
+                  (map #(calculate-lot-cost storage %))
+                  (reduce +))
+        price (:price (prices/most-recent storage (:id commodity)))
+        value (* price shares)
+        gain (- value cost)]
+    {:caption (format "%s (%s)" (:name commodity) (:symbol commodity))
+     :shares shares
+     :price price
+     :cost cost
+     :value value
+     :gain gain}))
+
+(defn commodities-account-summary
+  ([storage-spec account-id]
+   (commodities-account-summary storage-spec account-id (t/today)))
+  ([storage-spec account-id as-of]
+   (with-storage [s storage-spec]
+     (->> {:account-id account-id}
+          (lots/search s)
+          (group-by :commodity-id)
+          (map #(summarize-commodity s %))
+          (sort-by :caption)))))

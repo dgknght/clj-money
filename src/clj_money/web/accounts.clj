@@ -19,7 +19,8 @@
             [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
-                                                budget-monitors]])
+                                                budget-monitors]]
+            [clj-money.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
 (defmacro with-accounts-layout
@@ -198,47 +199,19 @@
    "Back"])
 
 (defn- commodity-row
-  [{:keys [commodity shares cost] :as input}]
-  (let [price (:price (prices/most-recent (env :db) (:id commodity)))
-        value (* price shares)
-        gain (- value cost)]
-    [:tr
-     [:td (format "%s (%s)" (:name commodity) (:symbol commodity))]
-     [:td.text-right (format-number shares {:format :commodity-price})]
-     [:td.text-right (format-number price {:format :commodity-price})]
-     [:td.text-right (format-number value)]
-     [:td {:class (format "text-right %s" (if (< 0 gain) "gain" "loss"))}
-      (format-number gain)]]))
-
-; TODO move this function to a model or helper namespace
-(defn- calculate-lot-cost
-  [lot]
-  (let [purchase-tx (->> {:lot-id (:id lot)
-                          :action "buy"
-                          :limit 1}
-                         (lot-transactions/select (env :db))
-                         first)]
-    (* (:shares-owned lot)
-       (:price purchase-tx))))
-
-; TODO move this function to a model or helper namespace
-(defn- summarize-lots
-  [[commodity-id lots]]
-  {:commodity (commodities/find-by-id (env :db) commodity-id)
-   :shares (->> lots
-                (map :shares-owned)
-                (reduce +))
-   :cost (->> lots
-              (map calculate-lot-cost)
-              (reduce +))})
+  [{:keys [caption shares price cost gain value]}]
+  [:tr
+   [:td caption]
+   [:td.text-right (format-number shares {:format :commodity-price})]
+   [:td.text-right (format-number price {:format :commodity-price})]
+   [:td.text-right (format-number value)]
+   [:td {:class (format "text-right %s" (if (< 0 gain) "gain" "loss"))}
+    (format-number gain)]])
 
 (defmethod show-account :commodities
   [account params]
   (html
-    (let [commodities (->> {:account-id (:id account)}
-                           (lots/search (env :db))
-                           (group-by :commodity-id)
-                           (map summarize-lots))]
+    (let [summary (reports/commodities-account-summary (env :db) (:id account))]
       [:div.row
        [:div.col-md-8
         [:table.table.table-striped.table-hover
@@ -248,12 +221,12 @@
           [:th.text-right "Price"]
           [:th.text-right "Value"]
           [:th.text-right "Gain"]]
-         (if (empty? commodities)
+         (if (empty? summary)
            [:tr
             [:td.empty-table {:colspan 4}
              "This account does not have any positions"]]
            (map commodity-row
-                commodities))]]])
+                summary))]]])
     [:a.btn.btn-primary
      {:href (format "/accounts/%s/purchases/new" (:id account))
       :title "Click here to purchase a commodity with this account."}

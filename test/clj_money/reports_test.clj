@@ -289,10 +289,16 @@
                                                     :amount 500M}]}))
       (assoc :commodities [{:name "Apple, Inc."
                             :symbol "AAPL"
+                            :exchange :nasdaq}
+                           {:name "Microsoft Corp"
+                            :symbol "MSFT"
                             :exchange :nasdaq}])
       (assoc :prices [{:trade-date (t/local-date 2017 2 1)
                        :price 20M
-                       :commodity-id "AAPL"}])))
+                       :commodity-id "AAPL"}
+                      {:trade-date (t/local-date 2017 2 1)
+                       :price 5M
+                       :commodity-id "MSFT"}])))
 
 (deftest balance-sheet-report-with-commodities
   (let [context (serialization/realize storage-spec commodities-context)
@@ -346,6 +352,40 @@
                    :value 3279M
                    :style :summary}]]
     (is (= expected report) "The report contains the correct data")))
+
+(deftest create-a-commodities-account-summary
+  (let [context (serialization/realize storage-spec commodities-context)
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        [aapl msft] (:commodities context)
+        _ (trading/buy storage-spec {:account-id (:id ira)
+                                     :commodity-id (:id aapl)
+                                     :shares 100M
+                                     :value 1000M
+                                     :trade-date (t/local-date 2016 3 2)})
+        _ (trading/buy storage-spec {:account-id (:id ira)
+                                     :commodity-id (:id msft)
+                                     :shares 100M
+                                     :value 1000M
+                                     :trade-date (t/local-date 2016 3 2)})
+        actual (reports/commodities-account-summary storage-spec
+                                                    (:id ira)
+                                                    (t/local-date 2017 3 2))
+        expected [{:caption "Apple, Inc. (AAPL)"
+                   :shares 100M
+                   :price 20M
+                   :cost 1000M
+                   :value 2000M
+                   :gain 1000M}
+                  {:caption "Microsoft Corp (MSFT)"
+                   :shares 100M
+                   :price 5M
+                   :cost 1000M
+                   :value 500M
+                   :gain -500M}]]
+    (is (= expected actual) "The report contains the correct data")))
 
 
 (def budget-report-context
