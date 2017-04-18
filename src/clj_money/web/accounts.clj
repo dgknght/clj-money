@@ -217,22 +217,23 @@
    [:td {:class (format "text-right %s" (if (<= 0 gain) "gain" "loss"))}
     (format-number gain)]
    [:td
-    [:div.btn-group
-     (glyph-button :plus-sign
-                   (format "/accounts/%s/purchases/new?commodity-id=%s"
-                           (:id account)
-                           commodity-id)
-                   {:size :extra-small
-                    :level :success
-                    :title "Click here to purchase more shares of this commodity."})
-     (glyph-button :minus-sign
-                   (format "/accounts/%s/sales/new?commodity-id=%s&shares=%s"
-                           (:id account)
-                           commodity-id
-                           shares)
-                   {:size :extra-small
-                    :level :danger
-                    :title "Click here to sell shares of this commodity."})]]])
+    (when (= :data style)
+      [:div.btn-group
+       (glyph-button :plus-sign
+                     (format "/accounts/%s/purchases/new?commodity-id=%s"
+                             (:id account)
+                             commodity-id)
+                     {:size :extra-small
+                      :level :success
+                      :title "Click here to purchase more shares of this commodity."})
+       (glyph-button :minus-sign
+                     (format "/accounts/%s/sales/new?commodity-id=%s&shares=%s"
+                             (:id account)
+                             commodity-id
+                             shares)
+                     {:size :extra-small
+                      :level :danger
+                      :title "Click here to sell shares of this commodity."})])]])
 
 (defmethod show-account :commodities
   [account params]
