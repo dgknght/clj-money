@@ -29,7 +29,15 @@
 
 (defn new-purchase
   "Renders the form that allows the user to record a commodity purchase"
-  ([req] (new-purchase req {:trade-date (t/today)}))
+  ([{params :params :as req}]
+   (new-purchase req (cond-> {:trade-date (t/today)}
+                       (:commodity-id params)
+                       (assoc :commodity-id
+                              (Integer. (:commodity-id params)))
+
+                       (:shares params)
+                       (assoc :shares
+                              (bigdec (:shares params))))))
   ([{params :params} purchase]
    (let [account (accounts/find-by-id (env :db) (Integer. (:account-id params)))]
      (with-trading-layout "New Purchase" (:entity-id account) {}

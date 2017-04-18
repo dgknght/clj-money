@@ -200,30 +200,56 @@
      "Back"]))
 
 (defn- commodity-row
-  [{:keys [style caption shares price cost gain value] :as x}]
+  [{:keys [style
+           caption
+           shares
+           price
+           cost
+           gain
+           value
+           commodity-id]}
+   account]
   [:tr {:class (format "report-%s" (name style))}
    [:td caption]
    [:td.text-right (format-number shares {:format :commodity-price})]
    [:td.text-right (format-number price {:format :commodity-price})]
    [:td.text-right (format-number value)]
    [:td {:class (format "text-right %s" (if (<= 0 gain) "gain" "loss"))}
-    (format-number gain)]])
+    (format-number gain)]
+   [:td
+    [:div.btn-group
+     (glyph-button :plus-sign
+                   (format "/accounts/%s/purchases/new?commodity-id=%s"
+                           (:id account)
+                           commodity-id)
+                   {:size :extra-small
+                    :level :success
+                    :title "Click here to purchase more shares of this commodity."})
+     (glyph-button :minus-sign
+                   (format "/accounts/%s/sales/new?commodity-id=%s&shares=%s"
+                           (:id account)
+                           commodity-id
+                           shares)
+                   {:size :extra-small
+                    :level :danger
+                    :title "Click here to sell shares of this commodity."})]]])
 
 (defmethod show-account :commodities
   [account params]
   (html
     (let [summary (reports/commodities-account-summary (env :db) (:id account))]
       [:div.row
-       [:div.col-md-8
+       [:div.col-md-10
         [:table.table.table-striped.table-hover
          [:tr
           [:th "Commodity"]
           [:th.text-right "Shares"]
           [:th.text-right "Price"]
           [:th.text-right "Value"]
-          [:th.text-right "Gain"]]
+          [:th.text-right "Gain"]
+          [:th "&nbsp;"]]
          (if (seq summary)
-           (map commodity-row
+           (map #(commodity-row % account)
                 summary)
            [:tr
             [:td.empty-table {:colspan 4}
