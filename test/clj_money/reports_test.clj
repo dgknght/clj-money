@@ -374,6 +374,7 @@
                                                     (:id ira)
                                                     (t/local-date 2017 3 2))
         expected [{:caption "Apple, Inc. (AAPL)"
+                   :commodity-id (:id aapl)
                    :shares 100M
                    :price 20M
                    :cost 1000M
@@ -381,6 +382,7 @@
                    :gain 1000M
                    :style :data}
                   {:caption "Microsoft Corp (MSFT)"
+                   :commodity-id (:id msft)
                    :shares 100M
                    :price 5M
                    :cost 1000M

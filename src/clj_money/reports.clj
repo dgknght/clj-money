@@ -391,6 +391,7 @@
         value (* price shares)
         gain (- value cost)]
     {:caption (format "%s (%s)" (:name commodity) (:symbol commodity))
+     :commodity-id (:id commodity)
      :style :data
      :shares shares
      :price price
