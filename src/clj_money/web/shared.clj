@@ -212,9 +212,11 @@
   [:div.form-group
     (when-not (:suppress-label? options)
       [:label.control-label {:for name} (humanize name)])
-    [:input.form-control (merge options {:id name
-                                         :name name
-                                         :value value})]])
+    [:input.form-control (-> options
+                             (dissoc :format-fn)
+                             (merge {:id name
+                                     :name name
+                                     :value value}))]])
 
 (defn text-input-element
   ([name value] (text-input-element name value {}))
@@ -239,10 +241,12 @@
   "Renders a HTML input field"
   ([model attribute options]
    (form-group model attribute (:suppress-label? options)
-     [:input.form-control (merge options {:id attribute
-                                          :name attribute
-                                          :value ((or (:format-fn options)
-                                                      identity) (get model attribute))})])))
+               [:input.form-control (-> options
+                                        (dissoc :format-fn)
+                                        (merge {:id attribute
+                                                :name attribute
+                                                :value ((or (:format-fn options)
+                                                            identity) (get model attribute))}))])))
 
 (defn date-input-field
   ([model attribute] (date-input-field model attribute {}))
@@ -250,8 +254,7 @@
    (form-group model attribute (:suppress-label? options)
                [:div.input-group.date-field
                 [:input.form-control
-                 (merge {:format-fn format-date}
-                        options
+                 (merge options
                         {:id attribute
                          :name attribute
                          :value (format-date (get model attribute))})]
