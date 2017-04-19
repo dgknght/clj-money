@@ -303,7 +303,12 @@
                       {:context context})))))
 
 (def ^:private sale-coercion-rules
-  [(coercion/rule :local-date [:trade-date])])
+  (concat purchase-coercion-rules
+          [(coercion/rule :integer [:lt-capital-gains-account-id])
+           (coercion/rule :integer [:st-capital-gains-account-id])
+           (coercion/rule :integer [:lt-capital-loss-account-id])
+           (coercion/rule :integer [:st-capital-loss-account-id])
+           (coercion/rule :keyword [:inventory-method])]))
 
 (defn sale-validation-rules
   [storage]
