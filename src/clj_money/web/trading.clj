@@ -7,7 +7,9 @@
             [ring.util.response :refer :all]
             [clj-time.core :as t]
             [clj-money.web.shared :refer :all]
-            [clj-money.web.money-shared :refer [budget-monitors]]
+            [clj-money.web.money-shared :refer [budget-monitors
+                                                inventory-method-options
+                                                grouped-options-for-accounts]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
@@ -86,11 +88,45 @@
   ([{params :params} sale]
    (let [account (accounts/find-by-id (env :db) (Integer. (:account-id params)))]
      (with-trading-layout "New Sale" (:entity-id account) {}
-       [:div.col-md-6
-        [:form {:action (format "/accounts/%s/sales" (:id account))
-                :method :post}
-         (form-fields account sale)]]))))
+       [:form {:action (format "/accounts/%s/sales" (:id account))
+               :method :post}
+        [:div.col-md-6
+         (form-fields account sale)]
+        [:div.col-md-6
+         (select-field sale :inventory-method (inventory-method-options))
+         (select-field sale
+                       :lt-capital-gains-account-id
+                       (grouped-options-for-accounts
+                         (:entity-id account)
+                         {:selected-id (:lt-capital-gains-account-id sale)}))
+         (select-field sale
+                       :st-capital-gains-account-id
+                       (grouped-options-for-accounts
+                         (:entity-id account)
+                         {:selected-id (:st-capital-gains-account-id sale)}))
+         (select-field sale
+                       :lt-capital-loss-account-id
+                       (grouped-options-for-accounts
+                         (:entity-id account)
+                         {:selected-id (:lt-capital-loss-account-id sale)}))
+         (select-field sale
+                       :st-capital-loss-account-id
+                       (grouped-options-for-accounts
+                         (:entity-id account)
+                         {:selected-id (:st-capital-loss-account-id sale)}))]]))))
 
 (defn sell
-  [req]
-  "sell")
+  [{params :params :as req}]
+  (let [result (trading/sell (env :db) (select-keys params [:account-id
+                                                            :lt-capital-gains-account-id
+                                                            :st-capital-gains-account-id
+                                                            :lt-capital-loss-account-id
+                                                            :st-capital-loss-account-id
+                                                            :inventory-method
+                                                            :commodity-id
+                                                            :shares
+                                                            :value
+                                                            :trade-date]))]
+    (if (validation/has-error? result)
+      (new-sale req result)
+      (redirect (format "/accounts/%s" (:account-id result))))))
