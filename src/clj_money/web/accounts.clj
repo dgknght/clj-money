@@ -303,12 +303,21 @@
                          :title "Click here to return to the list of accounts."}
      "Back"]))
 
+(defn- new-account-defaults
+  [{:keys [entity-id parent-id]}]
+  (let [parent (if parent-id
+                 (accounts/find-by-id (env :db) (Integer. parent-id)))
+        account {:entity-id (Integer. entity-id)}]
+    (if parent
+      (-> account
+          (assoc :parent-id (:id parent))
+          (assoc :type (:type parent)))
+      account)))
+
 (defn new-account
   "Renders the new account form"
   ([{params :params :as req}]
-   (new-account req (reduce #(assoc %1 %2 (Integer. (%2 params)))
-                            {}
-                            [:entity-id :parent-id])))
+   (new-account req (new-account-defaults params)))
   ([{params :params} account]
    (let [entity-id (Integer. (:entity-id params))]
      (with-accounts-layout "New account" entity-id {}
