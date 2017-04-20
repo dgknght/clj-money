@@ -622,10 +622,7 @@
        account-names))
 
 (deftest lifo-sale
-  (let [context (serialization/realize
-                  storage-spec
-                  (update-in purchase-context
-                             [:entities 0] #(assoc % :inventory-method :lifo)))
+  (let [context (serialization/realize storage-spec purchase-context)
         commodity (-> context :commodities first)
         [ira
          lt-gains
@@ -652,6 +649,7 @@
                                       :commodity-id (:id commodity)
                                       :shares 50M
                                       :value 1500M
+                                      :inventory-method :lifo
                                       :lt-capital-gains-account-id (:id lt-gains)
                                       :st-capital-gains-account-id (:id st-gains)
                                       :lt-capital-loss-account-id (:id lt-loss)
@@ -678,7 +676,8 @@
   (let [context (serialization/realize
                   storage-spec
                   (update-in purchase-context
-                             [:entities 0] #(assoc % :inventory-method :fifo)))
+                             [:entities 0]
+                             #(assoc-in % [:settings :inventory-method] :fifo)))
         commodity (-> context :commodities first)
         [ira
          lt-gains

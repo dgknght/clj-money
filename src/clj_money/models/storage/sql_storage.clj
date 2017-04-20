@@ -170,8 +170,7 @@
     [_ entity]
     (insert db-spec :entities entity :name
                                      :user-id
-                                     :monitored-account-ids
-                                     :inventory-method))
+                                     :settings))
 
   (select-entities
     [_ user-id]
@@ -189,7 +188,7 @@
     (let [sql (sql/format (-> (h/update :entities)
                               (h/sset (->update-set entity
                                                     :name
-                                                    :monitored-account-ids))
+                                                    :settings))
                               (h/where [:= :id (:id entity)])))]
       (jdbc/execute! db-spec sql)))
 

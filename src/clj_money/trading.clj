@@ -18,6 +18,7 @@
 
 (s/def ::commodity-id integer?)
 (s/def ::account-id integer?)
+(s/def ::inventory-method #{:fifo :lifo})
 (s/def ::lt-capital-gains-account-id integer?)
 (s/def ::lt-capital-loss-account-id integer?)
 (s/def ::st-capital-gains-account-id integer?)
@@ -231,8 +232,8 @@
 (defn- find-lot
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage entity] :as context}]
-  (let [sort-fn (if (= :lifo (:inventory-method entity))
+  [{:keys [storage inventory-method] :as context}]
+  (let [sort-fn (if (= :lifo inventory-method)
                   (partial sort #(compare (:purchase-date %2) (:purchase-date %1)))
                   (partial sort-by :created-at))]
     (->> (select-keys context [:commodity-id :account-id])

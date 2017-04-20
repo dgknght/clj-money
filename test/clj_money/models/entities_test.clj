@@ -72,17 +72,14 @@
                                               :user-id (:id user)})
         updated (-> entity
                     (assoc :name "Entity Y")
-                    (assoc :monitored-account-ids [1 2]))
+                    (assoc-in [:settings :monitored-account-ids] [1 2]))
         result (entities/update storage-spec updated)
         retrieved (entities/find-by-id storage-spec (:id entity))
         expected {:id (:id entity)
                   :name "Entity Y"
                   :user-id (:id user)
-                  :monitored-account-ids [1 2]}
-        actual (select-keys retrieved [:id
-                                       :name
-                                       :user-id
-                                       :monitored-account-ids])]
+                  :settings {:monitored-account-ids [1 2]}}
+        actual (dissoc retrieved :updated-at :created-at)]
 
     (if (validation/has-error? result)
       (pprint {:result result}))
@@ -103,21 +100,18 @@
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (nil? retrieved) "The entity is not returned after delete")))
 
-(deftest inventory-method-defaults-to-fifo
-  (let [entity (entities/create storage-spec {:name "Personal"
-                                              :user-id (:id user)})]
-    (is (= :fifo (:inventory-method entity)) "The default value is correct")))
-
 (deftest inventory-method-can-be-lifo
-  (let [entity (entities/create storage-spec {:name "Personal"
-                                              :user-id (:id user)
-                                              :inventory-method :lifo})]
+  (let [entity (entities/create storage-spec
+                                {:name "Personal"
+                                 :user-id (:id user)
+                                 :settings {:inventory-method :lifo}})]
     (is (empty? (validation/error-messages entity)) "The entity is valid")))
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
-  (let [entity (entities/create storage-spec {:name "Personal"
-                                              :user-id (:id user)
-                                              :inventory-method :not-valid})]
-    (is (= ["Inventory method must be one of: fifo, lifo"]
-           (validation/error-messages entity :inventory-method))
+  (let [entity (entities/create storage-spec
+                                {:name "Personal"
+                                 :user-id (:id user)
+                                 :settings {:inventory-method :not-valid}})]
+    (is (= {:inventory-method ["Inventory method must be one of: fifo, lifo"]}
+           (validation/error-messages entity :settings))
         "There is an error message for the attributes")))
