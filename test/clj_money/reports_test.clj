@@ -283,10 +283,10 @@
                                            :description "Retirement savings"
                                            :items [{:action :credit
                                                     :account-id "Checking"
-                                                    :amount 500M}
+                                                    :amount 1000M}
                                                    {:action :debit
                                                     :account-id "IRA"
-                                                    :amount 500M}]}))
+                                                    :amount 1000M}]}))
       (assoc :commodities [{:name "Apple, Inc."
                             :symbol "AAPL"
                             :exchange :nasdaq}
@@ -319,11 +319,11 @@
                    :value 3279M
                    :style :header}
                   {:caption "Checking"
-                   :value 1279M
+                   :value 779M
                    :style :data
                    :depth 0}
                   {:caption "IRA"
-                   :value 2000M
+                   :value 2500M
                    :style :data
                    :depth 0}
                   {:caption "AAPL"
@@ -362,40 +362,42 @@
         [aapl msft] (:commodities context)
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id aapl)
-                                     :shares 100M
-                                     :value 1000M
+                                     :shares 50M
+                                     :value 500
                                      :trade-date (t/local-date 2016 3 2)})
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id msft)
-                                     :shares 100M
-                                     :value 1000M
+                                     :shares 50M
+                                     :value 500M
                                      :trade-date (t/local-date 2016 3 2)})
         actual (reports/commodities-account-summary storage-spec
                                                     (:id ira)
                                                     (t/local-date 2017 3 2))
         expected [{:caption "Apple, Inc. (AAPL)"
                    :commodity-id (:id aapl)
-                   :shares 100M
+                   :shares 50M
                    :price 20M
-                   :cost 1000M
-                   :value 2000M
-                   :gain 1000M
+                   :cost 500M
+                   :value 1000M
+                   :gain 500M
                    :style :data}
                   {:caption "Microsoft Corp (MSFT)"
                    :commodity-id (:id msft)
-                   :shares 100M
+                   :shares 50M
                    :price 5M
-                   :cost 1000M
-                   :value 500M
-                   :gain -500M
+                   :cost 500M
+                   :value 250M
+                   :gain -250M
                    :style :data}
+                  {:caption "Cash"
+                   :style :data
+                   :value 0M}
                   {:caption "Total"
-                   :cost 2000M
-                   :value 2500M
-                   :gain 500M
+                   :cost 1000M
+                   :value 1250M
+                   :gain 250M
                    :style :summary}]]
     (is (= expected actual) "The report contains the correct data")))
-
 
 (def budget-report-context
   {:users [(factory :user)]

@@ -211,11 +211,17 @@
    account]
   [:tr {:class (format "report-%s" (name style))}
    [:td caption]
-   [:td.text-right (format-number shares {:format :commodity-price})]
-   [:td.text-right (format-number price {:format :commodity-price})]
+   [:td.text-right (if shares
+                     (format-number shares {:format :commodity-price})
+                     "&nbsp;")]
+   [:td.text-right (if price
+                     (format-number price {:format :commodity-price})
+                     "&nbsp;")]
    [:td.text-right (format-number value)]
-   [:td {:class (format "text-right %s" (if (<= 0 gain) "gain" "loss"))}
-    (format-number gain)]
+   [:td {:class (when gain (format "text-right %s" (if (<= 0 gain) "gain" "loss")))}
+    (if gain
+      (format-number gain)
+      "&nbsp;")]
    [:td
     (when (= :data style)
       [:div.btn-group
