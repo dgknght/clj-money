@@ -12,6 +12,7 @@
                                                 grouped-options-for-accounts]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
+            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.trading :as trading]))
@@ -86,7 +87,17 @@
   ([{params :params :as req}]
    (new-sale req (params->trade params)))
   ([{params :params} sale]
-   (let [account (accounts/find-by-id (env :db) (Integer. (:account-id params)))]
+   (let [account (accounts/find-by-id (env :db) (Integer. (:account-id params)))
+         entity (entities/find-by-id (env :db) (:entity-id account))
+         sale (reduce (fn [s attr]
+                        (if (attr s)
+                          s
+                          (assoc s attr (attr (:settings entity)))))
+                      sale
+                      [:lt-capital-gains-account-id
+                       :st-capital-gains-account-id
+                       :lt-capital-loss-account-id
+                       :st-capital-loss-account-id])]
      (with-trading-layout "New Sale" (:entity-id account) {}
        [:form {:action (format "/accounts/%s/sales" (:id account))
                :method :post}

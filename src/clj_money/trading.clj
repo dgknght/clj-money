@@ -323,6 +323,19 @@
        (coercion/coerce sale-coercion-rules)
        (validation/validate ::sale (sale-validation-rules storage))))
 
+(defn- update-entity-settings
+  [{:keys [entity storage] :as context}]
+  (entities/update storage
+                   (update-in entity
+                              [:settings]
+                              #(merge % (select-keys context
+                                                     [:lt-capital-gains-account-id
+                                                      :st-capital-gains-account-id
+                                                      :lt-capital-loss-account-id
+                                                      :st-capital-loss-account-id
+                                                      :inventory-method]))))
+  context)
+
 (defn sell
   [storage-spec sale]
   (with-transacted-storage [s storage-spec]
@@ -333,6 +346,7 @@
              acquire-commodity
              acquire-accounts
              acquire-entity
+             update-entity-settings
              create-price
              process-lot-sales
              create-sale-transaction)))))
