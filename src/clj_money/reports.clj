@@ -404,8 +404,9 @@
    (commodities-account-summary storage-spec account-id (t/today)))
   ([storage-spec account-id as-of]
    (with-storage [s storage-spec]
-     (let [data (conj (->> {:account-id account-id}
+     (let [data (conj (->> {:account-id account-id} ; TODO search lot-transactions with  as-of
                            (lots/search s)
+                           (filter #(not= 0M (:shares-owned %)))
                            (group-by :commodity-id)
                            (map #(summarize-commodity s %))
                            (sort-by :caption)
@@ -427,6 +428,4 @@
                             :value 0M
                             :gain 0M}
                            data)]
-       (if (seq data)
-         (conj data summary)
-         [])))))
+       (conj data summary)))))

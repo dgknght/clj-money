@@ -276,9 +276,17 @@
 
 (def ^:private commodities-context
   (-> report-context
-      (update-in [:accounts] #(conj % {:name "IRA"
-                                       :type :asset
-                                       :content-type :commodities}))
+      (update-in [:accounts] #(concat % [{:name "IRA"
+                                          :type :asset
+                                          :content-type :commodities}
+                                         {:name "LT Gains"
+                                          :type :income}
+                                         {:name "ST Gains"
+                                          :type :income}
+                                         {:name "LT Losses"
+                                          :type :expense}
+                                         {:name "ST Losses"
+                                          :type :expense}]))
       (update-in [:transactions] #(conj % {:transaction-date (t/local-date 2016 1 2)
                                            :description "Retirement savings"
                                            :items [{:action :credit
@@ -292,7 +300,10 @@
                             :exchange :nasdaq}
                            {:name "Microsoft Corp"
                             :symbol "MSFT"
-                            :exchange :nasdaq}])
+                            :exchange :nasdaq}
+                           {:name "General Electric Co."
+                            :symbol "GE"
+                            :exchange :nyse}])
       (assoc :prices [{:trade-date (t/local-date 2017 2 1)
                        :price 20M
                        :commodity-id "AAPL"}
@@ -355,11 +366,30 @@
 
 (deftest create-a-commodities-account-summary
   (let [context (serialization/realize storage-spec commodities-context)
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        [aapl msft] (:commodities context)
+        [ira
+         lt-gains
+         st-gains
+         lt-losses
+         st-losses] (map #(->> context
+                               :accounts
+                               (filter (fn [a] (= % (:name a))))
+                               first)
+                         ["IRA" "LT Gains" "ST Gains" "LT Losses" "ST Losses"])
+        [aapl msft ge] (:commodities context)
+        _ (trading/buy storage-spec {:account-id (:id ira)
+                                     :commodity-id (:id ge)
+                                     :shares 100M
+                                     :value 1000M
+                                     :trade-date (t/local-date 2015 1 1)})
+        _ (trading/sell storage-spec {:account-id (:id ira)
+                                      :commodity-id (:id ge)
+                                      :shares 100M
+                                      :value 2000M
+                                      :trade-date (t/local-date 2015 12 20)
+                                      :lt-capital-gains-account-id (:id lt-gains)
+                                      :st-capital-gains-account-id (:id st-gains)
+                                      :lt-capital-loss-account-id (:id lt-losses)
+                                      :st-capital-loss-account-id (:id st-losses)})
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id aapl)
                                      :shares 50M
@@ -391,12 +421,16 @@
                    :style :data}
                   {:caption "Cash"
                    :style :data
-                   :value 0M}
+                   :value 1000M}
                   {:caption "Total"
                    :cost 1000M
-                   :value 1250M
+                   :value 2250M
                    :gain 250M
                    :style :summary}]]
+    (if-not (= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
     (is (= expected actual) "The report contains the correct data")))
 
 (def budget-report-context
