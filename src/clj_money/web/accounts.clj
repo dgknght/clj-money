@@ -69,17 +69,18 @@
                     :data-confirm "Are you sure you want to delete this account?"
                     :title "Click here to remove this account"})]]])
 
-; TODO Adjust this so that commodity accounts are omitted
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
   ([account] (account-and-children-rows account 0))
   ([account depth]
-   (html
-     (concat
-       [(account-row account depth)]
-       (->> (:children account)
-            (map #(account-and-children-rows % (+ depth 1)))
-            (into []))))))
+   (let [account-row (account-row account depth)]
+     (if (= :currency (:content-type account))
+       (concat
+         [account-row]
+         (->> (:children account)
+              (map #(account-and-children-rows % (+ depth 1)))
+              (into [])))
+       account-row))))
 
 (defn- account-rows
   "Renders rows for all accounts and type headers"
