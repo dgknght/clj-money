@@ -749,7 +749,6 @@
                                             :commodity-id (:id commodity)
                                             :account-id (:id ira)
                                             :value 1000M})
-        account-balance-before (:balance (accounts/reload storage-spec ira))
         result (trading/unbuy storage-spec (-> purchase :lot :id))]
     ; TODO Should we delete the price that was created?
     (testing "the account balance"
@@ -760,4 +759,14 @@
           "The lot is deleted"))))
 
 (deftest cannot-undo-a-purchase-if-shares-have-been-sold
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
+                                            :shares 100M
+                                            :commodity-id (:id commodity)
+                                            :account-id (:id ira)
+                                            :value 1000M})
+        _ (trading/sell storage-spec (sale-attributes context))]
+    (is (thrown-with-msg? IllegalStateException #"Cannot undo"
+                          (trading/unbuy storage-spec (-> purchase :lot :id))))))
