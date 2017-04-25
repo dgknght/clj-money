@@ -507,7 +507,7 @@
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
-        lot-transactions (map #(dissoc % :id :created-at :updated-at)
+        lot-transactions (map #(dissoc % :id :created-at :updated-at :transaction-id)
                               (lot-transactions/select
                                 storage-spec
                                 {:lot-id (:id lot)}))
@@ -521,11 +521,6 @@
                    :action :sell
                    :price 15M
                    :shares 25M}]]
-
-    (pprint {:expected expected
-             :actual lot-transactions
-             :diff (expected lot-transactions)})
-
     (is (= expected lot-transactions) "The lot transaction is created with proper data")))
 
 (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
