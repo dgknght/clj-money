@@ -223,7 +223,7 @@
       (format-number gain)
       "&nbsp;")]
    [:td
-    (when (= :data style)
+    (when shares
       [:div.btn-group
        (glyph-button :plus-sign
                      (format "/accounts/%s/purchases/new?commodity-id=%s"
