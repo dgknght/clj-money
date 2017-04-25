@@ -117,7 +117,8 @@
    [:td "&nbsp;"]])
 
 (defn monitors
-  [{{entity-id :entity-id} :params}]
+  ([req] (monitors req {}))
+  ([{{entity-id :entity-id} :params} monitor]
    (with-layout "Budget Monitors" {}
      (let [entity (entities/find-by-id (env :db) (Integer. entity-id))]
        [:div.row
@@ -133,11 +134,9 @@
                  :method :post}
           [:div.form-group
            [:label.control-label {:for :account-id} "Add Account"]
-           [:div.input-group
-            [:select.form-control {:id :account-id :name :account-id}
-             (grouped-options-for-accounts (:id entity))]
-            [:span.input-group-btn
-             [:input.btn.btn-primary {:type :submit :value "Add"}]]]]]]])))
+           [:select.form-control {:id :account-id :name :account-id}
+            (grouped-options-for-accounts (:id entity) {:selected-id (:account-id monitor)})]]
+          [:input.btn.btn-primary {:type :submit :value "Add"}]]]]))))
 
 (defn create-monitor
   [{params :params}]
@@ -146,12 +145,12 @@
                                            (update-in [:account-id] #(Integer. %)))
         entity (entities/find-by-id (env :db) entity-id)
         updated (update-in entity
-                           [:monitored-account-ids]
+                           [:settings :monitored-account-ids]
                            (fnil #(conj % account-id) []))
         result (entities/update (env :db) updated)]
-    (if (validation/valid? result)
-      (redirect (format "/entities/%s/accounts" entity-id))
-      (monitors entity-id {:new-monitor result}))))
+    (if (validation/has-error? result)
+      (monitors {:params params})
+      (redirect (format "/entities/%s/accounts" entity-id)))))
 
 (defn delete-monitor
   [{params :params}]

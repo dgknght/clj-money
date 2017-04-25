@@ -82,6 +82,7 @@
     [:h3 "Budget monitors"]
     (->> (Integer. entity-id)
          (entities/find-by-id (env :db))
+         :settings
          :monitored-account-ids
          (map (comp #(reports/monitor (env :db) %)
                     #(accounts/find-by-id (env :db) %)))
