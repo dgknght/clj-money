@@ -21,8 +21,9 @@
 (s/def ::user-id integer?)
 (s/def ::monitored-account-ids (s/coll-of integer?))
 (s/def ::inventory-method #{:fifo :lifo})
-(s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::monitored-account-ids ::inventory-method]))
-(s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::monitored-account-ids ::user-id ::inventory-method]))
+(s/def ::settings (s/keys :opt-un [::inventory-method ::monitored-account-id]))
+(s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::settings]))
+(s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::user-id ::settings]))
 
 (defn- name-is-unique?
   [storage {entity-name :name
@@ -37,22 +38,16 @@
   ([entity] (before-save nil entity))
   ([_ entity]
    (cond-> entity
-     (contains? entity :inventory-method)
-     (update-in [:inventory-method] name)
-
-     (contains? entity :monitored-account-ids)
-     (update-in [:monitored-account-ids] pr-str))))
+     (contains? entity :settings)
+     (update-in [:settings] pr-str))))
 
 (defn- after-read
   ([entity] (after-read nil entity))
   ([_ entity]
    (when entity
      (cond-> entity
-       (:monitored-account-ids entity)
-       (update-in [:monitored-account-ids] read-string)
-
-       true
-       (update-in [:inventory-method] keyword)))))
+       (:settings entity)
+       (update-in [:settings] read-string)))))
 
 (defn- validation-rules
   [storage]

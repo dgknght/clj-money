@@ -69,17 +69,18 @@
                     :data-confirm "Are you sure you want to delete this account?"
                     :title "Click here to remove this account"})]]])
 
-; TODO Adjust this so that commodity accounts are omitted
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
   ([account] (account-and-children-rows account 0))
   ([account depth]
-   (html
-     (concat
-       [(account-row account depth)]
-       (->> (:children account)
-            (map #(account-and-children-rows % (+ depth 1)))
-            (into []))))))
+   (let [account-row (account-row account depth)]
+     (if (= :currency (:content-type account))
+       (concat
+         [account-row]
+         (->> (:children account)
+              (map #(account-and-children-rows % (+ depth 1)))
+              (into [])))
+       account-row))))
 
 (defn- account-rows
   "Renders rows for all accounts and type headers"
@@ -200,30 +201,63 @@
      "Back"]))
 
 (defn- commodity-row
-  [{:keys [style caption shares price cost gain value] :as x}]
+  [{:keys [style
+           caption
+           shares
+           price
+           cost
+           gain
+           value
+           commodity-id]}
+   account]
   [:tr {:class (format "report-%s" (name style))}
    [:td caption]
-   [:td.text-right (format-number shares {:format :commodity-price})]
-   [:td.text-right (format-number price {:format :commodity-price})]
+   [:td.text-right (if shares
+                     (format-number shares {:format :commodity-price})
+                     "&nbsp;")]
+   [:td.text-right (if price
+                     (format-number price {:format :commodity-price})
+                     "&nbsp;")]
    [:td.text-right (format-number value)]
-   [:td {:class (format "text-right %s" (if (<= 0 gain) "gain" "loss"))}
-    (format-number gain)]])
+   [:td {:class (when gain (format "text-right %s" (if (<= 0 gain) "gain" "loss")))}
+    (if gain
+      (format-number gain)
+      "&nbsp;")]
+   [:td
+    (when shares
+      [:div.btn-group
+       (glyph-button :plus-sign
+                     (format "/accounts/%s/purchases/new?commodity-id=%s"
+                             (:id account)
+                             commodity-id)
+                     {:size :extra-small
+                      :level :success
+                      :title "Click here to purchase more shares of this commodity."})
+       (glyph-button :minus-sign
+                     (format "/accounts/%s/sales/new?commodity-id=%s&shares=%s"
+                             (:id account)
+                             commodity-id
+                             shares)
+                     {:size :extra-small
+                      :level :danger
+                      :title "Click here to sell shares of this commodity."})])]])
 
 (defmethod show-account :commodities
   [account params]
   (html
     (let [summary (reports/commodities-account-summary (env :db) (:id account))]
       [:div.row
-       [:div.col-md-8
+       [:div.col-md-10
         [:table.table.table-striped.table-hover
          [:tr
           [:th "Commodity"]
           [:th.text-right "Shares"]
           [:th.text-right "Price"]
           [:th.text-right "Value"]
-          [:th.text-right "Gain"]]
+          [:th.text-right "Gain"]
+          [:th "&nbsp;"]]
          (if (seq summary)
-           (map commodity-row
+           (map #(commodity-row % account)
                 summary)
            [:tr
             [:td.empty-table {:colspan 4}
@@ -276,12 +310,21 @@
                          :title "Click here to return to the list of accounts."}
      "Back"]))
 
+(defn- new-account-defaults
+  [{:keys [entity-id parent-id]}]
+  (let [parent (if parent-id
+                 (accounts/find-by-id (env :db) (Integer. parent-id)))
+        account {:entity-id (Integer. entity-id)}]
+    (if parent
+      (-> account
+          (assoc :parent-id (:id parent))
+          (assoc :type (:type parent)))
+      account)))
+
 (defn new-account
   "Renders the new account form"
   ([{params :params :as req}]
-   (new-account req (reduce #(assoc %1 %2 (Integer. (%2 params)))
-                            {}
-                            [:entity-id :parent-id])))
+   (new-account req (new-account-defaults params)))
   ([{params :params} account]
    (let [entity-id (Integer. (:entity-id params))]
      (with-accounts-layout "New account" entity-id {}

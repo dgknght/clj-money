@@ -82,6 +82,7 @@
     [:h3 "Budget monitors"]
     (->> (Integer. entity-id)
          (entities/find-by-id (env :db))
+         :settings
          :monitored-account-ids
          (map (comp #(reports/monitor (env :db) %)
                     #(accounts/find-by-id (env :db) %)))
@@ -89,3 +90,9 @@
          (map budget-monitor))
     [:a.btn.btn-primary {:href (format "/entities/%s/monitors" entity-id)}
      [:span.glyphicon.glyphicon-plus {:aria-hidden true}]]))
+
+(defn inventory-method-options
+  []
+  (map #(vector :option {:value (first %)} (second %))
+       {:fifo "First in, first out"
+        :lifo "Last in, first out"}))

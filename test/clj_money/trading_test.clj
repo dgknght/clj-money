@@ -9,6 +9,7 @@
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.validation :as validation]
+            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.lots :as lots]
             [clj-money.models.lot-transactions :as lot-transactions]
@@ -267,31 +268,29 @@
 
 (defn- sale-attributes
   [context]
-  {:commodity-id (-> context :commodities first :id)
-   :account-id (-> context :accounts first :id)
-   :lt-capital-gains-account-id (->> context
-                                  :accounts
-                                  (filter #(= "Long-term Capital Gains" (:name %)))
-                                  first
-                                  :id)
-   :lt-capital-loss-account-id (->> context
-                                 :accounts
-                                 (filter #(= "Long-term Capital Loss" (:name %)))
-                                 first
-                                 :id)
-   :st-capital-gains-account-id (->> context
-                                  :accounts
-                                  (filter #(= "Short-term Capital Gains" (:name %)))
-                                  first
-                                  :id)
-   :st-capital-loss-account-id (->> context
-                                 :accounts
-                                 (filter #(= "Short-term Capital Loss" (:name %)))
-                                 first
-                                 :id)
-   :trade-date (t/local-date 2017 3 2)
-   :shares 25M
-   :value 375M})
+  (let [[lt-gains
+         st-gains
+         lt-loss
+         st-loss] (map (fn [account-name]
+                           (->> context
+                                :accounts
+                                (filter #(= account-name (:name %)))
+                                first
+                                :id))
+                         ["Long-term Capital Gains"
+                          "Short-term Capital Gains"
+                          "Long-term Capital Loss"
+                          "Short-term Capital Loss"])]
+    {:commodity-id (-> context :commodities first :id)
+     :account-id (-> context :accounts first :id)
+     :lt-capital-gains-account-id lt-gains
+     :lt-capital-loss-account-id lt-loss
+     :st-capital-gains-account-id st-gains
+     :st-capital-loss-account-id st-loss
+     :inventory-method :fifo
+     :trade-date (t/local-date 2017 3 2)
+     :shares 25M
+     :value 375M}))
 
 (defn- sell-context
   []
@@ -330,7 +329,21 @@
     (is (:transaction result)
         "The result contains the transaction record")
     (is (empty? (-> result :transaction validation/error-messages))
-        "The transaction is valid")))
+        "The transaction is valid")
+    (testing "entity settings"
+      (let [expected (select-keys result [:lt-capital-gains-account-id
+                                          :st-capital-gains-account-id
+                                          :lt-capital-loss-account-id
+                                          :st-capital-loss-account-id
+                                          :inventory-method])
+            actual (->> context
+                        :entities
+                        first
+                        :id
+                        (entities/find-by-id storage-spec)
+                        :settings)]
+        (is (= expected actual)
+            "The entity settings are updated with default account ids")))))
 
 (deftest sell-a-commodity-with-a-fee
   (let [context (serialization/realize storage-spec (sell-context))
@@ -622,10 +635,7 @@
        account-names))
 
 (deftest lifo-sale
-  (let [context (serialization/realize
-                  storage-spec
-                  (update-in purchase-context
-                             [:entities 0] #(assoc % :inventory-method :lifo)))
+  (let [context (serialization/realize storage-spec purchase-context)
         commodity (-> context :commodities first)
         [ira
          lt-gains
@@ -635,8 +645,8 @@
                                 "IRA"
                                 "Long-term Capital Gains"
                                 "Short-term Capital Gains"
-                                "Long-term Capital Gains"
-                                "Short-term Capital Gains")
+                                "Long-term Capital Loss"
+                                "Short-term Capital Loss")
         _ (trading/buy storage-spec {:trade-date (t/local-date 2015 3 2)
                                           :account-id (:id ira)
                                           :commodity-id (:id commodity)
@@ -652,6 +662,7 @@
                                       :commodity-id (:id commodity)
                                       :shares 50M
                                       :value 1500M
+                                      :inventory-method :lifo
                                       :lt-capital-gains-account-id (:id lt-gains)
                                       :st-capital-gains-account-id (:id st-gains)
                                       :lt-capital-loss-account-id (:id lt-loss)
@@ -678,7 +689,8 @@
   (let [context (serialization/realize
                   storage-spec
                   (update-in purchase-context
-                             [:entities 0] #(assoc % :inventory-method :fifo)))
+                             [:entities 0]
+                             #(assoc-in % [:settings :inventory-method] :fifo)))
         commodity (-> context :commodities first)
         [ira
          lt-gains

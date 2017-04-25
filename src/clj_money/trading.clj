@@ -18,6 +18,7 @@
 
 (s/def ::commodity-id integer?)
 (s/def ::account-id integer?)
+(s/def ::inventory-method #{:fifo :lifo})
 (s/def ::lt-capital-gains-account-id integer?)
 (s/def ::lt-capital-loss-account-id integer?)
 (s/def ::st-capital-gains-account-id integer?)
@@ -231,8 +232,8 @@
 (defn- find-lot
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage entity] :as context}]
-  (let [sort-fn (if (= :lifo (:inventory-method entity))
+  [{:keys [storage inventory-method] :as context}]
+  (let [sort-fn (if (= :lifo inventory-method)
                   (partial sort #(compare (:purchase-date %2) (:purchase-date %1)))
                   (partial sort-by :created-at))]
     (->> (select-keys context [:commodity-id :account-id])
@@ -303,7 +304,12 @@
                       {:context context})))))
 
 (def ^:private sale-coercion-rules
-  [(coercion/rule :local-date [:trade-date])])
+  (concat purchase-coercion-rules
+          [(coercion/rule :integer [:lt-capital-gains-account-id])
+           (coercion/rule :integer [:st-capital-gains-account-id])
+           (coercion/rule :integer [:lt-capital-loss-account-id])
+           (coercion/rule :integer [:st-capital-loss-account-id])
+           (coercion/rule :keyword [:inventory-method])]))
 
 (defn sale-validation-rules
   [storage]
@@ -317,6 +323,19 @@
        (coercion/coerce sale-coercion-rules)
        (validation/validate ::sale (sale-validation-rules storage))))
 
+(defn- update-entity-settings
+  [{:keys [entity storage] :as context}]
+  (entities/update storage
+                   (update-in entity
+                              [:settings]
+                              #(merge % (select-keys context
+                                                     [:lt-capital-gains-account-id
+                                                      :st-capital-gains-account-id
+                                                      :lt-capital-loss-account-id
+                                                      :st-capital-loss-account-id
+                                                      :inventory-method]))))
+  context)
+
 (defn sell
   [storage-spec sale]
   (with-transacted-storage [s storage-spec]
@@ -327,6 +346,7 @@
              acquire-commodity
              acquire-accounts
              acquire-entity
+             update-entity-settings
              create-price
              process-lot-sales
              create-sale-transaction)))))
