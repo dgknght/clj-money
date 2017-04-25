@@ -179,6 +179,7 @@
                               (select-keys [:trade-date
                                             :shares])
                               (assoc :lot-id (:id lot))
+                              (assoc :transaction-id (-> context :transaction :id))
                               (assoc :action :buy)
                               (assoc :price (-> context :price :price))))]
     (assoc context :lot lot :lot-transaction lot-transaction)))
@@ -228,6 +229,19 @@
              create-purchase-transaction
              create-lot)
         validated))))
+
+(defn unbuy
+  "Reverses a commodity purchase"
+  [storage-spec lot-id]
+  (with-transacted-storage [s storage-spec]
+    (let [lot (lots/find-by-id s lot-id)
+          commodity (commodities/find-by-id s (:commodity-id lot))
+          lot-transaction (first (lot-transactions/select s {:lot-id (:id lot)}))]
+      (when (not= (:shares-purchased lot) (:shares-owned lot))
+        (throw (IllegalStateException.
+                 "Cannot undo a purchase if shares have been sold from the lot")))
+      (transactions/delete s (:transaction-id lot-transaction))
+      (lots/delete s lot-id))))
 
 (defn- find-lot
   "Given a sell context, finds the next lot containing

@@ -228,6 +228,7 @@
         expected [{:trade-date (t/local-date 2016 1 2)
                    :action :buy
                    :shares 100M
+                   :transaction-id (-> result :transaction :id)
                    :price 10M
                    :lot-id (-> result :lot :id)}]
         actual (map #(dissoc % :id :created-at :updated-at)
@@ -520,6 +521,11 @@
                    :action :sell
                    :price 15M
                    :shares 25M}]]
+
+    (pprint {:expected expected
+             :actual lot-transactions
+             :diff (expected lot-transactions)})
+
     (is (= expected lot-transactions) "The lot transaction is created with proper data")))
 
 (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
@@ -738,3 +744,25 @@
                    :shares-purchased 100M
                    :shares-owned 100M}]]
     (is (= expected actual) "Shares are sold from the most recent lot")))
+
+(deftest undo-a-purchase
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
+                                            :shares 100M
+                                            :commodity-id (:id commodity)
+                                            :account-id (:id ira)
+                                            :value 1000M})
+        account-balance-before (:balance (accounts/reload storage-spec ira))
+        result (trading/unbuy storage-spec (-> purchase :lot :id))]
+    ; TODO Should we delete the price that was created?
+    (testing "the account balance"
+      (is (= 2000M (:balance (accounts/reload storage-spec ira)))
+          "The account balance is restored"))
+    (testing "the affected lots"
+      (is (= [] (lots/search storage-spec {:account-id (:id ira)}))
+          "The lot is deleted"))))
+
+(deftest cannot-undo-a-purchase-if-shares-have-been-sold
+  (is false "need to write the test"))

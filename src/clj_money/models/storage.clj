@@ -133,6 +133,10 @@
     [this criteria]
     "Returns the lots matching the specified criteria")
 
+  (delete-lot
+    [this lot-id]
+    "Deletes the specified lot record")
+
   ; Lot transactions
   (create-lot-transaction
     [this lot-transaction]
@@ -141,6 +145,10 @@
   (select-lot-transactions
     [this criteria]
     "Returns a list of matching lot transactions")
+
+  (delete-lot-transactions-by-lot-id
+    [this lot-id]
+    "Deletes lot transactions for the specified lot")
 
   ; Transactions
   (select-transactions-by-entity-id

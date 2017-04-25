@@ -412,6 +412,10 @@
                        (h/from :lots)
                        (h/where (map->where criteria)))))
 
+  (delete-lot
+    [_ id]
+    (jdbc/delete! db-spec :lots ["id = ?" id]))
+
   ; Lot transactions
   (create-lot-transaction
     [_ lot-transaction]
@@ -419,6 +423,7 @@
             :lot_transactions
             lot-transaction
             :lot-id
+            :transaction-id
             :trade-date
             :action
             :shares
@@ -435,6 +440,10 @@
                        (h/where (map->where (dissoc criteria :limit)))
                        (h/order-by :trade_date)
                        (append-limit criteria))))
+
+  (delete-lot-transactions-by-lot-id
+    [_ lot-id]
+    (jdbc/delete! db-spec :lot_transactions ["lot_id = ?" lot-id]))
 
   ; Transactions
   (select-transactions-by-entity-id

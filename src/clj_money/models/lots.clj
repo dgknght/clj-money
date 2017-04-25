@@ -14,7 +14,9 @@
                                               select-lots-by-entity-id
                                               select-lots
                                               update-lot
-                                              find-lot-by-id]]
+                                              find-lot-by-id
+                                              delete-lot
+                                              delete-lot-transactions-by-lot-id]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]))
@@ -166,3 +168,9 @@
       (->> lots
            (map #(lot-unrealized-gains s price-fn as-of %))
            (reduce + 0M)))))
+
+(defn delete
+  [storage-spec lot-id]
+  (with-storage [s storage-spec]
+    (delete-lot-transactions-by-lot-id s lot-id)
+    (delete-lot s lot-id)))
