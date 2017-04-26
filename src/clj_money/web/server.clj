@@ -24,6 +24,7 @@
             [clj-money.web.prices :as prices]
             [clj-money.web.transactions :as transactions]
             [clj-money.web.trading :as trading]
+            [clj-money.web.lots :as lots]
             [clj-money.web.reconciliations :as reconciliations]
             [clj-money.web.reports :as reports]
             [clj-money.web.users :as users]))
@@ -98,6 +99,9 @@
   (route POST "/accounts/:account-id/purchases" trading/purchase)
   (route GET "/accounts/:account-id/sales/new" trading/new-sale)
   (route POST "/accounts/:account-id/sales" trading/sell)
+
+  ; Lots
+  (route GET "/accounts/:account-id/lots" lots/index)
 
   ; Reconciliations
   (route GET "/accounts/:account-id/reconciliations/new" reconciliations/new-reconciliation)
