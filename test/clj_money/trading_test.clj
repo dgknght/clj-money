@@ -309,7 +309,14 @@
     (assoc context :lots [(:lot result)])))
 
 (deftest sell-a-commodity
-  (let [context (sell-context)
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        purchase (trading/buy storage-spec {:account-id (:id ira)
+                                            :commodity-id (:id commodity)
+                                            :trade-date (t/local-date 2016 3 2)
+                                            :shares 100M
+                                            :value 1000M})
         result (trading/sell storage-spec (sale-attributes context))]
     (is (:price result)
         "The result contains a price")
@@ -323,6 +330,8 @@
             "Each lot is valid")))
     (is (:lot-transactions result)
         "The result contains a list of lot transactions create by the trade")
+    (is (= 75M (:shares-owned (lots/find-by-id storage-spec (-> purchase :lot :id))))
+        "The shares-owned value of the original lot is updated")
     (if (seq (:lot-transactions result))
       (doseq [lot-transaction (:lot-transactions result)]
         (is (empty? (validation/error-messages lot-transaction))
