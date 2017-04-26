@@ -121,6 +121,10 @@
     [this commodity-id]
     "Returns the lots for the specified commodity")
 
+  (select-lots-by-transaction-id
+    [this transaction-id]
+    "Returns the lots for the specified transaction")
+
   (update-lot
     [this lot]
     "Updates the specified lot record")

@@ -228,7 +228,6 @@
         expected [{:trade-date (t/local-date 2016 1 2)
                    :action :buy
                    :shares 100M
-                   :transaction-id (-> result :transaction :id)
                    :price 10M
                    :lot-id (-> result :lot :id)}]
         actual (map #(dissoc % :id :created-at :updated-at)
@@ -749,7 +748,7 @@
                                             :commodity-id (:id commodity)
                                             :account-id (:id ira)
                                             :value 1000M})
-        result (trading/unbuy storage-spec (-> purchase :lot :id))]
+        result (trading/unbuy storage-spec (-> purchase :transaction :id))]
     ; TODO Should we delete the price that was created?
     (testing "the account balance"
       (is (= 2000M (:balance (accounts/reload storage-spec ira)))
@@ -769,4 +768,32 @@
                                             :value 1000M})
         _ (trading/sell storage-spec (sale-attributes context))]
     (is (thrown-with-msg? IllegalStateException #"Cannot undo"
-                          (trading/unbuy storage-spec (-> purchase :lot :id))))))
+                          (trading/unbuy storage-spec (-> purchase :transaction :id))))))
+
+(deftest undo-a-sale
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        _ (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
+                                     :shares 100M
+                                     :commodity-id (:id commodity)
+                                     :account-id (:id ira)
+                                     :value 1000M})
+        sale (trading/sell storage-spec (sale-attributes context))
+        #_result #_(trading/unsell storage-spec (-> purchase :lot :id))]
+    ; IRA balance balance before purchase: $2,000
+    ;                      after purchase: $1,000
+    ;                          after sale: $1,375
+    ;                        after unsale: $1,000
+    (testing "the account balance"
+      (is (= 1000M (:balance (accounts/reload storage-spec ira)))
+          "The account balance is restored"))
+    (testing "the lot transactions"
+      (doseq [lot-transaction (:lot-transactions sale)]
+        (is (not (lot-transactions/find-by-id storage-spec (:id lot-transaction)))
+            (format "lot transaction %s should be deleted" (:id lot-transaction)))))
+    (testing "the affected lots"
+      (doseq [lot (:lots sale)]
+        (let [lot (lots/find-by-id storage-spec (:id lot))]
+          (is (= (:shares-owned lot) (:shares-purchased lot))
+              "The shares-owned should be restored"))))))

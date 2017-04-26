@@ -23,7 +23,8 @@
 (defmethod lot-criteria false [_]
   (s/keys :req-un [::entity-id] :req-opt [::account-id ::commodity-id]))
 (s/def ::lot-criteria (s/multi-spec lot-criteria #(contains? % :account-id)))
-(s/def ::lot-transaction-criteria (s/keys :req-un [::lot-id]))
+(s/def ::lot-transaction-criteria
+  (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 
@@ -383,6 +384,13 @@
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
                        (h/where [:= :commodity_id commodity-id]))))
+
+  (select-lots-by-transaction-id
+    [_ transaction-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from [:lots :l])
+                       (h/join [:lot_transactions :lt] [:= :l.id :lt.lot_id])
+                       (h/where [:= :lt.transaction_id transaction-id]))))
 
   (update-lot
     [_ lot]

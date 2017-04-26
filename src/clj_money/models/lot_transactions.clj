@@ -53,3 +53,13 @@
   [storage-spec criteria]
   (with-storage [s storage-spec]
     (map after-read (select-lot-transactions s criteria))))
+
+(defn find-by-id
+  [storage-spec id]
+  (first (select storage-spec {:id id :limit 1})))
+
+(defn link
+  "Links a transaction to one or more lot transactions"
+  [storage-spec transaction-id & lot-transaction-ids]
+  #_(with-storage [s storage-spec]
+    (create-transaction-lot-transaction s transaction-id lot-transaction-ids)))

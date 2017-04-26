@@ -168,7 +168,12 @@
 
 (defn- create-lot
   "Given a purchase context, creates and appends the commodity lot"
-  [{:keys [storage trade-date shares commodity-id account-id] :as context}]
+  [{:keys [storage
+           trade-date
+           shares
+           commodity-id
+           account-id
+           transaction] :as context}]
   (let [lot (lots/create storage {:account-id account-id
                                                   :commodity-id commodity-id
                                                   :purchase-date trade-date
@@ -179,7 +184,7 @@
                               (select-keys [:trade-date
                                             :shares])
                               (assoc :lot-id (:id lot))
-                              (assoc :transaction-id (-> context :transaction :id))
+                              (assoc :transaction-id (:id transaction))
                               (assoc :action :buy)
                               (assoc :price (-> context :price :price))))]
     (assoc context :lot lot :lot-transaction lot-transaction)))
@@ -232,16 +237,19 @@
 
 (defn unbuy
   "Reverses a commodity purchase"
-  [storage-spec lot-id]
+  [storage-spec transaction-id]
   (with-transacted-storage [s storage-spec]
-    (let [lot (lots/find-by-id s lot-id)
-          commodity (commodities/find-by-id s (:commodity-id lot))
-          lot-transaction (first (lot-transactions/select s {:lot-id (:id lot)}))]
+    ; a purchase will only have 1 lot and 1 lot transaction
+    (let [lot-transaction (->> {:transaction-id transaction-id}
+                               (lot-transactions/select s )
+                               first)
+          lot (lots/find-by-id s (:lot-id lot-transaction))
+          commodity (commodities/find-by-id s (:commodity-id lot))]
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.
                  "Cannot undo a purchase if shares have been sold from the lot")))
-      (transactions/delete s (:transaction-id lot-transaction))
-      (lots/delete s lot-id))))
+      (transactions/delete s transaction-id)
+      (lots/delete s (:id lot)))))
 
 (defn- find-lot
   "Given a sell context, finds the next lot containing
