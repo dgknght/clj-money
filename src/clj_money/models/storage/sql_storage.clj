@@ -449,9 +449,22 @@
                        (h/order-by :trade_date)
                        (append-limit criteria))))
 
+  (update-lot-transaction
+    [_ lot-transaction]
+    (let [sql (sql/format (-> (h/update :lot-transactions)
+                              (h/sset (->update-set
+                                        lot-transaction
+                                        :transaction-id))
+                              (h/where [:= :id (:id lot-transaction)])))]
+      (jdbc/execute! db-spec sql)))
+
   (delete-lot-transactions-by-lot-id
     [_ lot-id]
     (jdbc/delete! db-spec :lot_transactions ["lot_id = ?" lot-id]))
+
+  (delete-lot-transaction
+    [_ id]
+    (jdbc/delete! db-spec :lot_transactions ["id = ?" id]))
 
   ; Transactions
   (select-transactions-by-entity-id

@@ -150,9 +150,17 @@
     [this criteria]
     "Returns a list of matching lot transactions")
 
+  (update-lot-transaction
+    [this lot-transaction]
+    "Updates the specified lot transaction")
+
   (delete-lot-transactions-by-lot-id
     [this lot-id]
     "Deletes lot transactions for the specified lot")
+
+  (delete-lot-transaction
+    [this id]
+    "Deletes the specified lot transaction")
 
   ; Transactions
   (select-transactions-by-entity-id

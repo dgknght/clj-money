@@ -358,6 +358,13 @@
                                                       :inventory-method]))))
   context)
 
+(defn- associate-transaction-to-lot-transactions
+  [{:keys [lot-transactions transaction storage] :as context}]
+  (lot-transactions/link storage
+                         (:id transaction)
+                         (map :id lot-transactions))
+  context)
+
 (defn sell
   [storage-spec sale]
   (with-transacted-storage [s storage-spec]
@@ -371,4 +378,17 @@
              update-entity-settings
              create-price
              process-lot-sales
-             create-sale-transaction)))))
+             create-sale-transaction
+             associate-transaction-to-lot-transactions)))))
+
+(defn unsell
+  [storage-spec transaction-id]
+  (with-transacted-storage [s storage-spec]
+  (let [lot-transactions (lot-transactions/select
+                           s
+                           {:transaction-id transaction-id})]
+    (doseq [lot-transaction lot-transactions]
+      (let [lot (lots/find-by-id s (:lot-id lot-transaction))]
+        (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-transaction))))
+        (lot-transactions/delete s (:id lot-transaction))))
+    (transactions/delete s transaction-id))))

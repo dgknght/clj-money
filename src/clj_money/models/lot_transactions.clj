@@ -10,7 +10,9 @@
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-lot-transaction
-                                              select-lot-transactions]])
+                                              select-lot-transactions
+                                              update-lot-transaction
+                                              delete-lot-transaction]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::lot-id integer?)
@@ -60,6 +62,14 @@
 
 (defn link
   "Links a transaction to one or more lot transactions"
-  [storage-spec transaction-id & lot-transaction-ids]
-  #_(with-storage [s storage-spec]
-    (create-transaction-lot-transaction s transaction-id lot-transaction-ids)))
+  [storage-spec transaction-id lot-transaction-ids]
+  (with-storage [s storage-spec]
+    (doseq [lot-transaction-id lot-transaction-ids]
+      (update-lot-transaction s {:id lot-transaction-id
+                                 :transaction-id transaction-id}))))
+
+(defn delete
+  "Deletes the specified lot transaction"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-lot-transaction s id)))

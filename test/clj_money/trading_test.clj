@@ -229,6 +229,7 @@
                    :action :buy
                    :shares 100M
                    :price 10M
+                   :transaction-id (-> result :transaction :id)
                    :lot-id (-> result :lot :id)}]
         actual (map #(dissoc % :id :created-at :updated-at)
                     (lot-transactions/select
@@ -774,13 +775,13 @@
   (let [context (serialization/realize storage-spec purchase-context)
         ira (-> context :accounts first)
         commodity (-> context :commodities first)
-        _ (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
-                                     :shares 100M
-                                     :commodity-id (:id commodity)
-                                     :account-id (:id ira)
-                                     :value 1000M})
+        purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
+                                            :shares 100M
+                                            :commodity-id (:id commodity)
+                                            :account-id (:id ira)
+                                            :value 1000M})
         sale (trading/sell storage-spec (sale-attributes context))
-        #_result #_(trading/unsell storage-spec (-> purchase :lot :id))]
+        result (trading/unsell storage-spec (-> sale :transaction :id))]
     ; IRA balance balance before purchase: $2,000
     ;                      after purchase: $1,000
     ;                          after sale: $1,375
