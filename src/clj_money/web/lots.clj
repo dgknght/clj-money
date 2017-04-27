@@ -12,6 +12,7 @@
             [clj-money.models.prices :as prices]
             [clj-money.models.lots :as lots]
             [clj-money.models.lot-transactions :as lot-transactions]
+            [clj-money.reports :as reports]
             [clj-money.web.shared :refer :all]
             [clj-money.web.money-shared :refer [budget-monitors]]))
 
@@ -21,57 +22,74 @@
      ~page-title (assoc ~options :side-bar (budget-monitors (Integer. ~entity-id)))
      ~@content))
 
+(defn- lot-transaction-row
+  [record]
+  [:tr
+   [:td.text-right (-> record :trade-date format-date)]
+   [:td.text-right (format "%s%s"
+                           (if (= :buy (:action record)) "+" "-")
+                           (-> record :shares format-number))]
+   [:td.text-right (-> record :price format-number)]
+   [:td {:colspan 4} "&nbsp;"]
+   [:td
+    [:div.btn-group
+     (when (= :sell (:action record))
+       (glyph-button :remove
+                     (format "/transactions/%s/unsell" (-> record :transaction-id))
+                     {:size :extra-small
+                      :data-method :post
+                      :data-confirm "Are you sure you want to undo this sale?"
+                      :level :danger
+                      :title "Click here to undo this sale."}))]]])
+
 (defn- lot-row
-  [lot]
-  (let [purchase-tx (->> {:lot-id (:id lot)}
-                            (lot-transactions/select (env :db))
-                            (filter #(= :buy (:action %)))
-                            first)
-        purchase-price (:price purchase-tx)
-        shares-owned (:shares-owned lot)
-        current-price (:price (prices/most-recent (env :db) (:commodity-id lot)))
-        gain (* shares-owned (- purchase-price current-price))]
+  [record]
+  (html
     [:tr
-     [:td.text-right (-> lot :purchase-date format-date)]
-     [:td.text-right (-> lot :shares-owned format-number)]
-     [:td.text-right (format-number purchase-price)]
-     [:td.text-right (format-number current-price)]
-     [:td.text-right (format-number (* current-price (:shares-owned lot)))]
-     [:td.text-right {:class (if (<= gain 0) "gain" "loss")} (format-number gain)]
+     [:td.text-right (-> record :purchase-date format-date)]
+     [:td.text-right (-> record :shares-owned format-number)]
+     [:td.text-right (-> record :purchase-price format-number)]
+     [:td.text-right (-> record :current-price format-number)]
+     [:td.text-right (-> record :cost format-number)]
+     [:td.text-right (-> record :value format-number)]
+     [:td.text-right
+      {:class (if (<= 0 (:gain record)) "gain" "loss")}
+      (-> record :gain format-number)]
      [:td
       [:div.btn-group
        (glyph-button :remove
-                     (format "/transactions/%s/unbuy" (:transaction-id purchase-tx))
+                     (format "/transactions/%s/unbuy" (-> record :lot-transactions first :transaction-id))
                      {:size :extra-small
                       :data-method :post
                       :data-confirm "Are you sure you want to undo this purchase?"
                       :level :danger
-                      :title "Click here to undo this purchase"})]]]))
+                      :title "Click here to undo this purchase"})]]]
+    (map lot-transaction-row (:lot-transactions record))))
 
 (defn index
   [{{:keys [account-id commodity-id]} :params}]
   (let [account (accounts/find-by-id (env :db) (Integer. account-id))
-        commodity (commodities/find-by-id (env :db) (Integer. commodity-id))]
+        commodity (commodities/find-by-id (env :db) (Integer. commodity-id))
+        records (reports/lot-report (env :db) (:id account) (:id commodity))]
     (with-lots-layout (format "Lots of %s in %s" (:symbol commodity) (:name account)) (:entity-id account) {}
       [:table.table.table-striped
        [:tr
-        [:th "Purchase Date"]
-        [:th "Shares Owned"]
-        [:th "Purchase Price"]
-        [:th "Current Price"]
-        [:th "Value"]
-        [:th "Gain"]
-        [:th "&nbsp;"]]
-       (let [l (lots/search (env :db) {:account-id (:id account)
-                                       :commodity-id (:id commodity)})]
-         (html
-           (map lot-row l)
-           [:tr.report-summary
-            [:td.text-right {:colspan 2} (->> l
-                                              (map :shares-owned)
-                                              (reduce +)
-                                              format-number)]
-            [:td.text-right {:colspan 5} "&nbsp;"]]))]
+        [:th.text-right "Purchase Date"]
+        [:th.text-right "Shares Owned"]
+        [:th.text-right "Purchase Price"]
+        [:th.text-right "Current Price"]
+        [:th.text-right "Cost"]
+        [:th.text-right "Value"]
+        [:th.text-right "Gain"]
+        [:th.text-right "&nbsp;"]]
+       (html
+         (map lot-row records)
+         [:tr.report-summary
+          [:td.text-right {:colspan 2} "shares"]
+          [:td.text-right {:colspan 3} "cost"]
+          [:td.text-right "value"]
+          [:td.text-right "gain"]
+          [:td "&nbsp;"]])]
       [:a.btn.btn-default {:href (format "/accounts/%s" (:id account))
                            :title "Click here to return to the account page"}
        "Back"])))
