@@ -20,7 +20,9 @@
 (s/def ::action #{:buy :sell})
 (s/def ::shares decimal?)
 (s/def ::price decimal?)
+(s/def ::transaction-id integer?)
 (s/def ::new-lot-transaction (s/keys :req-un [::lot-id
+                                              ::transaction-id
                                               ::trade-date
                                               ::action
                                               ::shares
