@@ -22,11 +22,11 @@
 (s/def ::price decimal?)
 (s/def ::transaction-id integer?)
 (s/def ::new-lot-transaction (s/keys :req-un [::lot-id
-                                              ::transaction-id
                                               ::trade-date
                                               ::action
                                               ::shares
-                                              ::price]))
+                                              ::price]
+                                     :opt-un [::transaction-id]))
 
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:trade-date])])

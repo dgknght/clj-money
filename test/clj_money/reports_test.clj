@@ -752,3 +752,100 @@
       (pprint {:diff (diff expected actual)}))
 
     (is (= expected actual) "The correct information is returned")))
+
+(deftest get-a-lot-report
+  (let [context (serialization/realize storage-spec commodities-context)
+        [ira
+         lt-gains
+         st-gains
+         lt-losses
+         st-losses] (map #(->> context
+                               :accounts
+                               (filter (fn [a] (= % (:name a))))
+                               first)
+                         ["IRA" "LT Gains" "ST Gains" "LT Losses" "ST Losses"])
+        [aapl
+         msft
+         ge] (:commodities context)
+        p1 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
+                                      :commodity-id (:id aapl)
+                                      :account-id (:id ira)
+                                      :shares 10M
+                                      :value 100M})
+        p2 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
+                                      :commodity-id (:id msft)
+                                      :account-id (:id ira)
+                                      :shares 10M
+                                      :value 100M})
+        p3 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
+                                      :commodity-id (:id ge)
+                                      :account-id (:id ira)
+                                      :shares 10M
+                                      :value 100M})
+        s1 (trading/sell storage-spec {:trade-date (t/local-date 2017 1 31)
+                                       :commodity-id (:id aapl)
+                                       :account-id (:id ira)
+                                       :shares 5M
+                                       :value 55M
+                                       :lt-capital-gains-account-id (:id lt-gains)
+                                       :st-capital-gains-account-id (:id st-gains)
+                                       :lt-capital-loss-account-id (:id lt-losses)
+                                       :st-capital-loss-account-id (:id st-losses)})
+        actual (reports/lot-report storage-spec (:id ira))
+        expected [{:caption "Apple, Inc. (AAPL)"
+                   :commodity-id (:id aapl)
+                   :purchase-date (t/local-date 2017 1 15)
+                   :shares-owned 5M
+                   :purchase-price 10M
+                   :cost 50M
+                   :current-price 20M
+                   :value 100M
+                   :gain 50M
+                   :lot-transactions [{:trade-date (t/local-date 2017 1 15)
+                                       :action :buy
+                                       :shares 10M
+                                       :price 10M
+                                       :value 100M
+                                       :transaction-id (-> p1 :transaction :id)}
+                                      {:trade-date (t/local-date 2017 1 31)
+                                       :action :sell
+                                       :shares 5M
+                                       :price 11M
+                                       :value 55M
+                                       :transaction-id (-> s1 :transaction :id)}]}
+                  {:caption "General Electric Co. (GE)"
+                   :commodity-id (:id ge)
+                   :purchase-date (t/local-date 2017 1 15)
+                   :shares-owned 10M
+                   :purchase-price 10M
+                   :cost 100M
+                   :value 100M
+                   :current-price 10M
+                   :gain 0M
+                   :lot-transactions [{:trade-date (t/local-date 2017 1 15)
+                                       :action :buy
+                                       :shares 10M
+                                       :price 10M
+                                       :value 100M
+                                       :transaction-id (-> p3 :transaction :id)}]}
+                  {:caption "Microsoft Corp (MSFT)"
+                   :commodity-id (:id msft)
+                   :purchase-date (t/local-date 2017 1 15)
+                   :shares-owned 10M
+                   :purchase-price 10M
+                   :cost 100M
+                   :value 50M
+                   :current-price 5M
+                   :gain -50M
+                   :lot-transactions [{:trade-date (t/local-date 2017 1 15)
+                                       :action :buy
+                                       :shares 10M
+                                       :price 10M
+                                       :value 100M
+                                       :transaction-id (-> p2 :transaction :id)}]}]]
+    (if (not= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
+    (is (= expected actual)
+        "The report contains the correct data")))

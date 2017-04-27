@@ -65,18 +65,6 @@
     (is (nil? (:id result)) "The result does not contain an ID")
     (is (= [] retrieved) "The value is not retrieved")))
 
-(deftest transaction-id-is-required
-  (let [context (serialization/realize storage-spec lot-transaction-context)
-        lot-transaction (dissoc (attributes context) :transaction-id)
-        result (lot-transactions/create storage-spec lot-transaction)
-        criteria {:lot-id (-> context :lots first :id)}
-        retrieved (lot-transactions/select storage-spec criteria)]
-    (is (= ["Transaction id is required"]
-           (validation/error-messages result :transaction-id))
-        "The result has a validation error")
-    (is (nil? (:id result)) "The result does not contain an ID")
-    (is (= [] retrieved) "The value is not retrieved")))
-
 (deftest trade-date-is-required
   (let [context (serialization/realize storage-spec lot-transaction-context)
         lot-transaction (dissoc (attributes context) :trade-date)
