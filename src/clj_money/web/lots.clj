@@ -37,11 +37,11 @@
      [:td.text-right (format-number purchase-price)]
      [:td.text-right (format-number current-price)]
      [:td.text-right (format-number (* current-price (:shares-owned lot)))]
-     [:td.text-right {:class (if (< gain 0) "gain" "loss")} (format-number gain)]
+     [:td.text-right {:class (if (<= gain 0) "gain" "loss")} (format-number gain)]
      [:td
       [:div.btn-group
        (glyph-button :remove
-                     (format "/trading/%s/unbuy" (:transaction-id purchase-tx))
+                     (format "/transactions/%s/unbuy" (:transaction-id purchase-tx))
                      {:size :extra-small
                       :data-method :post
                       :data-confirm "Are you sure you want to undo this purchase?"

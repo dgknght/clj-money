@@ -47,7 +47,7 @@
   (assoc context :price (prices/create storage
                                        {:commodity-id commodity-id
                                         :trade-date trade-date
-                                        :price (/ value shares)})))
+                                        :price (with-precision 4 (/ value shares))})))
 
 (defn- acquire-commodity
   "Given a purchase context, appends the commodity"
@@ -241,7 +241,7 @@
   (with-transacted-storage [s storage-spec]
     ; a purchase will only have 1 lot and 1 lot transaction
     (let [lot-transaction (->> {:transaction-id transaction-id}
-                               (lot-transactions/select s )
+                               (lot-transactions/select s)
                                first)
           lot (lots/find-by-id s (:lot-id lot-transaction))
           commodity (commodities/find-by-id s (:commodity-id lot))]
@@ -249,7 +249,11 @@
         (throw (IllegalStateException.
                  "Cannot undo a purchase if shares have been sold from the lot")))
       (transactions/delete s transaction-id)
-      (lots/delete s (:id lot)))))
+      (lots/delete s (:id lot))
+      {:transaction-id transaction-id
+       :lot-transaction lot-transaction
+       :lot lot
+       :commodity commodity})))
 
 (defn- find-lot
   "Given a sell context, finds the next lot containing
