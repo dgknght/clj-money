@@ -467,13 +467,17 @@
            :gain gain)))
 
 (defn lot-report
-  [storage-spec account-id]
-  (->> {:account-id account-id}
-       (lots/search storage-spec)
-       (map #(->> %
-                  (append-commodity-caption storage-spec)
-                  (append-current-price storage-spec)
-                  (append-lot-transactions storage-spec)
-                  (append-lot-calculated-values storage-spec)))
-       (sort-by :caption)
-       (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id))))
+  ([storage-spec account-id]
+   (lot-report storage-spec account-id nil))
+  ([storage-spec account-id commodity-id]
+   (->> (cond-> {:account-id account-id}
+          commodity-id
+          (assoc :commodity-id commodity-id))
+        (lots/search storage-spec)
+        (map #(->> %
+                   (append-commodity-caption storage-spec)
+                   (append-current-price storage-spec)
+                   (append-lot-transactions storage-spec)
+                   (append-lot-calculated-values storage-spec)))
+        (sort-by :caption)
+        (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
