@@ -418,7 +418,8 @@
                   :explanation explanation}))))
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
-                       (h/where (map->where criteria)))))
+                       (h/where (map->where criteria))
+                       (h/merge-where [:!= :shares_owned 0]))))
 
   (delete-lot
     [_ id]
