@@ -12,9 +12,12 @@
             [clj-money.models.storage :refer [create-lot
                                               select-lots-by-commodity-id
                                               select-lots-by-entity-id
+                                              select-lots-by-transaction-id
                                               select-lots
                                               update-lot
-                                              find-lot-by-id]]
+                                              find-lot-by-id
+                                              delete-lot
+                                              delete-lot-transactions-by-lot-id]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]))
@@ -88,6 +91,13 @@
   (with-storage [s storage-spec]
     (->> commodity-id
          (select-lots-by-commodity-id s)
+         (map after-read))))
+
+(defn select-by-transaction-id
+  [storage-spec commodity-id]
+  (with-storage [s storage-spec]
+    (->> commodity-id
+         (select-lots-by-transaction-id s)
          (map after-read))))
 
 (defn find-by-id
@@ -166,3 +176,9 @@
       (->> lots
            (map #(lot-unrealized-gains s price-fn as-of %))
            (reduce + 0M)))))
+
+(defn delete
+  [storage-spec lot-id]
+  (with-storage [s storage-spec]
+    (delete-lot-transactions-by-lot-id s lot-id)
+    (delete-lot s lot-id)))

@@ -10,7 +10,9 @@
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-lot-transaction
-                                              select-lot-transactions]])
+                                              select-lot-transactions
+                                              update-lot-transaction
+                                              delete-lot-transaction]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::lot-id integer?)
@@ -18,11 +20,13 @@
 (s/def ::action #{:buy :sell})
 (s/def ::shares decimal?)
 (s/def ::price decimal?)
+(s/def ::transaction-id integer?)
 (s/def ::new-lot-transaction (s/keys :req-un [::lot-id
                                               ::trade-date
                                               ::action
                                               ::shares
-                                              ::price]))
+                                              ::price]
+                                     :opt-un [::transaction-id]))
 
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:trade-date])])
@@ -53,3 +57,21 @@
   [storage-spec criteria]
   (with-storage [s storage-spec]
     (map after-read (select-lot-transactions s criteria))))
+
+(defn find-by-id
+  [storage-spec id]
+  (first (select storage-spec {:id id :limit 1})))
+
+(defn link
+  "Links a transaction to one or more lot transactions"
+  [storage-spec transaction-id lot-transaction-ids]
+  (with-storage [s storage-spec]
+    (doseq [lot-transaction-id lot-transaction-ids]
+      (update-lot-transaction s {:id lot-transaction-id
+                                 :transaction-id transaction-id}))))
+
+(defn delete
+  "Deletes the specified lot transaction"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-lot-transaction s id)))

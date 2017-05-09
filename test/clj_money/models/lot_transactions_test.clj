@@ -35,6 +35,7 @@
 (defn- attributes
   [context]
   {:lot-id (-> context :lots first :id)
+   :transaction-id 101
    :trade-date (t/local-date 2017 3 2)
    :action :buy
    :shares 100M
@@ -87,6 +88,7 @@
                        (map #(dissoc % :id :created-at :updated-at)))
         expected {:trade-date (t/local-date 2017 3 2)
                   :lot-id (-> context :lots first :id)
+                  :transaction-id 101
                   :action :buy
                   :shares 100M
                   :price 10M}]

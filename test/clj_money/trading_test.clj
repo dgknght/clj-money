@@ -229,6 +229,7 @@
                    :action :buy
                    :shares 100M
                    :price 10M
+                   :transaction-id (-> result :transaction :id)
                    :lot-id (-> result :lot :id)}]
         actual (map #(dissoc % :id :created-at :updated-at)
                     (lot-transactions/select
@@ -308,7 +309,14 @@
     (assoc context :lots [(:lot result)])))
 
 (deftest sell-a-commodity
-  (let [context (sell-context)
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        purchase (trading/buy storage-spec {:account-id (:id ira)
+                                            :commodity-id (:id commodity)
+                                            :trade-date (t/local-date 2016 3 2)
+                                            :shares 100M
+                                            :value 1000M})
         result (trading/sell storage-spec (sale-attributes context))]
     (is (:price result)
         "The result contains a price")
@@ -322,6 +330,8 @@
             "Each lot is valid")))
     (is (:lot-transactions result)
         "The result contains a list of lot transactions create by the trade")
+    (is (= 75M (:shares-owned (lots/find-by-id storage-spec (-> purchase :lot :id))))
+        "The shares-owned value of the original lot is updated")
     (if (seq (:lot-transactions result))
       (doseq [lot-transaction (:lot-transactions result)]
         (is (empty? (validation/error-messages lot-transaction))
@@ -506,7 +516,7 @@
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
-        lot-transactions (map #(dissoc % :id :created-at :updated-at)
+        lot-transactions (map #(dissoc % :id :created-at :updated-at :transaction-id)
                               (lot-transactions/select
                                 storage-spec
                                 {:lot-id (:id lot)}))
@@ -738,3 +748,62 @@
                    :shares-purchased 100M
                    :shares-owned 100M}]]
     (is (= expected actual) "Shares are sold from the most recent lot")))
+
+(deftest undo-a-purchase
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
+                                            :shares 100M
+                                            :commodity-id (:id commodity)
+                                            :account-id (:id ira)
+                                            :value 1000M})
+        result (trading/unbuy storage-spec (-> purchase :transaction :id))]
+    ; TODO Should we delete the price that was created?
+    (testing "the account balance"
+      (is (= 2000M (:balance (accounts/reload storage-spec ira)))
+          "The account balance is restored"))
+    (testing "the affected lots"
+      (is (= [] (lots/search storage-spec {:account-id (:id ira)}))
+          "The lot is deleted"))))
+
+(deftest cannot-undo-a-purchase-if-shares-have-been-sold
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
+                                            :shares 100M
+                                            :commodity-id (:id commodity)
+                                            :account-id (:id ira)
+                                            :value 1000M})
+        _ (trading/sell storage-spec (sale-attributes context))]
+    (is (thrown-with-msg? IllegalStateException #"Cannot undo"
+                          (trading/unbuy storage-spec (-> purchase :transaction :id))))))
+
+(deftest undo-a-sale
+  (let [context (serialization/realize storage-spec purchase-context)
+        ira (-> context :accounts first)
+        commodity (-> context :commodities first)
+        purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
+                                            :shares 100M
+                                            :commodity-id (:id commodity)
+                                            :account-id (:id ira)
+                                            :value 1000M})
+        sale (trading/sell storage-spec (sale-attributes context))
+        result (trading/unsell storage-spec (-> sale :transaction :id))]
+    ; IRA balance balance before purchase: $2,000
+    ;                      after purchase: $1,000
+    ;                          after sale: $1,375
+    ;                        after unsale: $1,000
+    (testing "the account balance"
+      (is (= 1000M (:balance (accounts/reload storage-spec ira)))
+          "The account balance is restored"))
+    (testing "the lot transactions"
+      (doseq [lot-transaction (:lot-transactions sale)]
+        (is (not (lot-transactions/find-by-id storage-spec (:id lot-transaction)))
+            (format "lot transaction %s should be deleted" (:id lot-transaction)))))
+    (testing "the affected lots"
+      (doseq [lot (:lots sale)]
+        (let [lot (lots/find-by-id storage-spec (:id lot))]
+          (is (= (:shares-owned lot) (:shares-purchased lot))
+              "The shares-owned should be restored"))))))

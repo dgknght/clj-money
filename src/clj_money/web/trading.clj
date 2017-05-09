@@ -14,6 +14,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
             [clj-money.trading :as trading]))
 
@@ -141,3 +142,12 @@
     (if (validation/has-error? result)
       (new-sale req result)
       (redirect (format "/accounts/%s" (:account-id result))))))
+
+(defn unbuy
+  [{{transaction-id :transaction-id} :params}]
+  (->> (Integer. transaction-id)
+       (trading/unbuy (env :db))
+       :lot
+       :account-id
+       (format "/accounts/%s")
+       redirect))

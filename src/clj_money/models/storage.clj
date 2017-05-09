@@ -121,6 +121,10 @@
     [this commodity-id]
     "Returns the lots for the specified commodity")
 
+  (select-lots-by-transaction-id
+    [this transaction-id]
+    "Returns the lots for the specified transaction")
+
   (update-lot
     [this lot]
     "Updates the specified lot record")
@@ -133,6 +137,10 @@
     [this criteria]
     "Returns the lots matching the specified criteria")
 
+  (delete-lot
+    [this lot-id]
+    "Deletes the specified lot record")
+
   ; Lot transactions
   (create-lot-transaction
     [this lot-transaction]
@@ -141,6 +149,18 @@
   (select-lot-transactions
     [this criteria]
     "Returns a list of matching lot transactions")
+
+  (update-lot-transaction
+    [this lot-transaction]
+    "Updates the specified lot transaction")
+
+  (delete-lot-transactions-by-lot-id
+    [this lot-id]
+    "Deletes lot transactions for the specified lot")
+
+  (delete-lot-transaction
+    [this id]
+    "Deletes the specified lot transaction")
 
   ; Transactions
   (select-transactions-by-entity-id

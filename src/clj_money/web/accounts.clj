@@ -226,6 +226,12 @@
    [:td
     (when shares
       [:div.btn-group
+       (glyph-button :list-alt
+                     (format "/accounts/%s/lots?commodity-id=%s"
+                             (:id account)
+                             commodity-id)
+                     {:size :extra-small
+                      :title "Click here to view the lots for this commodity"})
        (glyph-button :plus-sign
                      (format "/accounts/%s/purchases/new?commodity-id=%s"
                              (:id account)
@@ -265,7 +271,12 @@
     [:a.btn.btn-primary
      {:href (format "/accounts/%s/purchases/new" (:id account))
       :title "Click here to purchase a commodity with this account."}
-     "Purchase"]))
+     "Purchase"]
+    "&nbsp;"
+    [:a.btn.btn-default
+     {:href (format "/entities/%s/accounts" (:entity-id account))
+      :title "Click here to return to the list of accounts"}
+     "Back"]))
 
 (defmethod show-account :commodity
   [account params]

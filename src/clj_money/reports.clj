@@ -429,3 +429,55 @@
                             :gain 0M}
                            data)]
        (conj data summary)))))
+
+(defn- append-commodity-caption
+  [storage-spec {commodity-id :commodity-id :as lot}]
+  (let [{:keys [name symbol]} (commodities/find-by-id storage-spec
+                                                      commodity-id)]
+    (assoc lot :caption (format "%s (%s)" name symbol))))
+
+(defn- append-current-price
+  [storage-spec lot]
+  (assoc lot :current-price (->> (:commodity-id lot)
+                                 (prices/most-recent storage-spec)
+                                 :price)))
+
+(defn- append-lot-transactions
+  [storage-spec lot]
+  (assoc lot
+         :lot-transactions
+         (->> {:lot-id (:id lot)}
+              (lot-transactions/select storage-spec)
+              (map #(assoc % :value (* (:price %) (:shares %))))
+              (map #(dissoc % :id :updated-at :created-at :lot-id)))))
+
+(defn- append-lot-calculated-values
+  [storage-spec lot]
+  (let [purchase-price (->> (:lot-transactions lot)
+                            (filter #(= :buy (:action %)))
+                            first
+                            :price)
+        cost (* (:shares-owned lot) purchase-price)
+        value (* (:shares-owned lot) (:current-price lot))
+        gain (- value cost)]
+    (assoc lot
+           :purchase-price purchase-price
+           :cost cost
+           :value value
+           :gain gain)))
+
+(defn lot-report
+  ([storage-spec account-id]
+   (lot-report storage-spec account-id nil))
+  ([storage-spec account-id commodity-id]
+   (->> (cond-> {:account-id account-id}
+          commodity-id
+          (assoc :commodity-id commodity-id))
+        (lots/search storage-spec)
+        (map #(->> %
+                   (append-commodity-caption storage-spec)
+                   (append-current-price storage-spec)
+                   (append-lot-transactions storage-spec)
+                   (append-lot-calculated-values storage-spec)))
+        (sort-by :caption)
+        (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
