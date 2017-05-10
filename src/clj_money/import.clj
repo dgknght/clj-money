@@ -11,5 +11,4 @@
   with the specified name is found, it is used, otherwise it
   is created"
   [storage-spec entity-name input source-type]
-
-  )
+  (read-source input source-type))

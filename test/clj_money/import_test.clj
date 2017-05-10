@@ -9,7 +9,7 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.entities :as entities]
             [clj-money.reports :as reports]
-            [clj-money.import :refer [read-input]]))
+            [clj-money.import :refer [import-data]]))
 
 (def storage-spec (env :db))
 
