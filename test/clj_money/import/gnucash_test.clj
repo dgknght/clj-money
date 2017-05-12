@@ -128,9 +128,4 @@
                                             (fn [t]
                                               (swap! transactions-found #(conj % t)))))
     (is (= accounts @accounts-found) "The correct accounts are found")
-
-    (pprint {:expected transactions
-             :actual @transactions-found
-             :diff (diff transactions @transactions-found)})
-
     (is (= transactions @transactions-found) "The correct transactions are found")))

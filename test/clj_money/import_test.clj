@@ -1,6 +1,8 @@
 (ns clj-money.import-test
   (:refer-clojure :exclude [update])
   (:require [clojure.test :refer :all]
+            [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
@@ -9,7 +11,8 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.entities :as entities]
             [clj-money.reports :as reports]
-            [clj-money.import :refer [import-data]]))
+            [clj-money.import :refer [import-data]]
+            [clj-money.import.gnucash :as gnucash]))
 
 (def storage-spec (env :db))
 
@@ -19,13 +22,16 @@
   {:users [(factory :user, {:email "john@doe.com"})] })
 
 (def gnucash-sample
-  ; TODO referece the file in resources/fixtures
-  )
+  (io/input-stream "resources/fixtures/sample.gnucash"))
 
 (deftest import-a-simple-file
   (let [context (serialization/realize storage-spec import-context)
         user (-> context :users first)
-        _ (import-data storage-spec "Personal" gnucash-sample :gnucash)
+        result (import-data storage-spec
+                            user
+                            "Personal"
+                            gnucash-sample
+                            :gnucash)
         entity (-> storage-spec (entities/select (:id user)) first)
         expected-inc-stmt [{:caption "Income"
                             :value 2000M
