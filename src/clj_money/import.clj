@@ -7,7 +7,7 @@
   (fn [source-type _ _]
     source-type))
 
-(deftype Callback [account])
+(deftype Callback [account transaction])
 
 (defn- import-account
   [storage account]
