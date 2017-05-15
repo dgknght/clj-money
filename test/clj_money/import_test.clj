@@ -1,6 +1,7 @@
 (ns clj-money.import-test
   (:refer-clojure :exclude [update])
   (:require [clojure.test :refer :all]
+            [clojure.data :refer [diff]]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
@@ -10,6 +11,8 @@
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.entities :as entities]
+            [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash :as gnucash]))

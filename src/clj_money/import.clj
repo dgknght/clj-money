@@ -1,9 +1,11 @@
 (ns clj-money.import
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clj-money.util :refer [pprint-and-return-l]]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
 (defmulti read-source
@@ -35,9 +37,22 @@
           context
           accounts))
 
+(defn- import-transaction
+  [context transaction]
+  (let [to-create (-> transaction
+                      (update-in [:items] (fn [items]
+                                            (map (fn [item]
+                                                   (update-in item [:account-id] #(-> context :accounts (get %))))
+                                                 items)))
+                      (assoc :entity-id (:entity-id context)))]
+    (transactions/create (:storage context) to-create)
+    context)) ; Update anything in the context? don't want to include all transactions, as that can be many
+
 (defn- import-transactions
   [context transactions]
-  context)
+  (reduce import-transaction
+          context
+          transactions))
 
 (defn import-data
   "Reads the contents from the specified input and saves
