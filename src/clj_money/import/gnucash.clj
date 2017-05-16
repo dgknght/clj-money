@@ -52,10 +52,17 @@
    {:attribute :parent-id
     :xpath "act:parent"}])
 
+(def ^:private ignored-accounts #{"Assets" "Liabilities" "Equity" "Income" "Expenses"})
+
+(defn- include-account?
+  [account]
+  (and (:type account)
+       (not (ignored-accounts (:name account)))))
+
 (defmethod process-node :gnc:account
   [callback node]
   (let [account (node->model node account-attributes)]
-    (when (:type account)
+    (when (include-account? account)
       ((.account callback) account))))
 
 (defn- parse-date
