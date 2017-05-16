@@ -43,9 +43,34 @@
                                                   (:id entity)
                                                   (t/local-date 1999 1 1)
                                                   (t/local-date 9999 12 31))
-        expected-bal-sheet [{:caption "Assets"
-                             :value 2000M
-                             :style :header}]
+        expected-bal-sheet [{:caption "Asset"
+                             :value 1810.00M
+                             :style :header}
+                            {:caption "Checking"
+                             :value 1810.00M
+                             :style :data
+                             :depth 0}
+                            {:caption "Liability"
+                             :value 100.00M
+                             :style :header}
+                            {:caption "Credit Card"
+                             :value 100.00M
+                             :style :data
+                             :depth 0}
+                            {:caption "Equity"
+                             :value 1710.00M
+                             :style :header}
+                            {:caption "Retained Earnings"
+                             :value 1710.00M
+                             :style :data
+                             :depth 0}
+                            {:caption "Unrealized Gains"
+                             :value 0M
+                             :style :data
+                             :depth 0}
+                            {:caption "Liabilities + Equity"
+                             :value 1810.00M
+                             :style :summary}]
         actual-bal-sheet (reports/balance-sheet storage-spec
                                                 (:id entity)
                                                 (t/local-date 9999 12 31))]
