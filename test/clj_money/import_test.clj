@@ -38,7 +38,21 @@
         entity (-> storage-spec (entities/select (:id user)) first)
         expected-inc-stmt [{:caption "Income"
                             :value 2000M
-                            :style :header}]
+                            :style :header}
+                           {:caption "Salary"
+                            :value 2000M
+                            :style :data
+                            :depth 0}
+                           {:caption "Expense"
+                            :value 290M
+                            :style :header}
+                           {:caption "Groceries"
+                            :value 290M
+                            :style :data
+                            :depth 0}
+                           {:caption "Net"
+                            :value 1710M
+                            :style :summary}]
         actual-inc-stmt (reports/income-statement storage-spec
                                                   (:id entity)
                                                   (t/local-date 1999 1 1)
