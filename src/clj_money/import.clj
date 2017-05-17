@@ -31,12 +31,6 @@
         result (accounts/create (:storage context) to-create)]
     (update-in context [:accounts] #(assoc % original-id (:id result)))))
 
-(defn- import-accounts
-  [context accounts]
-  (reduce import-account
-          context
-          accounts))
-
 (defn- import-transaction
   [context transaction]
   (let [to-create (-> transaction
@@ -48,28 +42,16 @@
     (transactions/create (:storage context) to-create)
     context)) ; Update anything in the context? don't want to include all transactions, as that can be many
 
-(defn- import-transactions
-  [context transactions]
-  (reduce import-transaction
-          context
-          transactions))
-
 (defn import-data
   "Reads the contents from the specified input and saves
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
   [storage-spec user entity-name input source-type]
-  ; TODO this strategy will load all transactions into memory
-  ; it would be good to find a way that didn't
-  (let [accounts (atom [])
-        transactions (atom [])]
-    (read-source source-type input (->Callback (fn [account] (swap! accounts #(conj % account)))
-                                               (fn [transaction] (swap! transactions #(conj % transaction)))))
-    (with-transacted-storage [s storage-spec]
-      (let [entity (entities/find-or-create s user  entity-name)]
-        (-> {:storage s
-             :accounts {}
-             :entity-id (:id entity)}
-            (import-accounts @accounts)
-            (import-transactions @transactions))))))
+  (with-transacted-storage [s storage-spec]
+    (let [entity (entities/find-or-create s user  entity-name)
+          context (atom {:storage s
+                         :accounts {}
+                         :entity-id (:id entity)})]
+      (read-source source-type input (->Callback (fn [account] (swap! context #(import-account % account)))
+                                                 (fn [transaction] (swap! context #(import-transaction % transaction))))))))
