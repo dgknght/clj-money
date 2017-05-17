@@ -87,6 +87,15 @@
        (filter #(= entity-name (:name %)))
        first))
 
+(defn find-or-create
+  "Finds the entity with the specified name for the
+  specified user, or creates it if it is not found."
+  [storage-spec user entity-name]
+  (or
+    (find-by-name storage-spec user entity-name)
+    (create storage-spec {:user-id (:id user)
+                          :name entity-name})))
+
 (def update
   (update-fn {:update update-entity
               :spec ::existing-entity
