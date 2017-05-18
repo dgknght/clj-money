@@ -84,6 +84,7 @@
   (route GET "/commodities/:commodity-id/prices" prices/index)
   (route GET "/commodities/:commodity-id/prices/new" prices/new-price)
   (route POST "/commodities/:commodity-id/prices" prices/create)
+  (route POST "/commodities/:commodity-id/prices/fetch" prices/fetch)
   (route POST "/prices/:id/delete" prices/delete)
 
   ; Transactions

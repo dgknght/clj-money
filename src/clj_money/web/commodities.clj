@@ -25,11 +25,17 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this commodity"})
+     (glyph-button :refresh
+                   (format "/commodities/%s/prices/fetch" (:id commodity))
+                   {:level :default
+                    :size :extra-small
+                    :data-method :post
+                    :title "Click here to fetch the latest price for this commodity"})
      (glyph-button :usd
                    (format "/commodities/%s/prices" (:id commodity))
                    {:level :default
                     :size :extra-small
-                    :title "Click here to manage prices for this commodity"})
+                    :title "Click here to manage prices manually for this commodity"})
      (glyph-button :remove
                    (format "/commodities/%s/delete" (:id commodity))
                    {:level :danger
@@ -50,8 +56,8 @@
           [:th.col-md-3 "Symbol"]
           [:th.col-md-3 "Name"]
           [:th.col-md-2 "Exchange"]
-          [:th.col-md-2.text-right "Last price"]
-          [:th.col-md-2 "&nbsp;"]]
+          [:th.col-md-1.text-right "Last price"]
+          [:th.col-md-3 "&nbsp;"]]
          (map commodity-row commodities)]
         [:a.btn.btn-primary
          {:href (format "/entities/%s/commodities/new" entity-id)
