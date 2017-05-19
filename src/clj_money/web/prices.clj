@@ -92,9 +92,16 @@
         result (prices/create (env :db) {:commodity-id (:id commodity)
                                          :price (:price price)
                                          :trade-date (:trade-date price)})]
-
-    (pprint {:web-result result})
-
     (if (validation/has-error? result)
       (new-price {:params params} result)
       (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
+
+(defn fetch-all
+  [{params :params}]
+  (->> (Integer. (:entity-id params))
+                         (commodities/select-by-entity-id (env :db))
+                         (map #(-> %
+                                   prices-api/fetch
+                                   (assoc :commodity-id (:id %))))
+                         (map #(prices/create (env :db) %)))
+  (redirect (format "/entities/%s/commodities" (:entity-id params))))

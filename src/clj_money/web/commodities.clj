@@ -62,7 +62,13 @@
         [:a.btn.btn-primary
          {:href (format "/entities/%s/commodities/new" entity-id)
           :title "Click here to create a new commodity"}
-         "Add"]]])))
+         "Add"]
+        "&nbsp;"
+        [:a.btn.btn-default
+         {:href (format "/entities/%s/prices/fetch" entity-id)
+          :title "Click here to download prices for all commodities"
+          :data-method :post}
+         "Download Prices"]]])))
 
 (defn- form-fields
   [commodity]
