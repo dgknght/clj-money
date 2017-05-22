@@ -14,7 +14,7 @@
   (fn [source-type _ _]
     source-type))
 
-(deftype Callback [account transaction])
+(deftype Callback [account budget transaction])
 
 (defn- import-account
   [context account]
@@ -37,6 +37,10 @@
                         (validation/error-messages result))
                       {:result result})))
     (update-in context [:accounts] #(assoc % original-id (:id result)))))
+
+(defn- import-budget
+  [context budget]
+  context)
 
 (defn- resolve-account-references
   [context items]
@@ -72,6 +76,8 @@
                          :entity (entities/find-or-create s user entity-name)})
           callback (->Callback (fn [account]
                                  (swap! context #(import-account % account)))
+                               (fn [budget]
+                                 (swap! context #(import-budget % budget)))
                                (fn [transaction]
                                  (swap! context #(import-transaction % transaction))))]
       (read-source source-type input callback))))

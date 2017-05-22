@@ -9,12 +9,29 @@
             [clj-money.import :refer [read-source]])
   (:import java.util.zip.GZIPInputStream))
 
+(defn- parse-date
+  [string-date]
+  (when-let [match (re-find #"^(\d{4})-(\d{2})-(\d{2})" string-date)]
+    (apply t/local-date (->> match
+                             rest
+                             (map #(Integer. %))))))
+
+(defn- parse-decimal
+  [string-decimal]
+  (when-let [match (re-find #"(\d+)\/(\d+)" string-decimal)]
+    (apply / (->> match
+                  rest
+                  (map bigdec)))))
+
 (def ^:private namespace-map
-  {"gnc"   "http://www.gnucash.org/XML/gnc"
-   "act"   "http://www.gnucash.org/XML/act"
-   "trn"   "http://www.gnucash.org/XML/trn"
-   "ts"    "http://www.gnucash.org/XML/ts"
-   "split" "http://www.gnucash.org/XML/split"})
+  {"gnc"        "http://www.gnucash.org/XML/gnc"
+   "act"        "http://www.gnucash.org/XML/act"
+   "trn"        "http://www.gnucash.org/XML/trn"
+   "ts"         "http://www.gnucash.org/XML/ts"
+   "split"      "http://www.gnucash.org/XML/split"
+   "bgt"        "http://www.gnucash.org/XML/bgt"
+   "recurrence" "http://www.gnucash.org/XML/recurrence"
+   "slot"       "http://www.gnucash.org/XML/slot"})
 
 (defmulti process-node
   (fn [_ node]
@@ -65,19 +82,51 @@
     (when (include-account? account)
       ((.account callback) account))))
 
-(defn- parse-date
-  [string-date]
-  (when-let [match (re-find #"^(\d{4})-(\d{2})-(\d{2})" string-date)]
-    (apply t/local-date (->> match
-                             rest
-                             (map #(Integer. %))))))
+(def ^:private budget-attributes
+  [{:attribute :id
+    :xpath "bgt:id"}
+   {:attribute :name
+    :xpath "bgt:name"}
+   {:attribute :start-date
+    :xpath "bgt:recurrence/recurrence:start/gdate"
+    :transform-fn parse-date}
+   {:attribute :period
+    :xpath "bgt:recurrence/recurrence:period_type"
+    :transform-fn keyword}
+   {:attribute :period-count
+    :xpath "bgt:num-periods"
+    :transform-fn #(Integer. %)}])
 
-(defn- parse-decimal
-  [string-decimal]
-  (when-let [match (re-find #"(\d+)\/(\d+)" string-decimal)]
-    (apply / (->> match
-                  rest
-                  (map bigdec)))))
+(def ^:private budget-item-attributes
+  [{:attribute :account-id
+    :xpath "slot:key"}])
+
+(def ^:private budget-item-period-attributes
+  [{:attribute :index
+    :xpath "slot:key"
+    :transform-fn #(Integer. %)}
+   {:attribute :amount
+    :xpath "slot:value"
+    :transform-fn parse-decimal}])
+
+(defn- node->budget-item-period
+  [node]
+  (with-namespace-context namespace-map
+    (node->model node budget-item-period-attributes)))
+
+(defn- node->budget-item
+  [node]
+  (with-namespace-context namespace-map
+    (-> node
+        (node->model budget-item-attributes)
+        (assoc :periods (map node->budget-item-period ($x "slot:value/slot" node))))))
+
+(defmethod process-node :gnc:budget
+  [callback node]
+  (-> node
+      (node->model budget-attributes)
+      (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
+      ((.budget callback))))
 
 (def ^:private transaction-item-attributes
   [{:attribute :account-id
@@ -128,5 +177,5 @@
                    io/reader
                    slurp
                    xml->doc)]
-      (doseq [node ($x "/gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction" xml)]
+      (doseq [node ($x "/gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction | /gnc-v2/gnc:book/gnc:budget" xml)]
         (process-node callback node)))))
