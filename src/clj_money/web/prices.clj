@@ -1,13 +1,15 @@
 (ns clj-money.web.prices
   (:refer-clojure :exclude [update])
   (:require [environ.core :refer [env]]
+            [clojure.pprint :refer [pprint]]
             [ring.util.response :refer :all]
             [hiccup.core :refer :all]
             [clj-money.util :refer [format-date format-number]]
             [clj-money.web.shared :refer :all]
             [clj-money.validation :as validation]
             [clj-money.models.commodities :as commodities]
-            [clj-money.models.prices :as prices]))
+            [clj-money.models.prices :as prices]
+            [clj-money.models.prices.api-client :as prices-api]))
 
 (defn- price-row
   [price]
@@ -82,3 +84,24 @@
   (let [price (prices/find-by-id (env :db) (Integer. (:id params)))]
     (prices/delete (env :db) (:id price))
     (redirect (format "/commodities/%s/prices" (:commodity-id price)))))
+
+(defn fetch
+  [{params :params}]
+  (let [commodity (commodities/find-by-id (env :db) (Integer. (:commodity-id params)))
+        price (prices-api/fetch commodity)
+        result (prices/create (env :db) {:commodity-id (:id commodity)
+                                         :price (:price price)
+                                         :trade-date (:trade-date price)})]
+    (if (validation/has-error? result)
+      (new-price {:params params} result)
+      (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
+
+(defn fetch-all
+  [{params :params}]
+  (->> (Integer. (:entity-id params))
+                         (commodities/select-by-entity-id (env :db))
+                         (map #(-> %
+                                   prices-api/fetch
+                                   (assoc :commodity-id (:id %))))
+                         (map #(prices/create (env :db) %)))
+  (redirect (format "/entities/%s/commodities" (:entity-id params))))
