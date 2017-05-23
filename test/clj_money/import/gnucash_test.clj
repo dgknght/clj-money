@@ -105,60 +105,61 @@
              :reconciled false}]}])
 
 (def ^:private budgets
-  [{:name "2017"
+  [{:id "cdb9ef21d19570acd3cf6a23d1a97ce8"
+    :name "2017"
     :start-date (t/local-date 2017 1 1)
     :period :month
     :period-count 12
     :items [{:account-id "1b71fd298aeca1a18d35b04a7618e76e"
-             :periods [{:index 0
-                        :amount 1000M}
-                       {:index 1
-                        :amount 1000M}
-                       {:index 2
-                        :amount 1000M}
-                       {:index 3
-                        :amount 1000M}
-                       {:index 4
-                        :amount 1000M}
-                       {:index 5
-                        :amount 1000M}
-                       {:index 6
-                        :amount 1000M}
-                       {:index 7
-                        :amount 1000M}
-                       {:index 8
-                        :amount 1000M}
-                       {:index 9
-                        :amount 1000M}
-                       {:index 10
-                        :amount 1000M}
-                       {:index 11
-                        :amount 1000M}]}
+             :periods #{{:index 0
+                         :amount 1000M}
+                        {:index 1
+                         :amount 1000M}
+                        {:index 2
+                         :amount 1000M}
+                        {:index 3
+                         :amount 1000M}
+                        {:index 4
+                         :amount 1000M}
+                        {:index 5
+                         :amount 1000M}
+                        {:index 6
+                         :amount 1000M}
+                        {:index 7
+                         :amount 1000M}
+                        {:index 8
+                         :amount 1000M}
+                        {:index 9
+                         :amount 1000M}
+                        {:index 10
+                         :amount 1000M}
+                        {:index 11
+                         :amount 1000M}}}
             {:account-id "835bfe9b2728976d06e63b90aea8c090"
-             :periods [{:index 0
-                        :amount 200M}
-                       {:index 1
-                        :amount 200M}
-                       {:index 2
-                        :amount 250M}
-                       {:index 3
-                        :amount 250M}
-                       {:index 4
-                        :amount 275M}
-                       {:index 5
-                        :amount 275M}
-                       {:index 6
-                        :amount 200M}
-                       {:index 7
-                        :amount 200M}
-                       {:index 8
-                        :amount 250M}
-                       {:index 9
-                        :amount 250M}
-                       {:index 10
-                        :amount 275M}
-                       {:index 11
-                        :amount 275M}]}]}])
+             :periods #{{:index 0
+                         :amount 200M}
+                        {:index 1
+                         :amount 250M}
+                        {:index 2
+                         :amount 250M}
+                        {:index 3
+                         :amount 275M}
+                        {:index 4
+                         :amount 275M}
+                        {:index 5
+                         :amount 200M}
+                        {:index 6
+                         :amount 200M}
+                        {:index 7
+                         :amount 250M}
+                        {:index 8
+                         :amount 250M}
+                        {:index 9
+                         :amount 275M}
+                        {:index 10
+                         :amount 275M}
+                        {:index 11
+                         :amount 275M}}}]}])
 
 (deftest read-gnucash-source
   (let [accounts-found (atom [])

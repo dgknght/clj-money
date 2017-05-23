@@ -119,7 +119,10 @@
   (with-namespace-context namespace-map
     (-> node
         (node->model budget-item-attributes)
-        (assoc :periods (map node->budget-item-period ($x "slot:value/slot" node))))))
+        (assoc :periods (->> node
+                             ($x "slot:value/slot")
+                             (map node->budget-item-period)
+                             (into #{}))))))
 
 (defmethod process-node :gnc:budget
   [callback node]
