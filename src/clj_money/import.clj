@@ -7,6 +7,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
@@ -40,6 +41,10 @@
 
 (defn- import-budget
   [context budget]
+  (budgets/create (:storage context)
+                  (-> budget
+                      (dissoc :items)
+                      (assoc :entity-id (-> context :entity :id))))
   context)
 
 (defn- resolve-account-references
