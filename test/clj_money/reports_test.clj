@@ -10,8 +10,7 @@
             [clj-money.trading :as trading]
             [clj-money.reports :as reports]
             [clj-money.test-helpers :refer [reset-db
-                                            simplify-account-groups
-                                            ->budget-item-periods]]))
+                                            simplify-account-groups]]))
 
 (def storage-spec (env :db))
 
@@ -466,19 +465,19 @@
               :period :month
               :period-count 12
               :items [{:account-id "Salary"
-                       :periods  (->budget-item-periods (repeat 12 2000M))}
+                       :periods (repeat 12 2000M)}
                       {:account-id "FIT"
-                       :periods  (->budget-item-periods (repeat 12 400M))}
+                       :periods (repeat 12 400M)}
                       {:account-id "Social Security"
-                       :periods  (->budget-item-periods (repeat 12 134M))}
+                       :periods (repeat 12 134M)}
                       {:account-id "Medicare"
-                       :periods  (->budget-item-periods (repeat 12 30M))}
+                       :periods (repeat 12 30M)}
                       {:account-id "Rent"
-                       :periods  (->budget-item-periods (repeat 12 700M))}
+                       :periods (repeat 12 700M)}
                       {:account-id "Dining"
-                       :periods  (->budget-item-periods (repeat 12 200M))}
+                       :periods (repeat 12 200M)}
                       {:account-id "Groceries"
-                       :periods (->budget-item-periods (repeat 12 450M))}]}]
+                       :periods (repeat 12 450M)}]}]
    :transactions [
                   ; salary
                   {:transaction-date (t/local-date 2016 1 1)

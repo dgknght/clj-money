@@ -8,7 +8,7 @@
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
             [clj-money.web.budgets :as budgets]
-            [clj-money.test-helpers :refer [reset-db ->budget-item-periods]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (def storage-spec (env :db))
 
@@ -32,13 +32,13 @@
               :period-count 12
               :start-date (t/local-date 2017 1 1)
               :items [{:account-id "Salary"
-                       :periods (->budget-item-periods (repeat 12 2000M))}
+                       :periods (repeat 12 2000M)}
                       {:account-id "Bonus"
-                       :periods (->budget-item-periods [0M 0M 1000M 0M 0M 0M 0M 0M 0M 0M 0M 0M])}
+                       :periods [0M 0M 1000M 0M 0M 0M 0M 0M 0M 0M 0M 0M]}
                       {:account-id "Rent"
-                       :periods (->budget-item-periods (repeat 12 800M))}
+                       :periods (repeat 12 800M)}
                       {:account-id "Groceries"
-                       :periods (->budget-item-periods (repeat 12 200M))}]}]})
+                       :periods (repeat 12 200M)}]}]})
 
 (deftest prepare-budget-for-display
   (let [context (serialization/realize storage-spec budget-context)

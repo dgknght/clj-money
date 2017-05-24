@@ -37,10 +37,7 @@
 (s/def ::entity-id integer?)
 (s/def ::new-budget (s/keys :req-un [::name ::start-date ::period ::period-count ::entity-id]))
 (s/def ::existing-budget (s/keys :req-un [::id ::name ::start-date ::period ::period-count] :opt-un [::entity-id]))
-(s/def ::index integer?)
-(s/def ::amount decimal?)
-(s/def ::budget-item-period (s/keys :req-un [::index ::amount]))
-(s/def ::periods (s/coll-of ::budget-item-period :min-count 1))
+(s/def ::periods (s/coll-of decimal? :min-count 1))
 (s/def ::account-id integer?)
 (s/def ::budget-id integer?)
 (s/def ::new-budget-item (s/keys :req-un [::account-id ::periods ::budget-id]))
@@ -292,7 +289,7 @@
     (tc/to-date-time date)))
 
 (defn period-containing
-  "Returns the budget period containing the specified date"
+  "Returns the index of the budget period containing the specified date"
   [budget date]
   (->> (period-seq budget)
        (filter #(within-period? % (tc/to-date-time date)))

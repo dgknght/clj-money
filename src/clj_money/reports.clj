@@ -231,8 +231,7 @@
         budget-amount (if item
                         (reduce + 0M (->> item
                                           :periods
-                                          (take period-count)
-                                          (map :amount)))
+                                          (take period-count)))
                         0M) ; TODO only total the periods up to and including the as-of date
         actual-amount (transactions/balance-delta storage (:id account)
                                                   (:start-date budget)
@@ -338,8 +337,7 @@
          (let [period (budgets/period-containing budget as-of)
                period-budget (:amount (get (:periods item) (:index period)))
                total-budget (reduce + (->> item
-                                            :periods
-                                            (map :amount)))
+                                            :periods))
                percent-of-period (budgets/percent-of-period budget
                                                             as-of)
                period-actual (transactions/balance-delta s
