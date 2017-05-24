@@ -109,48 +109,50 @@
         [salary groceries] (->> (:id entity)
                                 (accounts/select-by-entity-id storage-spec)
                                 (sort #(compare (:name %2) (:name %1))))
-        actual (->> (:id entity)
-                    (budgets/select-by-entity-id storage-spec)
-                    (map #(dissoc % :id :updated-at :created-at)))
-        expected [{:name "2017"
-                   :entity-id (:id entity)
-                   :period :month
-                   :period-count 12
-                   :start-date (t/local-date 2017 1 1)
-                   :end-date (t/local-date 2017 12 31)
-                   :items [{:account-id (:id salary)
-                            :periods (map (fn [index]
-                                            {:index index
-                                             :amount 1000M})
-                                          (range 10))}
-                           {:account-id (:id groceries)
-                            :periods [{:index 0
-                                       :amount 200M}
-                                      {:index 1
-                                       :amount 200M}
-                                      {:index 2
-                                       :amount 250M}
-                                      {:index 3
-                                       :amount 250M}
-                                      {:index 4
-                                       :amount 275M}
-                                      {:index 5
-                                       :amount 275M}
-                                      {:index 6
-                                       :amount 200M}
-                                      {:index 7
-                                       :amount 200M}
-                                      {:index 8
-                                       :amount 250M}
-                                      {:index 9
-                                       :amount 250M}
-                                      {:index 10
-                                       :amount 275M}
-                                      {:index 11
-                                       :amount 275M}]}]}]]
-
-    (pprint {:expected expected
-             :actual actual
-             :diff (diff expected actual)})
-
+        actual (-> (->> (:id entity)
+                        (budgets/select-by-entity-id storage-spec)
+                        first)
+                   (dissoc :id :updated-at :created-at)
+                   (update-in [:items] (fn [items]
+                                         (map (fn [item]
+                                                (-> item
+                                                    (dissoc :budget-id :id :created-at :updated-at)
+                                                    (update-in [:periods] #(sort-by :index %))))
+                                              items))))
+        expected {:name "2017"
+                  :entity-id (:id entity)
+                  :period :month
+                  :period-count 12
+                  :start-date (t/local-date 2017 1 1)
+                  :end-date (t/local-date 2017 12 31)
+                  :items [{:account-id (:id salary)
+                           :periods (map (fn [index]
+                                           {:index index
+                                            :amount 1000M})
+                                         (range 12))}
+                          {:account-id (:id groceries)
+                           :periods [{:index 0
+                                      :amount 200M}
+                                     {:index 1
+                                      :amount 200M}
+                                     {:index 2
+                                      :amount 250M}
+                                     {:index 3
+                                      :amount 250M}
+                                     {:index 4
+                                      :amount 275M}
+                                     {:index 5
+                                      :amount 275M}
+                                     {:index 6
+                                      :amount 200M}
+                                     {:index 7
+                                      :amount 200M}
+                                     {:index 8
+                                      :amount 250M}
+                                     {:index 9
+                                      :amount 250M}
+                                     {:index 10
+                                      :amount 275M}
+                                     {:index 11
+                                      :amount 275M}]}]}]
     (is (= expected actual) "The budget exists after import with correct values")))
