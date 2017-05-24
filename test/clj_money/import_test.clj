@@ -105,13 +105,15 @@
                             "Personal"
                             gnucash-budget-sample
                             :gnucash)
-        entity (entities/select storage-spec (:id user))
+        entity (first (entities/select storage-spec (:id user)))
         [salary groceries] (->> (:id entity)
                                 (accounts/select-by-entity-id storage-spec)
                                 (sort #(compare (:name %2) (:name %1))))
-        actual (budgets/select-by-entity-id storage-spec (:id entity))
-
+        actual (->> (:id entity)
+                    (budgets/select-by-entity-id storage-spec)
+                    (map #(dissoc % :id :updated-at :created-at)))
         expected [{:name "2017"
+                   :entity-id (:id entity)
                    :period :month
                    :period-count 12
                    :start-date (t/local-date 2017 1 1)
@@ -146,4 +148,9 @@
                                        :amount 275M}
                                       {:index 11
                                        :amount 275M}]}]}]]
+
+    (pprint {:expected expected
+             :actual actual
+             :diff (diff expected actual)})
+
     (is (= expected actual) "The budget exists after import with correct values")))
