@@ -40,11 +40,17 @@
     (update-in context [:accounts] #(assoc % original-id (:id result)))))
 
 (defn- import-budget
-  [context budget]
-  (budgets/create (:storage context)
-                  (-> budget
-                      (dissoc :items)
-                      (assoc :entity-id (-> context :entity :id))))
+  [{:keys [storage accounts] :as context} budget]
+  (let [result (budgets/create
+                 storage
+                 (-> budget
+                     (dissoc :items)
+                     (assoc :entity-id (-> context :entity :id))))]
+    (doseq [item (:items budget)]
+      (budgets/create-item storage
+                           (-> item
+                               (assoc :budget-id (:id result))
+                               (update-in [:account-id] #(get accounts %))))))
   context)
 
 (defn- resolve-account-references
