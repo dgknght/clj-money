@@ -146,4 +146,4 @@
                                        :amount 275M}
                                       {:index 11
                                        :amount 275M}]}]}]]
-    (is (= expected actual "The budget exists after import with correct values"))))
+    (is (= expected actual) "The budget exists after import with correct values")))

@@ -139,23 +139,23 @@
              :periods #{{:index 0
                          :amount 200M}
                         {:index 1
-                         :amount 250M}
+                         :amount 200M}
                         {:index 2
                          :amount 250M}
                         {:index 3
-                         :amount 275M}
+                         :amount 250M}
                         {:index 4
                          :amount 275M}
                         {:index 5
-                         :amount 200M}
+                         :amount 275M}
                         {:index 6
                          :amount 200M}
                         {:index 7
-                         :amount 250M}
+                         :amount 200M}
                         {:index 8
                          :amount 250M}
                         {:index 9
-                         :amount 275M}
+                         :amount 250M}
                         {:index 10
                          :amount 275M}
                         {:index 11
@@ -172,10 +172,5 @@
                                             (fn [t]
                                               (swap! transactions-found #(conj % t)))))
     (is (= accounts @accounts-found) "The correct accounts are found")
-
-    (pprint {:expected budgets
-             :actual @budgets-found
-             :diff (diff budgets @budgets-found)})
-
     (is (= budgets @budgets-found) "The current budgets are found")
     (is (= transactions @transactions-found) "The correct transactions are found")))
