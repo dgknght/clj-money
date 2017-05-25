@@ -358,20 +358,20 @@
     (doseq [{:keys [period tests]} all-tests]
       (testing (format "period %s" period)
         (doseq [{:keys [date expected]} tests]
-          (is (= expected (budgets/period-containing
-                            (assoc budget :period period)
-                            date))
+          (is (= expected (:index (budgets/period-containing
+                                    (assoc budget :period period)
+                                    date)))
               (format "Given a budget starting on 1/1/2017, %s produces %s" date expected)))))
 
     (testing "monthly budget"
-      (is (= 3 (budgets/period-containing
-                 (assoc budget :period :month)
-                 (t/local-date 2017 4 3)))
+      (is (= 3 (:index (budgets/period-containing
+                         (assoc budget :period :month)
+                         (t/local-date 2017 4 3))))
           "It returns the index of the period containing the date"))
     (testing "weekly budget"
-      (is (= 3 (budgets/period-containing
-                 (assoc budget :period :week)
-                 (t/local-date 2017 1 25)))
+      (is (= 3 (:index (budgets/period-containing
+                         (assoc budget :period :week)
+                         (t/local-date 2017 1 25))))
           "It returns the index of the period containing the date"))))
 
 (def find-by-date-context

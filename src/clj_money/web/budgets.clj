@@ -168,9 +168,7 @@
 (defn- summarize-periods
   [items]
   (if (seq items)
-    (let [period-matrix (map (fn [item]
-                               (map :amount (:periods item)))
-                             items)]
+    (let [period-matrix (map #(:periods %) items)]
       (reduce (fn [totals periods]
                 (->> (interleave totals periods)
                      (partition 2)
@@ -203,7 +201,7 @@
                              (map #(hash-map :caption (-> % :account :name)
                                              :style :data
                                              :id (:id %)
-                                             :data (map (fn [p] {:value (:amount p)})
+                                             :data (map (fn [p] {:value p})
                                                         (:periods %)))
                                   typed-items))))
         (update-in [:totals] #(assoc % account-type totals)))))

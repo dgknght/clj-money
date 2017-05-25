@@ -126,33 +126,10 @@
                   :start-date (t/local-date 2017 1 1)
                   :end-date (t/local-date 2017 12 31)
                   :items [{:account-id (:id salary)
-                           :periods (map (fn [index]
-                                           {:index index
-                                            :amount 1000M})
-                                         (range 12))}
+                           :periods (repeat 12 1000M)}
                           {:account-id (:id groceries)
-                           :periods [{:index 0
-                                      :amount 200M}
-                                     {:index 1
-                                      :amount 200M}
-                                     {:index 2
-                                      :amount 250M}
-                                     {:index 3
-                                      :amount 250M}
-                                     {:index 4
-                                      :amount 275M}
-                                     {:index 5
-                                      :amount 275M}
-                                     {:index 6
-                                      :amount 200M}
-                                     {:index 7
-                                      :amount 200M}
-                                     {:index 8
-                                      :amount 250M}
-                                     {:index 9
-                                      :amount 250M}
-                                     {:index 10
-                                      :amount 275M}
-                                     {:index 11
-                                      :amount 275M}]}]}]
+                           :periods [200M 200M 250M
+                                     250M 275M 275M
+                                     200M 200M 250M
+                                     250M 275M 275M]}]}]
     (is (= expected actual) "The budget exists after import with correct values")))

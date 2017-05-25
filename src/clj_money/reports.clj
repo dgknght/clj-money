@@ -335,7 +335,7 @@
      (if-let [budget (budgets/find-by-date s (:entity-id account) as-of)]
        (if-let [item (budgets/find-item-by-account budget account)]
          (let [period (budgets/period-containing budget as-of)
-               period-budget (:amount (get (:periods item) (:index period)))
+               period-budget (get (:periods item) (:index period))
                total-budget (reduce + (->> item
                                             :periods))
                percent-of-period (budgets/percent-of-period budget

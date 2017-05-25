@@ -289,9 +289,11 @@
     (tc/to-date-time date)))
 
 (defn period-containing
-  "Returns the index of the budget period containing the specified date"
+  "Returns the budget period containing the specified date
+
+  This is a map containing :start-date, :end-date, :index, etc."
   [budget date]
-  (->> (period-seq budget)
+  (->> (map-indexed #(assoc %2 :index %1) (period-seq budget))
        (filter #(within-period? % (tc/to-date-time date)))
        first))
 
