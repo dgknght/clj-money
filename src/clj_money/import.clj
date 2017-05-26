@@ -50,6 +50,9 @@
       (budgets/create-item storage
                            (-> item
                                (assoc :budget-id (:id result))
+                               (update-in [:periods] #(->> %
+                                                           (sort-by :index)
+                                                           (map :amount)))
                                (update-in [:account-id] #(get accounts %))))))
   context)
 

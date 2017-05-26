@@ -78,6 +78,11 @@
    (coercion/rule :keyword [:period])
    (coercion/rule :integer [:period-count])])
 
+(def ^:private item-coercion-rules
+  [(coercion/rule :integer [:budget-id])
+   (coercion/rule :integer [:id])
+   (coercion/rule :integer [:account-id])])
+
 (defn- before-validation
   [_ budget]
   (dissoc budget :items))
@@ -160,6 +165,7 @@
   (update-fn {:spec ::existing-budget
               :before-validation before-validation
               :before-save before-save
+              :coercion-rules coercion-rules
               :update update-budget
               :find find-by-id}))
 
@@ -253,9 +259,9 @@
   "Updates the specified budget item"
   [storage-spec item]
   (with-storage [s storage-spec]
-    (let [budget (->> item
+    (let [item (coercion/coerce item-coercion-rules item)
+          budget (->> item
                       :id
-                      (Integer.)
                       (find-item-by-id s)
                       :budget-id
                       (find-by-id s))
