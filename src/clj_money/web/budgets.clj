@@ -503,9 +503,6 @@
                                :account-id
                                :periods]))
         updated (budgets/update-item (env :db) item)]
-
-    (pprint {:updated updated})
-
     (if (empty? (validation/error-messages updated))
       (redirect (format "/budgets/%s" (:budget-id updated)))
       (edit-item {:item updated}))))
