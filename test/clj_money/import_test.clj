@@ -13,6 +13,7 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.budgets :as budgets]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash :as gnucash]))
@@ -92,3 +93,43 @@
         "The income statement is correct after import")
     (is (= expected-bal-sheet actual-bal-sheet)
         "The balance sheet is correct after import")))
+
+(def gnucash-budget-sample
+  (io/input-stream "resources/fixtures/budget_sample.gnucash"))
+
+(deftest import-a-budget
+  (let [context (serialization/realize storage-spec import-context)
+        user (-> context :users first)
+        result (import-data storage-spec
+                            user
+                            "Personal"
+                            gnucash-budget-sample
+                            :gnucash)
+        entity (first (entities/select storage-spec (:id user)))
+        [salary groceries] (->> (:id entity)
+                                (accounts/select-by-entity-id storage-spec)
+                                (sort #(compare (:name %2) (:name %1))))
+        actual (-> (->> (:id entity)
+                        (budgets/select-by-entity-id storage-spec)
+                        first)
+                   (dissoc :id :updated-at :created-at)
+                   (update-in [:items] (fn [items]
+                                         (map (fn [item]
+                                                (-> item
+                                                    (dissoc :budget-id :id :created-at :updated-at)
+                                                    (update-in [:periods] #(sort-by :index %))))
+                                              items))))
+        expected {:name "2017"
+                  :entity-id (:id entity)
+                  :period :month
+                  :period-count 12
+                  :start-date (t/local-date 2017 1 1)
+                  :end-date (t/local-date 2017 12 31)
+                  :items [{:account-id (:id salary)
+                           :periods (repeat 12 1000M)}
+                          {:account-id (:id groceries)
+                           :periods [200M 200M 250M
+                                     250M 275M 275M
+                                     200M 200M 250M
+                                     250M 275M 275M]}]}]
+    (is (= expected actual) "The budget exists after import with correct values")))

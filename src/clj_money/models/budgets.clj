@@ -37,10 +37,7 @@
 (s/def ::entity-id integer?)
 (s/def ::new-budget (s/keys :req-un [::name ::start-date ::period ::period-count ::entity-id]))
 (s/def ::existing-budget (s/keys :req-un [::id ::name ::start-date ::period ::period-count] :opt-un [::entity-id]))
-(s/def ::index integer?)
-(s/def ::amount decimal?)
-(s/def ::budget-item-period (s/keys :req-un [::index ::amount]))
-(s/def ::periods (s/coll-of ::budget-item-period :min-count 1))
+(s/def ::periods (s/coll-of decimal? :min-count 1))
 (s/def ::account-id integer?)
 (s/def ::budget-id integer?)
 (s/def ::new-budget-item (s/keys :req-un [::account-id ::periods ::budget-id]))
@@ -80,6 +77,11 @@
    (coercion/rule :local-date [:start-date])
    (coercion/rule :keyword [:period])
    (coercion/rule :integer [:period-count])])
+
+(def ^:private item-coercion-rules
+  [(coercion/rule :integer [:budget-id])
+   (coercion/rule :integer [:id])
+   (coercion/rule :integer [:account-id])])
 
 (defn- before-validation
   [_ budget]
@@ -163,6 +165,7 @@
   (update-fn {:spec ::existing-budget
               :before-validation before-validation
               :before-save before-save
+              :coercion-rules coercion-rules
               :update update-budget
               :find find-by-id}))
 
@@ -256,9 +259,9 @@
   "Updates the specified budget item"
   [storage-spec item]
   (with-storage [s storage-spec]
-    (let [budget (->> item
+    (let [item (coercion/coerce item-coercion-rules item)
+          budget (->> item
                       :id
-                      (Integer.)
                       (find-item-by-id s)
                       :budget-id
                       (find-by-id s))
@@ -292,9 +295,11 @@
     (tc/to-date-time date)))
 
 (defn period-containing
-  "Returns the budget period containing the specified date"
+  "Returns the budget period containing the specified date
+
+  This is a map containing :start-date, :end-date, :index, etc."
   [budget date]
-  (->> (period-seq budget)
+  (->> (map-indexed #(assoc %2 :index %1) (period-seq budget))
        (filter #(within-period? % (tc/to-date-time date)))
        first))
 

@@ -168,9 +168,7 @@
 (defn- summarize-periods
   [items]
   (if (seq items)
-    (let [period-matrix (map (fn [item]
-                               (map :amount (:periods item)))
-                             items)]
+    (let [period-matrix (map #(:periods %) items)]
       (reduce (fn [totals periods]
                 (->> (interleave totals periods)
                      (partition 2)
@@ -203,7 +201,7 @@
                              (map #(hash-map :caption (-> % :account :name)
                                              :style :data
                                              :id (:id %)
-                                             :data (map (fn [p] {:value (:amount p)})
+                                             :data (map (fn [p] {:value p})
                                                         (:periods %)))
                                   typed-items))))
         (update-in [:totals] #(assoc % account-type totals)))))
@@ -386,6 +384,7 @@
            (if (:periods item)
              (->> item
                   :periods
+                  (map-indexed #(hash-map :index %1 :amount %2))
                   (partition 3))
              (->> budget
                   :period-count
@@ -416,10 +415,7 @@
   (let [amount (bigdec (:average item))]
     (-> item
         (assoc :periods
-               (->> budget
-                    :period-count
-                    range
-                    (mapv #(hash-map :amount amount :index %))))
+               (repeat (:period-count budget) amount))
         (dissoc :average))))
 
 ;TODO remove dulication between the above and below functions
@@ -431,10 +427,7 @@
                     (:period-count budget)))]
     (-> item
         (assoc :periods
-               (->> budget
-                    :period-count
-                    range
-                    (mapv #(hash-map :amount amount :index %))))
+               (repeat (:period-count budget) amount))
         (dissoc :total))))
 
 (defmethod extract-periods :detail
@@ -444,8 +437,7 @@
                            (map #(format "period-%s" %))
                            (map keyword)
                            (map #(% item))
-                           (map bigdec)
-                           (map-indexed #(hash-map :index %1 :amount %2))))
+                           (map bigdec)))
       (select-keys [:id :budget-id :account-id :periods])))
 
 (defn create-item
@@ -458,9 +450,9 @@
                  (extract-periods budget)
                  (select-keys [:budget-id :account-id :periods]))
         saved (budgets/create-item (env :db) item)]
-    (if (validation/valid? saved)
+    (if (empty? (validation/error-messages saved))
       (redirect (format "/budgets/%s" (:budget-id saved)))
-      (new-item {:params saved}))))
+      (new-item {:params (assoc saved :method (:method params))}))))
 
 (defmulti prepare-item-for-edit
   (fn [item]
@@ -470,14 +462,14 @@
   [item]
   (-> item
       (assoc :average (with-precision 10
-                        (/ (reduce + (map :amount (:periods item)))
+                        (/ (reduce + (:periods item))
                            (count (:periods item)))))
       (dissoc :periods)))
 
 (defmethod prepare-item-for-edit :total
   [item]
   (-> item
-      (assoc :total (reduce + (map :amount (:periods item))))
+      (assoc :total (reduce + (:periods item)))
       (dissoc :periods)))
 
 (defmethod prepare-item-for-edit :detail
@@ -511,6 +503,9 @@
                                :account-id
                                :periods]))
         updated (budgets/update-item (env :db) item)]
-    (if (validation/valid? updated)
+
+    (pprint {:updated updated})
+
+    (if (empty? (validation/error-messages updated))
       (redirect (format "/budgets/%s" (:budget-id updated)))
-      (edit {:item updated}))))
+      (edit-item {:item updated}))))

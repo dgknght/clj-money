@@ -7,6 +7,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
@@ -14,7 +15,7 @@
   (fn [source-type _ _]
     source-type))
 
-(deftype Callback [account transaction])
+(deftype Callback [account budget transaction])
 
 (defn- import-account
   [context account]
@@ -37,6 +38,23 @@
                         (validation/error-messages result))
                       {:result result})))
     (update-in context [:accounts] #(assoc % original-id (:id result)))))
+
+(defn- import-budget
+  [{:keys [storage accounts] :as context} budget]
+  (let [result (budgets/create
+                 storage
+                 (-> budget
+                     (dissoc :items)
+                     (assoc :entity-id (-> context :entity :id))))]
+    (doseq [item (:items budget)]
+      (budgets/create-item storage
+                           (-> item
+                               (assoc :budget-id (:id result))
+                               (update-in [:periods] #(->> %
+                                                           (sort-by :index)
+                                                           (map :amount)))
+                               (update-in [:account-id] #(get accounts %))))))
+  context)
 
 (defn- resolve-account-references
   [context items]
@@ -72,6 +90,8 @@
                          :entity (entities/find-or-create s user entity-name)})
           callback (->Callback (fn [account]
                                  (swap! context #(import-account % account)))
+                               (fn [budget]
+                                 (swap! context #(import-budget % budget)))
                                (fn [transaction]
                                  (swap! context #(import-transaction % transaction))))]
       (read-source source-type input callback))))
