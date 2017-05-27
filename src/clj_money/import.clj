@@ -1,6 +1,7 @@
 (ns clj-money.import
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -37,6 +38,7 @@
                         "Unable to create the account "
                         (validation/error-messages result))
                       {:result result})))
+    (log/info (format "imported account \"%s\"" (:name result)))
     (update-in context [:accounts] #(assoc % original-id (:id result)))))
 
 (defn- import-budget
@@ -53,7 +55,8 @@
                                (update-in [:periods] #(->> %
                                                            (sort-by :index)
                                                            (map :amount)))
-                               (update-in [:account-id] #(get accounts %))))))
+                               (update-in [:account-id] #(get accounts %)))))
+    (log/info (format "imported budget \"%s\"" (:name result))))
   context)
 
 (defn- resolve-account-references
@@ -70,9 +73,15 @@
 
 (defn- import-transaction
   [context transaction]
-  (->> transaction
-       (prepare-transaction context)
-       (transactions/create (:storage context)))
+  (let [result (->> transaction
+                    (prepare-transaction context)
+                    (transactions/create (:storage context)))]
+    (log/info (format "imported transaction on %s at %s for %s"
+                      (:transaction-date result)
+                      (:description result)
+                      (reduce + (->> (:items result)
+                                     (filter #(= :debit (:action %)))
+                                     (map :amount))))))
   ; Update anything in the context?
   ; don't want to include all transactions,
   ; as that can be many
@@ -94,4 +103,5 @@
                                  (swap! context #(import-budget % budget)))
                                (fn [transaction]
                                  (swap! context #(import-transaction % transaction))))]
-      (read-source source-type input callback))))
+      (read-source source-type input callback)
+      (:entity @context))))

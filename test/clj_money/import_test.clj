@@ -31,12 +31,11 @@
 (deftest import-a-simple-file
   (let [context (serialization/realize storage-spec import-context)
         user (-> context :users first)
-        result (import-data storage-spec
+        entity (import-data storage-spec
                             user
                             "Personal"
                             gnucash-sample
                             :gnucash)
-        entity (-> storage-spec (entities/select (:id user)) first)
         expected-inc-stmt [{:caption "Income"
                             :value 2000M
                             :style :header}
@@ -89,6 +88,8 @@
         actual-bal-sheet (reports/balance-sheet storage-spec
                                                 (:id entity)
                                                 (t/local-date 9999 12 31))]
+    (is entity "It returns a value")
+    (is (= "Personal" (:name entity)) "It returns the new entity")
     (is (= expected-inc-stmt actual-inc-stmt)
         "The income statement is correct after import")
     (is (= expected-bal-sheet actual-bal-sheet)

@@ -9,6 +9,7 @@
             [ring.adapter.jetty :as jetty]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.util.response :refer [redirect]]
@@ -35,6 +36,8 @@
 
 (defroutes protected-routes
   ; Entities
+  (route GET "/entities/new-import" entities/new-import)
+  (route POST "/entities/import" entities/import-entity)
   (route GET "/entities" entities/index)
   (route GET "/entities/new" entities/new-entity)
   (route POST "/entities" entities/create-entity)
@@ -139,6 +142,7 @@
       (wrap-resource "public")
       (wrap-keyword-params)
       (wrap-params)
+      (wrap-multipart-params)
       (wrap-session)))
 
 (defn -main [& [port]]
