@@ -61,6 +61,14 @@
                                       :opt-un [::entity-id
                                                ::memo]))
 
+(def ambient-settings
+  (atom {}))
+
+(defn- delay-balances?
+  [entity-id]
+  true
+  (get-in @ambient-settings [entity-id :delay-balances?]))
+
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
@@ -378,6 +386,35 @@
   (with-storage [s storage-spec]
     (count-transactions-by-entity-id s entity-id)))
 
+(defn- create-transaction-without-balances
+  [storage {:keys [entity-id] :as transaction}]
+  (swap! ambient-settings
+         update-in
+         [entity-id :delayed-account-ids]
+         #(into % (map :account-id (:items transaction))))
+  (let [result (->> transaction
+                    before-save
+                    (create-transaction storage)
+                    after-read)]
+    (update-in result [:items] (map #(create-transaction-item storage %)))))
+
+(defn- create-transaction-and-adjust-balances
+  [storage transaction]
+  (let [items-with-balances (calculate-balances-and-indexes storage
+                                                                   (:transaction-date transaction)
+                                                                   (:items transaction))
+               _ (update-affected-balances storage items-with-balances (:transaction-date transaction))
+               result (->> (assoc transaction :items items-with-balances)
+                           before-save
+                           (create-transaction storage)
+                           after-read)
+               items (into [] (map #(->> (assoc % :transaction-id (:id result))
+                                         before-save-item
+                                         (create-transaction-item storage)
+                                         after-item-read)
+                                   items-with-balances))]
+           (assoc result :items items)))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
@@ -385,20 +422,9 @@
     (let [validated (validate storage ::new-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [items-with-balances (calculate-balances-and-indexes storage
-                                                                  (:transaction-date validated)
-                                                                  (:items validated))
-              _ (update-affected-balances storage items-with-balances (:transaction-date validated))
-              result (->> (assoc validated :items items-with-balances)
-                          before-save
-                          (create-transaction storage)
-                          after-read)
-              items (into [] (map #(->> (assoc % :transaction-id (:id result))
-                                        before-save-item
-                                        (create-transaction-item storage)
-                                        after-item-read)
-                                  items-with-balances))]
-          (assoc result :items items))))))
+        (if (delay-balances? (:entity-id transaction))
+          (create-transaction-without-balances storage validated)
+          (create-transaction-and-adjust-balances storage validated))))))
 
 (defn find-by-id
   "Returns the specified transaction"
@@ -598,3 +624,25 @@
     (->> criteria
          (select-transaction-items s)
          (map after-item-read))))
+
+(defmacro with-delayed-balancing
+  [entity-id & body]
+  `(do
+     ; Make a note that balances should not be calculated
+     ; for this entity
+     (swap! ambient-settings update-in
+                             [~entity-id]
+                             (fnil #(assoc % :delay-balances? true
+                                             :delayed-account-ids #{})
+                                   {}))
+     ~@body
+
+     (pprint {:after @ambient-settings
+              :account-ids (get-in @ambient-settings [~entity-id :delayed-account-ids]) })
+
+     ; Recalculate balances for affected accounts
+     #_(doseq [account-id (get-in @ambient-settings [~entity-id :delayed-account-ids])]
+       (recalculate-balances storage account-id))
+
+     ; clean up the ambient settings as if we were never here
+     #_(swap! ambient-settings assoc-in [~entity-id :delay-balances?] false)))
