@@ -73,10 +73,10 @@
   [item account]
   (assoc item :polarized-amount (accounts/polarize-amount item account)))
 
-(defn- prepare-item-for-return
+(defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return
   from the data store"
-  ([item] (prepare-item-for-return item nil))
+  ([item] (after-item-read item nil))
   ([item account]
    (if (map? item)
      (cond-> item
@@ -135,7 +135,7 @@
       (dissoc :items)
       (update-in [:transaction-date] tc/to-long)))
 
-(defn- prepare-for-return
+(defn- after-read
   "Returns a transaction that is ready for public use"
   [transaction]
   (when transaction
@@ -220,7 +220,7 @@
             (:account-id reference-item)
             (:index reference-item))
           (remove #(= (:id reference-item) (:id %)))
-          (map prepare-item-for-return))))
+          (map after-item-read))))
   ([storage-spec reference-item transaction-date]
    (with-storage [s storage-spec]
      (->> (select-transaction-items-by-account-id-on-or-after-date
@@ -228,7 +228,7 @@
             (:account-id reference-item)
             (tc/to-long transaction-date))
           (remove #(= (:id reference-item) (:id %)))
-          (map prepare-item-for-return)))))
+          (map after-item-read)))))
 
 (defn- upsert-item
   "Updates the specified transaction item"
@@ -342,7 +342,7 @@
            :items
            (->> (:id transaction)
                 (select-transaction-items-by-transaction-id storage)
-                (map prepare-item-for-return)))))
+                (map after-item-read)))))
 
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
@@ -362,14 +362,14 @@
      (with-storage [s storage-spec]
        (->>
          (select-transactions-by-entity-id s entity-id parsed-options)
-         (map prepare-for-return)
+         (map after-read)
          (map #(append-items s %)))))))
 
 (defn select-items-by-reconciliation-id
   "Returns the transaction items associated with the specified reconciliation"
   [storage-spec reconciliation-id]
   (with-storage [s storage-spec]
-    (map prepare-item-for-return
+    (map after-item-read
          (select-transaction-items-by-reconciliation-id s reconciliation-id))))
 
 (defn count-by-entity-id
@@ -392,11 +392,11 @@
               result (->> (assoc validated :items items-with-balances)
                           before-save
                           (create-transaction storage)
-                          prepare-for-return)
+                          after-read)
               items (into [] (map #(->> (assoc % :transaction-id (:id result))
                                         before-save-item
                                         (create-transaction-item storage)
-                                        prepare-item-for-return)
+                                        after-item-read)
                                   items-with-balances))]
           (assoc result :items items))))))
 
@@ -405,7 +405,7 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-transaction-by-id s id)
-         prepare-for-return
+         after-read
          (append-items s))))
 
 (defn find-by-item-id
@@ -421,7 +421,7 @@
   [storage-spec ids]
   (with-storage [s storage-spec]
     (->> (find-transaction-items-by-ids s ids)
-         (map prepare-item-for-return))))
+         (map after-item-read))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
@@ -430,7 +430,7 @@
   ([storage-spec account-id options]
    (with-storage [s storage-spec]
      (let [account (accounts/find-by-id storage-spec account-id)]
-       (map #(prepare-item-for-return % account)
+       (map #(after-item-read % account)
             (select-transaction-items-by-account-id s
                                                     account-id
                                                     options))))))
@@ -446,7 +446,7 @@
   [storage-spec account-id]
   (with-storage [s storage-spec]
     (let [account (accounts/find-by-id storage-spec account-id)]
-      (map #(prepare-item-for-return % account)
+      (map #(after-item-read % account)
            (select-transaction-items-by-account-id s
                                                    account-id
                                                    {:reconciled? false})))))
@@ -597,4 +597,4 @@
   (with-storage [s storage-spec]
     (->> criteria
          (select-transaction-items s)
-         (map prepare-item-for-return))))
+         (map after-item-read))))
