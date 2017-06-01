@@ -1080,7 +1080,7 @@
         [checking
          salary
          groceries] (:accounts context)]
-    (transactions/with-delayed-balancing (:id entity)
+    (transactions/with-delayed-balancing storage-spec (:id entity)
       (transactions/create storage-spec {:entity-id (:id entity)
                                          :transaction-date (t/local-date 2017 1 1)
                                          :description "Paycheck"

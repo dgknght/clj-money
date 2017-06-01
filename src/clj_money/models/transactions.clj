@@ -625,8 +625,18 @@
          (select-transaction-items s)
          (map after-item-read))))
 
+(defn recalculate-balances
+  "Recalculates balances for the specified account and all
+  related transaction items"
+  [storage-spec account-id]
+
+  (pprint {:recalculate-balances account-id})
+
+  (throw (ex-info "not implemented" {})))
+
+
 (defmacro with-delayed-balancing
-  [entity-id & body]
+  [storage-spec entity-id & body]
   `(do
      ; Make a note that balances should not be calculated
      ; for this entity
@@ -637,12 +647,9 @@
                                    {}))
      ~@body
 
-     (pprint {:after @ambient-settings
-              :account-ids (get-in @ambient-settings [~entity-id :delayed-account-ids]) })
-
      ; Recalculate balances for affected accounts
-     #_(doseq [account-id (get-in @ambient-settings [~entity-id :delayed-account-ids])]
-       (recalculate-balances storage account-id))
+     (doseq [account-id# (get-in @ambient-settings [~entity-id :delayed-account-ids])]
+       (recalculate-balances ~storage-spec account-id#))
 
      ; clean up the ambient settings as if we were never here
-     #_(swap! ambient-settings assoc-in [~entity-id :delay-balances?] false)))
+     (swap! ambient-settings dissoc ~entity-id)))
