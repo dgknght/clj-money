@@ -19,6 +19,7 @@
             [cemerick.friend.credentials :as creds]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
+            [clj-money.web.imports :as imports]
             [clj-money.web.accounts :as accounts]
             [clj-money.web.budgets :as budgets]
             [clj-money.web.commodities :as commodities]
@@ -36,7 +37,6 @@
 
 (defroutes protected-routes
   ; Entities
-  (route GET "/entities/new-import" entities/new-import)
   (route POST "/entities/import" entities/import-entity)
   (route GET "/entities" entities/index)
   (route GET "/entities/new" entities/new-entity)
@@ -116,6 +116,12 @@
   (route GET "/reconciliations/:id/edit" reconciliations/edit)
   (route POST "/reconciliations/:id" reconciliations/update)
   (route POST "/reconciliations/:id/delete" reconciliations/delete)
+
+  ; Imports
+
+  (route GET "/imports/new" imports/new-import)
+  (route POST "/api/imports" imports/create)
+  (route GET "/api/imports/:id" imports/show)
   
   ; Reports
   (route GET "/entities/:entity-id/reports" reports/render)
