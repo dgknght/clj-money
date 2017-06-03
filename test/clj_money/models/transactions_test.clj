@@ -1073,3 +1073,42 @@
                                             (t/local-date 2016 2 29))]
     (is (= 2001M january) "The January value is the balance for the last item in the period")
     (is (= 4203M february) "The February value is the balance for the last item in the period")))
+
+(deftest create-multiple-transactions-then-recalculate-balances
+  (let [context (serialization/realize storage-spec create-context)
+        entity (-> context :entities first)
+        [checking
+         salary
+         groceries] (:accounts context)]
+    (transactions/with-delayed-balancing storage-spec (:id entity)
+      (transactions/create storage-spec {:entity-id (:id entity)
+                                         :transaction-date (t/local-date 2017 1 1)
+                                         :description "Paycheck"
+                                         :items [{:action :debit
+                                                  :account-id (:id checking)
+                                                  :amount 1000M}
+                                                 {:action :credit
+                                                  :account-id (:id salary)
+                                                  :amount 1000M}]})
+      (transactions/create storage-spec {:entity-id (:id entity)
+                                         :transaction-date (t/local-date 2017 1 15)
+                                         :description "Market Street"
+                                         :items [{:action :debit
+                                                  :account-id (:id groceries)
+                                                  :amount 100M}
+                                                 {:action :credit
+                                                  :account-id (:id checking)
+                                                  :amount 100M}]})
+      (transactions/create storage-spec {:entity-id (:id entity)
+                                         :transaction-date (t/local-date 2017 2 1)
+                                         :description "Paycheck"
+                                         :items [{:action :debit
+                                                  :account-id (:id checking)
+                                                  :amount 1000M}
+                                                 {:action :credit
+                                                  :account-id (:id salary)
+                                                  :amount 1000M}]})
+      (is (= 0M (:balance (accounts/reload storage-spec checking)))
+          "The account balance is not recalculated before the form exits"))
+    (is (= 1900M (:balance (accounts/reload storage-spec checking)))
+        "The account balance is recalculated after the form exits")))

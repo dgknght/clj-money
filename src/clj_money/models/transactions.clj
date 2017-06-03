@@ -61,6 +61,14 @@
                                       :opt-un [::entity-id
                                                ::memo]))
 
+(def ambient-settings
+  (atom {}))
+
+(defn- delay-balances?
+  [entity-id]
+  true
+  (get-in @ambient-settings [entity-id :delay-balances?]))
+
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
@@ -73,10 +81,10 @@
   [item account]
   (assoc item :polarized-amount (accounts/polarize-amount item account)))
 
-(defn- prepare-item-for-return
+(defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return
   from the data store"
-  ([item] (prepare-item-for-return item nil))
+  ([item] (after-item-read item nil))
   ([item account]
    (if (map? item)
      (cond-> item
@@ -135,7 +143,7 @@
       (dissoc :items)
       (update-in [:transaction-date] tc/to-long)))
 
-(defn- prepare-for-return
+(defn- after-read
   "Returns a transaction that is ready for public use"
   [transaction]
   (when transaction
@@ -220,7 +228,7 @@
             (:account-id reference-item)
             (:index reference-item))
           (remove #(= (:id reference-item) (:id %)))
-          (map prepare-item-for-return))))
+          (map after-item-read))))
   ([storage-spec reference-item transaction-date]
    (with-storage [s storage-spec]
      (->> (select-transaction-items-by-account-id-on-or-after-date
@@ -228,7 +236,7 @@
             (:account-id reference-item)
             (tc/to-long transaction-date))
           (remove #(= (:id reference-item) (:id %)))
-          (map prepare-item-for-return)))))
+          (map after-item-read)))))
 
 (defn- upsert-item
   "Updates the specified transaction item"
@@ -342,7 +350,7 @@
            :items
            (->> (:id transaction)
                 (select-transaction-items-by-transaction-id storage)
-                (map prepare-item-for-return)))))
+                (map after-item-read)))))
 
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
@@ -362,14 +370,14 @@
      (with-storage [s storage-spec]
        (->>
          (select-transactions-by-entity-id s entity-id parsed-options)
-         (map prepare-for-return)
+         (map after-read)
          (map #(append-items s %)))))))
 
 (defn select-items-by-reconciliation-id
   "Returns the transaction items associated with the specified reconciliation"
   [storage-spec reconciliation-id]
   (with-storage [s storage-spec]
-    (map prepare-item-for-return
+    (map after-item-read
          (select-transaction-items-by-reconciliation-id s reconciliation-id))))
 
 (defn count-by-entity-id
@@ -378,34 +386,62 @@
   (with-storage [s storage-spec]
     (count-transactions-by-entity-id s entity-id)))
 
+(defn- create-transaction-without-balances
+  [storage {:keys [entity-id] :as transaction}]
+  (swap! ambient-settings
+         update-in
+         [entity-id :delayed-account-ids]
+         #(into % (map :account-id (:items transaction))))
+  (let [result (->> transaction
+                    before-save
+                    (create-transaction storage)
+                    after-read)]
+    (assoc result :items (mapv (fn [item]
+                                 (create-transaction-item
+                                   storage
+                                   (-> item
+                                       (assoc :transaction-id (:id result)
+                                              :balance 0M
+                                              :index 0)
+                                       before-save-item)))
+                               (:items transaction)))))
+
+(defn- create-transaction-and-adjust-balances
+  [storage transaction]
+  (let [items-with-balances (calculate-balances-and-indexes
+                              storage
+                              (:transaction-date transaction)
+                              (:items transaction))
+        _ (update-affected-balances storage items-with-balances
+                                    (:transaction-date transaction))
+        result (->> (assoc transaction :items items-with-balances)
+                    before-save
+                    (create-transaction storage)
+                    after-read)
+        items (into [] (map #(->> (assoc % :transaction-id (:id result))
+                                  before-save-item
+                                  (create-transaction-item storage)
+                                  after-item-read)
+                            items-with-balances))]
+    (assoc result :items items)))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (with-transacted-storage [storage storage-spec]
-    (let [validated (validate storage ::new-transaction transaction)]
+  (with-transacted-storage [s storage-spec]
+    (let [validated (validate s ::new-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [items-with-balances (calculate-balances-and-indexes storage
-                                                                  (:transaction-date validated)
-                                                                  (:items validated))
-              _ (update-affected-balances storage items-with-balances (:transaction-date validated))
-              result (->> (assoc validated :items items-with-balances)
-                          before-save
-                          (create-transaction storage)
-                          prepare-for-return)
-              items (into [] (map #(->> (assoc % :transaction-id (:id result))
-                                        before-save-item
-                                        (create-transaction-item storage)
-                                        prepare-item-for-return)
-                                  items-with-balances))]
-          (assoc result :items items))))))
+        (if (delay-balances? (:entity-id transaction))
+          (create-transaction-without-balances s validated)
+          (create-transaction-and-adjust-balances s validated))))))
 
 (defn find-by-id
   "Returns the specified transaction"
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-transaction-by-id s id)
-         prepare-for-return
+         after-read
          (append-items s))))
 
 (defn find-by-item-id
@@ -421,7 +457,7 @@
   [storage-spec ids]
   (with-storage [s storage-spec]
     (->> (find-transaction-items-by-ids s ids)
-         (map prepare-item-for-return))))
+         (map after-item-read))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
@@ -430,7 +466,7 @@
   ([storage-spec account-id options]
    (with-storage [s storage-spec]
      (let [account (accounts/find-by-id storage-spec account-id)]
-       (map #(prepare-item-for-return % account)
+       (map #(after-item-read % account)
             (select-transaction-items-by-account-id s
                                                     account-id
                                                     options))))))
@@ -446,7 +482,7 @@
   [storage-spec account-id]
   (with-storage [s storage-spec]
     (let [account (accounts/find-by-id storage-spec account-id)]
-      (map #(prepare-item-for-return % account)
+      (map #(after-item-read % account)
            (select-transaction-items-by-account-id s
                                                    account-id
                                                    {:reconciled? false})))))
@@ -597,4 +633,38 @@
   (with-storage [s storage-spec]
     (->> criteria
          (select-transaction-items s)
-         (map prepare-item-for-return))))
+         (map after-item-read))))
+
+(defn recalculate-balances
+  "Recalculates balances for the specified account and all
+  related transaction items"
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (let [result (->> {:account-id account-id}
+                      (search-items storage-spec)
+                      (reduce calculate-item-index-and-balance {:index 0
+                                                                :balance 0M
+                                                                :storage s}))]
+      (when-not (::skip-account-update result)
+        (accounts/update storage-spec (-> (accounts/find-by-id s account-id)
+                                          (assoc :balance (:balance result))))))))
+
+
+(defmacro with-delayed-balancing
+  [storage-spec entity-id & body]
+  `(do
+     ; Make a note that balances should not be calculated
+     ; for this entity
+     (swap! ambient-settings update-in
+                             [~entity-id]
+                             (fnil #(assoc % :delay-balances? true
+                                             :delayed-account-ids #{})
+                                   {}))
+     ~@body
+
+     ; Recalculate balances for affected accounts
+     (doseq [account-id# (get-in @ambient-settings [~entity-id :delayed-account-ids])]
+       (recalculate-balances ~storage-spec account-id#))
+
+     ; clean up the ambient settings as if we were never here
+     (swap! ambient-settings dissoc ~entity-id)))
