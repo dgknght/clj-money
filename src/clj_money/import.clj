@@ -10,6 +10,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
+            [clj-money.import.gnucash]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
 (defmulti read-source
@@ -103,5 +104,6 @@
                                  (swap! context #(import-budget % budget)))
                                (fn [transaction]
                                  (swap! context #(import-transaction % transaction))))]
-      (read-source source-type input callback)
+      (transactions/with-delayed-balancing s (-> @context :entity :id)
+        (read-source source-type input callback))
       (:entity @context))))
