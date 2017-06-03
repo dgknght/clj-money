@@ -1092,7 +1092,7 @@
                                                   :amount 1000M}]})
       (transactions/create storage-spec {:entity-id (:id entity)
                                          :transaction-date (t/local-date 2017 1 15)
-                                         :description "Paycheck"
+                                         :description "Market Street"
                                          :items [{:action :debit
                                                   :account-id (:id groceries)
                                                   :amount 100M}

@@ -396,35 +396,45 @@
                     before-save
                     (create-transaction storage)
                     after-read)]
-    (update-in result [:items] (map #(create-transaction-item storage %)))))
+    (assoc result :items (mapv (fn [item]
+                                 (create-transaction-item
+                                   storage
+                                   (-> item
+                                       (assoc :transaction-id (:id result)
+                                              :balance 0M
+                                              :index 0)
+                                       before-save-item)))
+                               (:items transaction)))))
 
 (defn- create-transaction-and-adjust-balances
   [storage transaction]
-  (let [items-with-balances (calculate-balances-and-indexes storage
-                                                                   (:transaction-date transaction)
-                                                                   (:items transaction))
-               _ (update-affected-balances storage items-with-balances (:transaction-date transaction))
-               result (->> (assoc transaction :items items-with-balances)
-                           before-save
-                           (create-transaction storage)
-                           after-read)
-               items (into [] (map #(->> (assoc % :transaction-id (:id result))
-                                         before-save-item
-                                         (create-transaction-item storage)
-                                         after-item-read)
-                                   items-with-balances))]
-           (assoc result :items items)))
+  (let [items-with-balances (calculate-balances-and-indexes
+                              storage
+                              (:transaction-date transaction)
+                              (:items transaction))
+        _ (update-affected-balances storage items-with-balances
+                                    (:transaction-date transaction))
+        result (->> (assoc transaction :items items-with-balances)
+                    before-save
+                    (create-transaction storage)
+                    after-read)
+        items (into [] (map #(->> (assoc % :transaction-id (:id result))
+                                  before-save-item
+                                  (create-transaction-item storage)
+                                  after-item-read)
+                            items-with-balances))]
+    (assoc result :items items)))
 
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
-  (with-transacted-storage [storage storage-spec]
-    (let [validated (validate storage ::new-transaction transaction)]
+  (with-transacted-storage [s storage-spec]
+    (let [validated (validate s ::new-transaction transaction)]
       (if (validation/has-error? validated)
         validated
         (if (delay-balances? (:entity-id transaction))
-          (create-transaction-without-balances storage validated)
-          (create-transaction-and-adjust-balances storage validated))))))
+          (create-transaction-without-balances s validated)
+          (create-transaction-and-adjust-balances s validated))))))
 
 (defn find-by-id
   "Returns the specified transaction"
@@ -629,10 +639,15 @@
   "Recalculates balances for the specified account and all
   related transaction items"
   [storage-spec account-id]
-
-  (pprint {:recalculate-balances account-id})
-
-  (throw (ex-info "not implemented" {})))
+  (with-storage [s storage-spec]
+    (let [result (->> {:account-id account-id}
+                      (search-items storage-spec)
+                      (reduce calculate-item-index-and-balance {:index 0
+                                                                :balance 0M
+                                                                :storage s}))]
+      (when-not (::skip-account-update result)
+        (accounts/update storage-spec (-> (accounts/find-by-id s account-id)
+                                          (assoc :balance (:balance result))))))))
 
 
 (defmacro with-delayed-balancing
