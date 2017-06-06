@@ -10,7 +10,6 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
-            [clj-money.import.gnucash]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
 (defmulti read-source

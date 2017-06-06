@@ -5,3 +5,7 @@
             [ring.util.response :refer :all]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]))
+
+(defn new-import
+  [req]
+  "new-import")

@@ -16,6 +16,7 @@
                  [compojure "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [ring/ring-codec "1.0.1"]
+                 [ring/ring-json "0.4.0"]
                  [hiccup "1.0.5"]
                  [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]

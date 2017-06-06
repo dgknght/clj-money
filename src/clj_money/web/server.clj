@@ -11,6 +11,7 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+            [ring.middleware.json :refer [wrap-json-params]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
@@ -20,6 +21,7 @@
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.imports :as imports]
+            [clj-money.api.imports :as imports-api]
             [clj-money.web.accounts :as accounts]
             [clj-money.web.budgets :as budgets]
             [clj-money.web.commodities :as commodities]
@@ -120,20 +122,26 @@
   ; Imports
 
   (route GET "/imports/new" imports/new-import)
-  (route POST "/api/imports" imports/create)
-  (route GET "/api/imports/:id" imports/show)
   
   ; Reports
   (route GET "/entities/:entity-id/reports" reports/render)
   (route GET "/entities/:entity-id/reports/:type" reports/render))
 
-(defroutes routes
+(defroutes api-routes ;TODO Finish setting up these routes
+  (route POST "/api/imports" imports-api/create)
+  (route GET "/api/imports/:id" imports-api/show))
+
+(defroutes open-routes
   (route GET "/" pages/home)
   (route GET "/login" pages/login)
   (route GET "/signup" users/new-user)
-  (route POST "/users" users/create-user)
+  (route POST "/users" users/create-user))
+
+(defroutes routes
+  open-routes
   (friend/logout (POST "/logout" [] (redirect "/")))
   (friend/wrap-authorize protected-routes #{:user})
+  (friend/wrap-authorize api-routes #{:user})
   (ANY "*" req
        (do
          (log/debug "unable to match route for " req)
@@ -149,6 +157,7 @@
       (wrap-keyword-params)
       (wrap-params)
       (wrap-multipart-params)
+      (wrap-json-params)
       (wrap-session)))
 
 (defn -main [& [port]]
