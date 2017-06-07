@@ -11,7 +11,9 @@
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [ring.middleware.json :refer [wrap-json-params]]
+            [ring.middleware.json :refer [wrap-json-body
+                                          wrap-json-params
+                                          wrap-json-response]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
@@ -39,7 +41,6 @@
 
 (defroutes protected-routes
   ; Entities
-  (route POST "/entities/import" entities/import-entity)
   (route GET "/entities" entities/index)
   (route GET "/entities/new" entities/new-entity)
   (route POST "/entities" entities/create-entity)
@@ -120,7 +121,6 @@
   (route POST "/reconciliations/:id/delete" reconciliations/delete)
 
   ; Imports
-
   (route GET "/imports/new" imports/new-import)
   
   ; Reports

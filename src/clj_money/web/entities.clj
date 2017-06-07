@@ -8,7 +8,6 @@
             [hiccup.page :refer :all]
             [cemerick.friend :as friend]
             [clj-money.validation :as validation]
-            [clj-money.import :as imp]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
@@ -62,7 +61,7 @@
       (entity-table)
       [:a.btn.btn-primary {:href "/entities/new"} "Add"]
       "&nbsp;"
-      [:a.btn.btn-default {:href "/entities/new-import"} "Import"]]]))
+      [:a.btn.btn-default {:href "/imports/new"} "Import"]]]))
 
 (defn new-entity
   "Renders a form for adding a new entity"
@@ -170,37 +169,3 @@
     (if (validation/valid? result)
       (redirect (format "/entities/%s/accounts" entity-id))
       (monitors entity-id {:new-monitor result}))))
-
-(defn new-import
-  [req]
-  (with-layout "Import entity" {}
-     [:div.row
-      [:div.col-md-6
-       [:form {:action "/entities/import"
-               :method :post
-               :enctype "multipart/form-data"}
-        [:div.form-group
-         [:label.control-label {:for "entity-name"} "Name"]
-         [:input.form-control {:type :text
-                               :name "entity-name"
-                               :id "entity-name"
-                               :autofocus true}]]
-        [:div.form-group
-         [:label.control-label {:for "source-file"} "Source file"]
-         [:input.form-control {:type :file
-                               :name "source-file"
-                               :id "source-file"}]]
-        [:input.btn.btn-primary
-         {:type :submit
-          :value "Import"
-          :title "Click here to upload the specified file and import the data into a new entity."}]]]]))
-
-(defn import-entity
-  [{params :params}]
-  (let [user (friend/current-authentication)
-        entity (imp/import-data (env :db)
-                                user
-                                (:entity-name params)
-                                (-> params :source-file :tempfile io/input-stream)
-                                :gnucash)]
-    (redirect (format "/entities/%s" (:id entity)))))
