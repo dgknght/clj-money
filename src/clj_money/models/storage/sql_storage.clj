@@ -822,6 +822,12 @@
                        (h/from :budget_items)
                        (h/where [:= :budget_id budget-id]))))
 
+  (create-import
+    [_ import]
+    (insert db-spec :imports import :name
+                                    :source-file
+                                    :user-id))
+
   ; Database Transaction
   (with-transaction
     [_ func]

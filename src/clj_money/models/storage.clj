@@ -306,6 +306,10 @@
     [this budget-id]
     "Returns the budget items for the specified budget")
 
+  (create-import
+    [this import]
+    "Creates a new import record")
+
   ; Data integrity transactions
   (with-transaction
     [this func]
