@@ -154,10 +154,11 @@
          :credential-fn (partial clj-money.models.users/authenticate (env :db))
          :redirect-on-auth? false})
       (wrap-resource "public")
-      (wrap-keyword-params)
       (wrap-params)
       (wrap-multipart-params)
       (wrap-json-params)
+      (wrap-keyword-params)
+      (wrap-json-response)
       (wrap-session)))
 
 (defn -main [& [port]]
