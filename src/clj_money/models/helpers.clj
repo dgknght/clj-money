@@ -68,10 +68,12 @@
                               (fn [_ m] (identity m)))
         coercion-rules (or (:coercion-rules options)
                            [])]
-    (->> model
-         (coercion/coerce coercion-rules)
-         (before-validation s)
-         (validation/validate (:spec options) rules))))
+    (if (seq rules)
+      (->> model
+           (coercion/coerce coercion-rules)
+           (before-validation s)
+           (validation/validate (:spec options) rules))
+      (assoc model :clj-money.validation/valid? true :clj-money.validation/errors []))))
 
 (defn- process-options
   [options storage model & fn-keys]
