@@ -22,7 +22,7 @@
 (defn attributes
   [context]
   {:user-id (-> context :users first :id)
-   :name "Personal"
+   :entity-name "Personal"
    :source-file (io/input-stream "resources/fixtures/sample.gnucash")})
 
 (deftest create-an-import
