@@ -823,11 +823,25 @@
                        (h/from :budget_items)
                        (h/where [:= :budget_id budget-id]))))
 
+  ; Imports
+
   (create-import
     [_ import]
     (insert db-spec :imports import :entity-name
                                     :content
                                     :user-id))
+
+  (find-import-by-id
+    [_ id]
+    (->clojure-keys (jdbc/get-by-id db-spec :imports id)))
+
+  (update-import
+    [_ import]
+    (let [sql (sql/format (-> (h/update :imports)
+                              (h/sset (->update-set import
+                                                    :record-counts))
+                              (h/where [:= :id (:id import)])))]
+      (jdbc/execute! db-spec sql)))
 
   ; Database Transaction
   (with-transaction

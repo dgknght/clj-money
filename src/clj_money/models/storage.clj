@@ -306,9 +306,18 @@
     [this budget-id]
     "Returns the budget items for the specified budget")
 
+  ; Imports
   (create-import
     [this import]
     "Creates a new import record")
+
+  (find-import-by-id
+    [this id]
+    "Returns the import having the specified id")
+
+  (update-import
+    [this import]
+    "Updates an existing import record")
 
   ; Data integrity transactions
   (with-transaction

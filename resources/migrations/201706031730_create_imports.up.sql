@@ -7,7 +7,7 @@ create table imports (
   user_id int not null,
   entity_name varchar(100) not null,
   content bytea not null,
-  record_counts jsonb,
+  record_counts text,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );

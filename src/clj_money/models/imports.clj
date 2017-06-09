@@ -3,15 +3,19 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
             [clojure.java.io :as io]
+            [cheshire.core :as json]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-import]])
+            [clj-money.models.storage :refer [create-import
+                                              update-import
+                                              find-import-by-id]])
   (:import java.io.ByteArrayOutputStream))
 
 (s/def ::import (s/keys :req-un []))
+(s/def ::existing-import (s/keys :req-un []))
 
 (defn- before-save
   [storage import]
@@ -25,3 +29,22 @@
   (create-fn {:create create-import
               :spec ::import
               :before-save before-save}))
+
+(defn- before-update
+  [_ import]
+  (update-in import [:record-counts] json/generate-string))
+
+(defn- after-read
+  [_ import]
+  (update-in import [:record-counts] #(json/parse-string % true)))
+
+(defn find-by-id
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (after-read s (find-import-by-id s id))))
+
+(def update
+  (update-fn {:update update-import
+              :find find-by-id
+              :before-save before-update
+              :spec ::existing-import}))
