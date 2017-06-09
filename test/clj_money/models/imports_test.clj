@@ -31,13 +31,25 @@
     (is (:id result) "It assigns an ID to the result")))
 
 (deftest user-id-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec import-context)
+        result (imports/create storage-spec
+                               (dissoc (attributes context) :user-id))]
+    (is (not (empty? (validation/error-messages result :user-id)))
+        "There is a validation error on :user-id")))
 
 (deftest source-file-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec import-context)
+        result (imports/create storage-spec
+                               (dissoc (attributes context) :source-file))]
+    (is (not (empty? (validation/error-messages result :source-file)))
+        "There is a validation error on :source-file")))
 
 (deftest entity-name-is-required
-  (is false "need to write the test"))
+  (let [context (serialization/realize storage-spec import-context)
+        result (imports/create storage-spec
+                               (dissoc (attributes context) :entity-name))]
+    (is (not (empty? (validation/error-messages result :entity-name)))
+        "There is a validation error on :entity-name")))
 
 (deftest update-an-import
   (let [context (serialization/realize storage-spec import-context)

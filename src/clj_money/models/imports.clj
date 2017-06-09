@@ -12,9 +12,13 @@
             [clj-money.models.storage :refer [create-import
                                               update-import
                                               find-import-by-id]])
-  (:import java.io.ByteArrayOutputStream))
+  (:import [java.io ByteArrayOutputStream
+                    InputStream]))
 
-(s/def ::import (s/keys :req-un []))
+(s/def ::entity-name string?)
+(s/def ::source-file #(instance? InputStream %))
+(s/def ::user-id integer?)
+(s/def ::new-import (s/keys :req-un [::user-id ::source-file ::entity-name]))
 (s/def ::existing-import (s/keys :req-un []))
 
 (defn- before-save
@@ -27,7 +31,7 @@
 
 (def create
   (create-fn {:create create-import
-              :spec ::import
+              :spec ::new-import
               :before-save before-save}))
 
 (defn- before-update
