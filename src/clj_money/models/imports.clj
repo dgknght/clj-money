@@ -11,6 +11,8 @@
             [clj-money.models.storage :refer [create-import]])
   (:import java.io.ByteArrayOutputStream))
 
+(s/def ::import (s/keys :req-un []))
+
 (defn- before-save
   [storage import]
   (-> import
@@ -21,4 +23,5 @@
 
 (def create
   (create-fn {:create create-import
+              :spec ::import
               :before-save before-save}))
