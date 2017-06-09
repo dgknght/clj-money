@@ -824,8 +824,8 @@
 
   (create-import
     [_ import]
-    (insert db-spec :imports import :name
-                                    :source-file
+    (insert db-spec :imports import :entity-name
+                                    :content
                                     :user-id))
 
   ; Database Transaction
