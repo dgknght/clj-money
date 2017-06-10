@@ -306,6 +306,11 @@
     [this budget-id]
     "Returns the budget items for the specified budget")
 
+  ; Images
+  (create-image
+    [this image]
+    "Creates a new image record")
+
   ; Imports
   (create-import
     [this import]

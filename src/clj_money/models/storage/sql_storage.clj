@@ -823,6 +823,15 @@
                        (h/from :budget_items)
                        (h/where [:= :budget_id budget-id]))))
 
+  ; Images
+
+  (create-image
+    [_ image]
+    (insert db-spec :images image :user-id
+                                  :original-filename
+                                  :body-hash
+                                  :body))
+
   ; Imports
 
   (create-import
