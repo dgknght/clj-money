@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
+            [clojure.string :as string]
             [ring.util.response :refer [response]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
@@ -22,8 +23,18 @@
                                               :image-id (:id image)})]
         (if (empty? (validation/error-messages import))
           (response {:import import})
-          (response {:errors (validation/error-messages import)})))
-      (response {:errors (validation/error-messages image)}))))
+          (response {:error (format "Unable to save the import record. %s"
+                                    (->> import
+                                         validation/error-messages
+                                         vals
+                                         (mapcat identity)
+                                         (string/join ", ")))})))
+      (response {:error (format "Unable to save the source file. %s"
+                                (->> image
+                                     validation/error-messages
+                                     vals
+                                     (mapcat identity)
+                                     (string/join ", ")))}))))
 
 (defn show
   [req]

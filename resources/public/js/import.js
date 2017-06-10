@@ -30,7 +30,7 @@
     .controller('ImportController', ['$scope', 'apiClient', function($scope, apiClient) {
       $scope.startImport = function() {
           apiClient.createImport({
-            name: $scope.entityName,
+            "entity-name": $scope.entityName,
             "source-file": $scope.sourceFile
           }).then(function(response) {
           console.log("response");
