@@ -28,7 +28,7 @@
         [:div.form-group
          [:label.control-label {:for "source-file"} "Source file"]
          [:input.form-control {:type :file
-                               :ng-model "sourceFile"
+                               :file-model "sourceFile"
                                :name "source-file"
                                :id "source-file"}]]]
        [:button.btn.btn-primary
