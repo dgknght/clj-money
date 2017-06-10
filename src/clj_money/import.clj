@@ -16,7 +16,7 @@
   (fn [source-type _ _]
     source-type))
 
-(deftype Callback [account budget transaction])
+(deftype Callback [declaration account budget transaction])
 
 (defn- import-account
   [context account]
@@ -95,9 +95,12 @@
   [storage-spec user entity-name input source-type]
   (with-transacted-storage [s storage-spec]
     (let [context (atom {:storage s
+                         :declarations {}
                          :accounts {}
                          :entity (entities/find-or-create s user entity-name)})
-          callback (->Callback (fn [account]
+          callback (->Callback (fn [{:keys [record-type record-count]}]
+                                 (swap! context #(assoc % record-type record-count)))
+                               (fn [account]
                                  (swap! context #(import-account % account)))
                                (fn [budget]
                                  (swap! context #(import-budget % budget)))

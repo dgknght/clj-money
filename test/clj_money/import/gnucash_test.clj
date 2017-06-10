@@ -164,13 +164,21 @@
 (deftest read-gnucash-source
   (let [accounts-found (atom [])
         transactions-found (atom [])
-        budgets-found (atom [])]
-    (read-source :gnucash input (->Callback (fn [a]
+        budgets-found (atom [])
+        declarations (atom {})]
+    (read-source :gnucash input (->Callback (fn [{:keys [record-type record-count]}]
+                                              (swap! declarations #(assoc % record-type record-count)))
+                                            (fn [a]
                                               (swap! accounts-found #(conj % a)))
                                             (fn [b]
                                               (swap! budgets-found #(conj % b)))
                                             (fn [t]
                                               (swap! transactions-found #(conj % t)))))
+    (is (= {:account 9
+            :transaction 6
+            :commodity 1
+            :budget 1} @declarations)
+        "The proper declarations are surfaced")
     (is (= accounts @accounts-found) "The correct accounts are found")
     (is (= budgets @budgets-found) "The current budgets are found")
     (is (= transactions @transactions-found) "The correct transactions are found")))

@@ -17,13 +17,15 @@
 (use-fixtures :each (partial reset-db storage-spec))
 
 (def import-context
-  {:users [(factory :user)]})
+  {:users [(factory :user)]
+   :images [{:original-filename "somefile.gnucash"
+             :body "resources/fixtures/sample.gnucash"}]})
 
 (defn attributes
   [context]
   {:user-id (-> context :users first :id)
    :entity-name "Personal"
-   :source-file (io/input-stream "resources/fixtures/sample.gnucash")})
+   :image-id (-> context :images first :id)})
 
 (deftest create-an-import
   (let [context (serialization/realize storage-spec import-context)

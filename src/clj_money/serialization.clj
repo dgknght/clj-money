@@ -1,6 +1,7 @@
 (ns clj-money.serialization
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.util :refer [pprint-and-return]]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.models.helpers :refer [with-transacted-storage]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
@@ -12,7 +13,8 @@
             [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.reconciliations :as reconciliations]))
+            [clj-money.models.reconciliations :as reconciliations]
+            [clj-money.models.images :as images]))
 
 (defn- throw-on-invalid
   [model]
@@ -278,12 +280,31 @@
   [storage context]
   (update-in context [:reconciliations] #(create-reconciliations storage context %)))
 
+(defn- read-file
+  [image]
+  (update-in image [:body] #(read-bytes %)))
+
+(defn- create-images
+  [storage context images]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-user context)
+               read-file
+               (images/create storage)
+               throw-on-invalid))
+        images))
+
+(defn- realize-images
+  [storage context]
+  (update-in context [:images] #(create-images storage context %)))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
   (with-transacted-storage [s storage-spec]
   (->> input
       (realize-users s)
+      (realize-images s)
       (realize-entities s)
       (realize-accounts s)
       (realize-commodities s)

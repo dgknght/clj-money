@@ -31,7 +31,8 @@
    "split"      "http://www.gnucash.org/XML/split"
    "bgt"        "http://www.gnucash.org/XML/bgt"
    "recurrence" "http://www.gnucash.org/XML/recurrence"
-   "slot"       "http://www.gnucash.org/XML/slot"})
+   "slot"       "http://www.gnucash.org/XML/slot"
+   "cd"         "http://www.gnucash.org/XML/cd"})
 
 (defmulti process-node
   (fn [_ node]
@@ -131,6 +132,12 @@
       (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
       ((.budget callback))))
 
+(defmethod process-node :gnc:count-data
+  [callback node]
+  (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
+                     :record-count (Integer. (:text node))}]
+    ((.declaration callback) declaration)))
+
 (def ^:private transaction-item-attributes
   [{:attribute :account-id
     :xpath "split:account"}
@@ -180,5 +187,5 @@
                    io/reader
                    slurp
                    xml->doc)]
-      (doseq [node ($x "/gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction | /gnc-v2/gnc:book/gnc:budget" xml)]
+      (doseq [node ($x "/gnc-v2/gnc:book/gnc:count-data | /gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction | /gnc-v2/gnc:book/gnc:budget" xml)]
         (process-node callback node)))))
