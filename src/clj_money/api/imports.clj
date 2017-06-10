@@ -5,8 +5,11 @@
             [ring.util.response :refer [response]]))
 
 (defn create
-  [req]
-  (throw (ex-info "not implemented" {})))
+  [{params :params}]
+
+  (pprint {:params params})
+
+  (response params))
 
 (defn show
   [req]

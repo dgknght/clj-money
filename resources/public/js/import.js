@@ -9,7 +9,7 @@
     }])
     .controller('ImportController', ['$scope', 'apiClient', function($scope, apiClient) {
       $scope.startImport = function() {
-          apiClient.createImport({name: "Test"}).then(function(response) {
+          apiClient.createImport({name: $scope.entityName}).then(function(response) {
           console.log("response");
           console.log(response);
         });
