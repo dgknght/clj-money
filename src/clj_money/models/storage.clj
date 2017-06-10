@@ -316,6 +316,10 @@
     [this import]
     "Creates a new import record")
 
+  (select-images
+    [this criteria]
+    "Selects images matching the specified criteria")
+
   (find-import-by-id
     [this id]
     "Returns the import having the specified id")

@@ -6,7 +6,7 @@ create table images (
   id int primary key not null default nextval('imports_id_seq'),
   user_id int not null,
   original_filename varchar(255) not null,
-  body_hash char(40),
+  body_hash char(40) not null,
   body bytea not null,
   created_at timestamp with time zone not null default now()
 );

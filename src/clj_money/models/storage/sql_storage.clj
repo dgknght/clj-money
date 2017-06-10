@@ -13,6 +13,7 @@
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
+(s/def ::user-id integer?)
 (s/def ::entity-id integer?)
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
@@ -27,6 +28,7 @@
   (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
+(s/def ::image-criteria (s/keys :req-un [::user-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -831,6 +833,18 @@
                                   :original-filename
                                   :body-hash
                                   :body))
+
+  (select-images
+    [_ criteria]
+    (when-not (s/valid? ::image-criteria criteria)
+      (let [explanation (s/explain-data ::image-criteria criteria)]
+        (throw (ex-info
+                 (str "The criteria is not valid: " explanation)
+                 {:criteria criteria
+                  :explanation explanation}))))
+    (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
+                       (h/from :images)
+                       (h/where (map->where criteria)))))
 
   ; Imports
 

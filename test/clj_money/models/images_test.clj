@@ -34,8 +34,33 @@
     (is (:id result)
         "The result has an :id value")))
 
-; user-id is required
-; original_filename is required
-; body_hash is required
-; body_hash is unique for user_id
-; body is required
+(deftest user-id-is-required
+  (let [context (serialization/realize storage-spec image-context)
+        result (images/create storage-spec (dissoc (attributes context) :user-id))]
+    (is (not (empty? (validation/error-messages result :user-id)))
+        "The result has a validation error on :user-id")))
+
+(deftest original-filename-is-required
+  (let [context (serialization/realize storage-spec image-context)
+        result (images/create storage-spec (dissoc (attributes context) :original-filename))]
+    (is (not (empty? (validation/error-messages result :original-filename)))
+        "The result has a validation error on :original-filename")))
+
+(deftest body-hash-is-required
+  (let [context (serialization/realize storage-spec image-context)
+        result (images/create storage-spec (dissoc (attributes context) :body-hash))]
+    (is (not (empty? (validation/error-messages result :body-hash)))
+        "The result has a validation error on :body-hash")))
+
+(deftest body-hash-is-unique-for-each-user
+  (let [context (serialization/realize storage-spec image-context)
+        image-1 (images/create storage-spec (attributes context))
+        image-2 (images/create storage-spec (attributes context))]
+    (is (not (empty? (validation/error-messages image-2 :body-hash)))
+        "The result has a validation error on :body-hash")))
+
+(deftest body-is-required
+  (let [context (serialization/realize storage-spec image-context)
+        result (images/create storage-spec (dissoc (attributes context) :body))]
+    (is (not (empty? (validation/error-messages result :body)))
+        "The result has a validation error on :body")))
