@@ -851,8 +851,8 @@
   (create-import
     [_ import]
     (insert db-spec :imports import :entity-name
-                                    :content
-                                    :user-id))
+                                    :user-id
+                                    :image-id))
 
   (find-import-by-id
     [_ id]

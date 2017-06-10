@@ -16,23 +16,14 @@
                     InputStream]))
 
 (s/def ::entity-name string?)
-(s/def ::source-file #(instance? InputStream %))
+(s/def ::image-id integer?)
 (s/def ::user-id integer?)
-(s/def ::new-import (s/keys :req-un [::user-id ::source-file ::entity-name]))
+(s/def ::new-import (s/keys :req-un [::user-id ::entity-name ::image-id]))
 (s/def ::existing-import (s/keys :req-un []))
-
-(defn- before-save
-  [storage import]
-  (-> import
-      (assoc :content (with-open [out (ByteArrayOutputStream.)]
-                        (io/copy (:source-file import) out)
-                        (.toByteArray out)))
-      (dissoc :source-file)))
 
 (def create
   (create-fn {:create create-import
-              :spec ::new-import
-              :before-save before-save}))
+              :spec ::new-import}))
 
 (defn- before-update
   [_ import]

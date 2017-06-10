@@ -30,6 +30,9 @@
 (deftest create-an-import
   (let [context (serialization/realize storage-spec import-context)
         result (imports/create storage-spec (attributes context))]
+
+    (is (empty? (validation/error-messages result))
+        "The result has no validation errors")
     (is (:id result) "It assigns an ID to the result")))
 
 (deftest user-id-is-required
@@ -39,12 +42,12 @@
     (is (not (empty? (validation/error-messages result :user-id)))
         "There is a validation error on :user-id")))
 
-(deftest source-file-is-required
+(deftest image-id-is-required
   (let [context (serialization/realize storage-spec import-context)
         result (imports/create storage-spec
-                               (dissoc (attributes context) :source-file))]
-    (is (not (empty? (validation/error-messages result :source-file)))
-        "There is a validation error on :source-file")))
+                               (dissoc (attributes context) :image-id))]
+    (is (not (empty? (validation/error-messages result :image-id)))
+        "There is a validation error on :image-id")))
 
 (deftest entity-name-is-required
   (let [context (serialization/realize storage-spec import-context)
