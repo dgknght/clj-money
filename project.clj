@@ -22,6 +22,7 @@
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.6.3"]
                  [clj-factory "0.2.1"]
+                 [digest "1.4.5"]
                  [faker "0.2.2"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0"]

@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
+            [digest :refer [sha-1]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -31,7 +32,12 @@
                            [:body-hash]
                            "The image content must be unique")])
 
+(defn- before-validation
+  [storage image]
+  (assoc image :body-hash (sha-1 (:body image))))
+
 (def create
   (create-fn {:create create-image
               :spec ::image
+              :before-validation before-validation
               :rules-fn validation-rules}))
