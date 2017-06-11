@@ -13,7 +13,7 @@
     [:script {:src "/js/angular.min.js"}]
     [:script {:src "/js/import.js"}]
     [:div {:ng-app "clj-money-import" :ng-controller "ImportController"}
-     [:div.row
+     [:div.row {:ng-hide "activeImport"}
       [:div.col-md-6
        [:form {:action "/entities/import"
                :method :post
@@ -35,4 +35,18 @@
         {:title "Click here to upload the specified file and import the data into a new entity."
          :ng-click "startImport();"
          }
-        "Import"]]]]))
+        "Import"]]]
+     [:div.row {:ng-hide "activeImport == null"}
+      [:div.col-md-6
+       [:h2
+        "Importing&nbsp;"
+        [:em "{{ activeImport['entity-name'] }}"] ]
+       [:table.table.table-striped
+        [:tr
+         [:th "Record Type"]
+         [:th "Total"]
+         [:th "Imported"] ]
+        [:tr {:ng-repeat "entry in activeImport['record-counts']"}
+         [:td "{{ entry['record-type'] }}"]
+         [:td "{{ entry['record-count'] }}"]
+         [:td "{{ entry['imported-count'] }}"]]]]]]))

@@ -28,13 +28,16 @@
       };
     }])
     .controller('ImportController', ['$scope', 'apiClient', function($scope, apiClient) {
+      $scope.activeImport = null;
       $scope.startImport = function() {
-          apiClient.createImport({
-            "entity-name": $scope.entityName,
-            "source-file": $scope.sourceFile
-          }).then(function(response) {
-          console.log("response");
-          console.log(response);
+        apiClient.createImport({
+          "entity-name": $scope.entityName,
+          "source-file": $scope.sourceFile
+        }).then(function(response) {
+          $scope.activeImport = response.data.import;
+
+          console.log("activeImport");
+          console.log($scope.activeImport);
         });
       };
     }])
