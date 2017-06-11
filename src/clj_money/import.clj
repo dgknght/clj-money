@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
+            [clojure.java.io :as io]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -10,6 +11,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.images :as images]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
 (defmulti read-source
@@ -87,17 +89,28 @@
   ; as that can be many
   context)
 
+(defn- prepare-input
+  "Returns the input data and source type based
+  on the specified image"
+  [storage image-id]
+  (let [image (images/find-by-id storage image-id)
+        extension (re-find #"(?<=\.).*$" (:original-filename image))]
+    [(io/input-stream (byte-array (:body image))) (keyword extension)]))
+
 (defn import-data
   "Reads the contents from the specified input and saves
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  [storage-spec user entity-name input source-type]
+  [storage-spec impt]
   (with-transacted-storage [s storage-spec]
-    (let [context (atom {:storage s
+    (let [user (users/find-by-id s (:user-id impt))
+          context (atom {:storage s
                          :declarations {}
                          :accounts {}
-                         :entity (entities/find-or-create s user entity-name)})
+                         :entity (entities/find-or-create s
+                                                          user
+                                                          (:entity-name impt))})
           callback (->Callback (fn [{:keys [record-type record-count]}]
                                  (swap! context #(assoc % record-type record-count)))
                                (fn [account]
@@ -105,7 +118,8 @@
                                (fn [budget]
                                  (swap! context #(import-budget % budget)))
                                (fn [transaction]
-                                 (swap! context #(import-transaction % transaction))))]
+                                 (swap! context #(import-transaction % transaction))))
+          [input source-type] (prepare-input s (:image-id impt))]
       (transactions/with-delayed-balancing s (-> @context :entity :id)
         (read-source source-type input callback))
       (:entity @context))))

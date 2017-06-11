@@ -13,6 +13,9 @@
   (find-user-by-email
     [this email]
     "Returns the user having the specified email")
+  (find-user-by-id
+    [this id]
+    "Returns the user having the specified id")
 
   ; Entities
   (create-entity
@@ -310,6 +313,10 @@
   (create-image
     [this image]
     "Creates a new image record")
+
+  (find-image-by-id
+    [this id]
+    "Returns the specified image record")
 
   ; Imports
   (create-import

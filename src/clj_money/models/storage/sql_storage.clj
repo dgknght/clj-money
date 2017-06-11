@@ -168,6 +168,10 @@
          (query db-spec)
          first))
 
+  (find-user-by-id
+    [this id]
+    (->clojure-keys (jdbc/get-by-id db-spec :users id)))
+
   ; Entities
   (create-entity
     [_ entity]
@@ -833,6 +837,10 @@
                                   :original-filename
                                   :body-hash
                                   :body))
+
+  (find-image-by-id
+    [this id]
+    (->clojure-keys (jdbc/get-by-id db-spec :images id)))
 
   (select-images
     [_ criteria]
