@@ -112,8 +112,13 @@
 (def gnucash-budget-sample
   (io/input-stream "resources/fixtures/budget_sample.gnucash"))
 
+(def import-budget-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :images [{:body (read-bytes gnucash-budget-sample)
+             :original-filename "budget_sample.gnucash"}]})
+
 (deftest import-a-budget
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (serialization/realize storage-spec import-budget-context)
         user (-> context :users first)
         image (-> context :images first)
         result (import-data storage-spec
