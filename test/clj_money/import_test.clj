@@ -96,18 +96,36 @@
         actual-bal-sheet (reports/balance-sheet storage-spec
                                                 (:id entity)
                                                 (t/local-date 9999 12 31))
-        expected-updates [{:acounts {:total 9
-                                     :processed 1}}]]
+        expected-updates (concat [{:commodity {:total 1}}
+                                  {:commodity {:total 1}
+                                   :account {:total 9}}
+                                  {:commodity {:total 1}
+                                   :account {:total 9}
+                                   :transaction {:total 6}}]
+                                 (map (fn [i] {:commodity {:total 1}
+                                               :account {:total 9
+                                                         :imported (+ 1 i)}
+                                               :transaction {:total 6}})
+                                      (range 9))
+                                 (map (fn [i] {:commodity {:total 1}
+                                               :account {:total 9
+                                                         :imported 9}
+                                               :transaction {:total 6
+                                                             :imported (+ 1 i)}})
+                                      (range 6)))]
     (is entity "It returns a value")
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (is (= expected-inc-stmt actual-inc-stmt)
         "The income statement is correct after import")
     (is (= expected-bal-sheet actual-bal-sheet)
         "The balance sheet is correct after import")
-    (is (= expected-updates @updates)
-        "The import record is updated at each insert")
 
-    (pprint {:updates @updates})))
+    (pprint {:expected expected-updates
+             :actual @updates
+             :diff (diff expected-updates @updates)})
+
+    (is (= expected-updates @updates)
+        "The import record is updated at each insert")))
 
 (def gnucash-budget-sample
   (io/input-stream "resources/fixtures/budget_sample.gnucash"))

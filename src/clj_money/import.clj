@@ -103,6 +103,13 @@
   (imports/update storage (assoc import :progress progress))
   context)
 
+(defn- inc-and-update-progress
+  [context storage record-type impt]
+  (-> context
+      (update-in [:progress record-type :imported]
+                 (fnil inc 0))
+      (update-import storage impt)))
+
 (defn import-data
   "Reads the contents from the specified input and saves
   the information using the specified storage. If an entity
@@ -126,7 +133,9 @@
                                                        record-count)
                                                      (update-import s impt))))
                                (fn [account]
-                                 (swap! context #(import-account % account)))
+                                 (swap! context #(-> %
+                                                     (import-account account)
+                                                     (inc-and-update-progress s :account impt))))
                                (fn [budget]
                                  (swap! context #(import-budget % budget)))
                                (fn [transaction]
