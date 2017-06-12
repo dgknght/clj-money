@@ -39,7 +39,7 @@
         updates (atom [])
         entity (with-redefs [imports/update (fn [s imp]
                                               (swap! updates
-                                                     #(conj % (:record-counts imp))))]
+                                                     #(conj % (:progress imp))))]
                  (import-data storage-spec
                               {:user-id (:id user)
                                :entity-name "Personal"

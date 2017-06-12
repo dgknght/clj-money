@@ -870,7 +870,7 @@
     [_ import]
     (let [sql (sql/format (-> (h/update :imports)
                               (h/sset (->update-set import
-                                                    :record-counts))
+                                                    :progress))
                               (h/where [:= :id (:id import)])))]
       (jdbc/execute! db-spec sql)))
 

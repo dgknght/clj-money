@@ -59,7 +59,7 @@
 (deftest update-an-import
   (let [context (serialization/realize storage-spec import-context)
         import (imports/create storage-spec (attributes context))
-        updated (assoc import :record-counts {:accounts {:total 20
+        updated (assoc import :progress {:accounts {:total 20
                                                          :processed 0}})
         result (try
                  (imports/update storage-spec updated)
@@ -68,5 +68,5 @@
         retrieved (imports/find-by-id storage-spec (:id import))]
     (is (= {:accounts {:total 20
                        :processed 0}}
-           (:record-counts retrieved))
+           (:progress retrieved))
         "The correct value is retrieved after update")))

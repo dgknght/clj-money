@@ -27,11 +27,11 @@
 
 (defn- before-update
   [_ import]
-  (update-in import [:record-counts] json/generate-string))
+  (update-in import [:progress] json/generate-string))
 
 (defn- after-read
   [_ import]
-  (update-in import [:record-counts] #(json/parse-string % true)))
+  (update-in import [:progress] #(json/parse-string % true)))
 
 (defn find-by-id
   [storage-spec id]
@@ -43,11 +43,3 @@
               :find find-by-id
               :before-save before-update
               :spec ::existing-import}))
-
-(defn update-progress
-  [storage-spec import-id progress]
-
-  (throw (RuntimeException. "Not implemented"))
-
-  #_(with-storage [s storage-spec]
-    (update-import-progress s import-id progress)))

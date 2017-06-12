@@ -99,8 +99,9 @@
     [(io/input-stream (byte-array (:body image))) (keyword extension)]))
 
 (defn- update-import
-  [{progress :progress} storage import-id]
-  (imports/update-progress storage import-id progress))
+  [{progress :progress :as context} storage import]
+  (imports/update storage (assoc import :progress progress))
+  context)
 
 (defn import-data
   "Reads the contents from the specified input and saves
@@ -123,7 +124,7 @@
                                                         record-type
                                                         :total]
                                                        record-count)
-                                                     (update-import s (:id impt)))))
+                                                     (update-import s impt))))
                                (fn [account]
                                  (swap! context #(import-account % account)))
                                (fn [budget]

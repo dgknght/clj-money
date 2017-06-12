@@ -46,7 +46,7 @@
          [:th "Record Type"]
          [:th "Total"]
          [:th "Imported"] ]
-        [:tr {:ng-repeat "entry in activeImport['record-counts']"}
+        [:tr {:ng-repeat "entry in activeImport['progress']"}
          [:td "{{ entry['record-type'] }}"]
          [:td "{{ entry['record-count'] }}"]
          [:td "{{ entry['imported-count'] }}"]]]]]]))
