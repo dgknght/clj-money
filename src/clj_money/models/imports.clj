@@ -43,3 +43,11 @@
               :find find-by-id
               :before-save before-update
               :spec ::existing-import}))
+
+(defn update-progress
+  [storage-spec import-id progress]
+
+  (throw (RuntimeException. "Not implemented"))
+
+  #_(with-storage [s storage-spec]
+    (update-import-progress s import-id progress)))

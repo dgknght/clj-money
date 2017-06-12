@@ -12,6 +12,7 @@
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.images :as images]
+            [clj-money.models.imports :as imports]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
 (defmulti read-source
@@ -97,6 +98,10 @@
         extension (re-find #"(?<=\.).*$" (:original-filename image))]
     [(io/input-stream (byte-array (:body image))) (keyword extension)]))
 
+(defn- update-import
+  [{progress :progress} storage import-id]
+  (imports/update-progress storage import-id progress))
+
 (defn import-data
   "Reads the contents from the specified input and saves
   the information using the specified storage. If an entity
@@ -106,13 +111,19 @@
   (with-transacted-storage [s storage-spec]
     (let [user (users/find-by-id s (:user-id impt))
           context (atom {:storage s
-                         :declarations {}
+                         :progress {}
                          :accounts {}
                          :entity (entities/find-or-create s
                                                           user
                                                           (:entity-name impt))})
           callback (->Callback (fn [{:keys [record-type record-count]}]
-                                 (swap! context #(assoc % record-type record-count)))
+                                 (swap! context #(-> %
+                                                     (assoc-in
+                                                       [:progress
+                                                        record-type
+                                                        :total]
+                                                       record-count)
+                                                     (update-import s (:id impt)))))
                                (fn [account]
                                  (swap! context #(import-account % account)))
                                (fn [budget]
