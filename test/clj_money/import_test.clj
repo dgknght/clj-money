@@ -106,10 +106,10 @@
                                                :account {:total 9
                                                          :imported (+ 1 i)}
                                                :transaction {:total 6}})
-                                      (range 9))
+                                      (range 4))
                                  (map (fn [i] {:commodity {:total 1}
                                                :account {:total 9
-                                                         :imported 9}
+                                                         :imported 4}
                                                :transaction {:total 6
                                                              :imported (+ 1 i)}})
                                       (range 6)))]
@@ -119,11 +119,6 @@
         "The income statement is correct after import")
     (is (= expected-bal-sheet actual-bal-sheet)
         "The balance sheet is correct after import")
-
-    (pprint {:expected expected-updates
-             :actual @updates
-             :diff (diff expected-updates @updates)})
-
     (is (= expected-updates @updates)
         "The import record is updated at each insert")))
 

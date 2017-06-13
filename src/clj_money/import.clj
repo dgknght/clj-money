@@ -19,8 +19,6 @@
   (fn [source-type _ _]
     source-type))
 
-(deftype Callback [declaration account budget transaction])
-
 (defn- import-account
   [context account]
   (let [original-id (:id account)
@@ -99,16 +97,48 @@
     [(io/input-stream (byte-array (:body image))) (keyword extension)]))
 
 (defn- update-import
-  [{progress :progress :as context} storage import]
+  [{:keys [storage progress import] :as context}]
   (imports/update storage (assoc import :progress progress))
   context)
 
 (defn- inc-and-update-progress
-  [context storage record-type impt]
+  [context record-type]
   (-> context
       (update-in [:progress record-type :imported]
                  (fnil inc 0))
-      (update-import storage impt)))
+      update-import))
+
+(defmulti process-record
+  (fn [_ _ record-type]
+    record-type))
+
+(defmethod process-record :declaration
+  [context {:keys [record-type record-count]} _]
+  (-> context
+      (assoc-in [:progress record-type :total] record-count)
+      update-import))
+
+(defmethod process-record :account
+  [context account _]
+  (-> context
+      (import-account account)
+      (inc-and-update-progress :account)))
+
+(defmethod process-record :transaction
+  [context transaction _]
+  (-> context
+      (import-transaction transaction)
+      (inc-and-update-progress :transaction)))
+
+(defmethod process-record :budget
+  [context budget _]
+  (-> context
+      (import-budget budget)
+      (inc-and-update-progress :budget)))
+
+(defn process-callback
+  [context record record-type]
+  (swap! context #(process-record % record record-type)))
 
 (defn import-data
   "Reads the contents from the specified input and saves
@@ -118,29 +148,14 @@
   [storage-spec impt]
   (with-transacted-storage [s storage-spec]
     (let [user (users/find-by-id s (:user-id impt))
-          context (atom {:storage s
-                         :progress {}
-                         :accounts {}
-                         :entity (entities/find-or-create s
-                                                          user
-                                                          (:entity-name impt))})
-          callback (->Callback (fn [{:keys [record-type record-count]}]
-                                 (swap! context #(-> %
-                                                     (assoc-in
-                                                       [:progress
-                                                        record-type
-                                                        :total]
-                                                       record-count)
-                                                     (update-import s impt))))
-                               (fn [account]
-                                 (swap! context #(-> %
-                                                     (import-account account)
-                                                     (inc-and-update-progress s :account impt))))
-                               (fn [budget]
-                                 (swap! context #(import-budget % budget)))
-                               (fn [transaction]
-                                 (swap! context #(import-transaction % transaction))))
+          context  (atom {:storage s
+                          :import impt
+                          :progress {}
+                          :accounts {}
+                          :entity (entities/find-or-create s
+                                                           user
+                                                           (:entity-name impt))})
           [input source-type] (prepare-input s (:image-id impt))]
       (transactions/with-delayed-balancing s (-> @context :entity :id)
-        (read-source source-type input callback))
+        (read-source source-type input (partial process-callback context)))
       (:entity @context))))

@@ -81,7 +81,7 @@
   [callback node]
   (let [account (node->model node account-attributes)]
     (when (include-account? account)
-      ((.account callback) account))))
+      (callback account :account))))
 
 (def ^:private budget-attributes
   [{:attribute :id
@@ -130,13 +130,13 @@
   (-> node
       (node->model budget-attributes)
       (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
-      ((.budget callback))))
+      (callback :budget)))
 
 (defmethod process-node :gnc:count-data
   [callback node]
   (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
                      :record-count (Integer. (:text node))}]
-    ((.declaration callback) declaration)))
+    (callback declaration :declaration)))
 
 (def ^:private transaction-item-attributes
   [{:attribute :account-id
@@ -178,7 +178,7 @@
 
 (defmethod process-node :gnc:transaction
   [callback node]
-  ((.transaction callback) (node->transaction node)))
+  (callback (node->transaction node) :transaction))
 
 (defmethod read-source :gnucash
   [_ input callback]

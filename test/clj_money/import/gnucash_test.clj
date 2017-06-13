@@ -12,11 +12,21 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.entities :as entities]
             [clj-money.reports :as reports]
-            [clj-money.import :refer [read-source ->Callback]]
+            [clj-money.import :refer [read-source]]
             [clj-money.import.gnucash :as gnucash]))
 
 (def ^:private input
   (io/input-stream "resources/fixtures/budget_sample.gnucash"))
+
+(def ^:private declarations
+  [{:record-type :commodity
+    :record-count 1}
+   {:record-type :account
+    :record-count 9}
+   {:record-type :transaction
+    :record-count 6}
+   {:record-type :budget
+    :record-count 1}])
 
 (def ^:private accounts
   [{:name "Checking"
@@ -162,23 +172,15 @@
                          :amount 275M}}}]}])
 
 (deftest read-gnucash-source
-  (let [accounts-found (atom [])
-        transactions-found (atom [])
-        budgets-found (atom [])
-        declarations (atom {})]
-    (read-source :gnucash input (->Callback (fn [{:keys [record-type record-count]}]
-                                              (swap! declarations #(assoc % record-type record-count)))
-                                            (fn [a]
-                                              (swap! accounts-found #(conj % a)))
-                                            (fn [b]
-                                              (swap! budgets-found #(conj % b)))
-                                            (fn [t]
-                                              (swap! transactions-found #(conj % t)))))
-    (is (= {:account 9
-            :transaction 6
-            :commodity 1
-            :budget 1} @declarations)
-        "The proper declarations are surfaced")
-    (is (= accounts @accounts-found) "The correct accounts are found")
-    (is (= budgets @budgets-found) "The current budgets are found")
-    (is (= transactions @transactions-found) "The correct transactions are found")))
+  (let [found (atom {})]
+    (read-source :gnucash
+                 input
+                 (fn [record record-type]
+                   (swap! found (fn [f]
+                                  (update-in f
+                                             [record-type]
+                                             #((fnil conj []) % record))))))
+    (is (= declarations (:declaration @found)) "The correct declarations are found")
+    (is (= accounts (:account @found)) "The correct accounts are found")
+    (is (= budgets (:budget @found)) "The current budgets are found")
+    (is (= transactions (:transaction @found)) "The correct transactions are found")))
