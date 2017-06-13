@@ -136,7 +136,10 @@
   [callback node]
   (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
                      :record-count (Integer. (:text node))}]
-    (callback declaration :declaration)))
+    (callback (cond-> declaration
+                (= :account (:record-type declaration))
+                (update-in [:record-count] #(- % 5)))
+              :declaration)))
 
 (def ^:private transaction-item-attributes
   [{:attribute :account-id

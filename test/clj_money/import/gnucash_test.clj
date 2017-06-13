@@ -22,7 +22,7 @@
   [{:record-type :commodity
     :record-count 1}
    {:record-type :account
-    :record-count 9}
+    :record-count 4}
    {:record-type :transaction
     :record-count 6}
    {:record-type :budget
