@@ -82,7 +82,12 @@
   (let [account (node->model node account-attributes)]
     (if (include-account? account)
       (callback account :account)
-      (log/debug "ignore account" account))))
+      ; when ignoring an account, make the callback
+      ; so that the progress is updated (total count
+      ; of imported accounts should match the declared
+      ; count), but pass nil so that nothing is
+      ; imported
+      (callback nil :account))))
 
 (def ^:private budget-attributes
   [{:attribute :id
@@ -137,10 +142,7 @@
   [callback node]
   (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
                      :record-count (Integer. (:text node))}]
-    (callback (cond-> declaration
-                (= :account (:record-type declaration))
-                (update-in [:record-count] #(- % 5)))
-              :declaration)))
+    (callback declaration :declaration)))
 
 (def ^:private transaction-item-attributes
   [{:attribute :account-id

@@ -98,18 +98,18 @@
                                                 (t/local-date 9999 12 31))
         expected-updates (concat [{:commodity {:total 1}}
                                   {:commodity {:total 1}
-                                   :account {:total 4}}
+                                   :account {:total 9}}
                                   {:commodity {:total 1}
-                                   :account {:total 4}
+                                   :account {:total 9}
                                    :transaction {:total 6}}]
                                  (map (fn [i] {:commodity {:total 1}
-                                               :account {:total 4
+                                               :account {:total 9
                                                          :imported (+ 1 i)}
                                                :transaction {:total 6}})
-                                      (range 4))
+                                      (range 9))
                                  (map (fn [i] {:commodity {:total 1}
-                                               :account {:total 4
-                                                         :imported 4}
+                                               :account {:total 9
+                                                         :imported 9}
                                                :transaction {:total 6
                                                              :imported (+ 1 i)}})
                                       (range 6)))]

@@ -137,8 +137,18 @@
       (inc-and-update-progress :budget)))
 
 (defn process-callback
+  "Top-level callback processing
+
+  This function calls the multimethod process-record
+  to dispatch to the correct import logic for the
+  record-type.
+
+  If the record is nil, processing is skipped but
+  the progress is updated."
   [context record record-type]
-  (swap! context #(process-record % record record-type)))
+  (swap! context #(if record
+                    (process-record % record record-type)
+                    (inc-and-update-progress % record-type))))
 
 (defn import-data
   "Reads the contents from the specified input and saves
