@@ -65,13 +65,13 @@
     :xpath "act:name"}
    {:attribute :type
     :xpath "act:type"
-    :transform-fn #((get account-types-map % :equity))}
+    :transform-fn #(get account-types-map % :equity)}
    {:attribute :id
     :xpath "act:id"}
    {:attribute :parent-id
     :xpath "act:parent"}])
 
-(def ^:private ignored-accounts #{"Assets" "Liabilities" "Equity" "Income" "Expenses"})
+(def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
 (defn- include-account?
   [account]
