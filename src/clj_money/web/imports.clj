@@ -13,6 +13,11 @@
     [:script {:src "/js/angular.min.js"}]
     [:script {:src "/js/import.js"}]
     [:div {:ng-app "clj-money-import" :ng-controller "ImportController"}
+     [:div.row {:ng-hide "alerts.length == 0"}
+      [:div.alert.alert-danger
+       {:ng-repeat "alert in alerts"
+        :role "alert"}
+       "{{ alert.message }}"]]
      [:div.row {:ng-hide "activeImport"}
       [:div.col-md-6
        [:form {:action "/entities/import"
@@ -46,7 +51,7 @@
          [:th "Record Type"]
          [:th "Total"]
          [:th "Imported"] ]
-        [:tr {:ng-repeat "entry in activeImport['progress']"}
-         [:td "{{ entry['record-type'] }}"]
-         [:td "{{ entry['record-count'] }}"]
-         [:td "{{ entry['imported-count'] }}"]]]]]]))
+        [:tr {:ng-repeat "recordType in activeImport['progress']"}
+         [:td "{{ recordType }}"]
+         [:td "{{ activeImport.progress[recordType].total }}"]
+         [:td "{{ activeImport.progress[recordType].imported }}"]]]]]]))

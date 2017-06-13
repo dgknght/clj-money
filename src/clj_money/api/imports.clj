@@ -3,12 +3,14 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
+            [clojure.core.async :refer [go]]
             [ring.util.response :refer [response]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
             [clj-money.models.images :as images]
+            [clj-money.import :refer [import-data]]
             [clj-money.models.imports :as imports]))
 
 (defn create
@@ -22,7 +24,9 @@
                                               :entity-name (:entity-name params)
                                               :image-id (:id image)})]
         (if (empty? (validation/error-messages import))
-          (response {:import import})
+          (do
+            (go (import-data (env :db) import))
+            (response {:import import}))
           (response {:error (format "Unable to save the import record. %s"
                                     (->> import
                                          validation/error-messages

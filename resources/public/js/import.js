@@ -9,6 +9,9 @@
           return $http.post("/api/imports", data, {
             headers: {"Content-Type": undefined}
           });
+        },
+        getImport: function(importId) {
+          return $http.get("/api/imports/" + importId);
         }
       };
     }])
@@ -29,15 +32,31 @@
     }])
     .controller('ImportController', ['$scope', 'apiClient', function($scope, apiClient) {
       $scope.activeImport = null;
+      $scope.alerts = [];
+
+      var trackImportProgress = function() {
+        var trackingId = window.setInterval(function() {
+          apiClient.getImport($scope.activeImport.id).then(function(response) {
+            $scope.activeImport = response.data.import;
+            if (importIsComplete($scope.activeImport)) {
+              window.clearInterval(trackingId);
+            }
+          }, function(error) {
+            console.log("Unable to get the updated import");
+            console.log(error);
+            $scope.alerts.push({message: error.statusText});
+            window.clearInterval(trackingId);
+          });
+        }, 1000);
+      };
+
       $scope.startImport = function() {
         apiClient.createImport({
           "entity-name": $scope.entityName,
           "source-file": $scope.sourceFile
         }).then(function(response) {
           $scope.activeImport = response.data.import;
-
-          console.log("activeImport");
-          console.log($scope.activeImport);
+          trackImportProgress();
         });
       };
     }])
