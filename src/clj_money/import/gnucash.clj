@@ -3,6 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
             [clj-money.util :refer [pprint-and-return]]
@@ -64,7 +65,7 @@
     :xpath "act:name"}
    {:attribute :type
     :xpath "act:type"
-    :transform-fn account-types-map}
+    :transform-fn #((get account-types-map % :equity))}
    {:attribute :id
     :xpath "act:id"}
    {:attribute :parent-id
@@ -74,14 +75,14 @@
 
 (defn- include-account?
   [account]
-  (and (:type account)
-       (not (ignored-accounts (:name account)))))
+  (not (ignored-accounts (:name account))))
 
 (defmethod process-node :gnc:account
   [callback node]
   (let [account (node->model node account-attributes)]
-    (when (include-account? account)
-      (callback account :account))))
+    (if (include-account? account)
+      (callback account :account)
+      (log/debug "ignore account" account))))
 
 (def ^:private budget-attributes
   [{:attribute :id
