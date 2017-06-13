@@ -33,18 +33,15 @@
     .controller('ImportController', ['$scope', 'apiClient', function($scope, apiClient) {
       $scope.activeImport = null;
       $scope.alerts = [];
+      $scope.statusMessage = null;
 
       var importIsComplete = function(imp) {
-        try {
-          progress = imp.progress;
-          if (_.isEmpty(progress))
-            return false;
-          return _.every(progress, function(prop) {
-            return progress[prop].total == progress[prop].imported;
-          });
-        } catch (e) {
-          return true;
-        }
+        progress = _.pick(imp.progress, 'account', 'transaction', 'budget');
+        if (_.isEmpty(progress))
+          return false;
+        return _.every(progress, function(prop) {
+          return prop.total == prop.imported;
+        });
       };
 
       var trackImportProgress = function() {
@@ -52,11 +49,13 @@
           apiClient.getImport($scope.activeImport.id).then(function(response) {
             $scope.activeImport = response.data;
             if (importIsComplete($scope.activeImport)) {
+              $scope.statusMessage = "Import complete."
               window.clearInterval(trackingId);
             }
           }, function(error) {
             console.log("Unable to get the updated import");
             console.log(error);
+            $scope.statusMessage = "Import failed."
             $scope.alerts.push({message: error.statusText});
             window.clearInterval(trackingId);
           });
@@ -64,13 +63,12 @@
       };
 
       $scope.startImport = function() {
-        // TODO Change the form immediately on submit, then
-        // again when createImport finishes
-        // again when getImport returns
+        $scope.statusMessage = "Uploading the file...";
         apiClient.createImport({
           "entity-name": $scope.entityName,
           "source-file": $scope.sourceFile
         }).then(function(response) {
+          $scope.statusMessage = "Processing the file...";
           $scope.activeImport = response.data.import;
           trackImportProgress();
         });

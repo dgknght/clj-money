@@ -11,13 +11,17 @@
   [req]
   (with-layout "Import entity" {}
     [:script {:src "/js/angular.min.js"}]
+    [:script {:src "/js/underscore-min.js"}]
     [:script {:src "/js/import.js"}]
     [:div {:ng-app "clj-money-import" :ng-controller "ImportController"}
-     [:div.row {:ng-hide "alerts.length == 0"}
-      [:div.alert.alert-danger
-       {:ng-repeat "alert in alerts"
-        :role "alert"}
-       "{{ alert.message }}"]]
+     [:div.row {:ng-hide "alerts.length == 0 && statusMessage == null"}
+      [:div.col-md-12
+       [:div.alert.alert-danger
+        {:ng-repeat "alert in alerts"
+         :role "alert"}
+        "{{ alert.message }}"]
+       [:div.status-message {:ng-hide "statusMessage == null"}
+        "{{ statusMessage }}"]]]
      [:div.row {:ng-hide "activeImport"}
       [:div.col-md-6
        [:form {:action "/entities/import"
