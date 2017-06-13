@@ -34,10 +34,23 @@
       $scope.activeImport = null;
       $scope.alerts = [];
 
+      var importIsComplete = function(imp) {
+        try {
+          progress = imp.progress;
+          if (_.isEmpty(progress))
+            return false;
+          return _.every(progress, function(prop) {
+            return progress[prop].total == progress[prop].imported;
+          });
+        } catch (e) {
+          return true;
+        }
+      };
+
       var trackImportProgress = function() {
         var trackingId = window.setInterval(function() {
           apiClient.getImport($scope.activeImport.id).then(function(response) {
-            $scope.activeImport = response.data.import;
+            $scope.activeImport = response.data;
             if (importIsComplete($scope.activeImport)) {
               window.clearInterval(trackingId);
             }
@@ -51,6 +64,9 @@
       };
 
       $scope.startImport = function() {
+        // TODO Change the form immediately on submit, then
+        // again when createImport finishes
+        // again when getImport returns
         apiClient.createImport({
           "entity-name": $scope.entityName,
           "source-file": $scope.sourceFile

@@ -11,6 +11,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.images :as images]
             [clj-money.import :refer [import-data]]
+            [clj-money.import.gnucash]
             [clj-money.models.imports :as imports]))
 
 (defn create
@@ -41,5 +42,7 @@
                                      (string/join ", ")))}))))
 
 (defn show
-  [req]
-  (throw (ex-info "not implemented" {})))
+  [{{id :id} :params}]
+  (->> (Integer. id)
+       (imports/find-by-id (env :db))
+       response))
