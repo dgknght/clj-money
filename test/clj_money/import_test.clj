@@ -40,10 +40,7 @@
         image (-> context :images first)
         imp (-> context :imports first)
         updates (atom [])
-        entity (with-redefs [imports/update (fn [s imp]
-                                              (swap! updates
-                                                     #(conj % (:progress imp))))]
-                 (import-data storage-spec imp))
+        entity (import-data storage-spec imp (fn [p] (swap! updates #(conj % p))))
         expected-inc-stmt [{:caption "Income"
                             :value 2000M
                             :style :header}
@@ -137,7 +134,7 @@
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
-        result (import-data storage-spec imp)
+        result (import-data storage-spec imp (fn [progress]))
         entity (first (entities/select storage-spec (:id user)))
         [salary groceries] (->> (:id entity)
                                 (accounts/select-by-entity-id storage-spec)

@@ -96,9 +96,9 @@
         extension (re-find #"(?<=\.).*$" (:original-filename image))]
     [(io/input-stream (byte-array (:body image))) (keyword extension)]))
 
-(defn- update-import
-  [{:keys [storage progress import] :as context}]
-  (imports/update storage (assoc import :progress progress))
+(defn- update-progress
+  [{:keys [callback progress] :as context}]
+  (callback progress)
   context)
 
 (defn- inc-and-update-progress
@@ -106,7 +106,7 @@
   (-> context
       (update-in [:progress record-type :imported]
                  (fnil inc 0))
-      update-import))
+      update-progress))
 
 (defmulti process-record
   (fn [_ _ record-type]
@@ -116,7 +116,7 @@
   [context {:keys [record-type record-count]} _]
   (-> context
       (assoc-in [:progress record-type :total] record-count)
-      update-import))
+      update-progress))
 
 (defmethod process-record :account
   [context account _]
@@ -155,11 +155,12 @@
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  [storage-spec impt]
+  [storage-spec impt progress-callback]
   (with-transacted-storage [s storage-spec]
     (let [user (users/find-by-id s (:user-id impt))
           context  (atom {:storage s
                           :import impt
+                          :callback progress-callback
                           :progress {}
                           :accounts {}
                           :entity (entities/find-or-create s
