@@ -14,7 +14,8 @@
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]
-            [clj-money.models.images :as images]))
+            [clj-money.models.images :as images]
+            [clj-money.models.imports :as imports]))
 
 (defn- throw-on-invalid
   [model]
@@ -298,6 +299,30 @@
   [storage context]
   (update-in context [:images] #(create-images storage context %)))
 
+(defn- find-image
+  [context original-filename]
+  (->> (:images context)
+       (filter #(= original-filename (:original-filename %)))
+       first))
+
+(defn- resolve-image
+  [context model]
+  (update-in model [:image-id] #(:id (find-image context %))))
+
+(defn- create-imports
+  [storage context imports]
+  (mapv (fn [attributes]
+          (->> attributes
+               (resolve-user context)
+               (resolve-image context)
+               (imports/create storage)
+               throw-on-invalid))
+        imports))
+
+(defn- realize-imports
+  [storage context]
+  (update-in context [:imports] #(create-imports storage context %)))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
@@ -305,6 +330,7 @@
   (->> input
       (realize-users s)
       (realize-images s)
+      (realize-imports s)
       (realize-entities s)
       (realize-accounts s)
       (realize-commodities s)

@@ -30,20 +30,20 @@
 (def import-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :images [{:body (read-bytes gnucash-sample)
-             :original-filename "sample.gnucash"}]})
+             :original-filename "sample.gnucash"}]
+   :imports [{:entity-name "Personal"
+              :image-id "sample.gnucash"}]})
 
 (deftest import-a-simple-file
   (let [context (serialization/realize storage-spec import-context)
         user (-> context :users first)
         image (-> context :images first)
+        imp (-> context :imports first)
         updates (atom [])
         entity (with-redefs [imports/update (fn [s imp]
                                               (swap! updates
                                                      #(conj % (:progress imp))))]
-                 (import-data storage-spec
-                              {:user-id (:id user)
-                               :entity-name "Personal"
-                               :image-id (:id image)})) 
+                 (import-data storage-spec imp))
         expected-inc-stmt [{:caption "Income"
                             :value 2000M
                             :style :header}
@@ -98,17 +98,17 @@
                                                 (t/local-date 9999 12 31))
         expected-updates (concat [{:commodity {:total 1}}
                                   {:commodity {:total 1}
-                                   :account {:total 9}}
+                                   :account {:total 4}}
                                   {:commodity {:total 1}
-                                   :account {:total 9}
+                                   :account {:total 4}
                                    :transaction {:total 6}}]
                                  (map (fn [i] {:commodity {:total 1}
-                                               :account {:total 9
+                                               :account {:total 4
                                                          :imported (+ 1 i)}
                                                :transaction {:total 6}})
                                       (range 4))
                                  (map (fn [i] {:commodity {:total 1}
-                                               :account {:total 9
+                                               :account {:total 4
                                                          :imported 4}
                                                :transaction {:total 6
                                                              :imported (+ 1 i)}})
@@ -128,16 +128,16 @@
 (def import-budget-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :images [{:body (read-bytes gnucash-budget-sample)
-             :original-filename "budget_sample.gnucash"}]})
+             :original-filename "budget_sample.gnucash"}]
+   :imports [{:entity-name "Personal"
+              :image-id "budget_sample.gnucash"}]})
 
 (deftest import-a-budget
   (let [context (serialization/realize storage-spec import-budget-context)
         user (-> context :users first)
         image (-> context :images first)
-        result (import-data storage-spec
-                            {:user-id (:id user)
-                             :entity-name "Personal"
-                             :image-id (:id image)})
+        imp (-> context :imports first)
+        result (import-data storage-spec imp)
         entity (first (entities/select storage-spec (:id user)))
         [salary groceries] (->> (:id entity)
                                 (accounts/select-by-entity-id storage-spec)
