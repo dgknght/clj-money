@@ -44,10 +44,28 @@
         });
       };
 
+      // TODO Maybe trigger this from a watcher
+      // instead of setTimeout?
+
+      var updateProgressBars = function() {
+        _.chain($scope.activeImport.progress)
+          .keys()
+          .each(function(key) {
+            var progress = $scope.activeImport.progress[key];
+            var imported = 0;
+            if (!_.isUndefined(progress.imported))
+              imported = progress.imported;
+            $("#progress-" + key)
+              .progressbar({max: progress.total})
+              .progressbar("value", imported);
+        }).value();
+      };
+
       var trackImportProgress = function() {
         var trackingId = window.setInterval(function() {
           apiClient.getImport($scope.activeImport.id).then(function(response) {
             $scope.activeImport = response.data;
+            window.setTimeout(updateProgressBars, 250);
             if (importIsComplete($scope.activeImport)) {
               $scope.statusMessage = null;
               $scope.alerts.push({

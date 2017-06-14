@@ -52,8 +52,11 @@
         [:tr
          [:th "Record Type"]
          [:th "Total"]
-         [:th "Imported"] ]
+         [:th "Imported"]
+         [:th "Progress"]]
         [:tr {:ng-repeat "(recordType, stats) in activeImport.progress"}
          [:td "{{ recordType }}"]
          [:td "{{ stats.total }}"]
-         [:td "{{ stats.imported }}"]]]]]]))
+         [:td "{{ stats.imported }}"]
+         [:td
+          [:div.progress-bar {:id "progress-{{ recordType }}"}]]]]]]]))
