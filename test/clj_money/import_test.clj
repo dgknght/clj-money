@@ -4,6 +4,7 @@
             [clojure.data :refer [diff]]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
+            [clojure.core.async :refer [go <! <!! chan]]
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
@@ -33,6 +34,25 @@
              :original-filename "sample.gnucash"}]
    :imports [{:entity-name "Personal"
               :image-id "sample.gnucash"}]})
+
+(def expected-updates
+  (concat [{:commodity {:total 1}}
+           {:commodity {:total 1}
+            :account {:total 9}}
+           {:commodity {:total 1}
+            :account {:total 9}
+            :transaction {:total 6}}]
+          (map (fn [i] {:commodity {:total 1}
+                        :account {:total 9
+                                  :imported (+ 1 i)}
+                        :transaction {:total 6}})
+               (range 9))
+          (map (fn [i] {:commodity {:total 1}
+                        :account {:total 9
+                                  :imported 9}
+                        :transaction {:total 6
+                                      :imported (+ 1 i)}})
+               (range 6))))
 
 (deftest import-a-simple-file
   (let [context (serialization/realize storage-spec import-context)
@@ -92,24 +112,7 @@
                              :style :summary}]
         actual-bal-sheet (reports/balance-sheet storage-spec
                                                 (:id entity)
-                                                (t/local-date 9999 12 31))
-        expected-updates (concat [{:commodity {:total 1}}
-                                  {:commodity {:total 1}
-                                   :account {:total 9}}
-                                  {:commodity {:total 1}
-                                   :account {:total 9}
-                                   :transaction {:total 6}}]
-                                 (map (fn [i] {:commodity {:total 1}
-                                               :account {:total 9
-                                                         :imported (+ 1 i)}
-                                               :transaction {:total 6}})
-                                      (range 9))
-                                 (map (fn [i] {:commodity {:total 1}
-                                               :account {:total 9
-                                                         :imported 9}
-                                               :transaction {:total 6
-                                                             :imported (+ 1 i)}})
-                                      (range 6)))]
+                                                (t/local-date 9999 12 31))]
     (is entity "It returns a value")
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (is (= expected-inc-stmt actual-inc-stmt)
@@ -128,6 +131,22 @@
              :original-filename "budget_sample.gnucash"}]
    :imports [{:entity-name "Personal"
               :image-id "budget_sample.gnucash"}]})
+
+(deftest receive-updates-asynchronously
+  (let [context (serialization/realize storage-spec import-context)
+        user (-> context :users first)
+        image (-> context :images first)
+        imp (-> context :imports first)
+        channel (chan)
+        updates (atom [])]
+    (go
+      (while true
+        (let [p (<! channel)]
+          (swap! updates #(conj % p)))))
+    (import-data storage-spec imp channel)
+    (is (= expected-updates @updates)
+        "The import record is updated at each insert")
+    (shutdown-agents)))
 
 (deftest import-a-budget
   (let [context (serialization/realize storage-spec import-budget-context)

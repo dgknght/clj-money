@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.java.io :as io]
+            [clojure.core.async :refer [go >!]]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -98,7 +99,9 @@
 
 (defn- update-progress
   [{:keys [callback progress] :as context}]
-  (callback progress)
+  (if (fn? callback)
+    (callback progress)
+    (go (>! callback progress)))
   context)
 
 (defn- inc-and-update-progress
