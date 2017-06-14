@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [clojure.core.async :refer [go <! chan]]
+            [clojure.core.async :refer [go go-loop <! chan]]
             [ring.util.response :refer [response]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
@@ -14,12 +14,29 @@
             [clj-money.import.gnucash]
             [clj-money.models.imports :as imports]))
 
+(def ^:private expected-record-types
+  [:budget :account :transaction])
+
+(defn- progress-complete?
+  [progress]
+  (let [filtered (select-keys progress expected-record-types)]
+    (and (seq filtered)
+         (every? (fn [[_ {:keys [total imported]}]]
+                   (= total imported))
+                 filtered))))
+
+; TODO Maybe it would be better if the channel received
+; a special message that indicated the file had been
+; completely read?
 (defn- launch-and-track-import
   [import]
   (let [progress-chan (chan)]
-    (go (while true
-          (imports/update (env :db)
-                          (assoc import :progress (<! progress-chan)))))
+    (go-loop [continue true]
+             (when continue
+               (let [progress (<! progress-chan)]
+                 (imports/update (env :db)
+                                 (assoc import :progress progress))
+                 (recur (not (progress-complete? progress))))))
     (go (import-data (env :db) import progress-chan))))
 
 (defn create

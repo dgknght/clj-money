@@ -16,9 +16,10 @@
     [:div {:ng-app "clj-money-import" :ng-controller "ImportController"}
      [:div.row {:ng-hide "alerts.length == 0 && statusMessage == null"}
       [:div.col-md-12
-       [:div.alert.alert-danger
+       [:div.alert
         {:ng-repeat "alert in alerts"
-         :role "alert"}
+         :role "alert"
+         :class "alert-{{ alert.level }}"}
         "{{ alert.message }}"]
        [:div.alert.alert-info {:ng-hide "statusMessage == null"}
         "{{ statusMessage }}"]]]
@@ -42,14 +43,11 @@
                                :id "source-file"}]]]
        [:button.btn.btn-primary
         {:title "Click here to upload the specified file and import the data into a new entity."
-         :ng-click "startImport();"
-         }
+         :ng-click "startImport();"}
         "Import"]]]
      [:div.row {:ng-hide "activeImport == null"}
       [:div.col-md-6
-       [:h2
-        "Importing&nbsp;"
-        [:em "{{ activeImport['entity-name'] }}"] ]
+       [:h2 "{{ activeImport['entity-name'] }}" ]
        [:table.table.table-striped
         [:tr
          [:th "Record Type"]

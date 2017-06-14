@@ -49,14 +49,21 @@
           apiClient.getImport($scope.activeImport.id).then(function(response) {
             $scope.activeImport = response.data;
             if (importIsComplete($scope.activeImport)) {
-              $scope.statusMessage = "Import complete."
+              $scope.statusMessage = null;
+              $scope.alerts.push({
+                message: "Import complete.",
+                level: 'success'
+              });
               window.clearInterval(trackingId);
             }
           }, function(error) {
             console.log("Unable to get the updated import");
             console.log(error);
-            $scope.statusMessage = "Import failed."
-            $scope.alerts.push({message: error.statusText});
+            $scope.statusMessage = null;
+            $scope.alerts.push({
+              message: "Import failed: " + error.statusText,
+              level: 'danger'
+            });
             window.clearInterval(trackingId);
           });
         }, 1000);
