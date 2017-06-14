@@ -20,7 +20,7 @@
         {:ng-repeat "alert in alerts"
          :role "alert"}
         "{{ alert.message }}"]
-       [:div.status-message {:ng-hide "statusMessage == null"}
+       [:div.alert.alert-info {:ng-hide "statusMessage == null"}
         "{{ statusMessage }}"]]]
      [:div.row {:ng-hide "activeImport"}
       [:div.col-md-6

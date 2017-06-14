@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [clojure.core.async :refer [go]]
+            [clojure.core.async :refer [go <! chan]]
             [ring.util.response :refer [response]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
@@ -13,6 +13,14 @@
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash]
             [clj-money.models.imports :as imports]))
+
+(defn- launch-and-track-import
+  [import]
+  (let [progress-chan (chan)]
+    (go (while true
+          (imports/update (env :db)
+                          (assoc import :progress (<! progress-chan)))))
+    (go (import-data (env :db) import progress-chan))))
 
 (defn create
   [{params :params}]
@@ -26,7 +34,7 @@
                                               :image-id (:id image)})]
         (if (empty? (validation/error-messages import))
           (do
-            (go (import-data (env :db) import))
+            (launch-and-track-import import)
             (response {:import import}))
           (response {:error (format "Unable to save the import record. %s"
                                     (->> import
