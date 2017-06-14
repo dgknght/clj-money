@@ -22,7 +22,7 @@
   [{:record-type :commodity
     :record-count 1}
    {:record-type :account
-    :record-count 4}
+    :record-count 9}
    {:record-type :transaction
     :record-count 6}
    {:record-type :budget
@@ -177,9 +177,11 @@
                  input
                  (fn [record record-type]
                    (swap! found (fn [f]
-                                  (update-in f
-                                             [record-type]
-                                             #((fnil conj []) % record))))))
+                                  (if record
+                                    (update-in f
+                                               [record-type]
+                                               #((fnil conj []) % record))
+                                    f)))))
     (is (= declarations (:declaration @found)) "The correct declarations are found")
     (is (= accounts (:account @found)) "The correct accounts are found")
     (is (= budgets (:budget @found)) "The current budgets are found")
