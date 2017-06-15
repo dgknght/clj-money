@@ -144,7 +144,11 @@
         (let [p (<! channel)]
           (swap! updates #(conj % p)))))
     (import-data storage-spec imp channel)
-    (is (= expected-updates @updates)
+    (if-not (= (set expected-updates) (set @updates))
+      (pprint {:expected expected-updates
+               :actual @updates
+               :diff (diff expected-updates @updates)}))
+    (is (= (set expected-updates) (set @updates))
         "The import record is updated at each insert")
     (shutdown-agents)))
 
