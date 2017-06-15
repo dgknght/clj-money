@@ -21,6 +21,7 @@
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds]
             [clj-money.json]
+            [clj-money.middleware :refer [wrap-integer-id-params wrap-entity]]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.imports :as imports]
@@ -37,8 +38,10 @@
             [clj-money.web.users :as users]))
 
 (defmacro route
-  [method path & handlers]
-  `(~method ~path req# (->> req# ~@handlers)))
+  [method path handler]
+  `(~method ~path req# (-> ~handler
+                           wrap-entity
+                           wrap-integer-id-params)))
 
 (defroutes protected-routes
   ; Entities
@@ -155,12 +158,12 @@
          :credential-fn (partial clj-money.models.users/authenticate (env :db))
          :redirect-on-auth? false})
       (wrap-resource "public")
-      (wrap-params)
-      (wrap-multipart-params)
-      (wrap-json-params)
-      (wrap-keyword-params)
-      (wrap-json-response)
-      (wrap-session)))
+      wrap-params
+      wrap-multipart-params
+      wrap-json-params
+      wrap-keyword-params
+      wrap-json-response
+      wrap-session))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 5000))]
