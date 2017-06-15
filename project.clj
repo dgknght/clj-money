@@ -5,6 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha14"]
                  [org.clojure/tools.logging "0.3.1"]
+                 [org.clojure/core.async "0.3.443"]
                  [clj-http "3.5.0"]
                  [cheshire "5.7.1"]
                  [com.github.kyleburton/clj-xpath "1.4.11"]
@@ -16,11 +17,13 @@
                  [compojure "1.4.0"]
                  [ring/ring-jetty-adapter "1.4.0"]
                  [ring/ring-codec "1.0.1"]
+                 [ring/ring-json "0.4.0"]
                  [hiccup "1.0.5"]
                  [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.6.3"]
                  [clj-factory "0.2.1"]
+                 [digest "1.4.5"]
                  [faker "0.2.2"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0"]

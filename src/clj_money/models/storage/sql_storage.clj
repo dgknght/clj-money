@@ -13,6 +13,7 @@
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
+(s/def ::user-id integer?)
 (s/def ::entity-id integer?)
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
@@ -27,6 +28,7 @@
   (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
+(s/def ::image-criteria (s/keys :req-un [::user-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -165,6 +167,10 @@
              (h/limit 1))
          (query db-spec)
          first))
+
+  (find-user-by-id
+    [this id]
+    (->clojure-keys (jdbc/get-by-id db-spec :users id)))
 
   ; Entities
   (create-entity
@@ -682,10 +688,11 @@
 
   (select-transaction-items
     [_ criteria]
-    (query db-spec (-> (h/select :i.* :t.transaction-date :t.description)
+    (query db-spec (-> (h/select :i.* :t.transaction_date :t.description)
                       (h/from [:transaction_items :i])
                       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-                      (h/where (map->where criteria)))))
+                      (h/where (map->where criteria))
+                      (h/order-by :t.transaction_date :i.index))))
 
   ; Reconciliations
   (create-reconciliation
@@ -821,6 +828,51 @@
     (query db-spec (-> (h/select :*)
                        (h/from :budget_items)
                        (h/where [:= :budget_id budget-id]))))
+
+  ; Images
+
+  (create-image
+    [_ image]
+    (insert db-spec :images image :user-id
+                                  :original-filename
+                                  :body-hash
+                                  :body))
+
+  (find-image-by-id
+    [this id]
+    (->clojure-keys (jdbc/get-by-id db-spec :images id)))
+
+  (select-images
+    [_ criteria]
+    (when-not (s/valid? ::image-criteria criteria)
+      (let [explanation (s/explain-data ::image-criteria criteria)]
+        (throw (ex-info
+                 (str "The criteria is not valid: " explanation)
+                 {:criteria criteria
+                  :explanation explanation}))))
+    (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
+                       (h/from :images)
+                       (h/where (map->where criteria)))))
+
+  ; Imports
+
+  (create-import
+    [_ import]
+    (insert db-spec :imports import :entity-name
+                                    :user-id
+                                    :image-id))
+
+  (find-import-by-id
+    [_ id]
+    (->clojure-keys (jdbc/get-by-id db-spec :imports id)))
+
+  (update-import
+    [_ import]
+    (let [sql (sql/format (-> (h/update :imports)
+                              (h/sset (->update-set import
+                                                    :progress))
+                              (h/where [:= :id (:id import)])))]
+      (jdbc/execute! db-spec sql)))
 
   ; Database Transaction
   (with-transaction

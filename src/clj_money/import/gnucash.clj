@@ -3,6 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
             [clj-money.util :refer [pprint-and-return]]
@@ -31,7 +32,8 @@
    "split"      "http://www.gnucash.org/XML/split"
    "bgt"        "http://www.gnucash.org/XML/bgt"
    "recurrence" "http://www.gnucash.org/XML/recurrence"
-   "slot"       "http://www.gnucash.org/XML/slot"})
+   "slot"       "http://www.gnucash.org/XML/slot"
+   "cd"         "http://www.gnucash.org/XML/cd"})
 
 (defmulti process-node
   (fn [_ node]
@@ -63,24 +65,29 @@
     :xpath "act:name"}
    {:attribute :type
     :xpath "act:type"
-    :transform-fn account-types-map}
+    :transform-fn #(get account-types-map % :equity)}
    {:attribute :id
     :xpath "act:id"}
    {:attribute :parent-id
     :xpath "act:parent"}])
 
-(def ^:private ignored-accounts #{"Assets" "Liabilities" "Equity" "Income" "Expenses"})
+(def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
 (defn- include-account?
   [account]
-  (and (:type account)
-       (not (ignored-accounts (:name account)))))
+  (not (ignored-accounts (:name account))))
 
 (defmethod process-node :gnc:account
   [callback node]
   (let [account (node->model node account-attributes)]
-    (when (include-account? account)
-      ((.account callback) account))))
+    (if (include-account? account)
+      (callback account :account)
+      ; when ignoring an account, make the callback
+      ; so that the progress is updated (total count
+      ; of imported accounts should match the declared
+      ; count), but pass nil so that nothing is
+      ; imported
+      (callback nil :account))))
 
 (def ^:private budget-attributes
   [{:attribute :id
@@ -129,7 +136,13 @@
   (-> node
       (node->model budget-attributes)
       (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
-      ((.budget callback))))
+      (callback :budget)))
+
+(defmethod process-node :gnc:count-data
+  [callback node]
+  (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
+                     :record-count (Integer. (:text node))}]
+    (callback declaration :declaration)))
 
 (def ^:private transaction-item-attributes
   [{:attribute :account-id
@@ -171,7 +184,7 @@
 
 (defmethod process-node :gnc:transaction
   [callback node]
-  ((.transaction callback) (node->transaction node)))
+  (callback (node->transaction node) :transaction))
 
 (defmethod read-source :gnucash
   [_ input callback]
@@ -180,5 +193,5 @@
                    io/reader
                    slurp
                    xml->doc)]
-      (doseq [node ($x "/gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction | /gnc-v2/gnc:book/gnc:budget" xml)]
+      (doseq [node ($x "/gnc-v2/gnc:book/gnc:count-data | /gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction | /gnc-v2/gnc:book/gnc:budget" xml)]
         (process-node callback node)))))

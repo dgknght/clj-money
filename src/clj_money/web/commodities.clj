@@ -46,9 +46,9 @@
 
 (defn index
   [{params :params}]
-  (with-layout "Commodities" {}
-    (let [entity-id (Integer. (:entity-id params))
-          commodities (commodities/select-by-entity-id (env :db) entity-id)]
+  (let [entity (:entity params)
+        commodities (commodities/select-by-entity-id (env :db) (:id entity))]
+    (with-layout "Commodities" {:entity entity}
       [:div.row
        [:div.col-md-6
         [:table.table.table-striped
@@ -60,12 +60,12 @@
           [:th.col-md-3 "&nbsp;"]]
          (map commodity-row commodities)]
         [:a.btn.btn-primary
-         {:href (format "/entities/%s/commodities/new" entity-id)
+         {:href (format "/entities/%s/commodities/new" (:id entity))
           :title "Click here to create a new commodity"}
          "Add"]
         "&nbsp;"
         [:a.btn.btn-default
-         {:href (format "/entities/%s/prices/fetch" entity-id)
+         {:href (format "/entities/%s/prices/fetch" (:id entity))
           :title "Click here to download prices for all commodities"
           :data-method :post}
          "Download Prices"]]])))
@@ -91,10 +91,10 @@
      "Back"]))
 
 (defn new-commodity
-  ([{params :params :as req}]
-   (new-commodity req {:entity-id (Integer. (:entity-id params))}))
-  ([req commodity]
-   (with-layout "New commodity" {}
+  ([{{entity-id :entity-id} :params :as req}]
+   (new-commodity req {:entity-id entity-id}))
+  ([{{entity :entity} :params} commodity]
+   (with-layout "New commodity" {:entity entity}
      [:div.row
       [:div.col-md-6
        [:form {:action (format "/entities/%s/commodities" (:entity-id commodity))
@@ -116,11 +116,11 @@
 
 (defn edit
   ([{params :params :as req}]
-   (let [id (Integer. (:id params))
+   (let [id (:id params)
          commodity (commodities/find-by-id (env :db) id)]
      (edit req commodity)))
   ([_ commodity]
-   (with-layout "Edit commodity" {}
+   (with-layout "Edit commodity" {:entity-id (:entity-id commodity)}
      [:div.row
       [:div.col-md-6
        [:form {:action (format "/commodities/%s" (:id commodity)) :method :post}
@@ -138,6 +138,6 @@
 
 (defn delete
   [{params :params}]
-  (let [commodity (commodities/find-by-id (env :db) (Integer. (:id params)))]
+  (let [commodity (commodities/find-by-id (env :db) (:id params))]
     (commodities/delete (env :db) (:id commodity))
     (redirect (format "/entities/%s/commodities" (:entity-id commodity)))))

@@ -10,7 +10,8 @@
             [clj-money.validation :as validation]
             [clj-money.models.storage :refer [create-user
                                               select-users
-                                              find-user-by-email]]))
+                                              find-user-by-email
+                                              find-user-by-id]]))
 
 (defn prepare-user-for-insertion
   "Prepares a user record to be saved in the database"
@@ -61,6 +62,12 @@
   [storage-spec email]
   (with-storage [s storage-spec]
     (find-user-by-email s email)))
+
+(defn find-by-id
+  "Returns the user having the specified id"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (find-user-by-id s id)))
 
 (defn authenticate
   "Returns the user with the specified username and password.

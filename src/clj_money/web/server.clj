@@ -9,15 +9,23 @@
             [ring.adapter.jetty :as jetty]
             [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.params :refer [wrap-params]]
+            [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
+            [ring.middleware.json :refer [wrap-json-body
+                                          wrap-json-params
+                                          wrap-json-response]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds]
+            [clj-money.json]
+            [clj-money.middleware :refer [wrap-integer-id-params wrap-entity]]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
+            [clj-money.web.imports :as imports]
+            [clj-money.api.imports :as imports-api]
             [clj-money.web.accounts :as accounts]
             [clj-money.web.budgets :as budgets]
             [clj-money.web.commodities :as commodities]
@@ -30,8 +38,10 @@
             [clj-money.web.users :as users]))
 
 (defmacro route
-  [method path & handlers]
-  `(~method ~path req# (->> req# ~@handlers)))
+  [method path handler]
+  `(~method ~path req# (-> ~handler
+                           wrap-entity
+                           wrap-integer-id-params)))
 
 (defroutes protected-routes
   ; Entities
@@ -113,18 +123,29 @@
   (route GET "/reconciliations/:id/edit" reconciliations/edit)
   (route POST "/reconciliations/:id" reconciliations/update)
   (route POST "/reconciliations/:id/delete" reconciliations/delete)
+
+  ; Imports
+  (route GET "/imports/new" imports/new-import)
   
   ; Reports
   (route GET "/entities/:entity-id/reports" reports/render)
   (route GET "/entities/:entity-id/reports/:type" reports/render))
 
-(defroutes routes
+(defroutes api-routes ;TODO Finish setting up these routes
+  (route POST "/api/imports" imports-api/create)
+  (route GET "/api/imports/:id" imports-api/show))
+
+(defroutes open-routes
   (route GET "/" pages/home)
   (route GET "/login" pages/login)
   (route GET "/signup" users/new-user)
-  (route POST "/users" users/create-user)
+  (route POST "/users" users/create-user))
+
+(defroutes routes
+  open-routes
   (friend/logout (POST "/logout" [] (redirect "/")))
   (friend/wrap-authorize protected-routes #{:user})
+  (friend/wrap-authorize api-routes #{:user})
   (ANY "*" req
        (do
          (log/debug "unable to match route for " req)
@@ -137,9 +158,12 @@
          :credential-fn (partial clj-money.models.users/authenticate (env :db))
          :redirect-on-auth? false})
       (wrap-resource "public")
-      (wrap-keyword-params)
-      (wrap-params)
-      (wrap-session)))
+      wrap-params
+      wrap-multipart-params
+      wrap-json-params
+      wrap-keyword-params
+      wrap-json-response
+      wrap-session))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 5000))]

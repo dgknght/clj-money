@@ -13,6 +13,9 @@
   (find-user-by-email
     [this email]
     "Returns the user having the specified email")
+  (find-user-by-id
+    [this id]
+    "Returns the user having the specified id")
 
   ; Entities
   (create-entity
@@ -305,6 +308,32 @@
   (select-budget-items-by-budget-id
     [this budget-id]
     "Returns the budget items for the specified budget")
+
+  ; Images
+  (create-image
+    [this image]
+    "Creates a new image record")
+
+  (find-image-by-id
+    [this id]
+    "Returns the specified image record")
+
+  ; Imports
+  (create-import
+    [this import]
+    "Creates a new import record")
+
+  (select-images
+    [this criteria]
+    "Selects images matching the specified criteria")
+
+  (find-import-by-id
+    [this id]
+    "Returns the import having the specified id")
+
+  (update-import
+    [this import]
+    "Updates an existing import record")
 
   ; Data integrity transactions
   (with-transaction

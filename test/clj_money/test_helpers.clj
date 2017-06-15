@@ -16,6 +16,8 @@
                  "lots"
                  "lot_transactions"
                  "entities"
+                 "imports"
+                 "images"
                  "users"])
 
 (defn reset-db

@@ -1,6 +1,7 @@
 (ns clj-money.web.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.java.io :as io]
             [environ.core :refer [env]]
             [ring.util.response :refer :all]
             [hiccup.core :refer :all]
@@ -58,7 +59,9 @@
     [:div.row
      [:div.col-md-6
       (entity-table)
-      [:a.btn.btn-primary {:href "/entities/new"} "Add"]]]))
+      [:a.btn.btn-primary {:href "/entities/new"} "Add"]
+      "&nbsp;"
+      [:a.btn.btn-default {:href "/imports/new"} "Import"]]]))
 
 (defn new-entity
   "Renders a form for adding a new entity"

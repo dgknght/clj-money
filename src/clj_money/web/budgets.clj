@@ -52,8 +52,8 @@
 
 (defn index
   ([req] (index req {}))
-  ([{{entity-id :entity-id} :params} options]
-   (with-layout "Budgets" options
+  ([{{entity :entity} :params} options]
+   (with-layout "Budgets" (merge options {:entity entity})
      [:div.row
       [:div.col-md-6
        [:table.table.table-striped
@@ -64,8 +64,8 @@
          [:th.text-right "Start date"]
          [:th.text-right "End date"]
          [:th "&nbsp;"]]
-        (map budget-row (budgets/select-by-entity-id (env :db) (Integer. entity-id)))]
-       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" entity-id)}
+        (map budget-row (budgets/select-by-entity-id (env :db) (:id entity)))]
+       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" (:id entity))}
         "Add"]]])))
 
 (defn- form-fields
@@ -86,19 +86,18 @@
      "Back"]))
 
 (defn new-budget
-  ([{params :params :as req}]
-   (let [entity-id (Integer. (:entity-id params))
-         start-date (budgets/default-start-date)]
-     (new-budget req {:entity-id entity-id
+  ([{{entity :entity} :params :as req}]
+   (let [start-date (budgets/default-start-date)]
+     (new-budget req {:entity-id (:id entity)
                       :name (str (t/year start-date))
                       :period :month
                       :period-count 12
                       :start-date start-date})))
-  ([{{entity-id :entity-id} :params} budget]
-   (with-layout "New budget" {}
+  ([{{entity :entity} :params} budget]
+   (with-layout "New budget" {:entity entity}
      [:div.row
       [:div.col-md-3
-       [:form {:action (format "/entities/%s/budgets" (Integer. entity-id))
+       [:form {:action (format "/entities/%s/budgets" (:id entity))
                :method :post}
         (form-fields budget)]]])))
 
@@ -243,8 +242,8 @@
 (defn show
   "Renders the budet details"
   [{{id :id} :params}]
-  (let [budget (for-display (Integer. id))]
-    (with-layout (str "Budget: " (:name budget)) {}
+  (let [budget (for-display id)]
+    (with-layout (str "Budget: " (:name budget)) {:entity-id (:entity-id budget)}
       [:div.row
        [:div.col-md-12
         [:table.table.table-striped
@@ -273,9 +272,9 @@
 (defn edit
   "Renders an edit form for the specified budget"
   [{{id :id} :params budget :budget}]
-  (with-layout "Edit budget" {}
-    (let [budget (or budget
-                     (budgets/find-by-id (env :db) (Integer. id)))]
+  (let [budget (or budget
+                   (budgets/find-by-id (env :db) id))]
+    (with-layout "Edit budget" {:entity-id (:entity-id budget)}
       [:div.row
        [:div.col-md-3
         [:form {:action (format "/budgets/%s" (:id budget))
@@ -300,7 +299,7 @@
 (defn delete
   "Deletes the specified budget and redirects to the budget index page"
   [{{id :id} :params}]
-  (let [budget (budgets/find-by-id (env :db) (Integer. id))]
+  (let [budget (budgets/find-by-id (env :db) id)]
     (try
       (budgets/delete (env :db) (:id budget))
       (redirect (format "/entities/%s/budgets" (:entity-id budget)))
@@ -400,8 +399,8 @@
 (defn new-item
   "Renders a form for creating a new item"
   [{{budget-id :budget-id :as item} :params}]
-  (let [budget (budgets/find-by-id (env :db) (Integer. budget-id))]
-    (with-layout (str "Budget " (:name budget) ": New item") {}
+  (let [budget (budgets/find-by-id (env :db) budget-id)]
+    (with-layout (str "Budget " (:name budget) ": New item") {:entity-id (:entity-id budget)}
       [:form {:action (format "/budgets/%s/items" budget-id)
               :method :post}
        (item-form-fields item budget)])))
@@ -443,10 +442,8 @@
 (defn create-item
   "Creates an budget item"
   [{params :params}]
-  (let [budget (budgets/find-by-id (env :db) (Integer. (:budget-id params)))
+  (let [budget (budgets/find-by-id (env :db) (:budget-id params))
         item (-> params
-                 (update-in [:budget-id] #(Integer. %))
-                 (update-in [:account-id] #(Integer. %))
                  (extract-periods budget)
                  (select-keys [:budget-id :account-id :periods]))
         saved (budgets/create-item (env :db) item)]
@@ -480,10 +477,10 @@
   "Renders a form for editing a budget item"
   [{{:keys [id method]} :params item :item}]
   (let [item (or item
-                 (budgets/find-item-by-id (env :db) (Integer. id)))
+                 (budgets/find-item-by-id (env :db) id))
         budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
-    (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {}
+    (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {:entity-id (:entity-id budget)}
       [:form {:action (format "/budget-items/%s" (:id item))
               :method :post}
        (-> item
@@ -495,7 +492,7 @@
   "Updates the specified item and redirects to the budget on success or renders the
   edit from on failure"
   [{params :params}]
-  (let [existing (budgets/find-item-by-id (env :db) (Integer. (:id params)))
+  (let [existing (budgets/find-item-by-id (env :db) (:id params))
         budget (budgets/find-by-id (env :db) (:budget-id existing))
         item (-> params
                  (extract-periods budget)

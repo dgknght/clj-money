@@ -12,6 +12,7 @@
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.pagination :as pagination]
+            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
@@ -20,10 +21,14 @@
   (:use [clj-money.web.shared :refer :all]))
 
 (defmacro with-transactions-layout
-  [page-title entity-id options & content]
-  `(with-layout
-     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
-     ~@content))
+  [page-title entity-or-id options & content]
+  `(let [entity# (if (integer? ~entity-or-id)
+                   (entities/find-by-id (env :db) ~entity-or-id)
+                   ~entity-or-id)]
+     (with-layout
+       ~page-title (assoc ~options :side-bar (budget-monitors (:id entity#))
+                          :entity entity#)
+       ~@content)))
 
 (defn- transaction-row
   "Renders a row in the transaction table"
@@ -52,26 +57,25 @@
 
 (defn index
   ([req] (index req {}))
-  ([{params :params} options]
-   (let [entity-id (Integer. (:entity-id params))]
-     (with-transactions-layout "Transactions" entity-id options
-       [:table.table.table-striped
-        [:tr
-         [:th.col-sm-2 "Date"]
-         [:th.col-sm-8 "Description"]
-         [:th.col-sm-2 "&nbsp;"]]
-        (map transaction-row
-             (transactions/select-by-entity-id (env :db)
-                                               entity-id
-                                               (pagination/prepare-options params)))]
-       (pagination/nav (assoc params
-                              :url (-> (path "/entities" entity-id "transactions")) 
-                              :total (transactions/count-by-entity-id (env :db) entity-id)))
-       [:p
-        [:a.btn.btn-primary
-         {:href (str"/entities/" entity-id "/transactions/new")
-          :title "Click here to enter a new transaction."}
-         "Add"]]))))
+  ([{{entity-id :entity-id :as params} :params} options]
+   (with-transactions-layout "Transactions" entity-id options
+     [:table.table.table-striped
+      [:tr
+       [:th.col-sm-2 "Date"]
+       [:th.col-sm-8 "Description"]
+       [:th.col-sm-2 "&nbsp;"]]
+      (map transaction-row
+           (transactions/select-by-entity-id (env :db)
+                                             entity-id
+                                             (pagination/prepare-options params)))]
+     (pagination/nav (assoc params
+                            :url (-> (path "/entities" entity-id "transactions")) 
+                            :total (transactions/count-by-entity-id (env :db) entity-id)))
+     [:p
+      [:a.btn.btn-primary
+       {:href (str"/entities/" entity-id "/transactions/new")
+        :title "Click here to enter a new transaction."}
+       "Add"]])))
 
 (defn- item-row
   "Renders an individual row for a transaction item"
@@ -114,7 +118,6 @@
     (-> item
         (assoc :action action
                :amount amount)
-        (update-in [:account-id] #(Integer. %)) ; TODO let coercion handle this
         (dissoc :credit-amount :debit-amount))))
 
 (defn- items-for-form
@@ -165,7 +168,7 @@
 (defn new-transaction
   ([{params :params}]
    (new-transaction params
-                    {:entity-id (Integer. (:entity-id params))
+                    {:entity-id (:entity-id params)
                      :items [{:action :debit}
                              {:action :credit}]
                      :transaction-date (t/today)}
@@ -214,7 +217,7 @@
 (defn edit
   ([req] (edit req {}))
   ([{params :params transaction :transaction} options]
-   (let [id (Integer. (:id params))
+   (let [id (:id params)
          transaction (or transaction
                          (transactions/find-by-id (env :db) id))
          action (cond-> (path "/transactions"

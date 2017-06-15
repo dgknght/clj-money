@@ -4,9 +4,11 @@
             [clojure.data :refer [diff]]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
+            [clojure.core.async :refer [go <! <!! chan]]
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
@@ -14,6 +16,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
+            [clj-money.models.imports :as imports]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash :as gnucash]))
@@ -22,21 +25,42 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def import-context
-  {:users [(factory :user, {:email "john@doe.com"})] })
-
 (def gnucash-sample
   (io/input-stream "resources/fixtures/sample.gnucash"))
+
+(def import-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :images [{:body (read-bytes gnucash-sample)
+             :original-filename "sample.gnucash"}]
+   :imports [{:entity-name "Personal"
+              :image-id "sample.gnucash"}]})
+
+(def expected-updates
+  (concat [{:commodity {:total 1}}
+           {:commodity {:total 1}
+            :account {:total 9}}
+           {:commodity {:total 1}
+            :account {:total 9}
+            :transaction {:total 6}}]
+          (map (fn [i] {:commodity {:total 1}
+                        :account {:total 9
+                                  :imported (+ 1 i)}
+                        :transaction {:total 6}})
+               (range 9))
+          (map (fn [i] {:commodity {:total 1}
+                        :account {:total 9
+                                  :imported 9}
+                        :transaction {:total 6
+                                      :imported (+ 1 i)}})
+               (range 6))))
 
 (deftest import-a-simple-file
   (let [context (serialization/realize storage-spec import-context)
         user (-> context :users first)
-        result (import-data storage-spec
-                            user
-                            "Personal"
-                            gnucash-sample
-                            :gnucash)
-        entity (-> storage-spec (entities/select (:id user)) first)
+        image (-> context :images first)
+        imp (-> context :imports first)
+        updates (atom [])
+        entity (import-data storage-spec imp (fn [p] (swap! updates #(conj % p))))
         expected-inc-stmt [{:caption "Income"
                             :value 2000M
                             :style :header}
@@ -89,22 +113,51 @@
         actual-bal-sheet (reports/balance-sheet storage-spec
                                                 (:id entity)
                                                 (t/local-date 9999 12 31))]
+    (is entity "It returns a value")
+    (is (= "Personal" (:name entity)) "It returns the new entity")
     (is (= expected-inc-stmt actual-inc-stmt)
         "The income statement is correct after import")
     (is (= expected-bal-sheet actual-bal-sheet)
-        "The balance sheet is correct after import")))
+        "The balance sheet is correct after import")
+    (is (= expected-updates @updates)
+        "The import record is updated at each insert")))
 
 (def gnucash-budget-sample
   (io/input-stream "resources/fixtures/budget_sample.gnucash"))
 
-(deftest import-a-budget
+(def import-budget-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :images [{:body (read-bytes gnucash-budget-sample)
+             :original-filename "budget_sample.gnucash"}]
+   :imports [{:entity-name "Personal"
+              :image-id "budget_sample.gnucash"}]})
+
+(deftest receive-updates-asynchronously
   (let [context (serialization/realize storage-spec import-context)
         user (-> context :users first)
-        result (import-data storage-spec
-                            user
-                            "Personal"
-                            gnucash-budget-sample
-                            :gnucash)
+        image (-> context :images first)
+        imp (-> context :imports first)
+        channel (chan)
+        updates (atom [])]
+    (go
+      (while true
+        (let [p (<! channel)]
+          (swap! updates #(conj % p)))))
+    (import-data storage-spec imp channel)
+    (if-not (= (set expected-updates) (set @updates))
+      (pprint {:expected expected-updates
+               :actual @updates
+               :diff (diff expected-updates @updates)}))
+    (is (= (set expected-updates) (set @updates))
+        "The import record is updated at each insert")
+    (shutdown-agents)))
+
+(deftest import-a-budget
+  (let [context (serialization/realize storage-spec import-budget-context)
+        user (-> context :users first)
+        image (-> context :images first)
+        imp (-> context :imports first)
+        result (import-data storage-spec imp (fn [progress]))
         entity (first (entities/select storage-spec (:id user)))
         [salary groceries] (->> (:id entity)
                                 (accounts/select-by-entity-id storage-spec)

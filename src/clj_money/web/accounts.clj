@@ -26,7 +26,7 @@
 (defmacro with-accounts-layout
   [page-title entity-id options & content]
   `(with-layout
-     ~page-title (assoc ~options :side-bar (budget-monitors (Integer. ~entity-id)))
+     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
      ~@content))
 
 (defn- account-row
@@ -100,20 +100,19 @@
 (defn index
   "Renders the list of accounts"
   ([req] (index req {}))
-  ([{params :params} options]
-   (let [entity-id (Integer. (:entity-id params))]
-     (with-accounts-layout "Accounts" entity-id options
-       [:table.table.table-striped
-        [:tr
-         [:th.col-sm-6 "Name"]
-         [:th.col-sm-4.text-right "Balance"]
-         [:th.col-sm-2 "&nbsp;"]]
-        (let [groups (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))]
-          (map account-rows groups))]
-       [:a.btn.btn-primary
-        {:href (format "/entities/%s/accounts/new" entity-id)
-         :title "Click here to add a new account."}
-        "Add"]))))
+  ([{{entity :entity :as params} :params} options]
+   (with-accounts-layout "Accounts" (:id entity) (merge options {:entity entity})
+     [:table.table.table-striped
+      [:tr
+       [:th.col-sm-6 "Name"]
+       [:th.col-sm-4.text-right "Balance"]
+       [:th.col-sm-2 "&nbsp;"]]
+      (let [groups (accounts/select-nested-by-entity-id (env :db) (:id entity))]
+        (map account-rows groups))]
+     [:a.btn.btn-primary
+      {:href (format "/entities/%s/accounts/new" (:id entity))
+       :title "Click here to add a new account."}
+      "Add"])))
 
 (defn- transaction-item-row
   [{:keys [transaction-id
@@ -292,8 +291,7 @@
   "Renders account details, including transactions"
   ([req] (show req {}))
   ([{params :params} options]
-   (let [id (Integer. (:id params))
-         account (accounts/find-by-id (env :db) id)]
+   (let [account (accounts/find-by-id (env :db) (:id params))]
      (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
        (show-account account params)))))
 
@@ -324,8 +322,8 @@
 (defn- new-account-defaults
   [{:keys [entity-id parent-id]}]
   (let [parent (if parent-id
-                 (accounts/find-by-id (env :db) (Integer. parent-id)))
-        account {:entity-id (Integer. entity-id)}]
+                 (accounts/find-by-id (env :db)  parent-id))
+        account {:entity-id entity-id}]
     (if parent
       (-> account
           (assoc :parent-id (:id parent))
@@ -337,7 +335,7 @@
   ([{params :params :as req}]
    (new-account req (new-account-defaults params)))
   ([{params :params} account]
-   (let [entity-id (Integer. (:entity-id params))]
+   (let [entity-id (:entity-id params)]
      (with-accounts-layout "New account" entity-id {}
        [:form {:action (str "/entities/" entity-id "/accounts")
                :method :post}
@@ -357,7 +355,7 @@
   "Renders the edit form for an account"
   [req]
   (let [account (or (:account req)
-                    (accounts/find-by-id (env :db) (Integer. (-> req :params :id))))]
+                    (accounts/find-by-id (env :db) (-> req :params :id)))]
     (with-accounts-layout "Edit account" (:entity-id account) {}
       [:form {:action (format "/accounts/%s" (:id account))
               :method :post}
@@ -385,7 +383,7 @@
 (defn delete
   "Deletes the specified account"
   [{{id :id} :params}]
-  (let [account (accounts/find-by-id (env :db) (Integer. id))]
+  (let [account (accounts/find-by-id (env :db) id)]
     (try
       (accounts/delete (env :db) (:id account))
       (redirect (format "/entities/%s/accounts" (:entity-id account)))
