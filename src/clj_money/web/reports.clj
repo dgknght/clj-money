@@ -79,7 +79,7 @@
 (defmethod render-report :budget
   [{:keys [entity-id budget-id as-of] :as params}]
   (let [budget (if budget-id
-                 (budgets/find-by-id (env :db) (Integer. budget-id))
+                 (budgets/find-by-id (env :db) budget-id)
                  (first (budgets/select-by-entity-id (env :db) entity-id))) ; TODO find the current budget
         as-of (or as-of
                   (budgets/end-date budget))]
@@ -120,14 +120,13 @@
    [:div.form-group
     [:label.control-label {:for :budget-id} "Budget"]
     [:select.form-control {:name "budget-id"}
-     (map #(vector :option {:value (:id %)} (:name %)) (budgets/select-by-entity-id (env :db) (Integer. (:entity-id params))))] ]
+     (map #(vector :option {:value (:id %)} (:name %)) (budgets/select-by-entity-id (env :db) (:entity-id params)))] ]
    (date-input-field params :as-of)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defn render
-  [{params :params}]
+  [{{entity :entity :as params} :params}]
   (let [params (-> params ; TODO separate default based on the report type
-                   (update-in [:entity-id] #(Integer. %))
                    (update-in [:type] keyword)
                    (update-in [:type] (fnil identity :balance-sheet))
                    (assoc :start-date (or (parse-local-date (:start-date params))
@@ -136,7 +135,7 @@
                                         (default-end-date))
                           :as-of (or (parse-local-date (:as-of params))
                                      (default-end-date))))]
-    (with-layout "Reports" {}
+    (with-layout "Reports" {:entity entity}
       [:div.row
        [:div.col-md-12
         (tabbed-nav [{:id :income-statement

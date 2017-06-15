@@ -186,6 +186,12 @@
    [:link {:rel "stylesheet" :href "/css/clj-money.css"}]
    ])
 
+(defn get-entity-from-options
+  [options]
+  (or (:entity options)
+      (when (:entity-id options)
+        (entities/find-by-id (env :db) (:entity-id options)))))
+
 (defmacro with-layout
   "Renders content inside a standard page template"
   [page-title options & content]
@@ -193,7 +199,7 @@
     [:html {:lang "en"}
      (head ~page-title ~options)
      [:body
-      (primary-nav (:entity ~options))
+      (primary-nav (get-entity-from-options ~options))
       [:div.container {:style "margin-top: 2em;"}
        (html
          (let [side-bar# (:side-bar ~options)]
