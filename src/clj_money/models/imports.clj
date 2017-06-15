@@ -31,7 +31,9 @@
 
 (defn- after-read
   [_ import]
-  (update-in import [:progress] #(json/parse-string % true)))
+  (update-in import [:progress] #(-> %
+                                     (json/parse-string true)
+                                     (select-keys [:account :transaction :budget]))))
 
 (defn find-by-id
   [storage-spec id]

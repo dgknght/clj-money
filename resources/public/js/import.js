@@ -36,7 +36,7 @@
       $scope.statusMessage = null;
 
       var importIsComplete = function(imp) {
-        progress = _.pick(imp.progress, 'account', 'transaction', 'budget');
+        var progress = imp.progress;
         if (_.isEmpty(progress))
           return false;
         return _.every(progress, function(prop) {
@@ -44,11 +44,8 @@
         });
       };
 
-      // TODO Maybe trigger this from a watcher
-      // instead of setTimeout?
-
-      var updateProgressBars = function() {
-        _.chain($scope.activeImport.progress)
+      var updateProgressBars = function(progress) {
+        _.chain(progress)
           .keys()
           .each(function(key) {
             var progress = $scope.activeImport.progress[key];
@@ -56,7 +53,9 @@
             if (!_.isUndefined(progress.imported))
               imported = progress.imported;
             $("#progress-" + key)
-              .progressbar({max: progress.total})
+              .progressbar({
+                max: progress.total
+              })
               .progressbar("value", imported);
         }).value();
       };
@@ -65,7 +64,9 @@
         var trackingId = window.setInterval(function() {
           apiClient.getImport($scope.activeImport.id).then(function(response) {
             $scope.activeImport = response.data;
-            window.setTimeout(updateProgressBars, 250);
+            window.setTimeout(function() {
+              updateProgressBars($scope.activeImport.progress);
+            }, 250);
             if (importIsComplete($scope.activeImport)) {
               $scope.statusMessage = null;
               $scope.alerts.push({

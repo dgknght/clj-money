@@ -59,14 +59,14 @@
 (deftest update-an-import
   (let [context (serialization/realize storage-spec import-context)
         import (imports/create storage-spec (attributes context))
-        updated (assoc import :progress {:accounts {:total 20
-                                                         :processed 0}})
+        updated (assoc import :progress {:account {:total 20
+                                                   :processed 0}})
         result (try
                  (imports/update storage-spec updated)
                  (catch java.sql.BatchUpdateException e
                    (pprint {:error (.getNextException e)})))
         retrieved (imports/find-by-id storage-spec (:id import))]
-    (is (= {:accounts {:total 20
-                       :processed 0}}
+    (is (= {:account {:total 20
+                      :processed 0}}
            (:progress retrieved))
         "The correct value is retrieved after update")))

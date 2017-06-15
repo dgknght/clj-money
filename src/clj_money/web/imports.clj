@@ -50,13 +50,13 @@
        [:h2 "{{ activeImport['entity-name'] }}" ]
        [:table.table.table-striped
         [:tr
-         [:th "Record Type"]
-         [:th "Total"]
-         [:th "Imported"]
-         [:th "Progress"]]
+         [:th.col-sm-3 "Record Type"]
+         [:th.col-sm-3 "Total"]
+         [:th.col-sm-3 "Imported"]
+         [:th.col-sm-3 "Progress"]]
         [:tr {:ng-repeat "(recordType, stats) in activeImport.progress"}
-         [:td "{{ recordType }}"]
-         [:td "{{ stats.total }}"]
-         [:td "{{ stats.imported }}"]
-         [:td
-          [:div.progress-bar {:id "progress-{{ recordType }}"}]]]]]]]))
+         [:td.col-sm-3 "{{ recordType }}"]
+         [:td.col-sm-3 "{{ stats.total }}"]
+         [:td.col-sm-3 "{{ stats.imported }}"]
+         [:td.col-sm-3
+          [:div.progress-bar {:id "progress-{{ recordType }}" :style "width: 100%;"}]]]]]]]))
