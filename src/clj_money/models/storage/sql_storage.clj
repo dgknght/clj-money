@@ -110,7 +110,7 @@
   [sql options]
   (cond-> sql
     (:per-page options) (h/limit (:per-page options))
-    (:page options) (h/offset (* (:per-page options) (:page options)))))
+    (:page options) (h/offset (* (:per-page options) (- (:page options) 1)))))
 
 (defn- append-limit
   [sql options]

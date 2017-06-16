@@ -1,5 +1,7 @@
 (ns clj-money.pagination
   (:require [clojure.spec :as s]
+            [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [clj-money.url :as url]
             [clj-money.coercion :as coercion]))
 
@@ -7,44 +9,74 @@
 (s/def ::per-page integer?)
 (s/def ::total integer?)
 (s/def ::url map?)
+(s/def ::max-pages (s/and integer? #(< 3)))
 (s/def ::pagination-options (s/keys :req-un [::total ::url] :opt-un [::page ::per-page]))
 
 (def ^:private menu-coercion-rules
-  (coercion/rules :integer [:page] [:per-page] [:total]))
-
-(defn- nav-item
-  "Renders a single navigation item"
-  [page current-page per-page url]
-  [:li {:class (when (= page current-page) "active")}
-   [:a {:href (-> url
-                  (url/query {:page page :per-page per-page})
-                  url/format-url)}
-    (str (+ 1 page))]])
+  (coercion/rules :integer [:page] [:per-page] [:total] [:max-pages]))
 
 (defn- validate-options
   [options]
   (let [coerced (coercion/coerce menu-coercion-rules options)]
     (if (s/valid? ::pagination-options coerced)
-      (merge {:page 0 :per-page 10} coerced)
+      (merge {:page 1 :per-page 10 :max-pages 10} coerced)
       (throw (RuntimeException. (str "Invalid pagination options: "
                                      (s/explain-data ::pagination-options coerced)))))))
 
 (defn nav
   "Renders pagination navigation for the specified options
-  
-  :page     - the current page index
-  :per-page - the number of entries per page
-  :total    - the total number of items to be paginated
-  :url      - the base url for the navigation links"
+
+  :page      - the current page index
+  :per-page  - the number of entries per page
+  :total     - the total number of items to be paginated
+  :url       - the base url for the navigation links"
   [options]
   [:nav {:aria-label "Page navigation"}
-   [:ul.pagination
-    (let [{:keys [url
-                  page
-                  per-page
-                  total]} (validate-options options)
-          page-count (Math/ceil (/ total per-page))]
-      (map #(nav-item % page per-page url) (range page-count)))]])
+   (let [{:keys [url total per-page max-pages page]} (validate-options options)
+         page-count (int (Math/ceil (/ total per-page)))]
+     [:nav {:aria-label "Page navigation"}
+      [:div.row
+       [:div.col-sm-5.text-right
+        [:div.btn-group
+         [:a.btn.btn-default {:href (-> url
+                                        (url/query {:page 1
+                                                    :per-page per-page})
+                                        url/format-url)}
+          [:span.glyphicon.glyphicon-fast-backward {:aria-hidden true}]]
+         [:a.btn.btn-default {:href (-> url
+                                        (url/query {:page (if (= 1 page)
+                                                            1
+                                                            (- page 1))
+                                                    :per-page per-page})
+                                        url/format-url)}
+          [:span.glyphicon.glyphicon-step-backward {:aria-hidden true}]]]]
+       [:div.col-sm-2.text-center
+        [:div.input-group
+         [:input#page-input.form-control {:type "text"
+                                          :name "page"
+                                          :value page}]
+         [:span.input-group-btn
+          [:button.btn.btn-default
+           {:data-url (-> url
+                          (url/query {:page "_p_"
+                                      :per-page per-page})
+                          url/format-url)
+            :onclick "window.location.href = this.dataset.url.replace('_p_', $(\"#page-input\").val());"}
+           "Go"]]]]
+       [:div.col-sm-5.text-left
+        [:div.btn-group
+         [:a.btn.btn-default {:href (-> url
+                                        (url/query {:page (if (= (- page-count 1) page)
+                                                            (- page-count 1)
+                                                    (+ page 1))
+                                                    :per-page per-page})
+                                        url/format-url)}
+          [:span.glyphicon.glyphicon-step-forward {:aria-hidden true}]]
+         [:a.btn.btn-default {:href (-> url
+                                        (url/query {:page (- page-count 1)
+                                                    :per-page per-page})
+                                        url/format-url)}
+          [:span.glyphicon.glyphicon-fast-forward {:aria-hidden true}]]]]]])])
 
 (defn prepare-options
   "Accepts a map of parameters (as from a web request) and returns
@@ -53,5 +85,5 @@
   [options]
   (-> options
       (select-keys [:page :per-page])
-      (update-in [:page] (fnil #(Integer. %) 0))
+      (update-in [:page] (fnil #(Integer. %) 1))
       (update-in [:per-page] (fnil #(Integer. %) 10))))

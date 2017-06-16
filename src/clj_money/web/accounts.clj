@@ -125,8 +125,8 @@
   [:tr
    [:td.text-right transaction-date]
    [:td description]
-   [:td.text-right polarized-amount]
-   [:td.text-right balance]
+   [:td.text-right (format-number polarized-amount)]
+   [:td.text-right (format-number balance)]
    [:td.text-center [:span.glyphicon
                      {:aria-hidden "true"
                       :class (if reconciled? "glyphicon-check" "glyphicon-unchecked")}]]
@@ -175,29 +175,33 @@
           (transactions/items-by-account (env :db)
                                          (:id account)
                                          (pagination/prepare-options params)))]
-    (pagination/nav (assoc params
-                           :url (-> (path "/accounts"
-                                          (:id account)))
-                           :total (transactions/count-items-by-account (env :db) (:id account))))
-    [:a.btn.btn-primary
-     {:href (-> (path "/entities"
-                      (:entity-id account)
-                      "transactions"
-                      "new")
-                (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
-                format-url)
-      :title "Click here to add a new transaction."}
-     "Add"]
-    "&nbsp;"
-    [:a.btn.btn-default
-     {:href (format "/accounts/%s/reconciliations/new" (:id account))
-      :title "Click here to reconcile this account."}
-     "Reconcile"]
-    "&nbsp;"
-    [:a.btn.btn-default
-     {:href (format "/entities/%s/accounts" (:entity-id account))
-      :title "Click here to return to the list of accounts."}
-     "Back"]))
+    [:p
+     (pagination/nav
+       (assoc params
+              :url (-> (path "/accounts"
+                             (:id account)))
+              :total (transactions/count-items-by-account (env :db) (:id account))))]
+
+    [:p
+     [:a.btn.btn-primary
+      {:href (-> (path "/entities"
+                       (:entity-id account)
+                       "transactions"
+                       "new")
+                 (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
+                 format-url)
+       :title "Click here to add a new transaction."}
+      "Add"]
+     "&nbsp;"
+     [:a.btn.btn-default
+      {:href (format "/accounts/%s/reconciliations/new" (:id account))
+       :title "Click here to reconcile this account."}
+      "Reconcile"]
+     "&nbsp;"
+     [:a.btn.btn-default
+      {:href (format "/entities/%s/accounts" (:entity-id account))
+       :title "Click here to return to the list of accounts."}
+      "Back"]]))
 
 (defn- commodity-row
   [{:keys [style
