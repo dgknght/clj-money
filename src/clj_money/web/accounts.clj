@@ -125,8 +125,8 @@
   [:tr
    [:td.text-right transaction-date]
    [:td description]
-   [:td.text-right polarized-amount]
-   [:td.text-right balance]
+   [:td.text-right (format-number polarized-amount)]
+   [:td.text-right (format-number balance)]
    [:td.text-center [:span.glyphicon
                      {:aria-hidden "true"
                       :class (if reconciled? "glyphicon-check" "glyphicon-unchecked")}]]
@@ -176,22 +176,12 @@
                                          (:id account)
                                          (pagination/prepare-options params)))]
     [:p
-    [:div.btn-group
-     [:a.btn.btn-default {:href "#"}
-      [:span.glyphicon.glyphicon-fast-backward {:aria-hidden true}]]
-     [:a.btn.btn-default {:href "#"}
-      [:span.glyphicon.glyphicon-step-backward {:aria-hidden true}]]
-     [:input {:type "text"}]
-     [:a.btn.btn-default {:href "#"}
-      [:span.glyphicon.glyphicon-step-backward {:aria-hidden true}]]
-     [:a.btn.btn-default {:href "#"}
-      [:span.glyphicon.glyphicon-fast-forward {:aria-hidden true}]]
-     ]]
+     (pagination/nav
+       (assoc params
+              :url (-> (path "/accounts"
+                             (:id account)))
+              :total (transactions/count-items-by-account (env :db) (:id account))))]
 
-    #_(pagination/nav (assoc params
-                           :url (-> (path "/accounts"
-                                          (:id account)))
-                           :total (transactions/count-items-by-account (env :db) (:id account))))
     [:p
      [:a.btn.btn-primary
       {:href (-> (path "/entities"
