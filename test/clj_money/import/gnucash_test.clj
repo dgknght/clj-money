@@ -171,18 +171,46 @@
                         {:index 11
                          :amount 275M}}}]}])
 
+(defn- track-record
+  [store record record-type]
+  (swap! store (fn [f]
+                 (cond-> f
+                   record
+                   (update-in [record-type]
+                              #((fnil conj []) % record))))))
+
 (deftest read-gnucash-source
   (let [found (atom {})]
     (read-source :gnucash
                  input
-                 (fn [record record-type]
-                   (swap! found (fn [f]
-                                  (if record
-                                    (update-in f
-                                               [record-type]
-                                               #((fnil conj []) % record))
-                                    f)))))
+                 (partial track-record found))
     (is (= declarations (:declaration @found)) "The correct declarations are found")
     (is (= accounts (:account @found)) "The correct accounts are found")
     (is (= budgets (:budget @found)) "The current budgets are found")
     (is (= transactions (:transaction @found)) "The correct transactions are found")))
+
+(def ^:private commodities-input
+  (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
+
+(def ^:private commodities
+  [{:name "Apple, Inc."
+    :symbol "AAPL"
+    :exchange :nasdaq}])
+
+(def ^:private prices
+  [{:trade-date (t/local-date 2015 1 30)
+    :price 12.00M
+    :exchange :nasdaq
+    :symbol "AAPL"}
+   {:trade-date (t/local-date 2015 1 17)
+    :price 10.00M
+    :exchange :nasdaq
+    :symbol "AAPL"}])
+
+(deftest read-gnucash-source-with-commodities
+  (let [found (atom {})]
+    (read-source :gnucash
+                 commodities-input
+                 (partial track-record found))
+    (is (= commodities (:commodity @found)) "The correct commodities are found")
+    (is (= prices (:price @found)) "The correct prices are found")))

@@ -3,6 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.string :as s]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
@@ -25,15 +26,9 @@
                   (map bigdec)))))
 
 (def ^:private namespace-map
-  {"gnc"        "http://www.gnucash.org/XML/gnc"
-   "act"        "http://www.gnucash.org/XML/act"
-   "trn"        "http://www.gnucash.org/XML/trn"
-   "ts"         "http://www.gnucash.org/XML/ts"
-   "split"      "http://www.gnucash.org/XML/split"
-   "bgt"        "http://www.gnucash.org/XML/bgt"
-   "recurrence" "http://www.gnucash.org/XML/recurrence"
-   "slot"       "http://www.gnucash.org/XML/slot"
-   "cd"         "http://www.gnucash.org/XML/cd"})
+  (->> ["gnc" "act" "trn" "ts" "split" "bgt" "recurrence" "slot" "cd" "cmdty" "price"]
+       (map #(vector % (format "http://www.gnucash.org/XML/%s" %)))
+       (into {})))
 
 (defmulti process-node
   (fn [_ node]
@@ -138,6 +133,41 @@
       (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
       (callback :budget)))
 
+(def ^:private commodity-attributes
+  [{:attribute :exchange
+    :xpath "cmdty:space"
+    :transform-fn (comp keyword s/lower-case)}
+   {:attribute :symbol
+    :xpath "cmdty:id"}
+   {:attribute :name
+    :xpath "cmdty:name"}])
+
+(defmethod process-node :gnc:commodity
+  [callback node]
+  (let [commodity (node->model node commodity-attributes)]
+    (callback (when (#{:nasdaq} (:exchange commodity))
+                commodity)
+              :commodity)))
+
+(def ^:private price-attributes
+  [{:attribute :trade-date
+    :xpath "price:time/ts:date"
+    :transform-fn parse-date}
+   {:attribute :price
+    :xpath "price:value"
+    :transform-fn parse-decimal}
+   {:attribute :exchange
+    :xpath "price:commodity/cmdty:space"
+    :transform-fn (comp keyword s/lower-case)}
+   {:attribute :symbol
+    :xpath "price:commodity/cmdty:id"}])
+
+(defmethod process-node :price
+  [callback node]
+  (-> node
+      (node->model price-attributes)
+      (callback :price)))
+
 (defmethod process-node :gnc:count-data
   [callback node]
   (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
@@ -186,6 +216,12 @@
   [callback node]
   (callback (node->transaction node) :transaction))
 
+(def element-xpath
+  (->> ["count-data" "account" "transaction" "budget" "commodity"]
+       (map #(format "/gnc-v2/gnc:book/gnc:%s" %))
+       (concat ["/gnc-v2/gnc:book/gnc:pricedb/price"])
+       (s/join " | ")))
+
 (defmethod read-source :gnucash
   [_ input callback]
   (with-namespace-context namespace-map
@@ -193,5 +229,5 @@
                    io/reader
                    slurp
                    xml->doc)]
-      (doseq [node ($x "/gnc-v2/gnc:book/gnc:count-data | /gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction | /gnc-v2/gnc:book/gnc:budget" xml)]
+      (doseq [node ($x element-xpath xml)]
         (process-node callback node)))))
