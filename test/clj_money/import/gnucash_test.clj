@@ -207,10 +207,22 @@
     :exchange :nasdaq
     :symbol "AAPL"}])
 
+(def ^:private commodity-declarations
+  #{{:record-type :commodity
+     :record-count 2}
+    {:record-type :price
+     :record-count 2}
+    {:record-type :account
+     :record-count 11}
+    {:record-type :transaction
+     :record-count 8}})
+
 (deftest read-gnucash-source-with-commodities
   (let [found (atom {})]
     (read-source :gnucash
                  commodities-input
                  (partial track-record found))
     (is (= commodities (:commodity @found)) "The correct commodities are found")
-    (is (= prices (:price @found)) "The correct prices are found")))
+    (is (= prices (:price @found)) "The correct prices are found")
+    (is (= commodity-declarations (set (:declaration @found)))
+        "The correct declarations are found")))
