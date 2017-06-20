@@ -139,6 +139,14 @@
       (import-budget budget)
       (inc-and-update-progress :budget)))
 
+(defmethod process-record :price
+  [context commodity _]
+  context)
+
+(defmethod process-record :commodity
+  [context commodity _]
+  context)
+
 (defn process-callback
   "Top-level callback processing
 

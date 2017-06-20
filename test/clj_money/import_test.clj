@@ -17,6 +17,7 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.imports :as imports]
+            [clj-money.models.lots :as lots]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash :as gnucash]))
@@ -192,3 +193,28 @@
                                      200M 200M 250M
                                      250M 275M 275M]}]}]
     (is (= expected actual) "The budget exists after import with correct values")))
+
+(def gnucash-commodities-sample
+  (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
+
+(def ^:private commodities-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :images [{:body (read-bytes gnucash-commodities-sample)
+             :original-filename "sample_with_commodities.gnucash"}]
+   :imports [{:entity-name "Personal"
+              :image-id "sample_with_commodities.gnucash"}]})
+
+(def ^:private expected-lots
+  [{:purchase-date (t/local-date 2015 1 16)
+    :shares 100M
+    :price 10M}])
+
+(deftest import-commodities
+  (let [context (serialization/realize storage-spec commodities-context)
+        user (-> context :users first)
+        image (-> context :images first)
+        imp (-> context :imports first)
+        result (import-data storage-spec imp (fn [progress]))
+        entity (first (entities/select storage-spec (:id user)))
+        lots (lots/search storage-spec {:entity-id (:id entity)})]
+    (is (= expected-lots lots) "The correct lots are present after import")))
