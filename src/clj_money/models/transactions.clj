@@ -365,7 +365,7 @@
                                           options )
          parsed-options (if (s/valid? ::select-options coerced-options)
                           coerced-options
-                          {:page 0
+                          {:page 1
                            :per-page 10})]
      (with-storage [s storage-spec]
        (->>
