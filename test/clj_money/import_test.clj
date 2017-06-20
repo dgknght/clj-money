@@ -41,13 +41,19 @@
             :account {:total 9}}
            {:commodity {:total 1}
             :account {:total 9}
+            :transaction {:total 6}}
+           {:commodity {:total 1
+                        :imported 1}
+            :account {:total 9}
             :transaction {:total 6}}]
-          (map (fn [i] {:commodity {:total 1}
+          (map (fn [i] {:commodity {:total 1
+                                    :imported 1}
                         :account {:total 9
                                   :imported (+ 1 i)}
                         :transaction {:total 6}})
                (range 9))
-          (map (fn [i] {:commodity {:total 1}
+          (map (fn [i] {:commodity {:total 1
+                                    :imported 1}
                         :account {:total 9
                                   :imported 9}
                         :transaction {:total 6

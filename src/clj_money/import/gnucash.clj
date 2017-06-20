@@ -145,9 +145,10 @@
 (defmethod process-node :gnc:commodity
   [callback node]
   (let [commodity (node->model node commodity-attributes)]
-    (callback (when (#{:nasdaq} (:exchange commodity))
-                commodity)
-              :commodity)))
+    (when (not= :template (:exchange commodity))
+      (callback (when (#{:nasdaq} (:exchange commodity))
+                  commodity)
+                :commodity))))
 
 (def ^:private price-attributes
   [{:attribute :trade-date
