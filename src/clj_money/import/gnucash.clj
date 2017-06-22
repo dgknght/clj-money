@@ -56,6 +56,9 @@
    "CREDIT"     :liability
    "STOCK"      :asset})
 
+(def ^:private content-types-map
+  {"STOCK" :commodity})
+
 (def ^:private account-attributes
   [{:attribute :name
     :xpath "act:name"}
@@ -65,7 +68,10 @@
    {:attribute :id
     :xpath "act:id"}
    {:attribute :parent-id
-    :xpath "act:parent"}])
+    :xpath "act:parent"}
+   {:attribute :content-type
+    :xpath "act:type"
+    :transform-fn #(get content-types-map % :currency)}])
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
@@ -73,9 +79,28 @@
   [account]
   (not (ignored-accounts (:name account))))
 
+(defmulti ^:private adjust-account
+  (fn [_ account]
+    (:content-type account)))
+
+(defmethod ^:private adjust-account :currency
+  [node account]
+  (let [xpath (format "//gnc:account[act:parent = \"%s\"]/act:type"
+                      ($x:text "act:id" node))
+        first-child-type (first ($x:text* xpath node))]
+    (cond-> account
+      (= "STOCK" first-child-type)
+      (assoc :content-type :commodities))))
+
+(defmethod ^:private adjust-account :commodity
+  [node account]
+  (assoc account :name ($x:text "act:commodity/cmdty:id" node)))
+
 (defmethod process-node :gnc:account
   [callback node]
-  (let [account (node->model node account-attributes)]
+  (let [account (->> account-attributes
+                     (node->model node)
+                     (adjust-account node))]
     (if (include-account? account)
       (callback account :account)
       ; when ignoring an account, make the callback

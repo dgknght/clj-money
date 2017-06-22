@@ -32,19 +32,23 @@
   [{:name "Checking"
     :id "ed92489659ab879fb9354a3a050fb65d"
     :parent-id "d005a139a1aaab6899867923509b96ca"
-    :type :asset}
+    :type :asset
+    :content-type :currency}
    {:name "Salary"
     :id "1b71fd298aeca1a18d35b04a7618e76e"
     :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
-    :type :income}
+    :type :income
+    :content-type :currency}
    {:name "Groceries"
     :id "835bfe9b2728976d06e63b90aea8c090"
     :parent-id "abff103816fb2e5cb93778b1ea51ca45"
-    :type :expense}
+    :type :expense
+    :content-type :currency}
    {:name "Credit Card"
     :id "337685830c05f47b2b09734a05a7c1a2"
     :parent-id "9ee0484c7788656a0800e28ec8cefaff"
-    :type :liability}])
+    :type :liability
+    :content-type :currency}])
 
 (def ^:private transactions
   [{:id "3ab51576141406703644c0a27579c057"
@@ -217,6 +221,20 @@
     {:record-type :transaction
      :record-count 8}})
 
+(def ^:private accounts-with-commodities
+  (-> accounts
+      (concat [{:id "fc053b4fc6b94898a5d6fa53ed203bd0"
+                :parent-id "d005a139a1aaab6899867923509b96ca"
+                :name "401k"
+                :type :asset
+                :content-type :commodities}
+               {:id "77bfb9a7eb53ebfd5dd13b22476f58dd"
+                :parent-id "fc053b4fc6b94898a5d6fa53ed203bd0"
+                :name "AAPL"
+                :type :asset
+                :content-type :commodity}])
+      set))
+
 (deftest read-gnucash-source-with-commodities
   (let [found (atom {})]
     (read-source :gnucash
@@ -225,4 +243,7 @@
     (is (= commodities (:commodity @found)) "The correct commodities are found")
     (is (= prices (:price @found)) "The correct prices are found")
     (is (= commodity-declarations (set (:declaration @found)))
-        "The correct declarations are found")))
+        "The correct declarations are found")
+    (is (= accounts-with-commodities
+           (set (:account @found)))
+        "The correct accounts are found")))
