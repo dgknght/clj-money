@@ -216,5 +216,9 @@
         imp (-> context :imports first)
         result (import-data storage-spec imp (fn [progress]))
         entity (first (entities/select storage-spec (:id user)))
-        lots (lots/search storage-spec {:entity-id (:id entity)})]
+        account (->> (:id entity)
+                     (accounts/select-by-entity-id storage-spec)
+                     (filter #(= "401k" (:name %)))
+                     first)
+        lots (lots/search storage-spec {:account-id (:id account)})]
     (is (= expected-lots lots) "The correct lots are present after import")))
