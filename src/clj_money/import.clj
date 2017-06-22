@@ -73,7 +73,11 @@
       (update-in [:items] #(resolve-account-references context %))
       (assoc :entity-id (-> context :entity :id))))
 
-(defn- import-transaction
+(defmulti ^:private import-transaction
+  (fn [_ transaction]
+    (:action transaction)))
+
+(defmethod ^:private import-transaction :default
   [context transaction]
   (let [result (->> transaction
                     (prepare-transaction context)
@@ -87,6 +91,10 @@
   ; Update anything in the context?
   ; don't want to include all transactions,
   ; as that can be many
+  context)
+
+(defmethod ^:private import-transaction :buy
+  [context transaction]
   context)
 
 (defn- prepare-input

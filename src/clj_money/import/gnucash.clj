@@ -40,8 +40,10 @@
                        transform-fn
                        identity)
         raw-value ($x:text? xpath node)
-        value (transform-fn raw-value)]
-    (assoc result attribute value)))
+        value (when raw-value (transform-fn raw-value))]
+    (if value
+      (assoc result attribute value)
+      result)))
 
 (defn- node->model
   [node attributes]
@@ -230,7 +232,10 @@
     :xpath "trn:date-posted/ts:date"
     :transform-fn parse-date}
    {:attribute :description
-    :xpath "trn:description"}])
+    :xpath "trn:description"}
+   {:attribute :action
+    :xpath "trn:splits/trn:split/split:action"
+    :transform-fn (comp keyword s/lower-case)}])
 
 (defn- node->transaction
   [node]
@@ -239,9 +244,20 @@
       (assoc :items (->> ($x "trn:splits/trn:split" node)
                          (map node->transaction-item)))))
 
+(defn- append-trading-attributes
+  [transaction node]
+  (if (= :buy (:action transaction))
+    (assoc transaction
+           :shares
+           (parse-decimal ($x:text "trn:splits/trn:split[split:action = \"Buy\"]/split:quantity" node))) 
+    transaction))
+
 (defmethod process-node :gnc:transaction
   [callback node]
-  (callback (node->transaction node) :transaction))
+  (-> node
+      node->transaction
+      (append-trading-attributes node)
+      (callback :transaction)))
 
 (def element-xpath
   (->> ["count-data" "account" "transaction" "budget" "commodity"]
