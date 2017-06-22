@@ -53,7 +53,8 @@
    "INCOME"     :income
    "EXPENSE"    :expense
    "LIABILITY"  :liability
-   "CREDIT"     :liability})
+   "CREDIT"     :liability
+   "STOCK"      :asset})
 
 (def ^:private account-attributes
   [{:attribute :name
