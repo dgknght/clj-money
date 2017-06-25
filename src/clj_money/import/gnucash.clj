@@ -41,9 +41,9 @@
                        identity)
         raw-value ($x:text? xpath node)
         value (when raw-value (transform-fn raw-value))]
-    (if value
-      (assoc result attribute value)
-      result)))
+    (if (nil? value)
+      result
+      (assoc result attribute value))))
 
 (defn- node->model
   [node attributes]
