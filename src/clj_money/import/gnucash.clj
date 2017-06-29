@@ -247,9 +247,17 @@
 (defn- append-trading-attributes
   [transaction node]
   (if (= :buy (:action transaction))
-    (assoc transaction
-           :shares
-           (parse-decimal ($x:text "trn:splits/trn:split[split:action = \"Buy\"]/split:quantity" node))) 
+    (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
+          commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
+                                                    ($x:text "split:account" commodity-item-node))
+                                            node))
+          symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
+          exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
+      (assoc transaction
+             :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
+             :commodity-account-id ($x:text "split:account" commodity-item-node)
+             :symbol symbol
+             :exchange exchange))
     transaction))
 
 (defmethod process-node :gnc:transaction
