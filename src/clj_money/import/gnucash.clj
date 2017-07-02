@@ -256,6 +256,7 @@
       (assoc transaction
              :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
              :commodity-account-id ($x:text "split:account" commodity-item-node)
+             :account-id ($x:text "act:parent" commodity-account-node)
              :symbol symbol
              :exchange exchange))
     transaction))

@@ -103,17 +103,11 @@
                                                    (= (:exchange %) (:exchange transaction))))
                                      first
                                      :id)
-                  :account-id 0
+                  :account-id ((:accounts context) (:account-id transaction))
                   :trade-date (:transaction-date transaction)
                   :shares (:shares transaction)
                   :value (:amount (first (:items transaction)))}]
-
-    (pprint {:transaction transaction
-             :purchase purchase
-             :commodities (:commodities context)})
-
-    #_(trading/buy (:storage context) purchase))
-
+    (trading/buy (:storage context) purchase))
   context)
 
 (defn- prepare-input

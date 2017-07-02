@@ -205,9 +205,9 @@
               :image-id "sample_with_commodities.gnucash"}]})
 
 (def ^:private expected-lots
-  [{:purchase-date (t/local-date 2015 1 16)
-    :shares 100M
-    :price 10M}])
+  [{:purchase-date (t/local-date 2015 1 17)
+    :shares-purchased 100M
+    :shares-owned 100M}])
 
 (deftest import-commodities
   (let [context (serialization/realize storage-spec commodities-context)
@@ -220,5 +220,11 @@
                      (accounts/select-by-entity-id storage-spec)
                      (filter #(= "401k" (:name %)))
                      first)
-        lots (lots/search storage-spec {:account-id (:id account)})]
-    (is (= expected-lots lots) "The correct lots are present after import")))
+        lots (lots/search storage-spec {:account-id (:id account)})
+        actual-lots (map #(dissoc % :id
+                                    :commodity-id
+                                    :account-id
+                                    :created-at
+                                    :updated-at)
+                         lots)]
+    (is (= expected-lots actual-lots) "The correct lots are present after import")))
