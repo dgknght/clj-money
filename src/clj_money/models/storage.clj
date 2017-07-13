@@ -91,6 +91,10 @@
     [this price]
     "Creates a new commodity price record")
 
+  (select-prices
+    [this criteria]
+    "Returns a list of prices matching the specified criteria")
+
   (select-prices-by-commodity-id
     [this commodity-id as-of] [this commodity-id options as-of]
     "Returns a list of prices for the specified commodity")

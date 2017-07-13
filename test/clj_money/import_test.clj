@@ -18,6 +18,7 @@
             [clj-money.models.budgets :as budgets]
             [clj-money.models.imports :as imports]
             [clj-money.models.lots :as lots]
+            [clj-money.models.prices :as prices]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash :as gnucash]))
@@ -209,6 +210,12 @@
     :shares-purchased 100M
     :shares-owned 100M}])
 
+(def ^:private expected-prices
+  [{:trade-date (t/local-date 2015 1 17)
+    :price 10M}
+   {:trade-date (t/local-date 2015 1 30)
+    :price 12M}])
+
 (deftest import-commodities
   (let [context (serialization/realize storage-spec commodities-context)
         user (-> context :users first)
@@ -226,5 +233,12 @@
                                     :account-id
                                     :created-at
                                     :updated-at)
-                         lots)]
-    (is (= expected-lots actual-lots) "The correct lots are present after import")))
+                         lots)
+        prices  (prices/search storage-spec {:entity-id (:id entity)})
+        actual-prices (map #(dissoc % :id
+                                      :commodity-id
+                                      :created-at
+                                      :updated-at)
+                           prices)]
+    (is (= expected-lots actual-lots) "The correct lots are present after import")
+    (is (= expected-prices, actual-prices) "The correct prices are present after import")))

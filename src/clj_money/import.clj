@@ -15,6 +15,7 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.models.images :as images]
             [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]
             [clj-money.models.imports :as imports]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
@@ -161,7 +162,15 @@
       (inc-and-update-progress :budget)))
 
 (defmethod process-record :price
-  [context commodity _]
+  [{:keys [storage entity] :as context} price _]
+  (let [commodity (->> {:exchange (name (:exchange price))
+                        :symbol (:symbol price)
+                        :entity-id (:id entity)}
+                       (commodities/search storage)
+                       first)]
+    (prices/create storage (-> price
+                               (assoc :commodity-id (:id commodity))
+                               (dissoc :exchange :symbol))))
   context)
 
 (defmethod process-record :commodity

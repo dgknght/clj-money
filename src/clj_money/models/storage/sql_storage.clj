@@ -29,6 +29,12 @@
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 (s/def ::image-criteria (s/keys :req-un [::user-id]))
+(defmulti price-criteria #(contains? % :commodity-id))
+(defmethod price-criteria true [_]
+  (s/keys :req-un [::commodity-id]))
+(defmethod price-criteria false [_]
+  (s/keys :req-un [::entity-id]))
+(s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :commodity-id)))
 
 (defn- exists?
   [db-spec table where]
@@ -328,6 +334,17 @@
     (insert db-spec :prices price :commodity-id
                                   :trade-date
                                   :price))
+
+  (select-prices
+    [_ criteria]
+    (when-not (s/valid? ::price-criteria criteria)
+      (throw (ex-info
+              "The criteria must specify entity-id or a commodity-id"
+              {:criteria criteria})))
+    (query db-spec (-> (h/select :p.*)
+                       (h/from [:prices :p])
+                       (h/join [:commodities :c] [:= :c.id :p.commodity_id])
+                       (h/where (map->where criteria)))))
 
   (select-prices-by-commodity-id
     [this commodity-id as-of]
