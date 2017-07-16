@@ -277,9 +277,13 @@
 (defmethod read-source :gnucash
   [_ input callback]
   (with-namespace-context namespace-map
+    (log/debug "reading the input stream into the DOM")
     (let [xml (->> (GZIPInputStream. input)
                    io/reader
                    slurp
                    xml->doc)]
+      (log/debug "finished building DOM from input stream")
+      (log/debug "processing the DOM source")
       (doseq [node ($x element-xpath xml)]
-        (process-node callback node)))))
+        (process-node callback node))
+      (log/debug "finished processing the DOM source"))))
