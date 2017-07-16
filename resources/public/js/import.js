@@ -62,34 +62,44 @@
 
       var trackImportProgress = function() {
         var trackingId = window.setInterval(function() {
-          apiClient.getImport($scope.activeImport.id).then(function(response) {
-            $scope.activeImport = response.data;
-            window.setTimeout(function() {
-              updateProgressBars($scope.activeImport.progress);
-            }, 250);
-            if (importIsComplete($scope.activeImport)) {
+          try {
+            apiClient.getImport($scope.activeImport.id).then(function(response) {
+              $scope.activeImport = response.data;
+              window.setTimeout(function() {
+                updateProgressBars($scope.activeImport.progress);
+              }, 250);
+              if (importIsComplete($scope.activeImport)) {
+                $scope.statusMessage = null;
+                $scope.alerts.push({
+                  message: "Import complete.",
+                  level: 'success'
+                });
+                window.clearInterval(trackingId);
+              }
+            }, function(error) {
+              console.log("Unable to get the updated import");
+              console.log(error);
               $scope.statusMessage = null;
               $scope.alerts.push({
-                message: "Import complete.",
-                level: 'success'
+                message: "Import failed: " + error.statusText,
+                level: 'danger'
               });
               window.clearInterval(trackingId);
-            }
-          }, function(error) {
-            console.log("Unable to get the updated import");
-            console.log(error);
+            });
+          } catch (e) {
+            window.clearInterval(trackingId);
             $scope.statusMessage = null;
             $scope.alerts.push({
-              message: "Import failed: " + error.statusText,
+              message: "Import failed: " + e,
               level: 'danger'
             });
-            window.clearInterval(trackingId);
-          });
+          }
         }, 1000);
       };
 
       $scope.startImport = function() {
         $scope.statusMessage = "Uploading the file...";
+        $scope.alerts.length = 0;
         apiClient.createImport({
           "entity-name": $scope.entityName,
           "source-file": $scope.sourceFile
