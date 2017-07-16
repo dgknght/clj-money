@@ -3,6 +3,7 @@
   (:require [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.string :as s]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
@@ -25,15 +26,9 @@
                   (map bigdec)))))
 
 (def ^:private namespace-map
-  {"gnc"        "http://www.gnucash.org/XML/gnc"
-   "act"        "http://www.gnucash.org/XML/act"
-   "trn"        "http://www.gnucash.org/XML/trn"
-   "ts"         "http://www.gnucash.org/XML/ts"
-   "split"      "http://www.gnucash.org/XML/split"
-   "bgt"        "http://www.gnucash.org/XML/bgt"
-   "recurrence" "http://www.gnucash.org/XML/recurrence"
-   "slot"       "http://www.gnucash.org/XML/slot"
-   "cd"         "http://www.gnucash.org/XML/cd"})
+  (->> ["gnc" "act" "trn" "ts" "split" "bgt" "recurrence" "slot" "cd" "cmdty" "price"]
+       (map #(vector % (format "http://www.gnucash.org/XML/%s" %)))
+       (into {})))
 
 (defmulti process-node
   (fn [_ node]
@@ -45,8 +40,10 @@
                        transform-fn
                        identity)
         raw-value ($x:text? xpath node)
-        value (transform-fn raw-value)]
-    (assoc result attribute value)))
+        value (when raw-value (transform-fn raw-value))]
+    (if (nil? value)
+      result
+      (assoc result attribute value))))
 
 (defn- node->model
   [node attributes]
@@ -58,7 +55,11 @@
    "INCOME"     :income
    "EXPENSE"    :expense
    "LIABILITY"  :liability
-   "CREDIT"     :liability})
+   "CREDIT"     :liability
+   "STOCK"      :asset})
+
+(def ^:private content-types-map
+  {"STOCK" :commodity})
 
 (def ^:private account-attributes
   [{:attribute :name
@@ -69,7 +70,10 @@
    {:attribute :id
     :xpath "act:id"}
    {:attribute :parent-id
-    :xpath "act:parent"}])
+    :xpath "act:parent"}
+   {:attribute :content-type
+    :xpath "act:type"
+    :transform-fn #(get content-types-map % :currency)}])
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
@@ -77,9 +81,28 @@
   [account]
   (not (ignored-accounts (:name account))))
 
+(defmulti ^:private adjust-account
+  (fn [_ account]
+    (:content-type account)))
+
+(defmethod ^:private adjust-account :currency
+  [node account]
+  (let [xpath (format "//gnc:account[act:parent = \"%s\"]/act:type"
+                      ($x:text "act:id" node))
+        first-child-type (first ($x:text* xpath node))]
+    (cond-> account
+      (= "STOCK" first-child-type)
+      (assoc :content-type :commodities))))
+
+(defmethod ^:private adjust-account :commodity
+  [node account]
+  (assoc account :name ($x:text "act:commodity/cmdty:id" node)))
+
 (defmethod process-node :gnc:account
   [callback node]
-  (let [account (node->model node account-attributes)]
+  (let [account (->> account-attributes
+                     (node->model node)
+                     (adjust-account node))]
     (if (include-account? account)
       (callback account :account)
       ; when ignoring an account, make the callback
@@ -138,6 +161,42 @@
       (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
       (callback :budget)))
 
+(def ^:private commodity-attributes
+  [{:attribute :exchange
+    :xpath "cmdty:space"
+    :transform-fn (comp keyword s/lower-case)}
+   {:attribute :symbol
+    :xpath "cmdty:id"}
+   {:attribute :name
+    :xpath "cmdty:name"}])
+
+(defmethod process-node :gnc:commodity
+  [callback node]
+  (let [commodity (node->model node commodity-attributes)]
+    (when (not= :template (:exchange commodity))
+      (callback (when (#{:nasdaq} (:exchange commodity))
+                  commodity)
+                :commodity))))
+
+(def ^:private price-attributes
+  [{:attribute :trade-date
+    :xpath "price:time/ts:date"
+    :transform-fn parse-date}
+   {:attribute :price
+    :xpath "price:value"
+    :transform-fn parse-decimal}
+   {:attribute :exchange
+    :xpath "price:commodity/cmdty:space"
+    :transform-fn (comp keyword s/lower-case)}
+   {:attribute :symbol
+    :xpath "price:commodity/cmdty:id"}])
+
+(defmethod process-node :price
+  [callback node]
+  (-> node
+      (node->model price-attributes)
+      (callback :price)))
+
 (defmethod process-node :gnc:count-data
   [callback node]
   (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
@@ -173,7 +232,10 @@
     :xpath "trn:date-posted/ts:date"
     :transform-fn parse-date}
    {:attribute :description
-    :xpath "trn:description"}])
+    :xpath "trn:description"}
+   {:attribute :action
+    :xpath "trn:splits/trn:split/split:action"
+    :transform-fn (comp keyword s/lower-case)}])
 
 (defn- node->transaction
   [node]
@@ -182,9 +244,35 @@
       (assoc :items (->> ($x "trn:splits/trn:split" node)
                          (map node->transaction-item)))))
 
+(defn- append-trading-attributes
+  [transaction node]
+  (if (= :buy (:action transaction))
+    (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
+          commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
+                                                    ($x:text "split:account" commodity-item-node))
+                                            node))
+          symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
+          exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
+      (assoc transaction
+             :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
+             :commodity-account-id ($x:text "split:account" commodity-item-node)
+             :account-id ($x:text "act:parent" commodity-account-node)
+             :symbol symbol
+             :exchange exchange))
+    transaction))
+
 (defmethod process-node :gnc:transaction
   [callback node]
-  (callback (node->transaction node) :transaction))
+  (-> node
+      node->transaction
+      (append-trading-attributes node)
+      (callback :transaction)))
+
+(def element-xpath
+  (->> ["count-data" "account" "transaction" "budget" "commodity"]
+       (map #(format "/gnc-v2/gnc:book/gnc:%s" %))
+       (concat ["/gnc-v2/gnc:book/gnc:pricedb/price"])
+       (s/join " | ")))
 
 (defmethod read-source :gnucash
   [_ input callback]
@@ -193,5 +281,5 @@
                    io/reader
                    slurp
                    xml->doc)]
-      (doseq [node ($x "/gnc-v2/gnc:book/gnc:count-data | /gnc-v2/gnc:book/gnc:account | /gnc-v2/gnc:book/gnc:transaction | /gnc-v2/gnc:book/gnc:budget" xml)]
+      (doseq [node ($x element-xpath xml)]
         (process-node callback node)))))

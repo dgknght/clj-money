@@ -32,19 +32,23 @@
   [{:name "Checking"
     :id "ed92489659ab879fb9354a3a050fb65d"
     :parent-id "d005a139a1aaab6899867923509b96ca"
-    :type :asset}
+    :type :asset
+    :content-type :currency}
    {:name "Salary"
     :id "1b71fd298aeca1a18d35b04a7618e76e"
     :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
-    :type :income}
+    :type :income
+    :content-type :currency}
    {:name "Groceries"
     :id "835bfe9b2728976d06e63b90aea8c090"
     :parent-id "abff103816fb2e5cb93778b1ea51ca45"
-    :type :expense}
+    :type :expense
+    :content-type :currency}
    {:name "Credit Card"
     :id "337685830c05f47b2b09734a05a7c1a2"
     :parent-id "9ee0484c7788656a0800e28ec8cefaff"
-    :type :liability}])
+    :type :liability
+    :content-type :currency}])
 
 (def ^:private transactions
   [{:id "3ab51576141406703644c0a27579c057"
@@ -171,18 +175,75 @@
                         {:index 11
                          :amount 275M}}}]}])
 
+(defn- track-record
+  [store record record-type]
+  (swap! store (fn [f]
+                 (cond-> f
+                   record
+                   (update-in [record-type]
+                              #((fnil conj []) % record))))))
+
 (deftest read-gnucash-source
   (let [found (atom {})]
     (read-source :gnucash
                  input
-                 (fn [record record-type]
-                   (swap! found (fn [f]
-                                  (if record
-                                    (update-in f
-                                               [record-type]
-                                               #((fnil conj []) % record))
-                                    f)))))
+                 (partial track-record found))
     (is (= declarations (:declaration @found)) "The correct declarations are found")
     (is (= accounts (:account @found)) "The correct accounts are found")
     (is (= budgets (:budget @found)) "The current budgets are found")
     (is (= transactions (:transaction @found)) "The correct transactions are found")))
+
+(def ^:private commodities-input
+  (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
+
+(def ^:private commodities
+  [{:name "Apple, Inc."
+    :symbol "AAPL"
+    :exchange :nasdaq}])
+
+(def ^:private prices
+  [{:trade-date (t/local-date 2015 1 30)
+    :price 12.00M
+    :exchange :nasdaq
+    :symbol "AAPL"}
+   {:trade-date (t/local-date 2015 1 17)
+    :price 10.00M
+    :exchange :nasdaq
+    :symbol "AAPL"}])
+
+(def ^:private commodity-declarations
+  #{{:record-type :commodity
+     :record-count 2}
+    {:record-type :price
+     :record-count 2}
+    {:record-type :account
+     :record-count 11}
+    {:record-type :transaction
+     :record-count 8}})
+
+(def ^:private accounts-with-commodities
+  (-> accounts
+      (concat [{:id "fc053b4fc6b94898a5d6fa53ed203bd0"
+                :parent-id "d005a139a1aaab6899867923509b96ca"
+                :name "401k"
+                :type :asset
+                :content-type :commodities}
+               {:id "77bfb9a7eb53ebfd5dd13b22476f58dd"
+                :parent-id "fc053b4fc6b94898a5d6fa53ed203bd0"
+                :name "AAPL"
+                :type :asset
+                :content-type :commodity}])
+      set))
+
+(deftest read-gnucash-source-with-commodities
+  (let [found (atom {})]
+    (read-source :gnucash
+                 commodities-input
+                 (partial track-record found))
+    (is (= commodities (:commodity @found)) "The correct commodities are found")
+    (is (= prices (:price @found)) "The correct prices are found")
+    (is (= commodity-declarations (set (:declaration @found)))
+        "The correct declarations are found")
+    (is (= accounts-with-commodities
+           (set (:account @found)))
+        "The correct accounts are found")))

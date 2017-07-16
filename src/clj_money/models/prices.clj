@@ -10,6 +10,7 @@
             [clj-money.models.storage :refer [create-price
                                               find-price-by-id
                                               update-price
+                                              select-prices
                                               select-prices-by-commodity-id
                                               delete-price]]))
 
@@ -79,9 +80,13 @@
 (defn select-by-commodity-id
   [storage-spec commodity-id]
   (with-storage [s storage-spec]
-    (->> (select-prices-by-commodity-id s
-                                        commodity-id
-                                        (tc/to-long (t/local-date 9999 12 31)))
+    (->> (select-prices s {:commodity-id commodity-id})
+         (map after-read))))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> (select-prices s criteria)
          (map after-read))))
 
 (defn update

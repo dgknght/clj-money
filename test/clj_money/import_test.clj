@@ -17,6 +17,8 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.imports :as imports]
+            [clj-money.models.lots :as lots]
+            [clj-money.models.prices :as prices]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash :as gnucash]))
@@ -41,13 +43,19 @@
             :account {:total 9}}
            {:commodity {:total 1}
             :account {:total 9}
+            :transaction {:total 6}}
+           {:commodity {:total 1
+                        :imported 1}
+            :account {:total 9}
             :transaction {:total 6}}]
-          (map (fn [i] {:commodity {:total 1}
+          (map (fn [i] {:commodity {:total 1
+                                    :imported 1}
                         :account {:total 9
                                   :imported (+ 1 i)}
                         :transaction {:total 6}})
                (range 9))
-          (map (fn [i] {:commodity {:total 1}
+          (map (fn [i] {:commodity {:total 1
+                                    :imported 1}
                         :account {:total 9
                                   :imported 9}
                         :transaction {:total 6
@@ -186,3 +194,51 @@
                                      200M 200M 250M
                                      250M 275M 275M]}]}]
     (is (= expected actual) "The budget exists after import with correct values")))
+
+(def gnucash-commodities-sample
+  (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
+
+(def ^:private commodities-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :images [{:body (read-bytes gnucash-commodities-sample)
+             :original-filename "sample_with_commodities.gnucash"}]
+   :imports [{:entity-name "Personal"
+              :image-id "sample_with_commodities.gnucash"}]})
+
+(def ^:private expected-lots
+  [{:purchase-date (t/local-date 2015 1 17)
+    :shares-purchased 100M
+    :shares-owned 100M}])
+
+(def ^:private expected-prices
+  [{:trade-date (t/local-date 2015 1 17)
+    :price 10M}
+   {:trade-date (t/local-date 2015 1 30)
+    :price 12M}])
+
+(deftest import-commodities
+  (let [context (serialization/realize storage-spec commodities-context)
+        user (-> context :users first)
+        image (-> context :images first)
+        imp (-> context :imports first)
+        result (import-data storage-spec imp (fn [progress]))
+        entity (first (entities/select storage-spec (:id user)))
+        account (->> (:id entity)
+                     (accounts/select-by-entity-id storage-spec)
+                     (filter #(= "401k" (:name %)))
+                     first)
+        lots (lots/search storage-spec {:account-id (:id account)})
+        actual-lots (map #(dissoc % :id
+                                    :commodity-id
+                                    :account-id
+                                    :created-at
+                                    :updated-at)
+                         lots)
+        prices  (prices/search storage-spec {:entity-id (:id entity)})
+        actual-prices (map #(dissoc % :id
+                                      :commodity-id
+                                      :created-at
+                                      :updated-at)
+                           prices)]
+    (is (= expected-lots actual-lots) "The correct lots are present after import")
+    (is (= expected-prices, actual-prices) "The correct prices are present after import")))

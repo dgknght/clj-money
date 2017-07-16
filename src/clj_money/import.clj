@@ -7,12 +7,15 @@
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
+            [clj-money.trading :as trading]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.images :as images]
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.prices :as prices]
             [clj-money.models.imports :as imports]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
@@ -73,7 +76,11 @@
       (update-in [:items] #(resolve-account-references context %))
       (assoc :entity-id (-> context :entity :id))))
 
-(defn- import-transaction
+(defmulti ^:private import-transaction
+  (fn [_ transaction]
+    (:action transaction)))
+
+(defmethod ^:private import-transaction :default
   [context transaction]
   (let [result (->> transaction
                     (prepare-transaction context)
@@ -87,6 +94,21 @@
   ; Update anything in the context?
   ; don't want to include all transactions,
   ; as that can be many
+  context)
+
+(defmethod ^:private import-transaction :buy
+  [context transaction]
+  (let [purchase {:commodity-id (->> context
+                                     :commodities
+                                     (filter #(and (= (:symbol %) (:symbol transaction))
+                                                   (= (:exchange %) (:exchange transaction))))
+                                     first
+                                     :id)
+                  :account-id ((:accounts context) (:account-id transaction))
+                  :trade-date (:transaction-date transaction)
+                  :shares (:shares transaction)
+                  :value (:amount (first (:items transaction)))}]
+    (trading/buy (:storage context) purchase))
   context)
 
 (defn- prepare-input
@@ -138,6 +160,24 @@
   (-> context
       (import-budget budget)
       (inc-and-update-progress :budget)))
+
+(defmethod process-record :price
+  [{:keys [storage entity] :as context} price _]
+  (let [commodity (->> {:exchange (name (:exchange price))
+                        :symbol (:symbol price)
+                        :entity-id (:id entity)}
+                       (commodities/search storage)
+                       first)]
+    (prices/create storage (-> price
+                               (assoc :commodity-id (:id commodity))
+                               (dissoc :exchange :symbol))))
+  context)
+
+(defmethod process-record :commodity
+  [{:keys [entity storage] :as context} commodity _]
+  (let [to-create (assoc commodity :entity-id (:id entity))
+        created (commodities/create storage  to-create)]
+    (update-in context [:commodities] #((fnil conj []) % created))))
 
 (defn process-callback
   "Top-level callback processing
