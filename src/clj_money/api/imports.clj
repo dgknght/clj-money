@@ -15,7 +15,7 @@
             [clj-money.models.imports :as imports]))
 
 (def ^:private expected-record-types
-  [:budget :account :transaction])
+  [:budget :account :transaction :commodity :price])
 
 (defn- progress-complete?
   [progress]

@@ -33,7 +33,7 @@
   [_ import]
   (update-in import [:progress] #(-> %
                                      (json/parse-string true)
-                                     (select-keys [:account :transaction :budget]))))
+                                     (select-keys [:account :transaction :budget :commodity :price]))))
 
 (defn find-by-id
   [storage-spec id]

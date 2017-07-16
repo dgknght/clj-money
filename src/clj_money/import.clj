@@ -171,7 +171,7 @@
     (prices/create storage (-> price
                                (assoc :commodity-id (:id commodity))
                                (dissoc :exchange :symbol))))
-  context)
+  (inc-and-update-progress context :price))
 
 (defmethod process-record :commodity
   [{:keys [entity storage] :as context} commodity _]
