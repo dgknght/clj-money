@@ -211,10 +211,10 @@
     :shares-owned 100M}])
 
 (def ^:private expected-prices
-  [{:trade-date (t/local-date 2015 1 17)
-    :price 10M}
-   {:trade-date (t/local-date 2015 1 30)
-    :price 12M}])
+  #{{:trade-date (t/local-date 2015 1 17)
+     :price 10M}
+    {:trade-date (t/local-date 2015 1 30)
+     :price 12M}})
 
 (deftest import-commodities
   (let [context (serialization/realize storage-spec commodities-context)
@@ -235,10 +235,11 @@
                                     :updated-at)
                          lots)
         prices  (prices/search storage-spec {:entity-id (:id entity)})
-        actual-prices (map #(dissoc % :id
-                                      :commodity-id
-                                      :created-at
-                                      :updated-at)
-                           prices)]
+        actual-prices (->> prices
+                           (map #(dissoc % :id
+                                           :commodity-id
+                                           :created-at
+                                           :updated-at))
+                           (into #{}))]
     (is (= expected-lots actual-lots) "The correct lots are present after import")
     (is (= expected-prices, actual-prices) "The correct prices are present after import")))
