@@ -18,6 +18,7 @@
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
+(s/def ::transaction-id integer?)
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
   (s/keys :req-un [::account-id] :req-opt [::commodity-id ::entity-id]))
@@ -35,6 +36,7 @@
 (defmethod price-criteria false [_]
   (s/keys :req-un [::entity-id]))
 (s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :commodity-id)))
+(s/def ::attachment-criteria (s/keys :req-un [::transaction-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -869,6 +871,26 @@
                   :explanation explanation}))))
     (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
                        (h/from :images)
+                       (h/where (map->where criteria)))))
+
+  ; Attachments
+  (create-attachment
+    [_ attachment]
+    (insert db-spec :attachments attachment :transaction-id
+                                  :caption
+                                  :image-id
+                                  :mime-type))
+
+  (select-attachments
+    [_ criteria]
+    (when-not (s/valid? ::attachment-criteria criteria)
+      (let [explanation (s/explain-data ::attachment-criteria criteria)]
+        (throw (ex-info
+                 (str "The criteria is not valid: " explanation)
+                 {:criteria criteria
+                  :explanation explanation}))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :attachments)
                        (h/where (map->where criteria)))))
 
   ; Imports

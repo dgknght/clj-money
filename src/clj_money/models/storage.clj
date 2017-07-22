@@ -322,6 +322,15 @@
     [this id]
     "Returns the specified image record")
 
+  ; Attachments
+  (create-attachment
+    [this attachment]
+    "Creates a new attachment record")
+
+  (select-attachments
+    [this criteria]
+    "Returns matching attachments")
+
   ; Imports
   (create-import
     [this import]
