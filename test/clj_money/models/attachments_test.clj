@@ -39,11 +39,15 @@
 
 (deftest create-an-attachment
   (let [context (serialization/realize storage-spec attach-context)
-        result (attachments/create storage-spec {:transaction-id (-> context :transactions first :id)
-                                                 :image-id (-> context :images first :id)
-                                                 :mime-type "image/jpeg"
-                                                 :caption "receipt"})
-        retrieved (attachments/search storage-spec {:transaction-id (-> context :transactios first :id)})]
+        transaction-id (-> context :transactions first :id)
+        result (attachments/create storage-spec
+                                   {:transaction-id transaction-id
+                                    :image-id (-> context :images first :id)
+                                    :mime-type "image/jpeg"
+                                    :caption "receipt"})
+        retrieved (->> {:transaction-id transaction-id}
+                       (attachments/search storage-spec)
+                       first)]
     (is retrieved "The value can be retreived from the database")
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")
     (is (= "image/jpeg" (:mime-type retrieved)) "The mime type is retrieved correctly")))
