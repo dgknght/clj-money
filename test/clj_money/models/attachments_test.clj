@@ -37,17 +37,55 @@
    :images [{:original-filename "sample_receipt.jpg"
              :body "resources/fixtures/sample_receipt.jpg"}]})
 
+(defn- attributes
+  [context]
+  {:transaction-id (-> context :transactions first :id)
+   :image-id (-> context :images first :id)
+   :mime-type "image/jpeg"
+   :caption "receipt"})
+
 (deftest create-an-attachment
   (let [context (serialization/realize storage-spec attach-context)
-        transaction-id (-> context :transactions first :id)
-        result (attachments/create storage-spec
-                                   {:transaction-id transaction-id
-                                    :image-id (-> context :images first :id)
-                                    :mime-type "image/jpeg"
-                                    :caption "receipt"})
-        retrieved (->> {:transaction-id transaction-id}
+        result (attachments/create storage-spec (attributes context))
+        retrieved (->> {:transaction-id (-> context :transactions first :id)}
                        (attachments/search storage-spec)
                        first)]
     (is retrieved "The value can be retreived from the database")
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")
     (is (= "image/jpeg" (:mime-type retrieved)) "The mime type is retrieved correctly")))
+
+(deftest transaction-id-is-required
+  (let [context (serialization/realize storage-spec attach-context)
+        result (attachments/create storage-spec (dissoc (attributes context)
+                                                        :transaction-id))]
+    (is (not (validation/valid? result))
+        "The value can be retreived from the database")
+    (is (not (empty? (validation/error-messages result :transaction-id)))
+        "The transaction-id attribute has an error message")))
+
+(deftest image-id-is-required
+  (let [context (serialization/realize storage-spec attach-context)
+        result (attachments/create storage-spec (dissoc (attributes context)
+                                                        :image-id))]
+    (is (not (validation/valid? result))
+        "The value can be retreived from the database")
+    (is (not (empty? (validation/error-messages result :image-id)))
+        "The image-id attribute has an error message")))
+
+(deftest mime-type-is-required
+  (let [context (serialization/realize storage-spec attach-context)
+        result (attachments/create storage-spec (dissoc (attributes context)
+                                                        :mime-type))]
+    (is (not (validation/valid? result))
+        "The value can be retreived from the database")
+    (is (not (empty? (validation/error-messages result :mime-type)))
+        "The mime-type attribute has an error message")))
+
+(deftest caption-is-required
+  (let [context (serialization/realize storage-spec attach-context)
+        result (attachments/create storage-spec (dissoc (attributes context)
+                                                        :caption))]
+    (is (not (validation/valid? result))
+        "The value can be retreived from the database")
+    (is (not (empty? (validation/error-messages result :caption)))
+        "The caption attribute has an error message")))
