@@ -139,6 +139,13 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this transaction."})
+     (glyph-button :paperclip
+                   (-> (path "/transactions" transaction-id "attachments")
+                       (query {:redirect (url-encode (format "/accounts/%s" account-id))})
+                       format-url)
+                   {:level :default
+                    :size :extra-small
+                    :title "Click here to view attachments for this transaction."})
      (let [can-delete? (->> transaction-id
                             (transactions/find-by-id (env :db))
                             transactions/can-delete?)]
