@@ -877,9 +877,9 @@
   (create-attachment
     [_ attachment]
     (insert db-spec :attachments attachment :transaction-id
-                                  :caption
-                                  :image-id
-                                  :mime-type))
+                                            :caption
+                                            :image-id
+                                            :mime-type))
 
   (select-attachments
     [_ criteria]
