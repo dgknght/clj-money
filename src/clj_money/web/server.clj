@@ -24,6 +24,7 @@
             [clj-money.middleware :refer [wrap-integer-id-params wrap-entity]]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
+            [clj-money.web.images :as images]
             [clj-money.web.imports :as imports]
             [clj-money.api.imports :as imports-api]
             [clj-money.web.accounts :as accounts]
@@ -115,6 +116,9 @@
   (route GET "/attachments/:id/edit" attachments/edit)
   (route POST "/attachments/:id" attachments/update)
   (route POST "/attachments/:id/delete" attachments/delete)
+
+  ; Images
+  (route GET "/images/:image-id" images/show)
 
   ; Trading
   (route GET "/accounts/:account-id/purchases/new" trading/new-purchase)

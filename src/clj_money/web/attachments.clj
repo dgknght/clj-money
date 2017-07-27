@@ -20,7 +20,8 @@
   [attachment]
   [:tr
    [:td
-    [:a {:href (format "/images/%s" (:image-id attachment))}
+    [:a {:href (format "/images/%s" (:image-id attachment))
+         :target "_blank"}
      (:caption attachment)]]
    [:td "&nbsp"]])
 
