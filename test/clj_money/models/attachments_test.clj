@@ -35,13 +35,13 @@
                             :account-id "Salary"
                             :amount 1000M}]}]
    :images [{:original-filename "sample_receipt.jpg"
-             :body "resources/fixtures/sample_receipt.jpg"}]})
+             :body "resources/fixtures/sample_receipt.jpg"
+             :content-type "image/jpeg"}]})
 
 (defn- attributes
   [context]
   {:transaction-id (-> context :transactions first :id)
    :image-id (-> context :images first :id)
-   :content-type "image/jpeg"
    :caption "receipt"})
 
 (deftest create-an-attachment
@@ -51,8 +51,7 @@
                        (attachments/search storage-spec)
                        first)]
     (is retrieved "The value can be retreived from the database")
-    (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")
-    (is (= "image/jpeg" (:content-type retrieved)) "The content type is retrieved correctly")))
+    (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")))
 
 (deftest transaction-id-is-required
   (let [context (serialization/realize storage-spec attach-context)
@@ -71,15 +70,6 @@
         "The value can be retreived from the database")
     (is (not (empty? (validation/error-messages result :image-id)))
         "The image-id attribute has an error message")))
-
-(deftest content-type-is-required
-  (let [context (serialization/realize storage-spec attach-context)
-        result (attachments/create storage-spec (dissoc (attributes context)
-                                                        :content-type))]
-    (is (not (validation/valid? result))
-        "The value can be retreived from the database")
-    (is (not (empty? (validation/error-messages result :content-type)))
-        "The content-type attribute has an error message")))
 
 (deftest caption-is-required
   (let [context (serialization/realize storage-spec attach-context)

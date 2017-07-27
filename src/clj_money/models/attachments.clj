@@ -13,11 +13,9 @@
 (s/def ::transaction-id integer?)
 (s/def ::image-id integer?)
 (s/def ::caption string?)
-(s/def ::content-type string?)
 (s/def ::new-attachment (s/keys :req-un [::transaction-id
                                          ::caption
-                                         ::image-id
-                                         ::content-type]))
+                                         ::image-id]))
 
 (def create
   (create-fn {:create create-attachment

@@ -854,6 +854,7 @@
     [_ image]
     (insert db-spec :images image :user-id
                                   :original-filename
+                                  :content-type
                                   :body-hash
                                   :body))
 
@@ -883,8 +884,7 @@
     [_ attachment]
     (insert db-spec :attachments attachment :transaction-id
                                             :caption
-                                            :image-id
-                                            :content-type))
+                                            :image-id))
 
   (select-attachments
     [_ criteria]

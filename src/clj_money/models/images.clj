@@ -14,10 +14,12 @@
 
 (s/def ::user-id integer?)
 (s/def ::original-filename validation/non-empty-string?)
+(s/def ::content-type string?)
 (s/def ::body-hash validation/non-empty-string?)
 (s/def ::body bytes?)
 (s/def ::image (s/keys :req-un [::user-id
                                 ::original-filename
+                                ::content-type
                                 ::body-hash
                                 ::body]))
 

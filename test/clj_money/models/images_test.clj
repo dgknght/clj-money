@@ -23,6 +23,7 @@
   [context]
   {:user-id (-> context :users first :id)
    :original-filename "sample.gnucash"
+   :content-type "application/gnucash"
    :body (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))})
 
 (deftest create-an-image
@@ -66,3 +67,12 @@
         result (images/create storage-spec (dissoc (attributes context) :body))]
     (is (not (empty? (validation/error-messages result :body)))
         "The result has a validation error on :body")))
+
+(deftest content-type-is-required
+  (let [context (serialization/realize storage-spec image-context)
+        result (images/create storage-spec (dissoc (attributes context)
+                                                        :content-type))]
+    (is (not (validation/valid? result))
+        "The value can be retreived from the database")
+    (is (not (empty? (validation/error-messages result :content-type)))
+        "The content-type attribute has an error message")))
