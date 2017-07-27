@@ -863,15 +863,20 @@
 
   (select-images
     [_ criteria]
+    (.select-images nil criteria {}))
+
+  (select-images
+    [_ criteria options]
     (when-not (s/valid? ::image-criteria criteria)
       (let [explanation (s/explain-data ::image-criteria criteria)]
         (throw (ex-info
-                 (str "The criteria is not valid: " explanation)
-                 {:criteria criteria
+                  (str "The criteria is not valid: " explanation)
+                  {:criteria criteria
                   :explanation explanation}))))
     (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
-                       (h/from :images)
-                       (h/where (map->where criteria)))))
+                        (h/from :images)
+                        (h/where (map->where criteria))
+                        (append-limit options))))
 
   ; Attachments
   (create-attachment

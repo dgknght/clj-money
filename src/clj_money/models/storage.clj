@@ -318,6 +318,11 @@
     [this image]
     "Creates a new image record")
 
+  (select-images
+    [this criteria]
+    [this criteria options]
+    "Selects images matching the specified criteria")
+
   (find-image-by-id
     [this id]
     "Returns the specified image record")
@@ -335,10 +340,6 @@
   (create-import
     [this import]
     "Creates a new import record")
-
-  (select-images
-    [this criteria]
-    "Selects images matching the specified criteria")
 
   (find-import-by-id
     [this id]
