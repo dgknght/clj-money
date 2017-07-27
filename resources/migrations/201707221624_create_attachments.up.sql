@@ -7,7 +7,7 @@ create table attachments (
   transaction_id int not null,
   caption varchar(255) not null,
   image_id int not null,
-  mime_type varchar(100) not null,
+  content_type varchar(100) not null,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now()
 );

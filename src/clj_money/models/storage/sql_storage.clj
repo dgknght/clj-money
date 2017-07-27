@@ -879,7 +879,7 @@
     (insert db-spec :attachments attachment :transaction-id
                                             :caption
                                             :image-id
-                                            :mime-type))
+                                            :content-type))
 
   (select-attachments
     [_ criteria]

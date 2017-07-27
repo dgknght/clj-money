@@ -41,7 +41,7 @@
   [context]
   {:transaction-id (-> context :transactions first :id)
    :image-id (-> context :images first :id)
-   :mime-type "image/jpeg"
+   :content-type "image/jpeg"
    :caption "receipt"})
 
 (deftest create-an-attachment
@@ -52,7 +52,7 @@
                        first)]
     (is retrieved "The value can be retreived from the database")
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")
-    (is (= "image/jpeg" (:mime-type retrieved)) "The mime type is retrieved correctly")))
+    (is (= "image/jpeg" (:content-type retrieved)) "The content type is retrieved correctly")))
 
 (deftest transaction-id-is-required
   (let [context (serialization/realize storage-spec attach-context)
@@ -72,14 +72,14 @@
     (is (not (empty? (validation/error-messages result :image-id)))
         "The image-id attribute has an error message")))
 
-(deftest mime-type-is-required
+(deftest content-type-is-required
   (let [context (serialization/realize storage-spec attach-context)
         result (attachments/create storage-spec (dissoc (attributes context)
-                                                        :mime-type))]
+                                                        :content-type))]
     (is (not (validation/valid? result))
         "The value can be retreived from the database")
-    (is (not (empty? (validation/error-messages result :mime-type)))
-        "The mime-type attribute has an error message")))
+    (is (not (empty? (validation/error-messages result :content-type)))
+        "The content-type attribute has an error message")))
 
 (deftest caption-is-required
   (let [context (serialization/realize storage-spec attach-context)

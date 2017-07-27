@@ -13,11 +13,11 @@
 (s/def ::transaction-id integer?)
 (s/def ::image-id integer?)
 (s/def ::caption string?)
-(s/def ::mime-type string?)
+(s/def ::content-type string?)
 (s/def ::new-attachment (s/keys :req-un [::transaction-id
                                          ::caption
                                          ::image-id
-                                         ::mime-type]))
+                                         ::content-type]))
 
 (def create
   (create-fn {:create create-attachment
