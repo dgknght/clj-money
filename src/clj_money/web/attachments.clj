@@ -19,7 +19,9 @@
 (defn- attachment-row
   [attachment]
   [:tr
-   [:td (:caption attachment)]
+   [:td
+    [:a {:href (format "/images/%s" (:image-id attachment))}
+     (:caption attachment)]]
    [:td "&nbsp"]])
 
 (defn index
