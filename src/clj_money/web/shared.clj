@@ -286,6 +286,11 @@
   ([model attribute options]
    (input-field model attribute (merge options {:type :password}))))
 
+(defn file-input-field
+  ([model attribute] (file-input-field model attribute {}))
+  ([model attribute options]
+   (input-field model attribute (merge options {:type :file}))))
+
 (defn select-element ; TODO probably need a better name here
   [name value option-items options]
   [:div.form-group

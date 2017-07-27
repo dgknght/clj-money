@@ -2,13 +2,17 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clojure.string :refer [blank?]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
+            [cemerick.friend :as friend]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
+            [clj-money.models.images :as images] 
             [clj-money.models.attachments :as attachments])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -35,27 +39,51 @@
        "Add"])))
 
 (defn new-attachment
-  [{{transaction-id :transaction-id} :params}]
-  (with-layout "New attachment" {}
-    [:div.row
-     [:div.col-md-6
-      [:form {:action (format "/transactions/%s/attachments" transaction-id)
-              :method :post}
-       [:div.form-group
-        [:label.control-label {:for "attachment-caption"} "Caption"]
-        [:input#attachment-caption.form-control {:type :text
-                                                 :name :caption
-                                                 :autofocus true}]]
-       [:div.form-group
-        [:label.control-label {:for "attachment-file"} "Attachment file"]
-        [:input#source-file.form-control {:type :file
-                                          :name "source-file"}]]
-       [:button.btn.btn-primary {:type :submit}
-        "Submit"]]]]))
+  ([{{transaction-id :transaction-id} :params :as req}]
+   (new-attachment req {:transaction-id (Integer. transaction-id)}))
+  ([_ attachment]
+   (with-layout "New attachment" {}
+     [:div.row
+      [:div.col-md-6
+       [:pre (prn-str attachment)]
+       [:form {:action (format "/transactions/%s/attachments"
+                               (:transaction-id attachment))
+               :method :post
+               :enctype "multipart/form-data"}
+        (text-input-field attachment :caption {:autofocus true})
+        (file-input-field attachment :source-file)
+        [:button.btn.btn-primary {:type :submit}
+         "Submit"]]]])))
+
+(defn- prepare-file-data
+  [params]
+  (let [user (friend/current-authentication)
+        image (images/find-or-create (env :db)
+                                     {:user-id (:id user)
+                                      :original-filename (-> params
+                                                             :source-file
+                                                             :filename)
+                                      :body (-> params
+                                                :source-file
+                                                :tempfile
+                                                read-bytes)})]
+    (cond-> params
+      true
+      (assoc :image-id (:id image)
+             :content-type (-> params :source-file :content-type))
+
+      (blank? (:caption params))
+      (assoc :caption (-> params :source-file :filename)))))
 
 (defn create
-  [req]
-  "create")
+  [{params :params}]
+  (let [attachment (->> params
+                        prepare-file-data
+                        (attachments/create (env :db)))]
+    (if (seq (validation/error-messages attachment))
+      (new-attachment nil attachment)
+      (redirect (format "/transactions/%s/attachments"
+                        (:transaction-id params))))))
 
 (defn edit
   [req]
