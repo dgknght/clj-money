@@ -19,6 +19,7 @@
 (def import-context
   {:users [(factory :user)]
    :images [{:original-filename "somefile.gnucash"
+             :content-type "application/gnucash"
              :body "resources/fixtures/sample.gnucash"}]})
 
 (defn attributes

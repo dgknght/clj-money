@@ -318,18 +318,37 @@
     [this image]
     "Creates a new image record")
 
+  (select-images
+    [this criteria]
+    [this criteria options]
+    "Selects images matching the specified criteria")
+
   (find-image-by-id
     [this id]
     "Returns the specified image record")
+
+  (delete-image
+    [this id]
+    "Deletes the specified image record")
+
+  ; Attachments
+  (create-attachment
+    [this attachment]
+    "Creates a new attachment record")
+
+  (select-attachments
+    [this criteria]
+    [this criteria options]
+    "Returns matching attachments")
+
+  (delete-attachment
+    [this id]
+    "Deletes the specified attachment record")
 
   ; Imports
   (create-import
     [this import]
     "Creates a new import record")
-
-  (select-images
-    [this criteria]
-    "Selects images matching the specified criteria")
 
   (find-import-by-id
     [this id]

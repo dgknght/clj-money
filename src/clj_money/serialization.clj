@@ -13,6 +13,7 @@
             [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.attachments :as attachments]
             [clj-money.models.reconciliations :as reconciliations]
             [clj-money.models.images :as images]
             [clj-money.models.imports :as imports]))
@@ -144,6 +145,39 @@
 (defn- realize-transactions
   [storage context]
   (update-in context [:transactions] #(create-transactions storage context %)))
+
+(defn- resolve-transaction
+  [context model]
+  (let [trans-ref (:transaction-id model)]
+    (assoc model :transaction-id (->> context
+                                      :transactions
+                                      (filter #(and
+                                                 (= (:transaction-date %)
+                                                    (:transaction-date trans-ref))
+                                                 (= (:description %)
+                                                    (:description trans-ref))))
+                                      first
+                                      :id))))
+
+(defn- resolve-image
+  [context model]
+  (assoc model :image-id (->> context
+                              :images
+                              (filter #(= (:original-filenamme %)
+                                          (:image-id model)))
+                              first)))
+
+(defn- create-attachments
+  [storage context attachments]
+  (mapv #(->> %
+              (resolve-transaction context)
+              (resolve-image context)
+              (attachments/create storage))
+        attachments))
+
+(defn- realize-attachments
+  [storage context]
+  (update-in context [:attachments] #(create-attachments storage context %)))
 
 (defn- append-budget-items
   [storage context items budget]
@@ -339,4 +373,5 @@
       (realize-lot-transactions s)
       (realize-budgets s)
       (realize-transactions s)
+      (realize-attachments s)
       (realize-reconciliations s))))

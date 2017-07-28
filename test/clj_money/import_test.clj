@@ -33,6 +33,7 @@
 (def import-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :images [{:body (read-bytes gnucash-sample)
+             :content-type "application/gnucash"
              :original-filename "sample.gnucash"}]
    :imports [{:entity-name "Personal"
               :image-id "sample.gnucash"}]})
@@ -136,6 +137,7 @@
 (def import-budget-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :images [{:body (read-bytes gnucash-budget-sample)
+             :content-type "application/gnucash"
              :original-filename "budget_sample.gnucash"}]
    :imports [{:entity-name "Personal"
               :image-id "budget_sample.gnucash"}]})
@@ -201,6 +203,7 @@
 (def ^:private commodities-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :images [{:body (read-bytes gnucash-commodities-sample)
+             :content-type "application/gnucash"
              :original-filename "sample_with_commodities.gnucash"}]
    :imports [{:entity-name "Personal"
               :image-id "sample_with_commodities.gnucash"}]})

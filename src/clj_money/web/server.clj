@@ -24,6 +24,7 @@
             [clj-money.middleware :refer [wrap-integer-id-params wrap-entity]]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
+            [clj-money.web.images :as images]
             [clj-money.web.imports :as imports]
             [clj-money.api.imports :as imports-api]
             [clj-money.web.accounts :as accounts]
@@ -31,6 +32,7 @@
             [clj-money.web.commodities :as commodities]
             [clj-money.web.prices :as prices]
             [clj-money.web.transactions :as transactions]
+            [clj-money.web.attachments :as attachments]
             [clj-money.web.trading :as trading]
             [clj-money.web.lots :as lots]
             [clj-money.web.reconciliations :as reconciliations]
@@ -105,6 +107,18 @@
   (route GET "/transactions/:id/edit" transactions/edit)
   (route POST "/transactions/:id" transactions/update)
   (route POST "/transactions/:id/delete" transactions/delete)
+
+  ; Attachments
+  (route GET "/transactions/:transaction-id/attachments" attachments/index)
+  (route GET "/transactions/:transaction-id/attachments" attachments/index)
+  (route GET "/transactions/:transaction-id/attachments/new" attachments/new-attachment)
+  (route POST "/transactions/:transaction-id/attachments" attachments/create)
+  (route GET "/attachments/:id/edit" attachments/edit)
+  (route POST "/attachments/:id" attachments/update)
+  (route POST "/attachments/:id/delete" attachments/delete)
+
+  ; Images
+  (route GET "/images/:image-id" images/show)
 
   ; Trading
   (route GET "/accounts/:account-id/purchases/new" trading/new-purchase)

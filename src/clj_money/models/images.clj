@@ -10,22 +10,30 @@
                                               update-fn]]
             [clj-money.models.storage :refer [create-image
                                               select-images
-                                              find-image-by-id]]))
+                                              find-image-by-id
+                                              delete-image]]))
 
 (s/def ::user-id integer?)
 (s/def ::original-filename validation/non-empty-string?)
+(s/def ::content-type string?)
 (s/def ::body-hash validation/non-empty-string?)
 (s/def ::body bytes?)
 (s/def ::image (s/keys :req-un [::user-id
                                 ::original-filename
+                                ::content-type
                                 ::body-hash
                                 ::body]))
 
+(defn- find-by-hash
+  [storage user-id hash]
+  (first (select-images storage
+                        {:user-id user-id
+                         :body-hash hash}
+                        {:limit 1})))
+
 (defn- body-hash-is-unique?
   [storage {:keys [body-hash user-id]}]
-  (->> (select-images storage {:user-id user-id})
-       (filter #(= (:body-hash %) body-hash))
-       empty?))
+  (nil? (find-by-hash storage user-id body-hash)))
 
 (defn- validation-rules
   [storage]
@@ -43,7 +51,20 @@
               :before-validation before-validation
               :rules-fn validation-rules}))
 
+(defn find-or-create
+  [storage-spec image]
+  (let [hash (sha-1 (:body image))]
+    (with-storage [s storage-spec]
+      (or
+        (find-by-hash s (:user-id image) hash)
+        (create s image)))))
+
 (defn find-by-id
   [storage-spec id]
   (with-storage [s storage-spec]
     (find-image-by-id s id)))
+
+(defn delete
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-image s id)))

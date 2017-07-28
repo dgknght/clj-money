@@ -18,6 +18,7 @@
                  "entities"
                  "imports"
                  "images"
+                 "attachments"
                  "users"])
 
 (defn reset-db

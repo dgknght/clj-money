@@ -39,12 +39,22 @@
                  (recur (not (progress-complete? progress))))))
     (go (import-data (env :db) import progress-chan))))
 
+(defn- infer-content-type
+  [source-file]
+  (let [ext (second (re-matches #".*\.(.*)$" (:filename source-file)))]
+    (if (= "gnucash" ext)
+      "application/gnucash"
+      (throw (ex-info "Unable to infer the content type from the source file" {:extension ext
+                                                                               :source-file source-file})))))
+
 (defn create
   [{params :params}]
   (let [user (friend/current-authentication)
-        image (images/create (env :db) {:user-id (:id user)
-                                        :original-filename (-> params :source-file :filename)
-                                        :body (read-bytes (-> params :source-file :tempfile))})]
+        content-type (infer-content-type (:source-file params))
+        image (images/find-or-create (env :db) {:user-id (:id user)
+                                                :content-type content-type
+                                                :original-filename (-> params :source-file :filename)
+                                                :body (read-bytes (-> params :source-file :tempfile))})]
     (if (empty? (validation/error-messages image))
       (let [import (imports/create (env :db) {:user-id (:id user)
                                               :entity-name (:entity-name params)

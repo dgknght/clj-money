@@ -18,6 +18,7 @@
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
+(s/def ::transaction-id integer?)
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
   (s/keys :req-un [::account-id] :req-opt [::commodity-id ::entity-id]))
@@ -35,6 +36,12 @@
 (defmethod price-criteria false [_]
   (s/keys :req-un [::entity-id]))
 (s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :commodity-id)))
+(defmulti attachment-criteria #(contains? % :id))
+(defmethod attachment-criteria true [_]
+  (s/keys :req-un [::id]))
+(defmethod attachment-criteria false [_]
+  (s/keys :req-un [::transaction-id]))
+(s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
 
 (defn- exists?
   [db-spec table where]
@@ -852,6 +859,7 @@
     [_ image]
     (insert db-spec :images image :user-id
                                   :original-filename
+                                  :content-type
                                   :body-hash
                                   :body))
 
@@ -861,15 +869,52 @@
 
   (select-images
     [_ criteria]
+    (.select-images nil criteria {}))
+
+  (select-images
+    [_ criteria options]
     (when-not (s/valid? ::image-criteria criteria)
       (let [explanation (s/explain-data ::image-criteria criteria)]
+        (throw (ex-info
+                  (str "The criteria is not valid: " explanation)
+                  {:criteria criteria
+                  :explanation explanation}))))
+    (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
+                        (h/from :images)
+                        (h/where (map->where criteria))
+                        (append-limit options))))
+
+  (delete-image
+    [_ id]
+    (jdbc/delete! db-spec :images ["id = ?" id]))
+
+  ; Attachments
+  (create-attachment
+    [_ attachment]
+    (insert db-spec :attachments attachment :transaction-id
+                                            :caption
+                                            :image-id))
+
+  (select-attachments
+    [this criteria]
+    (.select-attachments this criteria {}))
+
+  (select-attachments
+    [_ criteria options]
+    (when-not (s/valid? ::attachment-criteria criteria)
+      (let [explanation (s/explain-data ::attachment-criteria criteria)]
         (throw (ex-info
                  (str "The criteria is not valid: " explanation)
                  {:criteria criteria
                   :explanation explanation}))))
-    (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
-                       (h/from :images)
-                       (h/where (map->where criteria)))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :attachments)
+                       (h/where (map->where criteria))
+                       (append-limit options))))
+
+  (delete-attachment
+    [_ id]
+    (jdbc/delete! db-spec :attachments ["id = ?" id]))
 
   ; Imports
 
