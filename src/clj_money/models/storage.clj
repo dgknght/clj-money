@@ -327,6 +327,10 @@
     [this id]
     "Returns the specified image record")
 
+  (delete-image
+    [this id]
+    "Deletes the specified image record")
+
   ; Attachments
   (create-attachment
     [this attachment]
@@ -334,7 +338,12 @@
 
   (select-attachments
     [this criteria]
+    [this criteria options]
     "Returns matching attachments")
+
+  (delete-attachment
+    [this id]
+    "Deletes the specified attachment record")
 
   ; Imports
   (create-import

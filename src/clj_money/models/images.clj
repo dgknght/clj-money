@@ -10,7 +10,8 @@
                                               update-fn]]
             [clj-money.models.storage :refer [create-image
                                               select-images
-                                              find-image-by-id]]))
+                                              find-image-by-id
+                                              delete-image]]))
 
 (s/def ::user-id integer?)
 (s/def ::original-filename validation/non-empty-string?)
@@ -62,3 +63,8 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (find-image-by-id s id)))
+
+(defn delete
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-image s id)))

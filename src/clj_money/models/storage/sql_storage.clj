@@ -36,7 +36,12 @@
 (defmethod price-criteria false [_]
   (s/keys :req-un [::entity-id]))
 (s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :commodity-id)))
-(s/def ::attachment-criteria (s/keys :req-un [::transaction-id]))
+(defmulti attachment-criteria #(contains? % :id))
+(defmethod attachment-criteria true [_]
+  (s/keys :req-un [::id]))
+(defmethod attachment-criteria false [_]
+  (s/keys :req-un [::transaction-id]))
+(s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
 
 (defn- exists?
   [db-spec table where]
@@ -879,6 +884,10 @@
                         (h/where (map->where criteria))
                         (append-limit options))))
 
+  (delete-image
+    [_ id]
+    (jdbc/delete! db-spec :images ["id = ?" id]))
+
   ; Attachments
   (create-attachment
     [_ attachment]
@@ -887,7 +896,11 @@
                                             :image-id))
 
   (select-attachments
-    [_ criteria]
+    [this criteria]
+    (.select-attachments this criteria {}))
+
+  (select-attachments
+    [_ criteria options]
     (when-not (s/valid? ::attachment-criteria criteria)
       (let [explanation (s/explain-data ::attachment-criteria criteria)]
         (throw (ex-info
@@ -896,7 +909,12 @@
                   :explanation explanation}))))
     (query db-spec (-> (h/select :*)
                        (h/from :attachments)
-                       (h/where (map->where criteria)))))
+                       (h/where (map->where criteria))
+                       (append-limit options))))
+
+  (delete-attachment
+    [_ id]
+    (jdbc/delete! db-spec :attachments ["id = ?" id]))
 
   ; Imports
 

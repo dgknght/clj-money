@@ -23,7 +23,14 @@
     [:a {:href (format "/images/%s" (:image-id attachment))
          :target "_blank"}
      (:caption attachment)]]
-   [:td "&nbsp"]])
+   [:td.text-center
+    [:div.btn-group
+     [:a.btn.btn-xs.btn-danger
+      {:href (format "/attachments/%s/delete" (:id attachment))
+       :title "Click here to remove this attachment"
+       :data-method "POST"
+       :data-confirm "Are you sure you want to remove this attachment?" }
+      [:span.glyphicon.glyphicon-remove {:aria-hidden true}]]]]])
 
 (defn index
   [{{transaction-id :transaction-id} :params}]
@@ -32,7 +39,7 @@
                       {:transaction-id (Integer. transaction-id)})]
     (with-layout "Attachments" {}
       [:div.row
-       [:div.col-md-6
+       [:div.col-md-4
         [:table.table.table-striped
          [:tr
           [:th "Caption"]
@@ -97,5 +104,8 @@
   "update")
 
 (defn delete
-  [req]
-  "delete")
+  [{params :params}]
+  (let [attachment (attachments/find-by-id (env :db) (Integer. (:id params)))]
+    (attachments/delete (env :db) attachment)
+    (redirect (format "/transactions/%s/attachments"
+                      (:transaction-id attachment)))))

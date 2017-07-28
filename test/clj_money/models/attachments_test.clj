@@ -79,3 +79,17 @@
         "The value can be retreived from the database")
     (is (not (empty? (validation/error-messages result :caption)))
         "The caption attribute has an error message")))
+
+(def ^:private delete-context
+  (assoc attach-context :attachments
+                        [{:transaction-id {:transaction-date (t/local-date 2017 1 1)
+                                           :description "Paycheck"}
+                          :image-id "sample_receipt.jpg"
+                          :caption "receipt"}]))
+
+(deftest delete-an-attachment
+  (let [context (serialization/realize storage-spec delete-context)
+        attachment (-> context :attachments first)
+        _ (attachments/delete storage-spec attachment)
+        retrieved (attachments/find-by-id storage-spec (:id attachment))]
+    (is (nil? retrieved) "The value cannot be retrieved after delete")))
