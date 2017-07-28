@@ -13,6 +13,7 @@
             [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
             [clj-money.models.images :as images] 
+            [clj-money.models.transactions :as transactions]
             [clj-money.models.attachments :as attachments])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -34,9 +35,11 @@
 
 (defn index
   [{{transaction-id :transaction-id} :params}]
-  (let [attachments (attachments/search
+  (let [transaction (transactions/find-by-id (env :db)
+                                             (Integer. transaction-id))
+        attachments (attachments/search
                       (env :db)
-                      {:transaction-id (Integer. transaction-id)})]
+                      {:transaction-id (:id transaction)})]
     (with-layout "Attachments" {}
       [:div.row
        [:div.col-md-4
@@ -46,7 +49,13 @@
           [:th "&nbsp;"]]
          (map attachment-row attachments)]]]
       [:a.btn.btn-primary {:href (format "/transactions/%s/attachments/new" transaction-id)}
-       "Add"])))
+       "Add"]
+      "&nbsp;"
+      ; TODO Fix this hack, we need to know the correct account to go back to
+      [:a.btn.btn-default
+       {:href (format "/accounts/%s"
+                      (-> transaction :items first :account-id))}
+       "Back"])))
 
 (defn new-attachment
   ([{{transaction-id :transaction-id} :params :as req}]
