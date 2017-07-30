@@ -21,9 +21,9 @@
 (s/def ::transaction-id integer?)
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
-  (s/keys :req-un [::account-id] :req-opt [::commodity-id ::entity-id]))
+  (s/keys :req-un [::account-id] :opt-un[::commodity-id ::entity-id]))
 (defmethod lot-criteria false [_]
-  (s/keys :req-un [::entity-id] :req-opt [::account-id ::commodity-id]))
+  (s/keys :req-un [::entity-id] :opt-un[::account-id ::commodity-id]))
 (s/def ::lot-criteria (s/multi-spec lot-criteria #(contains? % :account-id)))
 (s/def ::lot-transaction-criteria
   (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
@@ -283,9 +283,10 @@
   (create-commodity
     [_ commodity]
     (insert db-spec :commodities commodity :name
-                                          :symbol
-                                          :exchange
-                                          :entity-id))
+                                           :type
+                                           :symbol
+                                           :exchange
+                                           :entity-id))
 
   (find-commodity-by-id
     [_ id]
@@ -301,6 +302,7 @@
     (let [sql (sql/format (-> (h/update :commodities)
                               (h/sset (->update-set commodity
                                                     :entity-id
+                                                    :type
                                                     :name
                                                     :symbol
                                                     :exchange))

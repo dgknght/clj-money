@@ -24,6 +24,13 @@
 (def entity (entities/create storage-spec
                              (assoc (factory :entity) :user-id (:id user))))
 
+(def ^:private account-context
+  {:users [(factory :user)]
+   :commodities [{:symbol "USD"
+                  :name "US Dollar"}]
+   :entities [{:name "Personal"
+               :settings {:default-commodity-id "USD"}}]})
+
 (def attributes
   {:name "Checking"
    :type :asset
@@ -191,56 +198,8 @@
     "Type must be one of: expense, equity, liability, income, asset"
     (accounts/create storage-spec (assoc attributes :type :invalidtype))))
 
-(def ^:private account-context
-  {:users [(factory :user)]
-   :entities [{:name "Personal"}]})
-
-(deftest content-type-defaults-to-currency
-  (let [context (serialization/realize storage-spec account-context)
-        entity (-> context :entities first)
-        result (accounts/create storage-spec {:entity-id (:id entity)
-                                              :name "Checking"
-                                              :type :asset})
-        retrieved (accounts/find-by-id storage-spec (:id result))]
-    (is (= :currency (:content-type result) (:content-type retrieved))
-        "The result has the current content type")))
-
-(deftest content-type-can-be-commodities
-  (let [context (serialization/realize storage-spec account-context)
-        entity (-> context :entities first)
-        result (accounts/create storage-spec {:entity-id (:id entity)
-                                              :name "Checking"
-                                              :type :asset
-                                              :content-type :commodities})
-        retrieved (accounts/find-by-id storage-spec (:id result))]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")
-    (is (= :commodities (:content-type result) (:content-type retrieved))
-        "The result has the current content type")))
-
-(deftest content-type-can-by-commodity
-  (let [context (serialization/realize storage-spec account-context)
-        entity (-> context :entities first)
-        result (accounts/create storage-spec {:entity-id (:id entity)
-                                              :name "Checking"
-                                              :type :asset
-                                              :content-type :commodity})
-        retrieved (accounts/find-by-id storage-spec (:id result))]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")
-    (is (= :commodity (:content-type result) (:content-type retrieved))
-        "The result has the current content type")))
-
-(deftest content-type-must-be-currency-commodities-or-commodity
-  (let [context (serialization/realize storage-spec account-context)
-        entity (-> context :entities first)
-        result (accounts/create storage-spec {:entity-id (:id entity)
-                                              :name "Checking"
-                                              :type :asset
-                                              :content-type :not-valid})
-        retrieved (accounts/find-by-id storage-spec (:id result))]
-    (is (seq (validation/error-messages result :content-type))
-        "The result has a validation error")))
+(deftest commodity-id-defaults-to-entity-default
+  (is false "need to write the test"))
 
 (deftest update-an-account
   (try

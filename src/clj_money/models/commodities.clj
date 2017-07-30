@@ -20,18 +20,30 @@
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::symbol validation/non-empty-string?)
-(s/def ::exchange #{:nyse :nasdaq :fund}) ; TODO need to be able to register custom interpretations to resue exchanges
-(s/def ::new-commodity (s/keys :req-un [::entity-id ::name ::symbol ::exchange]))
-(s/def ::existing-commodity (s/keys :req-un [::name ::symbol ::exchange] :opt-un [::id]))
+(s/def ::exchange #{:nyse :nasdaq})
+(s/def ::type #{:currency :stock :fund})
+(defmulti new-commodity-spec :type)
+(defmethod new-commodity-spec :stock [_]
+  (s/keys :req-un [::type ::entity-id ::name ::symbol ::exchange]))
+(defmethod new-commodity-spec :fund [_]
+  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
+(defmethod new-commodity-spec :currency [_]
+  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
+(s/def ::new-commodity (s/multi-spec new-commodity-spec :type))
+(s/def ::existing-commodity (s/keys :req-un [::type ::entity-id ::name ::symbol] :opt-un [::id]))
 
 (defn- before-save
   [commodity]
-  (update-in commodity [:exchange] name))
+  (-> commodity
+      (update-in [:exchange] name)
+      (update-in [:type] name)))
 
 (defn- after-read
   [commodity]
   (when commodity
-    (update-in commodity [:exchange] keyword)))
+    (-> commodity
+        (update-in [:exchange] keyword)
+        (update-in [:type] keyword))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])
