@@ -75,7 +75,7 @@
     [(concat in [(nth pred 2)]) (format "%s is required" (humanize (nth pred 2)))]))
 
 (defn- interpret-set-inclusion-failure
-  [{:keys [pred path]}]
+  [{:keys [pred path] :as problem}]
   (when (set? pred)
     [path
      (format "%s must be one of: %s"
@@ -130,7 +130,8 @@
 ; for the issues I've seen so far
 (defn- flatten-multi-spec-paths
   [problem]
-  (if (< 1 (count (:via problem)))
+  (if (and (< 1 (count (:via problem)))
+           (< 1 (count (:path problem))))
     (-> problem
         (update-in [:path] rest)
         (update-in [:via] rest))
