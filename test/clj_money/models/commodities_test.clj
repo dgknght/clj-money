@@ -251,14 +251,16 @@
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :entity-id (str entity-id))
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/select-by-entity-id storage-spec entity-id)
+        expected [{:entity-id entity-id
+                   :name "Apple"
+                   :symbol "APPL"
+                   :type :stock
+                   :exchange :nasdaq}]
+        actual (map #(dissoc % :updated-at :created-at :id) commodities)]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")
-    (is (= [{:name "Apple"
-             :symbol "APPL"
-             :exchange :nasdaq}]
-           (map #(select-keys % [:name :symbol :exchange]) commodities))
-        "The commodity can be retrieved after create")))
+    (is (= expected actual) "The commodity can be retrieved after create")))
 
 (deftest exchange-is-required-for-stocks
   (let [context (serialization/realize storage-spec commodity-context)

@@ -90,21 +90,9 @@
                            [:symbol]
                            "Symbol must be unique for a given exchange")])
 
-(defn- before-validation
-  [_ commodity]
-  (coercion/coerce coercion-rules commodity))
-
-(defn- validate
-  [storage spec commodity]
-  (->> commodity
-       before-validation
-       (validation/validate
-         spec
-         (validation-rules storage))))
-
 (def create
   (create-fn {:before-save before-save
-              :conercion-rules coercion-rules
+              :coercion-rules coercion-rules
               :spec ::new-commodity
               :create create-commodity
               :after-read after-read}))
