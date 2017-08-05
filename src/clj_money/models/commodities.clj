@@ -90,6 +90,7 @@
 
 (def create
   (create-fn {:before-save before-save
+              :rules-fn validation-rules
               :coercion-rules coercion-rules
               :spec ::new-commodity
               :create create-commodity
