@@ -128,8 +128,8 @@
         commodity (assoc (attributes context) :type :not-a-valid-type)
         result (commodities/create storage-spec commodity)
         commodities (commodities/select-by-entity-id storage-spec entity-id)]
-    (is (= ["Type must be one of :stock, :fund:, :currency"]
-           (validation/error-messages result :name))
+    (is (= ["Type must be one of: fund, currency, stock"]
+           (validation/error-messages result :type))
         "The result has an error messages")
     (is (empty? (->> commodities
                      (filter #(= "APPL" (:symbol %)))))

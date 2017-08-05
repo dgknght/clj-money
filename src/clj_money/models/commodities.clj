@@ -25,7 +25,7 @@
 (s/def ::type #{:currency :stock :fund})
 
 (defmulti new-commodity-spec :type)
-(defmethod new-commodity-spec nil [_]
+(defmethod new-commodity-spec :default [_]
   (s/keys :req-un [::type]))
 (defmethod new-commodity-spec :stock [_]
   (s/keys :req-un [::type ::entity-id ::name ::symbol ::exchange]))
