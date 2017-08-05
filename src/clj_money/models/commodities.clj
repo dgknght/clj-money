@@ -17,8 +17,6 @@
                                               delete-prices-by-commodity-id
                                               delete-commodity]]))
 
-(def exchanges #{:nyse :nasdaq :fund})
-
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)

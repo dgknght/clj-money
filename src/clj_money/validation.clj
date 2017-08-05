@@ -126,11 +126,21 @@
   [problem]
   (some #(% problem) problem-interpreters))
 
+; This isn't a perfect solution, but it accounts
+; for the issues I've seen so far
+(defn- flatten-multi-spec-paths
+  [problem]
+  (if (< 1 (count (:via problem)))
+    (-> problem
+        (update-in [:path] rest)
+        (update-in [:via] rest))
+    problem))
+
 (defn- interpret-problems
   [explanation]
   (->> explanation
        :clojure.spec/problems
-       (map problem->message)
+       (map (comp problem->message flatten-multi-spec-paths))
        (reduce (fn [result [k message]]
                  (update-in result k (fnil #(conj % message) [])))
                {})))
