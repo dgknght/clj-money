@@ -262,18 +262,20 @@
       "Type must be one of: expense, equity, liability, income, asset"
       (accounts/create storage-spec attr))))
 
-;(deftest commodity-id-defaults-to-entity-default
-;  (let [context (serialization/realize storage-spec account-context)
-;        commodity (-> context :commodities first)
-;        account (-> context
-;                    attributes
-;                    (dissoc :commodity-id))
-;        result (accounts/create storage-spec account)]
-;
-;    (pprint {:commodity commodity})
-;
-;    (is (= (:id commodity) (:commodity-id result))
-;        "The specified default commodity is used")))
+(deftest commodity-id-defaults-to-entity-default
+  (let [context (serialization/realize storage-spec account-context)
+        commodity (-> context :commodities first)
+        account (-> context
+                    attributes
+                    (dissoc :commodity-id))
+        result (accounts/create storage-spec account)]
+
+    (pprint {:entity (-> context :entities first)
+             :commodity commodity
+             :result result})
+
+    (is (= (:id commodity) (:commodity-id result))
+        "The specified default commodity is used")))
 
 (deftest update-an-account
   (try

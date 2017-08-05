@@ -221,7 +221,7 @@
     [_ account]
     (insert db-spec :accounts account :name
                                       :type
-                                      :content-type
+                                      :commodity-id
                                       :entity-id
                                       :parent-id
                                       :balance))
@@ -251,7 +251,7 @@
                               (h/sset (->update-set account
                                                     :name
                                                     :type
-                                                    :content-type
+                                                    :commodity-id
                                                     :parent-id
                                                     :balance))
                               (h/where [:= :id (:id account)])))]

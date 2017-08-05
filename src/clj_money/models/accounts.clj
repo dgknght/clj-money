@@ -17,7 +17,8 @@
                                               select-accounts-by-name
                                               select-accounts-by-entity-id
                                               update-account
-                                              delete-account]])
+                                              delete-account]]
+            [clj-money.models.entities :as entities])
   (:import java.math.BigDecimal))
 
 (def account-types
@@ -28,16 +29,16 @@
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::type #{:asset :liability :equity :income :expense})
-(s/def ::content-type #{:currency :commodity :commodities})
+(s/def ::commodity-id integer?)
 (s/def ::parent-id (s/nilable integer?))
-(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id ::content-type]))
-(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::content-type ::name] :opt-un [::parent-id]))
+(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type ::commodity-id] :opt-un [::parent-id]))
+(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::commodity-id ::name] :opt-un [::parent-id]))
 ; :balance and :children-balance are not specified because they are always calculated and not passed in
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
    (coercion/rule :keyword [:type])
-   (coercion/rule :keyword [:content-type])
+   (coercion/rule :integer [:commodity-id])
    (coercion/rule :integer [:entity-id])
    (coercion/rule :integer [:parent-id])])
 
@@ -56,16 +57,20 @@
          (empty? (:parent-id account)))
     (dissoc :parent-id)
 
-    true
-    (update-in [:content-type] (fnil identity :currency))))
+    ; if no commodity is specified, use the default
+    (nil? (:commodity-id account))
+    (assoc :commodity-id (->> account
+                              :entity-id
+                              (entities/find-by-id storage)
+                              :settings
+                              :default-commodity-id))))
 
 (defn- before-save
   "Adjusts account data for saving in the database"
   [storage account]
   (-> account
       (update-in [:balance] (fnil identity 0M))
-      (update-in [:type] name)
-      (update-in [:content-type] name)))
+      (update-in [:type] name)))
 
 (defn- after-read
   "Adjusts account data read from the database for use"
@@ -73,7 +78,6 @@
   ([_ account]
    (-> account
        (update-in [:type] keyword)
-       (update-in [:content-type] keyword)
        (cond->
          (and ; Remove :parent-id if it's nil
            (contains? account :parent-id)
