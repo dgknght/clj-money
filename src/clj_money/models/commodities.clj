@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
+            [clj-money.util :refer [safe-invoke]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -42,7 +43,7 @@
 (defn- before-save
   [_ commodity]
   (-> commodity
-      (update-in [:exchange] name)
+      (update-in [:exchange] #(safe-invoke name %))
       (update-in [:type] name)))
 
 (defn- after-read
@@ -50,7 +51,7 @@
   ([_ commodity]
    (when commodity
      (-> commodity
-         (update-in [:exchange] keyword)
+         (update-in [:exchange] #(safe-invoke keyword %))
          (update-in [:type] keyword)))))
 
 (def ^:private coercion-rules

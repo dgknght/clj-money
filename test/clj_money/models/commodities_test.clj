@@ -276,8 +276,9 @@
 (deftest exchange-is-not-required-for-currencies
   (let [context (serialization/realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
-        commodity {:name "US Dollar"
-                   :symbole "USD"
+        commodity {:entity-id entity-id
+                   :name "US Dollar"
+                   :symbol "USD"
                    :type :currency}
         result (commodities/create storage-spec commodity)
         commodities (commodities/select-by-entity-id storage-spec entity-id)]

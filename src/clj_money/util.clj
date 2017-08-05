@@ -73,3 +73,10 @@
 (defn pprint-and-return-l
   [value message]
   (pprint-and-return message value))
+
+(defmacro safe-invoke
+  "Executes a function accepting a single argument only if
+  the argument is not nil, in which case nil is returned"
+  [target-fn value]
+  `(when ~value
+     (~target-fn ~value)))
