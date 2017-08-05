@@ -5,7 +5,9 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage]]
+                                              with-transacted-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-commodity
                                               find-commodity-by-id
                                               update-commodity
@@ -22,28 +24,34 @@
 (s/def ::symbol validation/non-empty-string?)
 (s/def ::exchange #{:nyse :nasdaq})
 (s/def ::type #{:currency :stock :fund})
+
 (defmulti new-commodity-spec :type)
+(defmethod new-commodity-spec nil [_]
+  (s/keys :req-un [::type]))
 (defmethod new-commodity-spec :stock [_]
   (s/keys :req-un [::type ::entity-id ::name ::symbol ::exchange]))
 (defmethod new-commodity-spec :fund [_]
   (s/keys :req-un [::type ::entity-id ::name ::symbol]))
 (defmethod new-commodity-spec :currency [_]
   (s/keys :req-un [::type ::entity-id ::name ::symbol]))
+
 (s/def ::new-commodity (s/multi-spec new-commodity-spec :type))
+
 (s/def ::existing-commodity (s/keys :req-un [::type ::entity-id ::name ::symbol] :opt-un [::id]))
 
 (defn- before-save
-  [commodity]
+  [_ commodity]
   (-> commodity
       (update-in [:exchange] name)
       (update-in [:type] name)))
 
 (defn- after-read
-  [commodity]
-  (when commodity
-    (-> commodity
-        (update-in [:exchange] keyword)
-        (update-in [:type] keyword))))
+  ([commodity] (after-read nil commodity))
+  ([_ commodity]
+   (when commodity
+     (-> commodity
+         (update-in [:exchange] keyword)
+         (update-in [:type] keyword)))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])
@@ -82,7 +90,7 @@
                            "Symbol must be unique for a given exchange")])
 
 (defn- before-validation
-  [commodity]
+  [_ commodity]
   (coercion/coerce coercion-rules commodity))
 
 (defn- validate
@@ -93,17 +101,12 @@
          spec
          (validation-rules storage))))
 
-(defn create
-  "Creates a new commodity record"
-  [storage-spec commodity]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::new-commodity commodity)]
-      (if (validation/valid? validated)
-        (->> validated
-             before-save
-             (create-commodity s)
-             after-read)
-        validated))))
+(def create
+  (create-fn {:before-save before-save
+              :conercion-rules coercion-rules
+              :spec ::new-commodity
+              :create create-commodity
+              :after-read after-read}))
 
 (defn select-by-entity-id
   "Returns the commodities belonging to the specified entity"
@@ -127,18 +130,13 @@
          (select-commodities s)
          (map after-read))))
 
-(defn update
-  "Updates the specified commodity"
-  [storage-spec commodity]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::existing-commodity commodity)]
-      (if (validation/valid? validated)
-        (do
-          (->> validated
-               before-save
-               (update-commodity s))
-          (find-by-id s (:id validated)))
-        validated))))
+(def update
+  (update-fn {:spec ::existing-commodity
+              :update update-commodity
+              :find find-by-id
+              :before-save before-save
+              :after-read after-read
+              :coercion-rules coercion-rules}))
 
 (defn delete
   "Removes a commodity from the system"
