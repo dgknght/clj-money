@@ -23,6 +23,9 @@
 (def create-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset }
               {:name "Salary"
@@ -196,6 +199,9 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
                :user-id "john@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset
                :entity-id "Personal"}
