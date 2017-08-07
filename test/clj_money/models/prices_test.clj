@@ -21,6 +21,7 @@
               {:name "Business"}]
    :commodities [{:name "Apple"
                   :symbol "APPL"
+                  :type :stock
                   :exchange :nasdaq}]})
 
 (deftest a-price-can-be-addied-for-a-commodity

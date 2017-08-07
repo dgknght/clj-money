@@ -67,7 +67,7 @@
   [(validation/create-rule (partial account-is-an-asset? storage)
                            [:account-id]
                            "The account must be an asset account")
-   (validation/create-rule (partial account-has-commodities-content? storage)
+   #_(validation/create-rule (partial account-has-commodities-content? storage)
                            [:account-id]
                            "The account must be a commodities account")])
 

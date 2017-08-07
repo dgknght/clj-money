@@ -26,7 +26,10 @@
               {:name "Checking"
                :type :asset
                :content-type :currency}]
-   :commodities [{:name "Apple"
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}
+                 {:name "Apple"
                   :symbol "APPL"
                   :exchange :nasdaq}]})
 
