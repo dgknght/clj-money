@@ -55,7 +55,7 @@
                     (map #(dissoc % :id
                                     :updated-at
                                     :created-at
-                                    :content-type))) ; TODO Remove content-type
+                                    :commodity-id)))
         expected [{:name "Checking"
                    :type :asset
                    :balance 0M
@@ -69,6 +69,7 @@
 (def ^:private nested-context
   {:users [(factory :user)]
    :commodities [{:symbol "USD"
+                  :type :currency
                   :name "US Dollar"
                   :entity-id "Personal"}]
    :entities [{:name "Personal"
@@ -143,7 +144,7 @@
         entity-id (-> context :entities first :id)
         accounts (->> entity-id
                       (accounts/select-by-entity-id storage-spec)
-                      (map #(dissoc % :id :updated-at :created-at :content-type))) ; TODO remove content-type
+                      (map #(dissoc % :id :updated-at :created-at)))
         expected [{:name "Checking"
                    :type :asset
                    :entity-id entity-id
@@ -157,10 +158,12 @@
   {:users [(factory :user)]
    :commodities [{:symbol "USD"
                   :name "US Dollar"
+                  :type :currency
                   :entity-id "Personal"}
-                 {:symbole "USD"
+                 {:symbol "USD"
                   :name "US Dollar"
-                  :entity-id "Business"}]
+                  :entity-id "Business"
+                  :type :currency}]
    :entities [{:name "Personal"
                :settings {:default-commodity-id "USD"}}
               {:name "Business"
@@ -202,6 +205,7 @@
 (def ^:private create-child-context
   {:users [(factory :user)]
    :commodities [{:symbol "USD"
+                  :type :currency
                   :name "US Dollar"}]
    :entities [{:name "Personal"
                :settings {:default-commodity-id "USD"}}]
@@ -270,11 +274,6 @@
                     attributes
                     (dissoc :commodity-id))
         result (accounts/create storage-spec account)]
-
-    (pprint {:entity (-> context :entities first)
-             :commodity commodity
-             :result result})
-
     (is (= (:id commodity) (:commodity-id result))
         "The specified default commodity is used")))
 
@@ -296,6 +295,9 @@
 (def same-parent-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Current assets"
                :type :asset}
               {:name "Fixed assets"
@@ -332,9 +334,8 @@
         "The deleted account is no longer returned from the database")))
 
 (defmacro test-amount-polarization
-  [account-type action amount expected message]
-  `(let [context# (serialization/realize storage-spec account-context)
-         account# (accounts/create storage-spec (assoc (attributes context#)
+  [context account-type action amount expected message]
+  `(let [account# (accounts/create storage-spec (assoc (attributes ~context)
                                                        :type ~account-type))
          item# {:account-id (:id account#)
                 :action ~action
@@ -343,16 +344,17 @@
      (is (= ~expected polarized-amount#) ~message)))
 
 (deftest polarize-an-amount
-  ; Debits
-  (test-amount-polarization :asset     :debit 100M  100M "A debit in an asset account increases the balance")
-  (test-amount-polarization :expense   :debit 100M  100M "A debit in an expense account increases the balance")
-  (test-amount-polarization :liability :debit 100M -100M "A debit in an liability account decreases the balance")
-  (test-amount-polarization :equity    :debit 100M -100M "A debit in an equity account decreases the balance")
-  (test-amount-polarization :income    :debit 100M -100M "A debit in an income account decreases the balance")
+  (let [context (serialization/realize storage-spec account-context)]
+    ; Debits
+    (test-amount-polarization context :asset     :debit 100M  100M "A debit in an asset account increases the balance")
+    (test-amount-polarization context :expense   :debit 100M  100M "A debit in an expense account increases the balance")
+    (test-amount-polarization context :liability :debit 100M -100M "A debit in an liability account decreases the balance")
+    (test-amount-polarization context :equity    :debit 100M -100M "A debit in an equity account decreases the balance")
+    (test-amount-polarization context :income    :debit 100M -100M "A debit in an income account decreases the balance")
 
-  ;; Credits
-  (test-amount-polarization :asset     :credit 100M -100M "A credit in an asset account decreases the balance")
-  (test-amount-polarization :expense   :credit 100M -100M "A credit in an expense account dereases the balance")
-  (test-amount-polarization :liability :credit 100M  100M "A credit in an liability account increases the balance")
-  (test-amount-polarization :equity    :credit 100M  100M "A credit in an equity account increases the balance")
-  (test-amount-polarization :income    :credit 100M  100M "A credit in an income account increases the balance"))
+    ;; Credits
+    (test-amount-polarization context :asset     :credit 100M -100M "A credit in an asset account decreases the balance")
+    (test-amount-polarization context :expense   :credit 100M -100M "A credit in an expense account dereases the balance")
+    (test-amount-polarization context :liability :credit 100M  100M "A credit in an liability account increases the balance")
+    (test-amount-polarization context :equity    :credit 100M  100M "A credit in an equity account increases the balance")
+    (test-amount-polarization context :income    :credit 100M  100M "A credit in an income account increases the balance")))

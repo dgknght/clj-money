@@ -18,7 +18,8 @@
                                               select-accounts-by-entity-id
                                               update-account
                                               delete-account]]
-            [clj-money.models.entities :as entities])
+            [clj-money.models.entities :as entities]
+            [clj-money.models.commodities :as commodities])
   (:import java.math.BigDecimal))
 
 (def account-types
@@ -42,6 +43,16 @@
    (coercion/rule :integer [:entity-id])
    (coercion/rule :integer [:parent-id])])
 
+(defn- default-commodity-id
+  [storage entity-id]
+  (let [entity (entities/find-by-id storage entity-id)]
+    (or (-> entity :settings :default-commodity-id)
+        (->> {:entity-id entity-id
+              :type :currency}
+             (commodities/search storage)
+             first
+             :id))))
+
 (declare find-by-id)
 (defn- before-validation
   "Adjust account data for validation"
@@ -59,11 +70,7 @@
 
     ; if no commodity is specified, use the default
     (nil? (:commodity-id account))
-    (assoc :commodity-id (->> account
-                              :entity-id
-                              (entities/find-by-id storage)
-                              :settings
-                              :default-commodity-id))))
+    (assoc :commodity-id (default-commodity-id storage (:entity-id account)))))
 
 (defn- before-save
   "Adjusts account data for saving in the database"

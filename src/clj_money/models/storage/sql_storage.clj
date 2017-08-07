@@ -106,7 +106,9 @@
   (if (= 1 (count m))
     [:= (-> m keys first) (-> m vals first)]
     (reduce (fn [result [k v]]
-              (conj result [:= k v]))
+              (conj result [:= k (if (keyword? v)
+                                   (name v)
+                                   v)]))
             [:and]
             m)))
 
