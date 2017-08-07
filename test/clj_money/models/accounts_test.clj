@@ -138,19 +138,20 @@
     (is (= expected result) "The accounts should be returned in the correct hierarchy")))
 
 (deftest create-an-account
-  (testing "After I add an account, I can retrieve it"
-    (let [context (serialization/realize storage-spec account-context)
-          _ (accounts/create storage-spec (attributes context))
-          entity-id (-> context :entities first :id)
-          accounts (->> entity-id
-                        (accounts/select-by-entity-id storage-spec)
-                        (map #(dissoc % :id :updated-at :created-at :content-type))) ; TODO remove content-type
-          expected [{:name "Checking"
-                     :type :asset
-                     :entity-id entity-id
-                     :balance 0M}]]
-      (is (= expected
-             accounts)))))
+  (let [context (serialization/realize storage-spec account-context)
+        result (accounts/create storage-spec (attributes context))
+        entity-id (-> context :entities first :id)
+        accounts (->> entity-id
+                      (accounts/select-by-entity-id storage-spec)
+                      (map #(dissoc % :id :updated-at :created-at :content-type))) ; TODO remove content-type
+        expected [{:name "Checking"
+                   :type :asset
+                   :entity-id entity-id
+                   :commodity-id (-> context :commodities first :id)
+                   :balance 0M}]]
+    (is (empty? (validation/error-messages result))
+        "The result has no validation errors.")
+    (is (= expected accounts) "The account can be retrieved")))
 
 (def ^:private duplicate-name-context
   {:users [(factory :user)]

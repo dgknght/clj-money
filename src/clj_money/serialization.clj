@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.models.helpers :refer [with-transacted-storage]]
+            [clj-money.models.helpers :refer [with-storage]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -366,10 +366,10 @@
 
 (defn- resolve-default-commodity-id
   [storage context entity]
-  (if (-> entity :settings :default-commodity-id)
-    (entities/update storage (update-in entity
-                                        [:settings :default-commodity-id]
-                                        #(:id (get-commodity context %))))
+  (if-let [symbol (-> entity :settings :default-commodity-id)]
+    (entities/update storage (assoc-in entity
+                                       [:settings :default-commodity-id]
+                                       (:id (get-commodity context symbol))))
     entity))
 
 (defn- resolve-default-commodity-ids
@@ -381,7 +381,7 @@
 (defn realize
   "Realizes a test context"
   [storage-spec input]
-  (with-transacted-storage [s storage-spec]
+  (with-storage [s storage-spec]
   (->> input
       (realize-users s)
       (realize-images s)
