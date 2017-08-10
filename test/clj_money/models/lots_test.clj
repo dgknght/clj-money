@@ -20,23 +20,31 @@
    :entities [{:name "Personal"}]
    :accounts [{:name "IRA"
                :type :asset
-               :content-type :commodities}
+               :commodity-id "USD"}
               {:name "Dining"
-               :type :expense}
+               :type :expense
+               :commodity-id "USD"}
               {:name "Checking"
                :type :asset
-               :content-type :currency}]
+               :commodity-id "USD"}]
    :commodities [{:name "US Dollar"
                   :symbol "USD"
                   :type :currency}
                  {:name "Apple"
-                  :symbol "APPL"
-                  :exchange :nasdaq}]})
+                  :symbol "AAPL"
+                  :exchange :nasdaq
+                  :type :stock}]})
 
 (deftest create-a-lot
   (let [context (serialization/realize storage-spec lot-context)
-        commodity (-> context :commodities first)
-        account (-> context :accounts first)
+        commodity (->> context
+                       :commodities
+                       (filter #(= "AAPL" (:symbol %)))
+                       first)
+        account (->> context
+                     :accounts
+                     (filter #(= "IRA" (:name %)))
+                     first)
         result (lots/create storage-spec {:commodity-id (:id commodity)
                                           :account-id (:id account)
                                           :purchase-date (t/local-date 2017 3 2)
@@ -78,19 +86,6 @@
         [_ dining _] (-> context :accounts)
         result (lots/create storage-spec {:commodity-id (:id commodity)
                                           :account-id (:id dining)
-                                          :purchase-date (t/local-date 2017 3 2)
-                                          :shares-purchased 100M})
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
-    (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (not (empty? (validation/error-messages result :account-id))) "The result contains a validation error")
-    (is (empty? lots) "The value is not retrieved after create")))
-
-(deftest account-id-must-reference-an-account-with-content-type-commodities
-  (let [context (serialization/realize storage-spec lot-context)
-        commodity (-> context :commodities first)
-        [_ _ checking] (-> context :accounts)
-        result (lots/create storage-spec {:commodity-id (:id commodity)
-                                          :account-id (:id checking)
                                           :purchase-date (t/local-date 2017 3 2)
                                           :shares-purchased 100M})
         lots (lots/select-by-commodity-id storage-spec (:id commodity))]
@@ -153,7 +148,7 @@
 
 (def ^:private existing-lot-context
   (assoc lot-context :lots [{:account-id "IRA"
-                             :commodity-id "APPL"
+                             :commodity-id "AAPL"
                              :shares-purchased 100M
                              :shares-owned 100M
                              :purchase-date (t/local-date 2016 3 2)}]))
@@ -171,8 +166,14 @@
 
 (deftest search-lots-by-account
   (let [context (serialization/realize storage-spec existing-lot-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        commodity (->> context
+                       :commodities
+                       (filter #(= "AAPL" (:symbol %)))
+                       first)
         actual (map #(dissoc % :updated-at :created-at :id)
                     (lots/search storage-spec {:account-id (:id ira)}))
         expected [{:commodity-id (:id commodity)
