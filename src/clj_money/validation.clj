@@ -131,7 +131,9 @@
 (defn- flatten-multi-spec-paths
   [problem]
   (if (and (< 1 (count (:via problem)))
-           (< 1 (count (:path problem))))
+           (< 1 (count (:path problem)))
+           (= (count (:via problem))
+              (count (:path problem)))) ; this is getting very hacky
     (-> problem
         (update-in [:path] rest)
         (update-in [:via] rest))
