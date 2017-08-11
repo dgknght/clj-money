@@ -25,12 +25,11 @@
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
    :accounts [{:name "IRA"
-               :type :asset
-               :content-type :commodities}
+               :type :asset}
               {:name "AAPL"
                :type :asset
                :parent-id "IRA"
-               :content-type :commodity}
+               :commodity-id "AAPL"}
               {:name "Opening balances"
                :type :income}
               {:name "Long-term Capital Gains"
@@ -45,8 +44,12 @@
                :type :expense}
               {:name "Checking"
                :type :asset}]
-   :commodities [{:name "Apple, Inc."
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}
+                 {:name "Apple, Inc."
                   :symbol "AAPL"
+                  :type :stock
                   :exchange :nasdaq}]
    :transactions [{:transaction-date (t/local-date 2016 1 1)
                    :description "Opening balance"
@@ -59,27 +62,61 @@
 
 (defn- purchase-attributes
   [context]
-  {:commodity-id (-> context :commodities first :id)
-   :account-id (-> context :accounts first :id)
+  {:commodity-id (->> context
+                      :commodities
+                      (filter #(= "AAPL" (:symbol %)))
+                      first
+                      :id)
+   :account-id (->> context
+                    :accounts
+                    (filter #(= "IRA" (:name %)))
+                    first
+                    :id)
    :trade-date (t/local-date 2016 1 2)
    :shares 100M
    :value 1000M})
 
 (deftest purchase-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
-        result (trading/buy storage-spec (purchase-attributes context))]
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
+        apple-account (->> context
+                           :accounts
+                           (filter #(= "AAPL" (:name %)))
+                           first)
+        commodity (->> context
+                       :commodities
+                       (filter #(= "AAPL" (:symbol %)))
+                       first)
+        result (trading/buy storage-spec (purchase-attributes context))
+        expected-transaction {:transaction-date (t/local-date 2016 1 2)
+                              :description "Purchase 100 shares of AAPL at 10.000"
+                              :items [{:action :credit
+                                       :amount 1000M
+                                       :value 1000M
+                                       :account-id (:id ira)}
+                                      {:action :debit
+                                       :amount 100M
+                                       :value 1000M
+                                       :account-id (:id apple-account)
+                                       }]}]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
+
+    (pprint {:expected expected-transaction
+             :actual (:transaction result)
+             :diff (diff expected-transaction (:transaction result))})
+
+    (is (= expected-transaction (:transaction result)
+           "The resulting transaction has the correct attributes"))
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (is (:lot result)
         "The result contains a lot representing the purchased shares")
     (is (empty? (-> result :lot validation/error-messages))
         "The lot is valid")
-    (is (:lot-transaction result)
-        "The result contains a lot-transaction")
     (is (empty? (-> result :lot-transaction validation/error-messages))
         "The lot transaction is valud")
     (is (= "Purchase 100 shares of AAPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))

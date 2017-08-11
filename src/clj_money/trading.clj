@@ -196,12 +196,6 @@
                        (accounts/find-by-id storage) ; TODO eliminate this double lookup of the account
                        :content-type)))
 
-(defn- validation-rules
-  [storage]
-  [(validation/create-rule (partial account-has-commodities-content? storage)
-                           [:account-id]
-                           "Account must be a commodities account")])
-
 (def ^:private purchase-coercion-rules
   [(coercion/rule :local-date [:trade-date])
    (coercion/rule :integer [:account-id])
@@ -213,7 +207,7 @@
   [storage purchase]
   (->> purchase
        (coercion/coerce purchase-coercion-rules)
-       (validation/validate ::purchase (validation-rules storage))))
+       (validation/validate ::purchase)))
 
 ; expect
 ; :commodity-id
@@ -337,17 +331,11 @@
            (coercion/rule :integer [:st-capital-loss-account-id])
            (coercion/rule :keyword [:inventory-method])]))
 
-(defn sale-validation-rules
-  [storage]
-  [(validation/create-rule (partial account-has-commodities-content? storage)
-                           [:account-id]
-                           "Account must be a commodities account")])
-
 (defn- validate-sale
   [storage sale]
   (->> sale
        (coercion/coerce sale-coercion-rules)
-       (validation/validate ::sale (sale-validation-rules storage))))
+       (validation/validate ::sale)))
 
 (defn- update-entity-settings
   [{:keys [entity storage] :as context}]
