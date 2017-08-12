@@ -35,8 +35,16 @@
 
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
+; Amount is the quantity of the commodity that is exchanged
 (s/def ::amount validation/positive-big-dec?)
+; Balance is the running total of amounts for the account to which
+; the item belongs
 (s/def ::balance (partial instance? BigDecimal))
+; Value is the value of the line item expressed in the entity's
+; default currency. For most transactions, this will be the same
+; as the amount. For transactions involving foreign currencies
+; and commodity purchases (like stock trades) it will be different.
+(s/def ::value validation/positive-big-dec?)
 (s/def ::description validation/non-empty-string?)
 (s/def ::memo #(or (nil? %) (string? %)))
 (s/def ::transaction-date (partial instance? LocalDate))
@@ -94,26 +102,27 @@
        account (polarize-item-amount account))
      item)))
 
-(defn- item-amount-sum
-  "Returns the sum of items in the transaction having
+(defn- item-value-sum
+  "Returns the sum of values of the items in the transaction having
   the specified action"
   [transaction action]
   (reduce + 0 (->> (:items transaction)
 
                    (filter #(= action (:action %)))
-                   (map :amount))))
+                   (map :value))))
 
 (defn- ^{:clj-money.validation/message "The total debits does not match the total credits"
          :clj-money.validation/path [:items]}
   sum-of-credits-must-equal-sum-of-debits
   [transaction]
   (->> [:debit :credit]
-       (map #(item-amount-sum transaction %))
+       (map #(item-value-sum transaction %))
        (apply =)))
 
 (defn- before-item-validation
   [item]
   (cond-> item
+    true (update-in [:value] #(or % (:amount item)))
     true (assoc :balance (bigdec 0))
     (string? (:account-id item)) (update-in [:account-id] #(Integer. %))
     (nil? (:id item)) (dissoc :id)

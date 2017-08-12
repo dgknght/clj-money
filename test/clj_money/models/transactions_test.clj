@@ -986,6 +986,7 @@
         [t1 t2 t3 t4] (:transactions context)
         to-update (-> t3
                       (assoc-in [:items 0 :amount] 102M)
+                      (assoc-in [:items 0 :value] 102M)
                       (update-in [:items] #(remove (fn [item]
                                                      (= (:account-id item)
                                                         (:id pets)))
@@ -1025,9 +1026,11 @@
         [t1 t2 t3 t4] (:transactions context)
         to-update (-> t2
                       (assoc-in [:items 0 :amount] 90M)
+                      (assoc-in [:items 0 :value] 90M)
                       (update-in [:items] #(conj % {:action :debit
                                                     :account-id (:id pets)
-                                                    :amount 13M})))
+                                                    :amount 13M
+                                                    :value 13M})))
         updated (transactions/update storage-spec to-update)
         expected-items [{:index 1
                          :amount 12M

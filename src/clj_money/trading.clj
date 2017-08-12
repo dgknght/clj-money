@@ -109,17 +109,26 @@
 (defn- create-purchase-transaction
   "Given a purchase context, creates the general currency
   transaction"
-  [{:keys [storage trade-date value fee-account-id] :as context}]
+  [{:keys [storage
+           trade-date
+           value
+           shares
+           fee-account-id]
+    :as context}]
   (let [fee (or (:fee context) 0M)
+        currency-amount (+ value fee)
         items (cond-> [{:action :credit
                         :account-id (:account-id context)
-                        :amount (+ value fee)}
+                        :amount currency-amount
+                        :value currency-amount}
                        {:action :debit
                         :account-id (-> context :commodity-account :id)
-                        :amount value}]
+                        :amount shares
+                        :value value}]
                 (not= 0M fee) (conj {:action :debit
                                      :account-id fee-account-id
-                                     :amount fee}))]
+                                     :amount fee
+                                     :value fee}))]
     (assoc context
            :transaction
            (transactions/create
@@ -299,7 +308,7 @@
          (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
                                                             shares-sold
                                                             (-> context :commodity :symbol)
-                                                            sale-price )
+                                                            (format-number sale-price {:format :commodity-price}) )
                                        :amount gain
                                        :long-term? long-term?})))
      remaining-shares-to-sell]))

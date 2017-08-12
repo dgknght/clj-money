@@ -560,6 +560,7 @@
                                                         :account-id
                                                         :action
                                                         :amount
+                                                        :value
                                                         :index
                                                         :balance
                                                         :memo))

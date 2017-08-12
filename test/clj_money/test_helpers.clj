@@ -102,3 +102,22 @@
   (map #(update-in % [:accounts] (fn [accounts]
                                    (simplify-accounts accounts additional-attributes)))
        groups)))
+
+(defn- find-in-context
+  [context model-group-key model-id-key model-id]
+  (->> context
+       model-group-key
+       (filter #(= model-id (model-id-key %)))
+       first))
+
+(defn find-account
+  [context account-name]
+  (find-in-context context :accounts :name account-name))
+
+(defn find-accounts
+  [context & account-names]
+  (map #(find-account context %) account-names))
+
+(defn find-commodity
+  [context symbol]
+  (find-in-context context :commodities :symbol symbol))
