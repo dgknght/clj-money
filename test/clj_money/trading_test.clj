@@ -91,23 +91,44 @@
                        (filter #(= "AAPL" (:symbol %)))
                        first)
         result (trading/buy storage-spec (purchase-attributes context))
-        expected-transaction {:transaction-date (t/local-date 2016 1 2)
+        expected-transaction {:entity-id (-> context :entities first :id)
+                              :transaction-date (t/local-date 2016 1 2)
                               :description "Purchase 100 shares of AAPL at 10.000"
+                              :memo nil
                               :items [{:action :credit
                                        :amount 1000M
+                                       :balance 1000M
                                        :value 1000M
-                                       :account-id (:id ira)}
+                                       :account-id (:id ira)
+                                       :index 1
+                                       :memo nil
+                                       :reconciled? false
+                                       :reconciliation-id nil}
                                       {:action :debit
                                        :amount 100M
+                                       :balance 100M
                                        :value 1000M
                                        :account-id (:id apple-account)
-                                       }]}]
+                                       :memo nil
+                                       :index 0
+                                       :reconciled? false
+                                       :reconciliation-id nil}]}
+        actual-transaction (-> (:transaction result)
+                               (dissoc :updated-at :created-at :id)
+                               (update-in [:items]
+                                          #(map (fn [i]
+                                                  (dissoc i
+                                                          :transaction-id
+                                                          :updated-at
+                                                          :created-at
+                                                          :id))
+                                                %)))]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
 
     (pprint {:expected expected-transaction
-             :actual (:transaction result)
-             :diff (diff expected-transaction (:transaction result))})
+             :actual actual-transaction
+             :diff (diff expected-transaction actual-transaction)})
 
     (is (= expected-transaction (:transaction result)
            "The resulting transaction has the correct attributes"))
