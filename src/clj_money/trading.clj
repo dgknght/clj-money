@@ -13,8 +13,7 @@
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]))
+            [clj-money.models.lots :as lots]))
 
 (s/def ::commodity-id integer?)
 (s/def ::account-id integer?)
@@ -55,30 +54,29 @@
   (assoc context :commodity (commodities/find-by-id storage commodity-id)))
 
 (defn- find-commodity-account
-  [storage parent symbol]
+  [storage parent commodity]
   (first (accounts/search
            storage
            {:parent-id (:id parent)
-            :name symbol})))
+            :commodity-id (:id commodity)})))
 
 (defn- create-commodity-account
-  [storage parent symbol]
-  (accounts/create storage {:name symbol
+  [storage parent commodity]
+  (accounts/create storage {:name (:symbol commodity)
                             :type :asset
-                            :content-type :commodity
+                            :commodity-id (:id commodity)
                             :parent-id (:id parent)
                             :entity-id (:entity-id parent)}))
 
 (defn- acquire-accounts
   "Give a purchase context, acquires the accounts
   necessary to complete the purchase"
-  [{:keys [account-id storage]
-    {symbol :symbol} :commodity
+  [{:keys [account-id storage commodity]
     :as context}]
   (let [account (accounts/find-by-id storage account-id)]
     (-> context
         (assoc :account account)
-        (assoc :commodity-account (some #(% storage account symbol)
+        (assoc :commodity-account (some #(% storage account commodity)
                                         [find-commodity-account
                                          create-commodity-account])))))
 
@@ -182,28 +180,14 @@
            shares
            commodity-id
            account-id
+           price
            transaction] :as context}]
   (let [lot (lots/create storage {:account-id account-id
-                                                  :commodity-id commodity-id
-                                                  :purchase-date trade-date
-                                                  :shares-purchased shares})
-        lot-transaction (lot-transactions/create
-                          storage
-                          (-> context
-                              (select-keys [:trade-date
-                                            :shares])
-                              (assoc :lot-id (:id lot))
-                              (assoc :transaction-id (:id transaction))
-                              (assoc :action :buy)
-                              (assoc :price (-> context :price :price))))]
-    (assoc context :lot lot :lot-transaction lot-transaction)))
-
-(defn- account-has-commodities-content?
-  [storage purchase]
-  (= :commodities (->> purchase
-                       :account-id
-                       (accounts/find-by-id storage) ; TODO eliminate this double lookup of the account
-                       :content-type)))
+                                  :commodity-id commodity-id
+                                  :purchase-date trade-date
+                                  :purchase-price (:price price)
+                                  :shares-purchased shares})]
+    (assoc context :lot lot)))
 
 (def ^:private purchase-coercion-rules
   [(coercion/rule :local-date [:trade-date])
@@ -243,7 +227,7 @@
   [storage-spec transaction-id]
   (with-transacted-storage [s storage-spec]
     ; a purchase will only have 1 lot and 1 lot transaction
-    (let [lot-transaction (->> {:transaction-id transaction-id}
+    #_(let [lot-transaction (->> {:transaction-id transaction-id} ; TODO Add transaction-id to lot
                                (lot-transactions/select s)
                                first)
           lot (lots/find-by-id s (:lot-id lot-transaction))
@@ -284,27 +268,16 @@
                              (- shares-to-sell shares-owned)
                              0])
         sale-price (-> context :price :price)
-        purchase-price (->> {:lot-id (:id lot)}
-                            (lot-transactions/select (:storage context))
-                            (filter #(= :buy (:action %)))
-                            first
-                            :price)
+        purchase-price (:purchase-price lot)
         adj-lot (lots/update (:storage context)
                              (assoc lot :shares-owned new-lot-balance))
         gain (- (* shares-sold sale-price)
                 (* shares-sold purchase-price))
         cut-off-date (t/plus (:purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
-                                  (:trade-date context)))
-        lot-trans (lot-transactions/create (:storage context)
-                                           {:trade-date (:trade-date context)
-                                            :lot-id (:id adj-lot)
-                                            :action :sell
-                                            :shares shares-sold
-                                            :price sale-price})]
+                                  (:trade-date context)))]
     [(-> context
          (update-in [:lots] #(conj % adj-lot))
-         (update-in [:lot-transactions] #(conj % lot-trans))
          (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
                                                             shares-sold
                                                             (-> context :commodity :symbol)
@@ -318,7 +291,6 @@
   the new lot transactions and the affected lots"
   [context]
   (loop [context (assoc context :lots []
-                                :lot-transactions []
                                 :gains [])
          shares-remaining (:shares context)]
     (if-let [lot (find-lot context)]
@@ -359,13 +331,6 @@
                                                       :inventory-method]))))
   context)
 
-(defn- associate-transaction-to-lot-transactions
-  [{:keys [lot-transactions transaction storage] :as context}]
-  (lot-transactions/link storage
-                         (:id transaction)
-                         (map :id lot-transactions))
-  context)
-
 (defn sell
   [storage-spec sale]
   (with-transacted-storage [s storage-spec]
@@ -379,13 +344,12 @@
              update-entity-settings
              create-price
              process-lot-sales
-             create-sale-transaction
-             associate-transaction-to-lot-transactions)))))
+             create-sale-transaction)))))
 
 (defn unsell
   [storage-spec transaction-id]
   (with-transacted-storage [s storage-spec]
-  (let [lot-transactions (lot-transactions/select
+  #_(let [lot-transactions (lot-transactions/select
                            s
                            {:transaction-id transaction-id})]
     (doseq [lot-transaction lot-transactions]

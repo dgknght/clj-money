@@ -10,6 +10,8 @@
             [clj-money.trading :as trading]
             [clj-money.reports :as reports]
             [clj-money.test-helpers :refer [reset-db
+                                            find-account
+                                            find-commodity
                                             simplify-account-groups]]))
 
 (def storage-spec (env :db))
@@ -19,6 +21,9 @@
 (def report-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset}
               {:name "Credit Card"
@@ -276,8 +281,7 @@
 (def ^:private commodities-context
   (-> report-context
       (update-in [:accounts] #(concat % [{:name "IRA"
-                                          :type :asset
-                                          :content-type :commodities}
+                                          :type :asset}
                                          {:name "LT Gains"
                                           :type :income}
                                          {:name "ST Gains"
@@ -294,15 +298,18 @@
                                                    {:action :debit
                                                     :account-id "IRA"
                                                     :amount 1000M}]}))
-      (assoc :commodities [{:name "Apple, Inc."
-                            :symbol "AAPL"
-                            :exchange :nasdaq}
-                           {:name "Microsoft Corp"
-                            :symbol "MSFT"
-                            :exchange :nasdaq}
-                           {:name "General Electric Co."
-                            :symbol "GE"
-                            :exchange :nyse}])
+      (update-in [:commodities] #(concat % [{:name "Apple, Inc."
+                                             :symbol "AAPL"
+                                             :type :stock
+                                             :exchange :nasdaq}
+                                            {:name "Microsoft Corp"
+                                             :symbol "MSFT"
+                                             :type :stock
+                                             :exchange :nasdaq}
+                                            {:name "General Electric Co."
+                                             :symbol "GE"
+                                             :stype :stock
+                                             :exchange :nyse}]))
       (assoc :prices [{:trade-date (t/local-date 2017 2 1)
                        :price 20M
                        :commodity-id "AAPL"}
@@ -312,12 +319,9 @@
 
 (deftest balance-sheet-report-with-commodities
   (let [context (serialization/realize storage-spec commodities-context)
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        commodity (-> context :commodities first)
-        _ (trading/buy storage-spec {:account-id (:id ira)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
+        purchase (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id commodity)
                                      :shares 100M
                                      :value 500M

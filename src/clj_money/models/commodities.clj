@@ -5,6 +5,7 @@
             [clj-money.util :refer [safe-invoke]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.models.entities :as entities]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
                                               create-fn

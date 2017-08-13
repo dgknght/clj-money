@@ -400,6 +400,7 @@
     [_ lot]
     (insert db-spec :lots lot :commodity-id
                               :account-id
+                              :purchase-price
                               :purchase-date
                               :shares-purchased
                               :shares-owned))
@@ -409,9 +410,7 @@
     (query db-spec (-> (h/select :*)
                        (h/from [:lots :l])
                        (h/join [:accounts :a] [:= :a.id :l.account_id])
-                       (h/where [:and
-                                 [:= :a.entity_id entity-id]
-                                 [:= :a.content_type "commodities"]]))))
+                       (h/where [:= :a.entity_id entity-id]))))
 
   (select-lots-by-commodity-id
     [_ commodity-id]
