@@ -148,18 +148,6 @@
     [this lot-id]
     "Deletes the specified lot record")
 
-  (create-lots-transactions
-    [this lot-id transaction-id]
-    "Creates a link between a lot and transaction")
-
-  (select-transaction-ids-by-lot-id
-    [this lot-id]
-    "Returns the transaction IDs associated with a lot")
-
-  (delete-lots-transactions
-    [this lot-id]
-    "Deletes a a lot/transaction link")
-
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]

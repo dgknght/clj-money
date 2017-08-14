@@ -111,7 +111,8 @@
            trade-date
            value
            shares
-           fee-account-id]
+           fee-account-id
+           lot]
     :as context}]
   (let [fee (or (:fee context) 0M)
         currency-amount (+ value fee)
@@ -134,7 +135,8 @@
              {:entity-id (-> context :account :entity-id)
               :transaction-date trade-date
               :description (purchase-transaction-description context)
-              :items items}))))
+              :items items
+              :lot-id (:id lot)}))))
 
 (defn- create-sale-transaction
   "Given a purchase context, creates the general currency
@@ -180,14 +182,12 @@
            shares
            commodity-id
            account-id
-           price
-           transaction] :as context}]
+           price] :as context}]
   (let [lot (lots/create storage {:account-id account-id
                                   :commodity-id commodity-id
                                   :purchase-date trade-date
                                   :purchase-price (:price price)
                                   :shares-purchased shares})]
-    (lots/link-lot-to-transaction storage (:id lot) (:id transaction))
     (assoc context :lot lot)))
 
 (def ^:private purchase-coercion-rules
@@ -219,8 +219,8 @@
              acquire-accounts
              acquire-entity
              create-price
-             create-purchase-transaction
-             create-lot)
+             create-lot
+             create-purchase-transaction)
         validated))))
 
 (defn unbuy

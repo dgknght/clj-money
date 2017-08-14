@@ -108,7 +108,7 @@
                                        :reconciled? false
                                        :reconciliation-id nil}]}
         actual-transaction (-> (:transaction result)
-                               (dissoc :updated-at :created-at :id)
+                               (dissoc :updated-at :created-at :id :lot-id)
                                (update-in [:items]
                                           #(map (fn [i]
                                                   (dissoc i
@@ -120,7 +120,9 @@
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (is (= expected-transaction actual-transaction)
-           "The resulting transaction has the correct attributes")
+        "The resulting transaction has the correct attributes")
+    (is (not (nil? (-> result :transaction :lot-id)))
+        "The transaction contains a lot-id")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (is (:lot result)

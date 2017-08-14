@@ -50,6 +50,7 @@
 (s/def ::transaction-date (partial instance? LocalDate))
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
+(s/def ::lot-id integer?)
 (s/def ::index integer?)
 (s/def ::transaction-item (s/keys :req-un [::account-id
                                            ::action
@@ -62,12 +63,14 @@
                                           ::transaction-date
                                           ::items
                                           ::entity-id]
-                                 :opt-un [::memo]))
+                                 :opt-un [::memo
+                                          ::lot-id]))
 (s/def ::existing-transaction (s/keys :req-un [::id
                                                ::transaction-date
                                                ::items]
                                       :opt-un [::entity-id
-                                               ::memo]))
+                                               ::memo
+                                               ::lot-id]))
 
 (def ambient-settings
   (atom {}))
