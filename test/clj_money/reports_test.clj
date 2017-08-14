@@ -310,10 +310,10 @@
                                              :symbol "GE"
                                              :stype :stock
                                              :exchange :nyse}]))
-      (assoc :prices [{:trade-date (t/local-date 2017 2 1)
+      (assoc :prices [{:transaction-date (t/local-date 2017 2 1)
                        :price 20M
                        :commodity-id "AAPL"}
-                      {:trade-date (t/local-date 2017 2 1)
+                      {:transaction-date (t/local-date 2017 2 1)
                        :price 5M
                        :commodity-id "MSFT"}])))
 
@@ -325,7 +325,7 @@
                                      :commodity-id (:id commodity)
                                      :shares 100M
                                      :value 500M
-                                     :trade-date (t/local-date 2016 3 2)})
+                                     :transaction-date (t/local-date 2016 3 2)})
         report (reports/balance-sheet storage-spec
                                       (-> context :entities first :id)
                                       (t/local-date 2017 3 2))
@@ -383,12 +383,12 @@
                                      :commodity-id (:id ge)
                                      :shares 100M
                                      :value 1000M
-                                     :trade-date (t/local-date 2015 1 1)})
+                                     :transaction-date (t/local-date 2015 1 1)})
         _ (trading/sell storage-spec {:account-id (:id ira)
                                       :commodity-id (:id ge)
                                       :shares 100M
                                       :value 2000M
-                                      :trade-date (t/local-date 2015 12 20)
+                                      :transaction-date (t/local-date 2015 12 20)
                                       :lt-capital-gains-account-id (:id lt-gains)
                                       :st-capital-gains-account-id (:id st-gains)
                                       :lt-capital-loss-account-id (:id lt-losses)
@@ -397,12 +397,12 @@
                                      :commodity-id (:id aapl)
                                      :shares 50M
                                      :value 500
-                                     :trade-date (t/local-date 2016 3 2)})
+                                     :transaction-date (t/local-date 2016 3 2)})
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id msft)
                                      :shares 50M
                                      :value 500M
-                                     :trade-date (t/local-date 2016 3 2)})
+                                     :transaction-date (t/local-date 2016 3 2)})
         actual (reports/commodities-account-summary storage-spec
                                                     (:id ira)
                                                     (t/local-date 2017 3 2))
@@ -770,22 +770,22 @@
         [aapl
          msft
          ge] (:commodities context)
-        p1 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
+        p1 (trading/buy storage-spec {:transaction-date (t/local-date 2017 1 15)
                                       :commodity-id (:id aapl)
                                       :account-id (:id ira)
                                       :shares 10M
                                       :value 100M})
-        p2 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
+        p2 (trading/buy storage-spec {:transaction-date (t/local-date 2017 1 15)
                                       :commodity-id (:id msft)
                                       :account-id (:id ira)
                                       :shares 10M
                                       :value 100M})
-        p3 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
+        p3 (trading/buy storage-spec {:transaction-date (t/local-date 2017 1 15)
                                       :commodity-id (:id ge)
                                       :account-id (:id ira)
                                       :shares 10M
                                       :value 100M})
-        s1 (trading/sell storage-spec {:trade-date (t/local-date 2017 1 31)
+        s1 (trading/sell storage-spec {:transaction-date (t/local-date 2017 1 31)
                                        :commodity-id (:id aapl)
                                        :account-id (:id ira)
                                        :shares 5M
@@ -804,18 +804,18 @@
                    :current-price 20M
                    :value 100M
                    :gain 50M
-                   :lot-transactions [{:trade-date (t/local-date 2017 1 15)
-                                       :action :buy
-                                       :shares 10M
-                                       :price 10M
-                                       :value 100M
-                                       :transaction-id (-> p1 :transaction :id)}
-                                      {:trade-date (t/local-date 2017 1 31)
-                                       :action :sell
-                                       :shares 5M
-                                       :price 11M
-                                       :value 55M
-                                       :transaction-id (-> s1 :transaction :id)}]}
+                   :transactions [{:transaction-date (t/local-date 2017 1 15)
+                                   :action :buy
+                                   :shares 10M
+                                   :price 10M
+                                   :value 100M
+                                   :id (-> p1 :transaction :id)}
+                                  {:transaction-date (t/local-date 2017 1 31)
+                                   :action :sell
+                                   :shares 5M
+                                   :price 11M
+                                   :value 55M
+                                   :id (-> s1 :transaction :id)}]}
                   {:caption "General Electric Co. (GE)"
                    :commodity-id (:id ge)
                    :purchase-date (t/local-date 2017 1 15)
@@ -825,12 +825,12 @@
                    :value 100M
                    :current-price 10M
                    :gain 0M
-                   :lot-transactions [{:trade-date (t/local-date 2017 1 15)
-                                       :action :buy
-                                       :shares 10M
-                                       :price 10M
-                                       :value 100M
-                                       :transaction-id (-> p3 :transaction :id)}]}
+                   :transactions [{:transaction-date (t/local-date 2017 1 15)
+                                   :action :buy
+                                   :shares 10M
+                                   :price 10M
+                                   :value 100M
+                                   :id (-> p3 :transaction :id)}]}
                   {:caption "Microsoft Corp (MSFT)"
                    :commodity-id (:id msft)
                    :purchase-date (t/local-date 2017 1 15)
@@ -840,12 +840,12 @@
                    :value 50M
                    :current-price 5M
                    :gain -50M
-                   :lot-transactions [{:trade-date (t/local-date 2017 1 15)
-                                       :action :buy
-                                       :shares 10M
-                                       :price 10M
-                                       :value 100M
-                                       :transaction-id (-> p2 :transaction :id)}]}]]
+                   :transactions [{:transaction-date (t/local-date 2017 1 15)
+                                   :action :buy
+                                   :shares 10M
+                                   :price 10M
+                                   :value 100M
+                                   :id (-> p2 :transaction :id)}]}]]
     (if (not= expected actual)
       (pprint {:expected expected
                :actual actual

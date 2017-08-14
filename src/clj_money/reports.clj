@@ -12,8 +12,7 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
-            [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]))
+            [clj-money.models.lots :as lots]))
 
 (declare set-balance-deltas)
 (defn- set-balance-delta
@@ -349,16 +348,6 @@
         :account account
         :message (format "There is no budget for %s" (format-date as-of))}))))
 
-(defn- calculate-lot-cost
-  [storage lot]
-  (let [purchase-tx (->> {:lot-id (:id lot)
-                          :action "buy"
-                          :limit 1}
-                         (lot-transactions/select storage)
-                         first)]
-    (* (:shares-owned lot)
-       (:price purchase-tx))))
-
 (defn- summarize-commodity
   [storage [commodity-id lots]]
   (let [commodity (commodities/find-by-id storage commodity-id)
@@ -366,7 +355,7 @@
                     (map :shares-owned)
                     (reduce +))
         cost (->> lots
-                  (map #(calculate-lot-cost storage %))
+                  (map #(* (:shares-owned %) (:purchase-price %)))
                   (reduce +))
         price (:price (prices/most-recent storage (:id commodity)))
         value (* price shares)
@@ -385,7 +374,7 @@
    (commodities-account-summary storage-spec account-id (t/today)))
   ([storage-spec account-id as-of]
    (with-storage [s storage-spec]
-     (let [data (conj (->> {:account-id account-id} ; TODO search lot-transactions with  as-of
+     (let [data (conj (->> {:account-id account-id}
                            (lots/search s)
                            (filter #(not= 0M (:shares-owned %)))
                            (group-by :commodity-id)
@@ -423,26 +412,12 @@
                                  (prices/most-recent storage-spec)
                                  :price)))
 
-(defn- append-lot-transactions
-  [storage-spec lot]
-  (assoc lot
-         :lot-transactions
-         (->> {:lot-id (:id lot)}
-              (lot-transactions/select storage-spec)
-              (map #(assoc % :value (* (:price %) (:shares %))))
-              (map #(dissoc % :id :updated-at :created-at :lot-id)))))
-
 (defn- append-lot-calculated-values
   [storage-spec lot]
-  (let [purchase-price (->> (:lot-transactions lot)
-                            (filter #(= :buy (:action %)))
-                            first
-                            :price)
-        cost (* (:shares-owned lot) purchase-price)
+  (let [cost (* (:shares-owned lot) (:purchase-price lot))
         value (* (:shares-owned lot) (:current-price lot))
         gain (- value cost)]
     (assoc lot
-           :purchase-price purchase-price
            :cost cost
            :value value
            :gain gain)))
@@ -458,7 +433,6 @@
         (map #(->> %
                    (append-commodity-caption storage-spec)
                    (append-current-price storage-spec)
-                   (append-lot-transactions storage-spec)
                    (append-lot-calculated-values storage-spec)))
         (sort-by :caption)
         (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))

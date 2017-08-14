@@ -11,7 +11,6 @@
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.reports :as reports]
             [clj-money.web.shared :refer :all]
             [clj-money.web.money-shared :refer [budget-monitors]]))
@@ -50,7 +49,7 @@
                       :level :danger
                       :title "Click here to undo this sale."}))]]])
 
-(defn- lot-transactions-table
+(defn- transactions-table
   [records]
   [:table.table.table-striped
    [:tr
@@ -91,7 +90,7 @@
        (lot-row record)]]]
     [:div.row
      [:div.col-sm-10.col-sm-offset-2
-      (lot-transactions-table (:lot-transactions record))]]))
+      (transactions-table (:transactions record))]]))
 
 (defn index
   [{{:keys [account-id commodity-id]} :params}]
