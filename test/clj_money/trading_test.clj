@@ -15,7 +15,6 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]
             [clj-money.models.transactions :as transactions]
             [clj-money.trading :as trading]))
@@ -253,28 +252,6 @@
                     (lots/select-by-commodity-id storage-spec (:id commodity)))]
     (is (= expected actual) "The lot can be retrieved from the database")))
 
-(deftest a-purchase-creates-a-lot-transaction-recrd
-  (let [context (serialization/realize storage-spec purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        result (trading/buy storage-spec {:commodity-id (:id commodity)
-                                          :account-id (:id ira)
-                                          :trade-date (t/local-date 2016 1 2)
-                                          :shares 100M
-                                          :value 1000M})
-        expected [{:trade-date (t/local-date 2016 1 2)
-                   :action :buy
-                   :shares 100M
-                   :price 10M
-                   :transaction-id (-> result :transaction :id)
-                   :lot-id (-> result :lot :id)}]
-        actual (map #(dissoc % :id :created-at :updated-at)
-                    (lot-transactions/select
-                      storage-spec
-                      {:lot-id (-> result :lot :id)}))]
-    (is (= expected actual)
-        "The lot transaction can be retrieved from the database")))
-
 (deftest a-purchase-creates-a-price-record
   (let [context (serialization/realize storage-spec purchase-context)
         ira (find-account context "IRA")
@@ -359,14 +336,8 @@
       (doseq [lot (:lots result)]
         (is (empty? (validation/error-messages lot))
             "Each lot is valid")))
-    (is (:lot-transactions result)
-        "The result contains a list of lot transactions create by the trade")
     (is (= 75M (:shares-owned (lots/find-by-id storage-spec (-> purchase :lot :id))))
         "The shares-owned value of the original lot is updated")
-    (if (seq (:lot-transactions result))
-      (doseq [lot-transaction (:lot-transactions result)]
-        (is (empty? (validation/error-messages lot-transaction))
-            "Each lot transaction is valid")))
     (is (:transaction result)
         "The result contains the transaction record")
     (is (empty? (-> result :transaction validation/error-messages))
@@ -524,30 +495,6 @@
                    :shares-purchased 100M
                    :shares-owned 75M}]]
     (is (= expected lots) "The lot is updated to reflect the sale")))
-
-(deftest selling-a-commodity-creates-a-lot-transaction-record
-  (let [context (serialization/realize storage-spec (sell-context))
-        [ira] (:accounts context)
-        commodity (find-commodity context "AAPL")
-        lot (-> context :lots first)
-        _ (trading/sell storage-spec (-> context
-                                         sale-attributes
-                                         (assoc :shares 25M :value 375M)))
-        lot-transactions (map #(dissoc % :id :created-at :updated-at :transaction-id)
-                              (lot-transactions/select
-                                storage-spec
-                                {:lot-id (:id lot)}))
-        expected [{:trade-date (t/local-date 2016 3 2)
-                   :lot-id (:id lot)
-                   :action :buy
-                   :price 10M
-                   :shares 100M}
-                  {:trade-date (t/local-date 2017 3 2)
-                   :lot-id (:id lot)
-                   :action :sell
-                   :price 15M
-                   :shares 25M}]]
-    (is (= expected lot-transactions) "The lot transaction is created with proper data")))
 
 (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
   (let [context (serialization/realize storage-spec (sell-context))
@@ -760,7 +707,7 @@
                                             :commodity-id (:id commodity)
                                             :account-id (:id ira)
                                             :value 1000M})
-        result (trading/unbuy storage-spec (-> purchase :transaction :id))]
+        result (trading/unbuy storage-spec (-> purchase :lot :id))]
     ; TODO Should we delete the price that was created?
     (testing "the account balance"
       (is (= 2000M (:balance (accounts/reload storage-spec ira)))
@@ -800,10 +747,6 @@
     (testing "the account balance"
       (is (= 1000M (:balance (accounts/reload storage-spec ira)))
           "The account balance is restored"))
-    (testing "the lot transactions"
-      (doseq [lot-transaction (:lot-transactions sale)]
-        (is (not (lot-transactions/find-by-id storage-spec (:id lot-transaction)))
-            (format "lot transaction %s should be deleted" (:id lot-transaction)))))
     (testing "the affected lots"
       (doseq [lot (:lots sale)]
         (let [lot (lots/find-by-id storage-spec (:id lot))]

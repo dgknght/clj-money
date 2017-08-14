@@ -418,13 +418,6 @@
                        (h/from :lots)
                        (h/where [:= :commodity_id commodity-id]))))
 
-  (select-lots-by-transaction-id
-    [_ transaction-id]
-    (query db-spec (-> (h/select :*)
-                       (h/from [:lots :l])
-                       (h/join [:lot_transactions :lt] [:= :l.id :lt.lot_id])
-                       (h/where [:= :lt.transaction_id transaction-id]))))
-
   (update-lot
     [_ lot]
     (let [sql (sql/format (-> (h/update :lots)
@@ -458,47 +451,22 @@
     [_ id]
     (jdbc/delete! db-spec :lots ["id = ?" id]))
 
-  ; Lot transactions
-  (create-lot-transaction
-    [_ lot-transaction]
-    (insert db-spec
-            :lot_transactions
-            lot-transaction
-            :lot-id
-            :transaction-id
-            :trade-date
-            :action
-            :shares
-            :price))
+  (create-lots-transactions
+    [_ lot-id transaction-id]
+    (jdbc/insert! db-spec :lots_transactions {:lot_id lot-id
+                                              :transaction_id transaction-id}))
 
-  (select-lot-transactions
-    [_ criteria]
-    (when-not (s/valid? ::lot-transaction-criteria criteria)
-      (throw (ex-info
-              "The criteria is not valid"
-              {:criteria criteria})))
-    (query db-spec (-> (h/select :*)
-                       (h/from :lot_transactions)
-                       (h/where (map->where (dissoc criteria :limit)))
-                       (h/order-by :trade_date)
-                       (append-limit criteria))))
-
-  (update-lot-transaction
-    [_ lot-transaction]
-    (let [sql (sql/format (-> (h/update :lot-transactions)
-                              (h/sset (->update-set
-                                        lot-transaction
-                                        :transaction-id))
-                              (h/where [:= :id (:id lot-transaction)])))]
-      (jdbc/execute! db-spec sql)))
-
-  (delete-lot-transactions-by-lot-id
+  (select-transaction-ids-by-lot-id
     [_ lot-id]
-    (jdbc/delete! db-spec :lot_transactions ["lot_id = ?" lot-id]))
+    (query db-spec (-> (h/select :transaction_id)
+                       (h/from :lots_transactions)
+                       (h/where [:= lot-id :lot_id]))))
 
-  (delete-lot-transaction
-    [_ id]
-    (jdbc/delete! db-spec :lot_transactions ["id = ?" id]))
+  (delete-lots-transactions
+    [_ lot-id]
+    (jdbc/delete! db-spec
+                  :lots_transactions
+                  ["lot_id = ?" lot-id]))
 
   ; Transactions
   (select-transactions-by-entity-id

@@ -10,14 +10,16 @@
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-lot
+                                              create-lots-transactions
                                               select-lots-by-commodity-id
                                               select-lots-by-entity-id
                                               select-lots-by-transaction-id
+                                              select-transaction-ids-by-lot-id
                                               select-lots
                                               update-lot
                                               find-lot-by-id
                                               delete-lot
-                                              delete-lot-transactions-by-lot-id]]
+                                              delete-lots-transactions]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]))
 
@@ -80,6 +82,11 @@
               :spec ::new-lot
               :coercion-rules coercion-rules}))
 
+(defn link-lot-to-transaction
+  [storage-spec lot-id transaction-id]
+  (with-storage [s storage-spec]
+    (create-lots-transactions s lot-id transaction-id)))
+
 (defn select-by-commodity-id
   [storage-spec commodity-id]
   (with-storage [s storage-spec]
@@ -94,12 +101,19 @@
          (select-lots-by-transaction-id s)
          (map after-read))))
 
+(defn- append-transaction-ids
+  [storage lot]
+  (assoc lot :transaction-ids (->> (:id lot)
+                                   (select-transaction-ids-by-lot-id storage)
+                                   (mapv :transaction-id))))
+
 (defn find-by-id
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> id
          (find-lot-by-id s)
-         after-read)))
+         after-read
+         (append-transaction-ids s))))
 
 (def update
   (update-fn {:before-save before-save
@@ -145,5 +159,5 @@
 (defn delete
   [storage-spec lot-id]
   (with-storage [s storage-spec]
-    (delete-lot-transactions-by-lot-id s lot-id)
+    (delete-lots-transactions s lot-id)
     (delete-lot s lot-id)))

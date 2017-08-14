@@ -14,7 +14,6 @@
                  "commodities"
                  "prices"
                  "lots"
-                 "lot_transactions"
                  "entities"
                  "imports"
                  "images"

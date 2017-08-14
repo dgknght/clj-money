@@ -187,6 +187,7 @@
                                   :purchase-date trade-date
                                   :purchase-price (:price price)
                                   :shares-purchased shares})]
+    (lots/link-lot-to-transaction storage (:id lot) (:id transaction))
     (assoc context :lot lot)))
 
 (def ^:private purchase-coercion-rules
@@ -224,13 +225,10 @@
 
 (defn unbuy
   "Reverses a commodity purchase"
-  [storage-spec transaction-id]
+  [storage-spec lot-id]
   (with-transacted-storage [s storage-spec]
-    ; a purchase will only have 1 lot and 1 lot transaction
-    #_(let [lot-transaction (->> {:transaction-id transaction-id} ; TODO Add transaction-id to lot
-                               (lot-transactions/select s)
-                               first)
-          lot (lots/find-by-id s (:lot-id lot-transaction))
+    (let [lot (lots/find-by-id s lot-id)
+          transaction-id (first (:transaction-ids lot))
           commodity (commodities/find-by-id s (:commodity-id lot))]
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.
@@ -238,7 +236,6 @@
       (transactions/delete s transaction-id)
       (lots/delete s (:id lot))
       {:transaction-id transaction-id
-       :lot-transaction lot-transaction
        :lot lot
        :commodity commodity})))
 
