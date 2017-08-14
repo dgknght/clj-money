@@ -79,12 +79,24 @@
       (assoc account :parent-id (:id parent)))
     account))
 
+(defn- find-commodity
+  [context ticker-symbol]
+  (->> context
+       :commodities
+       (filter #(= (:symbol %) ticker-symbol))
+       first))
+
+(defn- resolve-commodity
+  [context model]
+  (update-in model [:commodity-id] #(:id (find-commodity context %))))
+
 (defn- create-account
   [storage context attributes]
   (if (:id attributes)
     attributes
     (accounts/create storage (->> attributes
                                        (resolve-entity context)
+                                       (resolve-commodity context)
                                        (resolve-parent storage)))))
 
 (defn- create-accounts
@@ -210,17 +222,6 @@
 (defn- realize-commodities
   [storage context]
   (update-in context [:commodities] #(create-commodities storage context %)))
-
-(defn- find-commodity
-  [context ticker-symbol]
-  (->> context
-       :commodities
-       (filter #(= (:symbol %) ticker-symbol))
-       first))
-
-(defn- resolve-commodity
-  [context model]
-  (update-in model [:commodity-id] #(:id (find-commodity context %))))
 
 (defn- create-prices
   [storage context prices]

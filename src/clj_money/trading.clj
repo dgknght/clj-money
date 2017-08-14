@@ -73,12 +73,12 @@
   necessary to complete the purchase"
   [{:keys [account-id storage commodity]
     :as context}]
-  (let [account (accounts/find-by-id storage account-id)]
-    (-> context
-        (assoc :account account)
-        (assoc :commodity-account (some #(% storage account commodity)
+  (let [account (accounts/find-by-id storage account-id)
+        commodity-account (some #(% storage account commodity)
                                         [find-commodity-account
-                                         create-commodity-account])))))
+                                         create-commodity-account])]
+    (merge context {:account account
+                    :commodity-account commodity-account})))
 
 (defn- acquire-entity
   [{storage :storage
