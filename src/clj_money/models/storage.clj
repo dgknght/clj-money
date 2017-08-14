@@ -149,6 +149,10 @@
     "Deletes the specified lot record")
 
   ; Transactions
+  (select-transactions
+    [this criteria]
+    "Returns transactions matching the specified criteria")
+
   (select-transactions-by-entity-id
     [this entity-id]
     [this entity-id options]

@@ -10,6 +10,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
+                                              select-transactions
                                               count-transactions-by-entity-id
                                               create-transaction
                                               create-transaction-item
@@ -367,6 +368,13 @@
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
 (s/def ::select-options (s/keys :req-un [::page ::per-page]))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-transactions s)
+         (map after-read))))
 
 (defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"

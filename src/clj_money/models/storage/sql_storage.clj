@@ -42,6 +42,7 @@
 (defmethod attachment-criteria false [_]
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
+(s/def ::transaction-criteria (s/keys :req-un [::lot-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -455,6 +456,18 @@
   (select-transactions-by-entity-id
     [this entity-id]
     (.select-transactions-by-entity-id this entity-id {}))
+
+(select-transactions
+  [_ criteria]
+  (when-not (s/valid? ::transaction-criteria criteria)
+    (let [explanation (s/explain-data ::transaction-criteria criteria)]
+      (throw (ex-info
+               (str "The criteria is not valid: " explanation)
+               {:criteria criteria
+                :explanation explanation}))))
+  (query db-spec (-> (h/select :*)
+                     (h/from :transactions)
+                     (h/where (map->where criteria)))))
 
   (select-transactions-by-entity-id
     [_ entity-id options]

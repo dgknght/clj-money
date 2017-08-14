@@ -228,14 +228,14 @@
   [storage-spec lot-id]
   (with-transacted-storage [s storage-spec]
     (let [lot (lots/find-by-id s lot-id)
-          transaction-id (first (:transaction-ids lot))
+          transaction (first (transactions/search s {:lot-id lot-id}))
           commodity (commodities/find-by-id s (:commodity-id lot))]
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.
                  "Cannot undo a purchase if shares have been sold from the lot")))
-      (transactions/delete s transaction-id)
+      (transactions/delete s (:id transaction))
       (lots/delete s (:id lot))
-      {:transaction-id transaction-id
+      {:transaction transaction
        :lot lot
        :commodity commodity})))
 
