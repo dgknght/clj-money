@@ -140,39 +140,52 @@
                            :action :buy
                            :shares shares}]}))))
 
+(defn- create-capital-gains-items
+  [{gains :gains :as context}]
+  (mapv (fn [{:keys [amount description long-term?]}]
+          (let [account-key (keyword (format "%s-capital-%s-account-id"
+                                             (if long-term? "lt" "st")
+                                             (if (< amount 0) "loss" "gains")))
+                action (if (< amount 0) :debit :credit)
+                account-id (account-key context)]
+            {:action action
+             :account-id account-id
+             :amount (.abs amount)
+             :value (.abs amount)
+             :memo description}))
+        gains))
+
+(defn- create-sale-transaction-items
+  [{:keys [shares value] :as context}]
+  (let [total-gains (reduce + (map :amount (:gains context)))
+        fee (or (:fee context) 0M)
+        items (-> (create-capital-gains-items context)
+                  (conj {:action :debit
+                         :account-id (:account-id context)
+                         :amount (- value fee)
+                         :value (- value fee)})
+                  (conj {:action :credit
+                         :account-id (-> context :commodity-account :id)
+                         :amount shares
+                         :value (- value total-gains)}))]
+    (cond-> items
+      (not= 0M fee) (conj {:action :debit
+                           :account-id (:fee-account-id context)
+                           :amount fee
+                           :value fee}))))
+
 (defn- create-sale-transaction
   "Given a purchase context, creates the general currency
   transaction"
-  [{:keys [storage trade-date value] :as context}]
-  (let [total-gains (reduce + (map :amount (:gains context)))
-        fee (or (:fee context) 0M)
-        items (-> (mapv (fn [{:keys [amount description long-term?]}]
-                          (let [account-key (keyword (format "%s-capital-%s-account-id"
-                                                             (if long-term? "lt" "st")
-                                                             (if (< amount 0) "loss" "gains")))
-                                action (if (< amount 0) :debit :credit)
-                                account-id (account-key context)]
-                            {:action action
-                             :account-id account-id
-                             :amount (.abs amount)
-                             :memo description}))
-                         (:gains context))
-                  (conj {:action :debit
-                         :account-id (:account-id context)
-                         :amount (- value fee)})
-                  (conj {:action :credit
-                         :account-id (-> context :commodity-account :id)
-                         :amount (- value total-gains)}))
-        items (cond-> items
-                (not= 0M fee) (conj {:action :debit
-                                     :account-id (:fee-account-id context)
-                                     :amount fee}))
+  [{:keys [storage trade-date] :as context}]
+  (let [items (create-sale-transaction-items context)
         transaction (transactions/create
              storage
              {:entity-id (-> context :account :entity-id)
               :transaction-date trade-date
               :description (sale-transaction-description context)
-              :items items})]
+              :items items
+              :lot-items (:lot-items context)})]
     (if (validation/has-error? transaction)
       (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction}))
       (assoc context :transaction transaction))))
@@ -276,6 +289,10 @@
         long-term? (>= 0 (compare cut-off-date
                                   (:trade-date context)))]
     [(-> context
+         (update-in [:lot-items] #(conj % {:lot-id (:id adj-lot)
+                                           :action :sell
+                                           :shares shares-sold
+                                           :price sale-price}))
          (update-in [:lots] #(conj % adj-lot))
          (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
                                                             shares-sold
@@ -290,7 +307,8 @@
   the new lot transactions and the affected lots"
   [context]
   (loop [context (assoc context :lots []
-                                :gains [])
+                                :gains []
+                                :lot-items [])
          shares-remaining (:shares context)]
     (if-let [lot (find-lot context)]
       (let [[adj-context

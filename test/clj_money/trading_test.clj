@@ -328,13 +328,61 @@
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
         ira (find-account context "IRA")
+        commodity-account (find-account context "AAPL")
+        ltcg (find-account context "Long-term Capital Gains")
         commodity (find-commodity context "AAPL")
         purchase (trading/buy storage-spec {:account-id (:id ira)
                                             :commodity-id (:id commodity)
                                             :trade-date (t/local-date 2016 3 2)
                                             :shares 100M
                                             :value 1000M})
-        result (trading/sell storage-spec (sale-attributes context))]
+        lot (-> purchase :lot)
+        result (trading/sell storage-spec (sale-attributes context))
+        actual-transaction (-> result
+                               :transaction
+                               (update-in [:items] #(map (fn [i]
+                                                           (dissoc i
+                                                                   :id
+                                                                   :transaction-id
+                                                                   :created-at
+                                                                   :updated-at))
+                                                         %))
+                               (dissoc :id :created-at :updated-at))
+        expected-transaction {:transaction-date (t/local-date 2017 3 2)
+                              :description "Sell 25 shares of AAPL at 15.000"
+                              :entity-id (-> context :entities first :id)
+                              :memo nil
+                              :items [{:action :credit
+                                       :account-id (:id ltcg)
+                                       :memo "Sell 25 shares of AAPL at 15.000"
+                                       :amount 125M
+                                       :value 125M
+                                       :balance 125M
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :index 0}
+                                      {:action :debit
+                                       :account-id (:id ira)
+                                       :amount 375M
+                                       :value 375M
+                                       :balance 1375M
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :memo nil
+                                       :index 2}
+                                      {:action :credit
+                                       :account-id (:id commodity-account)
+                                       :amount 25M
+                                       :balance 75M
+                                       :value 250M
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :memo nil
+                                       :index 1}]
+                              :lot-items [{:lot-id (:id lot)
+                                           :action :sell
+                                           :shares 25M
+                                           :price 15M}]}]
     (is (:price result)
         "The result contains a price")
     (is (empty? (-> result :price validation/error-messages))
@@ -349,7 +397,7 @@
         "The shares-owned value of the original lot is updated")
     (is (:transaction result)
         "The result contains the transaction record")
-    (is false "The transaction contains the correct lot-items")
+    (is (= expected-transaction actual-transaction) "The transaction contains the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (testing "entity settings"
