@@ -89,6 +89,8 @@
                               :transaction-date (t/local-date 2016 1 2)
                               :description "Purchase 100 shares of AAPL at 10.000"
                               :memo nil
+                              :lot-items [{:action :buy
+                                           :shares 100M}]
                               :items [{:action :credit
                                        :amount 1000M
                                        :balance 1000M
@@ -108,7 +110,7 @@
                                        :reconciled? false
                                        :reconciliation-id nil}]}
         actual-transaction (-> (:transaction result)
-                               (dissoc :updated-at :created-at :id :lot-id)
+                               (dissoc :updated-at :created-at :id)
                                (update-in [:items]
                                           #(map (fn [i]
                                                   (dissoc i
@@ -116,13 +118,18 @@
                                                           :updated-at
                                                           :created-at
                                                           :id))
+                                                %))
+                               (update-in [:lot-items]
+                                          #(map (fn [i]
+                                                  (dissoc i :lot-id))
                                                 %)))]
+
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (is (= expected-transaction actual-transaction)
         "The resulting transaction has the correct attributes")
-    (is (not (nil? (-> result :transaction :lot-id)))
-        "The transaction contains a lot-id")
+    (is (= 1 (-> result :transaction :lot-items count))
+        "The transaction contains a lot item")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (is (:lot result)
@@ -342,6 +349,7 @@
         "The shares-owned value of the original lot is updated")
     (is (:transaction result)
         "The result contains the transaction record")
+    (is false "The transaction contains the correct lot-items")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (testing "entity settings"
@@ -746,9 +754,8 @@
     ;                      after purchase: $1,000
     ;                          after sale: $1,375
     ;                        after unsale: $1,000
-    (testing "the account balance"
-      (is (= 1000M (:balance (accounts/reload storage-spec ira)))
-          "The account balance is restored"))
+    (is (= 1000M (:balance (accounts/reload storage-spec ira)))
+        "The account balance is restored")
     (testing "the affected lots"
       (doseq [lot (:lots sale)]
         (let [lot (lots/find-by-id storage-spec (:id lot))]

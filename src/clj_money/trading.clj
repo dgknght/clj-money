@@ -136,7 +136,9 @@
               :transaction-date trade-date
               :description (purchase-transaction-description context)
               :items items
-              :lot-id (:id lot)}))))
+              :lot-items [{:lot-id (:id lot)
+                           :action :buy
+                           :shares shares}]}))))
 
 (defn- create-sale-transaction
   "Given a purchase context, creates the general currency
@@ -346,10 +348,8 @@
 (defn unsell
   [storage-spec transaction-id]
   (with-transacted-storage [s storage-spec]
-  #_(let [lot-transactions (lot-transactions/select
-                           s
-                           {:transaction-id transaction-id})]
-    (doseq [lot-transaction lot-transactions]
+  (let [transactions (transactions/find-by-id s transaction-id)]
+    #_(doseq [lot-transaction lot-transactions]
       (let [lot (lots/find-by-id s (:lot-id lot-transaction))]
         (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-transaction))))
         (lot-transactions/delete s (:id lot-transaction))))

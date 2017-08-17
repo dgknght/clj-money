@@ -52,6 +52,10 @@
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
 (s/def ::lot-id integer?)
+(s/def ::lot-action #{:buy :sell})
+(s/def ::shares decimal?)
+(s/def ::lot-item (s/keys :req-un [::lot-id]))
+(s/def ::lot-items (s/coll-of ::lot-item))
 (s/def ::index integer?)
 (s/def ::transaction-item (s/keys :req-un [::account-id
                                            ::action
@@ -65,13 +69,13 @@
                                           ::items
                                           ::entity-id]
                                  :opt-un [::memo
-                                          ::lot-id]))
+                                          ::lot-items]))
 (s/def ::existing-transaction (s/keys :req-un [::id
                                                ::transaction-date
                                                ::items]
                                       :opt-un [::entity-id
                                                ::memo
-                                               ::lot-id]))
+                                               ::lot-items]))
 
 (def ambient-settings
   (atom {}))
@@ -154,13 +158,16 @@
   [transaction]
   (-> transaction
       (dissoc :items)
-      (update-in [:transaction-date] tc/to-long)))
+      (update-in [:transaction-date] tc/to-long)
+      (update-in [:lot-items] #(when % (prn-str %)))))
 
 (defn- after-read
   "Returns a transaction that is ready for public use"
   [transaction]
   (when transaction
-    (update-in transaction [:transaction-date] tc/to-local-date)))
+    (-> transaction
+        (update-in [:transaction-date] tc/to-local-date)
+        (update-in [:lot-items] #(when % (read-string %))))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"

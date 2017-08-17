@@ -488,7 +488,7 @@
   (create-transaction
     [_ transaction]
     (insert db-spec :transactions transaction :entity-id
-                                              :lot-id
+                                              :lot-items
                                               :description
                                               :transaction-date
                                               :memo))
@@ -513,6 +513,7 @@
                                         transaction
                                         :description
                                         :transaction-date
+                                        :lot-items
                                         :memo))
                               (h/where [:= :id (:id transaction)])))]
       (jdbc/execute! db-spec sql)))
