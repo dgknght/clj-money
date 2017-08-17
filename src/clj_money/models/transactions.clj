@@ -54,7 +54,7 @@
 (s/def ::lot-id integer?)
 (s/def ::lot-action #{:buy :sell})
 (s/def ::shares decimal?)
-(s/def ::lot-item (s/keys :req-un [::lot-id]))
+(s/def ::lot-item (s/keys :req-un [::lot-id ::shares ::lot-action ::price]))
 (s/def ::lot-items (s/coll-of ::lot-item))
 (s/def ::index integer?)
 (s/def ::transaction-item (s/keys :req-un [::account-id

@@ -137,7 +137,8 @@
               :description (purchase-transaction-description context)
               :items items
               :lot-items [{:lot-id (:id lot)
-                           :action :buy
+                           :lot-action :buy
+                           :price (/ value shares)
                            :shares shares}]}))))
 
 (defn- create-capital-gains-items
@@ -290,7 +291,7 @@
                                   (:trade-date context)))]
     [(-> context
          (update-in [:lot-items] #(conj % {:lot-id (:id adj-lot)
-                                           :action :sell
+                                           :lot-action :sell
                                            :shares shares-sold
                                            :price sale-price}))
          (update-in [:lots] #(conj % adj-lot))

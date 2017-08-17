@@ -89,8 +89,9 @@
                               :transaction-date (t/local-date 2016 1 2)
                               :description "Purchase 100 shares of AAPL at 10.000"
                               :memo nil
-                              :lot-items [{:action :buy
-                                           :shares 100M}]
+                              :lot-items [{:lot-action :buy
+                                           :shares 100M
+                                           :price 10M}]
                               :items [{:action :credit
                                        :amount 1000M
                                        :balance 1000M
@@ -123,7 +124,6 @@
                                           #(map (fn [i]
                                                   (dissoc i :lot-id))
                                                 %)))]
-
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (is (= expected-transaction actual-transaction)
