@@ -696,10 +696,12 @@
                                   :account-id)))
         expected [{:purchase-date (t/local-date 2015 3 2)
                    :shares-purchased 100M
-                   :shares-owned 100M}
+                   :shares-owned 100M
+                   :purchase-price 10M}
                   {:purchase-date (t/local-date 2016 3 2)
                    :shares-purchased 100M
-                   :shares-owned 50M}]]
+                   :shares-owned 50M
+                   :purchase-price 20M}]]
     (is (= expected actual) "Shares are sold from the most recent lot")))
 
 (deftest fifo-sale
