@@ -367,9 +367,8 @@
 (defn unsell
   [storage-spec transaction-id]
   (with-transacted-storage [s storage-spec]
-  (let [transactions (transactions/find-by-id s transaction-id)]
-    #_(doseq [lot-transaction lot-transactions]
-      (let [lot (lots/find-by-id s (:lot-id lot-transaction))]
-        (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-transaction))))
-        (lot-transactions/delete s (:id lot-transaction))))
-    (transactions/delete s transaction-id))))
+    (let [transaction (transactions/find-by-id s transaction-id)]
+      (doseq [lot-item (:lot-items transaction)]
+        (let [lot (lots/find-by-id s (:lot-id lot-item))]
+          (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
+      (transactions/delete s transaction-id))))
