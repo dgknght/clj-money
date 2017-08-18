@@ -241,10 +241,10 @@
 
 (defn unbuy
   "Reverses a commodity purchase"
-  [storage-spec lot-id]
+  [storage-spec transaction-id]
   (with-transacted-storage [s storage-spec]
-    (let [lot (lots/find-by-id s lot-id)
-          transaction (first (transactions/search s {:lot-id lot-id}))
+    (let [transaction (transactions/find-by-id s transaction-id)
+          lot (lots/find-by-id s (-> transaction :lot-items first :lot-id))
           commodity (commodities/find-by-id s (:commodity-id lot))]
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.

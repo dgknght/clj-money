@@ -380,7 +380,7 @@
                                        :memo nil
                                        :index 1}]
                               :lot-items [{:lot-id (:id lot)
-                                           :action :sell
+                                           :lot-action :sell
                                            :shares 25M
                                            :price 15M}]}]
     (is (:price result)
@@ -551,7 +551,8 @@
                    :account-id (:id ira)
                    :commodity-id (:id commodity)
                    :shares-purchased 100M
-                   :shares-owned 75M}]]
+                   :shares-owned 75M
+                   :purchase-price 10M}]]
     (is (= expected lots) "The lot is updated to reflect the sale")))
 
 (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
@@ -752,10 +753,12 @@
                                   :account-id)))
         expected [{:purchase-date (t/local-date 2015 3 2)
                    :shares-purchased 100M
-                   :shares-owned 50M}
+                   :shares-owned 50M
+                   :purchase-price 10M}
                   {:purchase-date (t/local-date 2016 3 2)
                    :shares-purchased 100M
-                   :shares-owned 100M}]]
+                   :shares-owned 100M
+                   :purchase-price 20M}]]
     (is (= expected actual) "Shares are sold from the most recent lot")))
 
 (deftest undo-a-purchase
@@ -767,7 +770,7 @@
                                             :commodity-id (:id commodity)
                                             :account-id (:id ira)
                                             :value 1000M})
-        result (trading/unbuy storage-spec (-> purchase :lot :id))]
+        result (trading/unbuy storage-spec (-> purchase :transaction :id))]
     ; TODO Should we delete the price that was created?
     (testing "the account balance"
       (is (= 2000M (:balance (accounts/reload storage-spec ira)))
