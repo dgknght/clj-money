@@ -11,7 +11,9 @@
             [clj-money.reports :as reports]
             [clj-money.test-helpers :refer [reset-db
                                             find-account
+                                            find-accounts
                                             find-commodity
+                                            find-commodities
                                             context-errors
                                             simplify-account-groups]]))
 
@@ -765,30 +767,32 @@
          lt-gains
          st-gains
          lt-losses
-         st-losses] (map #(->> context
-                               :accounts
-                               (filter (fn [a] (= % (:name a))))
-                               first)
-                         ["IRA" "LT Gains" "ST Gains" "LT Losses" "ST Losses"])
+         st-losses] (find-accounts context "IRA"
+                                           "LT Gains"
+                                           "ST Gains"
+                                           "LT Losses"
+                                           "ST Losses")
         [aapl
          msft
-         ge] (:commodities context)
-        p1 (trading/buy storage-spec {:transaction-date (t/local-date 2017 1 15)
+         ge] (find-commodities context "AAPL"
+                                       "MSFT"
+                                       "GE")
+        p1 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
                                       :commodity-id (:id aapl)
                                       :account-id (:id ira)
                                       :shares 10M
                                       :value 100M})
-        p2 (trading/buy storage-spec {:transaction-date (t/local-date 2017 1 15)
+        p2 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
                                       :commodity-id (:id msft)
                                       :account-id (:id ira)
                                       :shares 10M
                                       :value 100M})
-        p3 (trading/buy storage-spec {:transaction-date (t/local-date 2017 1 15)
+        p3 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
                                       :commodity-id (:id ge)
                                       :account-id (:id ira)
                                       :shares 10M
                                       :value 100M})
-        s1 (trading/sell storage-spec {:transaction-date (t/local-date 2017 1 31)
+        s1 (trading/sell storage-spec {:trade-date (t/local-date 2017 1 31)
                                        :commodity-id (:id aapl)
                                        :account-id (:id ira)
                                        :shares 5M
