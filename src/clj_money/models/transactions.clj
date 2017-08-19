@@ -27,11 +27,14 @@
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
                                               select-transaction-items-by-reconciliation-id
+                                              select-lots-transactions-by-transaction-id
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
                                               delete-transaction
                                               delete-transaction-item
-                                              delete-transaction-items-by-transaction-id]])
+                                              delete-transaction-items-by-transaction-id
+                                              create-lot->transaction-link
+                                              delete-lot->transaction-link]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
@@ -159,15 +162,26 @@
   (-> transaction
       (dissoc :items)
       (update-in [:transaction-date] tc/to-long)
-      (update-in [:lot-items] #(when % (prn-str %)))))
+      (update-in [:lot-items] #(when %
+                                 (map (fn [i]
+                                        (update-in i [:lot-action] name))
+                                      %)))))
+
+(defn- fetch-lot-items
+  [storage transaction-id]
+  (select-lots-transactions-by-transaction-id storage transaction-id))
 
 (defn- after-read
   "Returns a transaction that is ready for public use"
-  [transaction]
+  [storage transaction]
   (when transaction
     (-> transaction
         (update-in [:transaction-date] tc/to-local-date)
-        (update-in [:lot-items] #(when % (read-string %))))))
+        (assoc :lot-items (->> (:id transaction)
+                               (fetch-lot-items storage)
+                               (map #(-> %
+                                         (dissoc :transaction-id)
+                                         (update-in [:lot-action] keyword))))))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -381,7 +395,7 @@
   (with-storage [s storage-spec]
     (->> criteria
          (select-transactions s)
-         (map after-read))))
+         (map #(after-read s %)))))
 
 (defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"
@@ -397,7 +411,7 @@
      (with-storage [s storage-spec]
        (->>
          (select-transactions-by-entity-id s entity-id parsed-options)
-         (map after-read)
+         (map #(after-read s %))
          (map #(append-items s %)))))))
 
 (defn select-items-by-reconciliation-id
@@ -413,6 +427,17 @@
   (with-storage [s storage-spec]
     (count-transactions-by-entity-id s entity-id)))
 
+(defn- create-transaction-and-lot-links
+  [storage transaction]
+  (let [result (create-transaction storage transaction)]
+    (when-let [lot-items (:lot-items transaction)]
+      (doseq [lot-item lot-items]
+        (create-lot->transaction-link storage
+                                      (assoc lot-item
+                                             :transaction-id
+                                             (:id result)))))
+    result))
+
 (defn- create-transaction-without-balances
   [storage {:keys [entity-id] :as transaction}]
   (swap! ambient-settings
@@ -421,8 +446,8 @@
          #(into % (map :account-id (:items transaction))))
   (let [result (->> transaction
                     before-save
-                    (create-transaction storage)
-                    after-read)]
+                    (create-transaction-and-lot-links storage)
+                    (after-read storage))]
     (assoc result :items (mapv (fn [item]
                                  (create-transaction-item
                                    storage
@@ -443,8 +468,8 @@
                                     (:transaction-date transaction))
         result (->> (assoc transaction :items items-with-balances)
                     before-save
-                    (create-transaction storage)
-                    after-read)
+                    (create-transaction-and-lot-links storage)
+                    (after-read storage))
         items (into [] (map #(->> (assoc % :transaction-id (:id result))
                                   before-save-item
                                   (create-transaction-item storage)
@@ -468,7 +493,7 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-transaction-by-id s id)
-         after-read
+         (after-read s)
          (append-items s))))
 
 (defn find-by-item-id

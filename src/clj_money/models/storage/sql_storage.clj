@@ -452,6 +452,27 @@
     [_ id]
     (jdbc/delete! db-spec :lots ["id = ?" id]))
 
+  (create-lot->transaction-link
+    [_ link]
+    (insert db-spec :lots_transactions link :lot-id
+                                            :transaction-id
+                                            :lot-action
+                                            :shares
+                                            :price
+                                            :action))
+
+  (delete-lot->transaction-link
+    [_ lot-id transaction-id]
+    (jdbc/delete! db-spec :lots_transactions [:and
+                                              [:= :lot_id lot-id]
+                                              [:= :transaction_id transaction-id]]))
+
+  (select-lots-transactions-by-transaction-id
+    [_ transaction-id]
+    (query db-spec (-> (h/select :*)
+                       (h/from :lots_transactions)
+                       (h/where [:= :transaction_id transaction-id]))))
+
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]
@@ -488,7 +509,6 @@
   (create-transaction
     [_ transaction]
     (insert db-spec :transactions transaction :entity-id
-                                              :lot-items
                                               :description
                                               :transaction-date
                                               :memo))
@@ -513,7 +533,6 @@
                                         transaction
                                         :description
                                         :transaction-date
-                                        :lot-items
                                         :memo))
                               (h/where [:= :id (:id transaction)])))]
       (jdbc/execute! db-spec sql)))

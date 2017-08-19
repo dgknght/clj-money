@@ -148,6 +148,18 @@
     [this lot-id]
     "Deletes the specified lot record")
 
+  (create-lot->transaction-link
+    [this link]
+    "Creates a record linking a lot to a transaction")
+
+  (delete-lot->transaction-link
+    [this lot-id transaction-id]
+    "Removes a record linking a lot to a transaction")
+
+  (select-lots-transactions-by-transaction-id
+    [this transaction-id]
+    "Selects lots-transactions record by transaction-id")
+
   ; Transactions
   (select-transactions
     [this criteria]
