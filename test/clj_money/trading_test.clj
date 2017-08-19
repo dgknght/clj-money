@@ -128,8 +128,6 @@
         "The result contains the transaction associated with the purchase")
     (is (= expected-transaction actual-transaction)
         "The resulting transaction has the correct attributes")
-    (is (= 1 (-> result :transaction :lot-items count))
-        "The transaction contains a lot item")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (is (:lot result)
