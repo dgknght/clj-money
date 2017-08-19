@@ -80,3 +80,18 @@
   [target-fn value]
   `(when ~value
      (~target-fn ~value)))
+
+(defn keywordify-keys
+  [m]
+  (when m
+    (into {} (map (fn [[k v]]
+                    [(keyword k)
+                     (cond
+                       (map? v)
+                       (keywordify-keys v)
+
+                       (sequential? v)
+                       (map keywordify-keys v)
+
+                       :else v)])
+                  m))))
