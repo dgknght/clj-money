@@ -412,6 +412,16 @@
                                  (prices/most-recent storage-spec)
                                  :price)))
 
+(defn- append-lot-transactions
+  [storage-spec lot]
+
+  (throw (ex-info "No method exists for finding transactions by lot" lot))
+
+  #_(assoc lot
+         :lot-transactions
+         (->> {:lot-id (:id lot)}
+              (transactions/search storage-spec))))
+
 (defn- append-lot-calculated-values
   [storage-spec lot]
   (let [cost (* (:shares-owned lot) (:purchase-price lot))
@@ -433,6 +443,7 @@
         (map #(->> %
                    (append-commodity-caption storage-spec)
                    (append-current-price storage-spec)
+                   (append-lot-transactions storage-spec)
                    (append-lot-calculated-values storage-spec)))
         (sort-by :caption)
         (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
