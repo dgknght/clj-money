@@ -120,3 +120,13 @@
 (defn find-commodity
   [context symbol]
   (find-in-context context :commodities :symbol symbol))
+
+(defn context-errors
+  [context]
+  (reduce (fn [result [category models]]
+            (let [invalid-models (filter #(validation/has-error? %) models)]
+              (if (seq invalid-models)
+                (assoc result category invalid-models)
+                result)))
+          {}
+          context))

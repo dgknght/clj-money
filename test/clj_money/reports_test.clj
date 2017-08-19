@@ -12,191 +12,195 @@
             [clj-money.test-helpers :refer [reset-db
                                             find-account
                                             find-commodity
+                                            context-errors
                                             simplify-account-groups]]))
 
 (def storage-spec (env :db))
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def report-context
+(def ^:private base-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
    :commodities [{:name "US Dollar"
                   :symbol "USD"
-                  :type :currency}]
-   :accounts [{:name "Checking"
-               :type :asset}
-              {:name "Credit Card"
-               :type :liability}
-              {:name "Salary"
-               :type :income}
-              {:name "Rent"
-               :type :expense}
-              {:name "Groceries"
-               :type :expense}
-              {:name "Taxes"
-               :type :expense}
-              {:name "FIT"
-               :type :expense
-               :parent-id "Taxes"}
-              {:name "Social Security"
-               :type :expense
-               :parent-id "Taxes"}
-              {:name "Medicare"
-               :type :expense
-               :parent-id "Taxes"}]
-   :transactions [
-                  ; salary
-                  {:transaction-date (t/local-date 2016 1 1)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount 724M}
-                           {:action :debit
-                            :account-id "FIT"
-                            :amount 200M}
-                           {:action :debit
-                            :account-id "Social Security"
-                            :amount 62M}
-                           {:action :debit
-                            :account-id "Medicare"
-                            :amount 15M}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount 1001M}]}
-                  {:transaction-date (t/local-date 2016 1 15)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount 725M}
-                           {:action :debit
-                            :account-id "FIT"
-                            :amount 200M}
-                           {:action :debit
-                            :account-id "Social Security"
-                            :amount 62M}
-                           {:action :debit
-                            :account-id "Medicare"
-                            :amount 15M}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount 1002M}]}
-                  {:transaction-date (t/local-date 2016 2 1)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount 726M}
-                           {:action :debit
-                            :account-id "FIT"
-                            :amount 200M}
-                           {:action :debit
-                            :account-id "Social Security"
-                            :amount 62M}
-                           {:action :debit
-                            :account-id "Medicare"
-                            :amount 15M}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount 1003M}]}
-                  {:transaction-date (t/local-date 2016 2 15)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount 1004M}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount 1004M}]}
+                  :type :currency}]})
 
-                  ; groceries
-                  {:transaction-date (t/local-date 2016 1 3)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 100M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 100M}]}
-                  {:transaction-date (t/local-date 2016 1 10)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 100M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 100M}]}
-                  {:transaction-date (t/local-date 2016 1 17)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 100M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 100M}]}
-                  {:transaction-date (t/local-date 2016 1 24)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 100M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 100M}]}
-                  {:transaction-date (t/local-date 2016 1 31)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 100M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 100M}]}
-                  {:transaction-date (t/local-date 2016 2 7)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 101M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 101M}]}
-                  {:transaction-date (t/local-date 2016 2 14)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 101M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 101M}]}
-                  {:transaction-date (t/local-date 2016 2 21)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 101M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 101M}]}
-                  {:transaction-date (t/local-date 2016 2 28)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount 101M}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount 101M}]}
-                  ; rent
-                  {:transaction-date (t/local-date 2016 1 4)
-                   :description "Landlord"
-                   :items [{:action :debit
-                            :account-id "Rent"
-                            :amount 700M}
-                           {:action :credit
-                            :account-id "Checking"
-                            :amount 700M}]}
-                  {:transaction-date (t/local-date 2016 2 4)
-                   :description "Landlord"
-                   :items [{:action :debit
-                             :account-id "Rent"
-                             :amount 700M}
-                           {:action :credit
-                             :account-id "Checking"
-                             :amount 700M}]}]})
+(def ^:private report-context
+  (merge base-context
+         {:accounts [{:name "Checking"
+                      :type :asset}
+                     {:name "Credit Card"
+                      :type :liability}
+                     {:name "Salary"
+                      :type :income}
+                     {:name "Rent"
+                      :type :expense}
+                     {:name "Groceries"
+                      :type :expense}
+                     {:name "Taxes"
+                      :type :expense}
+                     {:name "FIT"
+                      :type :expense
+                      :parent-id "Taxes"}
+                     {:name "Social Security"
+                      :type :expense
+                      :parent-id "Taxes"}
+                     {:name "Medicare"
+                      :type :expense
+                      :parent-id "Taxes"}]
+          :transactions [
+                         ; salary
+                         {:transaction-date (t/local-date 2016 1 1)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount 724M}
+                                  {:action :debit
+                                   :account-id "FIT"
+                                   :amount 200M}
+                                  {:action :debit
+                                   :account-id "Social Security"
+                                   :amount 62M}
+                                  {:action :debit
+                                   :account-id "Medicare"
+                                   :amount 15M}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount 1001M}]}
+                         {:transaction-date (t/local-date 2016 1 15)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount 725M}
+                                  {:action :debit
+                                   :account-id "FIT"
+                                   :amount 200M}
+                                  {:action :debit
+                                   :account-id "Social Security"
+                                   :amount 62M}
+                                  {:action :debit
+                                   :account-id "Medicare"
+                                   :amount 15M}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount 1002M}]}
+                         {:transaction-date (t/local-date 2016 2 1)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount 726M}
+                                  {:action :debit
+                                   :account-id "FIT"
+                                   :amount 200M}
+                                  {:action :debit
+                                   :account-id "Social Security"
+                                   :amount 62M}
+                                  {:action :debit
+                                   :account-id "Medicare"
+                                   :amount 15M}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount 1003M}]}
+                         {:transaction-date (t/local-date 2016 2 15)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount 1004M}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount 1004M}]}
+
+                         ; groceries
+                         {:transaction-date (t/local-date 2016 1 3)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount 100M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount 100M}]}
+                         {:transaction-date (t/local-date 2016 1 10)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount 100M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount 100M}]}
+                         {:transaction-date (t/local-date 2016 1 17)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount 100M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount 100M}]}
+                         {:transaction-date (t/local-date 2016 1 24)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount 100M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount 100M}]}
+                         {:transaction-date (t/local-date 2016 1 31)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount 100M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount 100M}]}
+                                {:transaction-date (t/local-date 2016 2 7)
+                                :description "Kroger"
+                                :items [{:action :debit
+                                          :account-id "Groceries"
+                                          :amount 101M}
+                                        {:action :credit
+                                          :account-id "Credit Card"
+                                          :amount 101M}]}
+                                {:transaction-date (t/local-date 2016 2 14)
+                                :description "Kroger"
+                                :items [{:action :debit
+                                          :account-id "Groceries"
+                                          :amount 101M}
+                                        {:action :credit
+                                          :account-id "Credit Card"
+                                          :amount 101M}]}
+                                {:transaction-date (t/local-date 2016 2 21)
+                                :description "Kroger"
+                                :items [{:action :debit
+                                          :account-id "Groceries"
+                                          :amount 101M}
+                                        {:action :credit
+                                          :account-id "Credit Card"
+                                          :amount 101M}]}
+                                {:transaction-date (t/local-date 2016 2 28)
+                                :description "Kroger"
+                                :items [{:action :debit
+                                          :account-id "Groceries"
+                                          :amount 101M}
+                                        {:action :credit
+                                          :account-id "Credit Card"
+                                          :amount 101M}]}
+                                ; rent
+                                {:transaction-date (t/local-date 2016 1 4)
+                                :description "Landlord"
+                                :items [{:action :debit
+                                          :account-id "Rent"
+                                          :amount 700M}
+                                        {:action :credit
+                                          :account-id "Checking"
+                                          :amount 700M}]}
+                                {:transaction-date (t/local-date 2016 2 4)
+                                :description "Landlord"
+                                :items [{:action :debit
+                                          :account-id "Rent"
+                                          :amount 700M}
+                                        {:action :credit
+                                          :account-id "Checking"
+                                          :amount 700M}]}]}))
 
 (deftest create-an-income-statement
   (let [context (serialization/realize storage-spec report-context)
@@ -308,12 +312,12 @@
                                              :exchange :nasdaq}
                                             {:name "General Electric Co."
                                              :symbol "GE"
-                                             :stype :stock
+                                             :type :stock
                                              :exchange :nyse}]))
-      (assoc :prices [{:transaction-date (t/local-date 2017 2 1)
+      (assoc :prices [{:trade-date (t/local-date 2017 2 1)
                        :price 20M
                        :commodity-id "AAPL"}
-                      {:transaction-date (t/local-date 2017 2 1)
+                      {:trade-date (t/local-date 2017 2 1)
                        :price 5M
                        :commodity-id "MSFT"}])))
 
@@ -322,10 +326,10 @@
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         purchase (trading/buy storage-spec {:account-id (:id ira)
-                                     :commodity-id (:id commodity)
-                                     :shares 100M
-                                     :value 500M
-                                     :transaction-date (t/local-date 2016 3 2)})
+                                            :commodity-id (:id commodity)
+                                            :shares 100M
+                                            :value 500M
+                                            :trade-date (t/local-date 2016 3 2)})
         report (reports/balance-sheet storage-spec
                                       (-> context :entities first :id)
                                       (t/local-date 2017 3 2))
@@ -436,212 +440,211 @@
                :diff (diff expected actual)}))
     (is (= expected actual) "The report contains the correct data")))
 
-(def budget-report-context
-  {:users [(factory :user)]
-   :entities [{:name "Personal"}]
-   :accounts [{:name "Checking"
-               :type :asset}
-              {:name "Credit Card"
-               :type :liability}
-              {:name "Salary"
-               :type :income}
-              {:name "Dining"
-               :type :expense}
-              {:name "Clothes"
-               :type :expense}
-              {:name "Rent"
-               :type :expense}
-              {:name "Groceries"
-               :type :expense}
-              {:name "Taxes"
-               :type :expense}
-              {:name "FIT"
-               :type :expense
-               :parent-id "Taxes"}
-              {:name "Social Security"
-               :type :expense
-               :parent-id "Taxes"}
-              {:name "Medicare"
-               :type :expense
-               :parent-id "Taxes"}]
-   :budgets [{:name "2016"
-              :start-date (t/local-date 2016 1 1)
-              :period :month
-              :period-count 12
-              :items [{:account-id "Salary"
-                       :periods (repeat 12 2000M)}
-                      {:account-id "FIT"
-                       :periods (repeat 12 400M)}
-                      {:account-id "Social Security"
-                       :periods (repeat 12 134M)}
-                      {:account-id "Medicare"
-                       :periods (repeat 12 30M)}
-                      {:account-id "Rent"
-                       :periods (repeat 12 700M)}
-                      {:account-id "Dining"
-                       :periods (repeat 12 200M)}
-                      {:account-id "Groceries"
-                       :periods (repeat 12 450M)}]}]
-   :transactions [
-                  ; salary
-                  {:transaction-date (t/local-date 2016 1 1)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount (bigdec 724)}
-                           {:action :debit
-                            :account-id "FIT"
-                            :amount (bigdec 200)}
-                           {:action :debit
-                            :account-id "Social Security"
-                            :amount (bigdec 62)}
-                           {:action :debit
-                            :account-id "Medicare"
-                            :amount (bigdec 15)}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount (bigdec 1001)}]}
-                  {:transaction-date (t/local-date 2016 1 15)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount (bigdec 725)}
-                           {:action :debit
-                            :account-id "FIT"
-                            :amount (bigdec 200)}
-                           {:action :debit
-                            :account-id "Social Security"
-                            :amount (bigdec 62)}
-                           {:action :debit
-                            :account-id "Medicare"
-                            :amount (bigdec 15)}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount (bigdec 1002)}]}
-                  {:transaction-date (t/local-date 2016 2 1)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount (bigdec 726)}
-                           {:action :debit
-                            :account-id "FIT"
-                            :amount (bigdec 200)}
-                           {:action :debit
-                            :account-id "Social Security"
-                            :amount (bigdec 62)}
-                           {:action :debit
-                            :account-id "Medicare"
-                            :amount (bigdec 15)}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount (bigdec 1003)}]}
-                  {:transaction-date (t/local-date 2016 2 15)
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :amount (bigdec 1004)}
-                           {:action :credit
-                            :account-id "Salary"
-                            :amount (bigdec 1004)}]}
+(def ^:private budget-report-context
+  (merge base-context
+         {:accounts [{:name "Checking"
+                      :type :asset}
+                     {:name "Credit Card"
+                      :type :liability}
+                     {:name "Salary"
+                      :type :income}
+                     {:name "Dining"
+                      :type :expense}
+                     {:name "Clothes"
+                      :type :expense}
+                     {:name "Rent"
+                      :type :expense}
+                     {:name "Groceries"
+                      :type :expense}
+                     {:name "Taxes"
+                      :type :expense}
+                     {:name "FIT"
+                      :type :expense
+                      :parent-id "Taxes"}
+                     {:name "Social Security"
+                      :type :expense
+                      :parent-id "Taxes"}
+                     {:name "Medicare"
+                      :type :expense
+                      :parent-id "Taxes"}]
+          :budgets [{:name "2016"
+                     :start-date (t/local-date 2016 1 1)
+                     :period :month
+                     :period-count 12
+                     :items [{:account-id "Salary"
+                              :periods (repeat 12 2000M)}
+                             {:account-id "FIT"
+                              :periods (repeat 12 400M)}
+                             {:account-id "Social Security"
+                              :periods (repeat 12 134M)}
+                             {:account-id "Medicare"
+                              :periods (repeat 12 30M)}
+                             {:account-id "Rent"
+                              :periods (repeat 12 700M)}
+                             {:account-id "Dining"
+                              :periods (repeat 12 200M)}
+                             {:account-id "Groceries"
+                              :periods (repeat 12 450M)}]}]
+          :transactions [
+                         ; salary
+                         {:transaction-date (t/local-date 2016 1 1)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount (bigdec 724)}
+                                  {:action :debit
+                                   :account-id "FIT"
+                                   :amount (bigdec 200)}
+                                  {:action :debit
+                                   :account-id "Social Security"
+                                   :amount (bigdec 62)}
+                                  {:action :debit
+                                   :account-id "Medicare"
+                                   :amount (bigdec 15)}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount (bigdec 1001)}]}
+                         {:transaction-date (t/local-date 2016 1 15)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount (bigdec 725)}
+                                  {:action :debit
+                                   :account-id "FIT"
+                                   :amount (bigdec 200)}
+                                  {:action :debit
+                                   :account-id "Social Security"
+                                   :amount (bigdec 62)}
+                                  {:action :debit
+                                   :account-id "Medicare"
+                                   :amount (bigdec 15)}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount (bigdec 1002)}]}
+                         {:transaction-date (t/local-date 2016 2 1)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount (bigdec 726)}
+                                  {:action :debit
+                                   :account-id "FIT"
+                                   :amount (bigdec 200)}
+                                  {:action :debit
+                                   :account-id "Social Security"
+                                   :amount (bigdec 62)}
+                                  {:action :debit
+                                   :account-id "Medicare"
+                                   :amount (bigdec 15)}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount (bigdec 1003)}]}
+                         {:transaction-date (t/local-date 2016 2 15)
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :amount (bigdec 1004)}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :amount (bigdec 1004)}]}
 
-                  ; groceries
-                  {:transaction-date (t/local-date 2016 1 3)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 100)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
-                  {:transaction-date (t/local-date 2016 1 10)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 100)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
-                  {:transaction-date (t/local-date 2016 1 17)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 100)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
-                  {:transaction-date (t/local-date 2016 1 24)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 100)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
-                  {:transaction-date (t/local-date 2016 1 31)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 100)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 100)}]}
-                  {:transaction-date (t/local-date 2016 2 7)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 101)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
-                  {:transaction-date (t/local-date 2016 2 14)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 101)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
-                  {:transaction-date (t/local-date 2016 2 21)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 101)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
-                  {:transaction-date (t/local-date 2016 2 28)
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :amount (bigdec 101)}
-                           {:action :credit
-                            :account-id "Credit Card"
-                            :amount (bigdec 101)}]}
-                  ; rent
-                  {:transaction-date (t/local-date 2016 1 4)
-                   :description "Landlord"
-                   :items [{:action :debit
-                            :account-id "Rent"
-                            :amount (bigdec 700)}
-                           {:action :credit
-                            :account-id "Checking"
-                            :amount (bigdec 700)}]}
-                  {:transaction-date (t/local-date 2016 1 7)
-                   :description "Trunk Club"
-                   :items [{:action :debit
-                            :account-id "Clothes"
-                            :amount (bigdec 321)}
-                           {:action :credit
-                            :account-id "Checking"
-                            :amount (bigdec 700)}]}
-                  {:transaction-date (t/local-date 2016 2 4)
-                   :description "Landlord"
-                   :items [{:action :debit
-                             :account-id "Rent"
-                             :amount (bigdec 700)}
-                           {:action :credit
-                             :account-id "Checking"
-                             :amount (bigdec 700)}]}]})
+                         ; groceries
+                         {:transaction-date (t/local-date 2016 1 3)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount (bigdec 100)}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount (bigdec 100)}]}
+                         {:transaction-date (t/local-date 2016 1 10)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount (bigdec 100)}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount (bigdec 100)}]}
+                         {:transaction-date (t/local-date 2016 1 17)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount (bigdec 100)}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount (bigdec 100)}]}
+                         {:transaction-date (t/local-date 2016 1 24)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount (bigdec 100)}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount (bigdec 100)}]}
+                         {:transaction-date (t/local-date 2016 1 31)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :amount (bigdec 100)}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :amount (bigdec 100)}]}
+                                        {:transaction-date (t/local-date 2016 2 7)
+                                        :description "Kroger"
+                                        :items [{:action :debit
+                                                  :account-id "Groceries"
+                                                  :amount (bigdec 101)}
+                                                {:action :credit
+                                                  :account-id "Credit Card"
+                                                  :amount (bigdec 101)}]}
+                                        {:transaction-date (t/local-date 2016 2 14)
+                                        :description "Kroger"
+                                        :items [{:action :debit
+                                                  :account-id "Groceries"
+                                                  :amount (bigdec 101)}
+                                                {:action :credit
+                                                  :account-id "Credit Card"
+                                                  :amount (bigdec 101)}]}
+                                        {:transaction-date (t/local-date 2016 2 21)
+                                        :description "Kroger"
+                                        :items [{:action :debit
+                                                  :account-id "Groceries"
+                                                  :amount (bigdec 101)}
+                                                {:action :credit
+                                                  :account-id "Credit Card"
+                                                  :amount (bigdec 101)}]}
+                                        {:transaction-date (t/local-date 2016 2 28)
+                                        :description "Kroger"
+                                        :items [{:action :debit
+                                                  :account-id "Groceries"
+                                                  :amount (bigdec 101)}
+                                                {:action :credit
+                                                  :account-id "Credit Card"
+                                                  :amount (bigdec 101)}]}
+                                        ; rent
+                                        {:transaction-date (t/local-date 2016 1 4)
+                                        :description "Landlord"
+                                        :items [{:action :debit
+                                                  :account-id "Rent"
+                                                  :amount (bigdec 700)}
+                                                {:action :credit
+                                                  :account-id "Checking"
+                                                  :amount (bigdec 700)}]}
+                                        {:transaction-date (t/local-date 2016 1 7)
+                                        :description "Trunk Club"
+                                        :items [{:action :debit
+                                                  :account-id "Clothes"
+                                                  :amount (bigdec 321)}
+                                                {:action :credit
+                                                  :account-id "Checking"
+                                                  :amount (bigdec 700)}]}
+                                        {:transaction-date (t/local-date 2016 2 4)
+                                        :description "Landlord"
+                                        :items [{:action :debit
+                                                  :account-id "Rent"
+                                                  :amount (bigdec 700)}
+                                                {:action :credit
+                                                  :account-id "Checking"
+                                                  :amount (bigdec 700)}]}]}))
 
 (deftest create-a-budget-report
   (let [context (serialization/realize storage-spec budget-report-context)
@@ -732,7 +735,7 @@
 
 (deftest create-a-budget-monitor
   (let [context (serialization/realize storage-spec budget-report-context)
-        groceries (-> context :accounts (get 6))
+        groceries (find-account context "Groceries")
 
         ; half-way through january
         actual (-> (reports/monitor storage-spec
