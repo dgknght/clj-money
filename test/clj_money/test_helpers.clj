@@ -121,6 +121,10 @@
   [context symbol]
   (find-in-context context :commodities :symbol symbol))
 
+(defn find-commodities
+  [context & symbols]
+  (map #(find-commodity context %) symbols))
+
 (defn context-errors
   [context]
   (reduce (fn [result [category models]]
