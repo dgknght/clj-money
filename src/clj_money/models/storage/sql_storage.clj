@@ -486,9 +486,18 @@
                (str "The criteria is not valid: " explanation)
                {:criteria criteria
                 :explanation explanation}))))
-  (query db-spec (-> (h/select :*)
-                     (h/from :transactions)
-                     (h/where (map->where criteria)))))
+  (let [sql (-> (h/select :t.*)
+                (h/from [:transactions :t]))
+        sql (if (not (empty? (dissoc criteria :lot-id)))
+              (h/where sql (map->where (dissoc criteria :lot-id)))
+              sql)
+        sql (if (contains? criteria :lot-id)
+              (-> sql
+                  (h/join [:lots_transactions :lt]
+                          [:= :t.id :lt.transaction_id])
+                  (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))
+              sql)]
+    (query db-spec sql)))
 
   (select-transactions-by-entity-id
     [_ entity-id options]
