@@ -414,11 +414,8 @@
 
 (defn- append-lot-transactions
   [storage-spec lot]
-
-  (throw (ex-info "No method exists for finding transactions by lot" lot))
-
-  #_(assoc lot
-         :lot-transactions
+  (assoc lot
+         :transactions
          (->> {:lot-id (:id lot)}
               (transactions/search storage-spec))))
 

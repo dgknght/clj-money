@@ -379,22 +379,24 @@
          lt-gains
          st-gains
          lt-losses
-         st-losses] (map #(->> context
-                               :accounts
-                               (filter (fn [a] (= % (:name a))))
-                               first)
-                         ["IRA" "LT Gains" "ST Gains" "LT Losses" "ST Losses"])
-        [aapl msft ge] (:commodities context)
+         st-losses] (find-accounts context "IRA"
+                                           "LT Gains"
+                                           "ST Gains"
+                                           "LT Losses"
+                                           "ST Losses")
+        [aapl msft ge] (find-commodities context "AAPL"
+                                                 "MSFT"
+                                                 "GE")
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id ge)
                                      :shares 100M
                                      :value 1000M
-                                     :transaction-date (t/local-date 2015 1 1)})
+                                     :trade-date (t/local-date 2015 1 1)})
         _ (trading/sell storage-spec {:account-id (:id ira)
                                       :commodity-id (:id ge)
                                       :shares 100M
                                       :value 2000M
-                                      :transaction-date (t/local-date 2015 12 20)
+                                      :trade-date (t/local-date 2015 12 20)
                                       :lt-capital-gains-account-id (:id lt-gains)
                                       :st-capital-gains-account-id (:id st-gains)
                                       :lt-capital-loss-account-id (:id lt-losses)
@@ -403,12 +405,12 @@
                                      :commodity-id (:id aapl)
                                      :shares 50M
                                      :value 500
-                                     :transaction-date (t/local-date 2016 3 2)})
+                                     :trade-date (t/local-date 2016 3 2)})
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id msft)
                                      :shares 50M
                                      :value 500M
-                                     :transaction-date (t/local-date 2016 3 2)})
+                                     :trade-date (t/local-date 2016 3 2)})
         actual (reports/commodities-account-summary storage-spec
                                                     (:id ira)
                                                     (t/local-date 2017 3 2))
@@ -763,6 +765,7 @@
 
 (deftest get-a-lot-report
   (let [context (serialization/realize storage-spec commodities-context)
+        entity (-> context :entities first)
         [ira
          lt-gains
          st-gains
@@ -801,7 +804,26 @@
                                        :st-capital-gains-account-id (:id st-gains)
                                        :lt-capital-loss-account-id (:id lt-losses)
                                        :st-capital-loss-account-id (:id st-losses)})
-        actual (reports/lot-report storage-spec (:id ira))
+        actual (->> (reports/lot-report storage-spec (:id ira))
+                    (map (fn [entry]
+                           (-> entry
+                               (update-in
+                                 [:transactions]
+                                 (fn [transactions]
+                                   (map (fn [t]
+                                          (-> t
+                                              (dissoc :created-at :updated-at)
+                                              (update-in [:lot-items]
+                                                         (fn [lot-items]
+                                                           (map (fn [li]
+                                                                  (dissoc li :lot-id))
+                                                                lot-items)))
+                                              (update-in [:items]
+                                                         (fn [items]
+                                                           (map (fn [i]
+                                                                  (dissoc i :id :created-at :updated-at))
+                                                                items)))))
+                                        transactions)))))))
         expected [{:caption "Apple, Inc. (AAPL)"
                    :commodity-id (:id aapl)
                    :purchase-date (t/local-date 2017 1 15)
@@ -812,17 +834,21 @@
                    :value 100M
                    :gain 50M
                    :transactions [{:transaction-date (t/local-date 2017 1 15)
-                                   :action :buy
-                                   :shares 10M
-                                   :price 10M
-                                   :value 100M
-                                   :id (-> p1 :transaction :id)}
+                                   :description "Purchase 10 shares of AAPL at 10.000"
+                                   :entity-id (:id entity)
+                                   :memo nil
+                                   :id (-> p1 :transaction :id)
+                                   :lot-items [{:lot-action :buy
+                                                :price 10M
+                                                :shares 10M}]}
                                   {:transaction-date (t/local-date 2017 1 31)
-                                   :action :sell
-                                   :shares 5M
-                                   :price 11M
-                                   :value 55M
-                                   :id (-> s1 :transaction :id)}]}
+                                   :description "Sell 5 shares of AAPL at 11.000"
+                                   :entity-id (:id entity)
+                                   :memo nil
+                                   :id (-> s1 :transaction :id)
+                                   :lot-items [{:lot-action :sell
+                                                :price 11M
+                                                :shares 5M}]}]}
                   {:caption "General Electric Co. (GE)"
                    :commodity-id (:id ge)
                    :purchase-date (t/local-date 2017 1 15)
@@ -833,11 +859,13 @@
                    :current-price 10M
                    :gain 0M
                    :transactions [{:transaction-date (t/local-date 2017 1 15)
-                                   :action :buy
-                                   :shares 10M
-                                   :price 10M
-                                   :value 100M
-                                   :id (-> p3 :transaction :id)}]}
+                                   :description "Purchase 10 shares of GE at 10.000"
+                                   :entity-id (:id entity)
+                                   :memo nil
+                                   :id (-> p3 :transaction :id)
+                                   :lot-items [{:lot-action :buy
+                                                :shares 10M
+                                                :price 10M}]}]}
                   {:caption "Microsoft Corp (MSFT)"
                    :commodity-id (:id msft)
                    :purchase-date (t/local-date 2017 1 15)
@@ -848,11 +876,13 @@
                    :current-price 5M
                    :gain -50M
                    :transactions [{:transaction-date (t/local-date 2017 1 15)
-                                   :action :buy
-                                   :shares 10M
-                                   :price 10M
-                                   :value 100M
-                                   :id (-> p2 :transaction :id)}]}]]
+                                   :description "Purchase 10 shares of MSFT at 10.000"
+                                   :entity-id (:id entity)
+                                   :memo nil
+                                   :id (-> p2 :transaction :id)
+                                   :lot-items [{:lot-action :buy
+                                                :shares 10M
+                                                :price 10M}]}]}]]
     (if (not= expected actual)
       (pprint {:expected expected
                :actual actual
