@@ -171,6 +171,15 @@
   [storage transaction-id]
   (select-lots-transactions-by-transaction-id storage transaction-id))
 
+(defn- append-items
+  [transaction storage]
+  (when transaction
+    (assoc transaction
+           :items
+           (->> (:id transaction)
+                (select-transaction-items-by-transaction-id storage)
+                (map after-item-read)))))
+
 (defn- after-read
   "Returns a transaction that is ready for public use"
   [storage transaction]
@@ -181,7 +190,8 @@
                                (fetch-lot-items storage)
                                (map #(-> %
                                          (dissoc :transaction-id)
-                                         (update-in [:lot-action] keyword))))))))
+                                         (update-in [:lot-action] keyword)))))
+        (append-items storage))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -377,15 +387,6 @@
        before-validation
        (validation/validate spec (validation-rules storage))))
 
-(defn- append-items
-  [storage transaction]
-  (when transaction
-    (assoc transaction
-           :items
-           (->> (:id transaction)
-                (select-transaction-items-by-transaction-id storage)
-                (map after-item-read)))))
-
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
 (s/def ::select-options (s/keys :req-un [::page ::per-page]))
@@ -411,8 +412,7 @@
      (with-storage [s storage-spec]
        (->>
          (select-transactions-by-entity-id s entity-id parsed-options)
-         (map #(after-read s %))
-         (map #(append-items s %)))))))
+         (map #(after-read s %)))))))
 
 (defn select-items-by-reconciliation-id
   "Returns the transaction items associated with the specified reconciliation"
@@ -493,8 +493,7 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-transaction-by-id s id)
-         (after-read s)
-         (append-items s))))
+         (after-read s))))
 
 (defn find-by-item-id
   "Returns the transaction that has the specified transaction item"
