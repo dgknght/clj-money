@@ -412,12 +412,19 @@
                                  (prices/most-recent storage-spec)
                                  :price)))
 
+(defn- transform-lot-transactions
+  [trans]
+  (->> (:lot-items trans)
+       (map (fn [item]
+              (merge item (select-keys trans [:id :transaction-date]))))))
+
 (defn- append-lot-transactions
   [storage-spec lot]
   (assoc lot
          :transactions
          (->> {:lot-id (:id lot)}
-              (transactions/search storage-spec))))
+              (transactions/search storage-spec)
+              (mapcat transform-lot-transactions))))
 
 (defn- append-lot-calculated-values
   [storage-spec lot]
