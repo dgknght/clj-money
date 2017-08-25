@@ -35,12 +35,14 @@
     (:tag node)))
 
 (defn- process-node-attribute
-  [node result {:keys [attribute xpath transform-fn]}]
+  [node result {:keys [attribute xpath transform-fn default]}]
   (let [transform-fn (if transform-fn
                        transform-fn
                        identity)
         raw-value ($x:text? xpath node)
-        value (when raw-value (transform-fn raw-value))]
+        value (if raw-value
+                (transform-fn raw-value)
+                default)]
     (if (nil? value)
       result
       (assoc result attribute value))))
@@ -168,15 +170,28 @@
    {:attribute :symbol
     :xpath "cmdty:id"}
    {:attribute :name
-    :xpath "cmdty:name"}])
+    :xpath "cmdty:name"}
+   {:attribute :type
+    :xpath "cmdty:quote_source"
+    :transform-fn keyword
+    :default :stock}])
+
+(defn- refine-commodity
+  [commodity]
+  (cond-> commodity
+    (nil? (:name commodity))
+    (assoc :name (:symbol commodity))
+
+    (nil? (#{:nasdaq :nyse} (:exchange commodity)))
+    (dissoc :exchange)))
 
 (defmethod process-node :gnc:commodity
   [callback node]
   (let [commodity (node->model node commodity-attributes)]
     (when (not= :template (:exchange commodity))
-      (callback (when (#{:nasdaq} (:exchange commodity))
-                  commodity)
-                :commodity))))
+      (-> commodity
+          refine-commodity
+          (callback :commodity)))))
 
 (def ^:private price-attributes
   [{:attribute :trade-date

@@ -197,8 +197,12 @@
   (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
 
 (def ^:private commodities
-  [{:name "Apple, Inc."
+  [{:name "USD"
+    :symbol "USD"
+    :type :currency}
+   {:name "Apple, Inc."
     :symbol "AAPL"
+    :type :stock
     :exchange :nasdaq}])
 
 (def ^:private prices
