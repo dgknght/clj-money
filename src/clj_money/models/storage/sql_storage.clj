@@ -246,7 +246,8 @@
     [_ entity-id]
     (query db-spec (-> (h/select :*)
                        (h/from :accounts)
-                       (h/where [:= :entity_id entity-id]))))
+                       (h/where [:= :entity_id entity-id])
+                       (h/order-by :name))))
 
   (update-account
     [_ account]
