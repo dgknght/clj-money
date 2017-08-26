@@ -180,18 +180,28 @@
                 (select-transaction-items-by-transaction-id storage)
                 (map after-item-read)))))
 
+(defn- append-lot-items
+  [transaction storage]
+  (if transaction
+    (let [lot-items (fetch-lot-items storage (:id transaction))]
+      (if (seq lot-items)
+        (assoc transaction
+               :lot-items
+               (->> lot-items
+                    (map #(-> %
+                              (dissoc :transaction-id)
+                              (update-in [:lot-action] keyword)))))
+        transaction))
+    transaction))
+
 (defn- after-read
   "Returns a transaction that is ready for public use"
   [storage transaction]
   (when transaction
     (-> transaction
         (update-in [:transaction-date] tc/to-local-date)
-        (assoc :lot-items (->> (:id transaction)
-                               (fetch-lot-items storage)
-                               (map #(-> %
-                                         (dissoc :transaction-id)
-                                         (update-in [:lot-action] keyword)))))
-        (append-items storage))))
+        (append-items storage)
+        (append-lot-items storage))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
