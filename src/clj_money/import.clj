@@ -176,8 +176,10 @@
 (defmethod process-record :commodity
   [{:keys [entity storage] :as context} commodity _]
   (let [to-create (assoc commodity :entity-id (:id entity))
-        created (commodities/create storage  to-create)]
-    (update-in context [:commodities] #((fnil conj []) % created))))
+        created (commodities/create storage to-create)]
+    (-> context
+        (update-in [:commodities] #((fnil conj []) % created))
+        (inc-and-update-progress :commodity))))
 
 (defn process-callback
   "Top-level callback processing
