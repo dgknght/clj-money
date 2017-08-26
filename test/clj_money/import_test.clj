@@ -13,6 +13,7 @@
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.entities :as entities]
+            [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
@@ -63,35 +64,27 @@
                                       :imported (+ 1 i)}})
                (range 6))))
 
-(deftest import-a-simple-file
-  (let [context (serialization/realize storage-spec import-context)
-        user (-> context :users first)
-        image (-> context :images first)
-        imp (-> context :imports first)
-        updates (atom [])
-        entity (import-data storage-spec imp (fn [p] (swap! updates #(conj % p))))
-        expected-inc-stmt [{:caption "Income"
-                            :value 2000M
-                            :style :header}
-                           {:caption "Salary"
-                            :value 2000M
-                            :style :data
-                            :depth 0}
-                           {:caption "Expense"
-                            :value 290M
-                            :style :header}
-                           {:caption "Groceries"
-                            :value 290M
-                            :style :data
-                            :depth 0}
-                           {:caption "Net"
-                            :value 1710M
-                            :style :summary}]
-        actual-inc-stmt (reports/income-statement storage-spec
-                                                  (:id entity)
-                                                  (t/local-date 1999 1 1)
-                                                  (t/local-date 9999 12 31))
-        expected-bal-sheet [{:caption "Asset"
+(def ^:private expected-inc-stmt
+  [{:caption "Income"
+    :value 2000M
+    :style :header}
+   {:caption "Salary"
+    :value 2000M
+    :style :data
+    :depth 0}
+   {:caption "Expense"
+    :value 290M
+    :style :header}
+   {:caption "Groceries"
+    :value 290M
+    :style :data
+    :depth 0}
+   {:caption "Net"
+    :value 1710M
+    :style :summary}])
+
+(def ^:private expected-bal-sheet
+  [{:caption "Asset"
                              :value 1810.00M
                              :style :header}
                             {:caption "Checking"
@@ -118,12 +111,56 @@
                              :depth 0}
                             {:caption "Liabilities + Equity"
                              :value 1810.00M
-                             :style :summary}]
+                             :style :summary}])
+
+(def ^:private expected-accounts
+  [{:name "Checking"
+    :type :asset
+    :commodity-id "USD"
+    :balance 1810M}
+   {:name "Credit Card"
+    :type :liability
+    :commodity-id "USD"
+    :balance 100M}
+   {:name "Groceries"
+    :type :expense
+    :commodity-id "USD"
+    :balance 290M}
+   {:name "Salary"
+    :type :income
+    :commodity-id "USD"
+    :balance 2000M}])
+
+(deftest import-a-simple-file
+  (let [context (serialization/realize storage-spec import-context)
+        user (-> context :users first)
+        image (-> context :images first)
+        imp (-> context :imports first)
+        updates (atom [])
+        entity (import-data storage-spec imp (fn [p] (swap! updates #(conj % p))))
+        actual-accounts (->> (:id entity)
+                             (accounts/select-by-entity-id storage-spec)
+                             (map #(dissoc % :created-at :updated-at :id :entity-id)))
+        expected-accounts (map #(update-in %
+                                           [:commodity-id]
+                                           (fn [sym]
+                                             (->> {:entity-id (:id entity)
+                                                   :symbol sym}
+                                                  (commodities/search storage-spec)
+                                                  first
+                                                  :id)))
+                               expected-accounts)
+        actual-inc-stmt (reports/income-statement storage-spec
+                                                  (:id entity)
+                                                  (t/local-date 1999 1 1)
+                                                  (t/local-date 9999 12 31))
         actual-bal-sheet (reports/balance-sheet storage-spec
                                                 (:id entity)
                                                 (t/local-date 9999 12 31))]
     (is entity "It returns a value")
     (is (= "Personal" (:name entity)) "It returns the new entity")
+    (is (= expected-accounts actual-accounts)
+        "The correct accounts are created")
     (is (= expected-inc-stmt actual-inc-stmt)
         "The income statement is correct after import")
     (is (= expected-bal-sheet actual-bal-sheet)

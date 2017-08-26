@@ -60,9 +60,6 @@
    "CREDIT"     :liability
    "STOCK"      :asset})
 
-(def ^:private content-types-map
-  {"STOCK" :commodity})
-
 (def ^:private account-attributes
   [{:attribute :name
     :xpath "act:name"}
@@ -73,9 +70,10 @@
     :xpath "act:id"}
    {:attribute :parent-id
     :xpath "act:parent"}
-   {:attribute :content-type
-    :xpath "act:type"
-    :transform-fn #(get content-types-map % :currency)}])
+   {:attribute :commodity-exchange
+    :xpath "act:commodity/cmdty:space"}
+   {:attribute :commodity-symbol
+    :xpath "act:commodity/cmdty:id"}])
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
@@ -83,28 +81,16 @@
   [account]
   (not (ignored-accounts (:name account))))
 
-(defmulti ^:private adjust-account
-  (fn [_ account]
-    (:content-type account)))
-
-(defmethod ^:private adjust-account :currency
-  [node account]
-  (let [xpath (format "//gnc:account[act:parent = \"%s\"]/act:type"
-                      ($x:text "act:id" node))
-        first-child-type (first ($x:text* xpath node))]
-    (cond-> account
-      (= "STOCK" first-child-type)
-      (assoc :content-type :commodities))))
-
-(defmethod ^:private adjust-account :commodity
-  [node account]
-  (assoc account :name ($x:text "act:commodity/cmdty:id" node)))
-
 (defmethod process-node :gnc:account
   [callback node]
-  (let [account (->> account-attributes
-                     (node->model node)
-                     (adjust-account node))]
+  (let [account (node->model node account-attributes)
+        account (-> account
+                    (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
+                                                   (-> exchange
+                                                       s/lower-case
+                                                       keyword))
+                                       :symbol (:commodity-symbol account)})
+                    (dissoc :commodity-exchange :commodity-symbol))]
     (if (include-account? account)
       (callback account :account)
       ; when ignoring an account, make the callback

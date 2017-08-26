@@ -23,17 +23,26 @@
   (fn [source-type _ _]
     source-type))
 
+(defn- find-commodity
+  [context {:keys [exchange symbol]}]
+  (->> context
+       :commodities
+       (filter #(= (:symbol %) symbol))
+       first))
+
 (defn- import-account
   [context account]
   (let [original-id (:id account)
         original-parent-id (:parent-id account)
         parent-id (get-in context [:accounts original-parent-id])
+        commodity (find-commodity context (:commodity account))
         to-create (cond-> account
                     true
-                    (assoc :entity-id (-> context :entity :id))
+                    (assoc :entity-id (-> context :entity :id)
+                           :commodity-id (:id commodity))
 
                     true
-                    (dissoc :id)
+                    (dissoc :id :commodity)
 
                     parent-id
                     (assoc :parent-id parent-id))
