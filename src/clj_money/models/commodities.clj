@@ -25,6 +25,8 @@
 (s/def ::exchange #{:nyse :nasdaq})
 (s/def ::type #{:currency :stock :fund})
 
+(def exchanges #{:nyse :nasdaq})
+
 (defmulti new-commodity-spec :type)
 (defmethod new-commodity-spec :default [_]
   (s/keys :req-un [::type]))

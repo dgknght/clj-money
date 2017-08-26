@@ -75,12 +75,14 @@
   (html
     [:div.row
      [:div.col-sm-6
-      (text-input-field commodity :symbol {:autofocus true})]
+      (select-field commodity :exchange (options-for-select [:currency :stock] name identity))]
      [:div.col-sm-6
       (select-field commodity :exchange (options-for-select commodities/exchanges name identity))]]
     [:div.row
-     [:div.col-sm-12
-      (text-input-field commodity :name)]]
+     [:div.col-sm-6
+      (text-input-field commodity :name)]
+     [:div.col-sm-6
+      (text-input-field commodity :symbol {:autofocus true})]]
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save this commodity"}]
