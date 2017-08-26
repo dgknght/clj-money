@@ -211,7 +211,8 @@
 (def ^:private expected-lots
   [{:purchase-date (t/local-date 2015 1 17)
     :shares-purchased 100M
-    :shares-owned 100M}])
+    :shares-owned 100M
+    :purchase-price 10M}])
 
 (def ^:private expected-prices
   #{{:trade-date (t/local-date 2015 1 17)
