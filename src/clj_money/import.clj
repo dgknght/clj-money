@@ -27,7 +27,9 @@
   [context {:keys [exchange symbol]}]
   (->> context
        :commodities
-       (filter #(= (:symbol %) symbol))
+       (filter #(and (= (:symbol %) symbol)
+                     (or (= :iso4217 exchange)
+                         (= (:exchange %) exchange))))
        first))
 
 (defn- import-account
