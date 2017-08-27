@@ -140,7 +140,11 @@
         entity (import-data storage-spec imp (fn [p] (swap! updates #(conj % p))))
         actual-accounts (->> (:id entity)
                              (accounts/select-by-entity-id storage-spec)
-                             (map #(dissoc % :created-at :updated-at :id :entity-id)))
+                             (map #(dissoc % :created-at
+                                             :updated-at
+                                             :id
+                                             :entity-id
+                                             :commodity)))
         expected-accounts (map #(update-in %
                                            [:commodity-id]
                                            (fn [sym]
