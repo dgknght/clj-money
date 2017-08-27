@@ -14,8 +14,6 @@
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
                                               select-accounts
-                                              select-accounts-by-name
-                                              select-accounts-by-entity-id
                                               update-account
                                               delete-account]]
             [clj-money.models.entities :as entities]
@@ -85,6 +83,14 @@
   ([_ account]
    (-> account
        (update-in [:type] keyword)
+       (assoc :commodity {:name (:commodity-name account)
+                          :symbol (:commodity-symbol account)
+                          :type (keyword (:commodity-type account))
+                          #_:exchange #_(:commodity-exchange account)})
+       (dissoc :commodity-name
+               :commodity-symbol
+               :commodity-type
+               :commodity-exchange)
        (cond->
          (and ; Remove :parent-id if it's nil
            (contains? account :parent-id)
@@ -93,7 +99,8 @@
 
 (defn- name-is-unique?
   [storage {:keys [id parent-id name entity-id]}]
-  (->> (select-accounts-by-name storage entity-id name)
+  (->> (select-accounts storage {:entity-id entity-id
+                                 :name name})
        (remove #(= (:id %) id))
        (filter #(= (:parent-id %) parent-id))
        empty?))
@@ -156,7 +163,7 @@
    (with-storage [s storage-spec]
      (let [types (or (:types options)
                      (set account-types))]
-       (->> (select-accounts-by-entity-id s entity-id)
+       (->> (select-accounts s {:entity-id entity-id})
             (map after-read)
             (filter #(types (:type %))))))))
 

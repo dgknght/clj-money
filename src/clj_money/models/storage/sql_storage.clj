@@ -103,15 +103,19 @@
       ->sql-keys))
 
 (defn- map->where
-  [m]
-  (if (= 1 (count m))
-    [:= (-> m keys first) (-> m vals first)]
-    (reduce (fn [result [k v]]
-              (conj result [:= k (if (keyword? v)
-                                   (name v)
-                                   v)]))
-            [:and]
-            m)))
+  ([m] (map->where m {}))
+  ([m options]
+   (let [prefix-fn (if-let [prefix (:prefix options)]
+                     #(keyword (format "%s.%s" prefix (name %)))
+                     identity)]
+     (if (= 1 (count m))
+       [:= (-> m keys first prefix-fn) (-> m vals first)]
+       (reduce (fn [result [k v]]
+                 (conj result [:= (prefix-fn k) (if (keyword? v)
+                                      (name v)
+                                      v)]))
+               [:and]
+               m)))))
 
 (defn- append-where
   [sql options]
@@ -242,13 +246,6 @@
                                  [:= :name account-name]])
                        (h/limit 1)))))
 
-  (select-accounts-by-entity-id
-    [_ entity-id]
-    (query db-spec (-> (h/select :*)
-                       (h/from :accounts)
-                       (h/where [:= :entity_id entity-id])
-                       (h/order-by :name))))
-
   (update-account
     [_ account]
     (let [sql (sql/format (-> (h/update :accounts)
@@ -265,23 +262,20 @@
     [_ id]
     (jdbc/delete! db-spec :accounts ["id = ?" id]))
 
-  (select-accounts-by-name
-    [_ entity-id name]
-    (query db-spec (-> (h/select :*)
-                       (h/from :accounts)
-                       (h/where [:and
-                                 [:= :entity_id entity-id]
-                                 [:= :name name]]))))
-
   (select-accounts
     [_ criteria]
     (when-not (some #(% criteria) [:parent-id :entity-id])
       (throw (ex-info
-              "The criteria must specify parent-id or entity-id"
-              {:criteria criteria})))
-    (query db-spec (-> (h/select :*)
-                       (h/from :accounts)
-                       (h/where (map->where criteria)))))
+               "The criteria must specify parent-id or entity-id"
+               {:criteria criteria})))
+    (query db-spec (-> (h/select :a.*
+                                 [:c.name :commodity-name]
+                                 [:c.symbol :commodity-symbol]
+                                 [:c.type :commodity-type]
+                                 [:c.exchange :commodity-exchange])
+                       (h/from [:accounts :a])
+                       (h/join [:commodities :c] [:= :c.id :a.commodity-id])
+                       (h/where (map->where criteria {:prefix "a"})))))
 
   ; Commodities
   (create-commodity

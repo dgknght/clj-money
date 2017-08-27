@@ -28,6 +28,10 @@
      ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
      ~@content))
 
+(defn- can-add-child?
+  [account]
+  true)
+
 (defn- account-row
   "Renders a single account row"
   [account depth]
@@ -36,7 +40,7 @@
     [:span {:class (format "account-depth-%s" depth)}
      (:name account)
      "&nbsp;"
-     (when (= :currency (:content-type account))
+     (when (can-add-child? account)
        [:a.small-add {:href (format "/entities/%s/accounts/new?parent-id=%s" (:entity-id account) (:id account))
                       :title "Click here to add a child to this account."}
         "+"])]]
@@ -68,12 +72,16 @@
                     :data-confirm "Are you sure you want to delete this account?"
                     :title "Click here to remove this account"})]]])
 
+(defn- render-child-rows?
+  [account]
+  true)
+
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
   ([account] (account-and-children-rows account 0))
   ([account depth]
    (let [account-row (account-row account depth)]
-     (if (= :currency (:content-type account))
+     (if (render-child-rows? account)
        (concat
          [account-row]
          (->> (:children account)

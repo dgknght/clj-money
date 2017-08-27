@@ -59,11 +59,17 @@
         expected [{:name "Checking"
                    :type :asset
                    :balance 0M
-                   :entity-id entity-id}
+                   :entity-id entity-id
+                   :commodity {:symbol "USD"
+                               :name "US Dollar"
+                               :type :currency}}
                   {:name "Credit card"
                    :type :liability
                    :balance 0M
-                   :entity-id entity-id}]]
+                   :entity-id entity-id
+                   :commodity {:symbol "USD"
+                               :name "US Dollar"
+                               :type :currency}}]]
     (is (= expected actual) "It returns the correct accounts")))
 
 (def ^:private nested-context
@@ -149,6 +155,9 @@
                    :type :asset
                    :entity-id entity-id
                    :commodity-id (-> context :commodities first :id)
+                   :commodity {:name "US Dollar"
+                               :symbol "USD"
+                               :type :currency}
                    :balance 0M}]]
     (is (empty? (validation/error-messages result))
         "The result has no validation errors.")
