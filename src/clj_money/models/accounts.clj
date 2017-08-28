@@ -4,7 +4,8 @@
             [clojure.spec :as s]
             [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-money.util :refer [pprint-and-return
+                                    safe-read-string]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -86,11 +87,16 @@
        (assoc :commodity {:name (:commodity-name account)
                           :symbol (:commodity-symbol account)
                           :type (keyword (:commodity-type account))
+                          :default (= (:commodity-id account) (-> account
+                                                                  :entity-settings
+                                                                  safe-read-string
+                                                                  :default-commodity-id))
                           #_:exchange #_(:commodity-exchange account)})
        (dissoc :commodity-name
                :commodity-symbol
                :commodity-type
-               :commodity-exchange)
+               :commodity-exchange
+               :entity-settings)
        (cond->
          (and ; Remove :parent-id if it's nil
            (contains? account :parent-id)

@@ -62,14 +62,16 @@
                    :entity-id entity-id
                    :commodity {:symbol "USD"
                                :name "US Dollar"
-                               :type :currency}}
+                               :type :currency
+                               :default true}}
                   {:name "Credit card"
                    :type :liability
                    :balance 0M
                    :entity-id entity-id
                    :commodity {:symbol "USD"
                                :name "US Dollar"
-                               :type :currency}}]]
+                               :type :currency
+                               :default true}}]]
     (is (= expected actual) "It returns the correct accounts")))
 
 (def ^:private nested-context
@@ -157,7 +159,8 @@
                    :commodity-id (-> context :commodities first :id)
                    :commodity {:name "US Dollar"
                                :symbol "USD"
-                               :type :currency}
+                               :type :currency
+                               :default true}
                    :balance 0M}]]
     (is (empty? (validation/error-messages result))
         "The result has no validation errors.")

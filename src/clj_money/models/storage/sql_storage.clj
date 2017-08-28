@@ -272,9 +272,11 @@
                                  [:c.name :commodity-name]
                                  [:c.symbol :commodity-symbol]
                                  [:c.type :commodity-type]
-                                 [:c.exchange :commodity-exchange])
+                                 [:c.exchange :commodity-exchange]
+                                 [:e.settings :entity-settings])
                        (h/from [:accounts :a])
                        (h/join [:commodities :c] [:= :c.id :a.commodity-id])
+                       (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
                        (h/where (map->where criteria {:prefix "a"})))))
 
   ; Commodities
