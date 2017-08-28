@@ -95,3 +95,7 @@
 
                        :else v)])
                   m))))
+
+(defn safe-read-string
+  [string]
+  (read-string (or string "{}")))
