@@ -172,9 +172,14 @@
 
 (defmulti ^:private show-account
   (fn [account params]
-    (:content-type account)))
+    (cond
+      (-> account :commodity :default)
+      :trading-detail
 
-(defmethod ^:private show-account :currency
+      :else
+      :standard)))
+
+(defmethod ^:private show-account :standard
   [account params]
   (html
     [:table.table.table-striped.table-hover
@@ -265,7 +270,7 @@
                       :level :danger
                       :title "Click here to sell shares of this commodity."})])]])
 
-(defmethod show-account :commodities
+(defmethod show-account :trading-account
   [account params]
   (html
     (let [summary (reports/commodities-account-summary (env :db) (:id account))]
@@ -295,7 +300,7 @@
       :title "Click here to return to the list of accounts"}
      "Back"]))
 
-(defmethod show-account :commodity
+(defmethod show-account :trading-detail
   [account params]
   (html
     [:p
