@@ -9,6 +9,7 @@
             [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
+            [clj-postgresql.types]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
@@ -228,6 +229,7 @@
     [_ account]
     (insert db-spec :accounts account :name
                                       :type
+                                      :tags
                                       :commodity-id
                                       :entity-id
                                       :parent-id
@@ -237,6 +239,7 @@
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :accounts id)))
 
+  ; TODO Remove this method
   (find-account-by-entity-id-and-name
     [_ entity-id account-name]
     (first (query db-spec (-> (h/select :*)
@@ -248,15 +251,13 @@
 
   (update-account
     [_ account]
-    (let [sql (sql/format (-> (h/update :accounts)
-                              (h/sset (->update-set account
-                                                    :name
-                                                    :type
-                                                    :commodity-id
-                                                    :parent-id
-                                                    :balance))
-                              (h/where [:= :id (:id account)])))]
-      (jdbc/execute! db-spec sql)))
+    (let [updates (->update-set account :name
+                                        :type
+                                        :tags
+                                        :commodity-id
+                                        :parent-id
+                                        :balance)]
+      (jdbc/update! db-spec :accounts updates ["id = ?" (:id account)])))
 
   (delete-account
     [_ id]

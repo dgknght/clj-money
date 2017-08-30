@@ -76,7 +76,11 @@
   [storage account]
   (-> account
       (update-in [:balance] (fnil identity 0M))
-      (update-in [:type] name)))
+      (update-in [:type] name)
+      (update-in [:tags] #(if (seq %)
+                            (mapv name %)
+                            nil))
+      (dissoc :commodity)))
 
 (defn- after-read
   "Adjusts account data read from the database for use"
@@ -84,6 +88,9 @@
   ([_ account]
    (-> account
        (update-in [:type] keyword)
+       (update-in [:tags] #(->> %
+                                (map keyword)
+                                set))
        (assoc :commodity {:name (:commodity-name account)
                           :symbol (:commodity-symbol account)
                           :type (keyword (:commodity-type account))

@@ -145,15 +145,16 @@
                                              :id
                                              :entity-id
                                              :commodity)))
-        expected-accounts (map #(update-in %
-                                           [:commodity-id]
-                                           (fn [sym]
-                                             (->> {:entity-id (:id entity)
-                                                   :symbol sym}
-                                                  (commodities/search storage-spec)
-                                                  first
-                                                  :id)))
-                               expected-accounts)
+        expected-accounts (->> expected-accounts
+                               (map #(assoc % :tags #{}))
+                               (map #(update-in %
+                                                [:commodity-id]
+                                                (fn [sym]
+                                                  (->> {:entity-id (:id entity)
+                                                        :symbol sym}
+                                                       (commodities/search storage-spec)
+                                                       first
+                                                       :id)))))
         actual-inc-stmt (reports/income-statement storage-spec
                                                   (:id entity)
                                                   (t/local-date 1999 1 1)

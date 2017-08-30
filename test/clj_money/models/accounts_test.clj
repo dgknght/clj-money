@@ -9,12 +9,14 @@
             [clj-money.factories.account-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
+            [clj-money.tagging :as tagging]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.test-helpers :refer [reset-db
                                             assert-validation-error
-                                            simplify-account-groups]]))
+                                            simplify-account-groups
+                                            find-account]]))
 
 (def storage-spec (env :db))
 
@@ -32,7 +34,8 @@
   [context]
   {:name "Checking"
    :type :asset
-   :entity-id (-> context :entities first :id)})
+   :entity-id (-> context :entities first :id)
+   :tags #{:something-special}})
 
 (def ^:private select-context
   {:users [(factory :user)]
@@ -58,6 +61,7 @@
                                     :commodity-id)))
         expected [{:name "Checking"
                    :type :asset
+                   :tags #{}
                    :balance 0M
                    :entity-id entity-id
                    :commodity {:symbol "USD"
@@ -66,6 +70,7 @@
                                :default true}}
                   {:name "Credit card"
                    :type :liability
+                   :tags #{}
                    :balance 0M
                    :entity-id entity-id
                    :commodity {:symbol "USD"
@@ -73,6 +78,15 @@
                                :type :currency
                                :default true}}]]
     (is (= expected actual) "It returns the correct accounts")))
+
+(deftest tag-an-account
+  (let [context (serialization/realize storage-spec select-context)
+        checking (find-account context "Checking")
+        tagged (tagging/tag checking :special)
+        _ (accounts/update storage-spec tagged)
+        retrieved (accounts/reload storage-spec checking)]
+    (is (tagging/tagged? tagged :special) "The account is tagged after calling tag")
+    (is (tagging/tagged? retrieved :special) "The account is tagged on retrieval")))
 
 (def ^:private nested-context
   {:users [(factory :user)]
@@ -156,6 +170,7 @@
         expected [{:name "Checking"
                    :type :asset
                    :entity-id entity-id
+                   :tags #{:something-special}
                    :commodity-id (-> context :commodities first :id)
                    :commodity {:name "US Dollar"
                                :symbol "USD"
