@@ -66,17 +66,28 @@
                             :type :asset
                             :commodity-id (:id commodity)
                             :parent-id (:id parent)
-                            :entity-id (:entity-id parent)}))
+                            :entity-id (:entity-id parent)
+                            :tags #{:tradable}}))
+
+(defn- ensure-trading-tag
+  "Appends the :trading tag to the account if it isn't there already"
+  [storage account]
+  (if ((:tags account) :trading)
+    account
+    (accounts/update storage
+                     (update-in account [:tags] #(conj % :trading)))))
 
 (defn- acquire-accounts
   "Give a purchase context, acquires the accounts
   necessary to complete the purchase"
   [{:keys [account-id storage commodity]
     :as context}]
-  (let [account (accounts/find-by-id storage account-id)
+  (let [account (->> account-id
+                     (accounts/find-by-id storage)
+                     (ensure-trading-tag storage))
         commodity-account (some #(% storage account commodity)
-                                        [find-commodity-account
-                                         create-commodity-account])]
+                                [find-commodity-account
+                                 create-commodity-account])]
     (merge context {:account account
                     :commodity-account commodity-account})))
 

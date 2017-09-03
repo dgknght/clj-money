@@ -28,10 +28,6 @@
    :entities [{:name "Personal"}]
    :accounts [{:name "IRA"
                :type :asset}
-              {:name "AAPL"
-               :type :asset
-               :parent-id "IRA"
-               :commodity-id "AAPL"}
               {:name "Opening balances"
                :type :income}
               {:name "Long-term Capital Gains"
@@ -72,19 +68,13 @@
 
 (deftest purchase-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        apple-account (->> context
-                           :accounts
-                           (filter #(= "AAPL" (:name %)))
-                           first)
-        commodity (->> context
-                       :commodities
-                       (filter #(= "AAPL" (:symbol %)))
-                       first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (purchase-attributes context))
+        apple-account (->> {:commodity-id (:id commodity)
+                            :entity-id (-> context :entities first :id)}
+                           (accounts/search storage-spec)
+                           first)
         expected-transaction {:entity-id (-> context :entities first :id)
                               :transaction-date (t/local-date 2016 1 2)
                               :description "Purchase 100 shares of AAPL at 10.000"
@@ -123,20 +113,38 @@
                                (update-in [:lot-items]
                                           #(map (fn [i]
                                                   (dissoc i :lot-id))
-                                                %)))]
+                                                %)))
+        expected-commodity-account {:name "AAPL"
+                                    :commodity-id (:id commodity)
+                                    :entity-id (-> context :entities first :id)
+                                    :type :asset
+                                    :parent-id (:id ira)
+                                    :tags #{:tradable}}
+        actual-commodity-account (dissoc apple-account :id
+                                                       :created-at
+                                                       :updated-at
+                                                       :commodity
+                                                       :balance)]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (is (= expected-transaction actual-transaction)
         "The resulting transaction has the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
+    (is (= "Purchase 100 shares of AAPL at 10.000"
+           (-> result :transaction :description))
+        "The transaction description describes the purchase")
     (is (:lot result)
         "The result contains a lot representing the purchased shares")
     (is (empty? (-> result :lot validation/error-messages))
         "The lot is valid")
     (is (empty? (-> result :lot-transaction validation/error-messages))
         "The lot transaction is valud")
-    (is (= "Purchase 100 shares of AAPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
+    (is (= expected-commodity-account
+           actual-commodity-account)
+        "The commodity account is created")
+    (is ((->> ira (accounts/reload storage-spec) :tags) :trading)
+        "The specified account is tagged as a trading account")))
 
 (deftest purchase-a-commodity-with-string-values
  (let [context (serialization/realize storage-spec purchase-context)
