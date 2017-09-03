@@ -23,6 +23,18 @@
   (fn [source-type _ _]
     source-type))
 
+(defn- import-price
+  [{:keys [storage entity] :as context} price]
+  (let [commodity (->> {:exchange (name (:exchange price))
+                        :symbol (:symbol price)
+                        :entity-id (:id entity)}
+                       (commodities/search storage)
+                       first)]
+    (prices/create storage (-> price
+                               (assoc :commodity-id (:id commodity))
+                               (dissoc :exchange :symbol))))
+  context)
+
 (defn- find-commodity
   [context {:keys [exchange symbol]}]
   (->> context
@@ -167,23 +179,21 @@
   (import-budget context budget))
 
 (defmethod process-record :price
-  [{:keys [storage entity] :as context} price _]
-  (let [commodity (->> {:exchange (name (:exchange price))
-                        :symbol (:symbol price)
-                        :entity-id (:id entity)}
-                       (commodities/search storage)
-                       first)]
-    (prices/create storage (-> price
-                               (assoc :commodity-id (:id commodity))
-                               (dissoc :exchange :symbol)))))
+  [context price _]
+  (import-price context price))
 
 (defmethod process-record :commodity
   [{:keys [entity storage] :as context} commodity _]
   (let [to-create (assoc commodity :entity-id (:id entity))
         created (commodities/create storage to-create)]
-    (-> context
-        (update-in [:commodities] #((fnil conj []) % created))
-        (inc-and-update-progress :commodity))))
+    (update-in context [:commodities] #((fnil conj []) % created))))
+
+(def ^:private reportable-record-types
+  #{:commodity :price :account :transaction :budget})
+
+(defn- report-progress?
+  [record-type]
+  (reportable-record-types record-type))
 
 (defn process-callback
   "Top-level callback processing
@@ -199,8 +209,8 @@
                     record
                     (process-record record record-type)
 
-                    true
-                    (inc-and-update-progress % record-type))))
+                    (report-progress? record-type)
+                    (inc-and-update-progress record-type))))
 
 (defn import-data
   "Reads the contents from the specified input and saves
