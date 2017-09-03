@@ -156,21 +156,15 @@
 
 (defmethod process-record :account
   [context account _]
-  (-> context
-      (import-account account)
-      (inc-and-update-progress :account)))
+  (import-account context account))
 
 (defmethod process-record :transaction
   [context transaction _]
-  (-> context
-      (import-transaction transaction)
-      (inc-and-update-progress :transaction)))
+  (import-transaction context transaction))
 
 (defmethod process-record :budget
   [context budget _]
-  (-> context
-      (import-budget budget)
-      (inc-and-update-progress :budget)))
+  (import-budget context budget))
 
 (defmethod process-record :price
   [{:keys [storage entity] :as context} price _]
@@ -181,8 +175,7 @@
                        first)]
     (prices/create storage (-> price
                                (assoc :commodity-id (:id commodity))
-                               (dissoc :exchange :symbol))))
-  (inc-and-update-progress context :price))
+                               (dissoc :exchange :symbol)))))
 
 (defmethod process-record :commodity
   [{:keys [entity storage] :as context} commodity _]
@@ -202,8 +195,11 @@
   If the record is nil, processing is skipped but
   the progress is updated."
   [context record record-type]
-  (swap! context #(if record
-                    (process-record % record record-type)
+  (swap! context #(cond-> %
+                    record
+                    (process-record record record-type)
+
+                    true
                     (inc-and-update-progress % record-type))))
 
 (defn import-data
