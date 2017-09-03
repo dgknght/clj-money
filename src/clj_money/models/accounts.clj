@@ -32,7 +32,7 @@
 (s/def ::commodity-id integer?)
 (s/def ::parent-id (s/nilable integer?))
 (s/def ::new-account (s/keys :req-un [::entity-id ::name ::type ::commodity-id] :opt-un [::parent-id]))
-(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::commodity-id ::name] :opt-un [::parent-id]))
+(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::name] :opt-un [::parent-id ::commodity-id]))
 ; :balance and :children-balance are not specified because they are always calculated and not passed in
 
 (def ^:private coercion-rules
