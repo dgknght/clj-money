@@ -106,7 +106,7 @@
               :find find-by-id}))
 
 (defn delete
-  "Removes the specifiedy entity from storage"
+  "Removes the specifiedy entity and all related records from storage"
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-entity s id)))

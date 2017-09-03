@@ -5,27 +5,11 @@
             [clojure.tools.logging :as log]
             [clj-money.validation :as validation]))
 
-(def all-tables ["reconciliations"
-                 "transaction_items"
-                 "transactions"
-                 "accounts"
-                 "budgets"
-                 "budget_items"
-                 "commodities"
-                 "prices"
-                 "lots"
-                 "entities"
-                 "imports"
-                 "images"
-                 "attachments"
-                 "users"])
-
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [db-spec f]
   (jdbc/with-db-connection [db db-spec]
-    (doseq [table all-tables]
-      (jdbc/execute! db (str "truncate table " table ";"))))
+    (jdbc/execute! db "truncate table users cascade"))
   (f))
 
 (defn subset?
