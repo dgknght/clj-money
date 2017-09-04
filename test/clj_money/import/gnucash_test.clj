@@ -33,22 +33,26 @@
     :id "ed92489659ab879fb9354a3a050fb65d"
     :parent-id "d005a139a1aaab6899867923509b96ca"
     :type :asset
-    :content-type :currency}
+    :commodity {:exchange :iso4217
+                :symbol "USD"}}
    {:name "Salary"
     :id "1b71fd298aeca1a18d35b04a7618e76e"
     :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
     :type :income
-    :content-type :currency}
+    :commodity {:exchange :iso4217
+                :symbol "USD"}}
    {:name "Groceries"
     :id "835bfe9b2728976d06e63b90aea8c090"
     :parent-id "abff103816fb2e5cb93778b1ea51ca45"
     :type :expense
-    :content-type :currency}
+    :commodity {:exchange :iso4217
+                :symbol "USD"}}
    {:name "Credit Card"
     :id "337685830c05f47b2b09734a05a7c1a2"
     :parent-id "9ee0484c7788656a0800e28ec8cefaff"
     :type :liability
-    :content-type :currency}])
+    :commodity {:exchange :iso4217
+                :symbol "USD"}}])
 
 (def ^:private transactions
   [{:id "3ab51576141406703644c0a27579c057"
@@ -197,8 +201,12 @@
   (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
 
 (def ^:private commodities
-  [{:name "Apple, Inc."
+  [{:name "USD"
+    :symbol "USD"
+    :type :currency}
+   {:name "Apple, Inc."
     :symbol "AAPL"
+    :type :stock
     :exchange :nasdaq}])
 
 (def ^:private prices
@@ -227,12 +235,14 @@
                 :parent-id "d005a139a1aaab6899867923509b96ca"
                 :name "401k"
                 :type :asset
-                :content-type :commodities}
+                :commodity {:exchange :iso4217
+                            :symbol "USD"}}
                {:id "77bfb9a7eb53ebfd5dd13b22476f58dd"
                 :parent-id "fc053b4fc6b94898a5d6fa53ed203bd0"
-                :name "AAPL"
+                :name "Apple, Inc"
                 :type :asset
-                :content-type :commodity}])
+                :commodity {:exchange :nasdaq
+                            :symbol "AAPL"}}])
       set))
 
 (deftest read-gnucash-source-with-commodities

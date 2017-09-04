@@ -148,28 +148,23 @@
     [this lot-id]
     "Deletes the specified lot record")
 
-  ; Lot transactions
-  (create-lot-transaction
-    [this lot-transaction]
-    "Creates a lot transaction record")
+  (create-lot->transaction-link
+    [this link]
+    "Creates a record linking a lot to a transaction")
 
-  (select-lot-transactions
-    [this criteria]
-    "Returns a list of matching lot transactions")
+  (delete-lot->transaction-link
+    [this lot-id transaction-id]
+    "Removes a record linking a lot to a transaction")
 
-  (update-lot-transaction
-    [this lot-transaction]
-    "Updates the specified lot transaction")
-
-  (delete-lot-transactions-by-lot-id
-    [this lot-id]
-    "Deletes lot transactions for the specified lot")
-
-  (delete-lot-transaction
-    [this id]
-    "Deletes the specified lot transaction")
+  (select-lots-transactions-by-transaction-id
+    [this transaction-id]
+    "Selects lots-transactions record by transaction-id")
 
   ; Transactions
+  (select-transactions
+    [this criteria]
+    "Returns transactions matching the specified criteria")
+
   (select-transactions-by-entity-id
     [this entity-id]
     [this entity-id options]

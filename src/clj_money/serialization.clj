@@ -2,7 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.models.helpers :refer [with-transacted-storage]]
+            [clj-money.models.helpers :refer [with-storage]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -10,7 +10,6 @@
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.attachments :as attachments]
@@ -79,12 +78,24 @@
       (assoc account :parent-id (:id parent)))
     account))
 
+(defn- find-commodity
+  [context ticker-symbol]
+  (->> context
+       :commodities
+       (filter #(= (:symbol %) ticker-symbol))
+       first))
+
+(defn- resolve-commodity
+  [context model]
+  (update-in model [:commodity-id] #(:id (find-commodity context %))))
+
 (defn- create-account
   [storage context attributes]
   (if (:id attributes)
     attributes
     (accounts/create storage (->> attributes
                                        (resolve-entity context)
+                                       (resolve-commodity context)
                                        (resolve-parent storage)))))
 
 (defn- create-accounts
@@ -211,17 +222,6 @@
   [storage context]
   (update-in context [:commodities] #(create-commodities storage context %)))
 
-(defn- find-commodity
-  [context ticker-symbol]
-  (->> context
-       :commodities
-       (filter #(= (:symbol %) ticker-symbol))
-       first))
-
-(defn- resolve-commodity
-  [context model]
-  (update-in model [:commodity-id] #(:id (find-commodity context %))))
-
 (defn- create-prices
   [storage context prices]
   (mapv (fn [attributes]
@@ -264,18 +264,6 @@
 (defn- resolve-lot
   [context model]
   (update-in model [:lot-id] #(:id (find-lot context %))))
-
-(defn- create-lot-transactions
-  [storage context lot-transactions]
-  (mapv (fn [attributes]
-          (->> attributes
-               (resolve-lot context)
-               (lot-transactions/create storage)))
-        lot-transactions))
-
-(defn- realize-lot-transactions
-  [storage context]
-  (update-in context [:lot-transactions] #(create-lot-transactions storage context %)))
 
 (defn- resolve-transaction-item-ids
   [context account-id items]
@@ -357,20 +345,41 @@
   [storage context]
   (update-in context [:imports] #(create-imports storage context %)))
 
+(defn- get-commodity
+  [context symbol]
+  (->> context
+       :commodities
+       (filter #(= symbol (:symbol %)))
+       first))
+
+(defn- resolve-default-commodity-id
+  [storage context entity]
+  (if-let [symbol (-> entity :settings :default-commodity-id)]
+    (entities/update storage (assoc-in entity
+                                       [:settings :default-commodity-id]
+                                       (:id (get-commodity context symbol))))
+    entity))
+
+(defn- resolve-default-commodity-ids
+  [storage context]
+  (update-in context
+             [:entities]
+             #(map (partial resolve-default-commodity-id storage context) %)))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
-  (with-transacted-storage [s storage-spec]
+  (with-storage [s storage-spec]
   (->> input
       (realize-users s)
       (realize-images s)
       (realize-imports s)
       (realize-entities s)
-      (realize-accounts s)
       (realize-commodities s)
+      (resolve-default-commodity-ids s)
+      (realize-accounts s)
       (realize-prices s)
       (realize-lots s)
-      (realize-lot-transactions s)
       (realize-budgets s)
       (realize-transactions s)
       (realize-attachments s)

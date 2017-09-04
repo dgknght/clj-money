@@ -24,7 +24,11 @@
             :last-name "Doe"
             :password "please01"}]
    :entities [{:user-id "john@doe.com"
-               :name "Personal"}]})
+               :name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency
+                  :entity-id "Personal"}]})
 
 (def budget-context
   base-context)
@@ -176,6 +180,10 @@
 (def budget-item-context
   (-> base-context
       (update-in [:entities] #(conj % {:name "Business"}))
+      (update-in [:commodities] #(conj % {:name "US Dollar"
+                                          :symbol "USD"
+                                          :entity-id "Business"
+                                          :type :currency}))
       (merge {:accounts [{:name "Salary"
                           :type :income}
                          {:name "Rent"

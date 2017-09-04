@@ -6,13 +6,13 @@
             [clj-money.util :refer [pprint-and-return format-date]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
-            [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]))
+            [clj-money.models.lots :as lots]))
 
 (declare set-balance-deltas)
 (defn- set-balance-delta
@@ -52,66 +52,47 @@
           (partial set-balance-deltas storage-spec start end))
        groups))
 
-(defmulti ^:private account-value-as-of
-  (fn [storage-spec account as-of]
-    (:content-type account)))
+(defn- default-commodity?
+  [entity commodity]
+  (if (= :currency (:type commodity))
+    (if-let [id (-> entity :settings :default-commodity-id)]
+      (= id (:id commodity))
+      true))) ; assume default commodity id will be set if there is more than one commodity
 
-(defmethod ^:private account-value-as-of :currency
-  [storage-spec account as-of]
-  (transactions/balance-as-of storage-spec
-                              (:id account)
-                              as-of))
-
-(defmethod ^:private account-value-as-of :commodities
-  [storage-spec account as-of]
-  (transactions/balance-as-of storage-spec
-                              (:id account)
-                              as-of))
-
-(defmethod ^:private account-value-as-of :commodity
-  [storage-spec account as-of]
-  ; TODO We need a more reliable way to get the commodity
-  ; probalby we should store extra values in the account, like
-  ; {:id 123
-  ;  :name "AAPL"
-  ;  :type :asset
-  ;  :content-type :commodity
-  ;  :extras {:commodity-id 456}}
-  (let [commodity (first (commodities/search storage-spec
-                                             {:entity-id (:entity-id account)
-                                              :symbol (:name account)}))
-        price (:price (prices/most-recent storage-spec (:id commodity) as-of))
-        shares (lots/shares-as-of storage-spec
-                                  (:parent-id account) ; The lots are associated with the commodities account
-                                  (:id commodity)
-                                  as-of)]
+(defn- account-value-as-of
+  [storage-spec entity account as-of]
+  (let [commodity (commodities/find-by-id storage-spec (:commodity-id account))
+        price (if (default-commodity? entity commodity)
+                1M
+                (:price (prices/most-recent storage-spec (:id commodity) as-of)))
+        shares (transactions/balance-as-of storage-spec (:id account) as-of)]
     (* shares price)))
 
 (declare set-balances)
 ; TODO combine this with set-balance-delta
 (defn- set-balance
-  [storage-spec account as-of]
-  (let [children (set-balances storage-spec as-of (:children account))
+  [storage-spec entity account as-of]
+  (let [children (set-balances storage-spec entity as-of (:children account))
         new-children-balance (reduce #(+ %1
                                          (:balance %2)
                                          (:children-balance %2))
                                      0
                                      children)
-        new-balance (account-value-as-of storage-spec account as-of)]
+        new-balance (account-value-as-of storage-spec entity account as-of)]
     (assoc account :children children
                    :children-balance new-children-balance
                    :balance new-balance)))
 
 ; TODO consider removing this function
 (defn- set-balances
-  [storage-spec as-of accounts]
-  (map #(set-balance storage-spec % as-of) accounts))
+  [storage-spec entity as-of accounts]
+  (map #(set-balance storage-spec entity % as-of) accounts))
 
 (defn- set-balances-in-account-groups
-  [storage-spec as-of groups]
+  [storage-spec entity as-of groups]
   (mapv #(set-balances-in-account-group
            %
-           (partial set-balances storage-spec as-of))
+           (partial set-balances storage-spec entity as-of))
         groups))
 
 (defn- transform-account
@@ -218,12 +199,13 @@
          end (t/local-date (t/year base) (t/month base) (t/number-of-days-in-the-month base))]
      (balance-sheet storage-spec entity-id end)))
   ([storage-spec entity-id as-of]
-   (->> (accounts/select-nested-by-entity-id
-          storage-spec
-          entity-id)
-        (set-balances-in-account-groups storage-spec as-of)
-        (append-pseudo-accounts storage-spec entity-id as-of)
-        transform-balance-sheet)))
+   (let [entity (entities/find-by-id storage-spec entity-id)]
+     (->> (accounts/select-nested-by-entity-id
+            storage-spec
+            entity-id)
+          (set-balances-in-account-groups storage-spec entity as-of)
+          (append-pseudo-accounts storage-spec entity-id as-of)
+          transform-balance-sheet))))
 
 (defn- ->budget-report-record
   [storage budget period-count as-of account]
@@ -366,16 +348,6 @@
         :account account
         :message (format "There is no budget for %s" (format-date as-of))}))))
 
-(defn- calculate-lot-cost
-  [storage lot]
-  (let [purchase-tx (->> {:lot-id (:id lot)
-                          :action "buy"
-                          :limit 1}
-                         (lot-transactions/select storage)
-                         first)]
-    (* (:shares-owned lot)
-       (:price purchase-tx))))
-
 (defn- summarize-commodity
   [storage [commodity-id lots]]
   (let [commodity (commodities/find-by-id storage commodity-id)
@@ -383,7 +355,7 @@
                     (map :shares-owned)
                     (reduce +))
         cost (->> lots
-                  (map #(calculate-lot-cost storage %))
+                  (map #(* (:shares-owned %) (:purchase-price %)))
                   (reduce +))
         price (:price (prices/most-recent storage (:id commodity)))
         value (* price shares)
@@ -402,7 +374,7 @@
    (commodities-account-summary storage-spec account-id (t/today)))
   ([storage-spec account-id as-of]
    (with-storage [s storage-spec]
-     (let [data (conj (->> {:account-id account-id} ; TODO search lot-transactions with  as-of
+     (let [data (conj (->> {:account-id account-id}
                            (lots/search s)
                            (filter #(not= 0M (:shares-owned %)))
                            (group-by :commodity-id)
@@ -440,26 +412,26 @@
                                  (prices/most-recent storage-spec)
                                  :price)))
 
+(defn- transform-lot-transactions
+  [trans]
+  (->> (:lot-items trans)
+       (map (fn [item]
+              (merge item (select-keys trans [:id :transaction-date]))))))
+
 (defn- append-lot-transactions
   [storage-spec lot]
   (assoc lot
-         :lot-transactions
+         :transactions
          (->> {:lot-id (:id lot)}
-              (lot-transactions/select storage-spec)
-              (map #(assoc % :value (* (:price %) (:shares %))))
-              (map #(dissoc % :id :updated-at :created-at :lot-id)))))
+              (transactions/search storage-spec)
+              (mapcat transform-lot-transactions))))
 
 (defn- append-lot-calculated-values
   [storage-spec lot]
-  (let [purchase-price (->> (:lot-transactions lot)
-                            (filter #(= :buy (:action %)))
-                            first
-                            :price)
-        cost (* (:shares-owned lot) purchase-price)
+  (let [cost (* (:shares-owned lot) (:purchase-price lot))
         value (* (:shares-owned lot) (:current-price lot))
         gain (- value cost)]
     (assoc lot
-           :purchase-price purchase-price
            :cost cost
            :value value
            :gain gain)))

@@ -19,12 +19,18 @@
 (def base-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset}
+               :type :asset
+               :commodity-id "USD"}
               {:name "Salary"
-               :type :income}
+               :type :income
+               :commodity-id "USD"}
               {:name "Bonus"
-               :type :income}]})
+               :type :income
+               :commodity-id "USD"}]})
 
 (def create-context
   base-context)

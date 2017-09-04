@@ -23,17 +23,40 @@
   (fn [source-type _ _]
     source-type))
 
+(defn- import-price
+  [{:keys [storage entity] :as context} price]
+  (let [commodity (->> {:exchange (name (:exchange price))
+                        :symbol (:symbol price)
+                        :entity-id (:id entity)}
+                       (commodities/search storage)
+                       first)]
+    (prices/create storage (-> price
+                               (assoc :commodity-id (:id commodity))
+                               (dissoc :exchange :symbol))))
+  context)
+
+(defn- find-commodity
+  [context {:keys [exchange symbol]}]
+  (->> context
+       :commodities
+       (filter #(and (= (:symbol %) symbol)
+                     (or (= :iso4217 exchange)
+                         (= (:exchange %) exchange))))
+       first))
+
 (defn- import-account
   [context account]
   (let [original-id (:id account)
         original-parent-id (:parent-id account)
         parent-id (get-in context [:accounts original-parent-id])
+        commodity (find-commodity context (:commodity account))
         to-create (cond-> account
                     true
-                    (assoc :entity-id (-> context :entity :id))
+                    (assoc :entity-id (-> context :entity :id)
+                           :commodity-id (:id commodity))
 
                     true
-                    (dissoc :id)
+                    (dissoc :id :commodity)
 
                     parent-id
                     (assoc :parent-id parent-id))
@@ -145,39 +168,32 @@
 
 (defmethod process-record :account
   [context account _]
-  (-> context
-      (import-account account)
-      (inc-and-update-progress :account)))
+  (import-account context account))
 
 (defmethod process-record :transaction
   [context transaction _]
-  (-> context
-      (import-transaction transaction)
-      (inc-and-update-progress :transaction)))
+  (import-transaction context transaction))
 
 (defmethod process-record :budget
   [context budget _]
-  (-> context
-      (import-budget budget)
-      (inc-and-update-progress :budget)))
+  (import-budget context budget))
 
 (defmethod process-record :price
-  [{:keys [storage entity] :as context} price _]
-  (let [commodity (->> {:exchange (name (:exchange price))
-                        :symbol (:symbol price)
-                        :entity-id (:id entity)}
-                       (commodities/search storage)
-                       first)]
-    (prices/create storage (-> price
-                               (assoc :commodity-id (:id commodity))
-                               (dissoc :exchange :symbol))))
-  (inc-and-update-progress context :price))
+  [context price _]
+  (import-price context price))
 
 (defmethod process-record :commodity
   [{:keys [entity storage] :as context} commodity _]
   (let [to-create (assoc commodity :entity-id (:id entity))
-        created (commodities/create storage  to-create)]
+        created (commodities/create storage to-create)]
     (update-in context [:commodities] #((fnil conj []) % created))))
+
+(def ^:private reportable-record-types
+  #{:commodity :price :account :transaction :budget})
+
+(defn- report-progress?
+  [record-type]
+  (reportable-record-types record-type))
 
 (defn process-callback
   "Top-level callback processing
@@ -189,9 +205,12 @@
   If the record is nil, processing is skipped but
   the progress is updated."
   [context record record-type]
-  (swap! context #(if record
-                    (process-record % record record-type)
-                    (inc-and-update-progress % record-type))))
+  (swap! context #(cond-> %
+                    record
+                    (process-record record record-type)
+
+                    (report-progress? record-type)
+                    (inc-and-update-progress record-type))))
 
 (defn import-data
   "Reads the contents from the specified input and saves

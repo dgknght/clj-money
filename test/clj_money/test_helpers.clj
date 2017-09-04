@@ -5,28 +5,11 @@
             [clojure.tools.logging :as log]
             [clj-money.validation :as validation]))
 
-(def all-tables ["reconciliations"
-                 "transaction_items"
-                 "transactions"
-                 "accounts"
-                 "budgets"
-                 "budget_items"
-                 "commodities"
-                 "prices"
-                 "lots"
-                 "lot_transactions"
-                 "entities"
-                 "imports"
-                 "images"
-                 "attachments"
-                 "users"])
-
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
   [db-spec f]
   (jdbc/with-db-connection [db db-spec]
-    (doseq [table all-tables]
-      (jdbc/execute! db (str "truncate table " table ";"))))
+    (jdbc/execute! db "truncate table users cascade"))
   (f))
 
 (defn subset?
@@ -102,3 +85,36 @@
   (map #(update-in % [:accounts] (fn [accounts]
                                    (simplify-accounts accounts additional-attributes)))
        groups)))
+
+(defn- find-in-context
+  [context model-group-key model-id-key model-id]
+  (->> context
+       model-group-key
+       (filter #(= model-id (model-id-key %)))
+       first))
+
+(defn find-account
+  [context account-name]
+  (find-in-context context :accounts :name account-name))
+
+(defn find-accounts
+  [context & account-names]
+  (map #(find-account context %) account-names))
+
+(defn find-commodity
+  [context symbol]
+  (find-in-context context :commodities :symbol symbol))
+
+(defn find-commodities
+  [context & symbols]
+  (map #(find-commodity context %) symbols))
+
+(defn context-errors
+  [context]
+  (reduce (fn [result [category models]]
+            (let [invalid-models (filter #(validation/has-error? %) models)]
+              (if (seq invalid-models)
+                (assoc result category invalid-models)
+                result)))
+          {}
+          context))

@@ -73,3 +73,29 @@
 (defn pprint-and-return-l
   [value message]
   (pprint-and-return message value))
+
+(defmacro safe-invoke
+  "Executes a function accepting a single argument only if
+  the argument is not nil, in which case nil is returned"
+  [target-fn value]
+  `(when ~value
+     (~target-fn ~value)))
+
+(defn keywordify-keys
+  [m]
+  (when m
+    (into {} (map (fn [[k v]]
+                    [(keyword k)
+                     (cond
+                       (map? v)
+                       (keywordify-keys v)
+
+                       (sequential? v)
+                       (map keywordify-keys v)
+
+                       :else v)])
+                  m))))
+
+(defn safe-read-string
+  [string]
+  (read-string (or string "{}")))

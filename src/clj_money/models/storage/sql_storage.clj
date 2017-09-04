@@ -9,6 +9,7 @@
             [clj-time.coerce :as tc]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
+            [clj-postgresql.types]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
@@ -21,9 +22,9 @@
 (s/def ::transaction-id integer?)
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
-  (s/keys :req-un [::account-id] :req-opt [::commodity-id ::entity-id]))
+  (s/keys :req-un [::account-id] :opt-un[::commodity-id ::entity-id]))
 (defmethod lot-criteria false [_]
-  (s/keys :req-un [::entity-id] :req-opt [::account-id ::commodity-id]))
+  (s/keys :req-un [::entity-id] :opt-un[::account-id ::commodity-id]))
 (s/def ::lot-criteria (s/multi-spec lot-criteria #(contains? % :account-id)))
 (s/def ::lot-transaction-criteria
   (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
@@ -42,6 +43,7 @@
 (defmethod attachment-criteria false [_]
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
+(s/def ::transaction-criteria (s/keys :req-un [::lot-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -102,13 +104,19 @@
       ->sql-keys))
 
 (defn- map->where
-  [m]
-  (if (= 1 (count m))
-    [:= (-> m keys first) (-> m vals first)]
-    (reduce (fn [result [k v]]
-              (conj result [:= k v]))
-            [:and]
-            m)))
+  ([m] (map->where m {}))
+  ([m options]
+   (let [prefix-fn (if-let [prefix (:prefix options)]
+                     #(keyword (format "%s.%s" prefix (name %)))
+                     identity)]
+     (if (= 1 (count m))
+       [:= (-> m keys first prefix-fn) (-> m vals first)]
+       (reduce (fn [result [k v]]
+                 (conj result [:= (prefix-fn k) (if (keyword? v)
+                                      (name v)
+                                      v)]))
+               [:and]
+               m)))))
 
 (defn- append-where
   [sql options]
@@ -221,7 +229,8 @@
     [_ account]
     (insert db-spec :accounts account :name
                                       :type
-                                      :content-type
+                                      :tags
+                                      :commodity-id
                                       :entity-id
                                       :parent-id
                                       :balance))
@@ -230,6 +239,7 @@
     [_ id]
     (->clojure-keys (jdbc/get-by-id db-spec :accounts id)))
 
+  ; TODO Remove this method
   (find-account-by-entity-id-and-name
     [_ entity-id account-name]
     (first (query db-spec (-> (h/select :*)
@@ -239,53 +249,45 @@
                                  [:= :name account-name]])
                        (h/limit 1)))))
 
-  (select-accounts-by-entity-id
-    [_ entity-id]
-    (query db-spec (-> (h/select :*)
-                       (h/from :accounts)
-                       (h/where [:= :entity_id entity-id]))))
-
   (update-account
     [_ account]
-    (let [sql (sql/format (-> (h/update :accounts)
-                              (h/sset (->update-set account
-                                                    :name
-                                                    :type
-                                                    :content-type
-                                                    :parent-id
-                                                    :balance))
-                              (h/where [:= :id (:id account)])))]
-      (jdbc/execute! db-spec sql)))
+    (let [updates (->update-set account :name
+                                        :type
+                                        :tags
+                                        :commodity-id
+                                        :parent-id
+                                        :balance)]
+      (jdbc/update! db-spec :accounts updates ["id = ?" (:id account)])))
 
   (delete-account
     [_ id]
     (jdbc/delete! db-spec :accounts ["id = ?" id]))
 
-  (select-accounts-by-name
-    [_ entity-id name]
-    (query db-spec (-> (h/select :*)
-                       (h/from :accounts)
-                       (h/where [:and
-                                 [:= :entity_id entity-id]
-                                 [:= :name name]]))))
-
   (select-accounts
     [_ criteria]
     (when-not (some #(% criteria) [:parent-id :entity-id])
       (throw (ex-info
-              "The criteria must specify parent-id or entity-id"
-              {:criteria criteria})))
-    (query db-spec (-> (h/select :*)
-                       (h/from :accounts)
-                       (h/where (map->where criteria)))))
+               "The criteria must specify parent-id or entity-id"
+               {:criteria criteria})))
+    (query db-spec (-> (h/select :a.*
+                                 [:c.name :commodity-name]
+                                 [:c.symbol :commodity-symbol]
+                                 [:c.type :commodity-type]
+                                 [:c.exchange :commodity-exchange]
+                                 [:e.settings :entity-settings])
+                       (h/from [:accounts :a])
+                       (h/join [:commodities :c] [:= :c.id :a.commodity-id])
+                       (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
+                       (h/where (map->where criteria {:prefix "a"})))))
 
   ; Commodities
   (create-commodity
     [_ commodity]
     (insert db-spec :commodities commodity :name
-                                          :symbol
-                                          :exchange
-                                          :entity-id))
+                                           :type
+                                           :symbol
+                                           :exchange
+                                           :entity-id))
 
   (find-commodity-by-id
     [_ id]
@@ -301,6 +303,7 @@
     (let [sql (sql/format (-> (h/update :commodities)
                               (h/sset (->update-set commodity
                                                     :entity-id
+                                                    :type
                                                     :name
                                                     :symbol
                                                     :exchange))
@@ -396,6 +399,7 @@
     [_ lot]
     (insert db-spec :lots lot :commodity-id
                               :account-id
+                              :purchase-price
                               :purchase-date
                               :shares-purchased
                               :shares-owned))
@@ -405,22 +409,13 @@
     (query db-spec (-> (h/select :*)
                        (h/from [:lots :l])
                        (h/join [:accounts :a] [:= :a.id :l.account_id])
-                       (h/where [:and
-                                 [:= :a.entity_id entity-id]
-                                 [:= :a.content_type "commodities"]]))))
+                       (h/where [:= :a.entity_id entity-id]))))
 
   (select-lots-by-commodity-id
     [_ commodity-id]
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
                        (h/where [:= :commodity_id commodity-id]))))
-
-  (select-lots-by-transaction-id
-    [_ transaction-id]
-    (query db-spec (-> (h/select :*)
-                       (h/from [:lots :l])
-                       (h/join [:lot_transactions :lt] [:= :l.id :lt.lot_id])
-                       (h/where [:= :lt.transaction_id transaction-id]))))
 
   (update-lot
     [_ lot]
@@ -455,52 +450,52 @@
     [_ id]
     (jdbc/delete! db-spec :lots ["id = ?" id]))
 
-  ; Lot transactions
-  (create-lot-transaction
-    [_ lot-transaction]
-    (insert db-spec
-            :lot_transactions
-            lot-transaction
-            :lot-id
-            :transaction-id
-            :trade-date
-            :action
-            :shares
-            :price))
+  (create-lot->transaction-link
+    [_ link]
+    (insert db-spec :lots_transactions link :lot-id
+                                            :transaction-id
+                                            :lot-action
+                                            :shares
+                                            :price
+                                            :action))
 
-  (select-lot-transactions
-    [_ criteria]
-    (when-not (s/valid? ::lot-transaction-criteria criteria)
-      (throw (ex-info
-              "The criteria is not valid"
-              {:criteria criteria})))
+  (delete-lot->transaction-link
+    [_ lot-id transaction-id]
+    (jdbc/delete! db-spec :lots_transactions [:and
+                                              [:= :lot_id lot-id]
+                                              [:= :transaction_id transaction-id]]))
+
+  (select-lots-transactions-by-transaction-id
+    [_ transaction-id]
     (query db-spec (-> (h/select :*)
-                       (h/from :lot_transactions)
-                       (h/where (map->where (dissoc criteria :limit)))
-                       (h/order-by :trade_date)
-                       (append-limit criteria))))
-
-  (update-lot-transaction
-    [_ lot-transaction]
-    (let [sql (sql/format (-> (h/update :lot-transactions)
-                              (h/sset (->update-set
-                                        lot-transaction
-                                        :transaction-id))
-                              (h/where [:= :id (:id lot-transaction)])))]
-      (jdbc/execute! db-spec sql)))
-
-  (delete-lot-transactions-by-lot-id
-    [_ lot-id]
-    (jdbc/delete! db-spec :lot_transactions ["lot_id = ?" lot-id]))
-
-  (delete-lot-transaction
-    [_ id]
-    (jdbc/delete! db-spec :lot_transactions ["id = ?" id]))
+                       (h/from :lots_transactions)
+                       (h/where [:= :transaction_id transaction-id]))))
 
   ; Transactions
   (select-transactions-by-entity-id
     [this entity-id]
     (.select-transactions-by-entity-id this entity-id {}))
+
+(select-transactions
+  [_ criteria]
+  (when-not (s/valid? ::transaction-criteria criteria)
+    (let [explanation (s/explain-data ::transaction-criteria criteria)]
+      (throw (ex-info
+               (str "The criteria is not valid: " explanation)
+               {:criteria criteria
+                :explanation explanation}))))
+  (let [sql (-> (h/select :t.*)
+                (h/from [:transactions :t]))
+        sql (if (not (empty? (dissoc criteria :lot-id)))
+              (h/where sql (map->where (dissoc criteria :lot-id)))
+              sql)
+        sql (if (contains? criteria :lot-id)
+              (-> sql
+                  (h/join [:lots_transactions :lt]
+                          [:= :t.id :lt.transaction_id])
+                  (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))
+              sql)]
+    (query db-spec sql)))
 
   (select-transactions-by-entity-id
     [_ entity-id options]
@@ -556,6 +551,7 @@
                                                         :account-id
                                                         :action
                                                         :amount
+                                                        :value
                                                         :index
                                                         :balance
                                                         :memo))

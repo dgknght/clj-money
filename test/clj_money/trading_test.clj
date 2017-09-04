@@ -7,12 +7,14 @@
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            find-account
+                                            find-accounts
+                                            find-commodity]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]
             [clj-money.models.transactions :as transactions]
             [clj-money.trading :as trading]))
@@ -25,12 +27,7 @@
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
    :accounts [{:name "IRA"
-               :type :asset
-               :content-type :commodities}
-              {:name "AAPL"
-               :type :asset
-               :parent-id "IRA"
-               :content-type :commodity}
+               :type :asset}
               {:name "Opening balances"
                :type :income}
               {:name "Long-term Capital Gains"
@@ -45,8 +42,12 @@
                :type :expense}
               {:name "Checking"
                :type :asset}]
-   :commodities [{:name "Apple, Inc."
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}
+                 {:name "Apple, Inc."
                   :symbol "AAPL"
+                  :type :stock
                   :exchange :nasdaq}]
    :transactions [{:transaction-date (t/local-date 2016 1 1)
                    :description "Opening balance"
@@ -59,35 +60,96 @@
 
 (defn- purchase-attributes
   [context]
-  {:commodity-id (-> context :commodities first :id)
-   :account-id (-> context :accounts first :id)
+  {:commodity-id (:id (find-commodity context "AAPL"))
+   :account-id (:id (find-account context "IRA"))
    :trade-date (t/local-date 2016 1 2)
    :shares 100M
    :value 1000M})
 
 (deftest purchase-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
-        result (trading/buy storage-spec (purchase-attributes context))]
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
+        result (trading/buy storage-spec (purchase-attributes context))
+        apple-account (->> {:commodity-id (:id commodity)
+                            :entity-id (-> context :entities first :id)}
+                           (accounts/search storage-spec)
+                           first)
+        expected-transaction {:entity-id (-> context :entities first :id)
+                              :transaction-date (t/local-date 2016 1 2)
+                              :description "Purchase 100 shares of AAPL at 10.000"
+                              :memo nil
+                              :lot-items [{:lot-action :buy
+                                           :shares 100M
+                                           :price 10M}]
+                              :items [{:action :credit
+                                       :amount 1000M
+                                       :balance 1000M
+                                       :value 1000M
+                                       :account-id (:id ira)
+                                       :index 1
+                                       :memo nil
+                                       :reconciled? false
+                                       :reconciliation-id nil}
+                                      {:action :debit
+                                       :amount 100M
+                                       :balance 100M
+                                       :value 1000M
+                                       :account-id (:id apple-account)
+                                       :memo nil
+                                       :index 0
+                                       :reconciled? false
+                                       :reconciliation-id nil}]}
+        actual-transaction (-> (:transaction result)
+                               (dissoc :updated-at :created-at :id)
+                               (update-in [:items]
+                                          #(map (fn [i]
+                                                  (dissoc i
+                                                          :transaction-id
+                                                          :updated-at
+                                                          :created-at
+                                                          :id))
+                                                %))
+                               (update-in [:lot-items]
+                                          #(map (fn [i]
+                                                  (dissoc i :lot-id))
+                                                %)))
+        expected-commodity-account {:name "AAPL"
+                                    :commodity-id (:id commodity)
+                                    :entity-id (-> context :entities first :id)
+                                    :type :asset
+                                    :parent-id (:id ira)
+                                    :tags #{:tradable}}
+        actual-commodity-account (dissoc apple-account :id
+                                                       :created-at
+                                                       :updated-at
+                                                       :commodity
+                                                       :balance)]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
+    (is (= expected-transaction actual-transaction)
+        "The resulting transaction has the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
+    (is (= "Purchase 100 shares of AAPL at 10.000"
+           (-> result :transaction :description))
+        "The transaction description describes the purchase")
     (is (:lot result)
         "The result contains a lot representing the purchased shares")
     (is (empty? (-> result :lot validation/error-messages))
         "The lot is valid")
-    (is (:lot-transaction result)
-        "The result contains a lot-transaction")
     (is (empty? (-> result :lot-transaction validation/error-messages))
         "The lot transaction is valud")
-    (is (= "Purchase 100 shares of AAPL at 10.000" (-> result :transaction :description)) "The transaction description describes the purchase")))
+    (is (= expected-commodity-account
+           actual-commodity-account)
+        "The commodity account is created")
+    (is ((->> ira (accounts/reload storage-spec) :tags) :trading)
+        "The specified account is tagged as a trading account")))
 
 (deftest purchase-a-commodity-with-string-values
  (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              purchase-attributes
                                              (update-in [:account-id] str)
@@ -100,12 +162,15 @@
 
 (deftest purchase-a-commodity-with-a-fee
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
+        ira (->> context
+                 :accounts
+                 (filter #(= "IRA" (:name %)))
+                 first)
         inv-exp (->> context
                      :accounts
                      (filter #(= "Investment Expenses" (:name %)))
                      first)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              purchase-attributes
                                              (assoc :fee 5M
@@ -117,8 +182,8 @@
 
 (deftest purchase-requires-a-commodity-id
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              (purchase-attributes)
                                              (dissoc :commodity-id)))]
@@ -128,8 +193,8 @@
 
 (deftest purchase-requires-an-account-id
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              (purchase-attributes)
                                              (dissoc :account-id)))]
@@ -137,24 +202,10 @@
            (validation/error-messages result :account-id))
         "The validation message indicates the error")))
 
-(deftest account-id-must-reference-a-commodities-account
-  (let [context (serialization/realize storage-spec purchase-context)
-        checking (->> context
-                      :accounts
-                      (filter #(= "Checking" (:name %)))
-                      first)
-        commodity (-> context :commodities first)
-        result (trading/buy storage-spec (-> context
-                                             (purchase-attributes)
-                                             (assoc :account-id (:id checking))))]
-    (is (= ["Account must be a commodities account"]
-           (validation/error-messages result :account-id))
-        "The validation message indicates the error")))
-
 (deftest purchase-requires-a-trade-date
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              (purchase-attributes)
                                              (dissoc :trade-date)))]
@@ -164,8 +215,8 @@
 
 (deftest purchase-trade-date-can-be-a-date-string
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              (purchase-attributes)
                                              (assoc :trade-date "3/2/2016")))]
@@ -174,8 +225,8 @@
 
 (deftest purchase-requires-a-number-of-shares
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              (purchase-attributes)
                                              (dissoc :shares)))]
@@ -185,8 +236,8 @@
 
 (deftest purchase-requires-a-value
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec (-> context
                                              (purchase-attributes)
                                              (dissoc :value)))]
@@ -196,8 +247,8 @@
 
 (deftest a-purchase-creates-a-lot-record
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result (trading/buy storage-spec {:commodity-id (:id commodity)
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
@@ -216,32 +267,10 @@
                     (lots/select-by-commodity-id storage-spec (:id commodity)))]
     (is (= expected actual) "The lot can be retrieved from the database")))
 
-(deftest a-purchase-creates-a-lot-transaction-recrd
-  (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
-        result (trading/buy storage-spec {:commodity-id (:id commodity)
-                                          :account-id (:id ira)
-                                          :trade-date (t/local-date 2016 1 2)
-                                          :shares 100M
-                                          :value 1000M})
-        expected [{:trade-date (t/local-date 2016 1 2)
-                   :action :buy
-                   :shares 100M
-                   :price 10M
-                   :transaction-id (-> result :transaction :id)
-                   :lot-id (-> result :lot :id)}]
-        actual (map #(dissoc % :id :created-at :updated-at)
-                    (lot-transactions/select
-                      storage-spec
-                      {:lot-id (-> result :lot :id)}))]
-    (is (= expected actual)
-        "The lot transaction can be retrieved from the database")))
-
 (deftest a-purchase-creates-a-price-record
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         _ (trading/buy storage-spec {:commodity-id (:id commodity)
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
@@ -256,8 +285,8 @@
 
 (deftest buying-a-commodity-reduces-the-balance-of-the-account
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         _ (trading/buy storage-spec {:commodity-id (:id commodity)
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
@@ -269,25 +298,22 @@
 
 (defn- sale-attributes
   [context]
-  (let [[lt-gains
+  (let [[ira
+         lt-gains
          st-gains
          lt-loss
-         st-loss] (map (fn [account-name]
-                           (->> context
-                                :accounts
-                                (filter #(= account-name (:name %)))
-                                first
-                                :id))
-                         ["Long-term Capital Gains"
-                          "Short-term Capital Gains"
-                          "Long-term Capital Loss"
-                          "Short-term Capital Loss"])]
-    {:commodity-id (-> context :commodities first :id)
-     :account-id (-> context :accounts first :id)
-     :lt-capital-gains-account-id lt-gains
-     :lt-capital-loss-account-id lt-loss
-     :st-capital-gains-account-id st-gains
-     :st-capital-loss-account-id st-loss
+         st-loss] (find-accounts context
+                                 "IRA"
+                                 "Long-term Capital Gains"
+                                 "Short-term Capital Gains"
+                                 "Long-term Capital Loss"
+                                 "Short-term Capital Loss")]
+    {:commodity-id (:id (find-commodity context "AAPL"))
+     :account-id (:id ira)
+     :lt-capital-gains-account-id (:id lt-gains)
+     :lt-capital-loss-account-id (:id lt-loss)
+     :st-capital-gains-account-id (:id st-gains)
+     :st-capital-loss-account-id (:id st-loss)
      :inventory-method :fifo
      :trade-date (t/local-date 2017 3 2)
      :shares 25M
@@ -296,11 +322,8 @@
 (defn- sell-context
   []
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         result  (trading/buy storage-spec {:account-id (:id ira)
                                            :commodity-id (:id commodity)
                                            :trade-date (t/local-date 2016 3 2)
@@ -310,14 +333,65 @@
 
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        ltcg (find-account context "Long-term Capital Gains")
+        commodity (find-commodity context "AAPL")
         purchase (trading/buy storage-spec {:account-id (:id ira)
                                             :commodity-id (:id commodity)
                                             :trade-date (t/local-date 2016 3 2)
                                             :shares 100M
                                             :value 1000M})
-        result (trading/sell storage-spec (sale-attributes context))]
+        commodity-account (->> {:entity-id (-> context :entities first :id)
+                                            :commodity-id (:id commodity)}
+                               (accounts/search storage-spec)
+                               first)
+        lot (-> purchase :lot)
+        result (trading/sell storage-spec (sale-attributes context))
+        actual-transaction (-> result
+                               :transaction
+                               (update-in [:items] #(map (fn [i]
+                                                           (dissoc i
+                                                                   :id
+                                                                   :transaction-id
+                                                                   :created-at
+                                                                   :updated-at))
+                                                         %))
+                               (dissoc :id :created-at :updated-at))
+        expected-transaction {:transaction-date (t/local-date 2017 3 2)
+                              :description "Sell 25 shares of AAPL at 15.000"
+                              :entity-id (-> context :entities first :id)
+                              :memo nil
+                              :items [{:action :credit
+                                       :account-id (:id ltcg)
+                                       :memo "Sell 25 shares of AAPL at 15.000"
+                                       :amount 125M
+                                       :value 125M
+                                       :balance 125M
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :index 0}
+                                      {:action :debit
+                                       :account-id (:id ira)
+                                       :amount 375M
+                                       :value 375M
+                                       :balance 1375M
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :memo nil
+                                       :index 2}
+                                      {:action :credit
+                                       :account-id (:id commodity-account)
+                                       :amount 25M
+                                       :balance 75M
+                                       :value 250M
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :memo nil
+                                       :index 1}]
+                              :lot-items [{:lot-id (:id lot)
+                                           :lot-action :sell
+                                           :shares 25M
+                                           :price 15M}]}]
     (is (:price result)
         "The result contains a price")
     (is (empty? (-> result :price validation/error-messages))
@@ -328,16 +402,12 @@
       (doseq [lot (:lots result)]
         (is (empty? (validation/error-messages lot))
             "Each lot is valid")))
-    (is (:lot-transactions result)
-        "The result contains a list of lot transactions create by the trade")
     (is (= 75M (:shares-owned (lots/find-by-id storage-spec (-> purchase :lot :id))))
         "The shares-owned value of the original lot is updated")
-    (if (seq (:lot-transactions result))
-      (doseq [lot-transaction (:lot-transactions result)]
-        (is (empty? (validation/error-messages lot-transaction))
-            "Each lot transaction is valid")))
     (is (:transaction result)
         "The result contains the transaction record")
+    (is (= expected-transaction actual-transaction)
+        "The transaction contains the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (testing "entity settings"
@@ -357,7 +427,7 @@
 
 (deftest sell-a-commodity-with-a-fee
   (let [context (serialization/realize storage-spec (sell-context))
-        ira (-> context :accounts first)
+        ira (find-account context "IRA")
         inv-exp (->> context
                      :accounts
                      (filter #(= "Investment Expenses" (:name %)))
@@ -380,20 +450,6 @@
     (is (= ["Account id is required"]
            (validation/error-messages result :account-id))
         "The correct validation error is present")))
-
-(deftest sale-account-id-must-reference-a-commodities-account
-  (let [context (serialization/realize storage-spec (sell-context))
-        checking (->> context
-                      :accounts
-                      (filter #(= "Checking" (:name %)))
-                      first)
-        commodity (-> context :commodities first)
-        result (trading/sell storage-spec (-> context
-                                              sale-attributes
-                                              (assoc :account-id (:id checking))))]
-    (is (= ["Account must be a commodities account"]
-           (validation/error-messages result :account-id))
-        "The validation message indicates the error")))
 
 (deftest sales-requires-a-commodity-id
   (let [context (serialization/realize storage-spec (sell-context))
@@ -478,7 +534,7 @@
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
   (let [context (serialization/realize storage-spec purchase-context)
         [ira] (:accounts context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         _ (trading/buy storage-spec {:commodity-id (:id commodity)
                                      :account-id (:id ira)
                                      :trade-date (t/local-date 2016 1 2)
@@ -493,8 +549,8 @@
 
 (deftest selling-a-commodity-updates-a-lot-record
   (let [context (serialization/realize storage-spec (sell-context))
-        [ira] (:accounts context)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
@@ -505,44 +561,15 @@
                    :account-id (:id ira)
                    :commodity-id (:id commodity)
                    :shares-purchased 100M
-                   :shares-owned 75M}]]
+                   :shares-owned 75M
+                   :purchase-price 10M}]]
     (is (= expected lots) "The lot is updated to reflect the sale")))
-
-(deftest selling-a-commodity-creates-a-lot-transaction-record
-  (let [context (serialization/realize storage-spec (sell-context))
-        [ira] (:accounts context)
-        commodity (-> context :commodities first)
-        lot (-> context :lots first)
-        _ (trading/sell storage-spec (-> context
-                                         sale-attributes
-                                         (assoc :shares 25M :value 375M)))
-        lot-transactions (map #(dissoc % :id :created-at :updated-at :transaction-id)
-                              (lot-transactions/select
-                                storage-spec
-                                {:lot-id (:id lot)}))
-        expected [{:trade-date (t/local-date 2016 3 2)
-                   :lot-id (:id lot)
-                   :action :buy
-                   :price 10M
-                   :shares 100M}
-                  {:trade-date (t/local-date 2017 3 2)
-                   :lot-id (:id lot)
-                   :action :sell
-                   :price 15M
-                   :shares 25M}]]
-    (is (= expected lot-transactions) "The lot transaction is created with proper data")))
 
 (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
   (let [context (serialization/realize storage-spec (sell-context))
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        lt-capital-gains (->> context
-                              :accounts
-                              (filter #(= "Long-term Capital Gains" (:name %)))
-                              first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        lt-capital-gains (find-account context "Long-term Capital Gains")
+        commodity (find-commodity context "AAPL")
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
@@ -560,22 +587,17 @@
                    :action :credit
                    :account-id (:id lt-capital-gains)
                    :amount 125M
-                   :memo "Sell 25 shares of AAPL at 15.00"
+                   :value 125M
+                   :memo "Sell 25 shares of AAPL at 15.000"
                    :balance 125M
                    :index 0}]]
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
   (let [context (serialization/realize storage-spec (sell-context))
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        st-capital-gains (->> context
-                              :accounts
-                              (filter #(= "Short-term Capital Gains" (:name %)))
-                              first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        st-capital-gains (find-account context "Short-term Capital Gains")
+        commodity (find-commodity context "AAPL")
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M
@@ -595,22 +617,17 @@
                    :action :credit
                    :account-id (:id st-capital-gains)
                    :amount 125M
-                   :memo "Sell 25 shares of AAPL at 15.00"
+                   :value 125M
+                   :memo "Sell 25 shares of AAPL at 15.000"
                    :balance 125M
                    :index 0}]]
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-loss-debits-capital-loss
   (let [context (sell-context)
-        ira (->> context
-                 :accounts
-                 (filter #(= "IRA" (:name %)))
-                 first)
-        capital-loss (->> context
-                          :accounts
-                          (filter #(= "Long-term Capital Loss" (:name %)))
-                          first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        capital-loss (find-account context "Long-term Capital Loss")
+        commodity (find-commodity context "AAPL")
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 100M :value 850M)))
@@ -628,7 +645,8 @@
                    :action :debit
                    :account-id (:id capital-loss)
                    :amount 150M
-                   :memo "Sell 100 shares of AAPL at 8.50"
+                   :value 150M
+                   :memo "Sell 100 shares of AAPL at 8.500"
                    :balance 150M
                    :index 0}]]
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
@@ -646,7 +664,7 @@
 
 (deftest lifo-sale
   (let [context (serialization/realize storage-spec purchase-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         [ira
          lt-gains
          st-gains
@@ -689,10 +707,12 @@
                                   :account-id)))
         expected [{:purchase-date (t/local-date 2015 3 2)
                    :shares-purchased 100M
-                   :shares-owned 100M}
+                   :shares-owned 100M
+                   :purchase-price 10M}
                   {:purchase-date (t/local-date 2016 3 2)
                    :shares-purchased 100M
-                   :shares-owned 50M}]]
+                   :shares-owned 50M
+                   :purchase-price 20M}]]
     (is (= expected actual) "Shares are sold from the most recent lot")))
 
 (deftest fifo-sale
@@ -701,7 +721,7 @@
                   (update-in purchase-context
                              [:entities 0]
                              #(assoc-in % [:settings :inventory-method] :fifo)))
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         [ira
          lt-gains
          st-gains
@@ -743,16 +763,18 @@
                                   :account-id)))
         expected [{:purchase-date (t/local-date 2015 3 2)
                    :shares-purchased 100M
-                   :shares-owned 50M}
+                   :shares-owned 50M
+                   :purchase-price 10M}
                   {:purchase-date (t/local-date 2016 3 2)
                    :shares-purchased 100M
-                   :shares-owned 100M}]]
+                   :shares-owned 100M
+                   :purchase-price 20M}]]
     (is (= expected actual) "Shares are sold from the most recent lot")))
 
 (deftest undo-a-purchase
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
                                             :shares 100M
                                             :commodity-id (:id commodity)
@@ -769,8 +791,8 @@
 
 (deftest cannot-undo-a-purchase-if-shares-have-been-sold
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
                                             :shares 100M
                                             :commodity-id (:id commodity)
@@ -782,8 +804,8 @@
 
 (deftest undo-a-sale
   (let [context (serialization/realize storage-spec purchase-context)
-        ira (-> context :accounts first)
-        commodity (-> context :commodities first)
+        ira (find-account context "IRA")
+        commodity (find-commodity context "AAPL")
         purchase (trading/buy storage-spec {:trade-date (t/local-date 2017 3 2)
                                             :shares 100M
                                             :commodity-id (:id commodity)
@@ -795,13 +817,8 @@
     ;                      after purchase: $1,000
     ;                          after sale: $1,375
     ;                        after unsale: $1,000
-    (testing "the account balance"
-      (is (= 1000M (:balance (accounts/reload storage-spec ira)))
-          "The account balance is restored"))
-    (testing "the lot transactions"
-      (doseq [lot-transaction (:lot-transactions sale)]
-        (is (not (lot-transactions/find-by-id storage-spec (:id lot-transaction)))
-            (format "lot transaction %s should be deleted" (:id lot-transaction)))))
+    (is (= 1000M (:balance (accounts/reload storage-spec ira)))
+        "The account balance is restored")
     (testing "the affected lots"
       (doseq [lot (:lots sale)]
         (let [lot (lots/find-by-id storage-spec (:id lot))]

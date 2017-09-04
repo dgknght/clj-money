@@ -16,21 +16,21 @@
                                               select-lots
                                               update-lot
                                               find-lot-by-id
-                                              delete-lot
-                                              delete-lot-transactions-by-lot-id]]
+                                              delete-lot]]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]))
 
 (s/def ::id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::purchase-date validation/local-date?)
+(s/def ::purchase-price decimal?)
 (s/def ::shares-purchased decimal?)
 (s/def ::shares-owned decimal?)
 (s/def ::new-lot (s/keys :req-un [::account-id
                                   ::commodity-id
                                   ::purchase-date
+                                  ::purchase-price
                                   ::shares-purchased]))
 (s/def ::existing-lot (s/keys :req-un [::id
                                        ::account-id
@@ -58,18 +58,11 @@
   [_ lot]
   (= :asset (-> lot :account :type)))
 
-(defn- account-has-commodities-content?
-  [_ lot]
-  (= :commodities (-> lot :account :content-type)))
-
 (defn- validation-rules
   [storage]
   [(validation/create-rule (partial account-is-an-asset? storage)
                            [:account-id]
-                           "The account must be an asset account")
-   (validation/create-rule (partial account-has-commodities-content? storage)
-                           [:account-id]
-                           "The account must be a commodities account")])
+                           "The account must be an asset account")])
 
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:purchase-date])
@@ -124,40 +117,11 @@
          (select-lots s)
          (map after-read))))
 
-(defn shares-as-of
-  [storage-spec account-id commodity-id as-of]
-  (let [grouped-lot-transactions (->> {:account-id account-id
-                                       :commodity-id commodity-id}
-                                      ; TODO Combine the following 2 lines into 1 SQL call
-                                      (search storage-spec)
-                                      (mapcat #(lot-transactions/select storage-spec {:lot-id (:id %)}))
-                                      (filter #(>= 0 (compare (:trade-date %) as-of)))
-                                      (group-by :action))]
-    (apply - (map #(->> (% grouped-lot-transactions)
-                        (map :shares)
-                        (reduce :+ 0M))
-                  [:buy :sell]))))
-
-(defn- lot-shares
-  [storage lot-id as-of]
-  (->> {:lot-id lot-id}
-       (lot-transactions/select storage) ; TODO Move date filtering into the database query
-       (filter #(< 0 (compare as-of (:trade-date %))))
-       (map #(* (:shares %) (if (= :buy (:action %)) 1 -1)))
-       (reduce +)))
-
 (defn- lot-unrealized-gains
-  [storage price-fn as-of {:keys [:commodity-id] :as lot}]
-  (let [transactions (lot-transactions/select storage {:lot-id (:id lot)})
-        purchase-price (->> transactions
-                            (filter #(= :buy (:action %)))
-                            first
-                            :price)
-        shares-owned (->> transactions
-                          (filter #(< 0 (compare as-of (:trade-date %))))
-                          (map #(* (:shares %) (if (= :buy (:action %)) 1 -1)))
-                          (reduce +))
-        cost (* purchase-price shares-owned)
+  [storage price-fn as-of {:keys [purchase-price
+                                  commodity-id
+                                  shares-owned] :as lot}]
+  (let [cost (* purchase-price shares-owned)
         value (* (price-fn commodity-id) shares-owned)]
     (- value cost)))
 
@@ -180,5 +144,4 @@
 (defn delete
   [storage-spec lot-id]
   (with-storage [s storage-spec]
-    (delete-lot-transactions-by-lot-id s lot-id)
     (delete-lot s lot-id)))

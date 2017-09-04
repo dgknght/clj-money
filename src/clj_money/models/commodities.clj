@@ -2,10 +2,14 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
+            [clj-money.util :refer [safe-invoke]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.models.entities :as entities]
             [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage]]
+                                              with-transacted-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-commodity
                                               find-commodity-by-id
                                               update-commodity
@@ -14,29 +18,48 @@
                                               delete-prices-by-commodity-id
                                               delete-commodity]]))
 
-(def exchanges #{:nyse :nasdaq :fund})
-
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::symbol validation/non-empty-string?)
-(s/def ::exchange #{:nyse :nasdaq :fund}) ; TODO need to be able to register custom interpretations to resue exchanges
-(s/def ::new-commodity (s/keys :req-un [::entity-id ::name ::symbol ::exchange]))
-(s/def ::existing-commodity (s/keys :req-un [::name ::symbol ::exchange] :opt-un [::id]))
+(s/def ::exchange #{:nyse :nasdaq})
+(s/def ::type #{:currency :stock :fund})
+
+(def exchanges #{:nyse :nasdaq})
+
+(defmulti new-commodity-spec :type)
+(defmethod new-commodity-spec :default [_]
+  (s/keys :req-un [::type]))
+(defmethod new-commodity-spec :stock [_]
+  (s/keys :req-un [::type ::entity-id ::name ::symbol ::exchange]))
+(defmethod new-commodity-spec :fund [_]
+  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
+(defmethod new-commodity-spec :currency [_]
+  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
+
+(s/def ::new-commodity (s/multi-spec new-commodity-spec :type))
+
+(s/def ::existing-commodity (s/keys :req-un [::type ::entity-id ::name ::symbol] :opt-un [::id]))
 
 (defn- before-save
-  [commodity]
-  (update-in commodity [:exchange] name))
+  [_ commodity]
+  (-> commodity
+      (update-in [:exchange] #(safe-invoke name %))
+      (update-in [:type] name)))
 
 (defn- after-read
-  [commodity]
-  (when commodity
-    (update-in commodity [:exchange] keyword)))
+  ([commodity] (after-read nil commodity))
+  ([_ commodity]
+   (when commodity
+     (-> commodity
+         (update-in [:exchange] #(safe-invoke keyword %))
+         (update-in [:type] keyword)))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])
    (coercion/rule :keyword [:exchange])
-   (coercion/rule :integer [:id])])
+   (coercion/rule :integer [:id])
+   (coercion/rule :keyword [:type])])
 
 (defn- name-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]
@@ -69,29 +92,13 @@
                            [:symbol]
                            "Symbol must be unique for a given exchange")])
 
-(defn- before-validation
-  [commodity]
-  (coercion/coerce coercion-rules commodity))
-
-(defn- validate
-  [storage spec commodity]
-  (->> commodity
-       before-validation
-       (validation/validate
-         spec
-         (validation-rules storage))))
-
-(defn create
-  "Creates a new commodity record"
-  [storage-spec commodity]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::new-commodity commodity)]
-      (if (validation/valid? validated)
-        (->> validated
-             before-save
-             (create-commodity s)
-             after-read)
-        validated))))
+(def create
+  (create-fn {:before-save before-save
+              :rules-fn validation-rules
+              :coercion-rules coercion-rules
+              :spec ::new-commodity
+              :create create-commodity
+              :after-read after-read}))
 
 (defn select-by-entity-id
   "Returns the commodities belonging to the specified entity"
@@ -115,18 +122,13 @@
          (select-commodities s)
          (map after-read))))
 
-(defn update
-  "Updates the specified commodity"
-  [storage-spec commodity]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::existing-commodity commodity)]
-      (if (validation/valid? validated)
-        (do
-          (->> validated
-               before-save
-               (update-commodity s))
-          (find-by-id s (:id validated)))
-        validated))))
+(def update
+  (update-fn {:spec ::existing-commodity
+              :update update-commodity
+              :find find-by-id
+              :before-save before-save
+              :after-read after-read
+              :coercion-rules coercion-rules}))
 
 (defn delete
   "Removes a commodity from the system"

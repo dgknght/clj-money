@@ -16,7 +16,6 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.models.prices :as prices]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]]
@@ -29,6 +28,10 @@
      ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
      ~@content))
 
+(defn- can-add-child?
+  [account]
+  true)
+
 (defn- account-row
   "Renders a single account row"
   [account depth]
@@ -37,7 +40,7 @@
     [:span {:class (format "account-depth-%s" depth)}
      (:name account)
      "&nbsp;"
-     (when (= :currency (:content-type account))
+     (when (can-add-child? account)
        [:a.small-add {:href (format "/entities/%s/accounts/new?parent-id=%s" (:entity-id account) (:id account))
                       :title "Click here to add a child to this account."}
         "+"])]]
@@ -50,7 +53,8 @@
                    (format "/accounts/%s" (:id account))
                    {:level :default
                     :size :extra-small
-                    :title "Click here to view transactions for this account"})
+                    :title "Click here to view transactions for this account"
+                    :disabled (contains? (:tags account) :tradable)})
      (glyph-button :check
                    (format "/accounts/%s/reconciliations/new" (:id account))
                    {:level :default
@@ -67,14 +71,19 @@
                     :size :extra-small
                     :data-method :post
                     :data-confirm "Are you sure you want to delete this account?"
-                    :title "Click here to remove this account"})]]])
+                    :title "Click here to remove this account"
+                    :disabled (empty? (:children account))})]]])
+
+(defn- render-child-rows?
+  [account]
+  true)
 
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
   ([account] (account-and-children-rows account 0))
   ([account depth]
    (let [account-row (account-row account depth)]
-     (if (= :currency (:content-type account))
+     (if (render-child-rows? account)
        (concat
          [account-row]
          (->> (:children account)
@@ -165,9 +174,17 @@
 
 (defmulti ^:private show-account
   (fn [account params]
-    (:content-type account)))
+    (cond
+      (contains? (:tags account) :trading)
+      :trading-account
 
-(defmethod ^:private show-account :currency
+      (contains? (:tags account) :tradable)
+      :trading-detail
+
+      :else
+      :standard)))
+
+(defmethod ^:private show-account :standard
   [account params]
   (html
     [:table.table.table-striped.table-hover
@@ -258,7 +275,7 @@
                       :level :danger
                       :title "Click here to sell shares of this commodity."})])]])
 
-(defmethod show-account :commodities
+(defmethod show-account :trading-account
   [account params]
   (html
     (let [summary (reports/commodities-account-summary (env :db) (:id account))]
@@ -288,7 +305,7 @@
       :title "Click here to return to the list of accounts"}
      "Back"]))
 
-(defmethod show-account :commodity
+(defmethod show-account :trading-detail
   [account params]
   (html
     [:p
@@ -313,10 +330,6 @@
     (text-input-field account :name {:autofocus true})
     (select-field account :type (map #(vector :option {:value %} (humanize %))
                                      accounts/account-types))
-    (select-field account
-                  :content-type
-                  (map #(vector :option {:value %} (humanize %))
-                       [:currency :commodities]))
     (select-field account
                   :parent-id
                   (grouped-options-for-accounts (:entity-id account)
@@ -356,7 +369,7 @@
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [{params :params}]
-  (let [account (select-keys params [:entity-id :name :type :content-type :parent-id])
+  (let [account (select-keys params [:entity-id :name :type :parent-id])
         saved (accounts/create (env :db) account)]
     (if (validation/has-error? saved)
       (new-account {:params (select-keys saved [:entity-id])} saved)
@@ -382,9 +395,7 @@
   (let [account (select-keys params [:id
                                      :name
                                      :type
-                                     :content-type
                                      :entity-id
-                                     :content-type
                                      :parent-id])
         updated (accounts/update (env :db) account)]
     (if (validation/has-error? updated)

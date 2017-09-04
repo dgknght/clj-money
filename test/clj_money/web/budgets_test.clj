@@ -17,16 +17,24 @@
 (def budget-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset }
+               :type :asset
+               :commodity-id "USD"}
               {:name "Salary"
-               :type :income}
+               :type :income
+               :commodity-id "USD"}
               {:name "Bonus"
-               :type :income}
+               :type :income
+               :commodity-id "USD"}
               {:name "Rent"
-               :type :expense}
+               :type :expense
+               :commodity-id "USD"}
               {:name "Groceries"
-               :type :expense}]
+               :type :expense
+               :commodity-id "USD"}]
    :budgets [{:name "2017"
               :period :month
               :period-count 12

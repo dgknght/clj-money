@@ -4,7 +4,8 @@
             [clojure.spec :as s]
             [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-money.util :refer [pprint-and-return
+                                    safe-read-string]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -14,10 +15,10 @@
                                               find-account-by-id
                                               find-account-by-entity-id-and-name
                                               select-accounts
-                                              select-accounts-by-name
-                                              select-accounts-by-entity-id
                                               update-account
-                                              delete-account]])
+                                              delete-account]]
+            [clj-money.models.entities :as entities]
+            [clj-money.models.commodities :as commodities])
   (:import java.math.BigDecimal))
 
 (def account-types
@@ -28,18 +29,28 @@
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::type #{:asset :liability :equity :income :expense})
-(s/def ::content-type #{:currency :commodity :commodities})
+(s/def ::commodity-id integer?)
 (s/def ::parent-id (s/nilable integer?))
-(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type] :opt-un [::parent-id ::content-type]))
-(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::content-type ::name] :opt-un [::parent-id]))
+(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type ::commodity-id] :opt-un [::parent-id]))
+(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::name] :opt-un [::parent-id ::commodity-id]))
 ; :balance and :children-balance are not specified because they are always calculated and not passed in
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
    (coercion/rule :keyword [:type])
-   (coercion/rule :keyword [:content-type])
+   (coercion/rule :integer [:commodity-id])
    (coercion/rule :integer [:entity-id])
    (coercion/rule :integer [:parent-id])])
+
+(defn- default-commodity-id
+  [storage entity-id]
+  (let [entity (entities/find-by-id storage entity-id)]
+    (or (-> entity :settings :default-commodity-id)
+        (->> {:entity-id entity-id
+              :type :currency}
+             (commodities/search storage)
+             first
+             :id))))
 
 (declare find-by-id)
 (defn- before-validation
@@ -56,8 +67,9 @@
          (empty? (:parent-id account)))
     (dissoc :parent-id)
 
-    true
-    (update-in [:content-type] (fnil identity :currency))))
+    ; if no commodity is specified, use the default
+    (nil? (:commodity-id account))
+    (assoc :commodity-id (default-commodity-id storage (:entity-id account)))))
 
 (defn- before-save
   "Adjusts account data for saving in the database"
@@ -65,7 +77,10 @@
   (-> account
       (update-in [:balance] (fnil identity 0M))
       (update-in [:type] name)
-      (update-in [:content-type] name)))
+      (update-in [:tags] #(if (seq %)
+                            (mapv name %)
+                            nil))
+      (dissoc :commodity)))
 
 (defn- after-read
   "Adjusts account data read from the database for use"
@@ -73,7 +88,22 @@
   ([_ account]
    (-> account
        (update-in [:type] keyword)
-       (update-in [:content-type] keyword)
+       (update-in [:tags] #(->> %
+                                (map keyword)
+                                set))
+       (assoc :commodity {:name (:commodity-name account)
+                          :symbol (:commodity-symbol account)
+                          :type (keyword (:commodity-type account))
+                          :default (= (:commodity-id account) (-> account
+                                                                  :entity-settings
+                                                                  safe-read-string
+                                                                  :default-commodity-id))
+                          #_:exchange #_(:commodity-exchange account)})
+       (dissoc :commodity-name
+               :commodity-symbol
+               :commodity-type
+               :commodity-exchange
+               :entity-settings)
        (cond->
          (and ; Remove :parent-id if it's nil
            (contains? account :parent-id)
@@ -82,7 +112,8 @@
 
 (defn- name-is-unique?
   [storage {:keys [id parent-id name entity-id]}]
-  (->> (select-accounts-by-name storage entity-id name)
+  (->> (select-accounts storage {:entity-id entity-id
+                                 :name name})
        (remove #(= (:id %) id))
        (filter #(= (:parent-id %) parent-id))
        empty?))
@@ -145,7 +176,7 @@
    (with-storage [s storage-spec]
      (let [types (or (:types options)
                      (set account-types))]
-       (->> (select-accounts-by-entity-id s entity-id)
+       (->> (select-accounts s {:entity-id entity-id})
             (map after-read)
             (filter #(types (:type %))))))))
 

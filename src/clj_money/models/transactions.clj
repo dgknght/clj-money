@@ -10,6 +10,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
+                                              select-transactions
                                               count-transactions-by-entity-id
                                               create-transaction
                                               create-transaction-item
@@ -26,22 +27,38 @@
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-transaction-items-by-transaction-id
                                               select-transaction-items-by-reconciliation-id
+                                              select-lots-transactions-by-transaction-id
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
                                               delete-transaction
                                               delete-transaction-item
-                                              delete-transaction-items-by-transaction-id]])
+                                              delete-transaction-items-by-transaction-id
+                                              create-lot->transaction-link
+                                              delete-lot->transaction-link]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
+; Amount is the quantity of the commodity that is exchanged
 (s/def ::amount validation/positive-big-dec?)
+; Balance is the running total of amounts for the account to which
+; the item belongs
 (s/def ::balance (partial instance? BigDecimal))
+; Value is the value of the line item expressed in the entity's
+; default currency. For most transactions, this will be the same
+; as the amount. For transactions involving foreign currencies
+; and commodity purchases (like stock trades) it will be different.
+(s/def ::value validation/positive-big-dec?)
 (s/def ::description validation/non-empty-string?)
 (s/def ::memo #(or (nil? %) (string? %)))
 (s/def ::transaction-date (partial instance? LocalDate))
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
+(s/def ::lot-id integer?)
+(s/def ::lot-action #{:buy :sell})
+(s/def ::shares decimal?)
+(s/def ::lot-item (s/keys :req-un [::lot-id ::shares ::lot-action ::price]))
+(s/def ::lot-items (s/coll-of ::lot-item))
 (s/def ::index integer?)
 (s/def ::transaction-item (s/keys :req-un [::account-id
                                            ::action
@@ -54,12 +71,14 @@
                                           ::transaction-date
                                           ::items
                                           ::entity-id]
-                                 :opt-un [::memo]))
+                                 :opt-un [::memo
+                                          ::lot-items]))
 (s/def ::existing-transaction (s/keys :req-un [::id
                                                ::transaction-date
                                                ::items]
                                       :opt-un [::entity-id
-                                               ::memo]))
+                                               ::memo
+                                               ::lot-items]))
 
 (def ambient-settings
   (atom {}))
@@ -94,26 +113,27 @@
        account (polarize-item-amount account))
      item)))
 
-(defn- item-amount-sum
-  "Returns the sum of items in the transaction having
+(defn- item-value-sum
+  "Returns the sum of values of the items in the transaction having
   the specified action"
   [transaction action]
   (reduce + 0 (->> (:items transaction)
 
                    (filter #(= action (:action %)))
-                   (map :amount))))
+                   (map :value))))
 
 (defn- ^{:clj-money.validation/message "The total debits does not match the total credits"
          :clj-money.validation/path [:items]}
   sum-of-credits-must-equal-sum-of-debits
   [transaction]
   (->> [:debit :credit]
-       (map #(item-amount-sum transaction %))
+       (map #(item-value-sum transaction %))
        (apply =)))
 
 (defn- before-item-validation
   [item]
   (cond-> item
+    true (update-in [:value] #(or % (:amount item)))
     true (assoc :balance (bigdec 0))
     (string? (:account-id item)) (update-in [:account-id] #(Integer. %))
     (nil? (:id item)) (dissoc :id)
@@ -141,13 +161,47 @@
   [transaction]
   (-> transaction
       (dissoc :items)
-      (update-in [:transaction-date] tc/to-long)))
+      (update-in [:transaction-date] tc/to-long)
+      (update-in [:lot-items] #(when %
+                                 (map (fn [i]
+                                        (update-in i [:lot-action] name))
+                                      %)))))
+
+(defn- fetch-lot-items
+  [storage transaction-id]
+  (select-lots-transactions-by-transaction-id storage transaction-id))
+
+(defn- append-items
+  [transaction storage]
+  (when transaction
+    (assoc transaction
+           :items
+           (->> (:id transaction)
+                (select-transaction-items-by-transaction-id storage)
+                (map after-item-read)))))
+
+(defn- append-lot-items
+  [transaction storage]
+  (if transaction
+    (let [lot-items (fetch-lot-items storage (:id transaction))]
+      (if (seq lot-items)
+        (assoc transaction
+               :lot-items
+               (->> lot-items
+                    (map #(-> %
+                              (dissoc :transaction-id)
+                              (update-in [:lot-action] keyword)))))
+        transaction))
+    transaction))
 
 (defn- after-read
   "Returns a transaction that is ready for public use"
-  [transaction]
+  [storage transaction]
   (when transaction
-    (update-in transaction [:transaction-date] tc/to-local-date)))
+    (-> transaction
+        (update-in [:transaction-date] tc/to-local-date)
+        (append-items storage)
+        (append-lot-items storage))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -343,18 +397,16 @@
        before-validation
        (validation/validate spec (validation-rules storage))))
 
-(defn- append-items
-  [storage transaction]
-  (when transaction
-    (assoc transaction
-           :items
-           (->> (:id transaction)
-                (select-transaction-items-by-transaction-id storage)
-                (map after-item-read)))))
-
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
 (s/def ::select-options (s/keys :req-un [::page ::per-page]))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-transactions s)
+         (map #(after-read s %)))))
 
 (defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"
@@ -370,8 +422,7 @@
      (with-storage [s storage-spec]
        (->>
          (select-transactions-by-entity-id s entity-id parsed-options)
-         (map after-read)
-         (map #(append-items s %)))))))
+         (map #(after-read s %)))))))
 
 (defn select-items-by-reconciliation-id
   "Returns the transaction items associated with the specified reconciliation"
@@ -386,6 +437,17 @@
   (with-storage [s storage-spec]
     (count-transactions-by-entity-id s entity-id)))
 
+(defn- create-transaction-and-lot-links
+  [storage transaction]
+  (let [result (create-transaction storage transaction)]
+    (when-let [lot-items (:lot-items transaction)]
+      (doseq [lot-item lot-items]
+        (create-lot->transaction-link storage
+                                      (assoc lot-item
+                                             :transaction-id
+                                             (:id result)))))
+    result))
+
 (defn- create-transaction-without-balances
   [storage {:keys [entity-id] :as transaction}]
   (swap! ambient-settings
@@ -394,8 +456,8 @@
          #(into % (map :account-id (:items transaction))))
   (let [result (->> transaction
                     before-save
-                    (create-transaction storage)
-                    after-read)]
+                    (create-transaction-and-lot-links storage)
+                    (after-read storage))]
     (assoc result :items (mapv (fn [item]
                                  (create-transaction-item
                                    storage
@@ -416,8 +478,8 @@
                                     (:transaction-date transaction))
         result (->> (assoc transaction :items items-with-balances)
                     before-save
-                    (create-transaction storage)
-                    after-read)
+                    (create-transaction-and-lot-links storage)
+                    (after-read storage))
         items (into [] (map #(->> (assoc % :transaction-id (:id result))
                                   before-save-item
                                   (create-transaction-item storage)
@@ -441,8 +503,7 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (->> (find-transaction-by-id s id)
-         after-read
-         (append-items s))))
+         (after-read s))))
 
 (defn find-by-item-id
   "Returns the transaction that has the specified transaction item"

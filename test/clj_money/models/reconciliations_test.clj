@@ -23,6 +23,9 @@
             :password "please01"
             :password-confirmation "please01"}]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset}
               {:name "Salary"

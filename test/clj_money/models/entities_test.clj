@@ -4,6 +4,7 @@
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-money.validation :as validation]
+            [clj-money.serialization :as serialization]
             [clj-money.models.entities :as entities]
             [clj-money.models.users :as users]
             [clj-factory.core :refer [factory]]
@@ -14,44 +15,55 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def user (users/create storage-spec (factory :user)))
-(def attributes {:name "Personal"
-                 :user-id (:id user)})
-(def other-user (users/create storage-spec (factory :user)))
+(def ^:private entity-context
+  {:users [(factory :user)
+           (factory :user)]})
+
+(defn- attributes
+  [context]
+  {:name "Personal"
+   :user-id (-> context :users first :id)})
 
 (deftest create-an-entity
   (testing "An entity can be created with valid attributes"
-    (let [actual (entities/create storage-spec attributes)
+    (let [context (serialization/realize storage-spec entity-context)
+          [user other-user] (:users context)
+          actual (entities/create storage-spec (attributes context))
           expected {:name "Personal"
                     :user-id (:id user)}]
       (testing "The new entity is returned"
         (is (= expected
-               (select-keys actual [:name :user-id])) "The returned map should have the correct content."))
+               (select-keys actual [:name :user-id]))
+            "The returned map should have the correct content."))
       (testing "The name can be duplicated between two different users"
         (let [other-entity (entities/create storage-spec
-                                            (assoc attributes :user-id (:id other-user)))]
+                                            (assoc (attributes context) :user-id (:id other-user)))]
           (is (number? (:id other-entity))))))))
 
 (deftest attempt-to-create-an-invalid-entity
-  (testing "Name is required"
-    (assert-validation-error
-      :name
-      "Name is required"
-      (entities/create storage-spec (dissoc attributes :name))))
-  (testing "Name must be unique"
-    (entities/create storage-spec attributes)
-    (assert-validation-error
-      :name
-      "Name is already in use"
-      (entities/create storage-spec attributes))))
+  (let [context (serialization/realize storage-spec entity-context)
+        user (-> context :users first)]
+    (testing "Name is required"
+      (assert-validation-error
+        :name
+        "Name is required"
+        (entities/create storage-spec (dissoc (attributes context) :name))))
+    (testing "Name must be unique"
+      (entities/create storage-spec (attributes context))
+      (assert-validation-error
+        :name
+        "Name is already in use"
+        (entities/create storage-spec (attributes context))))))
 
 (deftest select-entities-for-a-user
-  (let [other-entity (entities/create storage-spec {:name "Other entity"
+  (let [context (serialization/realize storage-spec entity-context)
+        [user other-user] (:users context)
+        other-entity (entities/create storage-spec {:name "Other entity"
                                                     :user-id (:id other-user)})
-        _ (dorun (map #(entities/create storage-spec {:name %
-                                                      :user-id (:id user)})
-                      ["Personal"
-                       "Business"]))
+        _ (mapv #(entities/create storage-spec {:name %
+                                                :user-id (:id user)})
+                ["Personal"
+                 "Business"])
         actual (entities/select storage-spec (:id user))
         expected [{:name "Business"
                    :user-id (:id user)}
@@ -62,13 +74,15 @@
     (is (not-any? #(= "Other entity" (:name %)) actual) "The returned list should not contain other users entities")))
 
 (deftest find-an-entity-by-id
-  (let [entity (entities/create storage-spec {:name "Personal"
-                                              :user-id (:id user)})
+  (let [context (serialization/realize storage-spec entity-context)
+        entity (entities/create storage-spec (attributes context))
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (= entity retrieved))))
 
 (deftest update-an-entity
-  (let [entity (entities/create storage-spec {:name "Entity X"
+  (let [context (serialization/realize storage-spec entity-context)
+        user (-> context :users first)
+        entity (entities/create storage-spec {:name "Entity X"
                                               :user-id (:id user)})
         updated (-> entity
                     (assoc :name "Entity Y")
@@ -94,24 +108,26 @@
     (is (= expected actual) "The retreived value has the correct values")))
 
 (deftest delete-an-entity
-  (let [entity (entities/create storage-spec {:name "Entity X"
-                                              :user-id (:id user)})
+  (let [context (serialization/realize storage-spec entity-context)
+        entity (entities/create storage-spec (attributes context))
         _ (entities/delete storage-spec (:id entity))
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (nil? retrieved) "The entity is not returned after delete")))
 
 (deftest inventory-method-can-be-lifo
-  (let [entity (entities/create storage-spec
-                                {:name "Personal"
-                                 :user-id (:id user)
-                                 :settings {:inventory-method :lifo}})]
+  (let [context (serialization/realize storage-spec entity-context)
+        entity (entities/create storage-spec
+                                (-> context
+                                    attributes
+                                    (assoc :settings {:inventory-method :lifo})))]
     (is (empty? (validation/error-messages entity)) "The entity is valid")))
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
-  (let [entity (entities/create storage-spec
-                                {:name "Personal"
-                                 :user-id (:id user)
-                                 :settings {:inventory-method :not-valid}})]
+  (let [context (serialization/realize storage-spec entity-context)
+        entity (entities/create storage-spec
+                                (-> context
+                                    attributes
+                                    (assoc :settings {:inventory-method :not-valid})))]
     (is (= {:inventory-method ["Inventory method must be one of: fifo, lifo"]}
            (validation/error-messages entity :settings))
         "There is an error message for the attributes")))

@@ -11,7 +11,6 @@
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.lots :as lots]
-            [clj-money.models.lot-transactions :as lot-transactions]
             [clj-money.reports :as reports]
             [clj-money.web.shared :refer :all]
             [clj-money.web.money-shared :refer [budget-monitors]]))
@@ -27,7 +26,7 @@
   [:tr
    [:td.text-right (-> record :trade-date format-date)]
    [:td.text-right (format "%s%s"
-                           (if (= :buy (:action record)) "+ " "- ")
+                           (if (= :buy (:lot-action record)) "+ " "- ")
                            (-> record :shares format-number))]
    [:td.text-right (-> record :price format-number)]
    [:td.text-right (-> record :value format-number)]
@@ -50,7 +49,7 @@
                       :level :danger
                       :title "Click here to undo this sale."}))]]])
 
-(defn- lot-transactions-table
+(defn- transactions-table
   [records]
   [:table.table.table-striped
    [:tr
@@ -64,16 +63,15 @@
 
 (defn- lot-row
   [record]
-  (html
-    [:tr
-     [:td.text-right (-> record :shares-owned format-number)]
-     [:td.text-right (-> record :purchase-price format-number)]
-     [:td.text-right (-> record :current-price format-number)]
-     [:td.text-right (-> record :cost format-number)]
-     [:td.text-right (-> record :value format-number)]
-     [:td.text-right
-      {:class (if (<= 0 (:gain record)) "gain" "loss")}
-      (-> record :gain format-number)]]))
+  [:tr
+   [:td.text-right (-> record :shares-owned format-number)]
+   [:td.text-right (-> record :purchase-price format-number)]
+   [:td.text-right (-> record :current-price format-number)]
+   [:td.text-right (-> record :cost format-number)]
+   [:td.text-right (-> record :value format-number)]
+   [:td.text-right
+    {:class (if (<= 0 (:gain record)) "gain" "loss")}
+    (-> record :gain format-number)]])
 
 (defn- lot-section
   [record]
@@ -91,7 +89,7 @@
        (lot-row record)]]]
     [:div.row
      [:div.col-sm-10.col-sm-offset-2
-      (lot-transactions-table (:lot-transactions record))]]))
+      (transactions-table (:transactions record))]]))
 
 (defn index
   [{{:keys [account-id commodity-id]} :params}]

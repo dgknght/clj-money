@@ -75,7 +75,7 @@
     [(concat in [(nth pred 2)]) (format "%s is required" (humanize (nth pred 2)))]))
 
 (defn- interpret-set-inclusion-failure
-  [{:keys [pred path]}]
+  [{:keys [pred path] :as problem}]
   (when (set? pred)
     [path
      (format "%s must be one of: %s"
@@ -126,11 +126,24 @@
   [problem]
   (some #(% problem) problem-interpreters))
 
+; This isn't a perfect solution, but it accounts
+; for the issues I've seen so far
+(defn- flatten-multi-spec-paths
+  [problem]
+  (if (and (< 1 (count (:via problem)))
+           (< 1 (count (:path problem)))
+           (= (count (:via problem))
+              (count (:path problem)))) ; this is getting very hacky
+    (-> problem
+        (update-in [:path] rest)
+        (update-in [:via] rest))
+    problem))
+
 (defn- interpret-problems
   [explanation]
   (->> explanation
        :clojure.spec/problems
-       (map problem->message)
+       (map (comp problem->message flatten-multi-spec-paths))
        (reduce (fn [result [k message]]
                  (update-in result k (fnil #(conj % message) [])))
                {})))

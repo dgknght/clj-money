@@ -23,6 +23,9 @@
 (def create-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset }
               {:name "Salary"
@@ -196,6 +199,9 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
                :user-id "john@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset
                :entity-id "Personal"}
@@ -267,15 +273,21 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
                :user-id "john@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Salary"
                :type :income
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Groceries"
                :type :expense
-               :entity-id "Personal"}]
+               :entity-id "Personal"
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -329,18 +341,25 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
                :user-id "john@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Salary"
                :type :income
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Bonus"
                :type :income
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Groceries"
                :type :expense
-               :entity-id "Personal"}]
+               :entity-id "Personal"
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -385,15 +404,21 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
                :user-id "john@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Salary"
                :type :income
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Groceries"
                :type :expense
-               :entity-id "Personal"}]
+               :entity-id "Personal"
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -460,15 +485,21 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
                :user-id "john@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Salary"
                :type :income
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Groceries"
                :type :expense
-               :entity-id "Personal"}]
+               :entity-id "Personal"
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -610,15 +641,21 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
                :user-id "john@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Salary"
                :type :income
-               :entity-id "Personal"}
+               :entity-id "Personal"
+               :commodity-id "USD"}
               {:name "Groceries"
                :type :expense
-               :entity-id "Personal"}]
+               :entity-id "Personal"
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -713,14 +750,21 @@
 (def change-account-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset}
+               :type :asset
+               :commodity-id "USD"}
               {:name "Salary"
-               :type :income}
+               :type :income
+               :commodity-id "USD"}
               {:name "Rent"
-               :type :expense}
+               :type :expense
+               :commodity-id "USD"}
               {:name "Groceries"
-               :type :expense}]
+               :type :expense
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -795,12 +839,18 @@
 (def change-action-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset}
+               :type :asset
+               :commodity-id "USD"}
               {:name "Salary"
-               :type :income}
+               :type :income
+               :commodity-id "USD"}
               {:name "Groceries"
-               :type :expense}]
+               :type :expense
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -872,14 +922,21 @@
 (def add-remove-item-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset}
+               :type :asset
+               :commodity-id "USD"}
               {:name "Salary"
-               :type :income}
+               :type :income
+               :commodity-id "USD"}
               {:name "Pets"
-               :type :expense}
+               :type :expense
+               :commodity-id "USD"}
               {:name "Groceries"
-               :type :expense}]
+               :type :expense
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 3 2)
                    :entity-id "Personal"
                    :description "Paycheck"
@@ -929,6 +986,7 @@
         [t1 t2 t3 t4] (:transactions context)
         to-update (-> t3
                       (assoc-in [:items 0 :amount] 102M)
+                      (assoc-in [:items 0 :value] 102M)
                       (update-in [:items] #(remove (fn [item]
                                                      (= (:account-id item)
                                                         (:id pets)))
@@ -968,9 +1026,11 @@
         [t1 t2 t3 t4] (:transactions context)
         to-update (-> t2
                       (assoc-in [:items 0 :amount] 90M)
+                      (assoc-in [:items 0 :value] 90M)
                       (update-in [:items] #(conj % {:action :debit
                                                     :account-id (:id pets)
-                                                    :amount 13M})))
+                                                    :amount 13M
+                                                    :value 13M})))
         updated (transactions/update storage-spec to-update)
         expected-items [{:index 1
                          :amount 12M
@@ -997,12 +1057,18 @@
 (def balance-delta-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset }
+               :type :asset
+               :commodity-id "USD"}
               {:name "Salary"
-               :type :income}
+               :type :income
+               :commodity-id "USD"}
               {:name "Groceries"
-               :type :expense}]
+               :type :expense
+               :commodity-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 1 1)
                    :description "Paycheck"
                    :items [{:action :debit
