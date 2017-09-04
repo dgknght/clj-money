@@ -334,7 +334,6 @@
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
         ira (find-account context "IRA")
-        commodity-account (find-account context "AAPL")
         ltcg (find-account context "Long-term Capital Gains")
         commodity (find-commodity context "AAPL")
         purchase (trading/buy storage-spec {:account-id (:id ira)
@@ -342,6 +341,10 @@
                                             :trade-date (t/local-date 2016 3 2)
                                             :shares 100M
                                             :value 1000M})
+        commodity-account (->> {:entity-id (-> context :entities first :id)
+                                            :commodity-id (:id commodity)}
+                               (accounts/search storage-spec)
+                               first)
         lot (-> purchase :lot)
         result (trading/sell storage-spec (sale-attributes context))
         actual-transaction (-> result
@@ -403,7 +406,8 @@
         "The shares-owned value of the original lot is updated")
     (is (:transaction result)
         "The result contains the transaction record")
-    (is (= expected-transaction actual-transaction) "The transaction contains the correct attributes")
+    (is (= expected-transaction actual-transaction)
+        "The transaction contains the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (testing "entity settings"
@@ -545,7 +549,7 @@
 
 (deftest selling-a-commodity-updates-a-lot-record
   (let [context (serialization/realize storage-spec (sell-context))
-        [ira] (:accounts context)
+        ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
