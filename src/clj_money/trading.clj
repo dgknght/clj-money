@@ -63,11 +63,11 @@
 
 (defn- find-commodity-account
   [storage parent commodity]
-  (->> {:parent-id (:id parent)
-            :commodity-id (:id commodity)}
-       (accounts/search storage)
-       first
-       (ensure-tag storage :tradable)))
+  (when-let [result (->> {:parent-id (:id parent)
+                          :commodity-id (:id commodity)}
+                         (accounts/search storage)
+                         first)]
+    (ensure-tag storage :tradable result)))
 
 (defn- create-commodity-account
   [storage parent commodity]
