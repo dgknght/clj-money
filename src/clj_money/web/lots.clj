@@ -26,7 +26,7 @@
   [:tr
    [:td.text-right (-> record :trade-date format-date)]
    [:td.text-right (format "%s%s"
-                           (if (= :buy (:action record)) "+ " "- ")
+                           (if (= :buy (:lot-action record)) "+ " "- ")
                            (-> record :shares format-number))]
    [:td.text-right (-> record :price format-number)]
    [:td.text-right (-> record :value format-number)]
@@ -63,16 +63,15 @@
 
 (defn- lot-row
   [record]
-  (html
-    [:tr
-     [:td.text-right (-> record :shares-owned format-number)]
-     [:td.text-right (-> record :purchase-price format-number)]
-     [:td.text-right (-> record :current-price format-number)]
-     [:td.text-right (-> record :cost format-number)]
-     [:td.text-right (-> record :value format-number)]
-     [:td.text-right
-      {:class (if (<= 0 (:gain record)) "gain" "loss")}
-      (-> record :gain format-number)]]))
+  [:tr
+   [:td.text-right (-> record :shares-owned format-number)]
+   [:td.text-right (-> record :purchase-price format-number)]
+   [:td.text-right (-> record :current-price format-number)]
+   [:td.text-right (-> record :cost format-number)]
+   [:td.text-right (-> record :value format-number)]
+   [:td.text-right
+    {:class (if (<= 0 (:gain record)) "gain" "loss")}
+    (-> record :gain format-number)]])
 
 (defn- lot-section
   [record]
