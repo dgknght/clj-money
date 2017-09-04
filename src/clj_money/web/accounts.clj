@@ -173,7 +173,10 @@
 (defmulti ^:private show-account
   (fn [account params]
     (cond
-      (-> account :commodity :default)
+      (contains? (:tags account) :trading)
+      :trading-account
+
+      (contains? (:tags account) :tradable)
       :trading-detail
 
       :else
@@ -326,10 +329,6 @@
     (select-field account :type (map #(vector :option {:value %} (humanize %))
                                      accounts/account-types))
     (select-field account
-                  :content-type
-                  (map #(vector :option {:value %} (humanize %))
-                       [:currency :commodities]))
-    (select-field account
                   :parent-id
                   (grouped-options-for-accounts (:entity-id account)
                                                 {:include-none? true
@@ -368,7 +367,7 @@
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [{params :params}]
-  (let [account (select-keys params [:entity-id :name :type :content-type :parent-id])
+  (let [account (select-keys params [:entity-id :name :type :parent-id])
         saved (accounts/create (env :db) account)]
     (if (validation/has-error? saved)
       (new-account {:params (select-keys saved [:entity-id])} saved)
@@ -394,9 +393,7 @@
   (let [account (select-keys params [:id
                                      :name
                                      :type
-                                     :content-type
                                      :entity-id
-                                     :content-type
                                      :parent-id])
         updated (accounts/update (env :db) account)]
     (if (validation/has-error? updated)
