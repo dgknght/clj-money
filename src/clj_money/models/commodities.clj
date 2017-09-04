@@ -58,7 +58,8 @@
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])
    (coercion/rule :keyword [:exchange])
-   (coercion/rule :integer [:id])])
+   (coercion/rule :integer [:id])
+   (coercion/rule :keyword [:type])])
 
 (defn- name-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]
