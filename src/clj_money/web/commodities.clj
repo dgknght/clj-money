@@ -3,6 +3,7 @@
   (:require [environ.core :refer [env]]
             [ring.util.response :refer :all]
             [hiccup.core :refer :all]
+            [clojure.tools.logging :as log]
             [clj-money.util :refer [format-number]]
             [clj-money.web.shared :refer :all]
             [clj-money.validation :as validation]
@@ -75,14 +76,14 @@
   (html
     [:div.row
      [:div.col-sm-6
-      (select-field commodity :exchange (options-for-select [:currency :stock] name identity))]
+      (select-field commodity :type (options-for-select [:currency :stock] name identity))]
      [:div.col-sm-6
       (select-field commodity :exchange (options-for-select commodities/exchanges name identity))]]
     [:div.row
      [:div.col-sm-6
-      (text-input-field commodity :name)]
+      (text-input-field commodity :name {:autofocus true})]
      [:div.col-sm-6
-      (text-input-field commodity :symbol {:autofocus true})]]
+      (text-input-field commodity :symbol)]]
     [:input.btn.btn-primary {:type :submit
                              :value "Save"
                              :title "Click here to save this commodity"}]
@@ -107,7 +108,7 @@
   [{params :params}]
   (let [commodity (commodities/create
                     (env :db)
-                    (select-keys params [:entity-id :name :symbol :exchange]))]
+                    (select-keys params [:entity-id :name :symbol :exchange :type]))]
     (if (validation/has-error? commodity)
       (new-commodity {} commodity)
       (redirect (format "/entities/%s/commodities" (:entity-id commodity))))))
@@ -133,7 +134,7 @@
   (let [result (commodities/update (env :db)
                                    (select-keys
                                      params
-                                     [:id :name :symbol :exchange]))]
+                                     [:id :name :symbol :exchange :type]))]
     (if (validation/has-error? result)
       (edit {} result)
       (redirect (format "/entities/%s/commodities" (:entity-id result))))))
