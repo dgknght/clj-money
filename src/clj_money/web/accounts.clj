@@ -53,7 +53,8 @@
                    (format "/accounts/%s" (:id account))
                    {:level :default
                     :size :extra-small
-                    :title "Click here to view transactions for this account"})
+                    :title "Click here to view transactions for this account"
+                    :disabled (contains? (:tags account) :tradable)})
      (glyph-button :check
                    (format "/accounts/%s/reconciliations/new" (:id account))
                    {:level :default
@@ -70,7 +71,8 @@
                     :size :extra-small
                     :data-method :post
                     :data-confirm "Are you sure you want to delete this account?"
-                    :title "Click here to remove this account"})]]])
+                    :title "Click here to remove this account"
+                    :disabled (empty? (:children account))})]]])
 
 (defn- render-child-rows?
   [account]
