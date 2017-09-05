@@ -65,14 +65,12 @@
      [:div.row
       [:div.col-md-6
        [:pre (prn-str attachment)]
-       [:form {:action (format "/transactions/%s/attachments"
-                               (:transaction-id attachment))
-               :method :post
-               :enctype "multipart/form-data"}
-        (text-input-field attachment :caption {:autofocus true})
-        (file-input-field attachment :source-file)
-        [:button.btn.btn-primary {:type :submit}
-         "Submit"]]]])))
+       (form (format "/transactions/%s/attachments"
+                     (:transaction-id attachment)) {:enctype "multipart/form-data"}
+             (text-input-field attachment :caption {:autofocus true})
+             (file-input-field attachment :source-file)
+             [:button.btn.btn-primary {:type :submit}
+              "Submit"])]])))
 
 (defn- prepare-file-data
   [params]

@@ -5,6 +5,7 @@
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
+            [ring.util.anti-forgery :refer [anti-forgery-field]]
             [clojure.string :as s]
             [cemerick.friend :as friend]
             [clj-money.util :refer [format-number
@@ -314,3 +315,10 @@
                 {:value (value-fn %)}
                 (caption-fn %))
        models))
+
+(defmacro form
+  [url options & body]
+  `[:form {:action ~url
+           :method (or (:method ~options) :post)}
+    (anti-forgery-field)
+    ~@body])

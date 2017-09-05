@@ -69,8 +69,8 @@
    (with-layout "New entity" {}
      [:div.row
       [:div.col-md-6
-       [:form {:action "/entities" :method :post}
-        (entity-form-fields entity)]]]))
+       (form "/entities" {}
+             (entity-form-fields entity))]]))
 
 (defn create-entity
   "Creates the entity and redirects to the index on success, 
@@ -86,9 +86,9 @@
   (with-layout "Edit entity" {}
     [:div.row
      [:div.col-md-6
-      [:form {:action (format "/entities/%s" id) :method :post}
-       (let [entity (entities/find-by-id (env :db) (Integer. id))]
-         (entity-form-fields entity))]]]))
+      (form (format "/entities/%s" id) {}
+            (let [entity (entities/find-by-id (env :db) (Integer. id))]
+              (entity-form-fields entity)))]]))
 
 (defn update
   "Updates the entity and redirects to index on success or
@@ -133,13 +133,12 @@
           (map monitor-row (->> entity
                                 :monitored-account-ids
                                 (map #(accounts/find-by-id (env :db) %))))]
-         [:form {:action (format "/entities/%s/monitors" (:id entity))
-                 :method :post}
-          [:div.form-group
-           [:label.control-label {:for :account-id} "Add Account"]
-           [:select.form-control {:id :account-id :name :account-id}
-            (grouped-options-for-accounts (:id entity) {:selected-id (:account-id monitor)})]]
-          [:input.btn.btn-primary {:type :submit :value "Add"}]]]]))))
+         (form (format "/entities/%s/monitors" (:id entity)) {}
+               [:div.form-group
+                [:label.control-label {:for :account-id} "Add Account"]
+                [:select.form-control {:id :account-id :name :account-id}
+                 (grouped-options-for-accounts (:id entity) {:selected-id (:account-id monitor)})]]
+               [:input.btn.btn-primary {:type :submit :value "Add"}])]]))))
 
 (defn create-monitor
   [{params :params}]

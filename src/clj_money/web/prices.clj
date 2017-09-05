@@ -58,16 +58,15 @@
      (with-layout (format "New price for %s" (:symbol commodity)) {}
        [:div.row
         [:div.col-md-6
-         [:form {:action (format "/commodities/%s/prices" (:id commodity))
-                 :method :post}
-          (date-input-field price :trade-date {:autofocus true})
-          (number-input-field price :price)
-          [:input.btn.btn-primary {:type :submit
-                                   :title "Click here to save this price"}]
-          "&nbsp;"
-          [:a.btn.btn-default {:href (format "/commodities/%s/prices" (:id commodity))
-                               :title "Click here to return to the list of prices."}
-           "Back"]]]]))))
+         (form (format "/commodities/%s/prices" (:id commodity)) {}
+               (date-input-field price :trade-date {:autofocus true})
+               (number-input-field price :price)
+               [:input.btn.btn-primary {:type :submit
+                                        :title "Click here to save this price"}]
+               "&nbsp;"
+               [:a.btn.btn-default {:href (format "/commodities/%s/prices" (:id commodity))
+                                    :title "Click here to return to the list of prices."}
+                "Back"])]]))))
 
 (defn create
   [{params :params}]

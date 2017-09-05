@@ -69,9 +69,8 @@
    (let [account (accounts/find-by-id (env :db) (Integer. (:account-id params)))]
      (with-trading-layout "New Purchase" (:entity-id account) {}
        [:div.col-md-6
-        [:form {:action (format "/accounts/%s/purchases" (:id account))
-                :method :post}
-         (form-fields account purchase)]]))))
+        (form (format "/accounts/%s/purchases" (:id account)) {}
+              (form-fields account purchase))]))))
 
 (defn purchase
   [{params :params :as req}]
@@ -100,32 +99,31 @@
                        :lt-capital-loss-account-id
                        :st-capital-loss-account-id])]
      (with-trading-layout "New Sale" (:entity-id account) {}
-       [:form {:action (format "/accounts/%s/sales" (:id account))
-               :method :post}
-        [:div.col-md-6
-         (form-fields account sale)]
-        [:div.col-md-6
-         (select-field sale :inventory-method (inventory-method-options))
-         (select-field sale
-                       :lt-capital-gains-account-id
-                       (grouped-options-for-accounts
-                         (:entity-id account)
-                         {:selected-id (:lt-capital-gains-account-id sale)}))
-         (select-field sale
-                       :st-capital-gains-account-id
-                       (grouped-options-for-accounts
-                         (:entity-id account)
-                         {:selected-id (:st-capital-gains-account-id sale)}))
-         (select-field sale
-                       :lt-capital-loss-account-id
-                       (grouped-options-for-accounts
-                         (:entity-id account)
-                         {:selected-id (:lt-capital-loss-account-id sale)}))
-         (select-field sale
-                       :st-capital-loss-account-id
-                       (grouped-options-for-accounts
-                         (:entity-id account)
-                         {:selected-id (:st-capital-loss-account-id sale)}))]]))))
+       (form (format "/accounts/%s/sales" (:id account)) {}
+             [:div.col-md-6
+              (form-fields account sale)]
+             [:div.col-md-6
+              (select-field sale :inventory-method (inventory-method-options))
+              (select-field sale
+                            :lt-capital-gains-account-id
+                            (grouped-options-for-accounts
+                              (:entity-id account)
+                              {:selected-id (:lt-capital-gains-account-id sale)}))
+              (select-field sale
+                            :st-capital-gains-account-id
+                            (grouped-options-for-accounts
+                              (:entity-id account)
+                              {:selected-id (:st-capital-gains-account-id sale)}))
+              (select-field sale
+                            :lt-capital-loss-account-id
+                            (grouped-options-for-accounts
+                              (:entity-id account)
+                              {:selected-id (:lt-capital-loss-account-id sale)}))
+              (select-field sale
+                            :st-capital-loss-account-id
+                            (grouped-options-for-accounts
+                              (:entity-id account)
+                              {:selected-id (:st-capital-loss-account-id sale)}))])))))
 
 (defn sell
   [{params :params :as req}]

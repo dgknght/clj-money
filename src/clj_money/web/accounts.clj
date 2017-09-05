@@ -361,9 +361,8 @@
   ([{params :params} account]
    (let [entity-id (:entity-id params)]
      (with-accounts-layout "New account" entity-id {}
-       [:form {:action (str "/entities/" entity-id "/accounts")
-               :method :post}
-        (form-fields account)]))))
+       (form (format "/entities/%s/accounts" entity-id) {}
+             (form-fields account))))))
 
 (defn create
   "Creates the account and redirects to the index page on success, or
@@ -381,12 +380,11 @@
   (let [account (or (:account req)
                     (accounts/find-by-id (env :db) (-> req :params :id)))]
     (with-accounts-layout "Edit account" (:entity-id account) {}
-      [:form {:action (format "/accounts/%s" (:id account))
-              :method :post}
-       [:input {:type :hidden
-                :name "entity-id"
-                :value (:entity-id account)}]
-       (form-fields account)])))
+      (form (format "/accounts/%s" (:id account)) {}
+            [:input {:type :hidden
+                     :name "entity-id"
+                     :value (:entity-id account)}]
+            (form-fields account)))))
 
 (defn update
   "Updates the account and redirects to the account list on

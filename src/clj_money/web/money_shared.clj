@@ -62,12 +62,11 @@
   [monitor]
   [:div.panel.panel-default
    [:div.panel-heading
-    [:form {:action (format "/entities/%s/monitors/%s/delete"
-                            (-> monitor :account :entity-id)
-                            (-> monitor :account :id))
-            :method :post}
-     [:button.close {:title "Click here to remove this budget monitor."}
-      [:span {:aria-hidden true} "&times;"]]]
+    (form (format "/entities/%s/monitors/%s/delete"
+                  (-> monitor :account :entity-id)
+                  (-> monitor :account :id)) {}
+          [:button.close {:title "Click here to remove this budget monitor."}
+           [:span {:aria-hidden true} "&times;"]])
     [:strong (:caption monitor)]]
    [:div.panel-body
     (when (:message monitor)

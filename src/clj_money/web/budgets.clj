@@ -97,9 +97,8 @@
    (with-layout "New budget" {:entity entity}
      [:div.row
       [:div.col-md-3
-       [:form {:action (format "/entities/%s/budgets" (:id entity))
-               :method :post}
-        (form-fields budget)]]])))
+       (form (format "/entities/%s/budgets" (:id entity)) {}
+             (form-fields budget))]])))
 
 (defn create
   "Creates the budget and redirects to the index page on success, or
@@ -277,9 +276,8 @@
     (with-layout "Edit budget" {:entity-id (:entity-id budget)}
       [:div.row
        [:div.col-md-3
-        [:form {:action (format "/budgets/%s" (:id budget))
-                :method :post}
-         (form-fields budget)]]])))
+        (form (format "/budgets/%s" (:id budget)) {}
+              (form-fields budget))]])))
 
 (defn update
   "Updates the specified budget and redirects to the index page
@@ -401,9 +399,8 @@
   [{{budget-id :budget-id :as item} :params}]
   (let [budget (budgets/find-by-id (env :db) budget-id)]
     (with-layout (str "Budget " (:name budget) ": New item") {:entity-id (:entity-id budget)}
-      [:form {:action (format "/budgets/%s/items" budget-id)
-              :method :post}
-       (item-form-fields item budget)])))
+      (form (format "/budgets/%s/items" budget-id) {}
+            (item-form-fields item budget)))))
 
 (defmulti extract-periods
   (fn [item _]
@@ -481,12 +478,11 @@
         budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
     (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {:entity-id (:entity-id budget)}
-      [:form {:action (format "/budget-items/%s" (:id item))
-              :method :post}
-       (-> item
-           (assoc :method method)
-           prepare-item-for-edit
-           (item-form-fields budget))])))
+      (form (format "/budget-items/%s" (:id item)) {}
+            (-> item
+                (assoc :method method)
+                prepare-item-for-edit
+                (item-form-fields budget))))))
 
 (defn update-item
   "Updates the specified item and redirects to the budget on success or renders the

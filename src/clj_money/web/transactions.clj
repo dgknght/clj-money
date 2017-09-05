@@ -175,15 +175,14 @@
                     {}))
   ([params transaction options]
    (with-transactions-layout "New Transaction" (:entity-id transaction) options
-     [:form {:action (cond-> (path "/entities"
-                                   (:entity-id transaction)
-                                   "transactions")
-                       (contains? params :redirect) (query {:redirect (-> params
-                                                                          :redirect
-                                                                          url-encode)})
-                       true format-url)
-             :method :post}
-      (form-fields transaction (redirect-url (:entity-id transaction) params))])))
+     (form (cond-> (path "/entities"
+                         (:entity-id transaction)
+                         "transactions")
+             (contains? params :redirect) (query {:redirect (-> params
+                                                                :redirect
+                                                                url-encode)})
+             true format-url) {}
+           (form-fields transaction (redirect-url (:entity-id transaction) params))))))
 
 (defn- valid-item?
   [{account-id :account-id :as item}]
@@ -229,9 +228,8 @@
                   true
                   format-url)]
      (with-transactions-layout "New Transaction" (:entity-id transaction) options
-       [:form {:action action
-               :method :post}
-        (form-fields transaction (redirect-url (:entity-id transaction) params))]))))
+       (form action {}
+             (form-fields transaction (redirect-url (:entity-id transaction) params)))))))
 
 (defn update
   [{params :params}]

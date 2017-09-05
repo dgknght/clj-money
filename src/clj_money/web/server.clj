@@ -8,6 +8,7 @@
             [clojure.java.io :as io]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.session :refer [wrap-session]]
+            [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
@@ -177,6 +178,7 @@
       wrap-json-params
       wrap-keyword-params
       wrap-json-response
+      wrap-anti-forgery
       wrap-session))
 
 (defn -main [& [port]]
