@@ -7,9 +7,7 @@
             [ring.util.response :refer :all]
             [clj-money.validation :as validation]
             [clj-money.util :as util]
-            [clj-money.web.shared :refer [with-layout
-                                          date-input-field
-                                          number-input-field]]
+            [clj-money.web.shared :refer :all]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]))
@@ -50,58 +48,57 @@
       (when (validation/has-error? reconciliation)
         [:pre (prn-str (validation/error-messages reconciliation))])
 
-      [:form {:action (if (:id reconciliation)
-                        (format "/reconciliations/%s" (:id reconciliation))
-                        (format "/accounts/%s/reconciliations" (:id account)))
-              :method :post}
-       [:div.row
-        [:div.col-md-4
-         (date-input-field reconciliation :end-of-period {:autofocus true})
-         [:div.form-group
-          [:label.control-label {:for :end-of-previous-period} "End of prev. period"]
-          [:input.form-control {:name :end-of-previous-period
-                                :value (when last-completed
-                                         (util/format-date (:end-of-period last-completed)))
-                                :disabled true}]]
-         [:div.form-group
-          [:label.control-label {:for :previous-balance} "Previous balance"]
-          [:input.form-control {:name :previous-balance
-                                :value (util/format-number previous-balance)
-                                :disabled true}]]
-         [:div.form-group
-          [:label.control-label {:for :reconciled-balance} "Reconciled balance"]
-          [:input.form-control {:name :reconciled-balance
-                                :value (util/format-number
-                                         (if (= 0M reconciled-item-total)
-                                           0M
-                                           (+ previous-balance
-                                              reconciled-item-total)))
-                                :disabled true}]]
-         (number-input-field reconciliation :balance)
-         [:input.btn.btn-primary {:type :submit
-                                  :name :submit
-                                  :value "Finish"
-                                  :title "Click here to complete the reconciliation."}]
-         "&nbsp;"
-         [:input.btn.btn-default {:type :submit
-                                  :name :submit
-                                  :value "Save"
-                                  :title "Click here to save the reconciliation and complete it later."}]
-         "&nbsp;"
-         [:a.btn.btn-default
-          {:href (format "/entities/%s/accounts" (:entity-id account))
-           :title "Click here to return to the list of accounts."}
-          "Back"]]
-        [:div.col-md-8
-         [:table.table.table-striped.table-hover
-          [:tr
-           [:th.col-sm-2.text-right "Date"]
-           [:th.col-sm-5 "Description"]
-           [:th.col-sm-3.text-right "Amount"]
-           [:th.col-sm-2.text-center "Rec."]]
-          (map #(reconciliation-item-row account %)
-               (transactions/unreconciled-items-by-account (env :db)
-                                                           (:id account)))]]]])))
+      (form (if (:id reconciliation)
+              (format "/reconciliations/%s" (:id reconciliation))
+              (format "/accounts/%s/reconciliations" (:id account))) {}
+            [:div.row
+             [:div.col-md-4
+              (date-input-field reconciliation :end-of-period {:autofocus true})
+              [:div.form-group
+               [:label.control-label {:for :end-of-previous-period} "End of prev. period"]
+               [:input.form-control {:name :end-of-previous-period
+                                     :value (when last-completed
+                                              (util/format-date (:end-of-period last-completed)))
+                                     :disabled true}]]
+              [:div.form-group
+               [:label.control-label {:for :previous-balance} "Previous balance"]
+               [:input.form-control {:name :previous-balance
+                                     :value (util/format-number previous-balance)
+                                     :disabled true}]]
+              [:div.form-group
+               [:label.control-label {:for :reconciled-balance} "Reconciled balance"]
+               [:input.form-control {:name :reconciled-balance
+                                     :value (util/format-number
+                                              (if (= 0M reconciled-item-total)
+                                                0M
+                                                (+ previous-balance
+                                                   reconciled-item-total)))
+                                     :disabled true}]]
+              (number-input-field reconciliation :balance)
+              [:input.btn.btn-primary {:type :submit
+                                       :name :submit
+                                       :value "Finish"
+                                       :title "Click here to complete the reconciliation."}]
+              "&nbsp;"
+              [:input.btn.btn-default {:type :submit
+                                       :name :submit
+                                       :value "Save"
+                                       :title "Click here to save the reconciliation and complete it later."}]
+              "&nbsp;"
+              [:a.btn.btn-default
+               {:href (format "/entities/%s/accounts" (:entity-id account))
+                :title "Click here to return to the list of accounts."}
+               "Back"]]
+             [:div.col-md-8
+              [:table.table.table-striped.table-hover
+               [:tr
+                [:th.col-sm-2.text-right "Date"]
+                [:th.col-sm-5 "Description"]
+                [:th.col-sm-3.text-right "Amount"]
+                [:th.col-sm-2.text-center "Rec."]]
+               (map #(reconciliation-item-row account %)
+                    (transactions/unreconciled-items-by-account (env :db)
+                                                                (:id account)))]]]))))
 
 (defn new-reconciliation
   ([req] (new-reconciliation req {:end-of-period (t/today)}))

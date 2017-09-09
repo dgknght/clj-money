@@ -21,9 +21,9 @@
    (with-layout "Log in" {}
      [:div.row
       [:div.col-md-6
-       [:form {:action "/login" :method :post}
-        (text-input-field model :username {:autofocus true})
-        (password-input-field model :password)
-        [:input.btn.btn-primary {:type :submit :value "Log in"}]
-        "&nbsp;"
-        [:a.btn.btn-default {:href "/"} "Cancel"]]]])))
+       (form "/login" {}
+             (text-input-field model :username {:autofocus true})
+             (password-input-field model :password)
+             [:input.btn.btn-primary {:type :submit :value "Log in"}]
+             "&nbsp;"
+             [:a.btn.btn-default {:href "/"} "Cancel"])]])))

@@ -25,22 +25,20 @@
         "{{ statusMessage }}"]]]
      [:div.row {:ng-hide "activeImport"}
       [:div.col-md-6
-       [:form {:action "/entities/import"
-               :method :post
-               :enctype "multipart/form-data"}
-        [:div.form-group
-         [:label.control-label {:for "entity-name"} "Name"]
-         [:input.form-control {:type :text
-                               :name "entity-name"
-                               :id "entity-name"
-                               :ng-model "entityName"
-                               :autofocus true}]]
-        [:div.form-group
-         [:label.control-label {:for "source-file"} "Source file"]
-         [:input.form-control {:type :file
-                               :file-model "sourceFile"
-                               :name "source-file"
-                               :id "source-file"}]]]
+       (form "/entities/import" {}
+             [:div.form-group
+              [:label.control-label {:for "entity-name"} "Name"]
+              [:input.form-control {:type :text
+                                    :name "entity-name"
+                                    :id "entity-name"
+                                    :ng-model "entityName"
+                                    :autofocus true}]]
+             [:div.form-group
+              [:label.control-label {:for "source-file"} "Source file"]
+              [:input.form-control {:type :file
+                                    :file-model "sourceFile"
+                                    :name "source-file"
+                                    :id "source-file"}]])
        [:button.btn.btn-primary
         {:title "Click here to upload the specified file and import the data into a new entity."
          :ng-click "startImport();"}

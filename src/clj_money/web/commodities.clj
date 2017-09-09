@@ -100,9 +100,8 @@
    (with-layout "New commodity" {:entity entity}
      [:div.row
       [:div.col-md-6
-       [:form {:action (format "/entities/%s/commodities" (:entity-id commodity))
-               :method :post}
-        (form-fields commodity)]]])))
+       (form (format "/entities/%s/commodities" (:entity-id commodity)) {}
+             (form-fields commodity))]])))
 
 (defn create
   [{params :params}]
@@ -126,8 +125,8 @@
    (with-layout "Edit commodity" {:entity-id (:entity-id commodity)}
      [:div.row
       [:div.col-md-6
-       [:form {:action (format "/commodities/%s" (:id commodity)) :method :post}
-        (form-fields commodity)]]])))
+       (form (format "/commodities/%s" (:id commodity)) {}
+             (form-fields commodity))]])))
 
 (defn update
   [{params :params}]
