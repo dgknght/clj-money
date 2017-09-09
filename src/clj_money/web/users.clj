@@ -16,7 +16,7 @@
    (with-layout "Sign up" options
      [:div.row
       [:div.col-md-6
-       (form "/users"
+       (form "/users" {}
              (text-input-field user :first-name {:autofocus true})
              (text-input-field user :last-name)
              (text-input-field user :email)
