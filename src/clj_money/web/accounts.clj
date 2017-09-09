@@ -72,7 +72,7 @@
                     :data-method :post
                     :data-confirm "Are you sure you want to delete this account?"
                     :title "Click here to remove this account"
-                    :disabled (empty? (:children account))})]]])
+                    :disabled (seq (:children account))})]]])
 
 (defn- render-child-rows?
   [account]

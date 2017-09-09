@@ -11,14 +11,20 @@ $(function() {
   }
 
   function postLink(a) {
-    var url = a.attr("href");
     try {
-      a.after("<form id=\"dynamic-form\" action=\"" +
-          url + "\" method=\"" +
-          a.data('method') + "\"></form");
-      $("#dynamic-form").submit();
+      form = $('<form />', {
+        action: a.attr('href'),
+        method: 'POST',
+        style: 'display: none;'
+      });
+      $('<input />', {
+        type: 'hidden',
+        name: '__anti-forgery-token',
+        value: a.data('anti-forgery-token')
+      }).appendTo(form);
+      form.appendTo(document.body).submit();
     } catch (e) {
-      console.log("error");
+      console.log("error posting the form");
       console.log(e);
     }
   }

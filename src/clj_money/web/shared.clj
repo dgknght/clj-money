@@ -6,6 +6,7 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.anti-forgery :refer [anti-forgery-field]]
+            [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
             [clojure.string :as s]
             [cemerick.friend :as friend]
             [clj-money.util :refer [format-number
@@ -15,11 +16,19 @@
             [clj-money.models.entities :as entities])
   (:use clj-money.inflection))
 
+(defn- append-anti-forgery-link-attributes
+  [attributes]
+  (if (= :post (:data-method attributes))
+    (assoc attributes :data-anti-forgery-token *anti-forgery-token*)
+    attributes))
+
 (defn glyph-link
   "Renders a link with a glyphicon"
   ([glyph url] (glyph-link glyph url {}))
   ([glyph url options]
-   [:a (merge options {:href url})
+   [:a (-> options
+           (merge {:href url})
+           append-anti-forgery-link-attributes)
     [:span {:arial-hidden true
             :class (format "glyphicon glyphicon-%s" (name glyph))}]]))
 
