@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
-            [clj-money.models.entities :as entities]))
+            [clj-money.models.entities :as entities])
+  (:import clj_money.NotAuthorizedException))
 
 (defn- integerize-id-params
   [params]
@@ -37,3 +38,13 @@
   [handler]
   (fn [request]
     (handler (update-in request [:params] lookup-entity))))
+
+(defn wrap-exception-handling
+  [handler]
+  (fn [request]
+    (try
+      (handler request)
+      (catch NotAuthorizedException e
+        {:status 403
+         :headers {}
+         :body "forbidden"}))))

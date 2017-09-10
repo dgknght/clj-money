@@ -7,6 +7,7 @@
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.url :refer :all]
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number]]
@@ -110,6 +111,7 @@
   "Renders the list of accounts"
   ([req] (index req {}))
   ([{{entity :entity :as params} :params} options]
+   (authorize :index :account params)
    (with-accounts-layout "Accounts" (:id entity) (merge options {:entity entity})
      [:table.table.table-striped
       [:tr

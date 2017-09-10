@@ -22,7 +22,9 @@
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds]
             [clj-money.json]
-            [clj-money.middleware :refer [wrap-integer-id-params wrap-entity]]
+            [clj-money.middleware :refer [wrap-integer-id-params
+                                          wrap-entity
+                                          wrap-exception-handling]]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
@@ -173,6 +175,7 @@
          :credential-fn (partial clj-money.models.users/authenticate (env :db))
          :redirect-on-auth? false})
       (wrap-resource "public")
+      wrap-exception-handling
       wrap-params
       wrap-multipart-params
       wrap-json-params
