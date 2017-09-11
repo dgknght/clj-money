@@ -1,23 +1,23 @@
 (ns clj-money.authorization
   (:require [clojure.tools.logging :as log]
+            [environ.core :refer [env]]
             [cemerick.friend :refer [current-authentication]])
   (:import clj_money.NotAuthorizedException))
 
-(defn- find-policy
-  [resource]
-  {})
-
 (defn- allowed?
-  [policy action resource params]
+  [user action resource params]
+  (case action
+    :index
+    (= (:id user)
+       (-> params :entity :user-id))
 
-  (log/debug "allowed?" (prn-str {:user-id (:id (current-authentication))
-                                  :entity-user-id (-> params :entity :user-id)}))
-
-  (= (:id (current-authentication))
-     (-> params :entity :user-id)))
+    :show
+    (let [entity-ids (->> (clj-money.models.entities/select (env :db) (:id user))
+                          (map :id)
+                          (into #{}))]
+      (entity-ids (:entity-id resource)))))
 
 (defn authorize
   [action resource params]
-  (when-let [policy (find-policy resource)]
-    (if-not (allowed? policy action resource params)
-      (throw (NotAuthorizedException.)))))
+  (if-not (allowed? (current-authentication) action resource params)
+    (throw (NotAuthorizedException.))))

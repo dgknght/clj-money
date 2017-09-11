@@ -23,7 +23,7 @@
             [cemerick.friend.credentials :as creds]
             [clj-money.json]
             [clj-money.middleware :refer [wrap-integer-id-params
-                                          wrap-entity
+                                          wrap-models
                                           wrap-exception-handling]]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
@@ -45,7 +45,7 @@
 (defmacro route
   [method path handler]
   `(~method ~path req# (-> ~handler
-                           wrap-entity
+                           wrap-models
                            wrap-integer-id-params)))
 
 (defroutes protected-routes

@@ -320,10 +320,10 @@
 (defn show
   "Renders account details, including transactions"
   ([req] (show req {}))
-  ([{params :params} options]
-   (let [account (accounts/find-by-id (env :db) (:id params))]
-     (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
-       (show-account account params)))))
+  ([{{account :account :as params} :params} options]
+   (authorize :show account params)
+   (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
+     (show-account account params))))
 
 (defn- form-fields
   "Renders the form fields for an account"
