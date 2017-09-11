@@ -45,6 +45,6 @@
     (try
       (handler request)
       (catch NotAuthorizedException e
-        {:status 403
+        {:status 404
          :headers {}
-         :body "forbidden"}))))
+         :body "not found"}))))
