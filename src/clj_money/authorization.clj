@@ -4,18 +4,31 @@
             [cemerick.friend :refer [current-authentication]])
   (:import clj_money.NotAuthorizedException))
 
-(defn- allowed?
-  [user action resource params]
-  (case action
-    :index
-    (= (:id user)
-       (-> params :entity :user-id))
+(defn- resource-key
+  "Returns a keyword identifying the type of the resource"
+  [resource]
+  (if (keyword? resource)
+    resource
+    (-> resource meta :resource-type)))
 
-    :show
-    (let [entity-ids (->> (clj-money.models.entities/select (env :db) (:id user))
-                          (map :id)
-                          (into #{}))]
-      (entity-ids (:entity-id resource)))))
+(defmulti allowed?
+  "Returns a truthy or falsey value indicating whether or not the
+  authenticated user is allowed to perform the specified
+  action on the specified resource"
+  (fn [user action resource params]
+    [(resource-key resource) action]))
+
+(defmethod allowed? [:account :index]
+  [user action resource params]
+  (= (:id user)
+     (-> params :entity :user-id)))
+
+(defmethod allowed? [:account :show]
+  [user action resource params]
+  (let [entity-ids (->> (clj-money.models.entities/select (env :db) (:id user))
+                        (map :id)
+                        (into #{}))]
+    (entity-ids (:entity-id resource))))
 
 (defn authorize
   [action resource params]

@@ -104,6 +104,7 @@
                :commodity-type
                :commodity-exchange
                :entity-settings)
+       (with-meta {:resource-type :account})
        (cond->
          (and ; Remove :parent-id if it's nil
            (contains? account :parent-id)
