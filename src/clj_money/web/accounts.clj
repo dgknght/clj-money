@@ -362,6 +362,7 @@
   ([{params :params :as req}]
    (new-account req (new-account-defaults params)))
   ([{params :params} account]
+   (authorize :new :account params)
    (let [entity-id (:entity-id params)]
      (with-accounts-layout "New account" entity-id {}
        (form (format "/entities/%s/accounts" entity-id) {}
@@ -371,6 +372,7 @@
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [{params :params}]
+  (authorize :new :account params)
   (let [account (select-keys params [:entity-id :name :type :parent-id])
         saved (accounts/create (env :db) account)]
     (if (validation/has-error? saved)
@@ -382,6 +384,7 @@
   [req]
   (let [account (or (:account req)
                     (accounts/find-by-id (env :db) (-> req :params :id)))]
+    (authorize :edit account (:params req))
     (with-accounts-layout "Edit account" (:entity-id account) {}
       (form (format "/accounts/%s" (:id account)) {}
             [:input {:type :hidden
@@ -393,20 +396,24 @@
   "Updates the account and redirects to the account list on
   success or rerenders the edit from on error"
   [{params :params}]
-  (let [account (select-keys params [:id
-                                     :name
-                                     :type
-                                     :entity-id
-                                     :parent-id])
-        updated (accounts/update (env :db) account)]
-    (if (validation/has-error? updated)
-      (edit {:account updated})
-      (redirect (format "/entities/%s/accounts" (:entity-id updated))))))
+  (let [account (accounts/find-by-id (env :db) (:id params))]
+    (authorize :update account params)
+    (let [updated (merge account
+                         (select-keys params [:id
+                                              :name
+                                              :type
+                                              :entity-id
+                                              :parent-id]))
+          result (accounts/update (env :db) updated)]
+      (if (validation/has-error? result)
+        (edit {:account result})
+        (redirect (format "/entities/%s/accounts" (:entity-id result)))))))
 
 (defn delete
   "Deletes the specified account"
-  [{{id :id} :params}]
+  [{{id :id :as params} :params}]
   (let [account (accounts/find-by-id (env :db) id)]
+    (authorize :delete account params)
     (try
       (accounts/delete (env :db) (:id account))
       (redirect (format "/entities/%s/accounts" (:entity-id account)))

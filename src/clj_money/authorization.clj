@@ -18,19 +18,48 @@
   (fn [user action resource params]
     [(resource-key resource) action]))
 
+(defn authorize
+  [action resource params]
+  (if-not (allowed? (current-authentication) action resource params)
+    (throw (NotAuthorizedException.))))
+
+(defn user-owns-entity?
+  [user entity-id]
+  (contains? (->> (clj-money.models.entities/select (env :db) (:id user))
+                  (map :id)
+                  (into #{}))
+             entity-id))
+
+; Accounts
+; --------
+
 (defmethod allowed? [:account :index]
+  [user action resource params]
+  (= (:id user)
+     (-> params :entity :user-id)))
+
+(defmethod allowed? [:account :new]
+  [user action resource params]
+  (= (:id user)
+     (-> params :entity :user-id)))
+
+(defmethod allowed? [:account :create]
   [user action resource params]
   (= (:id user)
      (-> params :entity :user-id)))
 
 (defmethod allowed? [:account :show]
   [user action resource params]
-  (let [entity-ids (->> (clj-money.models.entities/select (env :db) (:id user))
-                        (map :id)
-                        (into #{}))]
-    (entity-ids (:entity-id resource))))
+  (user-owns-entity? user (:entity-id resource)))
 
-(defn authorize
-  [action resource params]
-  (if-not (allowed? (current-authentication) action resource params)
-    (throw (NotAuthorizedException.))))
+(defmethod allowed? [:account :edit]
+  [user action resource params]
+  (user-owns-entity? user (:entity-id resource)))
+
+(defmethod allowed? [:account :update]
+  [user action resource params]
+  (user-owns-entity? user (:entity-id resource)))
+
+(defmethod allowed? [:account :delete]
+  [user action resource params]
+  (user-owns-entity? user (:entity-id resource)))
