@@ -201,7 +201,8 @@
     (-> transaction
         (update-in [:transaction-date] tc/to-local-date)
         (append-items storage)
-        (append-lot-items storage))))
+        (append-lot-items storage)
+        (with-meta {:resource-type :transaction}))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"

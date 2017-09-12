@@ -63,3 +63,33 @@
 (defmethod allowed? [:account :delete]
   [user action resource params]
   (user-owns-entity? user (:entity-id resource)))
+
+; Transactions
+; ------------
+
+(defmethod allowed? [:transaction :index]
+  [user action resource params]
+  (= (:id user)
+     (-> params :entity :user-id)))
+
+(defmethod allowed? [:transaction :new]
+  [user action resource params]
+  (= (:id user)
+     (-> params :entity :user-id)))
+
+(defmethod allowed? [:transaction :create]
+  [user action resource params]
+  (= (:id user)
+     (-> params :entity :user-id)))
+
+(defmethod allowed? [:transaction :edit]
+  [user action resource params]
+  (user-owns-entity? user (:entity-id resource)))
+
+(defmethod allowed? [:transaction :update]
+  [user action resource params]
+  (user-owns-entity? user (:entity-id resource)))
+
+(defmethod allowed? [:transaction :delete]
+  [user action resource params]
+  (user-owns-entity? user (:entity-id resource)))

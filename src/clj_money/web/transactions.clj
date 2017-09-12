@@ -8,6 +8,7 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-time.core :as t]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -58,6 +59,7 @@
 (defn index
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
+   (authorize :index :transaction params)
    (with-transactions-layout "Transactions" entity-id options
      [:table.table.table-striped
       [:tr
@@ -174,6 +176,7 @@
                      :transaction-date (t/today)}
                     {}))
   ([params transaction options]
+   (authorize :new :transaction params)
    (with-transactions-layout "New Transaction" (:entity-id transaction) options
      (form (cond-> (path "/entities"
                          (:entity-id transaction)
@@ -203,6 +206,7 @@
 
 (defn create
   [{params :params}]
+  (authorize :create :transaction params)
   (let [transaction (-> params
                         (assoc :items (extract-items params))
                         (select-keys [:entity-id :transaction-date :description :items :memo])
@@ -227,27 +231,32 @@
 
                   true
                   format-url)]
+     (authorize :edit transaction params)
      (with-transactions-layout "New Transaction" (:entity-id transaction) options
        (form action {}
              (form-fields transaction (redirect-url (:entity-id transaction) params)))))))
 
 (defn update
   [{params :params}]
-  (let [transaction (-> params
-                        (select-keys [:id
-                                      :transaction-date
-                                      :description
-                                      :memo])
-                        (assoc :items (extract-items params)))
-        updated (transactions/update (env :db) transaction)
-        redirect-url (redirect-url (:entity-id updated) params)]
-    (if (validation/has-error? updated)
-      (edit transaction {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/error-messages updated))}]})
+  (let [transaction (transactions/find-by-id (env :db) (:id params))
+        _ (authorize :update transaction params)
+        updated (merge transaction
+                       (-> params
+                           (select-keys [:id
+                                         :transaction-date
+                                         :description
+                                         :memo])
+                           (assoc :items (extract-items params))))
+        result (transactions/update (env :db) updated)
+        redirect-url (redirect-url (:entity-id result) params)]
+    (if (validation/has-error? result)
+      (edit result {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/error-messages updated))}]})
       (redirect redirect-url))))
 
 (defn delete
   [{{id :id :as params} :params}]
   (let [transaction (transactions/find-by-id (env :db) id)
         redirect-url (redirect-url (:entity-id transaction) params)]
+    (authorize :delete transaction params)
     (transactions/delete (env :db) id)
     (redirect redirect-url)))
