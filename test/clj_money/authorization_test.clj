@@ -29,12 +29,14 @@
               {:name "Business"
                :user-id "jane@doe.com"}]})
 
-(deftest a-user-can-see-his-own-entities
+(deftest a-user-can-manage-his-own-entities
   (let [context (serialization/realize storage-spec authorization-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         [personal business] (find-entities context "Personal" "Business")]
     (with-redefs [current-authentication (fn [] john)]
-      (is (can? :show personal {})
-          "A user can see his own entity")
-      (is (not (can? :show business {}))
-          "A user is not allowed to see someone else's entity"))))
+      (doseq [action [:show :edit :update :delete]]
+        (testing (format "a user has %s permission on his own entities" action)
+          (is (can? action personal {})
+              "A user has permission on his own entity")
+          (is (not (can? action business {}))
+              "A user does not have permission no someone else's entity"))))))

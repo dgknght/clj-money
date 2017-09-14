@@ -49,6 +49,18 @@
   [user action resource params]
   (= (:id user) (:user-id resource)))
 
+(defmethod allowed? [:entity :edit]
+  [user action resource params]
+  (= (:id user) (:user-id resource)))
+
+(defmethod allowed? [:entity :update]
+  [user action resource params]
+  (= (:id user) (:user-id resource)))
+
+(defmethod allowed? [:entity :delete]
+  [user action resource params]
+  (= (:id user) (:user-id resource)))
+
 ; Accounts
 ; --------
 
