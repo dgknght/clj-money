@@ -15,25 +15,33 @@
       result
       (throw (ex-info "Unable to determine the resource type." {:resource resource})))))
 
-(defmulti allowed?
+(def ^:private auth-fns (atom {}))
+
+(defn allowed?
   "Returns a truthy or falsey value indicating whether or not the
   authenticated user is allowed to perform the specified
   action on the specified resource"
-  (fn [user action resource params]
-    [(resource-key resource) action]))
-
-(defn can?
-  [& args]
-  (let [working-args (case (count args)
-                       4 args
-                       3 (concat [(current-authentication)] args)
-                       :else (throw (ex-info "Must supply 3 or 4 arguments")))]
-    (apply allowed? working-args)))
+  [user action resource params]
+  (let [resourc-key (resource-key resource)
+        auth-fn ([action resource-key] auth-fns)]
+    (if auth-fn
+      (auth-fn
+        user
+        resource
+        params)
+      (throw (ex-info "No authorization rule registered"
+                      {:action action :resource resource-key})))))
 
 (defn authorize
   [action resource params]
   (if-not (allowed? (current-authentication) action resource params)
     (throw (NotAuthorizedException.))))
+
+(defn allow
+  [resource actions auth-fn]
+  ; TODO Maybe change this so there is only one swap per call
+  (doseq [action actions]
+    (swap! auth-fns #(assoc % [action resource] auth-fn))))
 
 (defn user-owns-entity?
   [user entity-id]
@@ -45,82 +53,85 @@
 ; Entities
 ; --------
 
-(defmethod allowed? [:entity :show]
-  [user action resource params]
-  (= (:id user) (:user-id resource)))
+(allow :entity [:show :edit :update :delete]
+       (= (:id user) (:user-id resource)))
 
-(defmethod allowed? [:entity :edit]
-  [user action resource params]
-  (= (:id user) (:user-id resource)))
-
-(defmethod allowed? [:entity :update]
-  [user action resource params]
-  (= (:id user) (:user-id resource)))
-
-(defmethod allowed? [:entity :delete]
-  [user action resource params]
-  (= (:id user) (:user-id resource)))
+;(defmethod allowed? [:entity :show]
+;  [user action resource params]
+;  (= (:id user) (:user-id resource)))
+;
+;(defmethod allowed? [:entity :edit]
+;  [user action resource params]
+;  (= (:id user) (:user-id resource)))
+;
+;(defmethod allowed? [:entity :update]
+;  [user action resource params]
+;  (= (:id user) (:user-id resource)))
+;
+;(defmethod allowed? [:entity :delete]
+;  [user action resource params]
+;  (= (:id user) (:user-id resource)))
 
 ; Accounts
 ; --------
 
-(defmethod allowed? [:account :index]
-  [user action resource params]
-  (= (:id user)
-     (-> params :entity :user-id)))
-
-(defmethod allowed? [:account :new]
-  [user action resource params]
-  (= (:id user)
-     (-> params :entity :user-id)))
-
-(defmethod allowed? [:account :create]
-  [user action resource params]
-  (= (:id user)
-     (-> params :entity :user-id)))
-
-(defmethod allowed? [:account :show]
-  [user action resource params]
-  (user-owns-entity? user (:entity-id resource)))
-
-(defmethod allowed? [:account :edit]
-  [user action resource params]
-  (user-owns-entity? user (:entity-id resource)))
-
-(defmethod allowed? [:account :update]
-  [user action resource params]
-  (user-owns-entity? user (:entity-id resource)))
-
-(defmethod allowed? [:account :delete]
-  [user action resource params]
-  (user-owns-entity? user (:entity-id resource)))
+;(defmethod allowed? [:account :index]
+;  [user action resource params]
+;  (= (:id user)
+;     (-> params :entity :user-id)))
+;
+;(defmethod allowed? [:account :new]
+;  [user action resource params]
+;  (= (:id user)
+;     (-> params :entity :user-id)))
+;
+;(defmethod allowed? [:account :create]
+;  [user action resource params]
+;  (= (:id user)
+;     (-> params :entity :user-id)))
+;
+;(defmethod allowed? [:account :show]
+;  [user action resource params]
+;  (user-owns-entity? user (:entity-id resource)))
+;
+;(defmethod allowed? [:account :edit]
+;  [user action resource params]
+;  (user-owns-entity? user (:entity-id resource)))
+;
+;(defmethod allowed? [:account :update]
+;  [user action resource params]
+;  (user-owns-entity? user (:entity-id resource)))
+;
+;(defmethod allowed? [:account :delete]
+;  [user action resource params]
+;  (user-owns-entity? user (:entity-id resource)))
 
 ; Transactions
 ; ------------
 
-(defmethod allowed? [:transaction :index]
-  [user action resource params]
-  (= (:id user)
-     (-> params :entity :user-id)))
-
-(defmethod allowed? [:transaction :new]
-  [user action resource params]
-  (= (:id user)
-     (-> params :entity :user-id)))
-
-(defmethod allowed? [:transaction :create]
-  [user action resource params]
-  (= (:id user)
-     (-> params :entity :user-id)))
-
-(defmethod allowed? [:transaction :edit]
-  [user action resource params]
-  (user-owns-entity? user (:entity-id resource)))
-
-(defmethod allowed? [:transaction :update]
-  [user action resource params]
-  (user-owns-entity? user (:entity-id resource)))
-
-(defmethod allowed? [:transaction :delete]
-  [user action resource params]
-  (user-owns-entity? user (:entity-id resource)))
+;(defmethod allowed? [:transaction :index]
+;  [user action resource params]
+;  (= (:id user)
+;     (-> params :entity :user-id)))
+;
+;(defmethod allowed? [:transaction :new]
+;  [user action resource params]
+;  (= (:id user)
+;     (-> params :entity :user-id)))
+;
+;(defmethod allowed? [:transaction :create]
+;  [user action resource params]
+;  (= (:id user)
+;     (-> params :entity :user-id)))
+;
+;(defmethod allowed? [:transaction :edit]
+;  [user action resource params]
+;  (user-owns-entity? user (:entity-id resource)))
+;
+;(defmethod allowed? [:transaction :update]
+;  [user action resource params]
+;  (user-owns-entity? user (:entity-id resource)))
+;
+;(defmethod allowed? [:transaction :delete]
+;  [user action resource params]
+;  (user-owns-entity? user (:entity-id resource)))
