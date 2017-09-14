@@ -5,7 +5,7 @@
 
 (deffactory :user
   (let [first-name (names/first-name)]
-  {:first-name first-name
-   :last-name (names/last-name)
-   :email (internet/email first-name)
-   :password "please01"}))
+    {:first-name first-name
+     :last-name (names/last-name)
+     :email (internet/email first-name)
+     :password "please01"}))

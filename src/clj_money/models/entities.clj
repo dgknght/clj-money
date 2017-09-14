@@ -46,6 +46,9 @@
   ([_ entity]
    (when entity
      (cond-> entity
+       true
+       (with-meta {:resource-type :entity})
+
        (:settings entity)
        (update-in [:settings] read-string)))))
 

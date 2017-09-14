@@ -93,6 +93,22 @@
        (filter #(= model-id (model-id-key %)))
        first))
 
+(defn find-user
+  [context email]
+  (find-in-context context :users :email email))
+
+(defn find-users
+  [context & emails]
+  (map #(find-user context %) emails))
+
+(defn find-entity
+  [context entity-name]
+  (find-in-context context :entities :name entity-name))
+
+(defn find-entities
+  [context & entity-names]
+  (map #(find-entity context %) entity-names))
+
 (defn find-account
   [context account-name]
   (find-in-context context :accounts :name account-name))

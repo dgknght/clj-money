@@ -1,5 +1,6 @@
 (ns clj-money.authorization
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
             [cemerick.friend :refer [current-authentication]])
   (:import clj_money.NotAuthorizedException))
@@ -7,9 +8,12 @@
 (defn- resource-key
   "Returns a keyword identifying the type of the resource"
   [resource]
-  (if (keyword? resource)
-    resource
-    (-> resource meta :resource-type)))
+  (let [result (if (keyword? resource)
+                 resource
+                 (-> resource meta :resource-type))]
+    (if result
+      result
+      (throw (ex-info "Unable to determine the resource type." {:resource resource})))))
 
 (defmulti allowed?
   "Returns a truthy or falsey value indicating whether or not the
@@ -17,6 +21,14 @@
   action on the specified resource"
   (fn [user action resource params]
     [(resource-key resource) action]))
+
+(defn can?
+  [& args]
+  (let [working-args (case (count args)
+                       4 args
+                       3 (concat [(current-authentication)] args)
+                       :else (throw (ex-info "Must supply 3 or 4 arguments")))]
+    (apply allowed? working-args)))
 
 (defn authorize
   [action resource params]
@@ -29,6 +41,13 @@
                   (map :id)
                   (into #{}))
              entity-id))
+
+; Entities
+; --------
+
+(defmethod allowed? [:entity :show]
+  [user action resource params]
+  (= (:id user) (:user-id resource)))
 
 ; Accounts
 ; --------
