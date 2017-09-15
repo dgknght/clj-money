@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [cemerick.friend :refer [current-authentication]]
+            [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
@@ -21,7 +22,7 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def authorization-context
+(def entities-context
   {:users [(assoc (factory :user) :email "john@doe.com")
            (assoc (factory :user) :email "jane@doe.com")]
    :entities [{:name "Personal"
@@ -30,16 +31,10 @@
                :user-id "jane@doe.com"}]
    :commodities [{:name "US Dollar"
                   :type :currency
-                  :symbol "USD"}]
-   :accounts [{:name "Checking"
-               :type :asset
-               :entity-id "Personal"}
-              {:name "Savings"
-               :type :asset
-               :entity-id "Business"}]})
+                  :symbol "USD"}]})
 
 (deftest entity-management
-  (let [context (serialization/realize storage-spec authorization-context)
+  (let [context (serialization/realize storage-spec entities-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         personal (find-entity context "Personal")]
     (testing "A user has permission on his own entities" 
@@ -53,8 +48,16 @@
           (is (not (allowed? action personal {}))
               (format "A user does not have %s permission" action)))))))
 
+(def accounts-context
+  (assoc entities-context :accounts [{:name "Checking"
+                                      :type :asset
+                                      :entity-id "Personal"}
+                                     {:name "Savings"
+                                      :type :asset
+                                      :entity-id "Business"}]))
+
 (deftest account-management
-  (let [context (serialization/realize storage-spec authorization-context)
+  (let [context (serialization/realize storage-spec accounts-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         checking (find-account context "Checking")]
     (testing "A user has permission on accounts in his own entities"
@@ -69,7 +72,7 @@
               (format "A user does not have %s permission" action)))))))
 
 (deftest account-creation
-  (let [context (serialization/realize storage-spec authorization-context)
+  (let [context (serialization/realize storage-spec accounts-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         personal (find-entity context "Personal")
         savings (with-meta {:name "Salary"
@@ -84,3 +87,35 @@
       (with-redefs [current-authentication (fn [] jane)]
         (is (not (allowed? :create savings {}))
             "Create is not allowed")))))
+
+; TODO develop a strategy to ensure index does not return records it should not
+
+(def transactions-context
+  (-> accounts-context
+      (update-in [:accounts] #(conj % {:name "Salary"
+                                       :type :income
+                                       :entity-id "Personal"}))
+      (assoc :transactions [{:transaction-date (t/local-date 2017 3 2)
+                             :description "Paycheck"
+                             :entity-id "Personal"
+                             :items [{:action :debit
+                                      :account-id "Checking"
+                                      :amount 1000M}
+                                     {:action :credit
+                                      :account-id "Salary"
+                                      :amount 1000M}]}])))
+
+(deftest transaction-management
+  (let [context (serialization/realize storage-spec transactions-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        transaction (-> context :transactions first)]
+    (testing "A user has permissions on transactions in his own entities"
+      (with-redefs [current-authentication (fn [] john)]
+        (doseq [action [:show :edit :update :delete]]
+          (is (allowed? action transaction {})
+              (format "A user has %s permission" action)))))
+    (testing "A user does not have permissions on transactions in someone else's entities"
+      (with-redefs [current-authentication (fn [] jane)]
+        (doseq [action [:show :edit :update :delete]]
+          (is (not (allowed? action transaction {}))
+              (format "A user does not have  %s permission" action)))))))
