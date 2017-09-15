@@ -46,9 +46,10 @@
 
 (defn allow
   [resource actions auth-fn]
-  ; TODO Maybe change this so there is only one swap per call
-  (doseq [action actions]
-    (swap! auth-fns #(assoc % [action resource] auth-fn))))
+  (swap! auth-fns #(reduce (fn [result action]
+                             (assoc result [action resource] auth-fn))
+                           %
+                           actions)))
 
 (defn user-owns-entity?
   [user entity-id]
