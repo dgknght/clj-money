@@ -119,3 +119,26 @@
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action transaction {}))
               (format "A user does not have  %s permission" action)))))))
+
+(deftest transaction-creation
+  (let [context (serialization/realize storage-spec transactions-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        personal (find-entity context "Personal")
+        transaction (with-meta {:transaction-date (t/today)
+                                :description "Paycheck"
+                                :entity-id (:id personal)
+                                :items [{:action :debit
+                                         :account-id "Checking"
+                                         :amount 1000M}
+                                        {:action :credit
+                                         :account-id "Salary"
+                                         :amount 1000M}]}
+                               {:resource-type :transaction})]
+    (testing "A user has permission to create a transactions in his own entities"
+      (with-redefs [current-authentication (fn [] john)]
+        (is (allowed? :create transaction {})
+            "Create is allowed")))
+    (testing "A user does not have permission to create a transaction in someone else's entities"
+      (with-redefs [current-authentication (fn [] jane)]
+        (is (not (allowed? :create transaction {}))
+            "Create is not allowed")))))

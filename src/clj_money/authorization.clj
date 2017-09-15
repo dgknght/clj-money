@@ -36,7 +36,7 @@
         user
         resource
         params)
-      (throw (ex-info "No authorization rule registered"
+      (throw (ex-info (format "No authorization rule registered for %s %s." action rkey)
                       {:action action :resource resource-key})))))
 
 (defn authorize
@@ -78,6 +78,6 @@
 ; Transactions
 ; ------------
 
-(allow :transaction [:show :edit :update :delete]
+(allow :transaction [:create :show :edit :update :delete]
        (fn [user resource params]
          (user-owns-entity? user (:entity-id resource))))
