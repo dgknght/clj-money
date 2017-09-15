@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
+            [cemerick.friend :refer [current-authentication]]
             [clj-money.validation :as validation]))
 
 (defn reset-db
@@ -134,3 +135,8 @@
                 result)))
           {}
           context))
+
+(defmacro with-authentication
+  [user & body]
+  `(with-redefs [current-authentication (fn [] ~user)]
+     ~@body))

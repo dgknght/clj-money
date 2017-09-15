@@ -3,13 +3,13 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
-            [cemerick.friend :refer [current-authentication]]
             [clj-time.core :as t]
             [clj-money.serialization :as serialization]
             [clj-factory.core :refer [factory]]
             [clj-money.validation :as validation]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            with-authentication]]
             [clj-money.models.transactions :as transm]
             [clj-money.web.transactions :as transactions]))
 
@@ -51,7 +51,7 @@
         [checking
          salary] (:accounts context)
         entity-id (-> context :entities first :id)
-        result (with-redefs [current-authentication (fn [] (-> context :users first))]
+        result (with-authentication (-> context :users first)
                  (transactions/create {:params {:entity-id entity-id
                                                 :transaction-date "3/2/2016"
                                                 :description "Paycheck"
@@ -101,7 +101,7 @@
          salary
          bonus] (:accounts context)
         [trans] (:transactions context)
-        _ (with-redefs [current-authentication (fn [] (-> context :users first))]
+        _ (with-authentication (-> context :users first)
             (transactions/update {:params {:id (:id trans)
                                            :transaction-date "2016-01-02"
                                            :description "Employer"

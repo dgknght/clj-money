@@ -3,7 +3,6 @@
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [cemerick.friend :refer [current-authentication]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
@@ -15,6 +14,7 @@
             [clj-money.authorization :refer [allowed?
                                              tag-resource]]
             [clj-money.test-helpers :refer [reset-db
+                                            with-authentication
                                             find-account
                                             find-users
                                             find-entity]]))
@@ -39,12 +39,12 @@
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         personal (find-entity context "Personal")]
     (testing "A user has permission on his own entities" 
-      (with-redefs [current-authentication (fn [] john)]
+      (with-authentication john
         (doseq [action [:show :edit :update :delete]]
           (is (allowed? action personal {})
               (format "A user has %s permission" action)))))
     (testing "A user does not have permission on someone else's entiy"
-      (with-redefs [current-authentication (fn [] jane)]
+      (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action personal {}))
               (format "A user does not have %s permission" action)))))))
@@ -62,12 +62,12 @@
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         checking (find-account context "Checking")]
     (testing "A user has permission on accounts in his own entities"
-      (with-redefs [current-authentication (fn [] john)]
+      (with-authentication john
         (doseq [action [:show :edit :update :delete]]
           (is (allowed? action checking {})
               (format "A user has %s permission" action)))))
     (testing "A user does not have permission on accounts in someone else's entity"
-      (with-redefs [current-authentication (fn [] jane)]
+      (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action checking {}))
               (format "A user does not have %s permission" action)))))))
@@ -81,11 +81,11 @@
                                :entity-id (:id personal)}
                               :account)]
     (testing "A user has permission to create an account in his own entities"
-      (with-redefs [current-authentication (fn [] john)]
+      (with-authentication john
         (is (allowed? :create savings {})
             "Create is allowed")))
     (testing "A user does not have permission to create an account in someone else's entities"
-      (with-redefs [current-authentication (fn [] jane)]
+      (with-authentication jane
         (is (not (allowed? :create savings {}))
             "Create is not allowed")))))
 
@@ -111,12 +111,12 @@
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         transaction (-> context :transactions first)]
     (testing "A user has permissions on transactions in his own entities"
-      (with-redefs [current-authentication (fn [] john)]
+      (with-authentication john
         (doseq [action [:show :edit :update :delete]]
           (is (allowed? action transaction {})
               (format "A user has %s permission" action)))))
     (testing "A user does not have permissions on transactions in someone else's entities"
-      (with-redefs [current-authentication (fn [] jane)]
+      (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action transaction {}))
               (format "A user does not have  %s permission" action)))))))
@@ -136,10 +136,10 @@
                                             :amount 1000M}]}
                                   :transaction)]
     (testing "A user has permission to create a transactions in his own entities"
-      (with-redefs [current-authentication (fn [] john)]
+      (with-authentication john
         (is (allowed? :create transaction {})
             "Create is allowed")))
     (testing "A user does not have permission to create a transaction in someone else's entities"
-      (with-redefs [current-authentication (fn [] jane)]
+      (with-authentication jane
         (is (not (allowed? :create transaction {}))
             "Create is not allowed")))))
