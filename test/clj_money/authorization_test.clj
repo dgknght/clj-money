@@ -12,7 +12,8 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.authorization :refer [allowed?]]
+            [clj-money.authorization :refer [allowed?
+                                             tag-resource]]
             [clj-money.test-helpers :refer [reset-db
                                             find-account
                                             find-users
@@ -75,10 +76,10 @@
   (let [context (serialization/realize storage-spec accounts-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         personal (find-entity context "Personal")
-        savings (with-meta {:name "Salary"
-                            :type :income
-                            :entity-id (:id personal)}
-                           {:resource-type :account})]
+        savings (tag-resource {:name "Salary"
+                               :type :income
+                               :entity-id (:id personal)}
+                              :account)]
     (testing "A user has permission to create an account in his own entities"
       (with-redefs [current-authentication (fn [] john)]
         (is (allowed? :create savings {})
@@ -124,16 +125,16 @@
   (let [context (serialization/realize storage-spec transactions-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         personal (find-entity context "Personal")
-        transaction (with-meta {:transaction-date (t/today)
-                                :description "Paycheck"
-                                :entity-id (:id personal)
-                                :items [{:action :debit
-                                         :account-id "Checking"
-                                         :amount 1000M}
-                                        {:action :credit
-                                         :account-id "Salary"
-                                         :amount 1000M}]}
-                               {:resource-type :transaction})]
+        transaction (tag-resource {:transaction-date (t/today)
+                                   :description "Paycheck"
+                                   :entity-id (:id personal)
+                                   :items [{:action :debit
+                                            :account-id "Checking"
+                                            :amount 1000M}
+                                           {:action :credit
+                                            :account-id "Salary"
+                                            :amount 1000M}]}
+                                  :transaction)]
     (testing "A user has permission to create a transactions in his own entities"
       (with-redefs [current-authentication (fn [] john)]
         (is (allowed? :create transaction {})

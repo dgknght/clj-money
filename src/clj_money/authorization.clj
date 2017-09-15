@@ -10,10 +10,15 @@
   [resource]
   (let [result (if (keyword? resource)
                  resource
-                 (-> resource meta :resource-type))]
+                 (-> resource meta ::resource-type))]
     (if result
       result
       (throw (ex-info "Unable to determine the resource type." {:resource resource})))))
+
+(defn tag-resource
+  "Adds meta data to identity the type of the specified resource"
+  [resource type-key]
+  (vary-meta resource #(assoc % ::resource-type type-key)))
 
 (def ^:private auth-fns (atom {}))
 
@@ -50,34 +55,3 @@
                              (assoc result [action resource] auth-fn))
                            %
                            actions)))
-
-; Helpers
-; -------
-
-(defn user-owns-entity?
-  [user entity-id]
-  (contains? (->> (clj-money.models.entities/select (env :db) (:id user))
-                  (map :id)
-                  (into #{}))
-             entity-id))
-
-; Entities
-; --------
-
-(allow :entity [:show :edit :update :delete]
-       (fn [user resource params]
-         (= (:id user) (:user-id resource))))
-
-; Accounts
-; --------
-
-(allow :account [:create :show :edit :update :delete]
-       (fn [user resource params]
-         (user-owns-entity? user (:entity-id resource))))
-
-; Transactions
-; ------------
-
-(allow :transaction [:create :show :edit :update :delete]
-       (fn [user resource params]
-         (user-owns-entity? user (:entity-id resource))))

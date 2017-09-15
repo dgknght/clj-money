@@ -8,6 +8,8 @@
                                     safe-read-string]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.authorization :as authorization]
+            [clj-money.shared :refer [user-owns-entity?]]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -104,7 +106,7 @@
                :commodity-type
                :commodity-exchange
                :entity-settings)
-       (with-meta {:resource-type :account})
+       (authorization/tag-resource :account)
        (cond->
          (and ; Remove :parent-id if it's nil
            (contains? account :parent-id)
@@ -252,3 +254,7 @@
     (->> criteria
          (select-accounts s)
          (map after-read))))
+
+(authorization/allow :account [:create :show :edit :update :delete]
+       (fn [user resource params]
+         (user-owns-entity? user (:entity-id resource))))

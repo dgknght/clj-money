@@ -5,6 +5,7 @@
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
+            [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage
@@ -47,7 +48,7 @@
    (when entity
      (cond-> entity
        true
-       (with-meta {:resource-type :entity})
+       (authorization/tag-resource :entity)
 
        (:settings entity)
        (update-in [:settings] read-string)))))
@@ -113,3 +114,7 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-entity s id)))
+
+(authorization/allow :entity [:show :edit :update :delete]
+       (fn [user resource params]
+         (= (:id user) (:user-id resource))))

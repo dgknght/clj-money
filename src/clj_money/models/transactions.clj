@@ -5,8 +5,10 @@
             [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
             [clj-money.util :refer [ensure-local-date pprint-and-return]]
+            [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
+            [clj-money.shared :refer [user-owns-entity?]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
@@ -202,7 +204,7 @@
         (update-in [:transaction-date] tc/to-local-date)
         (append-items storage)
         (append-lot-items storage)
-        (with-meta {:resource-type :transaction}))))
+        (authorization/tag-resource :transaction))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -730,3 +732,7 @@
 
      ; clean up the ambient settings as if we were never here
      (swap! ambient-settings dissoc ~entity-id)))
+
+(authorization/allow :transaction [:create :show :edit :update :delete]
+       (fn [user resource params]
+         (user-owns-entity? user (:entity-id resource))))
