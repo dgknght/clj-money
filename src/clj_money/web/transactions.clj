@@ -8,7 +8,8 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-time.core :as t]
-            [clj-money.authorization :refer [authorize]]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -206,11 +207,12 @@
 
 (defn create
   [{params :params}]
-  (authorize :create :transaction params)
   (let [transaction (-> params
                         (assoc :items (extract-items params))
                         (select-keys [:entity-id :transaction-date :description :items :memo])
-                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount :memo]))))
+                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount :memo])))
+                        (tag-resource :transaction))
+        _ (authorize :create transaction params)
         result (transactions/create (env :db) transaction)
         redirect-url (redirect-url (:entity-id result) params)]
     (if (validation/has-error? result)
