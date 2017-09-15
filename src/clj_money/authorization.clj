@@ -21,9 +21,16 @@
   "Returns a truthy or falsey value indicating whether or not the
   authenticated user is allowed to perform the specified
   action on the specified resource"
-  [user action resource params]
-  (let [resourc-key (resource-key resource)
-        auth-fn ([action resource-key] auth-fns)]
+  [& args]
+  (let [[user
+         action
+         resource
+         params] (case (count args)
+                   4 args
+                   3 (concat [(current-authentication)] args)
+                   :else (throw (ex-info "Wrong number of arguments. Expected 3 or 4." {:args args})))
+        rkey (resource-key resource)
+        auth-fn (@auth-fns [action rkey])]
     (if auth-fn
       (auth-fn
         user
@@ -54,57 +61,15 @@
 ; --------
 
 (allow :entity [:show :edit :update :delete]
-       (= (:id user) (:user-id resource)))
-
-;(defmethod allowed? [:entity :show]
-;  [user action resource params]
-;  (= (:id user) (:user-id resource)))
-;
-;(defmethod allowed? [:entity :edit]
-;  [user action resource params]
-;  (= (:id user) (:user-id resource)))
-;
-;(defmethod allowed? [:entity :update]
-;  [user action resource params]
-;  (= (:id user) (:user-id resource)))
-;
-;(defmethod allowed? [:entity :delete]
-;  [user action resource params]
-;  (= (:id user) (:user-id resource)))
+       (fn [user resource params]
+         (= (:id user) (:user-id resource))))
 
 ; Accounts
 ; --------
 
-;(defmethod allowed? [:account :index]
-;  [user action resource params]
-;  (= (:id user)
-;     (-> params :entity :user-id)))
-;
-;(defmethod allowed? [:account :new]
-;  [user action resource params]
-;  (= (:id user)
-;     (-> params :entity :user-id)))
-;
-;(defmethod allowed? [:account :create]
-;  [user action resource params]
-;  (= (:id user)
-;     (-> params :entity :user-id)))
-;
-;(defmethod allowed? [:account :show]
-;  [user action resource params]
-;  (user-owns-entity? user (:entity-id resource)))
-;
-;(defmethod allowed? [:account :edit]
-;  [user action resource params]
-;  (user-owns-entity? user (:entity-id resource)))
-;
-;(defmethod allowed? [:account :update]
-;  [user action resource params]
-;  (user-owns-entity? user (:entity-id resource)))
-;
-;(defmethod allowed? [:account :delete]
-;  [user action resource params]
-;  (user-owns-entity? user (:entity-id resource)))
+(allow :account [:create :show :edit :update :delete]
+       (fn [user resource params]
+         (user-owns-entity? user (:entity-id resource))))
 
 ; Transactions
 ; ------------
