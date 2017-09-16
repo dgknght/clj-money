@@ -43,11 +43,24 @@
                       {:action action :resource resource-key})))))
 
 (defn authorize
-  [action resource]
-  (if-not (allowed? (current-authentication) action resource)
+  "Raises an error if the current user does not have
+  permission to perform the specified function.
+
+  This function returns the resource so that it can be threaded together
+  with other left-threadable operations"
+  [resource action]
+  (if (allowed? (current-authentication) action resource)
+    resource
     (throw (NotAuthorizedException.))))
 
 (defn allow
+  "Registers a rule that will be used to determine if the
+  current user has permission to perform a requested function
+
+  The function needs to accept three arguments:
+    user: The current user, whose permissions are being queried
+    action: A keyword indicating the action for which permission is being queried
+    resource: The resource on which permission is being queried"
   [resource actions auth-fn]
   (swap! auth-fns #(reduce (fn [result action]
                              (assoc result [action resource] auth-fn))

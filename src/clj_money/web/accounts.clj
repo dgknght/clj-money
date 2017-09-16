@@ -7,7 +7,8 @@
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
-            [clj-money.authorization :refer [authorize]]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource]]
             [clj-money.url :refer :all]
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number]]
@@ -321,8 +322,7 @@
   "Renders account details, including transactions"
   ([req] (show req {}))
   ([{{id :id :as params} :params} options]
-   (let [account (accounts/find-by-id (env :db) id)]
-     (authorize :show account)
+   (let [account (authorize (accounts/find-by-id (env :db) id) :show)]
      (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
        (show-account account params)))))
 
@@ -362,32 +362,34 @@
   ([{params :params :as req}]
    (new-account req (new-account-defaults params)))
   ([{{entity-id :entity-id} :params} account]
-   (authorize :new (authorization/tag-resource {:entity-id entity-id}))
    (with-accounts-layout "New account" entity-id {}
      (form (format "/entities/%s/accounts" entity-id) {}
-           (form-fields account)))))
+           (form-fields (-> account
+                            (tag-resource :account)
+                            (authorize :new)))))))
 
 (defn create
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [{params :params}]
-  (let [account (authorization/tag-resource
-                  (select-keys params [:entity-id
-                                       :name
-                                       :type
-                                       :parent-id]) :account)
-        _ (authorize :create account)
-        result (accounts/create (env :db) account)]
-    (if (validation/has-error? result)
-      (new-account {:params (select-keys result [:entity-id])} result)
-      (redirect (str "/entities/" (:entity-id result) "/accounts")))))
+  (let [account (accounts/create (env :db)
+                                 (-> params
+                                     (select-keys [:entity-id
+                                                   :name
+                                                   :type
+                                                   :parent-id])
+                                     (tag-resource :account)
+                                     (authorize :create)))]
+    (if (validation/has-error? account)
+      (new-account {:params (select-keys account [:entity-id])} account)
+      (redirect (str "/entities/" (:entity-id account) "/accounts")))))
 
 (defn edit
   "Renders the edit form for an account"
   [req]
-  (let [account (or (:account req)
-                    (accounts/find-by-id (env :db) (-> req :params :id)))]
-    (authorize :edit account (:params req))
+  (let [account (authorize (or (:account req)
+                               (accounts/find-by-id (env :db) (-> req :params :id)))
+                           :edit)]
     (with-accounts-layout "Edit account" (:entity-id account) {}
       (form (format "/accounts/%s" (:id account)) {}
             [:input {:type :hidden
@@ -399,8 +401,8 @@
   "Updates the account and redirects to the account list on
   success or rerenders the edit from on error"
   [{params :params}]
-  (let [account (accounts/find-by-id (env :db) (:id params))]
-    (authorize :update account)
+  (let [account (authorize (accounts/find-by-id (env :db) (:id params))
+                           :update)]
     (let [updated (merge account
                          (select-keys params [:id
                                               :name
@@ -415,8 +417,7 @@
 (defn delete
   "Deletes the specified account"
   [{{id :id :as params} :params}]
-  (let [account (accounts/find-by-id (env :db) id)]
-    (authorize :delete account)
+  (let [account (authorize (accounts/find-by-id (env :db) id) :delete)]
     (try
       (accounts/delete (env :db) (:id account))
       (redirect (format "/entities/%s/accounts" (:entity-id account)))
