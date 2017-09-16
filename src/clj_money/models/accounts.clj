@@ -256,5 +256,5 @@
          (map after-read))))
 
 (authorization/allow :account [:create :show :edit :update :delete]
-       (fn [user resource params]
+       (fn [user resource]
          (user-owns-entity? user (:entity-id resource))))

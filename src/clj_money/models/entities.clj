@@ -116,5 +116,5 @@
     (delete-entity s id)))
 
 (authorization/allow :entity [:show :edit :update :delete]
-       (fn [user resource params]
+       (fn [user resource]
          (= (:id user) (:user-id resource))))

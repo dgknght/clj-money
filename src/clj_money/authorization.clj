@@ -29,24 +29,22 @@
   [& args]
   (let [[user
          action
-         resource
-         params] (case (count args)
-                   4 args
-                   3 (concat [(current-authentication)] args)
-                   :else (throw (ex-info "Wrong number of arguments. Expected 3 or 4." {:args args})))
+         resource] (case (count args)
+                   3 args
+                   2 (concat [(current-authentication)] args)
+                   :else (throw (ex-info "Wrong number of arguments. Expected 2 or 3." {:args args})))
         rkey (resource-key resource)
         auth-fn (@auth-fns [action rkey])]
     (if auth-fn
       (auth-fn
         user
-        resource
-        params)
+        resource)
       (throw (ex-info (format "No authorization rule registered for %s %s." action rkey)
                       {:action action :resource resource-key})))))
 
 (defn authorize
-  [action resource params]
-  (if-not (allowed? (current-authentication) action resource params)
+  [action resource]
+  (if-not (allowed? (current-authentication) action resource)
     (throw (NotAuthorizedException.))))
 
 (defn allow

@@ -734,5 +734,5 @@
      (swap! ambient-settings dissoc ~entity-id)))
 
 (authorization/allow :transaction [:create :show :edit :update :delete]
-       (fn [user resource params]
+       (fn [user resource]
          (user-owns-entity? user (:entity-id resource))))

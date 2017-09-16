@@ -111,7 +111,7 @@
   "Renders the list of accounts"
   ([req] (index req {}))
   ([{{entity :entity :as params} :params} options]
-   (authorize :index :account params)
+   (authorize :index :account)
    (with-accounts-layout "Accounts" (:id entity) (merge options {:entity entity})
      [:table.table.table-striped
       [:tr
@@ -322,7 +322,7 @@
   ([req] (show req {}))
   ([{{id :id :as params} :params} options]
    (let [account (accounts/find-by-id (env :db) id)]
-     (authorize :show account params)
+     (authorize :show account)
      (with-accounts-layout (format "Account - %s" (:name account)) (:entity-id account) options
        (show-account account params)))))
 
@@ -361,23 +361,26 @@
   "Renders the new account form"
   ([{params :params :as req}]
    (new-account req (new-account-defaults params)))
-  ([{params :params} account]
-   (authorize :new :account params)
-   (let [entity-id (:entity-id params)]
-     (with-accounts-layout "New account" entity-id {}
-       (form (format "/entities/%s/accounts" entity-id) {}
-             (form-fields account))))))
+  ([{{entity-id :entity-id} :params} account]
+   (authorize :new (authorization/tag-resource {:entity-id entity-id}))
+   (with-accounts-layout "New account" entity-id {}
+     (form (format "/entities/%s/accounts" entity-id) {}
+           (form-fields account)))))
 
 (defn create
   "Creates the account and redirects to the index page on success, or
   re-renders the new form on failure"
   [{params :params}]
-  (authorize :new :account params)
-  (let [account (select-keys params [:entity-id :name :type :parent-id])
-        saved (accounts/create (env :db) account)]
-    (if (validation/has-error? saved)
-      (new-account {:params (select-keys saved [:entity-id])} saved)
-      (redirect (str "/entities/" (:entity-id params) "/accounts")))))
+  (let [account (authorization/tag-resource
+                  (select-keys params [:entity-id
+                                       :name
+                                       :type
+                                       :parent-id]) :account)
+        _ (authorize :create account)
+        result (accounts/create (env :db) account)]
+    (if (validation/has-error? result)
+      (new-account {:params (select-keys result [:entity-id])} result)
+      (redirect (str "/entities/" (:entity-id result) "/accounts")))))
 
 (defn edit
   "Renders the edit form for an account"
@@ -397,7 +400,7 @@
   success or rerenders the edit from on error"
   [{params :params}]
   (let [account (accounts/find-by-id (env :db) (:id params))]
-    (authorize :update account params)
+    (authorize :update account)
     (let [updated (merge account
                          (select-keys params [:id
                                               :name
@@ -413,7 +416,7 @@
   "Deletes the specified account"
   [{{id :id :as params} :params}]
   (let [account (accounts/find-by-id (env :db) id)]
-    (authorize :delete account params)
+    (authorize :delete account)
     (try
       (accounts/delete (env :db) (:id account))
       (redirect (format "/entities/%s/accounts" (:entity-id account)))

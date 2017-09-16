@@ -60,7 +60,7 @@
 (defn index
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
-   (authorize :index :transaction params)
+   (authorize :index :transaction)
    (with-transactions-layout "Transactions" entity-id options
      [:table.table.table-striped
       [:tr
@@ -177,7 +177,7 @@
                      :transaction-date (t/today)}
                     {}))
   ([params transaction options]
-   (authorize :new :transaction params)
+   (authorize :new (tag-resource {:entity-id (:entity-id params)} :transaction))
    (with-transactions-layout "New Transaction" (:entity-id transaction) options
      (form (cond-> (path "/entities"
                          (:entity-id transaction)
@@ -212,7 +212,7 @@
                         (select-keys [:entity-id :transaction-date :description :items :memo])
                         (update-in [:items] (partial map #(select-keys % [:account-id :action :amount :memo])))
                         (tag-resource :transaction))
-        _ (authorize :create transaction params)
+        _ (authorize :create transaction)
         result (transactions/create (env :db) transaction)
         redirect-url (redirect-url (:entity-id result) params)]
     (if (validation/has-error? result)
@@ -233,7 +233,7 @@
 
                   true
                   format-url)]
-     (authorize :edit transaction params)
+     (authorize :edit transaction)
      (with-transactions-layout "New Transaction" (:entity-id transaction) options
        (form action {}
              (form-fields transaction (redirect-url (:entity-id transaction) params)))))))
@@ -241,7 +241,7 @@
 (defn update
   [{params :params}]
   (let [transaction (transactions/find-by-id (env :db) (:id params))
-        _ (authorize :update transaction params)
+        _ (authorize :update transaction)
         updated (merge transaction
                        (-> params
                            (select-keys [:id
@@ -259,6 +259,6 @@
   [{{id :id :as params} :params}]
   (let [transaction (transactions/find-by-id (env :db) id)
         redirect-url (redirect-url (:entity-id transaction) params)]
-    (authorize :delete transaction params)
+    (authorize :delete transaction)
     (transactions/delete (env :db) id)
     (redirect redirect-url)))

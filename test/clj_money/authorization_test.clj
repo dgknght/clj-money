@@ -41,12 +41,12 @@
     (testing "A user has permission on his own entities" 
       (with-authentication john
         (doseq [action [:show :edit :update :delete]]
-          (is (allowed? action personal {})
+          (is (allowed? action personal)
               (format "A user has %s permission" action)))))
     (testing "A user does not have permission on someone else's entiy"
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
-          (is (not (allowed? action personal {}))
+          (is (not (allowed? action personal))
               (format "A user does not have %s permission" action)))))))
 
 (def accounts-context
@@ -64,12 +64,12 @@
     (testing "A user has permission on accounts in his own entities"
       (with-authentication john
         (doseq [action [:show :edit :update :delete]]
-          (is (allowed? action checking {})
+          (is (allowed? action checking)
               (format "A user has %s permission" action)))))
     (testing "A user does not have permission on accounts in someone else's entity"
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
-          (is (not (allowed? action checking {}))
+          (is (not (allowed? action checking))
               (format "A user does not have %s permission" action)))))))
 
 (deftest account-creation
@@ -82,11 +82,11 @@
                               :account)]
     (testing "A user has permission to create an account in his own entities"
       (with-authentication john
-        (is (allowed? :create savings {})
+        (is (allowed? :create savings)
             "Create is allowed")))
     (testing "A user does not have permission to create an account in someone else's entities"
       (with-authentication jane
-        (is (not (allowed? :create savings {}))
+        (is (not (allowed? :create savings))
             "Create is not allowed")))))
 
 ; TODO develop a strategy to ensure index does not return records it should not
@@ -113,12 +113,12 @@
     (testing "A user has permissions on transactions in his own entities"
       (with-authentication john
         (doseq [action [:show :edit :update :delete]]
-          (is (allowed? action transaction {})
+          (is (allowed? action transaction)
               (format "A user has %s permission" action)))))
     (testing "A user does not have permissions on transactions in someone else's entities"
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
-          (is (not (allowed? action transaction {}))
+          (is (not (allowed? action transaction))
               (format "A user does not have  %s permission" action)))))))
 
 (deftest transaction-creation
@@ -137,9 +137,9 @@
                                   :transaction)]
     (testing "A user has permission to create a transactions in his own entities"
       (with-authentication john
-        (is (allowed? :create transaction {})
+        (is (allowed? :create transaction)
             "Create is allowed")))
     (testing "A user does not have permission to create a transaction in someone else's entities"
       (with-authentication jane
-        (is (not (allowed? :create transaction {}))
+        (is (not (allowed? :create transaction))
             "Create is not allowed")))))
