@@ -733,6 +733,6 @@
      ; clean up the ambient settings as if we were never here
      (swap! ambient-settings dissoc ~entity-id)))
 
-(authorization/allow :transaction [:create :show :edit :update :delete]
+(authorization/allow :transaction [:new :create :show :edit :update :delete]
        (fn [user resource]
          (user-owns-entity? user (:entity-id resource))))

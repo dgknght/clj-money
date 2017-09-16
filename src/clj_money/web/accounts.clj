@@ -112,7 +112,9 @@
   "Renders the list of accounts"
   ([req] (index req {}))
   ([{{entity :entity :as params} :params} options]
-   (authorize :index :account)
+
+   ; TODO Add a min-criteria to the logic that looks up accounts
+
    (with-accounts-layout "Accounts" (:id entity) (merge options {:entity entity})
      [:table.table.table-striped
       [:tr
@@ -351,22 +353,20 @@
   (let [parent (if parent-id
                  (accounts/find-by-id (env :db)  parent-id))
         account {:entity-id entity-id}]
-    (if parent
-      (-> account
-          (assoc :parent-id (:id parent))
-          (assoc :type (:type parent)))
-      account)))
+    (tag-resource (if parent
+                    (-> account
+                        (assoc :parent-id (:id parent))
+                        (assoc :type (:type parent)))
+                    account) :account)))
 
 (defn new-account
   "Renders the new account form"
   ([{params :params :as req}]
    (new-account req (new-account-defaults params)))
-  ([{{entity-id :entity-id} :params} account]
+  ([_ {entity-id :entity-id :as account}]
    (with-accounts-layout "New account" entity-id {}
      (form (format "/entities/%s/accounts" entity-id) {}
-           (form-fields (-> account
-                            (tag-resource :account)
-                            (authorize :new)))))))
+           (form-fields (authorize account :new))))))
 
 (defn create
   "Creates the account and redirects to the index page on success, or

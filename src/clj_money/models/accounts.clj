@@ -255,6 +255,6 @@
          (select-accounts s)
          (map after-read))))
 
-(authorization/allow :account [:create :show :edit :update :delete]
+(authorization/allow :account [:new :create :show :edit :update :delete]
        (fn [user resource]
          (user-owns-entity? user (:entity-id resource))))
