@@ -2,11 +2,14 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
+            [clojure.tools.logging :as log]
             [environ.core :refer [env]]
             [ring.util.response :refer :all]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [cemerick.friend :as friend]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -77,38 +80,46 @@
   or displays the entity from on failuer"
   [{params :params}]
   (let [user (friend/current-authentication)
-        entity (entities/create (env :db) (assoc params :user-id (:id user)))]
-    (redirect "/entities")))
+        entity (-> params
+                   (select-keys [:name]) ; TODO move allowed attributes to authorization layer
+                   (assoc :user-id (:id user))
+                   (tag-resource :entity)
+                   (authorize :create))
+        result (entities/create (env :db) entity)]
+    (redirect (format "/entities/%s/accounts" (:id result)))))
+
+(defn- load-and-authorize
+  [id action]
+  (authorize (entities/find-by-id (env :db) id) action))
 
 (defn edit-entity
   "Renders the edit form"
-  [{{id :id} :params}]
-  (with-layout "Edit entity" {}
-    [:div.row
-     [:div.col-md-6
-      (form (format "/entities/%s" id) {}
-            (let [entity (entities/find-by-id (env :db) (Integer. id))]
-              (entity-form-fields entity)))]]))
+  ([req] (edit-entity req nil))
+  ([{{id :id} :params} entity]
+   (with-layout "Edit entity" {}
+     [:div.row
+      [:div.col-md-6
+       (form (format "/entities/%s" id) {}
+             (let [entity (or entity (load-and-authorize id :edit))]
+               (entity-form-fields entity)))]])))
 
 (defn update
   "Updates the entity and redirects to index on success or
   renders edit on error"
-  [{params :params}]
-  (let [id (Integer. (:id params))
-        entity (entities/find-by-id (env :db) id)
-        updated (-> params
-                    (select-keys [:name])
-                    (assoc :id id))
+  [{{id :id :as params} :params}]
+  (let [entity (load-and-authorize id :update)
+        updated (merge entity (select-keys params [:name])) ; TODO Add list of allowed attributes to authorization layer
         result (entities/update (env :db) updated)]
     (if (validation/has-error? result)
-      (edit-entity updated)
+      (edit-entity {} result)
       (redirect "/entities"))))
 
 (defn delete
   "Removes the entity from the system"
   [{{id :id} :params}]
   (try
-    (entities/delete (env :db) (Integer. id))
+    (entities/delete (env :db)
+                     (:id (load-and-authorize id :delete)))
     (redirect "/entities")
     (catch Exception e
       (index {:alerts [{:type :danger :message (.getMessage e)}]}))))

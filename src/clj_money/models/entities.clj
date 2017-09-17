@@ -35,6 +35,10 @@
        (filter #(= (:name %) entity-name))
        empty?))
 
+(defn- before-validation
+  [_ entity]
+  (update-in entity [:settings] (fnil identity {})))
+
 (defn- before-save
   ([entity] (before-save nil entity))
   ([_ entity]
@@ -63,7 +67,8 @@
   [(coercion/rule :keyword [:inventory-method])])
 
 (def create
-  (create-fn {:before-save before-save
+  (create-fn {:before-validation before-validation
+              :before-save before-save
               :after-read after-read
               :create create-entity
               :spec ::new-entity
@@ -105,6 +110,7 @@
               :spec ::existing-entity
               :coercion-rules coercion-rules
               :rule-fn validation-rules
+              :before-validation before-validation
               :before-save before-save
               :after-read after-read
               :find find-by-id}))
@@ -115,6 +121,6 @@
   (with-storage [s storage-spec]
     (delete-entity s id)))
 
-(authorization/allow :entity [:new :show :edit :update :delete]
+(authorization/allow :entity [:new :create :show :edit :update :delete]
        (fn [user resource]
          (= (:id user) (:user-id resource))))

@@ -57,6 +57,21 @@
                                       :type :asset
                                       :entity-id "Business"}]))
 
+(deftest entity-creation
+  (let [context (serialization/realize storage-spec entities-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        entity (tag-resource {:name "Business"
+                               :user-id (:id john)}
+                             :entity)]
+    (testing "A user has permission to create an entity for him/herself"
+      (with-authentication john
+        (is (allowed? :create entity)
+            "Create is allowed")))
+    (testing "A user does not have permission to create an entity for someone else"
+      (with-authentication jane
+        (is (not (allowed? :create entity))
+            "Create is not allowed")))))
+
 (deftest account-management
   (let [context (serialization/realize storage-spec accounts-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
