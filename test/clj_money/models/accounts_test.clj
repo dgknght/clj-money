@@ -53,8 +53,8 @@
 (deftest select-accounts
   (let [context (serialization/realize storage-spec select-context)
         entity-id (-> context :entities first :id)
-        actual (->> entity-id
-                    (accounts/select-by-entity-id storage-spec)
+        actual (->> {:entity-id entity-id}
+                    (accounts/search storage-spec)
                     (map #(dissoc % :id
                                     :updated-at
                                     :created-at
@@ -125,8 +125,10 @@
 (deftest select-nested-accounts
   (let [context (serialization/realize storage-spec nested-context)
         entity-id (-> context :entities first :id)
-        result (simplify-account-groups
-                 (accounts/select-nested-by-entity-id storage-spec entity-id))
+        result (->> {:entity-id entity-id}
+                    (accounts/search storage-spec)
+                    accounts/nest
+                    simplify-account-groups) 
         expected [{:type :asset
                    :accounts [{:name "Checking"
                                :path "Checking"}
@@ -164,8 +166,8 @@
   (let [context (serialization/realize storage-spec account-context)
         result (accounts/create storage-spec (attributes context))
         entity-id (-> context :entities first :id)
-        accounts (->> entity-id
-                      (accounts/select-by-entity-id storage-spec)
+        accounts (->> {:entity-id entity-id}
+                      (accounts/search storage-spec)
                       (map #(dissoc % :id :updated-at :created-at)))
         expected [{:name "Checking"
                    :type :asset
@@ -352,11 +354,11 @@
   (let [context (serialization/realize storage-spec select-context)
         account (-> context :accounts first)
         _ (accounts/delete storage-spec (:id account))
-        accounts (accounts/select-by-entity-id storage-spec
-                                               (-> context
-                                                   :entities
-                                                   first
-                                                   :id))]
+        accounts (->> {:entity-id (-> context
+                                      :entities
+                                      first
+                                      :id)}
+                      (accounts/search storage-spec))]
     (is (not-any? #(= (:id account) (:id %)) accounts)
         "The deleted account is no longer returned from the database")))
 

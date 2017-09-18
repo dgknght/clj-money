@@ -33,7 +33,9 @@
   ([entity-id]
    (grouped-options-for-accounts entity-id {}))
   ([entity-id options]
-   (let [optgroups (->> (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))
+   (let [optgroups (->> {:entity-id entity-id}
+                        (accounts/search (env :db))
+                        accounts/nest
                         (filter #(or (nil? (:types options))
                                      ((:types options) (:type %))))
                         (map #(opt-group-for-account-type % (:selected-id options))))]

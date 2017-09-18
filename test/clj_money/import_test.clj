@@ -138,8 +138,8 @@
         imp (-> context :imports first)
         updates (atom [])
         entity (import-data storage-spec imp (fn [p] (swap! updates #(conj % p))))
-        actual-accounts (->> (:id entity)
-                             (accounts/select-by-entity-id storage-spec)
+        actual-accounts (->> {:entity-id (:id entity)}
+                             (accounts/search storage-spec)
                              (map #(dissoc % :created-at
                                              :updated-at
                                              :id
@@ -211,8 +211,8 @@
         imp (-> context :imports first)
         result (import-data storage-spec imp (fn [progress]))
         entity (first (entities/select storage-spec (:id user)))
-        [salary groceries] (->> (:id entity)
-                                (accounts/select-by-entity-id storage-spec)
+        [salary groceries] (->> {:entity-id (:id entity)}
+                                (accounts/search storage-spec)
                                 (sort #(compare (:name %2) (:name %1))))
         actual (-> (->> (:id entity)
                         (budgets/select-by-entity-id storage-spec)
@@ -269,8 +269,8 @@
         imp (-> context :imports first)
         result (import-data storage-spec imp (fn [progress]))
         entity (first (entities/select storage-spec (:id user)))
-        account (->> (:id entity)
-                     (accounts/select-by-entity-id storage-spec)
+        account (->> {:entity-id (:id entity)}
+                     (accounts/search storage-spec)
                      (filter #(= "401k" (:name %)))
                      first)
         lots (lots/search storage-spec {:account-id (:id account)})

@@ -172,17 +172,6 @@
   [storage-spec {:keys [id]}]
   (find-by-id storage-spec id))
 
-(defn select-by-entity-id
-  "Returns a list of all accounts in the system"
-  ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
-  ([storage-spec entity-id options]
-   (with-storage [s storage-spec]
-     (let [types (or (:types options)
-                     (set account-types))]
-       (->> (select-accounts s {:entity-id entity-id})
-            (map after-read)
-            (filter #(types (:type %))))))))
-
 (defn- append-path
   [account parent]
   (assoc account :path (str (:path parent) "/" (:name account))))
@@ -200,17 +189,16 @@
                                              0
                                              children))))
 
-(defn select-nested-by-entity-id
-  "Returns the accounts for the entity with children nested under
-  parents and parents grouped by type"
-  ([storage-spec entity-id]
-   (select-nested-by-entity-id storage-spec entity-id account-types))
-  ([storage-spec entity-id types]
-   (let [all (select-by-entity-id storage-spec entity-id)
-         grouped (->> all
+(defn nest
+  "Accepts a list of accounts and nests
+  children under parents"
+  ([accounts]
+   (nest account-types accounts))
+  ([types accounts]
+   (let [grouped (->> accounts
                       (remove :parent-id)
                       (map #(assoc % :path (:name %)))
-                      (map #(append-children % all))
+                      (map #(append-children % accounts))
                       (group-by :type))]
      (mapv #(hash-map :type % :accounts (or
                                           (->> grouped
@@ -219,6 +207,13 @@
                                                vec)
                                           []))
            types))))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-accounts s)
+         (map after-read))))
 
 (def update
   (update-fn {:before-save before-save
@@ -247,13 +242,6 @@
   (let [polarizer (* (if (left-side? account) 1 -1)
                      (if (= :debit (:action transaction-item)) 1 -1))]
     (* (:amount transaction-item) polarizer)))
-
-(defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> criteria
-         (select-accounts s)
-         (map after-read))))
 
 (authorization/allow :account [:new :create :show :edit :update :delete]
        (fn [user resource]

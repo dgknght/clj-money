@@ -121,7 +121,9 @@
        [:th.col-sm-6 "Name"]
        [:th.col-sm-4.text-right "Balance"]
        [:th.col-sm-2 "&nbsp;"]]
-      (let [groups (accounts/select-nested-by-entity-id (env :db) (:id entity))]
+      (let [groups (->> {:entity-id entity-id}
+                        (accounts/search (env :db))
+                        accounts/nest)]
         (map account-rows groups))]
      [:a.btn.btn-primary
       {:href (format "/entities/%s/accounts/new" (:id entity))
