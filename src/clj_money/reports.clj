@@ -287,7 +287,7 @@
                    (budgets/find-by-id s budget-or-id))
           period-count (+ 1 (:index (budgets/period-containing budget as-of)))
           items (->> {:entity-id (:entity-id budget)
-                      :types #{:income :expense} }
+                      :type #{:income :expense} }
                      (accounts/search s)
                      (group-by :type)
                      (sort-by  #(.indexOf [:income :expense] (first %)))

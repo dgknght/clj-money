@@ -112,9 +112,12 @@
      (if (= 1 (count m))
        [:= (-> m keys first prefix-fn) (-> m vals first)]
        (reduce (fn [result [k v]]
-                 (conj result [:= (prefix-fn k) (if (keyword? v)
-                                      (name v)
-                                      v)]))
+                 (let [operator (if (coll? v) :in :=)
+                       val-fn #(if (keyword? %) (name %) %)
+                       value (if (coll? v)
+                               (mapv val-fn v)
+                               (val-fn v))]
+                   (conj result [operator (prefix-fn k) value])))
                [:and]
                m)))))
 
@@ -269,16 +272,17 @@
       (throw (ex-info
                "The criteria must specify parent-id or entity-id"
                {:criteria criteria})))
-    (query db-spec (-> (h/select :a.*
-                                 [:c.name :commodity-name]
-                                 [:c.symbol :commodity-symbol]
-                                 [:c.type :commodity-type]
-                                 [:c.exchange :commodity-exchange]
-                                 [:e.settings :entity-settings])
-                       (h/from [:accounts :a])
-                       (h/join [:commodities :c] [:= :c.id :a.commodity-id])
-                       (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
-                       (h/where (map->where criteria {:prefix "a"})))))
+    (let [sql (-> (h/select :a.*
+                            [:c.name :commodity-name]
+                            [:c.symbol :commodity-symbol]
+                            [:c.type :commodity-type]
+                            [:c.exchange :commodity-exchange]
+                            [:e.settings :entity-settings])
+                  (h/from [:accounts :a])
+                  (h/join [:commodities :c] [:= :c.id :a.commodity-id])
+                  (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
+                  (h/where (map->where criteria {:prefix "a"})))]
+      (query db-spec sql)))
 
   ; Commodities
   (create-commodity
