@@ -246,3 +246,10 @@
 (authorization/allow :account [:new :create :show :edit :update :delete]
        (fn [user resource]
          (user-owns-entity? user (:entity-id resource))))
+
+(authorization/set-scope
+  :account
+  {:entity-id (fn [storage-spec user]
+                (->> (entities/select storage-spec (:id user))
+                     (map :id)
+                     (into #{})))})

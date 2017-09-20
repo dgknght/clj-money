@@ -2,7 +2,8 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
-            [cemerick.friend :refer [current-authentication]])
+            [cemerick.friend :refer [current-authentication]]
+            [clj-money.util :refer [pprint-and-return]])
   (:import clj_money.NotAuthorizedException))
 
 (defn- resource-key
@@ -66,3 +67,35 @@
                              (assoc result [action resource] auth-fn))
                            %
                            actions)))
+
+(def ^:private scope-maps
+  (atom {}))
+
+(defn set-scope
+  "Registers a scope function map with a resource type.
+
+  A scope function map is a map of attribute names to 
+  functions that will be used at run time to get the
+  broadest available criteria for the authenticated 
+  resource to use to query that type of resource"
+  [resource-type fn-map]
+  (swap! scope-maps #(assoc % resource-type fn-map)))
+
+(defn apply-scope
+  "Applies the registered scope function map to the specified
+  criteria in order to ensure the query does not extend
+  beyond the scope the user is authorized to access."
+  ([criteria resource-type storage-spec]
+   (apply-scope criteria
+                resource-type
+                storage-spec
+                (current-authentication)))
+  ([criteria resource-type storage-spec user]
+   (->> (resource-type @scope-maps)
+        (map (fn [[attribute scope-fn]]
+               [attribute (scope-fn storage-spec user)]))
+        (into {})
+        (merge-with (fn [requested allowed]
+                      (or (allowed requested)
+                          (throw (NotAuthorizedException. "query out of scope"))))
+                    criteria))))

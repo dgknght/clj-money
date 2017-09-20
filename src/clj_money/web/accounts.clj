@@ -8,10 +8,12 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-money.authorization :refer [authorize
+                                             apply-scope
                                              tag-resource]]
             [clj-money.url :refer :all]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.util :refer [format-number]]
+            [clj-money.util :refer [format-number
+                                    pprint-and-return]]
             [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
@@ -113,15 +115,15 @@
   ([req] (index req {}))
   ([{{entity :entity :as params} :params} options]
 
-   ; TODO Add a min-criteria to the logic that looks up accounts
-
    (with-accounts-layout "Accounts" (:id entity) (merge options {:entity entity})
      [:table.table.table-striped
       [:tr
        [:th.col-sm-6 "Name"]
        [:th.col-sm-4.text-right "Balance"]
        [:th.col-sm-2 "&nbsp;"]]
-      (let [groups (->> {:entity-id entity-id}
+      (let [groups (->> (apply-scope {:entity-id (:id entity)}
+                                     :account
+                                     (env :db))
                         (accounts/search (env :db))
                         accounts/nest)]
         (map account-rows groups))]
