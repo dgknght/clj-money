@@ -14,6 +14,7 @@
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number format-date]]
             [clj-money.validation :as validation]
+            [clj-money.authorization :refer [apply-scope]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
@@ -64,7 +65,10 @@
          [:th.text-right "Start date"]
          [:th.text-right "End date"]
          [:th "&nbsp;"]]
-        (map budget-row (budgets/select-by-entity-id (env :db) (:id entity)))]
+        (map budget-row (budgets/search (env :db)
+                                        (apply-scope {:entity-id (:id entity)}
+                                                     :budget
+                                                     (env :db))))]
        [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" (:id entity))}
         "Add"]]])))
 
