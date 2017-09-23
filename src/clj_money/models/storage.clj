@@ -47,15 +47,9 @@
   (update-account
     [this account]
     "Updates the specified account")
-  (select-accounts-by-entity-id
-    [this entity-id]
-    "Returns all accounts in the system")
   (delete-account
     [this id]
     "Deletes the specified account")
-  (select-accounts-by-name
-    [this entity-id name]
-    "Returns the account in the specified entity with the specified name")
   (select-accounts
     [this criteria]
     "Returns the accounts matching the specified criteria")
@@ -271,17 +265,14 @@
     [this budget]
     "Creates a new budget record")
 
-  (find-budget-by-id
-    [this id]
-    "Returns the specified budget")
-
   (find-budget-by-date
-    [this date]
+    [this entity-id date]
     "Returns the budget containing the specified date")
 
-  (select-budgets-by-entity-id
-    [this entity-id]
-    "Returns budgets for the specified entity")
+  (select-budgets
+    [this criteria]
+    [this criteria options]
+    "Returns budgets for the specified criteria")
 
   (update-budget
     [this budget]

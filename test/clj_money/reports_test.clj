@@ -761,7 +761,9 @@
                            :actual-percent 0.037037M}}]
 
     (if-not (= expected actual)
-      (pprint {:diff (diff expected actual)}))
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
 
     (is (= expected actual) "The correct information is returned")))
 

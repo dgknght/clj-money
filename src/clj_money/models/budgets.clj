@@ -9,6 +9,9 @@
             [clj-money.util :as util]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
+            [clj-money.authorization :as authorization]
+            [clj-money.models.auth-helpers :refer [user-entity-ids]]
+            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
@@ -18,10 +21,9 @@
                                               update-budget
                                               create-budget-item
                                               update-budget-item
-                                              find-budget-by-id
                                               find-budget-by-date
                                               find-budget-item-by-id
-                                              select-budgets-by-entity-id
+                                              select-budgets
                                               select-budget-items-by-budget-id
                                               delete-budget]])
   (:import (org.joda.time LocalDate
@@ -59,17 +61,12 @@
 
 (defn- after-read
   [storage budget]
-  (-> budget
-      (update-in [:start-date] tc/to-local-date)
-      (update-in [:end-date] tc/to-local-date)
-      (update-in [:period] keyword)
-      (assoc :items (select-items-by-budget-id storage (:id budget)))))
-
-(defn select-by-entity-id
-  "Returns the budgets for the specified entity"
-  [storage-spec entity-id]
-  (with-storage [s storage-spec]
-    (map #(after-read s %) (select-budgets-by-entity-id s entity-id))))
+  (when budget
+    (-> budget
+        (update-in [:start-date] tc/to-local-date)
+        (update-in [:end-date] tc/to-local-date)
+        (update-in [:period] keyword)
+        (assoc :items (select-items-by-budget-id storage (:id budget))))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -138,18 +135,28 @@
               :coercion-rules coercion-rules
               :after-read after-read}))
 
+(defn search
+  "Returns a list of budgets matching the specified criteria"
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (->> (select-budgets s criteria options)
+          (map #(after-read s %))))))
+
 (defn find-by-id
   "Returns the specified budget"
   [storage-spec id]
   (with-storage [s storage-spec]
-    (->> (find-budget-by-id s id)
+    (->> (select-budgets s {:id id} {:limit 1})
+         first
          (after-read s))))
 
 (defn find-by-date
   "Returns the budget containing the specified date"
   [storage-spec entity-id date]
   (with-storage [s storage-spec]
-    (->> (find-budget-by-date s (tc/to-long date))
+    (->> (find-budget-by-date s entity-id (tc/to-long date))
          (after-read s))))
 
 (defn reload
@@ -180,9 +187,8 @@
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"
   [budget account-or-id]
-  (let [account-id (if (map? account-or-id)
-                     (:id account-or-id)
-                     account-or-id)]
+  (let [account-id (or (:id account-or-id)
+                       account-or-id)]
     (->> budget
          :items
          (filter #(= account-id (:account-id %)))
@@ -310,3 +316,7 @@
         days (+ 1 (t/in-days (t/interval (tc/to-date-time (:start period))
                                          (tc/to-date-time as-of))))]
     (with-precision 5 (/ days days-in-period))))
+
+(authorization/set-scope
+  :budget
+  {:entity-id user-entity-ids})

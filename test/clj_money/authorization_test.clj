@@ -11,6 +11,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.budgets :as budgets]
             [clj-money.authorization :refer [allowed?
                                              tag-resource
                                              apply-scope]]
@@ -175,3 +176,28 @@
       (with-authentication jane
         (is (not (allowed? :create transaction))
             "Create is not allowed")))))
+
+(def ^:private budgets-context
+  (assoc accounts-context :budgets [{:name "2017"
+                                     :entity-id "Personal"
+                                     :start-date (t/local-date 2017 1 1)
+                                     :period :month
+                                     :period-count 12}]))
+
+(deftest budget-list
+  (let [context (serialization/realize storage-spec budgets-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        entity (find-entity context "Personal")]
+    (testing "A user has permission to list budgets in his entities"
+      (with-authentication john
+        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)} :budget storage-spec)
+                         (budgets/search storage-spec)
+                         count))
+            "The budgets are returned")))
+    (testing "A user does not have permission list budgets in someone else's entity"
+      (with-authentication jane
+        (is (thrown? NotAuthorizedException
+                     (->> (apply-scope{:entity-id (:id entity)} :budget storage-spec)
+                          (budgets/search storage-spec)
+                          count))
+            "An exception is thrown")))))

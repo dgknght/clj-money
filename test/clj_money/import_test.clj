@@ -214,8 +214,8 @@
         [salary groceries] (->> {:entity-id (:id entity)}
                                 (accounts/search storage-spec)
                                 (sort #(compare (:name %2) (:name %1))))
-        actual (-> (->> (:id entity)
-                        (budgets/select-by-entity-id storage-spec)
+        actual (-> (->> {:entity-id (:id entity)}
+                        (budgets/search storage-spec)
                         first)
                    (dissoc :id :updated-at :created-at)
                    (update-in [:items] (fn [items]
