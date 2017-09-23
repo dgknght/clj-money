@@ -12,12 +12,14 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.authorization :refer [allowed?
-                                             tag-resource]]
+                                             tag-resource
+                                             apply-scope]]
             [clj-money.test-helpers :refer [reset-db
                                             with-authentication
                                             find-account
                                             find-users
-                                            find-entity]]))
+                                            find-entity]])
+  (:import clj_money.NotAuthorizedException))
 
 (def storage-spec (env :db))
 
@@ -72,6 +74,23 @@
         (is (not (allowed? :create entity))
             "Create is not allowed")))))
 
+(deftest account-list
+  (let [context (serialization/realize storage-spec accounts-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        entity (find-entity context "Personal")]
+    (testing "A user has permission to list accounts in his entities"
+      (with-authentication john
+        (is (not= 0 (->> (apply-scope{:entity-id (:id entity)} :account storage-spec)
+                         (accounts/search storage-spec)
+                         count))
+            "The accounts are returned")))
+    (testing "A user does not have permission list accounts in someone else's entity"
+      (with-authentication jane
+        (is (thrown? NotAuthorizedException
+                     (->> (apply-scope{:entity-id (:id entity)} :account storage-spec)
+                          (accounts/search storage-spec)
+                          count)))))))
+
 (deftest account-management
   (let [context (serialization/realize storage-spec accounts-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
@@ -103,8 +122,6 @@
       (with-authentication jane
         (is (not (allowed? :create savings))
             "Create is not allowed")))))
-
-; TODO develop a strategy to ensure index does not return records it should not
 
 (def transactions-context
   (-> accounts-context
