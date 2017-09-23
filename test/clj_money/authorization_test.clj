@@ -201,3 +201,20 @@
                           (budgets/search storage-spec)
                           count))
             "An exception is thrown")))))
+
+(deftest budget-creation
+  (let [context (serialization/realize storage-spec budgets-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        personal (find-entity context "Personal")
+        budget (tag-resource {:entity-id (:id personal)
+                              :name "2018"
+                              :start-date (t/local-date 2018 1 1)}
+                             :budget)]
+    (testing "A user has permission to create an budget in his own entities"
+      (with-authentication john
+        (is (allowed? :create budget)
+            "Create is allowed")))
+    (testing "A user does not have permission to create an budget in someone else's entities"
+      (with-authentication jane
+        (is (not (allowed? :create budget))
+            "Create is not allowed")))))

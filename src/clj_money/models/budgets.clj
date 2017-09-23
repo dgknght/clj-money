@@ -10,7 +10,11 @@
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
+
+            ; TODO combine these
             [clj-money.models.auth-helpers :refer [user-entity-ids]]
+            [clj-money.shared :refer [user-owns-entity?]]
+
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage
@@ -320,3 +324,7 @@
 (authorization/set-scope
   :budget
   {:entity-id user-entity-ids})
+
+(authorization/allow :budget [:create]
+                     (fn [user resource]
+                       (user-owns-entity? user (:entity-id resource))))
