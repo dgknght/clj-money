@@ -12,8 +12,8 @@
             [clj-money.authorization :as authorization]
 
             ; TODO combine these
-            [clj-money.models.auth-helpers :refer [user-entity-ids]]
-            [clj-money.shared :refer [user-owns-entity?]]
+            [clj-money.models.auth-helpers :refer [user-entity-ids
+                                                   user-owns-entity?]]
 
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -327,5 +327,4 @@
   {:entity-id user-entity-ids})
 
 (authorization/allow :budget [:create :show :edit :update :delete]
-                     (fn [user resource]
-                       (user-owns-entity? user (:entity-id resource))))
+                     user-owns-entity?)

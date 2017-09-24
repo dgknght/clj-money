@@ -21,6 +21,12 @@
   [resource type-key]
   (vary-meta resource #(assoc % ::resource-type type-key)))
 
+(defn ^:private auth-context (atom {}))
+
+(defn ->context
+  [key value]
+  (swap! auth-context #(assoc % key value)))
+
 (def ^:private auth-fns (atom {}))
 
 (defn allowed?
@@ -39,7 +45,8 @@
     (if auth-fn
       (auth-fn
         user
-        resource)
+        resource
+        @auth-context)
       (throw (ex-info (format "No authorization rule registered for %s %s." action rkey)
                       {:action action :resource resource-key})))))
 
