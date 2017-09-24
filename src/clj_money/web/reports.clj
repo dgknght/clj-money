@@ -80,7 +80,7 @@
   [{:keys [entity-id budget-id as-of] :as params}]
   (let [budget (if budget-id
                  (budgets/find-by-id (env :db) budget-id)
-                 (first (budgets/select-by-entity-id (env :db) entity-id))) ; TODO find the current budget
+                 (budgets/find-by-date (env :db) entity-id as-of))
         as-of (or as-of
                   (budgets/end-date budget))]
     (html
@@ -120,7 +120,7 @@
    [:div.form-group
     [:label.control-label {:for :budget-id} "Budget"]
     [:select.form-control {:name "budget-id"}
-     (map #(vector :option {:value (:id %)} (:name %)) (budgets/select-by-entity-id (env :db) (:entity-id params)))] ]
+     (map #(vector :option {:value (:id %)} (:name %)) (budgets/search (env :db) {:entity-id (:entity-id params)}))] ]
    (date-input-field params :as-of)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 

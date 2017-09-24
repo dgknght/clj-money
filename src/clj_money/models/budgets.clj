@@ -67,6 +67,7 @@
   [storage budget]
   (when budget
     (-> budget
+        (authorization/tag-resource :budget)
         (update-in [:start-date] tc/to-local-date)
         (update-in [:end-date] tc/to-local-date)
         (update-in [:period] keyword)
@@ -325,6 +326,6 @@
   :budget
   {:entity-id user-entity-ids})
 
-(authorization/allow :budget [:create]
+(authorization/allow :budget [:create :show :edit :update :delete]
                      (fn [user resource]
                        (user-owns-entity? user (:entity-id resource))))

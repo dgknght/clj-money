@@ -126,6 +126,10 @@
   [context & symbols]
   (map #(find-commodity context %) symbols))
 
+(defn find-budget
+  [context budget-name]
+  (find-in-context context :budgets :name budget-name))
+
 (defn context-errors
   [context]
   (reduce (fn [result [category models]]

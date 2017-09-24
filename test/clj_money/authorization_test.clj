@@ -19,7 +19,8 @@
                                             with-authentication
                                             find-account
                                             find-users
-                                            find-entity]])
+                                            find-entity
+                                            find-budget]])
   (:import clj_money.NotAuthorizedException))
 
 (def storage-spec (env :db))
@@ -218,3 +219,18 @@
       (with-authentication jane
         (is (not (allowed? :create budget))
             "Create is not allowed")))))
+
+(deftest budget-management
+  (let [context (serialization/realize storage-spec budgets-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        budget (find-budget context "2017")]
+    (testing "A user has permission on budgets in his own entities"
+      (with-authentication john
+        (doseq [action [:show :edit :update :delete]]
+          (is (allowed? action budget)
+              (format "A user has %s permission" action)))))
+    (testing "A user does not have permission on budgets in someone else's entity"
+      (with-authentication jane
+        (doseq [action [:show :edit :update :delete]]
+          (is (not (allowed? action budget))
+              (format "A user does not have %s permission" action)))))))
