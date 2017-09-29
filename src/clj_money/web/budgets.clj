@@ -296,12 +296,13 @@
   "Updates the specified budget and redirects to the index page
   on success or the edit page on failure"
   [{params :params}]
-  (let [budget (select-keys params [:id
-                                    :name
-                                    :period
-                                    :period-count
-                                    :start-date])
-        updated (budgets/update (env :db) budget)]
+  (let [budget (authorize (budgets/find-by-id (env :db) (:id params)) :update)
+        updated (merge budget (select-keys params [
+                                                   :name
+                                                   :period
+                                                   :period-count
+                                                   :start-date]))
+        result (budgets/update (env :db) updated)]
     (if (validation/has-error? updated)
       (edit {:params (select-keys updated [:id])
              :budget updated})
@@ -312,7 +313,9 @@
   [{{id :id} :params}]
   (let [budget (authorize (budgets/find-by-id (env :db) id) :delete)]
     (try
-      (budgets/delete (env :db) (:id budget))
+      (budgets/delete (env :db) (-> (budgets/find-by-id (env :db) (:id budget))
+                                    (authorize :delete)
+                                    :id))
       (redirect (format "/entities/%s/budgets" (:entity-id budget)))
       (catch Exception e
         (log/error e "Unable to delete the budget")
@@ -455,7 +458,9 @@
   (let [budget (budgets/find-by-id (env :db) (:budget-id params))
         item (-> params
                  (extract-periods budget)
-                 (select-keys [:budget-id :account-id :periods]))
+                 (select-keys [:budget-id :account-id :periods])
+                 (tag-resource :budget-item)
+                 (authorize :create))
         saved (budgets/create-item (env :db) item)]
     (if (empty? (validation/error-messages saved))
       (redirect (format "/budgets/%s" (:budget-id saved)))
@@ -488,7 +493,7 @@
   [{{:keys [id method]} :params item :item}]
   (let [item (or item
                  (budgets/find-item-by-id (env :db) id))
-        budget (budgets/find-by-id (env :db) (:budget-id item))
+        budget (authorize (budgets/find-by-id (env :db) (:budget-id item)) :update)
         account (accounts/find-by-id (env :db) (:account-id item))]
     (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {:entity-id (:entity-id budget)}
       (form (format "/budget-items/%s" (:id item)) {}
@@ -502,7 +507,7 @@
   edit from on failure"
   [{params :params}]
   (let [existing (budgets/find-item-by-id (env :db) (:id params))
-        budget (budgets/find-by-id (env :db) (:budget-id existing))
+        budget (authorize (budgets/find-by-id (env :db) (:budget-id existing)) :update)
         item (-> params
                  (extract-periods budget)
                  (select-keys [:id
