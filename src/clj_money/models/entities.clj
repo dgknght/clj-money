@@ -122,5 +122,5 @@
     (delete-entity s id)))
 
 (authorization/allow :entity [:new :create :show :edit :update :delete]
-       (fn [user resource]
+       (fn [user resource _]
          (= (:id user) (:user-id resource))))

@@ -9,8 +9,8 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
-            [clj-money.models.auth-helpers :refer [user-entity-ids]]
-            [clj-money.shared :refer [user-owns-entity?]]
+            [clj-money.models.auth-helpers :refer [user-entity-ids
+                                                   user-owns-entity?]]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -245,8 +245,7 @@
     (* (:amount transaction-item) polarizer)))
 
 (authorization/allow :account [:new :create :show :edit :update :delete]
-       (fn [user resource]
-         (user-owns-entity? user (:entity-id resource))))
+       user-owns-entity?)
 
 (authorization/set-scope
   :account

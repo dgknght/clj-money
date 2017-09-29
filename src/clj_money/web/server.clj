@@ -25,7 +25,6 @@
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-models
                                           wrap-exception-handling]]
-            [clj-money.authorization :as authorization]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
@@ -184,9 +183,6 @@
       wrap-json-response
       wrap-anti-forgery
       wrap-session))
-
-; TODO Probably need a better place for this
-(authorization/->context :storage-spec (env :db))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 5000))]

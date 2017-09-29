@@ -8,7 +8,7 @@
             [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
-            [clj-money.shared :refer [user-owns-entity?]]
+            [clj-money.models.auth-helpers :refer [user-owns-entity?]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions-by-entity-id
@@ -734,5 +734,4 @@
      (swap! ambient-settings dissoc ~entity-id)))
 
 (authorization/allow :transaction [:new :create :show :edit :update :delete]
-       (fn [user resource]
-         (user-owns-entity? user (:entity-id resource))))
+       user-owns-entity?)
