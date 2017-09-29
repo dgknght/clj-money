@@ -21,7 +21,7 @@
   [resource type-key]
   (vary-meta resource #(assoc % ::resource-type type-key)))
 
-(defn ^:private auth-context (atom {}))
+(def ^:private auth-context (atom {}))
 
 (defn ->context
   [key value]
