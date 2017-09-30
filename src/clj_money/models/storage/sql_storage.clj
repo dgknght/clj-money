@@ -43,7 +43,12 @@
 (defmethod attachment-criteria false [_]
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
-(s/def ::transaction-criteria (s/keys :req-un [::lot-id]))
+(defmulti transaction-criteria #(contains? % :lot-id))
+(defmethod transaction-criteria true [_]
+  (s/keys :req-un [::lot-id]))
+(defmethod transaction-criteria false [_]
+  (s/keys :req-un [::entity-id]))
+(s/def ::transaction-criteria (s/multi-spec transaction-criteria #(contains? % :lot-id)))
 (defmulti budget-criteria #(contains? % :id))
 (defmethod budget-criteria true [_]
   (s/keys :req-un [::id]))
@@ -181,6 +186,20 @@
       (h/from [:transaction_items :i])
       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
       (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
+
+(defn- transaction-query
+  [select criteria options]
+  (cond-> (-> (h/select select)
+              (h/from [:transactions :t])
+              (append-paging options))
+
+    (not (empty? (dissoc criteria :lot-id)))
+    (h/where (map->where (dissoc criteria :lot-id)))
+
+    (contains? criteria :lot-id)
+    (-> (h/join [:lots_transactions :lt]
+                [:= :t.id :lt.transaction_id])
+        (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -480,41 +499,15 @@
                        (h/where [:= :transaction_id transaction-id]))))
 
   ; Transactions
-  (select-transactions-by-entity-id
-    [this entity-id]
-    (.select-transactions-by-entity-id this entity-id {}))
-
   (select-transactions
+    [_ criteria options]
+    (validate-criteria criteria ::transaction-criteria)
+    (query db-spec (transaction-query :t.* criteria options)))
+
+  (count-transactions
     [_ criteria]
     (validate-criteria criteria ::transaction-criteria)
-    (let [sql (-> (h/select :t.*)
-                  (h/from [:transactions :t]))
-          sql (if (not (empty? (dissoc criteria :lot-id)))
-                (h/where sql (map->where (dissoc criteria :lot-id)))
-                sql)
-          sql (if (contains? criteria :lot-id)
-                (-> sql
-                    (h/join [:lots_transactions :lt]
-                            [:= :t.id :lt.transaction_id])
-                    (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))
-                sql)]
-      (query db-spec sql)))
-
-  (select-transactions-by-entity-id
-    [_ entity-id options]
-    (let [sql (-> (h/select :*)
-                  (h/from :transactions)
-                  (h/where [:= :entity-id entity-id])
-                  (h/order-by [:transaction-date :desc])
-                  (append-paging options))]
-      (query db-spec sql)))
-
-  (count-transactions-by-entity-id
-    [_ entity-id]
-    (query-scalar db-spec
-                  (-> (h/select :%count.*)
-                      (h/from :transactions)
-                      (h/where [:= :entity-id entity-id]))))
+    (query-scalar db-spec (transaction-query :%count.* criteria {})))
 
   (create-transaction
     [_ transaction]

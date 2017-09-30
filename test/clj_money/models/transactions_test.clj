@@ -84,7 +84,7 @@
                           (catch RuntimeException e
                             nil))]
         (testing "records are not created"
-          (is (= 0 (count (transactions/select-by-entity-id storage-spec (-> context :entities first :id))))
+          (is (= 0 (count (transactions/search storage-spec {:entity-id (-> context :entities first :id)})))
               "The transaction should not be saved")
           (is (= 0 (count (transactions/items-by-account storage-spec (:id checking))))
               "The transaction item for checking should not be created")

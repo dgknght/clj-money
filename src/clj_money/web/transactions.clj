@@ -9,7 +9,8 @@
             [ring.util.codec :refer [url-encode]]
             [clj-time.core :as t]
             [clj-money.authorization :refer [authorize
-                                             tag-resource]]
+                                             tag-resource
+                                             apply-scope]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -61,18 +62,19 @@
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
    (with-transactions-layout "Transactions" entity-id options
-     [:table.table.table-striped
-      [:tr
-       [:th.col-sm-2 "Date"]
-       [:th.col-sm-8 "Description"]
-       [:th.col-sm-2 "&nbsp;"]]
-      (map transaction-row
-           (transactions/select-by-entity-id (env :db)
-                                             entity-id
-                                             (pagination/prepare-options params)))]
-     (pagination/nav (assoc params
-                            :url (-> (path "/entities" entity-id "transactions")) 
-                            :total (transactions/count-by-entity-id (env :db) entity-id)))
+     (let [criteria (apply-scope {:entity-id entity-id})]
+       [:table.table.table-striped
+        [:tr
+         [:th.col-sm-2 "Date"]
+         [:th.col-sm-8 "Description"]
+         [:th.col-sm-2 "&nbsp;"]]
+        (map transaction-row
+             (transactions/search (env :db)
+                                  criteria
+                                  (pagination/prepare-options params)))]
+       (pagination/nav (assoc params
+                              :url (-> (path "/entities" entity-id "transactions")) 
+                              :total (transactions/record-count (env :db) criteria))))
      [:p
       [:a.btn.btn-primary
        {:href (str"/entities/" entity-id "/transactions/new")
