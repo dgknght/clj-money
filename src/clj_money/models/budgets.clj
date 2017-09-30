@@ -54,13 +54,15 @@
   (let [now (t/now)]
     (t/local-date (+ 1 (t/year now)) 1 1)))
 
-(defn- prepare-item-for-return
+(defn- after-item-read
   [item]
-  (update-in item [:periods] read-string))
+  (-> item
+      (update-in [:periods] read-string)
+      (authorization/tag-resource :budget-item)))
 
 (defn- select-items-by-budget-id
   [storage budget-id]
-  (map prepare-item-for-return
+  (map after-item-read
        (select-budget-items-by-budget-id storage budget-id)))
 
 (defn- after-read
@@ -187,7 +189,7 @@
   (with-storage [s storage-spec]
     (->> item-id
          (find-budget-item-by-id s)
-         prepare-item-for-return)))
+         after-item-read)))
 
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"
@@ -256,7 +258,7 @@
         (->> validated
              before-save-item
              (create-budget-item s)
-             prepare-item-for-return)))))
+             after-item-read)))))
 
 (defn- reload-item
   "Returns the lastest version of the specified budget from the data store"

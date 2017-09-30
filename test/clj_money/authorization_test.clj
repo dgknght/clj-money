@@ -179,11 +179,17 @@
             "Create is not allowed")))))
 
 (def ^:private budgets-context
-  (assoc accounts-context :budgets [{:name "2017"
-                                     :entity-id "Personal"
-                                     :start-date (t/local-date 2017 1 1)
-                                     :period :month
-                                     :period-count 12}]))
+  (-> accounts-context
+      (assoc :budgets [{:name "2017"
+                        :entity-id "Personal"
+                        :start-date (t/local-date 2017 1 1)
+                        :period :month
+                        :period-count 12
+                        :items [{:account-id "Income"
+                                 :periods (repeat 12 100M)
+                                 :start-date (t/local-date 2018 1 1)}]}])
+      (update-in [:accounts] #(conj % {:type :income
+                                     :name "Income"}))))
 
 (deftest budget-list
   (let [context (serialization/realize storage-spec budgets-context)
@@ -233,4 +239,40 @@
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action budget))
+              (format "A user does not have %s permission" action)))))))
+
+(deftest budget-item-creation
+  (let [context (serialization/realize storage-spec budgets-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        budget (find-budget context "2017")
+        savings (find-account context "Savings")
+        budget-item (tag-resource {:budget-id (:id budget)
+                                   :account-id (:id savings)
+                                   :periods (repeat 12 100M)
+                                   :start-date (t/local-date 2018 1 1)}
+                                  :budget-item)]
+    (testing "A user has permission to create an item in budgets in his own entities"
+      (with-authentication john
+        (is (allowed? :create budget-item)
+            "Create is allowed")))
+    (testing "A user does not have permission to create an item in budgets in someone else's entities"
+      (with-authentication jane
+        (is (not (allowed? :create budget-item))
+            "Create is not allowed")))))
+
+(deftest budget-item-management
+  (let [context (serialization/realize storage-spec budgets-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        budget-item (-> (find-budget context "2017")
+                        :items
+                        first)]
+    (testing "A user has permission on items in budgets his own entities"
+      (with-authentication john
+        (doseq [action [:show :edit :update :delete]]
+          (is (allowed? action budget-item)
+              (format "A user has %s permission" action)))))
+    (testing "A user does not have permission on items in budgets in someone else's entity"
+      (with-authentication jane
+        (doseq [action [:show :edit :update :delete]]
+          (is (not (allowed? action budget-item))
               (format "A user does not have %s permission" action)))))))
