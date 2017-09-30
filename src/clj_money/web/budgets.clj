@@ -412,8 +412,12 @@
 
 (defn new-item
   "Renders a form for creating a new item"
-  [{{budget-id :budget-id :as item} :params}]
-  (let [budget (budgets/find-by-id (env :db) budget-id)]
+  [{{budget-id :budget-id :as params} :params}]
+  (let [budget (budgets/find-by-id (env :db) budget-id)
+        item (-> params
+                 (select-keys [:budget-id :method])
+                 (tag-resource :budget-item)
+                 (authorize :new))]
     (with-layout (str "Budget " (:name budget) ": New item") {:entity-id (:entity-id budget)}
       (form (format "/budgets/%s/items" budget-id) {}
             (item-form-fields item budget)))))
@@ -492,8 +496,8 @@
   "Renders a form for editing a budget item"
   [{{:keys [id method]} :params item :item}]
   (let [item (or item
-                 (budgets/find-item-by-id (env :db) id))
-        budget (authorize (budgets/find-by-id (env :db) (:budget-id item)) :update)
+                 (authorize (budgets/find-item-by-id (env :db) id) :edit))
+        budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
     (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {:entity-id (:entity-id budget)}
       (form (format "/budget-items/%s" (:id item)) {}
@@ -506,14 +510,13 @@
   "Updates the specified item and redirects to the budget on success or renders the
   edit from on failure"
   [{params :params}]
-  (let [existing (budgets/find-item-by-id (env :db) (:id params))
-        budget (authorize (budgets/find-by-id (env :db) (:budget-id existing)) :update)
-        item (-> params
-                 (extract-periods budget)
-                 (select-keys [:id
-                               :account-id
-                               :periods]))
-        updated (budgets/update-item (env :db) item)]
+  (let [item (authorize (budgets/find-item-by-id (env :db) (:id params)) :update)
+        budget (budgets/find-by-id (env :db) (:budget-id item))
+        attributes (-> params
+                       (extract-periods budget)
+                       (select-keys [:account-id
+                                     :periods]))
+        updated (budgets/update-item (env :db) (merge item attributes))]
     (if (empty? (validation/error-messages updated))
       (redirect (format "/budgets/%s" (:budget-id updated)))
       (edit-item {:item updated}))))
