@@ -4,14 +4,14 @@
             [clj-money.authorization :as authorization]))
 
 (defn user-entity-ids
-  [storage-spec user]
-  (->> (entities/select storage-spec (:id user))
+  [user context]
+  (->> (entities/select (:storage-spec context) (:id user))
        (map :id)
        (into #{})))
 
 (defn user-owns-entity?
   [user resource context]
-  (contains? (user-entity-ids (:storage-spec context) user)
+  (contains? (user-entity-ids user context)
              (:entity-id resource)))
 
 (authorization/->context :storage-spec (env :db))

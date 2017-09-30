@@ -92,17 +92,13 @@
   "Applies the registered scope function map to the specified
   criteria in order to ensure the query does not extend
   beyond the scope the user is authorized to access."
-  ([criteria resource-type storage-spec]
-   (apply-scope criteria
-                resource-type
-                storage-spec
-                (current-authentication)))
-  ([criteria resource-type storage-spec user]
-   (->> (resource-type @scope-maps)
-        (map (fn [[attribute scope-fn]]
-               [attribute (scope-fn storage-spec user)]))
-        (into {})
-        (merge-with (fn [requested allowed]
-                      (or (allowed requested)
-                          (throw (NotAuthorizedException. "query out of scope"))))
-                    criteria))))
+  [criteria resource-type]
+  (let [user (current-authentication)]
+    (->> (resource-type @scope-maps)
+         (map (fn [[attribute scope-fn]]
+                [attribute (scope-fn user @auth-context)]))
+         (into {})
+         (merge-with (fn [requested allowed]
+                       (or (allowed requested)
+                           (throw (NotAuthorizedException. "query out of scope"))))
+                     criteria))))
