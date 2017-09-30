@@ -62,19 +62,20 @@
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
    (with-transactions-layout "Transactions" entity-id options
-     (let [criteria (apply-scope {:entity-id entity-id})]
-       [:table.table.table-striped
-        [:tr
-         [:th.col-sm-2 "Date"]
-         [:th.col-sm-8 "Description"]
-         [:th.col-sm-2 "&nbsp;"]]
-        (map transaction-row
-             (transactions/search (env :db)
-                                  criteria
-                                  (pagination/prepare-options params)))]
-       (pagination/nav (assoc params
-                              :url (-> (path "/entities" entity-id "transactions")) 
-                              :total (transactions/record-count (env :db) criteria))))
+     (let [criteria (apply-scope {:entity-id entity-id} :transaction)]
+       (html
+         [:table.table.table-striped
+          [:tr
+           [:th.col-sm-2 "Date"]
+           [:th.col-sm-8 "Description"]
+           [:th.col-sm-2 "&nbsp;"]]
+          (map transaction-row
+               (transactions/search (env :db)
+                                    criteria
+                                    (pagination/prepare-options params)))]
+         (pagination/nav (assoc params
+                                :url (-> (path "/entities" entity-id "transactions")) 
+                                :total (transactions/record-count (env :db) criteria)))))
      [:p
       [:a.btn.btn-primary
        {:href (str"/entities/" entity-id "/transactions/new")

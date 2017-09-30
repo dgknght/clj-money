@@ -8,7 +8,8 @@
             [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
-            [clj-money.models.auth-helpers :refer [user-owns-entity?]]
+            [clj-money.models.auth-helpers :refer [user-owns-entity?
+                                                   user-entity-ids]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions
@@ -727,3 +728,5 @@
 
 (authorization/allow :transaction [:new :create :show :edit :update :delete]
        user-owns-entity?)
+
+(authorization/set-scope :transaction {:entity-id user-entity-ids})
