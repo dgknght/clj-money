@@ -173,13 +173,14 @@
 (defn new-transaction
   ([{params :params}]
    (new-transaction params
-                    (tag-resource {:entity-id (:entity-id params)
-                                   :items [{:action :debit}
-                                           {:action :credit}]
-                                   :transaction-date (t/today)} :transaction)
+                    (-> {:entity-id (:entity-id params)
+                         :items [{:action :debit}
+                                 {:action :credit}]
+                         :transaction-date (t/today)}
+                        (tag-resource :transaction)
+                        (authorize :new))
                     {}))
   ([params transaction options]
-   (authorize transaction :new)
    (with-transactions-layout "New Transaction" (:entity-id transaction) options
      (form (cond-> (path "/entities"
                          (:entity-id transaction)
@@ -225,8 +226,8 @@
   ([req] (edit req {}))
   ([{params :params transaction :transaction} options]
    (let [id (:id params)
-         transaction (authorize (or transaction
-                                    (transactions/find-by-id (env :db) id)) :edit)
+         transaction (or transaction
+                         (authorize (transactions/find-by-id (env :db) id) :edit))
          action (cond-> (path "/transactions"
                               (:id transaction))
 
