@@ -11,6 +11,7 @@
                                     format-date
                                     parse-local-date]]
             [clj-money.web.shared :refer :all]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.models.budgets :as budgets]
             [clj-money.reports :as reports]))
 
@@ -129,6 +130,7 @@
 
 (defn render
   [{{entity :entity :as params} :params}]
+  (authorize entity :show)
   (let [params (-> params ; TODO separate default based on the report type
                    (update-in [:type] keyword)
                    (update-in [:type] (fnil identity :balance-sheet))
