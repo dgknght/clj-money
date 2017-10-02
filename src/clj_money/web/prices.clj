@@ -7,6 +7,9 @@
             [clj-money.util :refer [format-date format-number]]
             [clj-money.web.shared :refer :all]
             [clj-money.validation :as validation]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource
+                                             apply-scope]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.prices.api-client :as prices-api]))
@@ -86,18 +89,24 @@
 
 (defn fetch
   [{params :params}]
-  (let [commodity (commodities/find-by-id (env :db) (Integer. (:commodity-id params)))
+  (let [commodity (commodities/find-by-id (env :db) (:commodity-id params))
         price (prices-api/fetch commodity)
-        result (prices/create (env :db) {:commodity-id (:id commodity)
-                                         :price (:price price)
-                                         :trade-date (:trade-date price)})]
+        to-create (-> {:commodity-id (:id commodity)
+                       :price (:price price)
+                       :trade-date (:trade-date price)}
+                      (tag-resource :price)
+                      (authorize :create))
+        result (prices/create (env :db) to-create)]
     (if (validation/has-error? result)
       (new-price {:params params} result)
       (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
 
 (defn fetch-all
   [{params :params}]
-  (->> (select-keys params [:entity-id])
+  (->> (-> params
+           (select-keys [:entity-id])
+           (assoc :type ["stock" "fund"])
+           (apply-scope :commodity))
        (commodities/search (env :db))
        (map #(-> %
                  prices-api/fetch
