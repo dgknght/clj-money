@@ -90,7 +90,6 @@
   (route GET "/entities/:entity-id/commodities" commodities/index)
   (route GET "/entities/:entity-id/commodities/new" commodities/new-commodity)
   (route POST "/entities/:entity-id/commodities" commodities/create)
-  (route GET "/commodities/:id" commodities/show)
   (route GET "/commodities/:id/edit" commodities/edit)
   (route POST "/commodities/:id" commodities/update)
   (route POST "/commodities/:id/delete" commodities/delete)
