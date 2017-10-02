@@ -5,6 +5,9 @@
             [clj-money.util :refer [safe-invoke]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.authorization :as authorization]
+            [clj-money.models.auth-helpers :refer [user-entity-ids
+                                                   user-owns-entity?]]
             [clj-money.models.entities :as entities]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
@@ -52,6 +55,7 @@
   ([_ commodity]
    (when commodity
      (-> commodity
+         (authorization/tag-resource :commodity)
          (update-in [:exchange] #(safe-invoke keyword %))
          (update-in [:type] keyword)))))
 
@@ -136,3 +140,10 @@
   (with-transacted-storage [s storage-spec]
     (delete-prices-by-commodity-id s id)
     (delete-commodity s id)))
+
+(authorization/allow :commodity [:new :create :show :edit :update :delete]
+                     user-owns-entity?)
+
+(authorization/set-scope
+  :commodity
+  {:entity-id user-entity-ids})
