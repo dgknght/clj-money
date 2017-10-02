@@ -130,6 +130,14 @@
   [context budget-name]
   (find-in-context context :budgets :name budget-name))
 
+(defn find-price
+  [context price trade-date]
+  (->> context
+       :prices
+       (filter #(and (= price (:price %))
+                     (= trade-date (:trade-date %))))
+       first))
+
 (defn context-errors
   [context]
   (reduce (fn [result [category models]]

@@ -14,8 +14,14 @@
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
+(defn- id-criteria?
+  [value]
+  (or (integer? value)
+      (and (seq? value)
+           (every? integer? value))))
+
 (s/def ::user-id integer?)
-(s/def ::entity-id integer?)
+(s/def ::entity-id id-criteria?)
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
