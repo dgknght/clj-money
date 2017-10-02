@@ -11,6 +11,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.commodities :as commodities]
             [clj-money.authorization :refer [allowed?
@@ -141,6 +142,23 @@
                                      {:action :credit
                                       :account-id "Salary"
                                       :amount 1000M}]}])))
+
+(deftest transaction-list
+  (let [context (serialization/realize storage-spec transactions-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        entity (find-entity context "Personal")]
+    (testing "A user has permission to list transactions in his entities"
+      (with-authentication john
+        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)} :transaction)
+                         (transactions/search storage-spec)
+                         count))
+            "The transactions are returned")))
+    (testing "A user does not have permission list transactions in someone else's transaction"
+      (with-authentication jane
+        (is (thrown? NotAuthorizedException
+                     (->> (apply-scope {:entity-id (:id entity)} :transaction)
+                          (transactions/search storage-spec)
+                          count)))))))
 
 (deftest transaction-management
   (let [context (serialization/realize storage-spec transactions-context)
