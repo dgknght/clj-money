@@ -78,24 +78,27 @@
 
 (defmethod render-report :budget
   [{:keys [entity-id budget-id as-of] :as params}]
-  (let [budget (if budget-id
-                 (budgets/find-by-id (env :db) budget-id)
-                 (budgets/find-by-date (env :db) entity-id as-of))
-        as-of (or as-of
-                  (budgets/end-date budget))]
+  (if-let [budget (if budget-id
+                    (budgets/find-by-id (env :db) budget-id)
+                    (budgets/find-by-date (env :db) entity-id as-of))]
+    (let [as-of (or as-of
+                    (budgets/end-date budget))]
+      (html
+        [:h2 (format "Budget %s as of %s" (:name budget) (format-date as-of))]
+        [:table.table
+         [:tr
+          [:th "Account"]
+          [:th.text-right "Budget"]
+          [:th.text-right "Actual"]
+          [:th.text-right "Diff."]
+          [:th.text-right "% Diff."]
+          [:th.text-right "Act./Period"]]
+         (map budget-report-row (:items (reports/budget (env :db)
+                                                        budget
+                                                        as-of)))]))
     (html
-      [:h2 (format "Budget %s as of %s" (:name budget) (format-date as-of))]
-      [:table.table
-       [:tr
-        [:th "Account"]
-        [:th.text-right "Budget"]
-        [:th.text-right "Actual"]
-        [:th.text-right "Diff."]
-        [:th.text-right "% Diff."]
-        [:th.text-right "Act./Period"]]
-       (map budget-report-row (:items (reports/budget (env :db)
-                                                      budget
-                                                      as-of)))])))
+        [:h2 "No budget found"]
+        [:p "No budget was found for the specified time period"])))
 
 (defmulti render-filter
   (fn [params]

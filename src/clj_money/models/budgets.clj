@@ -100,16 +100,17 @@
   "Returns a sequence of the periods in the budget based on
   :start-date, :period, :period-count"
   [budget]
-  (->> ((:period budget) period-map)
-       (periodic-seq (:start-date budget))
-       (partition 2 1)
-       (map-indexed (fn [index [start next-start]]
-                      {:start start
-                       :end (t/minus next-start Days/ONE)
-                       :index index
-                       :interval (t/interval (tc/to-date-time start)
-                                             (tc/to-date-time next-start))}))
-       (take (:period-count budget))))
+  (when budget
+    (->> ((:period budget) period-map)
+         (periodic-seq (:start-date budget))
+         (partition 2 1)
+         (map-indexed (fn [index [start next-start]]
+                        {:start start
+                         :end (t/minus next-start Days/ONE)
+                         :index index
+                         :interval (t/interval (tc/to-date-time start)
+                                               (tc/to-date-time next-start))}))
+         (take (:period-count budget)))))
 
 (defn end-date
   [budget]
