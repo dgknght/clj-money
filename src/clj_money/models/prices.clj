@@ -1,6 +1,7 @@
 (ns clj-money.models.prices
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clojure.spec :as s]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
@@ -131,7 +132,9 @@
                    (let [entity-ids (->> (:id user)
                                          (entities/select storage-spec)
                                          (map :id))]
-                     (->> {:entity-id entity-ids}
-                          (commodities/search storage-spec)
-                          (map :id)
-                          (into #{}))))})
+                     (if (seq entity-ids)
+                       (->> {:entity-id entity-ids}
+                            (commodities/search storage-spec)
+                            (map :id)
+                            (into #{}))
+                       #{})))})

@@ -30,10 +30,10 @@
                     :data-confirm "Are you sure you want to remove this price?"})]]])
 
 (defn index
-  [{params :params}]
-  (let [commodity (commodities/find-by-id (env :db)
-                                          (Integer. (:commodity-id params)))
-        prices (prices/select-by-commodity-id (env :db) (:id commodity))]
+  [{{commodity-id :commodity-id :as params} :params}]
+  (let [commodity (commodities/find-by-id (env :db) commodity-id)
+        criteria (apply-scope {:commodity-id commodity-id} :price)
+        prices (prices/search (env :db) criteria)]
     (with-layout (format "Prices for %s" (:symbol commodity)) {}
       [:div.row
        [:div.col-md-3

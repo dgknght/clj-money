@@ -18,6 +18,7 @@
   [value]
   (or (integer? value)
       (and (seq? value)
+           (seq value)
            (every? integer? value))))
 
 (s/def ::user-id integer?)
