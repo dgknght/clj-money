@@ -82,14 +82,14 @@
         entity (find-entity context "Personal")]
     (testing "A user has permission to list accounts in his entities"
       (with-authentication john
-        (is (not= 0 (->> (apply-scope{:entity-id (:id entity)} :account storage-spec)
+        (is (not= 0 (->> (apply-scope{:entity-id (:id entity)} :account)
                          (accounts/search storage-spec)
                          count))
             "The accounts are returned")))
     (testing "A user does not have permission list accounts in someone else's entity"
       (with-authentication jane
         (is (thrown? NotAuthorizedException
-                     (->> (apply-scope{:entity-id (:id entity)} :account storage-spec)
+                     (->> (apply-scope{:entity-id (:id entity)} :account)
                           (accounts/search storage-spec)
                           count)))))))
 
@@ -197,14 +197,14 @@
         entity (find-entity context "Personal")]
     (testing "A user has permission to list budgets in his entities"
       (with-authentication john
-        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)} :budget storage-spec)
+        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)} :budget)
                          (budgets/search storage-spec)
                          count))
             "The budgets are returned")))
     (testing "A user does not have permission list budgets in someone else's entity"
       (with-authentication jane
         (is (thrown? NotAuthorizedException
-                     (->> (apply-scope{:entity-id (:id entity)} :budget storage-spec)
+                     (->> (apply-scope{:entity-id (:id entity)} :budget)
                           (budgets/search storage-spec)
                           count))
             "An exception is thrown")))))

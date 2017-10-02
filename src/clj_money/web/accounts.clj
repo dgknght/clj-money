@@ -122,8 +122,7 @@
        [:th.col-sm-4.text-right "Balance"]
        [:th.col-sm-2 "&nbsp;"]]
       (let [groups (->> (apply-scope {:entity-id (:id entity)}
-                                     :account
-                                     (env :db))
+                                     :account)
                         (accounts/search (env :db))
                         accounts/nest)]
         (map account-rows groups))]
