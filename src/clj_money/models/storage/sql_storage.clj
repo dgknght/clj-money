@@ -159,6 +159,17 @@
     (h/limit sql limit)
     sql))
 
+(defn- append-prices-as-of
+  "This is bit of a kludge because the logic for converting a map
+  to a where clause is limited. Should really make that more robust, 
+  then we won't need this."
+  [criteria options]
+  (if-let [as-of (:as-of options)]
+    (-> criteria
+        (h/order-by [:trade-date :desc])
+        (h/merge-where [:<= :trade-date as-of]))
+    criteria))
+
 (defn- query
   "Executes a SQL query and maps field names into
   clojure keys"
@@ -378,29 +389,19 @@
                                   :price))
 
   (select-prices
-    [_ criteria]
+    [this criteria]
+    (.select-prices this criteria {}))
+
+  (select-prices
+    [_ criteria options]
     (validate-criteria criteria ::price-criteria)
     (query db-spec (-> (h/select :p.*)
                        (h/from [:prices :p])
                        (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                       (h/where (map->where criteria)))))
-
-  (select-prices-by-commodity-id
-    [this commodity-id as-of]
-    (.select-prices-by-commodity-id this commodity-id as-of {}))
-
-  (select-prices-by-commodity-id
-    [_ commodity-id as-of options]
-    (let [sql (-> (h/select :*)
-                  (h/from :prices)
-                  (h/where [:and
-                            [:= :commodity-id commodity-id]
-                            [:<= :trade-date as-of]])
-                  (h/order-by [:trade-date :desc])
-                  (append-where options)
-                  (append-limit options)
-                  (append-paging options))]
-      (query db-spec sql)))
+                       (h/where (map->where criteria))
+                       (append-prices-as-of options)
+                       (append-limit options)
+                       (append-paging options))))
 
   (find-price-by-id
     [_ id]

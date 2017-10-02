@@ -15,7 +15,6 @@
                                               find-price-by-id
                                               update-price
                                               select-prices
-                                              select-prices-by-commodity-id
                                               delete-price]]))
 
 (s/def ::commodity-id integer?)
@@ -44,11 +43,10 @@
 (defn- trade-date-exists?
   [storage {:keys [id commodity-id trade-date]}]
   (seq (remove #(and id (= id (:id %)))
-               (select-prices-by-commodity-id
+               (select-prices
                  storage
-                 commodity-id
-                 (tc/to-long (t/local-date 9999 12 31))
-                 {:where { :trade-date (tc/to-long trade-date)}}))))
+                 {:commodity-id commodity-id
+                  :trade-date (tc/to-long trade-date)}))))
 
 (defn- validation-rules
   [storage]
@@ -84,12 +82,6 @@
          (find-price-by-id s)
          after-read)))
 
-(defn select-by-commodity-id
-  [storage-spec commodity-id]
-  (with-storage [s storage-spec]
-    (->> (select-prices s {:commodity-id commodity-id})
-         (map after-read))))
-
 (defn search
   [storage-spec criteria]
   (with-storage [s storage-spec]
@@ -118,10 +110,10 @@
    (most-recent storage-spec commodity-id (t/today)))
   ([storage-spec commodity-id as-of]
    (with-storage [s storage-spec]
-     (-> (select-prices-by-commodity-id s
-                                        commodity-id
-                                        (tc/to-long as-of)
-                                        {:limit 1})
+     (-> (select-prices s
+                        {:commodity-id commodity-id}
+                        {:limit 1
+                         :as-of (tc/to-long as-of)})
          first
          after-read))))
 
