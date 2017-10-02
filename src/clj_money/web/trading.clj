@@ -29,7 +29,7 @@
   (map #(vector :option
                 {:value (:id %)}
                 (format "%s (%s)" (:name %) (:symbol %)))
-       (commodities/select-by-entity-id (env :db) entity-id)))
+       (commodities/search (env :db) {:entity-id entity-id})))
 
 (defn- form-fields
   [account trade]

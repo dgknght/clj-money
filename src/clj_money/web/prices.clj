@@ -97,10 +97,10 @@
 
 (defn fetch-all
   [{params :params}]
-  (->> (Integer. (:entity-id params))
-                         (commodities/select-by-entity-id (env :db))
-                         (map #(-> %
-                                   prices-api/fetch
-                                   (assoc :commodity-id (:id %))))
-                         (map #(prices/create (env :db) %)))
+  (->> (select-keys params [:entity-id])
+       (commodities/search (env :db))
+       (map #(-> %
+                 prices-api/fetch
+                 (assoc :commodity-id (:id %))))
+       (map #(prices/create (env :db) %)))
   (redirect (format "/entities/%s/commodities" (:entity-id params))))

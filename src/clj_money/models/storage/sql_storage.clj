@@ -348,26 +348,17 @@
                               (h/where [:= :id (:id commodity)])))]
       (jdbc/execute! db-spec sql)))
 
-  (select-commodities-by-entity-id
-    [this entity-id]
-    (.select-commodities-by-entity-id this entity-id {}))
-
-  (select-commodities-by-entity-id
-    [_ entity-id options]
-    (let [sql (-> (h/select :*)
-                  (h/from :commodities)
-                  (h/where [:= :entity-id entity-id])
-                  (h/order-by [:exchange :name])
-                  (append-where options)
-                  (append-paging options))]
-      (query db-spec sql)))
+  (select-commodities
+    [this criteria]
+    (.select-commodities this criteria {}))
 
   (select-commodities
-    [_ criteria]
+    [_ criteria options]
     (validate-criteria criteria ::commodity-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :commodities)
-                       (h/where (map->where criteria)))))
+                       (h/where (map->where criteria))
+                       (append-paging options))))
 
   (delete-commodity
     [_ id]

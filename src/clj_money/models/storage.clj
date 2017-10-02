@@ -67,13 +67,9 @@
     [this commodity]
     "Updates the specified commodity")
 
-  (select-commodities-by-entity-id
-    [this entity-id]
-    [this entity-id options]
-    "Returns a list of commodities for the specified entity")
-
   (select-commodities
     [this criteria]
+    [this criteria options]
     "Returns a list of commodities matching the specified criteria")
 
   (delete-commodity

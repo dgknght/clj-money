@@ -16,7 +16,6 @@
             [clj-money.models.storage :refer [create-commodity
                                               find-commodity-by-id
                                               update-commodity
-                                              select-commodities-by-entity-id
                                               select-commodities
                                               delete-prices-by-commodity-id
                                               delete-commodity]]))
@@ -68,22 +67,22 @@
 (defn- name-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]
   (when (and commodity-name entity-id exchange)
-    (->> (select-commodities-by-entity-id
+    (->> (select-commodities
            storage
-           entity-id
-           {:where {:name commodity-name
-                    :exchange (name exchange)}})
+           {:entity-id entity-id
+            :name commodity-name
+            :exchange (name exchange)})
          (remove #(= id (:id %)))
          seq)))
 
 (defn- symbol-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-symbol :symbol}]
   (when (and commodity-symbol entity-id exchange)
-    (->> (select-commodities-by-entity-id
+    (->> (select-commodities
            storage
-           entity-id
-           {:where {:symbol commodity-symbol
-                    :exchange (name exchange)}})
+           {:entity-id entity-id
+            :symbol commodity-symbol
+            :exchange (name exchange)})
          (remove #(= id (:id %)))
          seq)))
 
@@ -103,14 +102,6 @@
               :spec ::new-commodity
               :create create-commodity
               :after-read after-read}))
-
-(defn select-by-entity-id
-  "Returns the commodities belonging to the specified entity"
-  [storage-spec entity-id]
-  (with-storage [s storage-spec]
-    (->> entity-id
-         (select-commodities-by-entity-id s)
-         (map after-read))))
 
 (defn find-by-id
   "Returns the commodity having the specified ID"
