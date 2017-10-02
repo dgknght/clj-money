@@ -54,10 +54,12 @@
          "Back"]]])))
 
 (defn new-price
-  ([{params :params :as req}]
-   (new-price req {:commodity-id (Integer. (:commodity-id params))}))
-  ([{params :params} price]
-   (let [commodity (commodities/find-by-id (env :db) (Integer. (:commodity-id params)))]
+  ([{{commodity-id :commodity-id} :params :as req}]
+   (new-price req (-> {:commodity-id commodity-id}
+                      (tag-resource :price)
+                      (authorize :new))))
+  ([{{commodity-id :commodity-id} :params} price]
+   (let [commodity (commodities/find-by-id (env :db) commodity-id)]
      (with-layout (format "New price for %s" (:symbol commodity)) {}
        [:div.row
         [:div.col-md-6
@@ -73,17 +75,21 @@
 
 (defn create
   [{params :params}]
-  (let [result (prices/create (env :db)
-                              (select-keys params [:commodity-id
-                                                   :trade-date
-                                                   :price]))]
+  (let [price (-> params
+                  (select-keys [:commodity-id
+                                :trade-date
+                                :price])
+                  (tag-resource :price)
+                  (authorize :create))
+        result (prices/create (env :db) price)]
     (if (validation/has-error? result)
       (new-price {:params params} result)
       (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
 
 (defn delete
   [{params :params}]
-  (let [price (prices/find-by-id (env :db) (Integer. (:id params)))]
+  (let [price (authorize (prices/find-by-id (env :db) (Integer. (:id params)))
+                         :delete)]
     (prices/delete (env :db) (:id price))
     (redirect (format "/commodities/%s/prices" (:commodity-id price)))))
 
