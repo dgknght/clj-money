@@ -69,8 +69,7 @@
          [:th "&nbsp;"]]
         (map budget-row (budgets/search (env :db)
                                         (apply-scope {:entity-id (:id entity)}
-                                                     :budget
-                                                     (env :db))))]
+                                                     :budget)))]
        [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" (:id entity))}
         "Add"]]])))
 
