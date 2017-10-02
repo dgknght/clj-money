@@ -31,12 +31,6 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this commodity"})
-     (glyph-button :refresh
-                   (format "/commodities/%s/prices/fetch" (:id commodity))
-                   {:level :default
-                    :size :extra-small
-                    :data-method :post
-                    :title "Click here to fetch the latest price for this commodity"})
      (glyph-button :usd
                    (format "/commodities/%s/prices" (:id commodity))
                    {:level :default
@@ -48,7 +42,14 @@
                     :size :extra-small
                     :data-method :post
                     :data-confirm "Are you sure you want to delete this account?"
-                    :title "Click here to remove this commodity"})]]])
+                    :title "Click here to remove this commodity"})
+     (when (#{:stock :fund} (:type commodity))
+       (glyph-button :refresh
+                     (format "/commodities/%s/prices/fetch" (:id commodity))
+                     {:level :default
+                      :size :extra-small
+                      :data-method :post
+                      :title "Click here to fetch the latest price for this commodity"}))]]])
 
 (defn index
   [{params :params}]
@@ -72,9 +73,10 @@
          "Add"]
         "&nbsp;"
         [:a.btn.btn-default
-         {:href (format "/entities/%s/prices/fetch" (:id entity))
-          :title "Click here to download prices for all commodities"
-          :data-method :post}
+         (append-anti-forgery-link-attributes
+           {:href (format "/entities/%s/prices/fetch" (:id entity))
+            :title "Click here to download prices for all commodities"
+            :data-method :post})
          "Download Prices"]]])))
 
 (defn- form-fields
