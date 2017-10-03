@@ -125,38 +125,45 @@
       (index {:alerts [{:type :danger :message (.getMessage e)}]}))))
 
 (defn- monitor-row
-  [account]
+  [entity account]
   [:tr
    [:td (:name account)]
-   [:td "&nbsp;"]])
+   [:td
+    (form (format "/entities/%s/monitors/%s/delete"
+                  (:id entity)
+                  (:id account)) {}
+          [:button.btn.btn-xs.btn-danger {:title "Click here to remove this budget monitor."}
+           [:span.glyphicon.glyphicon-remove {:aria-hidden true}]])]])
 
 (defn monitors
   ([req] (monitors req {}))
-  ([{{entity-id :entity-id} :params} monitor]
+  ([{{entity :entity} :params} monitor]
+   (authorize entity :edit)
    (with-layout "Budget Monitors" {}
-     (let [entity (entities/find-by-id (env :db) (Integer. entity-id))]
-       [:div.row
-        [:div.col-md-6
-         [:table.table.table-striped
-          [:tr
-           [:th "Account"]
-           [:th "&nbsp;"]]
-          (map monitor-row (->> entity
-                                :monitored-account-ids
-                                (map #(accounts/find-by-id (env :db) %))))]
-         (form (format "/entities/%s/monitors" (:id entity)) {}
-               [:div.form-group
-                [:label.control-label {:for :account-id} "Add Account"]
-                [:select.form-control {:id :account-id :name :account-id}
-                 (grouped-options-for-accounts (:id entity) {:selected-id (:account-id monitor)})]]
-               [:input.btn.btn-primary {:type :submit :value "Add"}])]]))))
+     [:div.row
+      [:div.col-md-3
+       [:table.table.table-striped
+        [:tr
+         [:th "Account"]
+         [:th "&nbsp;"]]
+        (map #(monitor-row entity %)
+             (->> entity
+                  :settings
+                  :monitored-account-ids
+                  (map #(accounts/find-by-id (env :db) %))))]
+       (form (format "/entities/%s/monitors" (:id entity)) {}
+             [:div.form-group
+              [:label.control-label {:for :account-id} "Add Account"]
+              [:select.form-control {:id :account-id :name :account-id}
+               (grouped-options-for-accounts (:id entity) {:selected-id (:account-id monitor)})]]
+             [:input.btn.btn-primary {:type :submit :value "Add"}])]])))
 
 (defn create-monitor
   [{params :params}]
   (let [{:keys [account-id entity-id]} (-> params
                                            (update-in [:entity-id] #(Integer. %))
                                            (update-in [:account-id] #(Integer. %)))
-        entity (entities/find-by-id (env :db) entity-id)
+        entity (authorize (entities/find-by-id (env :db) entity-id) :update)
         updated (update-in entity
                            [:settings :monitored-account-ids]
                            (fnil #(conj % account-id) []))
@@ -166,16 +173,14 @@
       (redirect (format "/entities/%s/accounts" entity-id)))))
 
 (defn delete-monitor
-  [{params :params}]
-  (let [[account-id entity-id] (->> ((juxt :account-id :entity-id) params)
-                                    (map #(Integer. %)))
-        entity (entities/find-by-id (env :db) entity-id)
-        updated (update-in entity
-                           [:monitored-account-ids]
+  [{{:keys [account-id entity]} :params}]
+  (authorize entity :update)
+  (let [updated (update-in entity
+                           [:settings :monitored-account-ids]
                            #(->> %
-                                 (remove (fn [id] (= id account-id)))
+                                 (remove #{account-id})
                                  (into [])))
         result (entities/update (env :db) updated)]
-    (if (validation/valid? result)
-      (redirect (format "/entities/%s/accounts" entity-id))
-      (monitors entity-id {:new-monitor result}))))
+    (if (validation/has-error? result)
+      (monitors (:id entity) {:new-monitor result})
+      (redirect (format "/entities/%s/accounts" (:id entity))))))
