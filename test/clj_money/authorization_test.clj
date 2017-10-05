@@ -5,6 +5,7 @@
             [clojure.data :refer [diff]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
+            [slingshot.test :refer :all]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -25,8 +26,7 @@
                                             find-entity
                                             find-budget
                                             find-commodity
-                                            find-price]])
-  (:import clj_money.NotAuthorizedException))
+                                            find-price]]))
 
 (def storage-spec (env :db))
 
@@ -93,7 +93,7 @@
             "The accounts are returned")))
     (testing "A user does not have permission list accounts in someone else's entity"
       (with-authentication jane
-        (is (thrown? NotAuthorizedException
+        (is (thrown+? [:type :clj-money.authorization/unauthorized]
                      (->> (apply-scope{:entity-id (:id entity)} :account)
                           (accounts/search storage-spec)
                           count)))))))
@@ -157,10 +157,10 @@
             "The transactions are returned")))
     (testing "A user does not have permission list transactions in someone else's transaction"
       (with-authentication jane
-        (is (thrown? NotAuthorizedException
-                     (->> (apply-scope {:entity-id (:id entity)} :transaction)
-                          (transactions/search storage-spec)
-                          count)))))))
+        (is (thrown+? [:type :clj-money.authorization/unauthorized]
+                      (->> (apply-scope {:entity-id (:id entity)} :transaction)
+                           (transactions/search storage-spec)
+                           count)))))))
 
 (deftest transaction-management
   (let [context (serialization/realize storage-spec transactions-context)
@@ -225,10 +225,10 @@
             "The budgets are returned")))
     (testing "A user does not have permission list budgets in someone else's entity"
       (with-authentication jane
-        (is (thrown? NotAuthorizedException
-                     (->> (apply-scope{:entity-id (:id entity)} :budget)
-                          (budgets/search storage-spec)
-                          count))
+        (is (thrown+? [:type :clj-money.authorization/unauthorized]
+                      (->> (apply-scope{:entity-id (:id entity)} :budget)
+                           (budgets/search storage-spec)
+                           count))
             "An exception is thrown")))))
 
 (deftest budget-creation
@@ -311,7 +311,7 @@
             "The commodities are returned")))
     (testing "A user does not have permission list commodities in someone else's entity"
       (with-authentication jane
-        (is (thrown? NotAuthorizedException
+        (is (thrown+? [:type :clj-money.authorization/unauthorized]
                      (->> (apply-scope {:entity-id (:id entity)} :commodity)
                           (commodities/search storage-spec)
                           count)))))))
@@ -372,7 +372,7 @@
             "The prices are returned")))
     (testing "A user does not have permission to list prices for commodities in someone else's entity"
       (with-authentication jane
-        (is (thrown? NotAuthorizedException
+        (is (thrown+? [:type :clj-money.authorization/unauthorized]
                      (->> (apply-scope {:commodity-id (:id commodity)} :price)
                           (prices/search storage-spec)
                           count)))))))

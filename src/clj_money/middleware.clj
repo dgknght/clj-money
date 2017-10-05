@@ -2,9 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
+            [slingshot.slingshot :refer [try+]]
             [clj-money.models.entities :as entities]
-            [clj-money.models.accounts :as accounts])
-  (:import clj_money.NotAuthorizedException))
+            [clj-money.models.accounts :as accounts]))
 
 (defn- integerize-id-params
   [params]
@@ -54,9 +54,9 @@
 (defn wrap-exception-handling
   [handler]
   (fn [request]
-    (try
+    (try+
       (handler request)
-      (catch NotAuthorizedException e
+      (catch [:type :clj-money.authorization/unauthorized] error-data
         {:status 404
          :headers {}
-         :body "not found"}))))
+         :body "not found"})))) ; TODO create a full not-found page

@@ -1,10 +1,10 @@
 (ns clj-money.authorization
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [slingshot.slingshot :refer [throw+]]
             [environ.core :refer [env]]
             [cemerick.friend :refer [current-authentication]]
-            [clj-money.util :refer [pprint-and-return]])
-  (:import clj_money.NotAuthorizedException))
+            [clj-money.util :refer [pprint-and-return]]))
 
 (defn- get-resource-tag
   "Returns a keyword identifying the type of the resource"
@@ -61,7 +61,9 @@
   [resource action]
   (if (allowed? (current-authentication) action resource)
     resource
-    (throw (NotAuthorizedException.))))
+    (throw+ {:type ::unauthorized
+             :action action
+             :resource (get-resource-tag resource)})))
 
 (defn allow
   "Registers a rule that will be used to determine if the
@@ -102,5 +104,5 @@
          (into {})
          (merge-with (fn [requested allowed]
                        (or (allowed requested)
-                           (throw (NotAuthorizedException. "query out of scope"))))
+                           (throw+ {:type ::unauthorized :resource resource-type})))
                      criteria))))
