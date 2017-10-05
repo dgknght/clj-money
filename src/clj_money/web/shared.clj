@@ -327,7 +327,6 @@
 
 (defmacro form
   [url options & body]
-  `[:form {:action ~url
-           :method (or (:method ~options) :post)}
+  `[:form (merge {:method :post} ~options {:action ~url})
     (anti-forgery-field)
     ~@body])

@@ -65,7 +65,9 @@
      [:div.row
       [:div.col-md-6
        (form (format "/transactions/%s/attachments"
-                     (:transaction-id attachment)) {:enctype "multipart/form-data"}
+                     (:transaction-id attachment))
+             {:enctype "multipart/form-data"}
+
              (text-input-field attachment :caption {:autofocus true})
              (file-input-field attachment :source-file)
              [:button.btn.btn-primary {:type :submit}
