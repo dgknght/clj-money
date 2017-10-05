@@ -12,6 +12,9 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
+            [clj-money.authorization :refer [apply-scope
+                                             authorize
+                                             tag-resource]]
             [clj-money.models.images :as images] 
             [clj-money.models.transactions :as transactions]
             [clj-money.models.attachments :as attachments])
@@ -35,11 +38,10 @@
 
 (defn index
   [{{transaction-id :transaction-id} :params}]
-  (let [transaction (transactions/find-by-id (env :db)
-                                             (Integer. transaction-id))
+  (let [transaction (authorize (transactions/find-by-id (env :db) transaction-id) :show)
         attachments (attachments/search
                       (env :db)
-                      {:transaction-id (:id transaction)})]
+                      (apply-scope {:transaction-id (:id transaction)} :attachment))]
     (with-layout "Attachments" {}
       [:div.row
        [:div.col-md-4
@@ -59,7 +61,9 @@
 
 (defn new-attachment
   ([{{transaction-id :transaction-id} :params :as req}]
-   (new-attachment req {:transaction-id (Integer. transaction-id)}))
+   (new-attachment req (-> {:transaction-id transaction-id}
+                           (tag-resource :attachment)
+                           (authorize :create))))
   ([_ attachment]
    (with-layout "New attachment" {}
      (when (validation/has-error? attachment)
@@ -102,7 +106,9 @@
 
 (defn create
   [{params :params}]
-  (let [attachment (->> params
+  (let [attachment (->> (-> params
+                            (tag-resource :attachment)
+                            (authorize :create))
                         prepare-file-data
                         (attachments/create (env :db)))]
     (if (seq (validation/error-messages attachment))

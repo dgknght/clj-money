@@ -6,6 +6,7 @@
             [digest :refer [sha-1]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.authorization :as authorization]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -63,9 +64,13 @@
 (defn find-by-id
   [storage-spec id]
   (with-storage [s storage-spec]
-    (find-image-by-id s id)))
+    (authorization/tag-resource (find-image-by-id s id) :image)))
 
 (defn delete
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-image s id)))
+
+(authorization/allow :image [:show]
+                     (fn [user resource _]
+                       (= (:user-id resource) (:id user))))

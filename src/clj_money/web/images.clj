@@ -8,11 +8,12 @@
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
-            [clj-money.models.images :as images]))
+            [clj-money.models.images :as images]
+            [clj-money.authorization :refer [authorize]]))
 
 (defn show
   [{{image-id :image-id} :params}]
-  (let [image (images/find-by-id (env :db) (Integer. image-id))]
+  (let [image (authorize (images/find-by-id (env :db) image-id) :show)]
     (if image
       (-> (io/input-stream (:body image))
           response

@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
             [clj-money.validation :as validation]
+            [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
@@ -11,7 +12,10 @@
             [clj-money.models.storage :refer [create-attachment
                                               select-attachments
                                               delete-attachment]]
-            [clj-money.models.images :as images]))
+            [clj-money.models.images :as images]
+            [clj-money.models.transactions :as transactions]
+            [clj-money.models.auth-helpers :refer [user-owns-entity?
+                                                   user-entity-ids]]))
 
 (s/def ::transaction-id integer?)
 (s/def ::image-id integer?)
@@ -43,3 +47,10 @@
                        id-or-attachment)]
       (images/delete s (:image-id attachment))
       (delete-attachment s (:id attachment)))))
+
+(authorization/allow :attachment [:new :create :show :edit :update :delete]
+                     (fn [user resource {storage-spec :storage-spec :as context}]
+                       (let [transaction (transactions/find-by-id
+                                           storage-spec
+                                           (:transaction-id resource))]
+                         (user-owns-entity? user transaction context))))
