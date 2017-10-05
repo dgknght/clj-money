@@ -197,3 +197,12 @@
    (::errors model))
   ([model attribute]
    (attribute (error-messages model))))
+
+(defn flat-error-messages
+  "Returns a flat list of strings describing the error messages for the
+  model instead of the map returned by error-messages"
+  [model]
+  (-> model
+      ::errors
+      vals
+      flatten))

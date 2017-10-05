@@ -62,6 +62,11 @@
    (new-attachment req {:transaction-id (Integer. transaction-id)}))
   ([_ attachment]
    (with-layout "New attachment" {}
+     (when (validation/has-error? attachment)
+       [:div.alert.alert-danger
+        "Unable to save the attachment"
+        [:ul
+         (map #(vector :li %) (validation/flat-error-messages attachment))]])
      [:div.row
       [:div.col-md-6
        (form (format "/transactions/%s/attachments"
