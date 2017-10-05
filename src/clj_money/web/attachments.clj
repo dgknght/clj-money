@@ -64,7 +64,6 @@
    (with-layout "New attachment" {}
      [:div.row
       [:div.col-md-6
-       [:pre (prn-str attachment)]
        (form (format "/transactions/%s/attachments"
                      (:transaction-id attachment)) {:enctype "multipart/form-data"}
              (text-input-field attachment :caption {:autofocus true})
