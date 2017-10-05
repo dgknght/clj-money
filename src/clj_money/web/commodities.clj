@@ -6,6 +6,11 @@
             [clojure.tools.logging :as log]
             [clj-money.util :refer [format-number]]
             [clj-money.web.shared :refer :all]
+            [clj-money.authorization :refer [apply-scope
+                                             authorize
+                                             tag-resource]]
+            [clj-money.models.auth-helpers :refer [user-owns-entity?
+                                                   user-entity-ids]]
             [clj-money.validation :as validation]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
@@ -26,12 +31,6 @@
                    {:level :info
                     :size :extra-small
                     :title "Click here to edit this commodity"})
-     (glyph-button :refresh
-                   (format "/commodities/%s/prices/fetch" (:id commodity))
-                   {:level :default
-                    :size :extra-small
-                    :data-method :post
-                    :title "Click here to fetch the latest price for this commodity"})
      (glyph-button :usd
                    (format "/commodities/%s/prices" (:id commodity))
                    {:level :default
@@ -43,12 +42,20 @@
                     :size :extra-small
                     :data-method :post
                     :data-confirm "Are you sure you want to delete this account?"
-                    :title "Click here to remove this commodity"})]]])
+                    :title "Click here to remove this commodity"})
+     (when (#{:stock :fund} (:type commodity))
+       (glyph-button :refresh
+                     (format "/commodities/%s/prices/fetch" (:id commodity))
+                     {:level :default
+                      :size :extra-small
+                      :data-method :post
+                      :title "Click here to fetch the latest price for this commodity"}))]]])
 
 (defn index
   [{params :params}]
   (let [entity (:entity params)
-        commodities (commodities/select-by-entity-id (env :db) (:id entity))]
+        criteria (apply-scope {:entity-id (:id entity)} :commodity)
+        commodities (commodities/search (env :db) criteria)]
     (with-layout "Commodities" {:entity entity}
       [:div.row
        [:div.col-md-6
@@ -66,9 +73,10 @@
          "Add"]
         "&nbsp;"
         [:a.btn.btn-default
-         {:href (format "/entities/%s/prices/fetch" (:id entity))
-          :title "Click here to download prices for all commodities"
-          :data-method :post}
+         (append-anti-forgery-link-attributes
+           {:href (format "/entities/%s/prices/fetch" (:id entity))
+            :title "Click here to download prices for all commodities"
+            :data-method :post})
          "Download Prices"]]])))
 
 (defn- form-fields
@@ -95,7 +103,9 @@
 
 (defn new-commodity
   ([{{entity-id :entity-id} :params :as req}]
-   (new-commodity req {:entity-id entity-id}))
+   (new-commodity req (-> {:entity-id entity-id}
+                          (tag-resource :commodity)
+                          (authorize :new))))
   ([{{entity :entity} :params} commodity]
    (with-layout "New commodity" {:entity entity}
      [:div.row
@@ -107,19 +117,22 @@
   [{params :params}]
   (let [commodity (commodities/create
                     (env :db)
-                    (select-keys params [:entity-id :name :symbol :exchange :type]))]
+                    (-> params
+                        (select-keys [:entity-id
+                                      :name
+                                      :symbol
+                                      :exchange
+                                      :type])
+                        (tag-resource :commodity)
+                        (authorize :create)))]
     (if (validation/has-error? commodity)
       (new-commodity {} commodity)
       (redirect (format "/entities/%s/commodities" (:entity-id commodity))))))
 
-(defn show
-  [req]
-  "show")
-
 (defn edit
   ([{params :params :as req}]
    (let [id (:id params)
-         commodity (commodities/find-by-id (env :db) id)]
+         commodity (authorize (commodities/find-by-id (env :db) id) :edit)]
      (edit req commodity)))
   ([_ commodity]
    (with-layout "Edit commodity" {:entity-id (:entity-id commodity)}
@@ -130,16 +143,20 @@
 
 (defn update
   [{params :params}]
-  (let [result (commodities/update (env :db)
-                                   (select-keys
-                                     params
-                                     [:id :name :symbol :exchange :type]))]
+  (let [commodity (-> (commodities/find-by-id (env :db) (:id params))
+                      (authorize :update)
+                      (merge (select-keys params [:id
+                                                  :name
+                                                  :symbol
+                                                  :exchange
+                                                  :type])))
+        result (commodities/update (env :db) commodity)]
     (if (validation/has-error? result)
       (edit {} result)
       (redirect (format "/entities/%s/commodities" (:entity-id result))))))
 
 (defn delete
   [{params :params}]
-  (let [commodity (commodities/find-by-id (env :db) (:id params))]
+  (let [commodity (authorize (commodities/find-by-id (env :db) (:id params)) :delete)]
     (commodities/delete (env :db) (:id commodity))
     (redirect (format "/entities/%s/commodities" (:entity-id commodity)))))

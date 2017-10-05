@@ -652,7 +652,9 @@
 
 (deftest create-a-budget-report
   (let [context (serialization/realize storage-spec budget-report-context)
-        actual (reports/budget storage-spec (-> context :budgets first :id) (t/local-date 2016 2 29))
+        actual (reports/budget storage-spec
+                               (-> context :budgets first :id)
+                               (t/local-date 2016 2 29))
         expected {:title "2016"
                   :items [{:caption "Income"
                            :style :header
@@ -759,7 +761,9 @@
                            :actual-percent 0.037037M}}]
 
     (if-not (= expected actual)
-      (pprint {:diff (diff expected actual)}))
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
 
     (is (= expected actual) "The correct information is returned")))
 

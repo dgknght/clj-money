@@ -2,7 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
-            [clj-money.models.entities :as entities]))
+            [clj-money.models.entities :as entities]
+            [clj-money.models.accounts :as accounts])
+  (:import clj_money.NotAuthorizedException))
 
 (defn- integerize-id-params
   [params]
@@ -26,14 +28,35 @@
     (handler (update-in request [:params] integerize-id-params))))
 
 
-(defn- lookup-entity
-  [params]
-  (cond-> params
-    (:entity-id params)
-    (assoc :entity (entities/find-by-id (env :db) (:entity-id params)))))
+(def ^:private param-models
+  [{:key :entity-id
+    :lookup-fn #(entities/find-by-id (env :db) %)
+    :target-key :entity}
+   {:key :account-id
+    :lookup-fn #(accounts/find-by-id (env :db) %)
+    :target-key :account}])
 
-(defn wrap-entity
+(defn- lookup-models
+  [params]
+  (->> param-models
+       (map (fn [{:keys [key lookup-fn target-key]}]
+              (when-let [id (key params)]
+                [target-key (lookup-fn id)])))
+       (filter (fn [[k v]] v))
+       (into {})))
+
+(defn wrap-models
   "Adds :entity to the params if :entity-id is present"
   [handler]
   (fn [request]
-    (handler (update-in request [:params] lookup-entity))))
+    (handler (update-in request [:params] #(merge % (lookup-models %))))))
+
+(defn wrap-exception-handling
+  [handler]
+  (fn [request]
+    (try
+      (handler request)
+      (catch NotAuthorizedException e
+        {:status 404
+         :headers {}
+         :body "not found"}))))

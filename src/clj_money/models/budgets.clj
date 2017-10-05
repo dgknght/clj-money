@@ -9,6 +9,13 @@
             [clj-money.util :as util]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
+            [clj-money.authorization :as authorization]
+
+            ; TODO combine these
+            [clj-money.models.auth-helpers :refer [user-entity-ids
+                                                   user-owns-entity?]]
+
+            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
@@ -18,10 +25,9 @@
                                               update-budget
                                               create-budget-item
                                               update-budget-item
-                                              find-budget-by-id
                                               find-budget-by-date
                                               find-budget-item-by-id
-                                              select-budgets-by-entity-id
+                                              select-budgets
                                               select-budget-items-by-budget-id
                                               delete-budget]])
   (:import (org.joda.time LocalDate
@@ -48,28 +54,26 @@
   (let [now (t/now)]
     (t/local-date (+ 1 (t/year now)) 1 1)))
 
-(defn- prepare-item-for-return
+(defn- after-item-read
   [item]
-  (update-in item [:periods] read-string))
+  (-> item
+      (update-in [:periods] read-string)
+      (authorization/tag-resource :budget-item)))
 
 (defn- select-items-by-budget-id
   [storage budget-id]
-  (map prepare-item-for-return
+  (map after-item-read
        (select-budget-items-by-budget-id storage budget-id)))
 
 (defn- after-read
   [storage budget]
-  (-> budget
-      (update-in [:start-date] tc/to-local-date)
-      (update-in [:end-date] tc/to-local-date)
-      (update-in [:period] keyword)
-      (assoc :items (select-items-by-budget-id storage (:id budget)))))
-
-(defn select-by-entity-id
-  "Returns the budgets for the specified entity"
-  [storage-spec entity-id]
-  (with-storage [s storage-spec]
-    (map #(after-read s %) (select-budgets-by-entity-id s entity-id))))
+  (when budget
+    (-> budget
+        (authorization/tag-resource :budget)
+        (update-in [:start-date] tc/to-local-date)
+        (update-in [:end-date] tc/to-local-date)
+        (update-in [:period] keyword)
+        (assoc :items (select-items-by-budget-id storage (:id budget))))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -96,16 +100,17 @@
   "Returns a sequence of the periods in the budget based on
   :start-date, :period, :period-count"
   [budget]
-  (->> ((:period budget) period-map)
-       (periodic-seq (:start-date budget))
-       (partition 2 1)
-       (map-indexed (fn [index [start next-start]]
-                      {:start start
-                       :end (t/minus next-start Days/ONE)
-                       :index index
-                       :interval (t/interval (tc/to-date-time start)
-                                             (tc/to-date-time next-start))}))
-       (take (:period-count budget))))
+  (when budget
+    (->> ((:period budget) period-map)
+         (periodic-seq (:start-date budget))
+         (partition 2 1)
+         (map-indexed (fn [index [start next-start]]
+                        {:start start
+                         :end (t/minus next-start Days/ONE)
+                         :index index
+                         :interval (t/interval (tc/to-date-time start)
+                                               (tc/to-date-time next-start))}))
+         (take (:period-count budget)))))
 
 (defn end-date
   [budget]
@@ -138,18 +143,28 @@
               :coercion-rules coercion-rules
               :after-read after-read}))
 
+(defn search
+  "Returns a list of budgets matching the specified criteria"
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (->> (select-budgets s criteria options)
+          (map #(after-read s %))))))
+
 (defn find-by-id
   "Returns the specified budget"
   [storage-spec id]
   (with-storage [s storage-spec]
-    (->> (find-budget-by-id s id)
+    (->> (select-budgets s {:id id} {:limit 1})
+         first
          (after-read s))))
 
 (defn find-by-date
   "Returns the budget containing the specified date"
   [storage-spec entity-id date]
   (with-storage [s storage-spec]
-    (->> (find-budget-by-date s (tc/to-long date))
+    (->> (find-budget-by-date s entity-id (tc/to-long date))
          (after-read s))))
 
 (defn reload
@@ -175,14 +190,13 @@
   (with-storage [s storage-spec]
     (->> item-id
          (find-budget-item-by-id s)
-         prepare-item-for-return)))
+         after-item-read)))
 
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"
   [budget account-or-id]
-  (let [account-id (if (map? account-or-id)
-                     (:id account-or-id)
-                     account-or-id)]
+  (let [account-id (or (:id account-or-id)
+                       account-or-id)]
     (->> budget
          :items
          (filter #(= account-id (:account-id %)))
@@ -245,7 +259,7 @@
         (->> validated
              before-save-item
              (create-budget-item s)
-             prepare-item-for-return)))))
+             after-item-read)))))
 
 (defn- reload-item
   "Returns the lastest version of the specified budget from the data store"
@@ -310,3 +324,14 @@
         days (+ 1 (t/in-days (t/interval (tc/to-date-time (:start period))
                                          (tc/to-date-time as-of))))]
     (with-precision 5 (/ days days-in-period))))
+
+(authorization/set-scope
+  :budget
+  {:entity-id user-entity-ids})
+
+(authorization/allow :budget [:new :create :show :edit :update :delete]
+                     user-owns-entity?)
+
+(authorization/allow :budget-item [:new :create :show :edit :update :delete]
+                     (fn [user resource {storage-spec :storage-spec :as context}]
+                       (user-owns-entity? user (find-by-id storage-spec (:budget-id resource)) context)))

@@ -8,7 +8,8 @@
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
             [clj-money.web.budgets :as budgets]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db
+                                            with-authentication]]))
 
 (def storage-spec (env :db))
 
@@ -50,9 +51,10 @@
 
 (deftest prepare-budget-for-display
   (let [context (serialization/realize storage-spec budget-context)
-        actual (-> (budgets/for-display (-> context :budgets first :id))
-                    (update-in [:items] #(map (fn [i] (dissoc i :id)) %))
-                    (dissoc :id :created-at :updated-at :entity-id))
+        actual (with-authentication (-> context :users first)
+                 (-> (budgets/for-display (-> context :budgets first :id))
+                     (update-in [:items] #(map (fn [i] (dissoc i :id)) %))
+                     (dissoc :id :created-at :updated-at :entity-id)))
         expected {:name "2017"
                   :period :month
                   :period-count 12

@@ -8,6 +8,9 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-time.core :as t]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource
+                                             apply-scope]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -59,18 +62,20 @@
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
    (with-transactions-layout "Transactions" entity-id options
-     [:table.table.table-striped
-      [:tr
-       [:th.col-sm-2 "Date"]
-       [:th.col-sm-8 "Description"]
-       [:th.col-sm-2 "&nbsp;"]]
-      (map transaction-row
-           (transactions/select-by-entity-id (env :db)
-                                             entity-id
-                                             (pagination/prepare-options params)))]
-     (pagination/nav (assoc params
-                            :url (-> (path "/entities" entity-id "transactions")) 
-                            :total (transactions/count-by-entity-id (env :db) entity-id)))
+     (let [criteria (apply-scope {:entity-id entity-id} :transaction)]
+       (html
+         [:table.table.table-striped
+          [:tr
+           [:th.col-sm-2 "Date"]
+           [:th.col-sm-8 "Description"]
+           [:th.col-sm-2 "&nbsp;"]]
+          (map transaction-row
+               (transactions/search (env :db)
+                                    criteria
+                                    (pagination/prepare-options params)))]
+         (pagination/nav (assoc params
+                                :url (-> (path "/entities" entity-id "transactions")) 
+                                :total (transactions/record-count (env :db) criteria)))))
      [:p
       [:a.btn.btn-primary
        {:href (str"/entities/" entity-id "/transactions/new")
@@ -168,10 +173,12 @@
 (defn new-transaction
   ([{params :params}]
    (new-transaction params
-                    {:entity-id (:entity-id params)
-                     :items [{:action :debit}
-                             {:action :credit}]
-                     :transaction-date (t/today)}
+                    (-> {:entity-id (:entity-id params)
+                         :items [{:action :debit}
+                                 {:action :credit}]
+                         :transaction-date (t/today)}
+                        (tag-resource :transaction)
+                        (authorize :new))
                     {}))
   ([params transaction options]
    (with-transactions-layout "New Transaction" (:entity-id transaction) options
@@ -206,7 +213,9 @@
   (let [transaction (-> params
                         (assoc :items (extract-items params))
                         (select-keys [:entity-id :transaction-date :description :items :memo])
-                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount :memo]))))
+                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount :memo])))
+                        (tag-resource :transaction)
+                        (authorize :create))
         result (transactions/create (env :db) transaction)
         redirect-url (redirect-url (:entity-id result) params)]
     (if (validation/has-error? result)
@@ -218,7 +227,7 @@
   ([{params :params transaction :transaction} options]
    (let [id (:id params)
          transaction (or transaction
-                         (transactions/find-by-id (env :db) id))
+                         (authorize (transactions/find-by-id (env :db) id) :edit))
          action (cond-> (path "/transactions"
                               (:id transaction))
 
@@ -233,21 +242,24 @@
 
 (defn update
   [{params :params}]
-  (let [transaction (-> params
-                        (select-keys [:id
-                                      :transaction-date
-                                      :description
-                                      :memo])
-                        (assoc :items (extract-items params)))
-        updated (transactions/update (env :db) transaction)
-        redirect-url (redirect-url (:entity-id updated) params)]
-    (if (validation/has-error? updated)
-      (edit transaction {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/error-messages updated))}]})
+  (let [transaction (authorize (transactions/find-by-id (env :db) (:id params))
+                               :update)
+        updated (merge transaction
+                       (-> params
+                           (select-keys [:id
+                                         :transaction-date
+                                         :description
+                                         :memo])
+                           (assoc :items (extract-items params))))
+        result (transactions/update (env :db) updated)
+        redirect-url (redirect-url (:entity-id result) params)]
+    (if (validation/has-error? result)
+      (edit result {:alerts [{:type :danger :message (str "Unable to save the transaction " (validation/error-messages updated))}]})
       (redirect redirect-url))))
 
 (defn delete
   [{{id :id :as params} :params}]
-  (let [transaction (transactions/find-by-id (env :db) id)
+  (let [transaction (authorize (transactions/find-by-id (env :db) id) :delete)
         redirect-url (redirect-url (:entity-id transaction) params)]
     (transactions/delete (env :db) id)
     (redirect redirect-url)))

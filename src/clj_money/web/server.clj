@@ -22,7 +22,9 @@
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds]
             [clj-money.json]
-            [clj-money.middleware :refer [wrap-integer-id-params wrap-entity]]
+            [clj-money.middleware :refer [wrap-integer-id-params
+                                          wrap-models
+                                          wrap-exception-handling]]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
@@ -43,7 +45,7 @@
 (defmacro route
   [method path handler]
   `(~method ~path req# (-> ~handler
-                           wrap-entity
+                           wrap-models
                            wrap-integer-id-params)))
 
 (defroutes protected-routes
@@ -88,7 +90,6 @@
   (route GET "/entities/:entity-id/commodities" commodities/index)
   (route GET "/entities/:entity-id/commodities/new" commodities/new-commodity)
   (route POST "/entities/:entity-id/commodities" commodities/create)
-  (route GET "/commodities/:id" commodities/show)
   (route GET "/commodities/:id/edit" commodities/edit)
   (route POST "/commodities/:id" commodities/update)
   (route POST "/commodities/:id/delete" commodities/delete)
@@ -173,6 +174,7 @@
          :credential-fn (partial clj-money.models.users/authenticate (env :db))
          :redirect-on-auth? false})
       (wrap-resource "public")
+      wrap-exception-handling
       wrap-params
       wrap-multipart-params
       wrap-json-params

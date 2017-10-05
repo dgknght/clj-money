@@ -34,7 +34,7 @@
         entity-id (-> context :entities first :id)
         commodity (attributes context)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)
+        commodities (commodities/search storage-spec {:entity-id entity-id})
         expected [{:name "Apple"
                    :type :stock
                    :symbol "APPL"
@@ -51,7 +51,7 @@
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :entity-id (str entity-id))
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")
     (is (= [{:name "Apple"
@@ -65,7 +65,7 @@
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :entity-id)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (= ["Entity id is required"]
            (validation/error-messages result :entity-id))
         "The result has an error messages")
@@ -78,7 +78,7 @@
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :type)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (= ["Type is required"]
            (validation/error-messages result :type))
         "The result has an error messages")
@@ -91,7 +91,7 @@
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :currency)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
@@ -103,7 +103,7 @@
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :stock)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
@@ -115,7 +115,7 @@
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :fund)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
@@ -127,7 +127,7 @@
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :not-a-valid-type)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (= ["Type must be one of: fund, currency, stock"]
            (validation/error-messages result :type))
         "The result has an error messages")
@@ -140,7 +140,7 @@
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :name)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (= ["Name is required"]
            (validation/error-messages result :name))
         "The result has an error messages")
@@ -154,7 +154,7 @@
         commodity (attributes context) 
         result-1 (commodities/create storage-spec commodity)
         result-2 (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty? (validation/error-messages result-1))
         "The first is created successfully")
     (is (= ["Name must be unique for a given exchange"]
@@ -173,8 +173,8 @@
         commodity-2 (assoc (attributes context) :entity-id entity-2-id)
         result-1 (commodities/create storage-spec commodity-1)
         result-2 (commodities/create storage-spec commodity-2)
-        commodities-1 (commodities/select-by-entity-id storage-spec entity-1-id)
-        commodities-2 (commodities/select-by-entity-id storage-spec entity-2-id)]
+        commodities-1 (commodities/search storage-spec {:entity-id entity-1-id})
+        commodities-2 (commodities/search storage-spec {:entity-id entity-2-id})]
     (is (empty? (validation/error-messages result-1))
         "The first is created successfully")
     (is (empty? (validation/error-messages result-2))
@@ -207,7 +207,7 @@
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :symbol)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (= ["Symbol is required"]
            (validation/error-messages result :symbol))
         "The result has an error message")
@@ -221,7 +221,7 @@
         commodity (attributes context) 
         result-1 (commodities/create storage-spec commodity)
         result-2 (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty? (validation/error-messages result-1))
         "The first is created successfully")
     (is (= ["Symbol must be unique for a given exchange"]
@@ -251,7 +251,7 @@
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :entity-id (str entity-id))
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)
+        commodities (commodities/search storage-spec {:entity-id entity-id})
         expected [{:entity-id entity-id
                    :name "Apple"
                    :symbol "APPL"
@@ -267,7 +267,7 @@
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :exchange)
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (= ["Exchange is required"]
            (validation/error-messages result :exchange))
         "The result has an error message")
@@ -283,7 +283,7 @@
                    :symbol "USD"
                    :type :currency}
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty?  (validation/error-messages result :exchange))
         "The result has no error messages")
     (is (seq (->> commodities
@@ -298,7 +298,7 @@
                          :symbol "APPL"
                          :name "Apple")
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")))
 
@@ -310,7 +310,7 @@
                          :symbol "HD"
                          :name "Home Depot")
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")))
 
@@ -322,7 +322,7 @@
                          :symbol "NUNYA"
                          :name "None of your business")
         result (commodities/create storage-spec commodity)
-        commodities (commodities/select-by-entity-id storage-spec entity-id)]
+        commodities (commodities/search storage-spec {:entity-id entity-id})]
     (is (= ["Exchange must be one of: nasdaq, nyse"]
            (validation/error-messages result :exchange))
         "The result has an error messages")))
@@ -362,9 +362,9 @@
 (deftest deleting-a-commodity-deletes-the-prices
   (let [context (serialization/realize storage-spec commodity-with-prices-context)
         commodity (-> context :commodities first)
-        prices-before (prices/select-by-commodity-id storage-spec (:id commodity))
+        prices-before (prices/search storage-spec {:commodity-id (:id commodity)})
         _ (commodities/delete storage-spec (:id commodity))
-        prices-after (prices/select-by-commodity-id storage-spec (:id commodity))]
+        prices-after (prices/search storage-spec {:commodity-id (:id commodity)})]
     (is (not (empty? prices-before))
         "The commodity prices exist before delete")
     (is (empty? prices-after)

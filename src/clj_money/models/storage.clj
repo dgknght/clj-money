@@ -47,15 +47,9 @@
   (update-account
     [this account]
     "Updates the specified account")
-  (select-accounts-by-entity-id
-    [this entity-id]
-    "Returns all accounts in the system")
   (delete-account
     [this id]
     "Deletes the specified account")
-  (select-accounts-by-name
-    [this entity-id name]
-    "Returns the account in the specified entity with the specified name")
   (select-accounts
     [this criteria]
     "Returns the accounts matching the specified criteria")
@@ -73,13 +67,9 @@
     [this commodity]
     "Updates the specified commodity")
 
-  (select-commodities-by-entity-id
-    [this entity-id]
-    [this entity-id options]
-    "Returns a list of commodities for the specified entity")
-
   (select-commodities
     [this criteria]
+    [this criteria options]
     "Returns a list of commodities matching the specified criteria")
 
   (delete-commodity
@@ -93,11 +83,8 @@
 
   (select-prices
     [this criteria]
+    [this criteria options]
     "Returns a list of prices matching the specified criteria")
-
-  (select-prices-by-commodity-id
-    [this commodity-id as-of] [this commodity-id options as-of]
-    "Returns a list of prices for the specified commodity")
 
   (find-price-by-id
     [this id]
@@ -162,17 +149,12 @@
 
   ; Transactions
   (select-transactions
-    [this criteria]
+    [this criteria options]
     "Returns transactions matching the specified criteria")
 
-  (select-transactions-by-entity-id
-    [this entity-id]
-    [this entity-id options]
-    "Returns transactions for the specified entity")
-
-  (count-transactions-by-entity-id
-    [this entity-id]
-    "Returns the number of transactions for the specified entity")
+  (count-transactions
+    [this criteria]
+    "Returns the number of transactions matching the specified criteria")
 
   (create-transaction
     [this transaction]
@@ -271,17 +253,14 @@
     [this budget]
     "Creates a new budget record")
 
-  (find-budget-by-id
-    [this id]
-    "Returns the specified budget")
-
   (find-budget-by-date
-    [this date]
+    [this entity-id date]
     "Returns the budget containing the specified date")
 
-  (select-budgets-by-entity-id
-    [this entity-id]
-    "Returns budgets for the specified entity")
+  (select-budgets
+    [this criteria]
+    [this criteria options]
+    "Returns budgets for the specified criteria")
 
   (update-budget
     [this budget]

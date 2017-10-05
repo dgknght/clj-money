@@ -5,6 +5,9 @@
             [clj-money.util :refer [safe-invoke]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.authorization :as authorization]
+            [clj-money.models.auth-helpers :refer [user-entity-ids
+                                                   user-owns-entity?]]
             [clj-money.models.entities :as entities]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
@@ -13,7 +16,6 @@
             [clj-money.models.storage :refer [create-commodity
                                               find-commodity-by-id
                                               update-commodity
-                                              select-commodities-by-entity-id
                                               select-commodities
                                               delete-prices-by-commodity-id
                                               delete-commodity]]))
@@ -52,6 +54,7 @@
   ([_ commodity]
    (when commodity
      (-> commodity
+         (authorization/tag-resource :commodity)
          (update-in [:exchange] #(safe-invoke keyword %))
          (update-in [:type] keyword)))))
 
@@ -64,22 +67,22 @@
 (defn- name-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]
   (when (and commodity-name entity-id exchange)
-    (->> (select-commodities-by-entity-id
+    (->> (select-commodities
            storage
-           entity-id
-           {:where {:name commodity-name
-                    :exchange (name exchange)}})
+           {:entity-id entity-id
+            :name commodity-name
+            :exchange (name exchange)})
          (remove #(= id (:id %)))
          seq)))
 
 (defn- symbol-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-symbol :symbol}]
   (when (and commodity-symbol entity-id exchange)
-    (->> (select-commodities-by-entity-id
+    (->> (select-commodities
            storage
-           entity-id
-           {:where {:symbol commodity-symbol
-                    :exchange (name exchange)}})
+           {:entity-id entity-id
+            :symbol commodity-symbol
+            :exchange (name exchange)})
          (remove #(= id (:id %)))
          seq)))
 
@@ -99,14 +102,6 @@
               :spec ::new-commodity
               :create create-commodity
               :after-read after-read}))
-
-(defn select-by-entity-id
-  "Returns the commodities belonging to the specified entity"
-  [storage-spec entity-id]
-  (with-storage [s storage-spec]
-    (->> entity-id
-         (select-commodities-by-entity-id s)
-         (map after-read))))
 
 (defn find-by-id
   "Returns the commodity having the specified ID"
@@ -136,3 +131,10 @@
   (with-transacted-storage [s storage-spec]
     (delete-prices-by-commodity-id s id)
     (delete-commodity s id)))
+
+(authorization/allow :commodity [:new :create :show :edit :update :delete]
+                     user-owns-entity?)
+
+(authorization/set-scope
+  :commodity
+  {:entity-id user-entity-ids})

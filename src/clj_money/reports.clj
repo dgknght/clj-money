@@ -131,10 +131,9 @@
          end (t/local-date (t/year base) (t/month base) (t/number-of-days-in-the-month base))]
      (income-statement storage-spec entity-id start end)))
   ([storage-spec entity-id start end]
-   (->> (accounts/select-nested-by-entity-id
-          storage-spec
-          entity-id
-          [:income :expense])
+   (->> {:entity-id entity-id}
+        (accounts/search storage-spec)
+        (accounts/nest [:income :expense])
         (into [])
         (set-balance-deltas-in-account-groups storage-spec start end)
         transform-income-statement)))
@@ -200,9 +199,9 @@
      (balance-sheet storage-spec entity-id end)))
   ([storage-spec entity-id as-of]
    (let [entity (entities/find-by-id storage-spec entity-id)]
-     (->> (accounts/select-nested-by-entity-id
-            storage-spec
-            entity-id)
+     (->> {:entity-id entity-id}
+          (accounts/search storage-spec)
+          accounts/nest
           (set-balances-in-account-groups storage-spec entity as-of)
           (append-pseudo-accounts storage-spec entity-id as-of)
           transform-balance-sheet))))
@@ -242,7 +241,7 @@
        :budget budget
        :actual actual
        :difference difference
-       :percent-difference (when (not= budget 0)
+       :percent-difference (when (not= budget 0M)
                              (/ difference budget))
        :actual-per-period  (/ actual period-count)})))
 
@@ -283,22 +282,23 @@
   "Returns a budget report"
   [storage-spec budget-or-id as-of]
   (with-storage [s storage-spec]
-    (let [budget (if (map? budget-or-id)
-                   budget-or-id
-                   (budgets/find-by-id s budget-or-id))
-          period-count (+ 1 (:index (budgets/period-containing budget as-of)))
-          items (->> (accounts/select-by-entity-id s
-                                                   (:entity-id budget)
-                                                   {:types #{:income :expense}})
-                     (group-by :type)
-                     (sort-by  #(.indexOf [:income :expense] (first %)))
-                     (mapcat #(process-budget-group s budget period-count as-of %))
-                     (remove #(= 0M (:actual %) (:budget %)))
-                     (append-summary period-count))]
-      (-> budget
-          (assoc :items items)
-          (rename-keys {:name :title})
-          (select-keys [:items :title])))))
+    (if-let [budget (if (map? budget-or-id)
+                      budget-or-id
+                      (budgets/find-by-id s budget-or-id))]
+      (let [period-count (+ 1 (:index (budgets/period-containing budget as-of)))
+            items (->> {:entity-id (:entity-id budget)
+                        :type #{:income :expense} }
+                       (accounts/search s)
+                       (group-by :type)
+                       (sort-by  #(.indexOf [:income :expense] (first %)))
+                       (mapcat #(process-budget-group s budget period-count as-of %))
+                       (remove #(= 0M (:actual %) (:budget %)))
+                       (append-summary period-count))]
+        (-> budget
+            (assoc :items items)
+            (rename-keys {:name :title})
+            (select-keys [:items :title])))
+      [])))
 
 (defn- monitor-item
   [budget actual percentage]

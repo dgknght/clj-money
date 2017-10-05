@@ -8,6 +8,9 @@
                                     safe-read-string]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.authorization :as authorization]
+            [clj-money.models.auth-helpers :refer [user-entity-ids
+                                                   user-owns-entity?]]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -104,6 +107,7 @@
                :commodity-type
                :commodity-exchange
                :entity-settings)
+       (authorization/tag-resource :account)
        (cond->
          (and ; Remove :parent-id if it's nil
            (contains? account :parent-id)
@@ -169,17 +173,6 @@
   [storage-spec {:keys [id]}]
   (find-by-id storage-spec id))
 
-(defn select-by-entity-id
-  "Returns a list of all accounts in the system"
-  ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
-  ([storage-spec entity-id options]
-   (with-storage [s storage-spec]
-     (let [types (or (:types options)
-                     (set account-types))]
-       (->> (select-accounts s {:entity-id entity-id})
-            (map after-read)
-            (filter #(types (:type %))))))))
-
 (defn- append-path
   [account parent]
   (assoc account :path (str (:path parent) "/" (:name account))))
@@ -197,17 +190,16 @@
                                              0
                                              children))))
 
-(defn select-nested-by-entity-id
-  "Returns the accounts for the entity with children nested under
-  parents and parents grouped by type"
-  ([storage-spec entity-id]
-   (select-nested-by-entity-id storage-spec entity-id account-types))
-  ([storage-spec entity-id types]
-   (let [all (select-by-entity-id storage-spec entity-id)
-         grouped (->> all
+(defn nest
+  "Accepts a list of accounts and nests
+  children under parents"
+  ([accounts]
+   (nest account-types accounts))
+  ([types accounts]
+   (let [grouped (->> accounts
                       (remove :parent-id)
                       (map #(assoc % :path (:name %)))
-                      (map #(append-children % all))
+                      (map #(append-children % accounts))
                       (group-by :type))]
      (mapv #(hash-map :type % :accounts (or
                                           (->> grouped
@@ -216,6 +208,13 @@
                                                vec)
                                           []))
            types))))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> criteria
+         (select-accounts s)
+         (map after-read))))
 
 (def update
   (update-fn {:before-save before-save
@@ -245,9 +244,9 @@
                      (if (= :debit (:action transaction-item)) 1 -1))]
     (* (:amount transaction-item) polarizer)))
 
-(defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> criteria
-         (select-accounts s)
-         (map after-read))))
+(authorization/allow :account [:new :create :show :edit :update :delete]
+       user-owns-entity?)
+
+(authorization/set-scope
+  :account
+  {:entity-id user-entity-ids})

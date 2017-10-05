@@ -5,6 +5,7 @@
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]
+            [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage
@@ -34,6 +35,10 @@
        (filter #(= (:name %) entity-name))
        empty?))
 
+(defn- before-validation
+  [_ entity]
+  (update-in entity [:settings] (fnil identity {})))
+
 (defn- before-save
   ([entity] (before-save nil entity))
   ([_ entity]
@@ -46,6 +51,9 @@
   ([_ entity]
    (when entity
      (cond-> entity
+       true
+       (authorization/tag-resource :entity)
+
        (:settings entity)
        (update-in [:settings] read-string)))))
 
@@ -59,7 +67,8 @@
   [(coercion/rule :keyword [:inventory-method])])
 
 (def create
-  (create-fn {:before-save before-save
+  (create-fn {:before-validation before-validation
+              :before-save before-save
               :after-read after-read
               :create create-entity
               :spec ::new-entity
@@ -101,6 +110,7 @@
               :spec ::existing-entity
               :coercion-rules coercion-rules
               :rule-fn validation-rules
+              :before-validation before-validation
               :before-save before-save
               :after-read after-read
               :find find-by-id}))
@@ -110,3 +120,7 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-entity s id)))
+
+(authorization/allow :entity [:new :create :show :edit :update :delete]
+       (fn [user resource _]
+         (= (:id user) (:user-id resource))))

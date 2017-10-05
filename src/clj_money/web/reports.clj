@@ -11,6 +11,7 @@
                                     format-date
                                     parse-local-date]]
             [clj-money.web.shared :refer :all]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.models.budgets :as budgets]
             [clj-money.reports :as reports]))
 
@@ -78,24 +79,27 @@
 
 (defmethod render-report :budget
   [{:keys [entity-id budget-id as-of] :as params}]
-  (let [budget (if budget-id
-                 (budgets/find-by-id (env :db) budget-id)
-                 (first (budgets/select-by-entity-id (env :db) entity-id))) ; TODO find the current budget
-        as-of (or as-of
-                  (budgets/end-date budget))]
+  (if-let [budget (if budget-id
+                    (budgets/find-by-id (env :db) budget-id)
+                    (budgets/find-by-date (env :db) entity-id as-of))]
+    (let [as-of (or as-of
+                    (budgets/end-date budget))]
+      (html
+        [:h2 (format "Budget %s as of %s" (:name budget) (format-date as-of))]
+        [:table.table
+         [:tr
+          [:th "Account"]
+          [:th.text-right "Budget"]
+          [:th.text-right "Actual"]
+          [:th.text-right "Diff."]
+          [:th.text-right "% Diff."]
+          [:th.text-right "Act./Period"]]
+         (map budget-report-row (:items (reports/budget (env :db)
+                                                        budget
+                                                        as-of)))]))
     (html
-      [:h2 (format "Budget %s as of %s" (:name budget) (format-date as-of))]
-      [:table.table
-       [:tr
-        [:th "Account"]
-        [:th.text-right "Budget"]
-        [:th.text-right "Actual"]
-        [:th.text-right "Diff."]
-        [:th.text-right "% Diff."]
-        [:th.text-right "Act./Period"]]
-       (map budget-report-row (:items (reports/budget (env :db)
-                                                      budget
-                                                      as-of)))])))
+        [:h2 "No budget found"]
+        [:p "No budget was found for the specified time period"])))
 
 (defmulti render-filter
   (fn [params]
@@ -120,12 +124,13 @@
    [:div.form-group
     [:label.control-label {:for :budget-id} "Budget"]
     [:select.form-control {:name "budget-id"}
-     (map #(vector :option {:value (:id %)} (:name %)) (budgets/select-by-entity-id (env :db) (:entity-id params)))] ]
+     (map #(vector :option {:value (:id %)} (:name %)) (budgets/search (env :db) {:entity-id (:entity-id params)}))] ]
    (date-input-field params :as-of)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
 (defn render
   [{{entity :entity :as params} :params}]
+  (authorize entity :show)
   (let [params (-> params ; TODO separate default based on the report type
                    (update-in [:type] keyword)
                    (update-in [:type] (fnil identity :balance-sheet))

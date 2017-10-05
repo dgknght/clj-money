@@ -7,6 +7,9 @@
             [clj-money.util :refer [format-date format-number]]
             [clj-money.web.shared :refer :all]
             [clj-money.validation :as validation]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource
+                                             apply-scope]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.prices.api-client :as prices-api]))
@@ -27,10 +30,10 @@
                     :data-confirm "Are you sure you want to remove this price?"})]]])
 
 (defn index
-  [{params :params}]
-  (let [commodity (commodities/find-by-id (env :db)
-                                          (Integer. (:commodity-id params)))
-        prices (prices/select-by-commodity-id (env :db) (:id commodity))]
+  [{{commodity-id :commodity-id :as params} :params}]
+  (let [commodity (commodities/find-by-id (env :db) commodity-id)
+        criteria (apply-scope {:commodity-id commodity-id} :price)
+        prices (prices/search (env :db) criteria)]
     (with-layout (format "Prices for %s" (:symbol commodity)) {}
       [:div.row
        [:div.col-md-3
@@ -51,10 +54,12 @@
          "Back"]]])))
 
 (defn new-price
-  ([{params :params :as req}]
-   (new-price req {:commodity-id (Integer. (:commodity-id params))}))
-  ([{params :params} price]
-   (let [commodity (commodities/find-by-id (env :db) (Integer. (:commodity-id params)))]
+  ([{{commodity-id :commodity-id} :params :as req}]
+   (new-price req (-> {:commodity-id commodity-id}
+                      (tag-resource :price)
+                      (authorize :new))))
+  ([{{commodity-id :commodity-id} :params} price]
+   (let [commodity (commodities/find-by-id (env :db) commodity-id)]
      (with-layout (format "New price for %s" (:symbol commodity)) {}
        [:div.row
         [:div.col-md-6
@@ -70,37 +75,47 @@
 
 (defn create
   [{params :params}]
-  (let [result (prices/create (env :db)
-                              (select-keys params [:commodity-id
-                                                   :trade-date
-                                                   :price]))]
+  (let [price (-> params
+                  (select-keys [:commodity-id
+                                :trade-date
+                                :price])
+                  (tag-resource :price)
+                  (authorize :create))
+        result (prices/create (env :db) price)]
     (if (validation/has-error? result)
       (new-price {:params params} result)
       (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
 
 (defn delete
   [{params :params}]
-  (let [price (prices/find-by-id (env :db) (Integer. (:id params)))]
+  (let [price (authorize (prices/find-by-id (env :db) (Integer. (:id params)))
+                         :delete)]
     (prices/delete (env :db) (:id price))
     (redirect (format "/commodities/%s/prices" (:commodity-id price)))))
 
 (defn fetch
   [{params :params}]
-  (let [commodity (commodities/find-by-id (env :db) (Integer. (:commodity-id params)))
+  (let [commodity (commodities/find-by-id (env :db) (:commodity-id params))
         price (prices-api/fetch commodity)
-        result (prices/create (env :db) {:commodity-id (:id commodity)
-                                         :price (:price price)
-                                         :trade-date (:trade-date price)})]
+        to-create (-> {:commodity-id (:id commodity)
+                       :price (:price price)
+                       :trade-date (:trade-date price)}
+                      (tag-resource :price)
+                      (authorize :create))
+        result (prices/create (env :db) to-create)]
     (if (validation/has-error? result)
       (new-price {:params params} result)
       (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
 
 (defn fetch-all
   [{params :params}]
-  (->> (Integer. (:entity-id params))
-                         (commodities/select-by-entity-id (env :db))
-                         (map #(-> %
-                                   prices-api/fetch
-                                   (assoc :commodity-id (:id %))))
-                         (map #(prices/create (env :db) %)))
+  (->> (-> params
+           (select-keys [:entity-id])
+           (assoc :type ["stock" "fund"])
+           (apply-scope :commodity))
+       (commodities/search (env :db))
+       (map #(-> %
+                 prices-api/fetch
+                 (assoc :commodity-id (:id %))))
+       (map #(prices/create (env :db) %)))
   (redirect (format "/entities/%s/commodities" (:entity-id params))))

@@ -5,13 +5,15 @@
             [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
             [clj-money.util :refer [ensure-local-date pprint-and-return]]
+            [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
+            [clj-money.models.auth-helpers :refer [user-owns-entity?
+                                                   user-entity-ids]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
-            [clj-money.models.storage :refer [select-transactions-by-entity-id
-                                              select-transactions
-                                              count-transactions-by-entity-id
+            [clj-money.models.storage :refer [select-transactions
+                                              count-transactions
                                               create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
@@ -201,7 +203,8 @@
     (-> transaction
         (update-in [:transaction-date] tc/to-local-date)
         (append-items storage)
-        (append-lot-items storage))))
+        (append-lot-items storage)
+        (authorization/tag-resource :transaction))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
@@ -402,16 +405,10 @@
 (s/def ::select-options (s/keys :req-un [::page ::per-page]))
 
 (defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> criteria
-         (select-transactions s)
-         (map #(after-read s %)))))
-
-(defn select-by-entity-id
   "Returns the transactions that belong to the specified entity"
-  ([storage-spec entity-id] (select-by-entity-id storage-spec entity-id {}))
-  ([storage-spec entity-id options]
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
    (let [coerced-options (coercion/coerce [(coercion/rule :integer [:page])
                                            (coercion/rule :integer [:per-page])]
                                           options )
@@ -420,9 +417,8 @@
                           {:page 1
                            :per-page 10})]
      (with-storage [s storage-spec]
-       (->>
-         (select-transactions-by-entity-id s entity-id parsed-options)
-         (map #(after-read s %)))))))
+       (map #(after-read s %)
+            (select-transactions s criteria parsed-options))))))
 
 (defn select-items-by-reconciliation-id
   "Returns the transaction items associated with the specified reconciliation"
@@ -431,11 +427,11 @@
     (map after-item-read
          (select-transaction-items-by-reconciliation-id s reconciliation-id))))
 
-(defn count-by-entity-id
+(defn record-count
   "Returns the number of transactions that belong to the specified entity"
-  [storage-spec entity-id]
+  [storage-spec criteria]
   (with-storage [s storage-spec]
-    (count-transactions-by-entity-id s entity-id)))
+    (count-transactions s criteria)))
 
 (defn- create-transaction-and-lot-links
   [storage transaction]
@@ -729,3 +725,8 @@
 
      ; clean up the ambient settings as if we were never here
      (swap! ambient-settings dissoc ~entity-id)))
+
+(authorization/allow :transaction [:new :create :show :edit :update :delete]
+       user-owns-entity?)
+
+(authorization/set-scope :transaction {:entity-id user-entity-ids})

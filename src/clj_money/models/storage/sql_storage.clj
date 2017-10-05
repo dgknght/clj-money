@@ -14,8 +14,15 @@
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
+(defn- id-criteria?
+  [value]
+  (or (integer? value)
+      (and (seq? value)
+           (seq value)
+           (every? integer? value))))
+
 (s/def ::user-id integer?)
-(s/def ::entity-id integer?)
+(s/def ::entity-id id-criteria?)
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
@@ -43,7 +50,18 @@
 (defmethod attachment-criteria false [_]
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
-(s/def ::transaction-criteria (s/keys :req-un [::lot-id]))
+(defmulti transaction-criteria #(contains? % :lot-id))
+(defmethod transaction-criteria true [_]
+  (s/keys :req-un [::lot-id]))
+(defmethod transaction-criteria false [_]
+  (s/keys :req-un [::entity-id]))
+(s/def ::transaction-criteria (s/multi-spec transaction-criteria #(contains? % :lot-id)))
+(defmulti budget-criteria #(contains? % :id))
+(defmethod budget-criteria true [_]
+  (s/keys :req-un [::id]))
+(defmethod budget-criteria false [_]
+  (s/keys :req-un [::entity-id]))
+(s/def ::budget-criteria (s/multi-spec budget-criteria #(contains? % :id)))
 
 (defn- exists?
   [db-spec table where]
@@ -112,9 +130,12 @@
      (if (= 1 (count m))
        [:= (-> m keys first prefix-fn) (-> m vals first)]
        (reduce (fn [result [k v]]
-                 (conj result [:= (prefix-fn k) (if (keyword? v)
-                                      (name v)
-                                      v)]))
+                 (let [operator (if (coll? v) :in :=)
+                       val-fn #(if (keyword? %) (name %) %)
+                       value (if (coll? v)
+                               (mapv val-fn v)
+                               (val-fn v))]
+                   (conj result [operator (prefix-fn k) value])))
                [:and]
                m)))))
 
@@ -139,6 +160,17 @@
     (h/limit sql limit)
     sql))
 
+(defn- append-prices-as-of
+  "This is bit of a kludge because the logic for converting a map
+  to a where clause is limited. Should really make that more robust, 
+  then we won't need this."
+  [criteria options]
+  (if-let [as-of (:as-of options)]
+    (-> criteria
+        (h/order-by [:trade-date :desc])
+        (h/merge-where [:<= :trade-date as-of]))
+    criteria))
+
 (defn- query
   "Executes a SQL query and maps field names into
   clojure keys"
@@ -157,12 +189,35 @@
        vals
        first))
 
+(defn- validate-criteria
+  [criteria spec]
+  (when-not (s/valid? spec criteria)
+      (let [explanation (s/explain-data spec criteria)]
+        (throw (ex-info
+                 (str "The criteria is not valid: " explanation)
+                 {:criteria criteria
+                  :explanation explanation})))))
+
 (defn- transaction-item-base-query
   []
   (-> (h/select :i.* :t.transaction_date :t.description, [:r.status "reconciliation_status"])
       (h/from [:transaction_items :i])
       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
       (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
+
+(defn- transaction-query
+  [select criteria options]
+  (cond-> (-> (h/select select)
+              (h/from [:transactions :t])
+              (append-paging options))
+
+    (not (empty? (dissoc criteria :lot-id)))
+    (h/where (map->where (dissoc criteria :lot-id)))
+
+    (contains? criteria :lot-id)
+    (-> (h/join [:lots_transactions :lt]
+                [:= :t.id :lt.transaction_id])
+        (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -269,16 +324,17 @@
       (throw (ex-info
                "The criteria must specify parent-id or entity-id"
                {:criteria criteria})))
-    (query db-spec (-> (h/select :a.*
-                                 [:c.name :commodity-name]
-                                 [:c.symbol :commodity-symbol]
-                                 [:c.type :commodity-type]
-                                 [:c.exchange :commodity-exchange]
-                                 [:e.settings :entity-settings])
-                       (h/from [:accounts :a])
-                       (h/join [:commodities :c] [:= :c.id :a.commodity-id])
-                       (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
-                       (h/where (map->where criteria {:prefix "a"})))))
+    (let [sql (-> (h/select :a.*
+                            [:c.name :commodity-name]
+                            [:c.symbol :commodity-symbol]
+                            [:c.type :commodity-type]
+                            [:c.exchange :commodity-exchange]
+                            [:e.settings :entity-settings])
+                  (h/from [:accounts :a])
+                  (h/join [:commodities :c] [:= :c.id :a.commodity-id])
+                  (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
+                  (h/where (map->where criteria {:prefix "a"})))]
+      (query db-spec sql)))
 
   ; Commodities
   (create-commodity
@@ -310,29 +366,17 @@
                               (h/where [:= :id (:id commodity)])))]
       (jdbc/execute! db-spec sql)))
 
-  (select-commodities-by-entity-id
-    [this entity-id]
-    (.select-commodities-by-entity-id this entity-id {}))
-
-  (select-commodities-by-entity-id
-    [_ entity-id options]
-    (let [sql (-> (h/select :*)
-                  (h/from :commodities)
-                  (h/where [:= :entity-id entity-id])
-                  (h/order-by [:exchange :name])
-                  (append-where options)
-                  (append-paging options))]
-      (query db-spec sql)))
+  (select-commodities
+    [this criteria]
+    (.select-commodities this criteria {}))
 
   (select-commodities
-    [_ criteria]
-    (when-not (s/valid? ::commodity-criteria criteria)
-      (throw (ex-info
-              "The criteria must specify entity-id"
-              {:criteria criteria})))
+    [_ criteria options]
+    (validate-criteria criteria ::commodity-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :commodities)
-                       (h/where (map->where criteria)))))
+                       (h/where (map->where criteria))
+                       (append-paging options))))
 
   (delete-commodity
     [_ id]
@@ -346,32 +390,19 @@
                                   :price))
 
   (select-prices
-    [_ criteria]
-    (when-not (s/valid? ::price-criteria criteria)
-      (throw (ex-info
-              "The criteria must specify entity-id or a commodity-id"
-              {:criteria criteria})))
+    [this criteria]
+    (.select-prices this criteria {}))
+
+  (select-prices
+    [_ criteria options]
+    (validate-criteria criteria ::price-criteria)
     (query db-spec (-> (h/select :p.*)
                        (h/from [:prices :p])
                        (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                       (h/where (map->where criteria)))))
-
-  (select-prices-by-commodity-id
-    [this commodity-id as-of]
-    (.select-prices-by-commodity-id this commodity-id as-of {}))
-
-  (select-prices-by-commodity-id
-    [_ commodity-id as-of options]
-    (let [sql (-> (h/select :*)
-                  (h/from :prices)
-                  (h/where [:and
-                            [:= :commodity-id commodity-id]
-                            [:<= :trade-date as-of]])
-                  (h/order-by [:trade-date :desc])
-                  (append-where options)
-                  (append-limit options)
-                  (append-paging options))]
-      (query db-spec sql)))
+                       (h/where (map->where criteria))
+                       (append-prices-as-of options)
+                       (append-limit options)
+                       (append-paging options))))
 
   (find-price-by-id
     [_ id]
@@ -435,12 +466,7 @@
 
   (select-lots
     [_ criteria]
-    (when-not (s/valid? ::lot-criteria criteria)
-      (let [explanation (s/explain-data ::lot-criteria criteria)]
-        (throw (ex-info
-                 (str "The criteria is not valid: " explanation)
-                 {:criteria criteria
-                  :explanation explanation}))))
+    (validate-criteria criteria ::lot-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
                        (h/where (map->where criteria))
@@ -472,46 +498,15 @@
                        (h/where [:= :transaction_id transaction-id]))))
 
   ; Transactions
-  (select-transactions-by-entity-id
-    [this entity-id]
-    (.select-transactions-by-entity-id this entity-id {}))
+  (select-transactions
+    [_ criteria options]
+    (validate-criteria criteria ::transaction-criteria)
+    (query db-spec (transaction-query :t.* criteria options)))
 
-(select-transactions
-  [_ criteria]
-  (when-not (s/valid? ::transaction-criteria criteria)
-    (let [explanation (s/explain-data ::transaction-criteria criteria)]
-      (throw (ex-info
-               (str "The criteria is not valid: " explanation)
-               {:criteria criteria
-                :explanation explanation}))))
-  (let [sql (-> (h/select :t.*)
-                (h/from [:transactions :t]))
-        sql (if (not (empty? (dissoc criteria :lot-id)))
-              (h/where sql (map->where (dissoc criteria :lot-id)))
-              sql)
-        sql (if (contains? criteria :lot-id)
-              (-> sql
-                  (h/join [:lots_transactions :lt]
-                          [:= :t.id :lt.transaction_id])
-                  (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))
-              sql)]
-    (query db-spec sql)))
-
-  (select-transactions-by-entity-id
-    [_ entity-id options]
-    (let [sql (-> (h/select :*)
-                  (h/from :transactions)
-                  (h/where [:= :entity-id entity-id])
-                  (h/order-by [:transaction-date :desc])
-                  (append-paging options))]
-      (query db-spec sql)))
-
-  (count-transactions-by-entity-id
-    [_ entity-id]
-    (query-scalar db-spec
-                  (-> (h/select :%count.*)
-                      (h/from :transactions)
-                      (h/where [:= :entity-id entity-id]))))
+  (count-transactions
+    [_ criteria]
+    (validate-criteria criteria ::transaction-criteria)
+    (query-scalar db-spec (transaction-query :%count.* criteria {})))
 
   (create-transaction
     [_ transaction]
@@ -782,27 +777,27 @@
                                     :start-date
                                     :end-date))
 
-  (find-budget-by-id
-    [_ id]
-    (first (query db-spec (-> (h/select :*)
-                              (h/from :budgets)
-                              (h/where [:= :id id])
-                              (h/limit 1)))))
-
   (find-budget-by-date
-    [_ date]
+    [_ entity-id date]
     (first (query db-spec (-> (h/select :*)
                               (h/from :budgets)
                               (h/where [:and
+                                        [:= :entity-id entity-id]
                                         [:<= :start-date date]
                                         [:>= :end-date date]])
                               (h/limit 1)))))
 
-  (select-budgets-by-entity-id
-    [_ entity-id]
+  (select-budgets
+    [this criteria]
+    (.select-budgets this criteria {}))
+
+  (select-budgets
+    [_ criteria options]
+    (validate-criteria criteria ::budget-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :budgets)
-                       (h/where [:= :entity_id entity-id]))))
+                       (h/where (map->where criteria))
+                       (append-limit options))))
 
   (update-budget
     [_ budget]
@@ -864,17 +859,12 @@
     (->clojure-keys (jdbc/get-by-id db-spec :images id)))
 
   (select-images
-    [_ criteria]
-    (.select-images nil criteria {}))
+    [this criteria]
+    (.select-images this criteria {}))
 
   (select-images
     [_ criteria options]
-    (when-not (s/valid? ::image-criteria criteria)
-      (let [explanation (s/explain-data ::image-criteria criteria)]
-        (throw (ex-info
-                  (str "The criteria is not valid: " explanation)
-                  {:criteria criteria
-                  :explanation explanation}))))
+    (validate-criteria criteria ::image-criteria)
     (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
                         (h/from :images)
                         (h/where (map->where criteria))
@@ -897,12 +887,7 @@
 
   (select-attachments
     [_ criteria options]
-    (when-not (s/valid? ::attachment-criteria criteria)
-      (let [explanation (s/explain-data ::attachment-criteria criteria)]
-        (throw (ex-info
-                 (str "The criteria is not valid: " explanation)
-                 {:criteria criteria
-                  :explanation explanation}))))
+    (validate-criteria criteria ::attachment-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :attachments)
                        (h/where (map->where criteria))

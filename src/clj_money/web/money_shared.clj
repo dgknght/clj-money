@@ -9,6 +9,7 @@
             [ring.util.response :refer :all]
             [clj-money.util :refer [format-number]]
             [clj-money.inflection :refer [humanize]]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.reports :as reports])
@@ -33,7 +34,9 @@
   ([entity-id]
    (grouped-options-for-accounts entity-id {}))
   ([entity-id options]
-   (let [optgroups (->> (accounts/select-nested-by-entity-id (env :db) (Integer. entity-id))
+   (let [optgroups (->> {:entity-id entity-id}
+                        (accounts/search (env :db))
+                        accounts/nest
                         (filter #(or (nil? (:types options))
                                      ((:types options) (:type %))))
                         (map #(opt-group-for-account-type % (:selected-id options))))]
@@ -79,10 +82,10 @@
   [entity-id]
   (html
     [:h3 "Budget monitors"]
-    (->> (Integer. entity-id)
-         (entities/find-by-id (env :db))
-         :settings
-         :monitored-account-ids
+    (->> (-> (entities/find-by-id (env :db) entity-id)
+             (authorize :show)
+             :settings
+             :monitored-account-ids)
          (map (comp #(reports/monitor (env :db) %)
                     #(accounts/find-by-id (env :db) %)))
          (remove empty?)

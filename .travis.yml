@@ -3,4 +3,5 @@ script:
   - createuser app_user
   - createdb money_test
   - lein with-profile test migrate
+  - lein compile clj-money.NotAuthorizedException
   - lein test

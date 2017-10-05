@@ -2,12 +2,15 @@
   angular.module('clj-money-import', [])
     .factory('apiClient', ['$http', function($http) {
       return {
-        createImport: function(attributes) {
+        createImport: function(attributes, antiForgeryToken) {
           var data = new FormData();
           for(var key in attributes)
             data.append(key, attributes[key]);
           return $http.post("/api/imports", data, {
-            headers: {"Content-Type": undefined}
+            headers: {
+              "Content-Type": undefined,
+              "X-CSRF-Token": antiForgeryToken
+            }
           });
         },
         getImport: function(importId) {
@@ -103,10 +106,14 @@
         apiClient.createImport({
           "entity-name": $scope.entityName,
           "source-file": $scope.sourceFile
-        }).then(function(response) {
+        }, $scope.antiForgeryToken).then(function(response) {
           $scope.statusMessage = "Processing the file...";
           $scope.activeImport = response.data.import;
           trackImportProgress();
+        },
+        function(error) {
+          console.log("Unable to create the import");
+          console.log(error);
         });
       };
     }])

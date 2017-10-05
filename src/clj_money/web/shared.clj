@@ -16,7 +16,7 @@
             [clj-money.models.entities :as entities])
   (:use clj-money.inflection))
 
-(defn- append-anti-forgery-link-attributes
+(defn append-anti-forgery-link-attributes
   [attributes]
   (if (= :post (:data-method attributes))
     (assoc attributes :data-anti-forgery-token *anti-forgery-token*)
