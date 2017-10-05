@@ -79,24 +79,26 @@
               "Submit"])]])))
 
 (defn- prepare-file-data
-  [params]
+  [{source-file :source-file :as params}]
   (let [user (friend/current-authentication)
         image (images/find-or-create (env :db)
                                      {:user-id (:id user)
-                                      :original-filename (-> params
-                                                             :source-file
-                                                             :filename)
-                                      :body (-> params
-                                                :source-file
+                                      :original-filename (:filename source-file)
+                                      :content-type (:content-type source-file)
+                                      :body (-> source-file
                                                 :tempfile
                                                 read-bytes)})]
     (cond-> params
       true
-      (assoc :image-id (:id image)
-             :content-type (-> params :source-file :content-type))
+      (select-keys [:caption
+                    :source-file
+                    :transaction-id])
+
+      true
+      (assoc :image-id (:id image))
 
       (blank? (:caption params))
-      (assoc :caption (-> params :source-file :filename)))))
+      (assoc :caption (:filename source-file)))))
 
 (defn create
   [{params :params}]
