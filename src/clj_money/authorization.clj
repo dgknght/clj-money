@@ -6,7 +6,7 @@
             [clj-money.util :refer [pprint-and-return]])
   (:import clj_money.NotAuthorizedException))
 
-(defn- resource-key
+(defn- get-resource-tag
   "Returns a keyword identifying the type of the resource"
   [resource]
   (let [result (if (keyword? resource)
@@ -18,12 +18,14 @@
 
 (defn tag-resource
   "Adds meta data to identity the type of the specified resource"
-  [resource type-key]
-  (vary-meta resource #(assoc % ::resource-type type-key)))
+  [resource tag]
+  (vary-meta resource #(assoc % ::resource-type tag)))
 
 (def ^:private auth-context (atom {}))
 
 (defn ->context
+  "Add a key-value pair to the context that will be
+  passed to authorization functions"
   [key value]
   (swap! auth-context #(assoc % key value)))
 
@@ -40,15 +42,15 @@
                    3 args
                    2 (concat [(current-authentication)] args)
                    :else (throw (ex-info "Wrong number of arguments. Expected 2 or 3." {:args args})))
-        rkey (resource-key resource)
-        auth-fn (@auth-fns [action rkey])]
+        tag (get-resource-tag resource)
+        auth-fn (@auth-fns [action tag])]
     (if auth-fn
       (auth-fn
         user
         resource
         @auth-context)
-      (throw (ex-info (format "No authorization rule registered for %s %s." action rkey)
-                      {:action action :resource resource-key})))))
+      (throw (ex-info (format "No authorization rule registered for %s %s." action tag)
+                      {:action action :resource tag})))))
 
 (defn authorize
   "Raises an error if the current user does not have
