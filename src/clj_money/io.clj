@@ -6,6 +6,9 @@
 
 (defn read-bytes
   [input]
+  (when (nil? input)
+    (throw (IllegalArgumentException. "input is required")))
+
   (with-open [out (ByteArrayOutputStream.)]
     (io/copy input out)
     (.toByteArray out)))
