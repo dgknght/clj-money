@@ -33,6 +33,7 @@
             [lein-deps-tree "0.1.2"]]
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
+  :main clj-money.web.server
   :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
             "rollback" ["run" "-m" "clj-money.db/rollback"]
             "seed" ["run" "-m" "clj-money.seed/seed"]
