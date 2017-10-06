@@ -1,1 +1,1 @@
-web: java $JVM_OPTS -cp target/clj-money-standalone.jar clojure.main -m clj-money.web
+web: lein run -cp target/clj-money-standalone.jar  -m clj-money.web $PORT
