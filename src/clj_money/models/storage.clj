@@ -34,6 +34,21 @@
     [this id]
     "Removes the entity from the data store")
 
+  ; Grants
+  (create-grant
+    [this grant]
+    "Creates a new grant record")
+  (update-grant
+    [this grant]
+    "Updates the specified grant")
+  (delete-grant
+    [this id]
+    "Deletes the specified grant")
+  (select-grants
+    [this criteria]
+    [this criteria options]
+    "Returns the grants matching the specified criteria")
+
   ; Accounts
   (create-account
     [this account]

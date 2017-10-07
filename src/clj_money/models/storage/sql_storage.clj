@@ -62,6 +62,7 @@
 (defmethod budget-criteria false [_]
   (s/keys :req-un [::entity-id]))
 (s/def ::budget-criteria (s/multi-spec budget-criteria #(contains? % :id)))
+(s/def ::grant-criteria (s/keys :req-un [::entity-id]))
 
 (defn- exists?
   [db-spec table where]
@@ -278,6 +279,34 @@
   (delete-entity
     [_ id]
     (jdbc/delete! db-spec :entities ["id = ?" id]))
+
+  ; Grants
+  (create-grant
+    [_ grant]
+    (insert db-spec :grants grant :entity-id
+                                  :user-id
+                                  :permissions))
+
+  (update-grant
+    [_ grant]
+    )
+
+  (delete-grant
+    [_ id]
+    )
+
+  (select-grants
+    [this criteria]
+    (.select-grants this criteria {}))
+
+  (select-grants
+    [_ criteria options]
+    (validate-criteria criteria ::grant-criteria)
+    (let [sql (-> (h/select :*)
+                  (h/from :grants)
+                  (h/where (map->where criteria))
+                  (append-limit options))]
+      (query db-spec sql)))
 
   ; Accounts
   (create-account
