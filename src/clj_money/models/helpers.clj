@@ -14,7 +14,7 @@
 (def handlers
   [{:can-handle-fn #(and
                       (string? %)
-                      (re-find #"\Apostgresql" %))
+                      (re-find #"\Apostgres" %))
     :create-fn #(SqlStorage. %)}])
 
 (defn- process-handler
