@@ -12,7 +12,8 @@
             [clj-money.models.grants :as grants]
             [clj-money.test-helpers :refer [reset-db
                                             find-entity
-                                            find-user]]))
+                                            find-user
+                                            find-grant]]))
 
 (def storage-spec (env :db))
 
@@ -51,7 +52,28 @@
            grant-list)
         "The grant exists in the list after create")))
 
+(def ^:private existing-grant-context
+  (assoc grant-context :grants [{:user-id "jane@doe.com"
+                                 :entity-id "Business"
+                                 :permissions {:account [:index :show]}}]))
+
+(deftest update-a-grant
+  (let [context (serialization/realize storage-spec existing-grant-context)
+        entity (find-entity context "Business")
+        user (find-user context "jane@doe.com")
+        grant (find-grant context (:id entity) (:id user))
+        updated (update-in grant
+                           [:permissions]
+                           #(assoc % :transactions [:index :show]))
+        result (grants/update storage-spec updated)
+        retrieved (grants/find-by-id storage-spec (:id result))]
+    (is (empty? (validation/error-messages result))
+        "The result has not validation errors")
+    (is (= {:account [:index :show]
+            :transactions [:index :show]}
+           (:permissions retrieved))
+        "The retrieved record should have the correct content")))
+
 ; TODO
-; update-an-entity
-; delete-an-entity
+; delete-a-grant
 
