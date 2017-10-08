@@ -302,7 +302,7 @@
 
   (delete-grant
     [_ id]
-    )
+    (jdbc/delete! db-spec :grants ["id = ?" id]))
 
   (select-grants
     [this criteria]

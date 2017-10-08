@@ -61,3 +61,8 @@
               :before-save before-save
               :after-read after-read
               :find find-by-id}))
+
+(defn delete
+  [storage-spec grant]
+  (with-storage [s storage-spec]
+    (delete-grant s (:id grant))))

@@ -74,6 +74,12 @@
            (:permissions retrieved))
         "The retrieved record should have the correct content")))
 
-; TODO
-; delete-a-grant
-
+(deftest delete-a-grant
+  (let [context (serialization/realize storage-spec existing-grant-context)
+        entity (find-entity context "Business")
+        user (find-user context "jane@doe.com")
+        grant (find-grant context (:id entity) (:id user))
+        _ (grants/delete storage-spec grant)
+        grant-list (grants/search storage-spec {:entity-id (:id entity)})]
+    (is (empty? (filter #(= (:id grant) (:id %)) grant-list))
+        "The grant is not present after delete")))
