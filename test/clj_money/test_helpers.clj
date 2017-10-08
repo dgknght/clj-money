@@ -110,6 +110,14 @@
   [context & entity-names]
   (map #(find-entity context %) entity-names))
 
+(defn find-grant
+  [context entity-id user-id]
+  (->> context
+       :grants
+       (filter #(and (= entity-id (:entity-id %))
+                     (= user-id (:user-id %))))
+       first))
+
 (defn find-account
   [context account-name]
   (find-in-context context :accounts :name account-name))
