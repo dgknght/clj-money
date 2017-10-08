@@ -11,6 +11,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
+            [clj-money.models.grants :as grants]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
@@ -24,6 +25,7 @@
                                             find-account
                                             find-users
                                             find-entity
+                                            find-grant
                                             find-budget
                                             find-commodity
                                             find-price]]))
@@ -58,14 +60,6 @@
           (is (not (allowed? action personal))
               (format "A user does not have %s permission" action)))))))
 
-(def accounts-context
-  (assoc entities-context :accounts [{:name "Checking"
-                                      :type :asset
-                                      :entity-id "Personal"}
-                                     {:name "Savings"
-                                      :type :asset
-                                      :entity-id "Business"}]))
-
 (deftest entity-creation
   (let [context (serialization/realize storage-spec entities-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
@@ -80,6 +74,14 @@
       (with-authentication jane
         (is (not (allowed? :create entity))
             "Create is not allowed")))))
+
+(def accounts-context
+  (assoc entities-context :accounts [{:name "Checking"
+                                      :type :asset
+                                      :entity-id "Personal"}
+                                     {:name "Savings"
+                                      :type :asset
+                                      :entity-id "Business"}]))
 
 (deftest account-list
   (let [context (serialization/realize storage-spec accounts-context)
@@ -409,3 +411,58 @@
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action price))
               (format "A user does not have %s permission" action)))))))
+
+(def grants-context
+  (assoc entities-context :grants [{:entity-id "Personal"
+                                    :user-id "jane@doe.com"
+                                    :permissions {:account [:index :show]}}]))
+
+(deftest grant-list
+  (let [context (serialization/realize storage-spec grants-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        entity (find-entity context "Personal")]
+    (testing "A user has permission to list grants in his entities"
+      (with-authentication john
+        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)} :grant)
+                         (grants/search storage-spec)
+                         count))
+            "The grants are returned")))
+    (testing "A user does not have permission list grants in someone else's entity"
+      (with-authentication jane
+        (is (thrown+? [:type :clj-money.authorization/unauthorized]
+                     (->> (apply-scope{:entity-id (:id entity)} :grant)
+                          (grants/search storage-spec)
+                          count)))))))
+
+(deftest grant-management
+  (let [context (serialization/realize storage-spec grants-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        entity (find-entity context "Personal")
+        grant (find-grant context (:id entity) (:id jane))]
+    (testing "A user has permission on grants in his own entities"
+      (with-authentication john
+        (doseq [action [:show :edit :update :delete]]
+          (is (allowed? action grant)
+              (format "A user has %s permission" action)))))
+    (testing "A user does not have permission on grants in someone else's entity"
+      (with-authentication jane
+        (doseq [action [:show :edit :update :delete]]
+          (is (not (allowed? action grant))
+              (format "A user does not have %s permission" action)))))))
+
+(deftest grant-creation
+  (let [context (serialization/realize storage-spec grants-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        personal (find-entity context "Personal")
+        grant (tag-resource {:user-id (:id jane)
+                             :entity-id (:id personal)
+                             :permissions {:account [:index :show]}}
+                            :grant)]
+    (testing "A user has permission to create an grant in his own entities"
+      (with-authentication john
+        (is (allowed? :create grant)
+            "Create is allowed")))
+    (testing "A user does not have permission to create an grant in someone else's entities"
+      (with-authentication jane
+        (is (not (allowed? :create grant))
+            "Create is not allowed")))))

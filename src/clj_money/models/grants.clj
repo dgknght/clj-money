@@ -31,7 +31,10 @@
 (defn- after-read
   ([_ grant] (after-read grant))
   ([grant]
-   (update-in grant [:permissions] read-string)))
+   (when grant
+     (-> grant
+         (update-in [:permissions] read-string)
+         (authorization/tag-resource :grant)))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -66,3 +69,10 @@
   [storage-spec grant]
   (with-storage [s storage-spec]
     (delete-grant s (:id grant))))
+
+(authorization/allow :grant [:new :create :show :edit :update :delete]
+                     user-owns-entity?)
+
+(authorization/set-scope
+  :grant
+  {:entity-id user-entity-ids})
