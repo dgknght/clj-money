@@ -24,6 +24,12 @@
 (s/def ::new-grant (s/keys :req-un [::entity-id ::user-id ::permissions]))
 (s/def ::existing-grant (s/keys :req-un [::id ::entity-id ::user-id ::permissions]))
 
+(def resource-types
+  #{:account :transaction :budget :budget-item :commodity :price})
+
+(def actions
+  #{:index :show :new :create :edit :update :delete})
+
 (defn- before-save
   [_ grant]
   (update-in grant [:permissions] prn-str))
@@ -69,6 +75,14 @@
   [storage-spec grant]
   (with-storage [s storage-spec]
     (delete-grant s (:id grant))))
+
+(defn has-permission
+  [grant resource-type action]
+  ((->> grant
+        :permissions
+        resource-type
+        (into #{}))
+   action))
 
 (authorization/allow :grant [:new :create :show :edit :update :delete]
                      user-owns-entity?)

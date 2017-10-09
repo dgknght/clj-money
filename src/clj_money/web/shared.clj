@@ -283,6 +283,11 @@
   ([model attribute options]
    (input-field model attribute (merge options {:type :text}))))
 
+(defn email-input-field
+  ([model attribute] (email-input-field model attribute {}))
+  ([model attribute options]
+   (input-field model attribute (merge options {:type :email}))))
+
 (defn number-input-field
   ([model attribute] (number-input-field model attribute {}))
   ([model attribute options]
@@ -313,6 +318,11 @@
           option-items)]])
 
 (defn select-field
+  "Renders a SELECT element (drop-down).
+  
+  model - The model represented by the form
+  attribute - The attribute represented by the field
+  option-items - The Hiccup HTML elements to populate the list"
   ([model attribute option-items]
    (select-field model attribute option-items {}))
   ([model attribute option-items options]
