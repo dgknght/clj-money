@@ -14,20 +14,23 @@
             [clj-money.validation :as validation]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.entities :as entities]
+            [clj-money.models.users :as users]
             [clj-money.models.grants :as grants])
   (:use [clj-money.web.shared :refer :all]))
 
 (defn- grant-row
   [grant]
-  [:tr
-   [:td (:email grant)]
-   [:td (:email grant)]])
+  (let [user (users/find-by-id (env :db) (:user-id grant))]
+    [:tr
+     [:td (users/full-name user)]
+     [:td (:email user)]]))
 
 (defn index
   [{{entity :entity} :params}]
   (with-layout (format "User grants for entity %s" (:name entity)) {}
-    ; TODO apply scope
-    (let [grants (grants/search (env :db) {:entity-id (:id entity)})]
+    (let [grants (grants/search
+                   (env :db)
+                   (apply-scope {:entity-id (:id entity)} :grant))]
       [:div.row
        [:div.col-md-6
         [:table.table.table-striped
@@ -55,7 +58,8 @@
             [:label
              [:input {:type "checkbox"
                       :name (permission-key resource-type action)
-                      :checked (grants/has-permission grant resource-type action)}]
+                      :checked (grants/has-permission grant resource-type action)
+                      :value 1}]
              (humanize action)]])
          grants/actions)]])
 
@@ -74,6 +78,9 @@
                       (authorize :new))))
   ([{{entity :entity} :params} grant]
    (with-layout (format "User grants for entity %s" (:name entity)) {}
+     (when (validation/has-error? grant)
+       [:div.alert.alert-danger
+        (prn-str (validation/error-messages grant))])
      [:div.row
       [:div.col-md-6
        (form (format "/entities/%s/grants" (:id entity)) {}
@@ -84,13 +91,31 @@
 
 (defn- extract-permissions
   [params]
-  (throw (RuntimeException. "Not implemented")))
+  (->> grants/resource-types
+       (mapcat (fn [resource-type]
+                 (map #(hash-map :resource-type resource-type
+                                 :action %) grants/actions)))
+       (map #(assoc % :key (keyword (permission-key (:resource-type %)
+                                                    (:action %)))))
+       (map #(assoc % :value ((:key %) params)))
+       (filter #(= "1" (:value %)))
+       (reduce (fn [m {:keys [resource-type action]}]
+                 (update-in m
+                           [resource-type]
+                           #((fnil conj []) % action)))
+               {})))
+
+(defn- find-or-create-user
+  [email]
+  (or (users/find-by-email (env :db) email)
+      (throw (RuntimeException. "create user not implemented"))))
 
 (defn create
   [{params :params}]
   (let [grant (-> params
-                  (select-keys [:entity-id :user-id])
-                  (assoc extract-permissions params)
+                  (select-keys [:entity-id])
+                  (assoc :permissions (extract-permissions params)
+                         :user-id (:id (find-or-create-user (:email params))))
                   (tag-resource :grant)
                   (authorize :create))
         result (grants/create (env :db) grant)]
