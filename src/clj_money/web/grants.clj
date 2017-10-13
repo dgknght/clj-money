@@ -23,7 +23,13 @@
   (let [user (users/find-by-id (env :db) (:user-id grant))]
     [:tr
      [:td (users/full-name user)]
-     [:td (:email user)]]))
+     [:td (:email user)]
+     [:td
+      (glyph-button :pencil
+                    (format "/grants/%s/edit" (:id grant))
+                    {:level :info
+                     :size :extra-small
+                     :title "Click here to edit permissions for this user."})]]))
 
 (defn index
   [{{entity :entity} :params}]
@@ -36,7 +42,8 @@
         [:table.table.table-striped
          [:tr
           [:th "Name"]
-          [:th "Email"]]
+          [:th "Email"]
+          [:th "&nbsp;"]]
          (map grant-row grants)]
         [:a.btn.btn-primary
          {:href (format "/entities/%s/grants/new" (:id entity))
@@ -77,6 +84,23 @@
               [:div.row
                (map #(permission-column grant %) group)]))))
 
+(defn- form-fields
+  [grant]
+  (html
+    (if (:id grant)
+      [:h3
+       (-> grant :user users/full-name)]
+      (email-input-field grant :user {:autofocus true
+                                      :format-fn :email}))
+    (permission-checkbox-elements grant)
+    [:button.btn.btn-primary {:type :submit
+                              :title "Click here to save the grant."}
+     "Save"]
+    "&nbsp;"
+    [:a.btn.btn-default {:href (format "/entities/%s/grants" (:entity-id grant))
+                         :title "Click here to return to the list of grants."}
+     "Back"]))
+
 (defn new-grant
   ([{{entity :entity} :params :as req}]
    (new-grant req (-> {:entity-id (:id entity)}
@@ -90,10 +114,7 @@
      [:div.row
       [:div.col-md-6
        (form (format "/entities/%s/grants" (:id entity)) {}
-             (email-input-field grant :email {:autofocus true})
-             (permission-checkbox-elements grant)
-             [:button.btn.btn-primary {:type :submit}
-              "Save"])]])))
+             (form-fields {:entity-id (:id entity)}))]])))
 
 (defn- extract-permissions
   [params]
@@ -134,12 +155,30 @@
   "Show")
 
 (defn edit
-  [req]
-  "Edit")
+  ([{{:keys [id]} :params :as req}]
+   (edit req (as-> (grants/find-by-id (env :db) id) g
+               (authorize g :edit)
+               (assoc g :user (users/find-by-id (env :db) (:user-id g))))))
+  ([_ grant]
+   (let [entity (entities/find-by-id (env :db) (:entity-id grant))]
+     (with-layout (format "User grants for entity %s" (:name entity)) {}
+       (when (validation/has-error? grant)
+         [:div.alert.alert-danger
+          (prn-str (validation/error-messages grant))])
+       [:div.row
+        [:div.col-md-6
+         (form (format "/grants/%s" (:id grant)) {}
+               (form-fields grant))]]))))
 
 (defn update
-  [req]
-  "Update")
+  [{{id :id :as params} :params}]
+  (let [grant (-> (grants/find-by-id (env :db) id)
+                  (authorize :update)
+                  (assoc :permissions (extract-permissions params)))
+        updated (grants/update (env :db) grant)]
+    (if (validation/has-error? updated)
+      (edit nil grant)
+      (redirect (format "/entities/%s/grants" (:entity-id grant))))))
 
 (defn delete
   [req]

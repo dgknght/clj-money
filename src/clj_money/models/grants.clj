@@ -55,13 +55,15 @@
               :after-read after-read}))
 
 (defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (map after-read (select-grants s criteria))))
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map after-read (select-grants s criteria options)))))
 
 (defn find-by-id
   [storage-spec id]
-  (first (search storage-spec {:id id})))
+  (first (search storage-spec {:id id} {:limit 1})))
 
 (def update
   (update-fn {:update update-grant
