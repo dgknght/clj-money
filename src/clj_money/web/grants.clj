@@ -84,7 +84,7 @@
      [:div.row
       [:div.col-md-6
        (form (format "/entities/%s/grants" (:id entity)) {}
-             (email-input-field grant :email)
+             (email-input-field grant :email {:autofocus true})
              (permission-checkbox-elements grant)
              [:button.btn.btn-primary {:type :submit}
               "Save"])]])))
