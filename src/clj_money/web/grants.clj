@@ -39,8 +39,14 @@
           [:th "Email"]]
          (map grant-row grants)]
         [:a.btn.btn-primary
-         {:href (format "/entities/%s/grants/new" (:id entity))}
-         "Add"]]])))
+         {:href (format "/entities/%s/grants/new" (:id entity))
+          :title "Click here to grant a user access to this entity."}
+         "Add"]
+        "&nbsp;"
+        [:a.btn.btn-default
+         {:href "/entities"
+          :title "Click here to return to the list of entities."}
+         "Back"]]])))
 
 (defn- permission-key
   [resource-type action]
