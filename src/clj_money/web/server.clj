@@ -62,7 +62,6 @@
   (route GET "/entities/:entity-id/grants" grants/index)
   (route GET "/entities/:entity-id/grants/new" grants/new-grant)
   (route POST "/entities/:entity-id/grants" grants/create)
-  (route GET "/grants/:id" grants/show)
   (route GET "/grants/:id/edit" grants/edit)
   (route POST "/grants/:id" grants/update)
   (route POST "/grants/:id/delete" grants/delete)

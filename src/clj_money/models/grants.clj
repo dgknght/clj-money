@@ -74,9 +74,9 @@
               :find find-by-id}))
 
 (defn delete
-  [storage-spec grant]
+  [storage-spec id]
   (with-storage [s storage-spec]
-    (delete-grant s (:id grant))))
+    (delete-grant s id)))
 
 (defn has-permission
   [grant resource-type action]

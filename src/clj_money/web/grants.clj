@@ -22,14 +22,22 @@
   [grant]
   (let [user (users/find-by-id (env :db) (:user-id grant))]
     [:tr
-     [:td (users/full-name user)]
-     [:td (:email user)]
-     [:td
-      (glyph-button :pencil
-                    (format "/grants/%s/edit" (:id grant))
-                    {:level :info
-                     :size :extra-small
-                     :title "Click here to edit permissions for this user."})]]))
+     [:td.col-sm-5 (users/full-name user)]
+     [:td.col-sm-5 (:email user)]
+     [:td.col-sm-2
+      [:div.btn-group
+       (glyph-button :pencil
+                     (format "/grants/%s/edit" (:id grant))
+                     {:level :info
+                      :size :extra-small
+                      :title "Click here to edit permissions for this user."})
+       (glyph-button :remove
+                     (format "/grants/%s/delete" (:id grant))
+                     {:level :danger
+                      :size :extra-small
+                      :data-method :post
+                      :data-confirm "Are your sure you want to remove permissions for this user?"
+                      :title "Click here to remove permissions for this user."})]]]))
 
 (defn index
   [{{entity :entity} :params}]
@@ -142,17 +150,13 @@
   (let [grant (-> params
                   (select-keys [:entity-id])
                   (assoc :permissions (extract-permissions params)
-                         :user-id (:id (find-or-create-user (:email params))))
+                         :user-id (:id (find-or-create-user (:user params))))
                   (tag-resource :grant)
                   (authorize :create))
         result (grants/create (env :db) grant)]
     (if (validation/has-error? result)
       (new-grant {} result)
       (redirect (format "/entities/%s/grants" (:entity-id result))))))
-
-(defn show
-  [req]
-  "Show")
 
 (defn edit
   ([{{:keys [id]} :params :as req}]
@@ -181,5 +185,9 @@
       (redirect (format "/entities/%s/grants" (:entity-id grant))))))
 
 (defn delete
-  [req]
-  "Delete")
+  [{{id :id} :params}]
+  (let [grant (as-> id v
+                (grants/find-by-id (env :db) v)
+                (authorize v :delete))]
+    (grants/delete (env :db) (:id grant))
+    (redirect (format "/entities/%s/grants" (:entity-id grant)))))
