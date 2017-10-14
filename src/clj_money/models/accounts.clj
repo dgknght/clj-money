@@ -244,8 +244,7 @@
                      (if (= :debit (:action transaction-item)) 1 -1))]
     (* (:amount transaction-item) polarizer)))
 
-(authorization/allow :account [:new :create :show :edit :update :delete]
-       user-owns-entity?)
+(authorization/allow :account user-owns-entity?)
 
 (authorization/set-scope
   :account

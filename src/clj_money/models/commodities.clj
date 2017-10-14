@@ -132,8 +132,7 @@
     (delete-prices-by-commodity-id s id)
     (delete-commodity s id)))
 
-(authorization/allow :commodity [:new :create :show :edit :update :delete]
-                     user-owns-entity?)
+(authorization/allow :commodity user-owns-entity?)
 
 (authorization/set-scope
   :commodity

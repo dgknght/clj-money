@@ -48,8 +48,8 @@
       (images/delete s (:image-id attachment))
       (delete-attachment s (:id attachment)))))
 
-(authorization/allow :attachment [:new :create :show :edit :update :delete]
-                     (fn [user resource {storage-spec :storage-spec :as context}]
+(authorization/allow :attachment
+                     (fn [user resource _ {storage-spec :storage-spec :as context}]
                        (let [transaction (transactions/find-by-id
                                            storage-spec
                                            (:transaction-id resource))]

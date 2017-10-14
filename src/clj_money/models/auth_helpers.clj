@@ -16,8 +16,9 @@
   (user-entity-ids user context {:include-grants? true}))
 
 (defn user-owns-entity?
-  [user resource context]
-  (contains? (user-entity-ids user context)
-             (:entity-id resource)))
+  [user resource & args]
+  (let [context (last args)]
+    (contains? (user-entity-ids user context)
+               (:entity-id resource))))
 
 (authorization/->context :storage-spec (env :db))

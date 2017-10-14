@@ -329,9 +329,8 @@
   :budget
   {:entity-id user-entity-ids})
 
-(authorization/allow :budget [:new :create :show :edit :update :delete]
-                     user-owns-entity?)
+(authorization/allow :budget user-owns-entity?)
 
-(authorization/allow :budget-item [:new :create :show :edit :update :delete]
-                     (fn [user resource {storage-spec :storage-spec :as context}]
+(authorization/allow :budget-item
+                     (fn [user resource _ {storage-spec :storage-spec :as context}]
                        (user-owns-entity? user (find-by-id storage-spec (:budget-id resource)) context)))

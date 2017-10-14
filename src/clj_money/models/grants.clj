@@ -86,8 +86,7 @@
         (into #{}))
    action))
 
-(authorization/allow :grant [:new :create :show :edit :update :delete]
-                     user-owns-entity?)
+(authorization/allow :grant user-owns-entity?)
 
 (authorization/set-scope
   :grant

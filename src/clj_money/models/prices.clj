@@ -118,8 +118,8 @@
          first
          after-read))))
 
-(authorization/allow :price [:new :create :show :edit :update :delete]
-                     (fn [user resource context]
+(authorization/allow :price
+                     (fn [user resource _ context]
                        (let [commodity (commodities/find-by-id
                                          (:storage-spec context)
                                          (:commodity-id resource))]

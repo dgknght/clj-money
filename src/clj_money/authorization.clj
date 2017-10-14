@@ -43,12 +43,15 @@
                    2 (concat [(current-authentication)] args)
                    :else (throw (ex-info "Wrong number of arguments. Expected 2 or 3." {:args args})))
         tag (get-resource-tag resource)
-        auth-fn (@auth-fns [action tag])]
-    (if auth-fn
-      (auth-fn
-        user
-        resource
-        @auth-context)
+        auth-fns (@auth-fns tag)]
+    (if auth-fns
+      (some
+        #(%
+          user
+          resource
+          action
+          @auth-context)
+        auth-fns)
       (throw (ex-info (format "No authorization rule registered for %s %s." action tag)
                       {:action action :resource tag})))))
 
@@ -73,11 +76,11 @@
     user: The current user, whose permissions are being queried
     action: A keyword indicating the action for which permission is being queried
     resource: The resource on which permission is being queried"
-  [resource actions auth-fn]
-  (swap! auth-fns #(reduce (fn [result action]
-                             (assoc result [action resource] auth-fn))
-                           %
-                           actions)))
+  [resource auth-fn]
+  (swap! auth-fns (fn [auth-fn-map]
+                    (update-in auth-fn-map
+                               [resource]
+                               #((fnil conj []) % auth-fn)))))
 
 (def ^:private scope-maps
   (atom {}))

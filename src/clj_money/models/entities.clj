@@ -123,6 +123,6 @@
   (with-storage [s storage-spec]
     (delete-entity s id)))
 
-(authorization/allow :entity [:new :create :show :edit :update :delete]
-       (fn [user resource _]
+(authorization/allow :entity
+       (fn [user resource _ _]
          (= (:id user) (:user-id resource))))
