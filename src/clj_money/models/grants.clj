@@ -78,7 +78,7 @@
   (with-storage [s storage-spec]
     (delete-grant s id)))
 
-(defn has-permission
+(defn has-permission?
   [grant resource-type action]
   ((->> grant
         :permissions

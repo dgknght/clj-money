@@ -79,7 +79,7 @@
             [:label
              [:input {:type "checkbox"
                       :name (permission-key resource-type action)
-                      :checked (grants/has-permission grant resource-type action)
+                      :checked (grants/has-permission? grant resource-type action)
                       :value 1}]
              (humanize action)]])
          grants/actions)]])
