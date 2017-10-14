@@ -10,11 +10,6 @@
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
-
-            ; TODO combine these
-            [clj-money.models.auth-helpers :refer [user-entity-ids
-                                                   user-owns-entity?]]
-
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage
@@ -324,13 +319,3 @@
         days (+ 1 (t/in-days (t/interval (tc/to-date-time (:start period))
                                          (tc/to-date-time as-of))))]
     (with-precision 5 (/ days days-in-period))))
-
-(authorization/set-scope
-  :budget
-  {:entity-id user-entity-ids})
-
-(authorization/allow :budget user-owns-entity?)
-
-(authorization/allow :budget-item
-                     (fn [user resource _ {storage-spec :storage-spec :as context}]
-                       (user-owns-entity? user (find-by-id storage-spec (:budget-id resource)) context)))

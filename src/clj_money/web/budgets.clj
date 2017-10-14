@@ -17,6 +17,7 @@
             [clj-money.authorization :refer [apply-scope
                                              tag-resource
                                              authorize]]
+            [clj-money.permissions.budgets]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts]])

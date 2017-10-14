@@ -5,11 +5,9 @@
             [clojure.set :refer [difference]]
             [clj-time.coerce :as tc]
             [clj-money.util :refer [ensure-local-date pprint-and-return]]
-            [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
-            [clj-money.models.auth-helpers :refer [user-owns-entity?
-                                                   user-entity-ids]]
+            [clj-money.authorization :as authorization]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions
@@ -725,7 +723,3 @@
 
      ; clean up the ambient settings as if we were never here
      (swap! ambient-settings dissoc ~entity-id)))
-
-(authorization/allow :transaction user-owns-entity?)
-
-(authorization/set-scope :transaction {:entity-id user-entity-ids})

@@ -6,8 +6,6 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
-            [clj-money.models.auth-helpers :refer [user-entity-ids
-                                                   user-owns-entity?]]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -85,9 +83,3 @@
         resource-type
         (into #{}))
    action))
-
-(authorization/allow :grant user-owns-entity?)
-
-(authorization/set-scope
-  :grant
-  {:entity-id user-entity-ids})

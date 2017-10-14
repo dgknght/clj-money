@@ -70,8 +70,3 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-image s id)))
-
-(authorization/allow :image
-                     (fn [user resource action _]
-                       (and (= :show action)
-                            (= (:user-id resource) (:id user)))))

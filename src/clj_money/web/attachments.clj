@@ -15,6 +15,7 @@
             [clj-money.authorization :refer [apply-scope
                                              authorize
                                              tag-resource]]
+            [clj-money.permissions.attachments]
             [clj-money.models.images :as images] 
             [clj-money.models.transactions :as transactions]
             [clj-money.models.attachments :as attachments])

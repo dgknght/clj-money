@@ -10,6 +10,7 @@
             [clj-money.authorization :refer [authorize
                                              apply-scope
                                              tag-resource]]
+            [clj-money.permissions.accounts]
             [clj-money.url :refer :all]
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number

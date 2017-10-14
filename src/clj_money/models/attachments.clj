@@ -47,10 +47,3 @@
                        id-or-attachment)]
       (images/delete s (:image-id attachment))
       (delete-attachment s (:id attachment)))))
-
-(authorization/allow :attachment
-                     (fn [user resource _ {storage-spec :storage-spec :as context}]
-                       (let [transaction (transactions/find-by-id
-                                           storage-spec
-                                           (:transaction-id resource))]
-                         (user-owns-entity? user transaction context))))

@@ -9,6 +9,7 @@
             [clj-money.authorization :refer [apply-scope
                                              authorize
                                              tag-resource]]
+            [clj-money.permissions.commodities]
             [clj-money.models.auth-helpers :refer [user-owns-entity?
                                                    user-entity-ids]]
             [clj-money.validation :as validation]

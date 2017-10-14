@@ -52,7 +52,7 @@
           action
           @auth-context)
         auth-fns)
-      (throw (ex-info (format "No authorization rule registered for %s %s." action tag)
+      (throw (ex-info (format "No authorization rules registered for %s." tag)
                       {:action action :resource tag})))))
 
 (defn authorize

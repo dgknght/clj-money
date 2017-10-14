@@ -20,6 +20,13 @@
             [clj-money.authorization :refer [allowed?
                                              tag-resource
                                              apply-scope]]
+            [clj-money.permissions.entities]
+            [clj-money.permissions.grants]
+            [clj-money.permissions.accounts]
+            [clj-money.permissions.transactions]
+            [clj-money.permissions.commodities]
+            [clj-money.permissions.prices]
+            [clj-money.permissions.budgets]
             [clj-money.test-helpers :refer [reset-db
                                             with-authentication
                                             find-account
