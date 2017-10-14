@@ -22,7 +22,7 @@
     [this entity]
     "Creates a new entity record")
   (select-entities
-    [this user-id]
+    [this user-id options]
     "Returns the entities belonging to the specified user")
   (find-entity-by-id
     [this id]

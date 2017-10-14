@@ -16,8 +16,8 @@
 (use-fixtures :each (partial reset-db storage-spec))
 
 (def ^:private entity-context
-  {:users [(factory :user)
-           (factory :user)]})
+  {:users [(factory :user {:email "john@doe.com"})
+           (factory :user {:email "jane@doe.com"})]})
 
 (defn- attributes
   [context]
@@ -72,6 +72,33 @@
     (is (= expected
            (map #(select-keys % [:name :user-id]) actual)) "The returned list should contain the correct items")
     (is (not-any? #(= "Other entity" (:name %)) actual) "The returned list should not contain other users entities")))
+
+(def ^:private grants-context
+  (-> entity-context
+      (assoc :entities [{:name "Personal"
+                         :user-id "john@doe.com"}
+                        {:name "Business"
+                         :user-id "jane@doe.com"}])
+      (assoc :grants [{:entity-id "Business"
+                       :user-id "john@doe.com"
+                       :permissions {:account [:index]} }])))
+
+(deftest select-owned-and-granted-entities-for-a-user
+  (let [context (serialization/realize storage-spec grants-context)
+        [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        expected #{{:name "Personal"
+                    :user-id (:id john)}
+                   {:name "Business"
+                    :user-id (:id jane)}}
+        actual (->> (entities/select storage-spec (:id john) {:include-grants? true})
+                    (map #(dissoc % :created-at :updated-at :id :settings))
+                    (into #{}))]
+    (if-not (= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
+    (is (= expected actual)
+        "The correct entities are returned")))
 
 (deftest find-an-entity-by-id
   (let [context (serialization/realize storage-spec entity-context)

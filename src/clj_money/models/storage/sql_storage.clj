@@ -177,6 +177,18 @@
         (h/merge-where [:<= :trade-date as-of]))
     criteria))
 
+(defn- append-grants
+  "Appends joins and where clauses necessary to search entities
+  including those owned by another user but grantedto the specified user"
+  [sql user-id options]
+  (if (:include-grants? options)
+    (-> sql
+        (h/left-join :grants [:= :entities.id :grants.entity-id])
+        (h/where [:or
+                  [:= :entities.user-id user-id]
+                  [:= :grants.user-id user-id]]))
+    sql))
+
 (defn- query
   "Executes a SQL query and maps field names into
   clojure keys"
@@ -262,11 +274,12 @@
                                      :settings))
 
   (select-entities
-    [_ user-id]
-    (query db-spec (-> (h/select :*)
+    [_ user-id options]
+    (query db-spec (-> (h/select :entities.*)
                        (h/from :entities)
                        (h/where [:= :user_id user-id])
-                       (h/order-by :name))))
+                       (h/order-by :name)
+                       (append-grants user-id options))))
 
   (find-entity-by-id
     [_ id]
