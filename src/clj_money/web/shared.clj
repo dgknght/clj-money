@@ -67,7 +67,8 @@
       (:name entity)
       [:span.caret]]
      [:ul.dropdown-menu
-      (let [other-entities (remove #(= (:id %) (:id entity)) (entities/select (env :db) (:id user)))]
+      (let [other-entities (->> (entities/select (env :db) (:id user) {:include-grants? true})
+                                (remove #(= (:id %) (:id entity))))]
         (when (seq other-entities)
           (concat
             (map #(vector :li
