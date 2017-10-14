@@ -98,7 +98,16 @@
         (is (thrown+? [:type :clj-money.authorization/unauthorized]
                      (->> (apply-scope{:entity-id (:id entity)} :account)
                           (accounts/search storage-spec)
-                          count)))))))
+                          count)))))
+    (testing "A user can be granted permission to list accounts in someone else's entity"
+      (grants/create storage-spec {:entity-id (:id entity)
+                                   :user-id (:id jane)
+                                   :permissions {:account [:index]}})
+      (with-authentication jane
+        (is (not= 0 (->> (apply-scope{:entity-id (:id entity)} :account)
+                         (accounts/search storage-spec)
+                         count))
+            "The accounts are returned")))))
 
 (deftest account-management
   (let [context (serialization/realize storage-spec accounts-context)
