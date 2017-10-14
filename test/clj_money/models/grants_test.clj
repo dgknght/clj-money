@@ -79,7 +79,7 @@
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant (find-grant context (:id entity) (:id user))
-        _ (grants/delete storage-spec grant)
+        _ (grants/delete storage-spec (:id grant))
         grant-list (grants/search storage-spec {:entity-id (:id entity)})]
     (is (empty? (filter #(= (:id grant) (:id %)) grant-list))
         "The grant is not present after delete")))
