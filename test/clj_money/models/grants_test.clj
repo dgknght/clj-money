@@ -28,19 +28,19 @@
                   :type :currency
                   :symbol "USD"}]})
 
-(deftest create-an-entity
+(deftest create-a-grant
   (let [context (serialization/realize storage-spec grant-context)
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant {:entity-id (:id entity)
                :user-id (:id user)
-               :permissions {:account [:index :show]}}
+               :permissions {:account #{:index :show}}}
         result (grants/create storage-spec grant)
         grant-list (map #(dissoc % :updated-at :created-at :id)
                         (grants/search storage-spec {:entity-id (:id entity)}))
         expected-grant-list [{:entity-id (:id entity)
                               :user-id (:id user)
-                              :permissions {:account [:index :show]}}]]
+                              :permissions {:account #{:index :show}}}]]
     (is (empty? (validation/error-messages result))
         "The result does not contain any validation errors")
 
@@ -55,7 +55,7 @@
 (def ^:private existing-grant-context
   (assoc grant-context :grants [{:user-id "jane@doe.com"
                                  :entity-id "Business"
-                                 :permissions {:account [:index :show]}}]))
+                                 :permissions {:account #{:index :show}}}]))
 
 (deftest update-a-grant
   (let [context (serialization/realize storage-spec existing-grant-context)
@@ -64,13 +64,13 @@
         grant (find-grant context (:id entity) (:id user))
         updated (update-in grant
                            [:permissions]
-                           #(assoc % :transactions [:index :show]))
+                           #(assoc % :transactions #{:index :show}))
         result (grants/update storage-spec updated)
         retrieved (grants/find-by-id storage-spec (:id result))]
     (is (empty? (validation/error-messages result))
         "The result has not validation errors")
-    (is (= {:account [:index :show]
-            :transactions [:index :show]}
+    (is (= {:account #{:index :show}
+            :transactions #{:index :show}}
            (:permissions retrieved))
         "The retrieved record should have the correct content")))
 

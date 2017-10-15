@@ -18,7 +18,7 @@
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
 (s/def ::user-id integer?)
-(s/def ::permissions #(not (nil? %)))
+(s/def ::permissions (s/map-of keyword? set?))
 (s/def ::new-grant (s/keys :req-un [::entity-id ::user-id ::permissions]))
 (s/def ::existing-grant (s/keys :req-un [::id ::entity-id ::user-id ::permissions]))
 
@@ -78,8 +78,8 @@
 
 (defn has-permission?
   [grant resource-type action]
-  ((->> grant
-        :permissions
-        resource-type
-        (into #{}))
-   action))
+  (when grant
+    ((->> grant
+          :permissions
+          resource-type)
+     action)))

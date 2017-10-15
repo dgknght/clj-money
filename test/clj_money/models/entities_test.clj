@@ -81,7 +81,7 @@
                          :user-id "jane@doe.com"}])
       (assoc :grants [{:entity-id "Business"
                        :user-id "john@doe.com"
-                       :permissions {:account [:index]} }])))
+                       :permissions {:account #{:index}}}])))
 
 (deftest select-owned-and-granted-entities-for-a-user
   (let [context (serialization/realize storage-spec grants-context)

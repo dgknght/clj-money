@@ -6,7 +6,7 @@
             [cemerick.friend :refer [current-authentication]]
             [clj-money.util :refer [pprint-and-return]]))
 
-(defn- get-resource-tag
+(defn get-resource-tag
   "Returns a keyword identifying the type of the resource"
   [resource]
   (let [result (if (keyword? resource)
@@ -80,7 +80,7 @@
   (swap! auth-fns (fn [auth-fn-map]
                     (update-in auth-fn-map
                                [resource]
-                               #((fnil conj []) % auth-fn)))))
+                               #((fnil conj #{}) % auth-fn)))))
 
 (def ^:private scope-maps
   (atom {}))

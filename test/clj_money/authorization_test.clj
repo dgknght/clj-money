@@ -109,7 +109,7 @@
     (testing "A user can be granted permission to list accounts in someone else's entity"
       (grants/create storage-spec {:entity-id (:id entity)
                                    :user-id (:id jane)
-                                   :permissions {:account [:index]}})
+                                   :permissions {:account #{:index}}})
       (with-authentication jane
         (is (not= 0 (->> (apply-scope{:entity-id (:id entity)} :account)
                          (accounts/search storage-spec)
@@ -128,6 +128,17 @@
     (testing "A user does not have permission on accounts in someone else's entity"
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
+          (is (not (allowed? action checking))
+              (format "A user does not have %s permission" action)))))
+    (testing "A user can be granted permission on accounts in someone else's entity"
+      (with-authentication jane
+        (grants/create storage-spec {:user-id (:id jane)
+                                     :entity-id (:entity-id checking)
+                                     :permissions {:account #{:show}} })
+        (doseq [action [:show]]
+          (is (allowed? action checking)
+              (format "A user has %s permission" action)))
+        (doseq [action [:edit :update :delete]]
           (is (not (allowed? action checking))
               (format "A user does not have %s permission" action)))))))
 
@@ -431,7 +442,7 @@
 (def grants-context
   (assoc entities-context :grants [{:entity-id "Personal"
                                     :user-id "jane@doe.com"
-                                    :permissions {:account [:index :show]}}]))
+                                    :permissions {:account #{:index :show}}}]))
 
 (deftest grant-list
   (let [context (serialization/realize storage-spec grants-context)
@@ -472,7 +483,7 @@
         personal (find-entity context "Personal")
         grant (tag-resource {:user-id (:id jane)
                              :entity-id (:id personal)
-                             :permissions {:account [:index :show]}}
+                             :permissions {:account #{:index :show}}}
                             :grant)]
     (testing "A user has permission to create an grant in his own entities"
       (with-authentication john
