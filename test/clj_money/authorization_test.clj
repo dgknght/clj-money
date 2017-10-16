@@ -158,56 +158,6 @@
         (is (not (allowed? :create transaction))
             "Create is not allowed")))))
 
-(deftest commodity-list
-  (let [context (serialization/realize storage-spec entities-context)
-        [john jane] (find-users context "john@doe.com" "jane@doe.com")
-        entity (find-entity context "Personal")]
-    (testing "A user has permission to list commodities in his entities"
-      (with-authentication john
-        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)} :commodity)
-                         (commodities/search storage-spec)
-                         count))
-            "The commodities are returned")))
-    (testing "A user does not have permission list commodities in someone else's entity"
-      (with-authentication jane
-        (is (thrown+? [:type :clj-money.authorization/unauthorized]
-                     (->> (apply-scope {:entity-id (:id entity)} :commodity)
-                          (commodities/search storage-spec)
-                          count)))))))
-
-(deftest commodity-creation
-  (let [context (serialization/realize storage-spec entities-context)
-        [john jane] (find-users context "john@doe.com" "jane@doe.com")
-        personal (find-entity context "Personal")
-        commodity (tag-resource {:entity-id (:id personal)
-                                 :name "Apple, Inc."
-                                 :symbol "AAPL"
-                                 :type :stock}
-                                :commodity)]
-    (testing "A user has permission to create an commodity in his own entities"
-      (with-authentication john
-        (is (allowed? :create commodity)
-            "Create is allowed")))
-    (testing "A user does not have permission to create an commodity in someone else's entities"
-      (with-authentication jane
-        (is (not (allowed? :create commodity))
-            "Create is not allowed")))))
-
-(deftest commodity-management
-  (let [context (serialization/realize storage-spec entities-context)
-        [john jane] (find-users context "john@doe.com" "jane@doe.com")
-        commodity (find-commodity context "USD")]
-    (testing "A user has permission on commodities in his own entities"
-      (with-authentication john
-        (doseq [action [:show :edit :update :delete]]
-          (is (allowed? action commodity)
-              (format "A user has %s permission" action)))))
-    (testing "A user does not have permission on commodities in someone else's entity"
-      (with-authentication jane
-        (doseq [action [:show :edit :update :delete]]
-          (is (not (allowed? action commodity))
-              (format "A user does not have %s permission" action)))))))
-
 (def ^:private prices-context
   (-> entities-context
       (update-in [:commodities] #(conj % {:name "Apple, Inc."
