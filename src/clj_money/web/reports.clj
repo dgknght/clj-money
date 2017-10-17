@@ -61,7 +61,7 @@
                                             entity-id
                                             as-of))]))
 
-(defn-  budget-report-row-class
+(defn- budget-report-row-class
   [record]
   (string/join " " (cond-> []
                      true (conj (format "report-%s" (-> record :style name)))
