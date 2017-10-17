@@ -9,9 +9,12 @@
             [ring.util.response :refer :all]
             [clj-money.util :refer [format-number]]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.authorization :refer [authorize]]
+            [clj-money.authorization :refer [authorize
+                                             apply-scope]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.permissions.entities]
+            [clj-money.permissions.accounts]
             [clj-money.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -34,7 +37,7 @@
   ([entity-id]
    (grouped-options-for-accounts entity-id {}))
   ([entity-id options]
-   (let [optgroups (->> {:entity-id entity-id}
+   (let [optgroups (->> (apply-scope {:entity-id entity-id} :account)
                         (accounts/search (env :db))
                         accounts/nest
                         (filter #(or (nil? (:types options))

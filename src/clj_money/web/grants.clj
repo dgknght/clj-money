@@ -15,7 +15,8 @@
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.entities :as entities]
             [clj-money.models.users :as users]
-            [clj-money.models.grants :as grants])
+            [clj-money.models.grants :as grants]
+            [clj-money.permissions.grants])
   (:use [clj-money.web.shared :refer :all]))
 
 (defn- grant-row
@@ -137,7 +138,7 @@
        (reduce (fn [m {:keys [resource-type action]}]
                  (update-in m
                            [resource-type]
-                           #((fnil conj []) % action)))
+                           #((fnil conj #{}) % action)))
                {})))
 
 (defn- find-or-create-user
@@ -181,7 +182,7 @@
                   (assoc :permissions (extract-permissions params)))
         updated (grants/update (env :db) grant)]
     (if (validation/has-error? updated)
-      (edit nil grant)
+      (edit nil (assoc grant :user (users/find-by-id (env :db) (:user-id grant))))
       (redirect (format "/entities/%s/grants" (:entity-id grant))))))
 
 (defn delete

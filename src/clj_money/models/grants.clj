@@ -79,7 +79,7 @@
 (defn has-permission?
   [grant resource-type action]
   (when grant
-    ((->> grant
+    (action
+      (->> grant
           :permissions
-          resource-type)
-     action)))
+          resource-type))))

@@ -115,7 +115,6 @@
   "Renders the list of accounts"
   ([req] (index req {}))
   ([{{entity :entity :as params} :params} options]
-
    (with-accounts-layout "Accounts" (:id entity) (merge options {:entity entity})
      [:table.table.table-striped
       [:tr
