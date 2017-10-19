@@ -17,6 +17,10 @@
   [_ resource]
   (:entity-id resource))
 
+(defmethod ^:private lookup-entity-id :transaction
+  [_ resource]
+  (:entity-id resource))
+
 (defn user-entity-ids
   ([user context]
    (user-entity-ids user context {}))
@@ -39,8 +43,10 @@
   [user resource action {storage-spec :storage-spec :as context}]
   (let [resource-type (authorization/get-resource-tag resource)
         entity-id (lookup-entity-id context resource)
-        grant (-> (grants/search storage-spec {:user-id (:id user)
-                                               :entity-id entity-id})
+        grant (-> (grants/search storage-spec
+                                 {:user-id (:id user)
+                                  :entity-id entity-id}
+                                 {:limit 1})
                   first)]
     (grants/has-permission? grant resource-type action)))
 

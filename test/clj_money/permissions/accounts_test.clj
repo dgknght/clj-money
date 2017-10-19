@@ -73,7 +73,7 @@
         checking (find-account context "Checking")]
     (testing "A user has permission on accounts in his own entities"
       (with-authentication john
-        (doseq [action [:show :edit :update :delete]]
+        (doseq [action [:show :update :delete]]
           (is (allowed? action checking)
               (format "A user has %s permission" action)))))
     (testing "A user does not have permission on accounts in someone else's entity"

@@ -26,7 +26,7 @@
   #{:account :transaction :budget :budget-item :commodity :price})
 
 (def actions
-  #{:index :show :new :create :edit :update :delete})
+  #{:index :show :create :update :delete})
 
 (defn- before-save
   [_ grant]

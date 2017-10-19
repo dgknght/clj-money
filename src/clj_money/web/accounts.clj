@@ -8,6 +8,7 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-money.authorization :refer [authorize
+                                             allowed?
                                              apply-scope
                                              tag-resource]]
             [clj-money.permissions.accounts]
@@ -132,16 +133,15 @@
       "Add"])))
 
 (defn- transaction-item-row
-  [{:keys [transaction-id
-           transaction-date
+  [{:keys [transaction
            description
            polarized-amount
            reconciled?
            account-id
            balance] :as item}]
   [:tr
-   [:td.text-right transaction-date]
-   [:td description]
+   [:td.text-right (:transaction-date transaction)]
+   [:td (:description transaction)]
    [:td.text-right (format-number polarized-amount)]
    [:td.text-right (format-number balance)]
    [:td.text-center [:span.glyphicon
@@ -149,36 +149,36 @@
                       :class (if reconciled? "glyphicon-check" "glyphicon-unchecked")}]]
    [:td
     [:span.btn-group
-     (glyph-button :pencil
-                   (-> (path "/transactions" transaction-id "edit")
-                       (query {:redirect (url-encode (format "/accounts/%s" account-id))})
-                       format-url)
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this transaction."})
+     (when (allowed? :update transaction)
+       (glyph-button :pencil
+                     (-> (path "/transactions" (:id transaction) "edit")
+                         (query {:redirect (url-encode (format "/accounts/%s" account-id))})
+                         format-url)
+                     {:level :info
+                      :size :extra-small
+                      :title "Click here to edit this transaction."}))
      (glyph-button :paperclip
-                   (-> (path "/transactions" transaction-id "attachments")
+                   (-> (path "/transactions" (:id transaction) "attachments")
                        (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                        format-url)
                    {:level :default
                     :size :extra-small
                     :title "Click here to view attachments for this transaction."})
-     (let [can-delete? (->> transaction-id
-                            (transactions/find-by-id (env :db))
-                            transactions/can-delete?)]
-       (glyph-button :remove
-                     (-> (path "/transactions" transaction-id "delete")
-                         (query {:redirect (url-encode (format "/accounts/%s" account-id))})
-                         format-url)
-                     {:level :danger
-                      :disabled (not can-delete?)
-                      :size :extra-small
-                      :title (if can-delete?
-                               "Click here to remove this transaction."
-                               "This transaction contains reconciled items and cannot be removed.")
-                      :data-method :post
-                      :data-confirm "Are you sure you want to remove this transaction?"
-                      :method :post}))]]])
+     (when (allowed? :delete transaction)
+       (let [can-delete? (transactions/can-delete? transaction)]
+         (glyph-button :remove
+                       (-> (path "/transactions" (:id transaction) "delete")
+                           (query {:redirect (url-encode (format "/accounts/%s" account-id))})
+                           format-url)
+                       {:level :danger
+                        :disabled (not can-delete?)
+                        :size :extra-small
+                        :title (if can-delete?
+                                 "Click here to remove this transaction."
+                                 "This transaction contains reconciled items and cannot be removed.")
+                        :data-method :post
+                        :data-confirm "Are you sure you want to remove this transaction?"
+                        :method :post})))]]])
 
 (defmulti ^:private show-account
   (fn [account params]
@@ -203,10 +203,13 @@
       [:th.text-right "Balance"]
       [:th.text-center "Rec."]
       [:th "&nbsp;"]]
-     (map transaction-item-row
-          (transactions/items-by-account (env :db)
+     (->> (transactions/items-by-account (env :db)
                                          (:id account)
-                                         (pagination/prepare-options params)))]
+                                         (pagination/prepare-options params))
+          (map #(assoc % :transaction (transactions/find-by-id
+                                        (env :db)
+                                        (:transaction-id %))))
+          (map transaction-item-row))]
     [:p
      (pagination/nav
        (assoc params

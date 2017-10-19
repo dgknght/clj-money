@@ -83,6 +83,17 @@
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action transaction))
+              (format "A user does not have  %s permission" action)))))
+    (testing "A user can be granted permissions on transactions in someone else's entities"
+      (grants/create storage-spec {:user-id (:id jane)
+                                   :entity-id (:entity-id transaction)
+                                   :permissions {:transaction #{:show}}})
+      (with-authentication jane
+        (doseq [action [:show]]
+          (is (allowed? action transaction)
+              (format "A user has %s permission" action)))
+        (doseq [action [:edit :update :delete]]
+          (is (not (allowed? action transaction))
               (format "A user does not have  %s permission" action)))))))
 
 (deftest transaction-creation
