@@ -5,10 +5,11 @@
             [clj-money.models.grants :as grants]))
 
 (authorization/allow :entity
-       (fn [user resource _ _]
-         (= (:id user) (:user-id resource))))
+                     (fn [user resource _ _]
+                       (= (:id user) (:user-id resource))))
 (authorization/allow :entity
                      (fn [user resource action {storage-spec :storage-spec}]
                        ; :show permission is implicit on entity with the grant
-                       (grants/search storage-spec {:user-id (:id user)
-                                                    :entity-id (:id resource)})))
+                       (and (:id resource)
+                            (seq (grants/search storage-spec {:user-id (:id user)
+                                                              :entity-id (:id resource)})))))
