@@ -3,7 +3,8 @@
             [environ.core :refer [env]]
             [clj-money.authorization :as authorization]
             [clj-money.models.entities :as entities]
-            [clj-money.models.grants :as grants]))
+            [clj-money.models.grants :as grants]
+            [clj-money.models.transactions :as transactions]))
 
 (defmulti ^:private lookup-entity-id
   (fn [_ resource]
@@ -20,6 +21,12 @@
 (defmethod ^:private lookup-entity-id :transaction
   [_ resource]
   (:entity-id resource))
+
+(defmethod ^:private lookup-entity-id :attachment
+  [{storage-spec :storage-spec :as context} resource]
+  (->> (:transaction-id resource)
+       (transactions/find-by-id storage-spec)
+       (lookup-entity-id context)))
 
 (defn user-entity-ids
   ([user context]

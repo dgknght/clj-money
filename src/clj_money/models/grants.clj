@@ -23,7 +23,7 @@
 (s/def ::existing-grant (s/keys :req-un [::id ::entity-id ::user-id ::permissions]))
 
 (def resource-types
-  #{:account :transaction :budget :budget-item :commodity :price})
+  #{:account :transaction :budget :budget-item :commodity :price :attachment :reconciliation})
 
 (def actions
   #{:index :show :create :update :delete})

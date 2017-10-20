@@ -88,7 +88,7 @@
 (defn- permission-checkbox-elements
   [grant]
   (->> grants/resource-types
-       (partition 3)
+       (partition-all 3)
        (map (fn [group]
               [:div.row
                (map #(permission-column grant %) group)]))))
