@@ -227,7 +227,7 @@
   ([{params :params transaction :transaction} options]
    (let [id (:id params)
          transaction (or transaction
-                         (authorize (transactions/find-by-id (env :db) id) :edit))
+                         (authorize (transactions/find-by-id (env :db) id) :update))
          action (cond-> (path "/transactions"
                               (:id transaction))
 
