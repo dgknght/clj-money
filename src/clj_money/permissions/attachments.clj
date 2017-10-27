@@ -6,12 +6,7 @@
                                                    user-entity-ids]]
             [clj-money.models.transactions :as transactions]))
 
-(authorization/allow :attachment
-                     (fn [user resource _ {storage-spec :storage-spec :as context}]
-                       (let [transaction (transactions/find-by-id
-                                           storage-spec
-                                           (:transaction-id resource))]
-                         (user-owns-entity? user transaction context))))
+(authorization/allow :attachment user-owns-entity?)
 (authorization/allow :attachment user-granted-access?)
 
 ; TODO Need a better way to set scope on models
