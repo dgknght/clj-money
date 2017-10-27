@@ -126,6 +126,14 @@
   [context & account-names]
   (map #(find-account context %) account-names))
 
+(defn find-attachment
+  [context caption]
+  (find-in-context context :attachments :caption caption))
+
+(defn find-image
+  [context original-filename]
+  (find-in-context context :images :original-filename original-filename))
+
 (defn find-commodity
   [context symbol]
   (find-in-context context :commodities :symbol symbol))
@@ -144,6 +152,14 @@
        :prices
        (filter #(and (= price (:price %))
                      (= trade-date (:trade-date %))))
+       first))
+
+(defn find-transaction
+  [context transaction-date description]
+  (->> context
+       :transactions
+       (filter #(and (= transaction-date (:transaction-date %))
+                     (= description (:description %))))
        first))
 
 (defn context-errors
