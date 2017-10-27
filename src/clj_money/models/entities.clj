@@ -122,3 +122,7 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-entity s id)))
+
+(defn entity?
+  [model]
+  (= :entity (authorization/get-resource-tag model)))
