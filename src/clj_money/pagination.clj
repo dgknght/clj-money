@@ -66,14 +66,14 @@
        [:div.col-sm-5.text-left
         [:div.btn-group
          [:a.btn.btn-default {:href (-> url
-                                        (url/query {:page (if (= (- page-count 1) page)
-                                                            (- page-count 1)
+                                        (url/query {:page (if (= page-count page)
+                                                            page-count
                                                     (+ page 1))
                                                     :per-page per-page})
                                         url/format-url)}
           [:span.glyphicon.glyphicon-step-forward {:aria-hidden true}]]
          [:a.btn.btn-default {:href (-> url
-                                        (url/query {:page (- page-count 1)
+                                        (url/query {:page page-count
                                                     :per-page per-page})
                                         url/format-url)}
           [:span.glyphicon.glyphicon-fast-forward {:aria-hidden true}]]]]]])])
