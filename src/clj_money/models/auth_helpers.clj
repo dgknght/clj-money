@@ -28,6 +28,12 @@
        (transactions/find-by-id storage-spec)
        (lookup-entity-id context)))
 
+(defn- lookup-entity
+  [{storage-spec :storage-spec :as context} resource]
+  (if (entities/entity? resource)
+    resource
+    (entities/find-by-id storage-spec (lookup-entity-id context resource))))
+
 (defn user-entity-ids
   ([user context]
    (user-entity-ids user context {}))
@@ -42,9 +48,9 @@
 
 (defn user-owns-entity?
   [user resource & args]
-  (let [context (last args)]
-    (contains? (user-entity-ids user context)
-               (:entity-id resource))))
+  (let [context (last args)
+        entity (lookup-entity context resource)]
+    (= (:user-id entity))))
 
 (defn user-granted-access?
   [user resource action {storage-spec :storage-spec :as context}]
