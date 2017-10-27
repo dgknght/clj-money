@@ -24,8 +24,15 @@
                                          ::caption
                                          ::image-id]))
 
+(defn- after-read
+  ([attachment]
+   (after-read nil attachment))
+  ([_ attachment]
+   (authorization/tag-resource attachment :attachment)))
+
 (def create
   (create-fn {:create create-attachment
+              :after-read after-read
               :spec ::new-attachment}))
 
 (defn search
@@ -33,11 +40,15 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (select-attachments s criteria))))
+     (->> criteria
+          (select-attachments s )
+          after-read))))
 
 (defn find-by-id
   [storage-spec id]
-  (first (search storage-spec {:id id} {:limit 1})))
+  (->> (search storage-spec {:id id} {:limit 1})
+       first
+       after-read))
 
 (defn delete
   [storage-spec id-or-attachment]
