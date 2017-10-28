@@ -43,7 +43,7 @@
    (with-storage [s storage-spec]
      (->> criteria
           (select-attachments s )
-          after-read))))
+          (map after-read)))))
 
 (defn find-by-id
   [storage-spec id]
