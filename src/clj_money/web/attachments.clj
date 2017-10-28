@@ -26,17 +26,20 @@
   [attachment]
   [:tr
    [:td
-    [:a {:href (format "/images/%s" (:image-id attachment))
-         :target "_blank"}
-     (:caption attachment)]]
+    (if (allowed? :show attachment)
+      [:a {:href (format "/images/%s" (:image-id attachment))
+           :target "_blank"}
+       (:caption attachment)]
+      (:caption attachment))]
    [:td.text-center
     [:div.btn-group
-     [:a.btn.btn-xs.btn-danger
-      {:href (format "/attachments/%s/delete" (:id attachment))
-       :title "Click here to remove this attachment"
-       :data-method "POST"
-       :data-confirm "Are you sure you want to remove this attachment?" }
-      [:span.glyphicon.glyphicon-remove {:aria-hidden true}]]]]])
+     (when (allowed? :delete attachment)
+       [:a.btn.btn-xs.btn-danger
+        {:href (format "/attachments/%s/delete" (:id attachment))
+         :title "Click here to remove this attachment"
+         :data-method "POST"
+         :data-confirm "Are you sure you want to remove this attachment?" }
+        [:span.glyphicon.glyphicon-remove {:aria-hidden true}]])]]])
 
 (defn index
   [{{transaction-id :transaction-id} :params}]
