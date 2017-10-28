@@ -14,13 +14,11 @@
   [_ resource]
   (:id resource))
 
-(defmethod ^:private lookup-entity-id :account
+(defmethod ^:private lookup-entity-id :default
   [_ resource]
-  (:entity-id resource))
-
-(defmethod ^:private lookup-entity-id :transaction
-  [_ resource]
-  (:entity-id resource))
+  (or (:entity-id resource)
+      (throw (ex-info "No :entity-id value present" {:resource resource
+                                                     :meta (meta resource)}))))
 
 (defmethod ^:private lookup-entity-id :attachment
   [{storage-spec :storage-spec :as context} resource]
@@ -50,7 +48,7 @@
   [user resource & args]
   (let [context (last args)
         entity (lookup-entity context resource)]
-    (= (:user-id entity))))
+    (= (:user-id entity) (:id user))))
 
 (defn user-granted-access?
   [user resource action {storage-spec :storage-spec :as context}]
