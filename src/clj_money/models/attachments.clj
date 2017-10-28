@@ -28,7 +28,8 @@
   ([attachment]
    (after-read nil attachment))
   ([_ attachment]
-   (authorization/tag-resource attachment :attachment)))
+   (when attachment
+     (authorization/tag-resource attachment :attachment))))
 
 (def create
   (create-fn {:create create-attachment
