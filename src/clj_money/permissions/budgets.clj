@@ -11,5 +11,7 @@
   {:entity-id all-user-entity-ids})
 
 (authorization/allow :budget user-owns-entity?)
+(authorization/allow :budget user-granted-access?)
 
+(authorization/allow :budget-item user-owns-entity?)
 (authorization/allow :budget-item user-granted-access?)
