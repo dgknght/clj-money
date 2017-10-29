@@ -71,8 +71,10 @@
         (map budget-row (budgets/search (env :db)
                                         (apply-scope {:entity-id (:id entity)}
                                                      :budget)))]
-       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" (:id entity))}
-        "Add"]]])))
+       (when (allowed? :create (-> {:entity-id (:id entity)}
+                                   (tag-resource :budget)))
+         [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" (:id entity))}
+          "Add"])]])))
 
 (defn- form-fields
   [budget]
@@ -100,7 +102,7 @@
                       :period-count 12
                       :start-date start-date}
                     (tag-resource :budget)
-                    (authorize :new))]
+                    (authorize :create))]
      (new-budget req budget)))
   ([{{entity :entity} :params} budget]
    (with-layout "New budget" {:entity entity}
@@ -285,7 +287,7 @@
   "Renders an edit form for the specified budget"
   [{{id :id} :params budget :budget}]
   (let [budget (or budget
-                   (authorize (budgets/find-by-id (env :db) id) :edit))]
+                   (authorize (budgets/find-by-id (env :db) id) :update))]
     (with-layout "Edit budget" {:entity-id (:entity-id budget)}
       [:div.row
        [:div.col-md-3
@@ -417,7 +419,7 @@
         item (-> params
                  (select-keys [:budget-id :method])
                  (tag-resource :budget-item)
-                 (authorize :new))]
+                 (authorize :create))]
     (with-layout (str "Budget " (:name budget) ": New item") {:entity-id (:entity-id budget)}
       (form (format "/budgets/%s/items" budget-id) {}
             (item-form-fields item budget)))))
@@ -496,7 +498,7 @@
   "Renders a form for editing a budget item"
   [{{:keys [id method]} :params item :item}]
   (let [item (or item
-                 (authorize (budgets/find-item-by-id (env :db) id) :edit))
+                 (authorize (budgets/find-item-by-id (env :db) id) :update))
         budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
     (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {:entity-id (:entity-id budget)}
