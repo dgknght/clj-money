@@ -83,4 +83,15 @@
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
           (is (not (allowed? action commodity))
+              (format "A user does not have %s permission" action)))))
+    (testing "A user can be granted permission on commodities in someone else's entity"
+      (with-authentication jane
+        (grants/create storage-spec {:user-id (:id jane)
+                                     :entity-id (:entity-id commodity)
+                                     :permissions {:commodity #{:show}} })
+        (doseq [action [:show]]
+          (is (allowed? action commodity)
+              (format "A user has %s permission" action)))
+        (doseq [action [:edit :update :delete]]
+          (is (not (allowed? action commodity))
               (format "A user does not have %s permission" action)))))))

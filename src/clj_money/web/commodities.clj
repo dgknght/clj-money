@@ -7,11 +7,10 @@
             [clj-money.util :refer [format-number]]
             [clj-money.web.shared :refer :all]
             [clj-money.authorization :refer [apply-scope
+                                             allowed?
                                              authorize
                                              tag-resource]]
             [clj-money.permissions.commodities]
-            [clj-money.models.auth-helpers :refer [user-owns-entity?
-                                                   user-entity-ids]]
             [clj-money.validation :as validation]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
@@ -27,23 +26,26 @@
                                        (:id commodity))))]
    [:td
     [:div.btn-group
-     (glyph-button :pencil
-                   (format "/commodities/%s/edit" (:id commodity))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this commodity"})
+     (when (allowed? :update commodity)
+       (glyph-button :pencil
+                     (format "/commodities/%s/edit" (:id commodity))
+                     {:level :info
+                      :size :extra-small
+                      :title "Click here to edit this commodity"}))
+     ; TODO check :index permission for prices
      (glyph-button :usd
                    (format "/commodities/%s/prices" (:id commodity))
                    {:level :default
                     :size :extra-small
                     :title "Click here to manage prices manually for this commodity"})
-     (glyph-button :remove
-                   (format "/commodities/%s/delete" (:id commodity))
-                   {:level :danger
-                    :size :extra-small
-                    :data-method :post
-                    :data-confirm "Are you sure you want to delete this account?"
-                    :title "Click here to remove this commodity"})
+     (when (allowed? :delete commodity)
+       (glyph-button :remove
+                     (format "/commodities/%s/delete" (:id commodity))
+                     {:level :danger
+                      :size :extra-small
+                      :data-method :post
+                      :data-confirm "Are you sure you want to delete this account?"
+                      :title "Click here to remove this commodity"}))
      (when (#{:stock :fund} (:type commodity))
        (glyph-button :refresh
                      (format "/commodities/%s/prices/fetch" (:id commodity))
@@ -68,11 +70,14 @@
           [:th.col-md-1.text-right "Last price"]
           [:th.col-md-3 "&nbsp;"]]
          (map commodity-row commodities)]
-        [:a.btn.btn-primary
-         {:href (format "/entities/%s/commodities/new" (:id entity))
-          :title "Click here to create a new commodity"}
-         "Add"]
+        (when (allowed? :create (-> {:entity-id (:id entity)}
+                                    (tag-resource :commodity)))
+          [:a.btn.btn-primary
+           {:href (format "/entities/%s/commodities/new" (:id entity))
+            :title "Click here to create a new commodity"}
+           "Add"])
         "&nbsp;"
+        ; TODO make sure we can create price resources
         [:a.btn.btn-default
          (append-anti-forgery-link-attributes
            {:href (format "/entities/%s/prices/fetch" (:id entity))
@@ -106,7 +111,7 @@
   ([{{entity-id :entity-id} :params :as req}]
    (new-commodity req (-> {:entity-id entity-id}
                           (tag-resource :commodity)
-                          (authorize :new))))
+                          (authorize :create))))
   ([{{entity :entity} :params} commodity]
    (with-layout "New commodity" {:entity entity}
      [:div.row
@@ -133,7 +138,7 @@
 (defn edit
   ([{params :params :as req}]
    (let [id (:id params)
-         commodity (authorize (commodities/find-by-id (env :db) id) :edit)]
+         commodity (authorize (commodities/find-by-id (env :db) id) :update)]
      (edit req commodity)))
   ([_ commodity]
    (with-layout "Edit commodity" {:entity-id (:entity-id commodity)}
