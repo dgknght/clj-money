@@ -15,6 +15,7 @@
             [clj-money.util :refer [format-number format-date]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [apply-scope
+                                             allowed?
                                              tag-resource
                                              authorize]]
             [clj-money.permissions.budgets]
@@ -36,23 +37,27 @@
    [:td.text-right (format-date (:end-date budget))]
    [:td
     [:div.btn-group
-     (glyph-button :pencil
-                   (format "/budgets/%s/edit" (:id budget))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this budget."})
-     (glyph-button :list-alt
-                   (format "/budgets/%s" (:id budget))
-                   {:level :default
-                    :size :extra-small
-                    :title "Click here to view the details of this budget."})
-     (glyph-button :remove
-                   (format "/budgets/%s/delete" (:id budget))
-                   {:level :danger
-                    :size :extra-small
-                    :title "Click here to remove this budget."
-                    :data-confirm "Are you sure you want to remove this budget?"
-                    :data-method :post})]]])
+     (when (allowed? :update budget)
+       (glyph-button :pencil
+                     (format "/budgets/%s/edit" (:id budget))
+                     {:level :info
+                      :size :extra-small
+                      :title "Click here to edit this budget."}))
+     (when (allowed? :create (-> {:budget-id (:id budget)}
+                                 (tag-resource :budget-item)))
+       (glyph-button :list-alt
+                     (format "/budgets/%s" (:id budget))
+                     {:level :default
+                      :size :extra-small
+                      :title "Click here to view the details of this budget."}))
+     (when (allowed? :delete budget)
+       (glyph-button :remove
+                     (format "/budgets/%s/delete" (:id budget))
+                     {:level :danger
+                      :size :extra-small
+                      :title "Click here to remove this budget."
+                      :data-confirm "Are you sure you want to remove this budget?"
+                      :data-method :post}))]]])
 
 (defn index
   ([req] (index req {}))
