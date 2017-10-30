@@ -43,8 +43,7 @@
                      {:level :info
                       :size :extra-small
                       :title "Click here to edit this budget."}))
-     (when (allowed? :create (-> {:budget-id (:id budget)}
-                                 (tag-resource :budget-item)))
+     (when (allowed? :show budget)
        (glyph-button :list-alt
                      (format "/budgets/%s" (:id budget))
                      {:level :default
@@ -269,22 +268,25 @@
          (html
            (budget-header-row budget)
            (map budget-item-row (:items budget)))]
-        [:div.btn-group
-         [:button.btn.btn-primary.dropdown-toggle
-          {:type "button"
-           :data-toggle "dropdown"
-           :aria-haspopup true
-           :aria-expanded false}
-          "Add"
-          "&nbsp;"
-          [:span.caret]]
-         [:ul.dropdown-menu
-          [:li
-           [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
-          [:li
-           [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]
-          [:li
-           [:a {:href (format "/budgets/%s/items/new/detail" (:id budget))} "By period"]]]]
+        (when (allowed? :create (-> {:budget-id (:id budget)}
+                                    (tag-resource :budget-item)))
+          [:div.btn-group
+
+           [:button.btn.btn-primary.dropdown-toggle
+            {:type "button"
+             :data-toggle "dropdown"
+             :aria-haspopup true
+             :aria-expanded false}
+            "Add"
+            "&nbsp;"
+            [:span.caret]]
+           [:ul.dropdown-menu
+            [:li
+             [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
+            [:li
+             [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]
+            [:li
+             [:a {:href (format "/budgets/%s/items/new/detail" (:id budget))} "By period"]]]])
         "&nbsp;"
         [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
