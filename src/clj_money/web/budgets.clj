@@ -166,20 +166,29 @@
      [:td
       (when (:id item)
         [:div.btn-group
-         [:div.btn-group
-          [:button.btn.btn-info.btn-xs.dropdown-toggle
-           {:type :button
-            :title "Click here to edit this budget item."
-            :data-toggle :dropdown
-            :aria-haspop true
-            :aria-expanded false}
-           [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]
-           "&nbsp;"
-           [:span.caret]]
-          [:ul.dropdown-menu
-           [:li [:a {:href (format "/budget-items/%s/edit/average" (:id item))} "By average"]]
-           [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]
-           [:li [:a {:href (format "/budget-items/%s/edit/detail" (:id item))} "By period"]]]]])])])
+         (when (allowed? :update (:item item))
+           [:div.btn-group
+            [:button.btn.btn-info.btn-xs.dropdown-toggle
+             {:type :button
+              :title "Click here to edit this budget item."
+              :data-toggle :dropdown
+              :aria-haspop true
+              :aria-expanded false}
+             [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]
+             "&nbsp;"
+             [:span.caret]]
+            [:ul.dropdown-menu
+             [:li [:a {:href (format "/budget-items/%s/edit/average" (:id item))} "By average"]]
+             [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]
+             [:li [:a {:href (format "/budget-items/%s/edit/detail" (:id item))} "By period"]]]])
+         (when (allowed? :delete (:item item))
+           (glyph-button :remove
+                   (format "/budget-items/%s/delete" (:id item))
+                   {:level :danger
+                    :size :extra-small
+                    :data-method :post
+                    :data-confirm "Are you sure you want to delete this budget item?"
+                    :title "Click here to remove this budget item"}))])])])
 
 (defn- summarize-periods
   [items]
@@ -216,7 +225,8 @@
                              ; data
                              (map #(hash-map :caption (-> % :account :name)
                                              :style :data
-                                             :id (:id %)
+                                             :id (:id %) ; TODO maybe get rid of :id?
+                                             :item %
                                              :data (map (fn [p] {:value p})
                                                         (:periods %)))
                                   typed-items))))
