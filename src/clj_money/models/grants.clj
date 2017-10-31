@@ -23,10 +23,22 @@
 (s/def ::existing-grant (s/keys :req-un [::id ::entity-id ::user-id ::permissions]))
 
 (def resource-types
-  #{:account :transaction :budget :budget-item :commodity :price :attachment :reconciliation})
+  #{:account
+    :transaction
+    :budget
+    :budget-item
+    :commodity
+    :price
+    :attachment
+    :reconciliation
+    :report})
 
 (def actions
   #{:index :show :create :update :delete})
+
+(def available-permissions
+  (->> {:report #{:income-statement :balance-sheet :budget}}
+       (merge (reduce #(assoc %1 %2 actions) {} resource-types))))
 
 (defn- before-save
   [_ grant]

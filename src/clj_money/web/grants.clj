@@ -71,7 +71,7 @@
        (apply format "%s-%s")))
 
 (defn- permission-column
-  [grant resource-type]
+  [grant [resource-type actions]]
   [:div.col-sm-4
    [:fieldset
     [:legend (humanize resource-type)]
@@ -83,11 +83,11 @@
                       :checked (grants/has-permission? grant resource-type action)
                       :value 1}]
              (humanize action)]])
-         grants/actions)]])
+         actions)]])
 
 (defn- permission-checkbox-elements
   [grant]
-  (->> grants/resource-types
+  (->> grants/available-permissions
        (partition-all 3)
        (map (fn [group]
               [:div.row
@@ -127,10 +127,10 @@
 
 (defn- extract-permissions
   [params]
-  (->> grants/resource-types
-       (mapcat (fn [resource-type]
+  (->> grants/available-permissions
+       (mapcat (fn [[resource-type actions]]
                  (map #(hash-map :resource-type resource-type
-                                 :action %) grants/actions)))
+                                 :action %) actions)))
        (map #(assoc % :key (keyword (permission-key (:resource-type %)
                                                     (:action %)))))
        (map #(assoc % :value ((:key %) params)))
