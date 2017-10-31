@@ -5,7 +5,8 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.grants :as grants]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.budgets :as budgets]))
+            [clj-money.models.budgets :as budgets]
+            [clj-money.models.commodities :as commodities]))
 
 (defmulti ^:private lookup-entity-id
   (fn [_ resource]
@@ -31,6 +32,12 @@
   [{storage-spec :storage-spec :as context} resource]
   (->> (:budget-id resource)
        (budgets/find-by-id storage-spec)
+       (lookup-entity-id context)))
+
+(defmethod ^:private lookup-entity-id :price
+  [{storage-spec :storage-spec :as context} resource]
+  (->> (:commodity-id resource)
+       (commodities/find-by-id storage-spec)
        (lookup-entity-id context)))
 
 (defn- lookup-entity

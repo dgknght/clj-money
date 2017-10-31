@@ -82,6 +82,7 @@
 (deftest price-management
   (let [context (serialization/realize storage-spec prices-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
+        commodity (find-commodity context "AAPL")
         price (find-price context 100M (t/local-date 2017 3 2))]
     (testing "A user has permission on prices for commodities in his own entities"
       (with-authentication john
@@ -91,5 +92,16 @@
     (testing "A user does not have permission on prices for commodities in someone else's entity"
       (with-authentication jane
         (doseq [action [:show :edit :update :delete]]
+          (is (not (allowed? action price))
+              (format "A user does not have %s permission" action)))))
+    (testing "A user can be granted permission on prices for commodities in someone else's entity"
+      (with-authentication jane
+        (grants/create storage-spec {:user-id (:id jane)
+                                     :entity-id (:entity-id commodity)
+                                     :permissions {:price #{:show}} })
+        (doseq [action [:show]]
+          (is (allowed? action price)
+              (format "A user has %s permission" action)))
+        (doseq [action [:edit :update :delete]]
           (is (not (allowed? action price))
               (format "A user does not have %s permission" action)))))))

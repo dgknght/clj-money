@@ -46,7 +46,9 @@
                       :data-method :post
                       :data-confirm "Are you sure you want to delete this account?"
                       :title "Click here to remove this commodity"}))
-     (when (#{:stock :fund} (:type commodity))
+     (when (and (#{:stock :fund} (:type commodity))
+                (allowed? :create (-> {:commodity-id (:id commodity)}
+                                      (tag-resource :price))))
        (glyph-button :refresh
                      (format "/commodities/%s/prices/fetch" (:id commodity))
                      {:level :default
