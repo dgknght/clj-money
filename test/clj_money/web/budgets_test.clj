@@ -53,7 +53,7 @@
   (let [context (serialization/realize storage-spec budget-context)
         actual (with-authentication (-> context :users first)
                  (-> (budgets/for-display (-> context :budgets first :id))
-                     (update-in [:items] #(map (fn [i] (dissoc i :id)) %))
+                     (update-in [:items] #(map (fn [i] (dissoc i :id :item)) %))
                      (dissoc :id :created-at :updated-at :entity-id)))
         expected {:name "2017"
                   :period :month
