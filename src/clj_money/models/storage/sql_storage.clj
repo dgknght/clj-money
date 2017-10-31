@@ -17,7 +17,7 @@
 (defn- id-criteria?
   [value]
   (or (integer? value)
-      (and (seq? value)
+      (and (coll? value)
            (seq value)
            (every? integer? value))))
 
