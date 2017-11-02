@@ -3,6 +3,7 @@
             [environ.core :refer [env]]
             [clj-money.authorization :as authorization]
             [clj-money.models.entities :as entities]
+            [clj-money.models.accounts :as accounts]
             [clj-money.models.grants :as grants]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
@@ -38,6 +39,12 @@
   [{storage-spec :storage-spec :as context} resource]
   (->> (:commodity-id resource)
        (commodities/find-by-id storage-spec)
+       (lookup-entity-id context)))
+
+(defmethod ^:private lookup-entity-id :reconciliation
+  [{storage-spec :storage-spec :as context} resource]
+  (->> (:account-id resource)
+       (accounts/find-by-id storage-spec)
        (lookup-entity-id context)))
 
 (defn- lookup-entity

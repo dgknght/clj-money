@@ -8,9 +8,12 @@
             [clj-money.validation :as validation]
             [clj-money.util :as util]
             [clj-money.web.shared :refer :all]
+            [clj-money.authorization :refer [tag-resource
+                                             authorize]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.reconciliations :as reconciliations]))
+            [clj-money.models.reconciliations :as reconciliations]
+            [clj-money.permissions.reconciliations]))
 
 (defn- reconciliation-item-row
   [account transaction-item]
@@ -44,10 +47,6 @@
         previous-balance (or (:balance last-completed) 0M)
         reconciled-item-total (reconciled-item-total account reconciliation)]
     (with-layout (format "Reconcile account: %s" (:name account)) {}
-
-      (when (validation/has-error? reconciliation)
-        [:pre (prn-str (validation/error-messages reconciliation))])
-
       (form (if (:id reconciliation)
               (format "/reconciliations/%s" (:id reconciliation))
               (format "/accounts/%s/reconciliations" (:id account))) {}
@@ -101,13 +100,13 @@
                                                                 (:id account)))]]]))))
 
 (defn new-reconciliation
-  ([req] (new-reconciliation req {:end-of-period (t/today)}))
-  ([{params :params} reconciliation]
-   (let [account-id (Integer. (:account-id params))
-         working-rec (reconciliations/find-working (env :db) account-id)]
-     (if working-rec
-       (redirect (format "/reconciliations/%s/edit" (:id working-rec)))
-       (reconciliation-form (assoc params :account-id account-id))))))
+  [{{account-id :account-id :as params} :params}]
+  (let [reconciliation (reconciliations/find-working (env :db) account-id)]
+    (if reconciliation
+      (redirect (format "/reconciliations/%s/edit" (:id reconciliation)))
+      (reconciliation-form (-> params
+                               (tag-resource :reconciliation)
+                               (authorize :create))))))
 
 (defn create
   [{params :params}]
@@ -116,7 +115,7 @@
                          (assoc :status :completed))
         result (reconciliations/create (env :db) reconciliation)]
     (if (validation/has-error? result)
-      (new-reconciliation {:params params} result)
+      (new-reconciliation {:params params})
       (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn show
@@ -125,7 +124,7 @@
 
 (defn edit
   ([{{id :id} :params :as req}]
-   (edit req (reconciliations/find-by-id (env :db) (Integer. id))))
+   (edit req (authorize (reconciliations/find-by-id (env :db) id) :update)))
   ([_ reconciliation]
    (reconciliation-form reconciliation)))
 

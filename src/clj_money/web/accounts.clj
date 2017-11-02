@@ -13,6 +13,7 @@
                                              tag-resource]]
             [clj-money.permissions.accounts]
             [clj-money.permissions.transactions]
+            [clj-money.permissions.reconciliations]
             [clj-money.url :refer :all]
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number
@@ -56,30 +57,35 @@
      (format-number (+ (:balance account) (:children-balance account)))]]
    [:td
     [:span.btn-group
-     (glyph-button :list-alt
-                   (format "/accounts/%s" (:id account))
-                   {:level :default
-                    :size :extra-small
-                    :title "Click here to view transactions for this account"
-                    :disabled (contains? (:tags account) :tradable)})
-     (glyph-button :check
-                   (format "/accounts/%s/reconciliations/new" (:id account))
-                   {:level :default
-                    :size :extra-small
-                    :title "Click here to reconcile this account"})
-     (glyph-button :pencil
-                   (format "/accounts/%s/edit" (:id account))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this account"})
-     (glyph-button :remove
-                   (format "/accounts/%s/delete" (:id account))
-                   {:level :danger
-                    :size :extra-small
-                    :data-method :post
-                    :data-confirm "Are you sure you want to delete this account?"
-                    :title "Click here to remove this account"
-                    :disabled (seq (:children account))})]]])
+     (when (allowed? :show account)
+       (glyph-button :list-alt
+                     (format "/accounts/%s" (:id account))
+                     {:level :default
+                      :size :extra-small
+                      :title "Click here to view transactions for this account"
+                      :disabled (contains? (:tags account) :tradable)}))
+     (when (allowed? :create (-> {:account-id (:id account)}
+                                 (tag-resource :reconciliation)))
+       (glyph-button :check
+                     (format "/accounts/%s/reconciliations/new" (:id account))
+                     {:level :default
+                      :size :extra-small
+                      :title "Click here to reconcile this account"}))
+     (when (allowed? :edit account)
+       (glyph-button :pencil
+                     (format "/accounts/%s/edit" (:id account))
+                     {:level :info
+                      :size :extra-small
+                      :title "Click here to edit this account"}))
+     (when (allowed? :delete account)
+       (glyph-button :remove
+                     (format "/accounts/%s/delete" (:id account))
+                     {:level :danger
+                      :size :extra-small
+                      :data-method :post
+                      :data-confirm "Are you sure you want to delete this account?"
+                      :title "Click here to remove this account"
+                      :disabled (seq (:children account))}))]]])
 
 (defn- render-child-rows?
   [account]
