@@ -12,6 +12,7 @@
                                     parse-local-date]]
             [clj-money.web.shared :refer :all]
             [clj-money.authorization :refer [authorize
+                                             allowed?
                                              tag-resource]]
             [clj-money.permissions.reports]
             [clj-money.models.budgets :as budgets]
@@ -130,6 +131,24 @@
    (date-input-field params :as-of)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
+(defn- report-nav
+  [entity report-spec]
+  (let [nav-items (->> [{:type :income-statement
+                         :caption "Income Statement"}
+                        {:type :balance-sheet
+                         :caption "Balance Sheet"}
+                        {:type :budget
+                         :caption "Budget"}]
+                       (map #(assoc % :entity-id (:id entity)))
+                       (map #(tag-resource % :report))
+                       (filter #(allowed? (:type %) %))
+                       (map #(-> %
+                                 (assoc :id (:type %)
+                                        :url (format "/entities/%s/reports/%s"
+                                                     (:id entity)
+                                                     (-> % :type name))))))]
+    (tabbed-nav nav-items (:type report-spec))))
+
 (defn render
   [{{entity :entity :as params} :params}]
   (let [report-spec (-> params ; TODO separate default based on the report type
@@ -142,21 +161,11 @@
                                :as-of (or (parse-local-date (:as-of params))
                                           (default-end-date)))
                         (tag-resource :report)
-                        (authorize :show))]
+                        (authorize (:type params)))]
     (with-layout "Reports" {:entity entity}
       [:div.row
        [:div.col-md-12
-        (tabbed-nav [{:id :income-statement
-                      :caption "Income Statment"
-                      :url (format "/entities/%s/reports/income-statement" (:id entity))}
-                     {:id :balance-sheet
-                      :caption "Balance Sheet"
-                      :url (format "/entities/%s/reports/balance-sheet" (:id entity))}
-                     {:id :budget
-                      :caption "Budget"
-                      :url (format "/entities/%s/reports/budget" (:id entity))}]
-                    (:type report-spec))]]
-
+        (report-nav entity report-spec)]]
       ; This layout should change based on report
       [:div.row
        [:div#report-settings.col-md-2
