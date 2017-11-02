@@ -34,7 +34,7 @@
     :report})
 
 (def actions
-  #{:index :show :create :update :delete})
+  #{:show :create :update :delete})
 
 (def available-permissions
   (->> {:report #{:income-statement :balance-sheet :budget}}
