@@ -65,14 +65,14 @@
     (= (:user-id entity) (:id user))))
 
 (defn find-grant
- [user resource {storage-spec :storage-spec :as context}] 
+  [user resource {storage-spec :storage-spec :as context}]
   (let [resource-type (authorization/get-resource-tag resource)
-        entity-id (lookup-entity-id context resource)
-        grant (-> (grants/search storage-spec
-                                 {:user-id (:id user)
-                                  :entity-id entity-id}
-                                 {:limit 1})
-                  first)]))
+        entity-id (lookup-entity-id context resource)]
+    (-> (grants/search storage-spec
+                       {:user-id (:id user)
+                        :entity-id entity-id}
+                       {:limit 1})
+        first)))
 
 (defn user-granted-access?
   [user resource action {storage-spec :storage-spec :as context}]
