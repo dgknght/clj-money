@@ -7,6 +7,7 @@
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
+            [cemerick.friend :refer [current-authentication]]
             [clj-money.authorization :refer [authorize
                                              apply-scope
                                              tag-resource]]
@@ -141,10 +142,17 @@
                            #((fnil conj #{}) % action)))
                {})))
 
+(defn- create-and-invite-new-user
+  [email]
+  (let [user (users/create (env :db) {:email email
+                                      :first-name "x" ; TODO need a better way to handle this
+                                      :last-name "x"})]
+    (mailers/invite-user user )))
+
 (defn- find-or-create-user
   [email]
   (or (users/find-by-email (env :db) email)
-      (throw (RuntimeException. "create user not implemented"))))
+      (create-and-invite-new-user email current-authentication)))
 
 (defn create
   [{params :params}]

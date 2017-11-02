@@ -1,0 +1,3 @@
+Hi Jane!
+
+John Doe has invited you to use clj-money!
