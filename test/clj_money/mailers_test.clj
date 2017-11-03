@@ -2,17 +2,29 @@
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
+            [clojure.string :refer [trim]]
             [postal.core :refer [send-message]]
             [clj-money.mailers :as mailers]))
 
-(def expected-body
-  (slurp "resources/fixtures/mailers/user_invitation_expected.txt"))
+(def expected-text
+  (-> "resources/fixtures/mailers/user_invitation_expected.txt"
+      slurp
+      trim))
+
+(def expected-html
+  (-> "resources/fixtures/mailers/user_invitation_expected.html"
+      slurp
+      trim))
 
 (def expected-messages
   [{:to "jane@doe.com"
     :from "no-reply@clj-money.com"
     :subject "Invitation to clj-money"
-    :body expected-body}])
+    :body [:alternative
+           {:type "text/plain"
+            :content expected-text}
+           {:type "text/html"
+            :content expected-html}]}])
 
 (deftest send-user-invitation-email
   (let [messages (atom [])
