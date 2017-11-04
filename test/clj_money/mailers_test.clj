@@ -7,9 +7,7 @@
             [clj-money.mailers :as mailers]))
 
 (def expected-text
-  (-> "resources/fixtures/mailers/user_invitation_expected.txt"
-      slurp
-      trim))
+  (slurp "resources/fixtures/mailers/user_invitation_expected.txt"))
 
 (def expected-html
   (-> "resources/fixtures/mailers/user_invitation_expected.html"

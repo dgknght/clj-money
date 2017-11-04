@@ -22,6 +22,7 @@
                  [ring/ring-json "0.4.0"]
                  [ring/ring-anti-forgery "1.1.0"]
                  [hiccup "1.0.5"]
+                 [selmer "1.11.2"]
                  [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.6.3"]
