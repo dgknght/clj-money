@@ -22,12 +22,6 @@
                                         slurp ; will this work on heroku?
                                         (render context))}
                           {:type "text/html"
-                           :content (html
-                                      [:html
-                                       [:body
-                                        [:p "Hi Jane!"]
-                                        [:p
-                                         "John Doe has invited you to use clj-money!"
-                                         [:a {:href "http://clj-money.com/users/abcdef"}
-                                          "Click here"]
-                                         "to get started."]]])}]})))
+                           :content (-> "resources/templates/mailers/invite_user.html"
+                                        slurp ; will this work on heroku?
+                                        (render context))}]})))

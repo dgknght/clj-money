@@ -10,9 +10,7 @@
   (slurp "resources/fixtures/mailers/user_invitation_expected.txt"))
 
 (def expected-html
-  (-> "resources/fixtures/mailers/user_invitation_expected.html"
-      slurp
-      trim))
+  (slurp "resources/fixtures/mailers/user_invitation_expected.html"))
 
 (def expected-messages
   [{:to "jane@doe.com"
