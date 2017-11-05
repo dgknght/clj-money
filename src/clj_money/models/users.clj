@@ -5,6 +5,8 @@
             [clojure.set :refer [rename-keys]]
             [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
+            [clj-time.core :as t]
+            [clj-time.coerce :as tc]
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [clj-money.models.helpers :refer [with-storage
@@ -71,6 +73,12 @@
   [storage-spec id]
   (find storage-spec {:id id}))
 
+(defn find-by-token
+  "Returns the user having the specified, unexpired password reset token"
+  [storage-spec token]
+  (find storage-spec {:password-reset-token token
+                      :token-expires-at [:> (tc/to-long (t/now))]}))
+
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
@@ -100,5 +108,6 @@
   and returns the token"
   [storage-spec user]
   (let [token (string/replace (.toString (UUID/randomUUID)) "-" "")]
-    (update storage-spec (assoc user :password-reset-token token))
+    (update storage-spec (assoc user :password-reset-token token
+                                     :token-expires-at (-> 24 t/hours t/from-now tc/to-long)))
     token))

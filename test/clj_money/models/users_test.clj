@@ -98,11 +98,19 @@
 (deftest set-a-password-reset-token
   (let [user (users/create storage-spec attributes)
         token (users/create-password-reset-token storage-spec user)
-        retrieved (users/find storage-spec {:password-reset-token token})]
+        retrieved (users/find-by-token storage-spec token)]
     (is (re-matches #"^[a-z0-9]{32}$" token)
         "A valid tokenis returned")
     (is (= (:id user) (:id retrieved))
         "The user can be retrieved using the token")))
 
-; a user cannot be retrieved by token after the token has expired
+(deftest cannot-retrieve-a-user-with-an-expired-token
+  (let [user (users/create storage-spec attributes)
+        token (with-time (t/date-time 2017 3 2 12 0 0)
+                (users/create-password-reset-token storage-spec user))
+        retrieved (with-time (t/date-time 2017 3 3 12 0 0)
+                    (users/find-by-token storage-spec token))]
+    (is (nil? retrieved)
+        "The user is not returned if the token has expired")))
+
 ; a user cannot be retrieved by token after the token has been used
