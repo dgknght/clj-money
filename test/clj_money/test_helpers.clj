@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
+            [clj-time.core :as t]
             [cemerick.friend :refer [current-authentication]]
             [clj-money.validation :as validation]))
 
@@ -175,4 +176,9 @@
 (defmacro with-authentication
   [user & body]
   `(with-redefs [current-authentication (fn [] ~user)]
+     ~@body))
+
+(defmacro with-time
+  [at-time & body]
+  `(with-redefs [t/now (fn [] ~at-time)]
      ~@body))
