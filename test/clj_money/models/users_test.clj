@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
+            [clj-time.core :as t]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.test-helpers :refer :all]))
@@ -76,8 +77,11 @@
 
 (deftest authenticate-a-user
   (let [user (users/create storage-spec attributes)
-        actual (users/authenticate storage-spec {:username "john@doe.com"
-                                               :password "please01"})
+        actual (dissoc (users/authenticate storage-spec
+                                           {:username "john@doe.com"
+                                            :password "please01"})
+                       :updated-at
+                       :created-at)
         expected {:identity (:id user)
                   :id (:id user)
                   :email "john@doe.com"
@@ -85,4 +89,20 @@
                   :last-name "Doe"
                   :type :cemerick.friend/auth
                   :roles #{:user}}]
+    (if-not (= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
     (is (= expected actual) "The returned value should be the user information")))
+
+(deftest set-a-password-reset-token
+  (let [user (users/create storage-spec attributes)
+        token (users/create-password-reset-token storage-spec user)
+        retrieved (users/find storage-spec {:password-reset-token token})]
+    (is (re-matches #"^[a-z0-9]{32}$" token)
+        "A valid tokenis returned")
+    (is (= (:id user) (:id retrieved))
+        "The user can be retrieved using the token")))
+
+; a user cannot be retrieved by token after the token has expired
+; a user cannot be retrieved by token after the token has been used

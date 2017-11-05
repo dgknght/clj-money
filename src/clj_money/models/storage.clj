@@ -9,13 +9,12 @@
     "Creates a new user record")
   (select-users
     [this]
+    [this criteria]
+    [this criteria options]
     "Returns all of the users in the system matching the specified criteria")
-  (find-user-by-email
-    [this email]
-    "Returns the user having the specified email")
-  (find-user-by-id
-    [this id]
-    "Returns the user having the specified id")
+  (update-user
+    [this user]
+    "Updates a new user record")
 
   ; Entities
   (create-entity

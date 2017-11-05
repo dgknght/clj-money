@@ -146,12 +146,12 @@
                m)))))
 
 (defn- append-where
-  [sql options]
-  (if-let [where (:where options)]
+  [sql criteria]
+  (if criteria
     (reduce (fn [s [k v]]
               (h/merge-where s [:= k v]))
             sql
-            where)
+            criteria)
     sql))
 
 (defn- append-paging
@@ -187,6 +187,14 @@
         (h/where [:or
                   [:= :entities.user-id user-id]
                   [:= :grants.user-id user-id]]))
+    sql))
+
+(defn- append-select-password
+  "For a user query, adds the password to the list of selected
+  fields if :include-password? is truthy"
+  [sql options]
+  (if {:include-password? options}
+    (h/merge-select sql :password)
     sql))
 
 (defn- query
@@ -249,22 +257,31 @@
                                 :password))
 
   (select-users
-    [_]
-    (query db-spec (-> (h/select :first_name :last_name :email)
-                       (h/from :users))))
+    [this]
+    (.select-users this {}))
 
-  (find-user-by-email
-    [this email]
-    (->> (-> (h/select :id :first_name :last_name :email :password)
-             (h/from :users)
-             (h/where [:= :email email])
-             (h/limit 1))
-         (query db-spec)
-         first))
+  (select-users
+    [this criteria]
+    (.select-users this criteria {}))
 
-  (find-user-by-id
-    [this id]
-    (->clojure-keys (jdbc/get-by-id db-spec :users id)))
+  (select-users
+    [_ criteria options]
+    (query db-spec (-> (h/select :id :first_name :last_name :email :updated_at :created_at)
+                       (h/from :users)
+                       (append-select-password options)
+                       (append-where criteria)
+                       (append-limit options))))
+  (update-user
+    [_ user]
+    (let [sql (sql/format (-> (h/update :users)
+                              (h/sset (->update-set user
+                                                    :first-name
+                                                    :last-name
+                                                    :password
+                                                    :password-reset-token
+                                                    :token-expires-at))
+                              (h/where [:= :id (:id user)])))]
+      (jdbc/execute! db-spec sql)))
 
   ; Entities
   (create-entity
