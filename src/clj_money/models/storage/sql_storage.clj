@@ -127,31 +127,38 @@
       (assoc :updated-at (t/now))
       ->sql-keys))
 
+(defn- ensure-not-keyword
+  [value]
+  (if (keyword? value)
+    (name value)
+    value))
+
+(defn- extract-operator-and-value
+  [value]
+  (if (coll? value)
+    (if (#{:= :> :>= :<= :< :<>} (first value))
+      ; assuming here that if we have specified the operator
+      ; then we will only have a scalar value
+      [(first value) (ensure-not-keyword (second value))]
+      [:in (map ensure-not-keyword value)])
+    [:= (ensure-not-keyword value)]))
+
 (defn- map->where
   ([m] (map->where m {}))
   ([m options]
    (let [prefix-fn (if-let [prefix (:prefix options)]
                      #(keyword (format "%s.%s" prefix (name %)))
                      identity)]
-     (if (= 1 (count m))
-       [:= (-> m keys first prefix-fn) (-> m vals first)]
-       (reduce (fn [result [k v]]
-                 (let [operator (if (coll? v) :in :=)
-                       val-fn #(if (keyword? %) (name %) %)
-                       value (if (coll? v)
-                               (mapv val-fn v)
-                               (val-fn v))]
-                   (conj result [operator (prefix-fn k) value])))
-               [:and]
-               m)))))
+     (reduce (fn [result [k v]]
+               (let [[operator value] (extract-operator-and-value v)]
+                 (conj result [operator (prefix-fn k) value])))
+             [:and]
+             m))))
 
 (defn- append-where
   [sql criteria]
-  (if criteria
-    (reduce (fn [s [k v]]
-              (h/merge-where s [:= k v]))
-            sql
-            criteria)
+  (if (and criteria (seq criteria))
+    (h/merge-where sql (map->where criteria))
     sql))
 
 (defn- append-paging
