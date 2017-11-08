@@ -18,10 +18,12 @@
                                               update-user]])
   (:import java.util.UUID))
 
-(defn prepare-user-for-insertion
+(defn before-save
   "Prepares a user record to be saved in the database"
-  [storage user]
-  (update-in user [:password] hash-bcrypt))
+  ([user]
+   (update-in user [:password] hash-bcrypt))
+  ([_ user]
+   (before-save user)))
 
 (def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
 
@@ -59,7 +61,7 @@
   (create-fn {:spec ::new-user
               :rules-fn validation-rules
               :create create-user
-              :before-save prepare-user-for-insertion}))
+              :before-save before-save}))
 
 (defn select
   "Lists the users in the database"
@@ -111,3 +113,15 @@
     (update storage-spec (assoc user :password-reset-token token
                                      :token-expires-at (-> 24 t/hours t/from-now tc/to-long)))
     token))
+
+(defn reset-password
+  "Changes the user's password to the specified value
+  and invalidates the token"
+  [storage-spec token password]
+  (with-storage [s storage-spec]
+    (let [user (-> (find-by-token s token)
+                   (assoc :password password
+                          :password-reset-token nil
+                          :token-expires-at nil)
+                   before-save)]
+      (update-user s user))))

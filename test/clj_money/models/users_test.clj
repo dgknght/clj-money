@@ -113,4 +113,15 @@
     (is (nil? retrieved)
         "The user is not returned if the token has expired")))
 
-; a user cannot be retrieved by token after the token has been used
+(deftest reset-a-password
+  (let [user (users/create storage-spec attributes)
+        token (users/create-password-reset-token storage-spec user)
+        _ (users/reset-password storage-spec token "newpassword")
+        new-auth (users/authenticate storage-spec {:username "john@doe.com"
+                                                   :password "newpassword"})
+        old-auth (users/authenticate storage-spec {:username "john@doe.com"
+                                                   :password "please01"})
+        retrieved (users/find-by-token storage-spec token)]
+    (is new-auth "The user can be authenticated with the new password")
+    (is (nil? old-auth) "The user cannot be authenticated with the old password")
+    (is (nil? retrieved) "The user cannot be retrieved with a token that has been used")))
