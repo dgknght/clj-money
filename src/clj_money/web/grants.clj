@@ -143,16 +143,18 @@
                {})))
 
 (defn- create-and-invite-new-user
-  [email]
-  (let [user (users/create (env :db) {:email email
-                                      :first-name "x" ; TODO need a better way to handle this
-                                      :last-name "x"})]
-    (mailers/invite-user user )))
+  [user-attr]
+  (let [user (users/create (env :db) user-attr)
+        token (users/create-password-reset-token (env :db) user)
+        url (format "%s://%s/password/%s")])
+  (mailers/invite-user {:url url
+                        :from-user current-authentication
+                        :to-user user}))
 
 (defn- find-or-create-user
-  [email]
-  (or (users/find-by-email (env :db) email)
-      (create-and-invite-new-user email current-authentication)))
+  [user]
+  (or (users/find-by-email (env :db) (:email user))
+      (create-and-invite-new-user user)))
 
 (defn create
   [{params :params}]

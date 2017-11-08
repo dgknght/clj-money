@@ -24,17 +24,17 @@
     :template-path "resources/templates/mailers/invite_user.html"}])
 
 (defn- invite-user-context
-  [to-user from-user]
+  [to-user from-user url]
   {:recipient-first-name (:first-name to-user)
    :sender-full-name (users/full-name from-user)
    :app-name "clj-money"
-   :url "http://clj-money.com/users/abcdef"})
+   :url url})
 
 (defn invite-user
-  [to-user from-user]
+  [{:keys [from-user to-user url]}]
   (send-message {:host (env :mailer-host)}
                 {:to (:email to-user)
                  :from (env :mailer-from)
-                 :subject "Invitation to clj-money"
+                 :subject (format "Invitation to %s" (env :application-name))
                  :body (alt-body invite-user-parts
-                                 (invite-user-context to-user from-user))}))
+                                 (invite-user-context to-user from-user url))}))
