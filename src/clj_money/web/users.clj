@@ -3,7 +3,8 @@
             [hiccup.page :refer :all]
             [clojure.tools.logging :as log]
             [ring.util.response :refer :all]
-            [environ.core :refer [env]])
+            [environ.core :refer [env]]
+            [clj-money.models.helpers :refer [throw-if-nil]])
   (:use [clj-money.web.shared]
         [clj-money.models.users :as users]
         [clj-money.validation :as validation]))
@@ -41,6 +42,7 @@
    (with-layout "Set your password" options
      [:div.row
       [:div.col-md-6
+       (throw-if-nil (users/find-by-token (env :db) token))
        (let [user {:password password
                    :password-confirmation password-confirmation}]
          (form (format "/users/%s/password" token) {}
