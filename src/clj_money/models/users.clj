@@ -7,6 +7,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
+            [slingshot.slingshot :refer [throw+]]
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]
             [clj-money.models.helpers :refer [with-storage
@@ -114,12 +115,18 @@
                                      :token-expires-at (-> 24 t/hours t/from-now tc/to-long)))
     token))
 
+(defn- throw-if-nil
+  [value]
+  (when-not value
+  (throw+ {:type :clj-money.models/not-found})))
+
 (defn reset-password
   "Changes the user's password to the specified value
   and invalidates the token"
   [storage-spec token password]
   (with-storage [s storage-spec]
     (let [user (-> (find-by-token s token)
+                   throw-if-nil
                    (assoc :password password
                           :password-reset-token nil
                           :token-expires-at nil)
