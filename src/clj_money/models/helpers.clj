@@ -1,6 +1,7 @@
 (ns clj-money.models.helpers
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
+            [slingshot.slingshot :refer [throw+]]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -102,3 +103,12 @@
             (process-options options s validated :before-save :update)
             ((:find options) s (:id validated)))
           validated)))))
+
+(defn throw-if-nil
+  "If the value is nil, throws an exception indicating the
+  model could not be found, otherwise returns the value
+  for use in threading"
+  [value]
+  (if value
+    value
+    (throw+ {:type :clj-money.models/not-found})))
