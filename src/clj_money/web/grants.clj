@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
@@ -161,7 +162,9 @@
   (let [grant (-> params
                   (select-keys [:entity-id])
                   (assoc :permissions (extract-permissions params)
-                         :user-id (:id (find-or-create-user (:user params))))
+                         :user-id (:id (find-or-create-user (-> params
+                                                                (select-keys [:user])
+                                                                (rename-keys {:user :email})))))
                   (tag-resource :grant)
                   (authorize :create))
         result (grants/create (env :db) grant)]
