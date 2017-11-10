@@ -30,7 +30,7 @@
   [storage {entity-name :name
             user-id :user-id
             entity-id :id}]
-  (->> (select-entities storage user-id)
+  (->> (select-entities storage user-id {})
        (remove #(= (:id %) entity-id))
        (filter #(= (:name %) entity-name))
        empty?))
@@ -77,9 +77,11 @@
 
 (defn select
   "Returns entities for the specified user"
-  [storage-spec user-id]
-  (with-storage [s storage-spec]
-    (select-entities s user-id)))
+  ([storage-spec user-id]
+   (select storage-spec user-id {}))
+  ([storage-spec user-id options]
+   (with-storage [s storage-spec]
+     (select-entities s user-id options))))
 
 (defn find-by-id
   "Finds the entity with the specified ID"
@@ -121,6 +123,6 @@
   (with-storage [s storage-spec]
     (delete-entity s id)))
 
-(authorization/allow :entity [:new :create :show :edit :update :delete]
-       (fn [user resource _]
-         (= (:id user) (:user-id resource))))
+(defn entity?
+  [model]
+  (= :entity (authorization/get-resource-tag model)))

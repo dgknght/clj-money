@@ -40,8 +40,8 @@
       context
       (update-in context
                  [:accounts]
-                 (fnil #(concat (accounts/select-by-entity-id storage-spec
-                                                              (:id entity))
+                 (fnil #(concat (accounts/search storage-spec
+                                                 {:entity-id (:id entity)})
                                 %)
                        [])))))
 
@@ -98,7 +98,7 @@
     (let [user (users/find-by-email s email)
           entity (entities/find-by-name s user entity-name)
           start-date (parse-local-date start-date)
-          all-accounts (accounts/select-by-entity-id s (:id entity))
+          all-accounts (accounts/search s {:entity-id (:id entity)})
           accounts (->> ["Salary"
                          "FIT"
                          "Social Security"

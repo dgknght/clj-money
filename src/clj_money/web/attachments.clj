@@ -14,7 +14,9 @@
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [apply-scope
                                              authorize
+                                             allowed?
                                              tag-resource]]
+            [clj-money.permissions.attachments]
             [clj-money.models.images :as images] 
             [clj-money.models.transactions :as transactions]
             [clj-money.models.attachments :as attachments])
@@ -24,24 +26,30 @@
   [attachment]
   [:tr
    [:td
-    [:a {:href (format "/images/%s" (:image-id attachment))
-         :target "_blank"}
-     (:caption attachment)]]
+    (if (allowed? :show attachment)
+      [:a {:href (format "/images/%s" (:image-id attachment))
+           :target "_blank"}
+       (:caption attachment)]
+      (:caption attachment))]
    [:td.text-center
     [:div.btn-group
-     [:a.btn.btn-xs.btn-danger
-      {:href (format "/attachments/%s/delete" (:id attachment))
-       :title "Click here to remove this attachment"
-       :data-method "POST"
-       :data-confirm "Are you sure you want to remove this attachment?" }
-      [:span.glyphicon.glyphicon-remove {:aria-hidden true}]]]]])
+     (when (allowed? :delete attachment)
+       [:a.btn.btn-xs.btn-danger
+        {:href (format "/attachments/%s/delete" (:id attachment))
+         :title "Click here to remove this attachment"
+         :data-method "POST"
+         :data-confirm "Are you sure you want to remove this attachment?" }
+        [:span.glyphicon.glyphicon-remove {:aria-hidden true}]])]]])
 
 (defn index
   [{{transaction-id :transaction-id} :params}]
+  ; TODO once the scope bit is figured out, we won't need to authorize the transaction
   (let [transaction (authorize (transactions/find-by-id (env :db) transaction-id) :show)
         attachments (attachments/search
                       (env :db)
-                      (apply-scope {:transaction-id (:id transaction)} :attachment))]
+                      {:transaction-id (:id transaction)}
+                      ; TODO re-apply the scope once a better method is worked out
+                      #_(apply-scope {:transaction-id (:id transaction)} :attachment))]
     (with-layout "Attachments" {}
       [:div.row
        [:div.col-md-4
@@ -50,8 +58,10 @@
           [:th "Caption"]
           [:th "&nbsp;"]]
          (map attachment-row attachments)]]]
-      [:a.btn.btn-primary {:href (format "/transactions/%s/attachments/new" transaction-id)}
-       "Add"]
+      (when (allowed? :create (-> {:transaction-id transaction-id}
+                                  (tag-resource :attachment)))
+        [:a.btn.btn-primary {:href (format "/transactions/%s/attachments/new" transaction-id)}
+         "Add"])
       "&nbsp;"
       ; TODO Fix this hack, we need to know the correct account to go back to
       [:a.btn.btn-default

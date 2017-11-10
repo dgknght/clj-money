@@ -24,8 +24,16 @@
                                          ::caption
                                          ::image-id]))
 
+(defn- after-read
+  ([attachment]
+   (after-read nil attachment))
+  ([_ attachment]
+   (when attachment
+     (authorization/tag-resource attachment :attachment))))
+
 (def create
   (create-fn {:create create-attachment
+              :after-read after-read
               :spec ::new-attachment}))
 
 (defn search
@@ -33,11 +41,15 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (select-attachments s criteria))))
+     (->> criteria
+          (select-attachments s )
+          (map after-read)))))
 
 (defn find-by-id
   [storage-spec id]
-  (first (search storage-spec {:id id} {:limit 1})))
+  (->> (search storage-spec {:id id} {:limit 1})
+       first
+       after-read))
 
 (defn delete
   [storage-spec id-or-attachment]
@@ -47,10 +59,3 @@
                        id-or-attachment)]
       (images/delete s (:image-id attachment))
       (delete-attachment s (:id attachment)))))
-
-(authorization/allow :attachment [:new :create :show :edit :update :delete]
-                     (fn [user resource {storage-spec :storage-spec :as context}]
-                       (let [transaction (transactions/find-by-id
-                                           storage-spec
-                                           (:transaction-id resource))]
-                         (user-owns-entity? user transaction context))))

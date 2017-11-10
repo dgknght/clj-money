@@ -6,6 +6,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
+            [clj-money.models.grants :as grants]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
@@ -70,6 +71,18 @@
 (defn- resolve-entity
   [context model]
   (update-in model [:entity-id] #(:id (find-entity context %))))
+
+(defn create-grants
+  [storage context grants]
+  (mapv (fn [attributes]
+          (grants/create storage (->> attributes
+                                      (resolve-user context)
+                                      (resolve-entity context))))
+        grants))
+
+(defn- realize-grants
+  [storage context]
+  (update-in context [:grants] #(create-grants storage context %)))
 
 (defn- resolve-parent
   [storage account]
@@ -375,6 +388,7 @@
       (realize-images s)
       (realize-imports s)
       (realize-entities s)
+      (realize-grants s)
       (realize-commodities s)
       (resolve-default-commodity-ids s)
       (realize-accounts s)

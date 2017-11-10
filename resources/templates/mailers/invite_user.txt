@@ -1,0 +1,5 @@
+Hi {{recipient-first-name}}!
+
+{{sender-full-name}} has invited you to use {{app-name}}! Click the link below to get started.
+
+{{url}}

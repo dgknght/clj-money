@@ -17,7 +17,7 @@
 (defn- id-criteria?
   [value]
   (or (integer? value)
-      (and (seq? value)
+      (and (coll? value)
            (seq value)
            (every? integer? value))))
 
@@ -62,6 +62,12 @@
 (defmethod budget-criteria false [_]
   (s/keys :req-un [::entity-id]))
 (s/def ::budget-criteria (s/multi-spec budget-criteria #(contains? % :id)))
+(defmulti grant-criteria #(contains? % :id))
+(defmethod grant-criteria true [_]
+  (s/keys :req-un [::id]))
+(defmethod grant-criteria false [_]
+  (s/keys :req-un [::entity-id]))
+(s/def ::grant-criteria (s/multi-spec grant-criteria #(contains? % :id)))
 
 (defn- exists?
   [db-spec table where]
@@ -121,31 +127,38 @@
       (assoc :updated-at (t/now))
       ->sql-keys))
 
+(defn- ensure-not-keyword
+  [value]
+  (if (keyword? value)
+    (name value)
+    value))
+
+(defn- extract-operator-and-value
+  [value]
+  (if (coll? value)
+    (if (#{:= :> :>= :<= :< :<>} (first value))
+      ; assuming here that if we have specified the operator
+      ; then we will only have a scalar value
+      [(first value) (ensure-not-keyword (second value))]
+      [:in (map ensure-not-keyword value)])
+    [:= (ensure-not-keyword value)]))
+
 (defn- map->where
   ([m] (map->where m {}))
   ([m options]
    (let [prefix-fn (if-let [prefix (:prefix options)]
                      #(keyword (format "%s.%s" prefix (name %)))
                      identity)]
-     (if (= 1 (count m))
-       [:= (-> m keys first prefix-fn) (-> m vals first)]
-       (reduce (fn [result [k v]]
-                 (let [operator (if (coll? v) :in :=)
-                       val-fn #(if (keyword? %) (name %) %)
-                       value (if (coll? v)
-                               (mapv val-fn v)
-                               (val-fn v))]
-                   (conj result [operator (prefix-fn k) value])))
-               [:and]
-               m)))))
+     (reduce (fn [result [k v]]
+               (let [[operator value] (extract-operator-and-value v)]
+                 (conj result [operator (prefix-fn k) value])))
+             [:and]
+             m))))
 
 (defn- append-where
-  [sql options]
-  (if-let [where (:where options)]
-    (reduce (fn [s [k v]]
-              (h/merge-where s [:= k v]))
-            sql
-            where)
+  [sql criteria]
+  (if (and criteria (seq criteria))
+    (h/merge-where sql (map->where criteria))
     sql))
 
 (defn- append-paging
@@ -170,6 +183,26 @@
         (h/order-by [:trade-date :desc])
         (h/merge-where [:<= :trade-date as-of]))
     criteria))
+
+(defn- append-grants
+  "Appends joins and where clauses necessary to search entities
+  including those owned by another user but grantedto the specified user"
+  [sql user-id options]
+  (if (:include-grants? options)
+    (-> sql
+        (h/left-join :grants [:= :entities.id :grants.entity-id])
+        (h/where [:or
+                  [:= :entities.user-id user-id]
+                  [:= :grants.user-id user-id]]))
+    sql))
+
+(defn- append-select-password
+  "For a user query, adds the password to the list of selected
+  fields if :include-password? is truthy"
+  [sql options]
+  (if {:include-password? options}
+    (h/merge-select sql :password)
+    sql))
 
 (defn- query
   "Executes a SQL query and maps field names into
@@ -231,22 +264,31 @@
                                 :password))
 
   (select-users
-    [_]
-    (query db-spec (-> (h/select :first_name :last_name :email)
-                       (h/from :users))))
+    [this]
+    (.select-users this {}))
 
-  (find-user-by-email
-    [this email]
-    (->> (-> (h/select :id :first_name :last_name :email :password)
-             (h/from :users)
-             (h/where [:= :email email])
-             (h/limit 1))
-         (query db-spec)
-         first))
+  (select-users
+    [this criteria]
+    (.select-users this criteria {}))
 
-  (find-user-by-id
-    [this id]
-    (->clojure-keys (jdbc/get-by-id db-spec :users id)))
+  (select-users
+    [_ criteria options]
+    (query db-spec (-> (h/select :id :first_name :last_name :email :updated_at :created_at)
+                       (h/from :users)
+                       (append-select-password options)
+                       (append-where criteria)
+                       (append-limit options))))
+  (update-user
+    [_ user]
+    (let [sql (sql/format (-> (h/update :users)
+                              (h/sset (->update-set user
+                                                    :first-name
+                                                    :last-name
+                                                    :password
+                                                    :password-reset-token
+                                                    :token-expires-at))
+                              (h/where [:= :id (:id user)])))]
+      (jdbc/execute! db-spec sql)))
 
   ; Entities
   (create-entity
@@ -256,11 +298,12 @@
                                      :settings))
 
   (select-entities
-    [_ user-id]
-    (query db-spec (-> (h/select :*)
+    [_ user-id options]
+    (query db-spec (-> (h/select :entities.*)
                        (h/from :entities)
                        (h/where [:= :user_id user-id])
-                       (h/order-by :name))))
+                       (h/order-by :name)
+                       (append-grants user-id options))))
 
   (find-entity-by-id
     [_ id]
@@ -278,6 +321,38 @@
   (delete-entity
     [_ id]
     (jdbc/delete! db-spec :entities ["id = ?" id]))
+
+  ; Grants
+  (create-grant
+    [_ grant]
+    (insert db-spec :grants grant :entity-id
+                                  :user-id
+                                  :permissions))
+
+  (update-grant
+    [_ grant]
+    (let [sql (sql/format (-> (h/update :grants)
+                              (h/sset (->update-set grant
+                                                    :permissions))
+                              (h/where [:= :id (:id grant)])))]
+      (jdbc/execute! db-spec sql)))
+
+  (delete-grant
+    [_ id]
+    (jdbc/delete! db-spec :grants ["id = ?" id]))
+
+  (select-grants
+    [this criteria]
+    (.select-grants this criteria {}))
+
+  (select-grants
+    [_ criteria options]
+    (validate-criteria criteria ::grant-criteria)
+    (let [sql (-> (h/select :*)
+                  (h/from :grants)
+                  (h/where (map->where criteria))
+                  (append-limit options))]
+      (query db-spec sql)))
 
   ; Accounts
   (create-account

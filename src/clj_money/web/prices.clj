@@ -8,10 +8,12 @@
             [clj-money.web.shared :refer :all]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
+                                             allowed?
                                              tag-resource
                                              apply-scope]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
+            [clj-money.permissions.prices]
             [clj-money.models.prices.api-client :as prices-api]))
 
 (defn- price-row
@@ -21,13 +23,14 @@
    [:td.text-right (format-number (:price price))]
    [:td
     [:div.btn-group
-     (glyph-button :remove
-                   (format "/prices/%s/delete" (:id price))
-                   {:level :danger
-                    :size :extra-small
-                    :title "Click here to remove this price"
-                    :data-method :post
-                    :data-confirm "Are you sure you want to remove this price?"})]]])
+     (when (allowed? :delete price)
+       (glyph-button :remove
+                     (format "/prices/%s/delete" (:id price))
+                     {:level :danger
+                      :size :extra-small
+                      :title "Click here to remove this price"
+                      :data-method :post
+                      :data-confirm "Are you sure you want to remove this price?"}))]]])
 
 (defn index
   [{{commodity-id :commodity-id :as params} :params}]
@@ -43,10 +46,12 @@
           [:th.text-right "Price"]
           [:th "&nbsp;"]
           (map price-row prices)]]
-        [:a.btn.btn-primary
-         {:href (format "/commodities/%s/prices/new" (:id commodity))
-          :title "Click here to add a new price"}
-         "Add"]
+        (when (allowed? :create (-> {:commodity-id (:id commodity)}
+                                    (tag-resource :price)))
+          [:a.btn.btn-primary
+           {:href (format "/commodities/%s/prices/new" (:id commodity))
+            :title "Click here to add a new price"}
+           "Add"])
         "&nbsp;"
         [:a.btn.btn-default
          {:href (format "/entities/%s/commodities" (:entity-id commodity))
@@ -57,7 +62,7 @@
   ([{{commodity-id :commodity-id} :params :as req}]
    (new-price req (-> {:commodity-id commodity-id}
                       (tag-resource :price)
-                      (authorize :new))))
+                      (authorize :create))))
   ([{{commodity-id :commodity-id} :params} price]
    (let [commodity (commodities/find-by-id (env :db) commodity-id)]
      (with-layout (format "New price for %s" (:symbol commodity)) {}

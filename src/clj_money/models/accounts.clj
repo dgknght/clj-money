@@ -9,8 +9,6 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
-            [clj-money.models.auth-helpers :refer [user-entity-ids
-                                                   user-owns-entity?]]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -243,10 +241,3 @@
   (let [polarizer (* (if (left-side? account) 1 -1)
                      (if (= :debit (:action transaction-item)) 1 -1))]
     (* (:amount transaction-item) polarizer)))
-
-(authorization/allow :account [:new :create :show :edit :update :delete]
-       user-owns-entity?)
-
-(authorization/set-scope
-  :account
-  {:entity-id user-entity-ids})

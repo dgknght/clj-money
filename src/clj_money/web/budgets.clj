@@ -15,8 +15,10 @@
             [clj-money.util :refer [format-number format-date]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [apply-scope
+                                             allowed?
                                              tag-resource
                                              authorize]]
+            [clj-money.permissions.budgets]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
@@ -35,23 +37,26 @@
    [:td.text-right (format-date (:end-date budget))]
    [:td
     [:div.btn-group
-     (glyph-button :pencil
-                   (format "/budgets/%s/edit" (:id budget))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this budget."})
-     (glyph-button :list-alt
-                   (format "/budgets/%s" (:id budget))
-                   {:level :default
-                    :size :extra-small
-                    :title "Click here to view the details of this budget."})
-     (glyph-button :remove
-                   (format "/budgets/%s/delete" (:id budget))
-                   {:level :danger
-                    :size :extra-small
-                    :title "Click here to remove this budget."
-                    :data-confirm "Are you sure you want to remove this budget?"
-                    :data-method :post})]]])
+     (when (allowed? :update budget)
+       (glyph-button :pencil
+                     (format "/budgets/%s/edit" (:id budget))
+                     {:level :info
+                      :size :extra-small
+                      :title "Click here to edit this budget."}))
+     (when (allowed? :show budget)
+       (glyph-button :list-alt
+                     (format "/budgets/%s" (:id budget))
+                     {:level :default
+                      :size :extra-small
+                      :title "Click here to view the details of this budget."}))
+     (when (allowed? :delete budget)
+       (glyph-button :remove
+                     (format "/budgets/%s/delete" (:id budget))
+                     {:level :danger
+                      :size :extra-small
+                      :title "Click here to remove this budget."
+                      :data-confirm "Are you sure you want to remove this budget?"
+                      :data-method :post}))]]])
 
 (defn index
   ([req] (index req {}))
@@ -70,8 +75,10 @@
         (map budget-row (budgets/search (env :db)
                                         (apply-scope {:entity-id (:id entity)}
                                                      :budget)))]
-       [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" (:id entity))}
-        "Add"]]])))
+       (when (allowed? :create (-> {:entity-id (:id entity)}
+                                   (tag-resource :budget)))
+         [:a.btn.btn-primary {:href (format "/entities/%s/budgets/new" (:id entity))}
+          "Add"])]])))
 
 (defn- form-fields
   [budget]
@@ -99,7 +106,7 @@
                       :period-count 12
                       :start-date start-date}
                     (tag-resource :budget)
-                    (authorize :new))]
+                    (authorize :create))]
      (new-budget req budget)))
   ([{{entity :entity} :params} budget]
    (with-layout "New budget" {:entity entity}
@@ -159,20 +166,29 @@
      [:td
       (when (:id item)
         [:div.btn-group
-         [:div.btn-group
-          [:button.btn.btn-info.btn-xs.dropdown-toggle
-           {:type :button
-            :title "Click here to edit this budget item."
-            :data-toggle :dropdown
-            :aria-haspop true
-            :aria-expanded false}
-           [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]
-           "&nbsp;"
-           [:span.caret]]
-          [:ul.dropdown-menu
-           [:li [:a {:href (format "/budget-items/%s/edit/average" (:id item))} "By average"]]
-           [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]
-           [:li [:a {:href (format "/budget-items/%s/edit/detail" (:id item))} "By period"]]]]])])])
+         (when (allowed? :update (:item item))
+           [:div.btn-group
+            [:button.btn.btn-info.btn-xs.dropdown-toggle
+             {:type :button
+              :title "Click here to edit this budget item."
+              :data-toggle :dropdown
+              :aria-haspop true
+              :aria-expanded false}
+             [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]
+             "&nbsp;"
+             [:span.caret]]
+            [:ul.dropdown-menu
+             [:li [:a {:href (format "/budget-items/%s/edit/average" (:id item))} "By average"]]
+             [:li [:a {:href (format "/budget-items/%s/edit/total" (:id item))} "By total"]]
+             [:li [:a {:href (format "/budget-items/%s/edit/detail" (:id item))} "By period"]]]])
+         (when (allowed? :delete (:item item))
+           (glyph-button :remove
+                   (format "/budget-items/%s/delete" (:id item))
+                   {:level :danger
+                    :size :extra-small
+                    :data-method :post
+                    :data-confirm "Are you sure you want to delete this budget item?"
+                    :title "Click here to remove this budget item"}))])])])
 
 (defn- summarize-periods
   [items]
@@ -209,7 +225,8 @@
                              ; data
                              (map #(hash-map :caption (-> % :account :name)
                                              :style :data
-                                             :id (:id %)
+                                             :id (:id %) ; TODO maybe get rid of :id?
+                                             :item %
                                              :data (map (fn [p] {:value p})
                                                         (:periods %)))
                                   typed-items))))
@@ -261,22 +278,25 @@
          (html
            (budget-header-row budget)
            (map budget-item-row (:items budget)))]
-        [:div.btn-group
-         [:button.btn.btn-primary.dropdown-toggle
-          {:type "button"
-           :data-toggle "dropdown"
-           :aria-haspopup true
-           :aria-expanded false}
-          "Add"
-          "&nbsp;"
-          [:span.caret]]
-         [:ul.dropdown-menu
-          [:li
-           [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
-          [:li
-           [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]
-          [:li
-           [:a {:href (format "/budgets/%s/items/new/detail" (:id budget))} "By period"]]]]
+        (when (allowed? :create (-> {:budget-id (:id budget)}
+                                    (tag-resource :budget-item)))
+          [:div.btn-group
+
+           [:button.btn.btn-primary.dropdown-toggle
+            {:type "button"
+             :data-toggle "dropdown"
+             :aria-haspopup true
+             :aria-expanded false}
+            "Add"
+            "&nbsp;"
+            [:span.caret]]
+           [:ul.dropdown-menu
+            [:li
+             [:a {:href (format "/budgets/%s/items/new/average" (:id budget))} "By average"]]
+            [:li
+             [:a {:href (format "/budgets/%s/items/new/total" (:id budget))} "By total"]]
+            [:li
+             [:a {:href (format "/budgets/%s/items/new/detail" (:id budget))} "By period"]]]])
         "&nbsp;"
         [:a.btn.btn-default {:href (format "/entities/%s/budgets" (:entity-id budget))} "Back"]]])))
 
@@ -284,7 +304,7 @@
   "Renders an edit form for the specified budget"
   [{{id :id} :params budget :budget}]
   (let [budget (or budget
-                   (authorize (budgets/find-by-id (env :db) id) :edit))]
+                   (authorize (budgets/find-by-id (env :db) id) :update))]
     (with-layout "Edit budget" {:entity-id (:entity-id budget)}
       [:div.row
        [:div.col-md-3
@@ -416,7 +436,7 @@
         item (-> params
                  (select-keys [:budget-id :method])
                  (tag-resource :budget-item)
-                 (authorize :new))]
+                 (authorize :create))]
     (with-layout (str "Budget " (:name budget) ": New item") {:entity-id (:entity-id budget)}
       (form (format "/budgets/%s/items" budget-id) {}
             (item-form-fields item budget)))))
@@ -495,7 +515,7 @@
   "Renders a form for editing a budget item"
   [{{:keys [id method]} :params item :item}]
   (let [item (or item
-                 (authorize (budgets/find-item-by-id (env :db) id) :edit))
+                 (authorize (budgets/find-item-by-id (env :db) id) :update))
         budget (budgets/find-by-id (env :db) (:budget-id item))
         account (accounts/find-by-id (env :db) (:account-id item))]
     (with-layout (format "Budget %s: %s" (:name budget) (:name account)) {:entity-id (:entity-id budget)}

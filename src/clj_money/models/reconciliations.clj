@@ -6,6 +6,7 @@
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.authorization :as authorization]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-storage
@@ -55,7 +56,8 @@
   (when reconciliation
     (-> reconciliation
         (update-in [:end-of-period] tc/to-local-date)
-        (update-in [:status] keyword))))
+        (update-in [:status] keyword)
+        (authorization/tag-resource :reconciliation))))
 
 (defn find-last-completed
   "Returns the last reconciled balance for an account"

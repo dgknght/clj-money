@@ -40,7 +40,8 @@
             [clj-money.web.lots :as lots]
             [clj-money.web.reconciliations :as reconciliations]
             [clj-money.web.reports :as reports]
-            [clj-money.web.users :as users]))
+            [clj-money.web.users :as users]
+            [clj-money.web.grants :as grants]))
 
 (defmacro route
   [method path handler]
@@ -56,6 +57,14 @@
   (route GET "/entities/:id/edit" entities/edit-entity)
   (route POST "/entities/:id" entities/update)
   (route POST "/entities/:id/delete" entities/delete)
+
+  ; User grants
+  (route GET "/entities/:entity-id/grants" grants/index)
+  (route GET "/entities/:entity-id/grants/new" grants/new-grant)
+  (route POST "/entities/:entity-id/grants" grants/create)
+  (route GET "/grants/:id/edit" grants/edit)
+  (route POST "/grants/:id" grants/update)
+  (route POST "/grants/:id/delete" grants/delete)
 
   ; Accounts
   (route GET "/entities/:entity-id/accounts" accounts/index)
@@ -152,10 +161,12 @@
   (route GET "/api/imports/:id" imports-api/show))
 
 (defroutes open-routes
-  (route GET "/" pages/home)
-  (route GET "/login" pages/login)
-  (route GET "/signup" users/new-user)
-  (route POST "/users" users/create-user))
+  (route GET  "/" pages/home)
+  (route GET  "/login" pages/login)
+  (route GET  "/signup" users/new-user)
+  (route POST "/users" users/create-user)
+  (route GET  "/users/:token/password" users/new-password)
+  (route POST "/users/:token/password" users/set-password))
 
 (defroutes routes
   open-routes

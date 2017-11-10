@@ -9,6 +9,7 @@
             [ring.util.codec :refer [url-encode]]
             [clj-time.core :as t]
             [clj-money.authorization :refer [authorize
+                                             allowed?
                                              tag-resource
                                              apply-scope]]
             [clj-money.url :refer :all]
@@ -41,22 +42,24 @@
    [:td (:description transaction)]
    [:td
     [:div.btn-group
-     (glyph-button :pencil
-                   (format "/transactions/%s/edit" (:id transaction))
-                   {:level :info
-                    :size :extra-small
-                    :title "Click here to edit this transaction."})
-     (let [can-delete? (transactions/can-delete? transaction)]
-       (glyph-button :remove
-                     (format "/transactions/%s/delete" (:id transaction))
-                     {:level :danger
-                      :disabled (not can-delete?)
+     (when (allowed? :update transaction)
+       (glyph-button :pencil
+                     (format "/transactions/%s/edit" (:id transaction))
+                     {:level :info
                       :size :extra-small
-                      :data-method :post
-                      :data-confirm "Are you sure you want to delete this transaction?"
-                      :title (if can-delete?
-                               "Click here to remove this transaction."
-                               "This transaction contains reconciled items and cannot be removed")}))]]])
+                      :title "Click here to edit this transaction."}))
+     (when (allowed? :delete transaction)
+       (let [can-delete? (transactions/can-delete? transaction)]
+         (glyph-button :remove
+                       (format "/transactions/%s/delete" (:id transaction))
+                       {:level :danger
+                        :disabled (not can-delete?)
+                        :size :extra-small
+                        :data-method :post
+                        :data-confirm "Are you sure you want to delete this transaction?"
+                        :title (if can-delete?
+                                 "Click here to remove this transaction."
+                                 "This transaction contains reconciled items and cannot be removed")})))]]])
 
 (defn index
   ([req] (index req {}))
@@ -76,11 +79,13 @@
          (pagination/nav (assoc params
                                 :url (-> (path "/entities" entity-id "transactions")) 
                                 :total (transactions/record-count (env :db) criteria)))))
-     [:p
-      [:a.btn.btn-primary
-       {:href (str"/entities/" entity-id "/transactions/new")
-        :title "Click here to enter a new transaction."}
-       "Add"]])))
+     (when (allowed? :create (-> {:entity-id entity-id}
+                                 (tag-resource :transaction)))
+       [:p
+        [:a.btn.btn-primary
+         {:href (str"/entities/" entity-id "/transactions/new")
+          :title "Click here to enter a new transaction."}
+         "Add"]]))))
 
 (defn- item-row
   "Renders an individual row for a transaction item"
@@ -227,7 +232,7 @@
   ([{params :params transaction :transaction} options]
    (let [id (:id params)
          transaction (or transaction
-                         (authorize (transactions/find-by-id (env :db) id) :edit))
+                         (authorize (transactions/find-by-id (env :db) id) :update))
          action (cond-> (path "/transactions"
                               (:id transaction))
 

@@ -9,6 +9,7 @@
             [ring.util.response :refer :all]
             [ring.util.codec :refer [url-encode]]
             [clj-money.models.images :as images]
+            [clj-money.permissions.images]
             [clj-money.authorization :refer [authorize]]))
 
 (defn show

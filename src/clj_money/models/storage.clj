@@ -9,20 +9,19 @@
     "Creates a new user record")
   (select-users
     [this]
+    [this criteria]
+    [this criteria options]
     "Returns all of the users in the system matching the specified criteria")
-  (find-user-by-email
-    [this email]
-    "Returns the user having the specified email")
-  (find-user-by-id
-    [this id]
-    "Returns the user having the specified id")
+  (update-user
+    [this user]
+    "Updates a new user record")
 
   ; Entities
   (create-entity
     [this entity]
     "Creates a new entity record")
   (select-entities
-    [this user-id]
+    [this user-id options]
     "Returns the entities belonging to the specified user")
   (find-entity-by-id
     [this id]
@@ -33,6 +32,21 @@
   (delete-entity
     [this id]
     "Removes the entity from the data store")
+
+  ; Grants
+  (create-grant
+    [this grant]
+    "Creates a new grant record")
+  (update-grant
+    [this grant]
+    "Updates the specified grant")
+  (delete-grant
+    [this id]
+    "Deletes the specified grant")
+  (select-grants
+    [this criteria]
+    [this criteria options]
+    "Returns the grants matching the specified criteria")
 
   ; Accounts
   (create-account

@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
+            [clj-time.core :as t]
             [cemerick.friend :refer [current-authentication]]
             [clj-money.validation :as validation]))
 
@@ -110,6 +111,14 @@
   [context & entity-names]
   (map #(find-entity context %) entity-names))
 
+(defn find-grant
+  [context entity-id user-id]
+  (->> context
+       :grants
+       (filter #(and (= entity-id (:entity-id %))
+                     (= user-id (:user-id %))))
+       first))
+
 (defn find-account
   [context account-name]
   (find-in-context context :accounts :name account-name))
@@ -117,6 +126,14 @@
 (defn find-accounts
   [context & account-names]
   (map #(find-account context %) account-names))
+
+(defn find-attachment
+  [context caption]
+  (find-in-context context :attachments :caption caption))
+
+(defn find-image
+  [context original-filename]
+  (find-in-context context :images :original-filename original-filename))
 
 (defn find-commodity
   [context symbol]
@@ -138,6 +155,14 @@
                      (= trade-date (:trade-date %))))
        first))
 
+(defn find-transaction
+  [context transaction-date description]
+  (->> context
+       :transactions
+       (filter #(and (= transaction-date (:transaction-date %))
+                     (= description (:description %))))
+       first))
+
 (defn context-errors
   [context]
   (reduce (fn [result [category models]]
@@ -151,4 +176,9 @@
 (defmacro with-authentication
   [user & body]
   `(with-redefs [current-authentication (fn [] ~user)]
+     ~@body))
+
+(defmacro with-time
+  [at-time & body]
+  `(with-redefs [t/now (fn [] ~at-time)]
      ~@body))

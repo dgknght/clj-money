@@ -56,6 +56,10 @@
   (fn [request]
     (try+
       (handler request)
+      (catch [:type :clj-money.models/not-found] error-data
+        {:status 404
+         :headers {}
+         :body "not found"})
       (catch [:type :clj-money.authorization/unauthorized] error-data
         {:status 404
          :headers {}

@@ -1,0 +1,5 @@
+Hi Jane!
+
+John Doe has invited you to use clj-money! Click the link below to get started.
+
+http://clj-money.com/users/abcdef

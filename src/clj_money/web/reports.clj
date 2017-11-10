@@ -11,7 +11,10 @@
                                     format-date
                                     parse-local-date]]
             [clj-money.web.shared :refer :all]
-            [clj-money.authorization :refer [authorize]]
+            [clj-money.authorization :refer [authorize
+                                             allowed?
+                                             tag-resource]]
+            [clj-money.permissions.reports]
             [clj-money.models.budgets :as budgets]
             [clj-money.reports :as reports]))
 
@@ -61,7 +64,7 @@
                                             entity-id
                                             as-of))]))
 
-(defn-  budget-report-row-class
+(defn- budget-report-row-class
   [record]
   (string/join " " (cond-> []
                      true (conj (format "report-%s" (-> record :style name)))
@@ -128,35 +131,44 @@
    (date-input-field params :as-of)
    [:input.btn.btn-primary {:type :submit :value "Show"}]])
 
+(defn- report-nav
+  [entity report-spec]
+  (let [nav-items (->> [{:type :income-statement
+                         :caption "Income Statement"}
+                        {:type :balance-sheet
+                         :caption "Balance Sheet"}
+                        {:type :budget
+                         :caption "Budget"}]
+                       (map #(assoc % :entity-id (:id entity)))
+                       (map #(tag-resource % :report))
+                       (filter #(allowed? (:type %) %))
+                       (map #(-> %
+                                 (assoc :id (:type %)
+                                        :url (format "/entities/%s/reports/%s"
+                                                     (:id entity)
+                                                     (-> % :type name))))))]
+    (tabbed-nav nav-items (:type report-spec))))
+
 (defn render
   [{{entity :entity :as params} :params}]
-  (authorize entity :show)
-  (let [params (-> params ; TODO separate default based on the report type
-                   (update-in [:type] keyword)
-                   (update-in [:type] (fnil identity :balance-sheet))
-                   (assoc :start-date (or (parse-local-date (:start-date params))
-                                          (budgets/default-start-date))
-                          :end-date (or (parse-local-date (:end-date params))
-                                        (default-end-date))
-                          :as-of (or (parse-local-date (:as-of params))
-                                     (default-end-date))))]
+  (let [report-spec (-> params ; TODO separate default based on the report type
+                        (select-keys [:entity-id :type :start-date :end-date :as-of])
+                        (update-in [:type] (fnil keyword :balance-sheet))
+                        (assoc :start-date (or (parse-local-date (:start-date params))
+                                               (budgets/default-start-date))
+                               :end-date (or (parse-local-date (:end-date params))
+                                             (default-end-date))
+                               :as-of (or (parse-local-date (:as-of params))
+                                          (default-end-date)))
+                        (tag-resource :report)
+                        (authorize (:type params)))]
     (with-layout "Reports" {:entity entity}
       [:div.row
        [:div.col-md-12
-        (tabbed-nav [{:id :income-statement
-                      :caption "Income Statment"
-                      :url (format "/entities/%s/reports/income-statement" (:entity-id params))}
-                     {:id :balance-sheet
-                      :caption "Balance Sheet"
-                      :url (format "/entities/%s/reports/balance-sheet" (:entity-id params))}
-                     {:id :budget
-                      :caption "Budget"
-                      :url (format "/entities/%s/reports/budget" (:entity-id params))}]
-                    (:type params))]]
-
+        (report-nav entity report-spec)]]
       ; This layout should change based on report
       [:div.row
        [:div#report-settings.col-md-2
-        (render-filter params)]
+        (render-filter report-spec)]
        [:div.col-md-10
-        (render-report params)]])))
+        (render-report report-spec)]])))

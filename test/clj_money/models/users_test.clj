@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
+            [clj-time.core :as t]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.test-helpers :refer :all]))
@@ -76,8 +77,11 @@
 
 (deftest authenticate-a-user
   (let [user (users/create storage-spec attributes)
-        actual (users/authenticate storage-spec {:username "john@doe.com"
-                                               :password "please01"})
+        actual (dissoc (users/authenticate storage-spec
+                                           {:username "john@doe.com"
+                                            :password "please01"})
+                       :updated-at
+                       :created-at)
         expected {:identity (:id user)
                   :id (:id user)
                   :email "john@doe.com"
@@ -85,4 +89,39 @@
                   :last-name "Doe"
                   :type :cemerick.friend/auth
                   :roles #{:user}}]
+    (if-not (= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
     (is (= expected actual) "The returned value should be the user information")))
+
+(deftest set-a-password-reset-token
+  (let [user (users/create storage-spec attributes)
+        token (users/create-password-reset-token storage-spec user)
+        retrieved (users/find-by-token storage-spec token)]
+    (is (re-matches #"^[a-z0-9]{32}$" token)
+        "A valid tokenis returned")
+    (is (= (:id user) (:id retrieved))
+        "The user can be retrieved using the token")))
+
+(deftest cannot-retrieve-a-user-with-an-expired-token
+  (let [user (users/create storage-spec attributes)
+        token (with-time (t/date-time 2017 3 2 12 0 0)
+                (users/create-password-reset-token storage-spec user))
+        retrieved (with-time (t/date-time 2017 3 3 12 0 0)
+                    (users/find-by-token storage-spec token))]
+    (is (nil? retrieved)
+        "The user is not returned if the token has expired")))
+
+(deftest reset-a-password
+  (let [user (users/create storage-spec attributes)
+        token (users/create-password-reset-token storage-spec user)
+        _ (users/reset-password storage-spec token "newpassword")
+        new-auth (users/authenticate storage-spec {:username "john@doe.com"
+                                                   :password "newpassword"})
+        old-auth (users/authenticate storage-spec {:username "john@doe.com"
+                                                   :password "please01"})
+        retrieved (users/find-by-token storage-spec token)]
+    (is new-auth "The user can be authenticated with the new password")
+    (is (nil? old-auth) "The user cannot be authenticated with the old password")
+    (is (nil? retrieved) "The user cannot be retrieved with a token that has been used")))

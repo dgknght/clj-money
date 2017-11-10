@@ -9,9 +9,13 @@
             [ring.util.response :refer :all]
             [clj-money.util :refer [format-number]]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.authorization :refer [authorize]]
+            [clj-money.authorization :refer [authorize
+                                             allowed?
+                                             apply-scope]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.permissions.entities]
+            [clj-money.permissions.accounts]
             [clj-money.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -34,7 +38,7 @@
   ([entity-id]
    (grouped-options-for-accounts entity-id {}))
   ([entity-id options]
-   (let [optgroups (->> {:entity-id entity-id}
+   (let [optgroups (->> (apply-scope {:entity-id entity-id} :account)
                         (accounts/search (env :db))
                         accounts/nest
                         (filter #(or (nil? (:types options))
@@ -62,14 +66,15 @@
      (paced-progress-bar data)]))
 
 (defn- budget-monitor
-  [monitor]
+  [monitor entity]
   [:div.panel.panel-default
    [:div.panel-heading
     (form (format "/entities/%s/monitors/%s/delete"
                   (-> monitor :account :entity-id)
                   (-> monitor :account :id)) {}
-          [:button.close {:title "Click here to remove this budget monitor."}
-           [:span {:aria-hidden true} "&times;"]])
+          (when (allowed? :update entity)
+            [:button.close {:title "Click here to remove this budget monitor."}
+             [:span {:aria-hidden true} "&times;"]]))
     [:strong (:caption monitor)]]
    [:div.panel-body
     (when (:message monitor)
@@ -79,19 +84,23 @@
          [:period :budget])]])
 
 (defn budget-monitors
-  [entity-id]
-  (html
-    [:h3 "Budget monitors"]
-    (->> (-> (entities/find-by-id (env :db) entity-id)
-             (authorize :show)
-             :settings
-             :monitored-account-ids)
-         (map (comp #(reports/monitor (env :db) %)
-                    #(accounts/find-by-id (env :db) %)))
-         (remove empty?)
-         (map budget-monitor))
-    [:a.btn.btn-primary {:href (format "/entities/%s/monitors" entity-id)}
-     [:span.glyphicon.glyphicon-plus {:aria-hidden true}]]))
+  [entity-or-id]
+  (let [entity (if (map? entity-or-id)
+                 entity-or-id
+                 (entities/find-by-id (env :db) entity-or-id))]
+    (when (allowed? :show entity)
+      (html
+        [:h3 "Budget monitors"]
+        (->> (-> entity
+                 :settings
+                 :monitored-account-ids)
+             (map (comp #(reports/monitor (env :db) %)
+                        #(accounts/find-by-id (env :db) %)))
+             (remove empty?)
+             (map #(budget-monitor % entity)))
+        (when (allowed? :update entity)
+          [:a.btn.btn-primary {:href (format "/entities/%s/monitors" (:id entity))}
+           [:span.glyphicon.glyphicon-plus {:aria-hidden true}]])))))
 
 (defn inventory-method-options
   []

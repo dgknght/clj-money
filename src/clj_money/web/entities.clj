@@ -26,11 +26,17 @@
      (glyph-button :pencil
                    (format "/entities/%s/edit" (:id entity))
                    {:level :info
-                    :size :extra-small})
+                    :size :extra-small
+                    :title "Click here to edit this entity"})
+     (glyph-button :user
+                   (format "/entities/%s/grants" (:id entity))
+                   {:size :extra-small
+                    :title "Click here manage other users' access to this entity"})
      (glyph-button :remove
                    (format "/entities/%s/delete" (:id entity))
                    {:level :danger
                     :size :extra-small
+                    :title "Click here to delete this entity. NB This action cannot be undone."
                     :data-method :post
                     :data-confirm "Are you sure you want to delete this entity?"})]]])
 
@@ -159,11 +165,8 @@
              [:input.btn.btn-primary {:type :submit :value "Add"}])]])))
 
 (defn create-monitor
-  [{params :params}]
-  (let [{:keys [account-id entity-id]} (-> params
-                                           (update-in [:entity-id] #(Integer. %))
-                                           (update-in [:account-id] #(Integer. %)))
-        entity (authorize (entities/find-by-id (env :db) entity-id) :update)
+  [{{:keys [account-id entity-id] :as params} :params}]
+  (let [entity (authorize (entities/find-by-id (env :db) entity-id) :update)
         updated (update-in entity
                            [:settings :monitored-account-ids]
                            (fnil #(conj % account-id) []))
