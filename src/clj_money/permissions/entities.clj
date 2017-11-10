@@ -7,4 +7,6 @@
                                                    user-granted-access?]]))
 
 (authorization/allow :entity user-owns-entity?)
-(authorization/allow :entity user-granted-access?)
+(authorization/allow :entity (fn [user resource action context]
+                               (and (:id resource)
+                                    (user-granted-access? user resource action context))))
