@@ -31,9 +31,9 @@
   (:use [clj-money.web.shared :refer :all]))
 
 (defmacro with-accounts-layout
-  [page-title entity-id options & content]
+  [page-title entity-or-id options & content]
   `(with-layout
-     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-id))
+     ~page-title (assoc ~options :side-bar (budget-monitors ~entity-or-id))
      ~@content))
 
 (defn- can-add-child?
@@ -123,7 +123,7 @@
   "Renders the list of accounts"
   ([req] (index req {}))
   ([{{entity :entity :as params} :params} options]
-   (with-accounts-layout "Accounts" (:id entity) (merge options {:entity entity})
+   (with-accounts-layout "Accounts" entity (merge options {:entity entity})
      [:table.table.table-striped
       [:tr
        [:th.col-sm-6 "Name"]
@@ -376,9 +376,9 @@
   "Renders the new account form"
   ([{params :params :as req}]
    (new-account req (new-account-defaults params)))
-  ([_ {entity-id :entity-id :as account}]
-   (with-accounts-layout "New account" entity-id {}
-     (form (format "/entities/%s/accounts" entity-id) {}
+  ([{{entity :entity} :params} account]
+   (with-accounts-layout "New account" entity {}
+     (form (format "/entities/%s/accounts" (:id entity)) {}
            (form-fields (authorize account :new))))))
 
 (defn create

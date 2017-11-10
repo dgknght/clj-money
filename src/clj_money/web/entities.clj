@@ -165,11 +165,8 @@
              [:input.btn.btn-primary {:type :submit :value "Add"}])]])))
 
 (defn create-monitor
-  [{params :params}]
-  (let [{:keys [account-id entity-id]} (-> params
-                                           (update-in [:entity-id] #(Integer. %))
-                                           (update-in [:account-id] #(Integer. %)))
-        entity (authorize (entities/find-by-id (env :db) entity-id) :update)
+  [{{:keys [account-id entity-id] :as params} :params}]
+  (let [entity (authorize (entities/find-by-id (env :db) entity-id) :update)
         updated (update-in entity
                            [:settings :monitored-account-ids]
                            (fnil #(conj % account-id) []))

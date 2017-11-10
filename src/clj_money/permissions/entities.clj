@@ -2,14 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
-            [clj-money.models.grants :as grants]))
+            [clj-money.models.grants :as grants]
+            [clj-money.models.auth-helpers :refer [user-owns-entity?
+                                                   user-granted-access?]]))
 
-(authorization/allow :entity
-                     (fn [user resource _ _]
-                       (= (:id user) (:user-id resource))))
-(authorization/allow :entity
-                     (fn [user resource action {storage-spec :storage-spec}]
-                       ; :show permission is implicit on entity with the grant
-                       (and (:id resource)
-                            (seq (grants/search storage-spec {:user-id (:id user)
-                                                              :entity-id (:id resource)})))))
+(authorization/allow :entity user-owns-entity?)
+(authorization/allow :entity user-granted-access?)

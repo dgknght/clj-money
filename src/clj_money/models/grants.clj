@@ -24,6 +24,7 @@
 
 (def resource-types
   #{:account
+    :entity
     :transaction
     :budget
     :budget-item
