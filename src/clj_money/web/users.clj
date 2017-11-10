@@ -33,3 +33,25 @@
     (if (validation/has-error? created)
       (new-user created)
       (redirect "/login"))))
+
+(defn new-password
+  ([req]
+   (new-password req {}))
+  ([{{:keys [token password password-confirmation]} :params} options]
+   (with-layout "Set your password" options
+     [:div.row
+      [:div.col-md-6
+       (let [user {:password password
+                   :password-confirmation password-confirmation}]
+         (form (format "/users/%s/password" token) {}
+               (password-input-field user :password {:autofocus true})
+               (password-input-field user :password-confirmation)
+               [:input.btn.btn-primary {:type :submit :value "Save"}]))]])))
+
+(defn set-password
+  [{{:keys [token password password-confirmation]} :params :as req}]
+  (if (= password password-confirmation)
+    (do
+      (users/reset-password (env :db) token password)
+      (redirect "/login"))
+    (new-password req {:alerts [{:type :danger :message "The passwords must match"}]})))

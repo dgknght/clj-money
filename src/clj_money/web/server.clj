@@ -161,10 +161,12 @@
   (route GET "/api/imports/:id" imports-api/show))
 
 (defroutes open-routes
-  (route GET "/" pages/home)
-  (route GET "/login" pages/login)
-  (route GET "/signup" users/new-user)
-  (route POST "/users" users/create-user))
+  (route GET  "/" pages/home)
+  (route GET  "/login" pages/login)
+  (route GET  "/signup" users/new-user)
+  (route POST "/users" users/create-user)
+  (route GET  "/users/:token/password" users/new-password)
+  (route POST "/users/:token/password" users/set-password))
 
 (defroutes routes
   open-routes

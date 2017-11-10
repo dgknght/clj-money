@@ -6,7 +6,6 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
-            [ring.util.codec :refer [url-encode]]
             [cemerick.friend :refer [current-authentication]]
             [clj-money.authorization :refer [authorize
                                              apply-scope
@@ -14,6 +13,7 @@
             [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
             [clj-money.inflection :refer [humanize]]
+            [clj-money.mailers :as mailers]
             [clj-money.models.entities :as entities]
             [clj-money.models.users :as users]
             [clj-money.models.grants :as grants]
@@ -146,10 +146,10 @@
   [user-attr]
   (let [user (users/create (env :db) user-attr)
         token (users/create-password-reset-token (env :db) user)
-        url (format "%s://%s/password/%s")])
-  (mailers/invite-user {:url url
-                        :from-user current-authentication
-                        :to-user user}))
+        url (format "%s://%s/password/%s")]
+    (mailers/invite-user {:url url
+                          :from-user current-authentication
+                          :to-user user})))
 
 (defn- find-or-create-user
   [user]
