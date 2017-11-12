@@ -38,10 +38,10 @@
   :uberjar-name "clj-money-standalone.jar"
   :main clj-money.web.server
   :aot [clj-money.web.server]
-  :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
-            "rollback" ["run" "-m" "clj-money.db/rollback"]
-            "partition" ["run" "-m" "clj-money.db/create-partitions"]
-            "seed" ["run" "-m" "clj-money.seed/seed"]
+  :aliases {"migrate"               ["run" "-m" "clj-money.db/migrate"]
+            "rollback"              ["run" "-m" "clj-money.db/rollback"]
+            "partition"             ["run" "-m" "clj-money.db/create-partitions"]
+            "seed"                  ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]}
   :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:production {:env {:production true}}})

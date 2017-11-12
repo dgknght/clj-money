@@ -676,12 +676,15 @@
         (-> result first vals first)
         result)))
 
-  (create-transaction
-    [_ transaction]
-    (insert db-spec :transactions transaction :entity-id
-                                              :description
-                                              :transaction-date
-                                              :memo))
+(create-transaction
+  [_ transaction]
+  (let [table (format "transactions_%04d_%02d"
+                      (t/year (:transaction-date transaction))
+                      (t/month (:transaction-date transaction)))]
+    (insert db-spec table transaction :entity-id
+            :description
+            :transaction-date
+            :memo)))
 
   (find-transaction-by-id
     [_ id]
