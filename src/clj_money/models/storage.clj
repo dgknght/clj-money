@@ -187,9 +187,6 @@
   (create-transaction-item
     [this transaction-item]
     "Creates a new transaction item record")
-  (select-transaction-items-by-reconciliation-id
-    [this reconciliation-id]
-    "Returns the transaction items belonging to the specified reconciliation")
   (select-transaction-items-by-account-id
     [this account-id] [this account-id options]
     "Returns the transaction items belonging to the specified account")

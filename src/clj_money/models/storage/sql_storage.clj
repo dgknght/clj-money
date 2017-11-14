@@ -632,11 +632,6 @@
                                                         :balance
                                                         :memo))
 
-  (select-transaction-items-by-reconciliation-id
-    [_ reconciliation-id]
-    (query db-spec (-> (transaction-item-base-query)
-                       (h/where [:= :reconciliation_id reconciliation-id]))))
-
   (select-transaction-items-by-account-id
     [this account-id]
     (.select-transaction-items-by-account-id this account-id {}))

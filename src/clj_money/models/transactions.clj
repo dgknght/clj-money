@@ -25,7 +25,6 @@
                                               count-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
-                                              select-transaction-items-by-reconciliation-id
                                               select-lots-transactions-by-transaction-id
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
@@ -423,7 +422,9 @@
   [storage-spec reconciliation-id]
   (with-storage [s storage-spec]
     (map after-item-read
-         (select-transaction-items-by-reconciliation-id s reconciliation-id))))
+         (select-transaction-items s
+                                   {:reconciliation-id reconciliation-id}
+                                   {:sort [[:t.transaction-date :desc] [:i.index :desc]]}))))
 
 (defn record-count
   "Returns the number of transactions that belong to the specified entity"
@@ -695,7 +696,7 @@
   related transaction items"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (let [result (->> {:account-id account-id}
+    (let [result (->> {:i.account-id account-id} ; Remove the table prefix here
                       (search-items storage-spec)
                       (reduce calculate-item-index-and-balance {:index 0
                                                                 :balance 0M

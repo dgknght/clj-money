@@ -14,7 +14,6 @@
             [clj-money.models.storage :refer [create-reconciliation
                                               update-reconciliation
                                               select-reconciliations-by-account-id
-                                              select-transaction-items-by-reconciliation-id
                                               find-reconciliation-by-id
                                               find-last-reconciliation-by-account-id
                                               find-new-reconciliation-by-account-id
@@ -79,7 +78,7 @@
   (when reconciliation
     (assoc reconciliation
            :item-ids
-           (mapv :id (select-transaction-items-by-reconciliation-id
+           (mapv :id (transactions/select-items-by-reconciliation-id
                        storage
                        (:id reconciliation))))))
 
