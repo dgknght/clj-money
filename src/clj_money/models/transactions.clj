@@ -17,7 +17,6 @@
                                               find-transaction-by-id
                                               update-transaction
                                               select-transaction-items
-                                              select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
                                               count-transaction-items-by-account-id
                                               select-lots-transactions-by-transaction-id
@@ -201,9 +200,10 @@
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
   [storage item transaction-date]
-  (->> (select-transaction-items-preceding-date storage
-                                              (:account-id item)
-                                              (tc/to-long transaction-date))
+  (->> (select-transaction-items storage
+                                 {:i.account-id (:account-id item)
+                                  :t.transaction-date [:< (tc/to-long transaction-date)]}
+                                 {:sort [[:t.transaction-date :desc] [:i.index :desc]]})
        (remove #(= (:id %) (:id item)))
        first))
 
@@ -650,9 +650,11 @@
 (defn- find-last-item-before
   [storage-spec account-id date]
   (with-storage [s storage-spec]
-    (first (select-transaction-items-preceding-date s
-                                                  account-id
-                                                  date))))
+    (first (select-transaction-items
+             s
+             {:i.account-id account-id
+              :t.transaction-date [:< date]}
+             {:sort [[:t.transaction-date :desc] [:i.index :desc]]}))))
 
 (defn- find-last-item-on-or-before
   [storage-spec account-id date]

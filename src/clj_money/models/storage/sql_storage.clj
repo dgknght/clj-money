@@ -638,17 +638,6 @@
                               (h/from :transaction_items)
                               (h/where [:= :account_id account-id]))))
 
-  (select-transaction-items-preceding-date
-    [_ account-id transaction-date]
-    (query db-spec (-> (h/select :i.*)
-                      (h/from [:transaction_items :i])
-                      (h/join [:transactions :t] [:= :t.id :i.transaction-id])
-                      (h/where [:and
-                                [:= :i.account-id account-id]
-                                [:< :t.transaction-date transaction-date]])
-                      (h/order-by [:t.transaction-date :desc] [:i.index :desc])
-                      (h/limit 2))))
-
   (find-last-transaction-item-on-or-before
     [_ account-id transaction-date]
     (first (query db-spec (-> (h/select :i.*)

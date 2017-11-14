@@ -190,9 +190,6 @@
   (count-transaction-items-by-account-id
     [this account-id]
     "Returns the number of transaction items belonging to the specified account")
-  (select-transaction-items-preceding-date
-    [this account-id transaction-date]
-    "Returns the transaction items preceding the specifed date in descending order by seqence")
   (find-last-transaction-item-on-or-before
     [this account-id transaction-date]
     "Returns the last transaction item that is on or before the specified date")
