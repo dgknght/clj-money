@@ -190,9 +190,6 @@
   (count-transaction-items-by-account-id
     [this account-id]
     "Returns the number of transaction items belonging to the specified account")
-  (select-transaction-items-by-account-id-on-or-after-date
-    [this account-id transaction-date]
-    "Returns the transaction items for the specified account ocurring on or after the specified date")
   (find-transaction-item-by-id
     [this id]
     "Returns the transaction item having the specified id")
