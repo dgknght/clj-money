@@ -21,7 +21,6 @@
                                               select-transaction-items
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
-                                              select-transaction-items-by-account-id
                                               count-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
@@ -517,15 +516,13 @@
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
-  ([storage-spec account-id]
-   (items-by-account storage-spec account-id {}))
-  ([storage-spec account-id options]
-   (with-storage [s storage-spec]
-     (let [account (accounts/find-by-id storage-spec account-id)]
-       (map #(after-item-read % account)
-            (select-transaction-items-by-account-id s
-                                                    account-id
-                                                    options))))))
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (let [account (accounts/find-by-id storage-spec account-id)]
+      (map #(after-item-read % account)
+           (select-transaction-items s
+                                     {:i.account-id account-id}
+                                     {:sort [[:t.transaction-date :desc] [:i.index :desc]]})))))
 
 (defn count-items-by-account
   "Returns the number of transaction items in the account"
@@ -539,9 +536,8 @@
   (with-storage [s storage-spec]
     (let [account (accounts/find-by-id storage-spec account-id)]
       (map #(after-item-read % account)
-           (select-transaction-items-by-account-id s
-                                                   account-id
-                                                   {:reconciled? false})))))
+           (select-transaction-items s {:i.account-id account-id
+                                        :reconciliation-id nil})))))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"

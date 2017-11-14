@@ -632,24 +632,6 @@
                                                         :balance
                                                         :memo))
 
-  (select-transaction-items-by-account-id
-    [this account-id]
-    (.select-transaction-items-by-account-id this account-id {}))
-
-  (select-transaction-items-by-account-id
-    [_ account-id options]
-    (let [sql (-> (transaction-item-base-query)
-                  (h/where [:= :i.account_id account-id])
-                  (h/order-by [:i.index :desc])
-                  (append-paging options))
-          sql (cond-> sql
-                (contains? options :reconciled?)
-                (h/merge-where (if (:reconciled? options)
-                                 [:= :r.status "completed"]
-                                 [:or [:= :r.status nil]
-                                      [:= :r.status "new"]])))]
-      (query db-spec sql)))
-
   (count-transaction-items-by-account-id
     [this account-id]
     (query-scalar db-spec (-> (h/select :%count.*)
