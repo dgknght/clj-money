@@ -638,22 +638,6 @@
                               (h/from :transaction_items)
                               (h/where [:= :account_id account-id]))))
 
-  (find-transaction-item-by-id
-    [_ id]
-    (->> (-> (h/select :*)
-            (h/from :transaction_items)
-            (h/where [:= :id id])
-            (h/limit 1))
-        (query db-spec)
-        first))
-
-  (find-transaction-items-by-ids
-    [_ ids]
-    (->> (-> (h/select :*)
-             (h/from :transaction_items)
-             (h/where [:in :id ids]))
-        (query db-spec)))
-
   (select-transaction-items-preceding-date
     [_ account-id transaction-date]
     (query db-spec (-> (h/select :i.*)
@@ -743,7 +727,8 @@
     (query db-spec (-> (transaction-item-base-query)
                        (h/where (map->where criteria))
                        (append-sort (merge {:sort [:t.transaction_date :i.index]}
-                                           options)))))
+                                           options))
+                       (append-limit options))))
 
   ; Reconciliations
   (create-reconciliation

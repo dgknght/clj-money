@@ -16,8 +16,6 @@
                                               create-transaction-item
                                               find-transaction-by-id
                                               update-transaction
-                                              find-transaction-item-by-id
-                                              find-transaction-items-by-ids
                                               select-transaction-items
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
@@ -291,13 +289,17 @@
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read)))))
 
+(defn find-item-by-id
+  [storage-spec id]
+  (first (select-transaction-items storage-spec {:i.id id} {:limit 1})))
+
 (defn- upsert-item
   "Updates the specified transaction item"
   [storage item]
   (if (:id item)
     (do
       (update-transaction-item storage item)
-      (find-transaction-item-by-id storage (:id item)))
+      (find-item-by-id storage (:id item)))
     (create-transaction-item storage item)))
 
 (defn- update-item-index-and-balance
@@ -503,15 +505,13 @@
   "Returns the transaction that has the specified transaction item"
   [storage-spec item-id]
   (with-storage [s storage-spec]
-    (when-let [transaction-id (->> item-id
-                                   (find-transaction-item-by-id s)
-                                   :transaction-id)]
+    (when-let [transaction-id (:transaction-id (find-item-by-id s item-id))]
       (find-by-id s transaction-id))))
 
 (defn find-items-by-ids
   [storage-spec ids]
   (with-storage [s storage-spec]
-    (->> (find-transaction-items-by-ids s ids)
+    (->> (select-transaction-items s {:i.id ids})
          (map after-item-read))))
 
 (defn items-by-account
