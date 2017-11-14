@@ -17,7 +17,6 @@
                                               find-transaction-by-id
                                               update-transaction
                                               select-transaction-items
-                                              find-last-transaction-item-on-or-before
                                               count-transaction-items-by-account-id
                                               select-lots-transactions-by-transaction-id
                                               update-transaction-item
@@ -659,9 +658,11 @@
 (defn- find-last-item-on-or-before
   [storage-spec account-id date]
   (with-storage [s storage-spec]
-    (find-last-transaction-item-on-or-before s
-                                             account-id
-                                             date)))
+    (first (select-transaction-items s
+                                     {:i.account-id account-id
+                                      :t.transaction-date [:<= date]}
+                                     {:sort [[:t.transaction-date :desc] [:i.index :desc]]
+                                      :limit 1}))))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"

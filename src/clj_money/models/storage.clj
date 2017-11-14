@@ -190,9 +190,6 @@
   (count-transaction-items-by-account-id
     [this account-id]
     "Returns the number of transaction items belonging to the specified account")
-  (find-last-transaction-item-on-or-before
-    [this account-id transaction-date]
-    "Returns the last transaction item that is on or before the specified date")
   (update-transaction-item
     [this transaction-item]
     "Updates the specified transaction item")
