@@ -179,6 +179,12 @@
     (h/limit sql limit)
     sql))
 
+(defn- adjust-select
+  [sql options]
+  (if (:count options)
+    (h/select sql :%count.*)
+    sql))
+
 (defn- append-prices-as-of
   "This is bit of a kludge because the logic for converting a map
   to a where clause is limited. Should really make that more robust, 
@@ -632,12 +638,6 @@
                                                         :balance
                                                         :memo))
 
-  (count-transaction-items-by-account-id
-    [this account-id]
-    (query-scalar db-spec (-> (h/select :%count.*)
-                              (h/from :transaction_items)
-                              (h/where [:= :account_id account-id]))))
-
   (update-transaction-item
     [_ transaction-item]
     (let [sql (sql/format (-> (h/update :transaction_items)
@@ -700,13 +700,19 @@
     [this criteria]
     (.select-transaction-items this criteria {}))
 
-  (select-transaction-items
-    [_ criteria options]
-    (query db-spec (-> (transaction-item-base-query)
-                       (h/where (map->where criteria))
-                       (append-sort (merge {:sort [:t.transaction_date :i.index]}
-                                           options))
-                       (append-limit options))))
+(select-transaction-items
+  [_ criteria options]
+  (let [sql (-> (transaction-item-base-query)
+                (adjust-select options)
+                (h/where (map->where criteria))
+                (append-sort (merge
+                               {:sort [:t.transaction_date :i.index]}
+                               options))
+                (append-limit options))
+        result (query db-spec sql)]
+    (if (:count options)
+      (-> result first vals first)
+      result)))
 
   ; Reconciliations
   (create-reconciliation

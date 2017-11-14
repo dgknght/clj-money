@@ -187,9 +187,6 @@
   (create-transaction-item
     [this transaction-item]
     "Creates a new transaction item record")
-  (count-transaction-items-by-account-id
-    [this account-id]
-    "Returns the number of transaction items belonging to the specified account")
   (update-transaction-item
     [this transaction-item]
     "Updates the specified transaction item")

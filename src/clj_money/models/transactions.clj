@@ -17,7 +17,6 @@
                                               find-transaction-by-id
                                               update-transaction
                                               select-transaction-items
-                                              count-transaction-items-by-account-id
                                               select-lots-transactions-by-transaction-id
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
@@ -527,7 +526,10 @@
   "Returns the number of transaction items in the account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (count-transaction-items-by-account-id s account-id)))
+    (select-transaction-items
+      s
+      {:i.account-id account-id}
+      {:count true})))
 
 (defn unreconciled-items-by-account
   "Returns the unreconciled transaction items for the specified account"
