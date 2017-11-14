@@ -25,7 +25,6 @@
                                               count-transaction-items-by-account-id
                                               select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
-                                              select-transaction-items-by-transaction-id
                                               select-transaction-items-by-reconciliation-id
                                               select-lots-transactions-by-transaction-id
                                               update-transaction-item
@@ -176,8 +175,9 @@
   (when transaction
     (assoc transaction
            :items
-           (->> (:id transaction)
-                (select-transaction-items-by-transaction-id storage)
+           (->> (select-transaction-items storage
+                                          {:transaction-id (:id transaction)}
+                                          {:sort [[:action :desc] [:amount :desc]]})
                 (map after-item-read)))))
 
 (defn- append-lot-items

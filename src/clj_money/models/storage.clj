@@ -187,9 +187,6 @@
   (create-transaction-item
     [this transaction-item]
     "Creates a new transaction item record")
-  (select-transaction-items-by-transaction-id
-    [this transaction-id]
-    "Returns the transaction items belonging to the specified transaction")
   (select-transaction-items-by-reconciliation-id
     [this reconciliation-id]
     "Returns the transaction items belonging to the specified reconciliation")
@@ -237,6 +234,7 @@
     "Unsets the reconciliation ID to null for all matching values")
   (select-transaction-items
     [this criteria]
+    [this criteria options]
     "Returns a list of transaction items matching the criteria")
 
   ; Reconciliations

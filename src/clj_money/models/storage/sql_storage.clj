@@ -161,6 +161,12 @@
     (h/merge-where sql (map->where criteria))
     sql))
 
+(defn- append-sort
+  [sql options]
+  (if-let [s (:sort options)]
+    (apply h/order-by sql s)
+    sql))
+
 (defn- append-paging
   [sql options]
   (cond-> sql
@@ -626,12 +632,6 @@
                                                         :balance
                                                         :memo))
 
-  (select-transaction-items-by-transaction-id
-    [_ transaction-id]
-    (query db-spec (-> (transaction-item-base-query)
-                       (h/where [:= :transaction_id transaction-id])
-                       (h/order-by [:action :desc] [:amount :desc]))))
-
   (select-transaction-items-by-reconciliation-id
     [_ reconciliation-id]
     (query db-spec (-> (transaction-item-base-query)
@@ -777,12 +777,15 @@
                                  sql/format)))
 
   (select-transaction-items
-    [_ criteria]
-    (query db-spec (-> (h/select :i.* :t.transaction_date :t.description)
-                      (h/from [:transaction_items :i])
-                      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-                      (h/where (map->where criteria))
-                      (h/order-by :t.transaction_date :i.index))))
+    [this criteria]
+    (.select-transaction-items this criteria {}))
+
+  (select-transaction-items
+    [_ criteria options]
+    (query db-spec (-> (transaction-item-base-query)
+                       (h/where (map->where criteria))
+                       (append-sort (merge {:sort [:t.transaction_date :i.index]}
+                                           options)))))
 
   ; Reconciliations
   (create-reconciliation
