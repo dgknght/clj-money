@@ -573,7 +573,7 @@
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
-        gains-items (->> {:account-id (:id lt-capital-gains)}
+        gains-items (->> {:i.account-id (:id lt-capital-gains)} ; TODO remove table prefix
                          (transactions/search-items storage-spec)
                          (map #(dissoc % :id
                                          :entity-id
@@ -581,7 +581,8 @@
                                          :reconciled?
                                          :reconciliation-id
                                          :created-at
-                                         :updated-at)))
+                                         :updated-at
+                                         :reconciliation-status)))
         expected [{:transaction-date (t/local-date 2017 3 2)
                    :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
@@ -603,7 +604,7 @@
                                          (assoc :shares 25M
                                                 :value 375M
                                                 :trade-date (t/local-date 2017 3 1))))
-        gains-items (->> {:account-id (:id st-capital-gains)}
+        gains-items (->> {:i.account-id (:id st-capital-gains)}
                          (transactions/search-items storage-spec)
                          (map #(dissoc % :id
                                          :entity-id
@@ -611,7 +612,8 @@
                                          :reconciled?
                                          :reconciliation-id
                                          :created-at
-                                         :updated-at)))
+                                         :updated-at
+                                         :reconciliation-status)))
         expected [{:transaction-date (t/local-date 2017 3 1)
                    :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
@@ -631,7 +633,7 @@
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 100M :value 850M)))
-        gains-items (->> {:account-id (:id capital-loss)}
+        gains-items (->> {:i.account-id (:id capital-loss)}
                          (transactions/search-items storage-spec)
                          (map #(dissoc % :id
                                          :entity-id
@@ -639,7 +641,8 @@
                                          :reconciled?
                                          :reconciliation-id
                                          :created-at
-                                         :updated-at)))
+                                         :updated-at
+                                         :reconciliation-status)))
         expected [{:transaction-date (t/local-date 2017 3 2)
                    :description "Sell 100 shares of AAPL at 8.500"
                    :action :debit
@@ -649,6 +652,10 @@
                    :memo "Sell 100 shares of AAPL at 8.500"
                    :balance 150M
                    :index 0}]]
+    (if-not (= expected gains-items)
+      (pprint {:expected expected
+               :actual gains-items
+               :diff (diff expected gains-items)}))
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
