@@ -22,7 +22,6 @@
                                               select-transaction-items-preceding-date
                                               find-last-transaction-item-on-or-before
                                               count-transaction-items-by-account-id
-                                              select-transaction-items-by-account-id-and-starting-index
                                               select-transaction-items-by-account-id-on-or-after-date
                                               select-lots-transactions-by-transaction-id
                                               update-transaction-item
@@ -276,10 +275,11 @@
   transaction date, excluding the reference-item"
   ([storage-spec reference-item]
    (with-storage [s storage-spec]
-     (->> (select-transaction-items-by-account-id-and-starting-index
+     (->> (select-transaction-items
             s
-            (:account-id reference-item)
-            (:index reference-item))
+            {:i.account-id (:account-id reference-item)
+             :index [:>= (:index reference-item)]}
+            {:sort [[:index :desc]]})
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read))))
   ([storage-spec reference-item transaction-date]

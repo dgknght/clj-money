@@ -638,15 +638,6 @@
                               (h/from :transaction_items)
                               (h/where [:= :account_id account-id]))))
 
-  (select-transaction-items-by-account-id-and-starting-index
-    [_ account-id index]
-    (query db-spec (-> (h/select :*)
-                      (h/from :transaction_items)
-                      (h/where [:and
-                                [:= :account_id account-id]
-                                [:>= :index index]])
-                      (h/order-by [:index :desc]))))
-
   (select-transaction-items-by-account-id-on-or-after-date
     [_ account-id transaction-date]
     (query db-spec (-> (h/select :i.*)
