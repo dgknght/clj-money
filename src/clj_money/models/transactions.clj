@@ -11,22 +11,11 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions
-                                              count-transactions
                                               create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
                                               update-transaction
-                                              find-transaction-item-by-id
-                                              find-transaction-items-by-ids
                                               select-transaction-items
-                                              select-transaction-items-preceding-date
-                                              find-last-transaction-item-on-or-before
-                                              select-transaction-items-by-account-id
-                                              count-transaction-items-by-account-id
-                                              select-transaction-items-by-account-id-and-starting-index
-                                              select-transaction-items-by-account-id-on-or-after-date
-                                              select-transaction-items-by-transaction-id
-                                              select-transaction-items-by-reconciliation-id
                                               select-lots-transactions-by-transaction-id
                                               update-transaction-item
                                               update-transaction-item-index-and-balance
@@ -176,8 +165,9 @@
   (when transaction
     (assoc transaction
            :items
-           (->> (:id transaction)
-                (select-transaction-items-by-transaction-id storage)
+           (->> (select-transaction-items storage
+                                          {:transaction-id (:id transaction)}
+                                          {:sort [[:action :desc] [:amount :desc]]})
                 (map after-item-read)))))
 
 (defn- append-lot-items
@@ -207,9 +197,10 @@
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
   [storage item transaction-date]
-  (->> (select-transaction-items-preceding-date storage
-                                              (:account-id item)
-                                              (tc/to-long transaction-date))
+  (->> (select-transaction-items storage
+                                 {:i.account-id (:account-id item)
+                                  :t.transaction-date [:< (tc/to-long transaction-date)]}
+                                 {:sort [[:t.transaction-date :desc] [:i.index :desc]]})
        (remove #(= (:id %) (:id item)))
        first))
 
@@ -278,20 +269,26 @@
   transaction date, excluding the reference-item"
   ([storage-spec reference-item]
    (with-storage [s storage-spec]
-     (->> (select-transaction-items-by-account-id-and-starting-index
+     (->> (select-transaction-items
             s
-            (:account-id reference-item)
-            (:index reference-item))
+            {:i.account-id (:account-id reference-item)
+             :index [:>= (:index reference-item)]}
+            {:sort [[:index :desc]]})
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read))))
   ([storage-spec reference-item transaction-date]
    (with-storage [s storage-spec]
-     (->> (select-transaction-items-by-account-id-on-or-after-date
+     (->> (select-transaction-items
             s
-            (:account-id reference-item)
-            (tc/to-long transaction-date))
+            {:i.account-id (:account-id reference-item)
+             :t.transaction-date [:>= (tc/to-long transaction-date)]}
+            {:sort [:index]})
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read)))))
+
+(defn find-item-by-id
+  [storage-spec id]
+  (first (select-transaction-items storage-spec {:i.id id} {:limit 1})))
 
 (defn- upsert-item
   "Updates the specified transaction item"
@@ -299,7 +296,7 @@
   (if (:id item)
     (do
       (update-transaction-item storage item)
-      (find-transaction-item-by-id storage (:id item)))
+      (find-item-by-id storage (:id item)))
     (create-transaction-item storage item)))
 
 (defn- update-item-index-and-balance
@@ -423,13 +420,15 @@
   [storage-spec reconciliation-id]
   (with-storage [s storage-spec]
     (map after-item-read
-         (select-transaction-items-by-reconciliation-id s reconciliation-id))))
+         (select-transaction-items s
+                                   {:reconciliation-id reconciliation-id}
+                                   {:sort [[:t.transaction-date :desc] [:i.index :desc]]}))))
 
 (defn record-count
   "Returns the number of transactions that belong to the specified entity"
   [storage-spec criteria]
   (with-storage [s storage-spec]
-    (count-transactions s criteria)))
+    (select-transactions s criteria {:count true})))
 
 (defn- create-transaction-and-lot-links
   [storage transaction]
@@ -503,34 +502,33 @@
   "Returns the transaction that has the specified transaction item"
   [storage-spec item-id]
   (with-storage [s storage-spec]
-    (when-let [transaction-id (->> item-id
-                                   (find-transaction-item-by-id s)
-                                   :transaction-id)]
+    (when-let [transaction-id (:transaction-id (find-item-by-id s item-id))]
       (find-by-id s transaction-id))))
 
 (defn find-items-by-ids
   [storage-spec ids]
   (with-storage [s storage-spec]
-    (->> (find-transaction-items-by-ids s ids)
+    (->> (select-transaction-items s {:i.id ids})
          (map after-item-read))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
-  ([storage-spec account-id]
-   (items-by-account storage-spec account-id {}))
-  ([storage-spec account-id options]
-   (with-storage [s storage-spec]
-     (let [account (accounts/find-by-id storage-spec account-id)]
-       (map #(after-item-read % account)
-            (select-transaction-items-by-account-id s
-                                                    account-id
-                                                    options))))))
+  [storage-spec account-id]
+  (with-storage [s storage-spec]
+    (let [account (accounts/find-by-id storage-spec account-id)]
+      (map #(after-item-read % account)
+           (select-transaction-items s
+                                     {:i.account-id account-id}
+                                     {:sort [[:t.transaction-date :desc] [:i.index :desc]]})))))
 
 (defn count-items-by-account
   "Returns the number of transaction items in the account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (count-transaction-items-by-account-id s account-id)))
+    (select-transaction-items
+      s
+      {:i.account-id account-id}
+      {:count true})))
 
 (defn unreconciled-items-by-account
   "Returns the unreconciled transaction items for the specified account"
@@ -538,9 +536,8 @@
   (with-storage [s storage-spec]
     (let [account (accounts/find-by-id storage-spec account-id)]
       (map #(after-item-read % account)
-           (select-transaction-items-by-account-id s
-                                                   account-id
-                                                   {:reconciled? false})))))
+           (select-transaction-items s {:i.account-id account-id
+                                        :reconciliation-id nil})))))
 
 (defn- process-item-upserts
   "Process items in a transaction update operation"
@@ -653,16 +650,20 @@
 (defn- find-last-item-before
   [storage-spec account-id date]
   (with-storage [s storage-spec]
-    (first (select-transaction-items-preceding-date s
-                                                  account-id
-                                                  date))))
+    (first (select-transaction-items
+             s
+             {:i.account-id account-id
+              :t.transaction-date [:< date]}
+             {:sort [[:t.transaction-date :desc] [:i.index :desc]]}))))
 
 (defn- find-last-item-on-or-before
   [storage-spec account-id date]
   (with-storage [s storage-spec]
-    (find-last-transaction-item-on-or-before s
-                                             account-id
-                                             date)))
+    (first (select-transaction-items s
+                                     {:i.account-id account-id
+                                      :t.transaction-date [:<= date]}
+                                     {:sort [[:t.transaction-date :desc] [:i.index :desc]]
+                                      :limit 1}))))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
@@ -695,7 +696,7 @@
   related transaction items"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (let [result (->> {:account-id account-id}
+    (let [result (->> {:i.account-id account-id} ; Remove the table prefix here
                       (search-items storage-spec)
                       (reduce calculate-item-index-and-balance {:index 0
                                                                 :balance 0M

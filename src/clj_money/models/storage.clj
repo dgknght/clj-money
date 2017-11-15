@@ -166,10 +166,6 @@
     [this criteria options]
     "Returns transactions matching the specified criteria")
 
-  (count-transactions
-    [this criteria]
-    "Returns the number of transactions matching the specified criteria")
-
   (create-transaction
     [this transaction]
     "Creates a new transaction record")
@@ -187,36 +183,6 @@
   (create-transaction-item
     [this transaction-item]
     "Creates a new transaction item record")
-  (select-transaction-items-by-transaction-id
-    [this transaction-id]
-    "Returns the transaction items belonging to the specified transaction")
-  (select-transaction-items-by-reconciliation-id
-    [this reconciliation-id]
-    "Returns the transaction items belonging to the specified reconciliation")
-  (select-transaction-items-by-account-id
-    [this account-id] [this account-id options]
-    "Returns the transaction items belonging to the specified account")
-  (count-transaction-items-by-account-id
-    [this account-id]
-    "Returns the number of transaction items belonging to the specified account")
-  (select-transaction-items-by-account-id-and-starting-index
-    [this account-id index]
-    "Returns the transaction items for the specified account having an index greater than or equal to the specified index")
-  (select-transaction-items-by-account-id-on-or-after-date
-    [this account-id transaction-date]
-    "Returns the transaction items for the specified account ocurring on or after the specified date")
-  (find-transaction-item-by-id
-    [this id]
-    "Returns the transaction item having the specified id")
-  (find-transaction-items-by-ids
-    [this id]
-    "Returns the transaction items having the specified ids")
-  (select-transaction-items-preceding-date
-    [this account-id transaction-date]
-    "Returns the transaction items preceding the specifed date in descending order by seqence")
-  (find-last-transaction-item-on-or-before
-    [this account-id transaction-date]
-    "Returns the last transaction item that is on or before the specified date")
   (update-transaction-item
     [this transaction-item]
     "Updates the specified transaction item")
@@ -237,6 +203,7 @@
     "Unsets the reconciliation ID to null for all matching values")
   (select-transaction-items
     [this criteria]
+    [this criteria options]
     "Returns a list of transaction items matching the criteria")
 
   ; Reconciliations

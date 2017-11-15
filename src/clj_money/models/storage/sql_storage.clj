@@ -161,6 +161,12 @@
     (h/merge-where sql (map->where criteria))
     sql))
 
+(defn- append-sort
+  [sql options]
+  (if-let [s (:sort options)]
+    (apply h/order-by sql s)
+    sql))
+
 (defn- append-paging
   [sql options]
   (cond-> sql
@@ -171,6 +177,12 @@
   [sql options]
   (if-let [limit (:limit options)]
     (h/limit sql limit)
+    sql))
+
+(defn- adjust-select
+  [sql options]
+  (if (:count options)
+    (h/select sql :%count.*)
     sql))
 
 (defn- append-prices-as-of
@@ -203,6 +215,19 @@
   (if {:include-password? options}
     (h/merge-select sql :password)
     sql))
+
+(defn- append-transaction-lot-filter
+  [sql criteria]
+  (let [without-lot (dissoc criteria :lot-id)]
+    (cond-> sql
+
+      (not (empty? without-lot))
+      (h/where (map->where without-lot))
+
+      (contains? criteria :lot-id)
+      (-> (h/join [:lots_transactions :lt]
+                  [:= :t.id :lt.transaction_id])
+          (h/merge-where [:= :lt.lot_id (:lot-id criteria)])))))
 
 (defn- query
   "Executes a SQL query and maps field names into
@@ -237,20 +262,6 @@
       (h/from [:transaction_items :i])
       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
       (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
-
-(defn- transaction-query
-  [select criteria options]
-  (cond-> (-> (h/select select)
-              (h/from [:transactions :t])
-              (append-paging options))
-
-    (not (empty? (dissoc criteria :lot-id)))
-    (h/where (map->where (dissoc criteria :lot-id)))
-
-    (contains? criteria :lot-id)
-    (-> (h/join [:lots_transactions :lt]
-                [:= :t.id :lt.transaction_id])
-        (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -576,12 +587,15 @@
   (select-transactions
     [_ criteria options]
     (validate-criteria criteria ::transaction-criteria)
-    (query db-spec (transaction-query :t.* criteria options)))
-
-  (count-transactions
-    [_ criteria]
-    (validate-criteria criteria ::transaction-criteria)
-    (query-scalar db-spec (transaction-query :%count.* criteria {})))
+    (let [sql (-> (h/select :t.*)
+                  (h/from [:transactions :t])
+                  (adjust-select options)
+                  (append-paging options)
+                  (append-transaction-lot-filter criteria))
+          result (query db-spec sql)]
+      (if (:count options) ; TODO remove this duplication with select-transaction-items
+        (-> result first vals first)
+        result)))
 
   (create-transaction
     [_ transaction]
@@ -625,98 +639,6 @@
                                                         :index
                                                         :balance
                                                         :memo))
-
-  (select-transaction-items-by-transaction-id
-    [_ transaction-id]
-    (query db-spec (-> (transaction-item-base-query)
-                       (h/where [:= :transaction_id transaction-id])
-                       (h/order-by [:action :desc] [:amount :desc]))))
-
-  (select-transaction-items-by-reconciliation-id
-    [_ reconciliation-id]
-    (query db-spec (-> (transaction-item-base-query)
-                       (h/where [:= :reconciliation_id reconciliation-id]))))
-
-  (select-transaction-items-by-account-id
-    [this account-id]
-    (.select-transaction-items-by-account-id this account-id {}))
-
-  (select-transaction-items-by-account-id
-    [_ account-id options]
-    (let [sql (-> (transaction-item-base-query)
-                  (h/where [:= :i.account_id account-id])
-                  (h/order-by [:i.index :desc])
-                  (append-paging options))
-          sql (cond-> sql
-                (contains? options :reconciled?)
-                (h/merge-where (if (:reconciled? options)
-                                 [:= :r.status "completed"]
-                                 [:or [:= :r.status nil]
-                                      [:= :r.status "new"]])))]
-      (query db-spec sql)))
-
-  (count-transaction-items-by-account-id
-    [this account-id]
-    (query-scalar db-spec (-> (h/select :%count.*)
-                              (h/from :transaction_items)
-                              (h/where [:= :account_id account-id]))))
-
-  (select-transaction-items-by-account-id-and-starting-index
-    [_ account-id index]
-    (query db-spec (-> (h/select :*)
-                      (h/from :transaction_items)
-                      (h/where [:and
-                                [:= :account_id account-id]
-                                [:>= :index index]])
-                      (h/order-by [:index :desc]))))
-
-  (select-transaction-items-by-account-id-on-or-after-date
-    [_ account-id transaction-date]
-    (query db-spec (-> (h/select :i.*)
-                      (h/from [:transaction_items :i])
-                      (h/join [:transactions :t] [:= :t.id :i.transaction-id])
-                      (h/where [:and
-                                [:= :i.account_id account-id]
-                                [:>= :t.transaction_date transaction-date]])
-                      (h/order-by :index))))
-
-  (find-transaction-item-by-id
-    [_ id]
-    (->> (-> (h/select :*)
-            (h/from :transaction_items)
-            (h/where [:= :id id])
-            (h/limit 1))
-        (query db-spec)
-        first))
-
-  (find-transaction-items-by-ids
-    [_ ids]
-    (->> (-> (h/select :*)
-             (h/from :transaction_items)
-             (h/where [:in :id ids]))
-        (query db-spec)))
-
-  (select-transaction-items-preceding-date
-    [_ account-id transaction-date]
-    (query db-spec (-> (h/select :i.*)
-                      (h/from [:transaction_items :i])
-                      (h/join [:transactions :t] [:= :t.id :i.transaction-id])
-                      (h/where [:and
-                                [:= :i.account-id account-id]
-                                [:< :t.transaction-date transaction-date]])
-                      (h/order-by [:t.transaction-date :desc] [:i.index :desc])
-                      (h/limit 2))))
-
-  (find-last-transaction-item-on-or-before
-    [_ account-id transaction-date]
-    (first (query db-spec (-> (h/select :i.*)
-                              (h/from [:transaction_items :i])
-                              (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-                              (h/where [:and
-                                        [:= :i.account_id account-id]
-                                        [:<= :t.transaction_date transaction-date]])
-                              (h/order-by [:t.transaction_date :desc] [:i.index :desc])
-                              (h/limit 1)))))
 
   (update-transaction-item
     [_ transaction-item]
@@ -777,12 +699,22 @@
                                  sql/format)))
 
   (select-transaction-items
-    [_ criteria]
-    (query db-spec (-> (h/select :i.* :t.transaction_date :t.description)
-                      (h/from [:transaction_items :i])
-                      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-                      (h/where (map->where criteria))
-                      (h/order-by :t.transaction_date :i.index))))
+    [this criteria]
+    (.select-transaction-items this criteria {}))
+
+(select-transaction-items
+  [_ criteria options]
+  (let [sql (-> (transaction-item-base-query)
+                (adjust-select options)
+                (h/where (map->where criteria))
+                (append-sort (merge
+                               {:sort [:t.transaction_date :i.index]}
+                               options))
+                (append-limit options))
+        result (query db-spec sql)]
+    (if (:count options)
+      (-> result first vals first)
+      result)))
 
   ; Reconciliations
   (create-reconciliation
