@@ -11,7 +11,6 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions
-                                              count-transactions
                                               create-transaction
                                               create-transaction-item
                                               find-transaction-by-id
@@ -429,7 +428,7 @@
   "Returns the number of transactions that belong to the specified entity"
   [storage-spec criteria]
   (with-storage [s storage-spec]
-    (count-transactions s criteria)))
+    (select-transactions s criteria {:count true})))
 
 (defn- create-transaction-and-lot-links
   [storage transaction]

@@ -216,6 +216,19 @@
     (h/merge-select sql :password)
     sql))
 
+(defn- append-transaction-lot-filter
+  [sql criteria]
+  (let [without-lot (dissoc criteria :lot-id)]
+    (cond-> sql
+
+      (not (empty? without-lot))
+      (h/where (map->where without-lot))
+
+      (contains? criteria :lot-id)
+      (-> (h/join [:lots_transactions :lt]
+                  [:= :t.id :lt.transaction_id])
+          (h/merge-where [:= :lt.lot_id (:lot-id criteria)])))))
+
 (defn- query
   "Executes a SQL query and maps field names into
   clojure keys"
@@ -249,20 +262,6 @@
       (h/from [:transaction_items :i])
       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
       (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
-
-(defn- transaction-query
-  [select criteria options]
-  (cond-> (-> (h/select select)
-              (h/from [:transactions :t])
-              (append-paging options))
-
-    (not (empty? (dissoc criteria :lot-id)))
-    (h/where (map->where (dissoc criteria :lot-id)))
-
-    (contains? criteria :lot-id)
-    (-> (h/join [:lots_transactions :lt]
-                [:= :t.id :lt.transaction_id])
-        (h/merge-where [:= :lt.lot_id (:lot-id criteria)]))))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -588,12 +587,15 @@
   (select-transactions
     [_ criteria options]
     (validate-criteria criteria ::transaction-criteria)
-    (query db-spec (transaction-query :t.* criteria options)))
-
-  (count-transactions
-    [_ criteria]
-    (validate-criteria criteria ::transaction-criteria)
-    (query-scalar db-spec (transaction-query :%count.* criteria {})))
+    (let [sql (-> (h/select :t.*)
+                  (h/from [:transactions :t])
+                  (adjust-select options)
+                  (append-paging options)
+                  (append-transaction-lot-filter criteria))
+          result (query db-spec sql)]
+      (if (:count options) ; TODO remove this duplication with select-transaction-items
+        (-> result first vals first)
+        result)))
 
   (create-transaction
     [_ transaction]

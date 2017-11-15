@@ -166,10 +166,6 @@
     [this criteria options]
     "Returns transactions matching the specified criteria")
 
-  (count-transactions
-    [this criteria]
-    "Returns the number of transactions matching the specified criteria")
-
   (create-transaction
     [this transaction]
     "Creates a new transaction record")
