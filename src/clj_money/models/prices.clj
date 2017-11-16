@@ -9,7 +9,9 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.storage :refer [create-price
@@ -26,7 +28,7 @@
 (s/def ::existing-price (s/keys :req-un [::id ::trade-date ::price] :opt-un [::commodity-id]))
 
 (defn- before-save
-  [price]
+  [_ price]
   (update-in price [:trade-date] to-sql-date))
 
 (defn- after-read
@@ -65,16 +67,12 @@
        before-validation
        (validation/validate spec (validation-rules storage))))
 
-(defn create
-  [storage-spec price]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::new-price price)]
-      (if (validation/has-error? validated)
-        validated
-        (->> validated
-             before-save
-             (create-price s)
-             after-read)))))
+(def create
+  (create-fn {:create create-price
+              :before-save before-save
+              :spec ::new-price
+              :rules-fn validation-rules
+              :coercion-rules coercion-rules}))
 
 (defn find-by-id
   [storage-spec id]
@@ -89,17 +87,14 @@
     (->> (select-prices s criteria)
          (map after-read))))
 
-(defn update
-  [storage-spec price]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::existing-price price)]
-      (if (validation/has-error? validated)
-        validated
-        (do
-          (->> validated
-               before-save
-               (update-price s))
-          (find-by-id s (:id price)))))))
+(def update
+  (update-fn {:update update-price
+              :before-save before-save
+              :rules-fn validation-rules
+              :find find-by-id
+              :spec ::existing-price
+              :after-read after-read
+              :coercion-rules coercion-rules}))
 
 (defn delete
   [storage-spec id]
