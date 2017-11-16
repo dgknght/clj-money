@@ -6,6 +6,7 @@
   :dependencies [[org.clojure/clojure "1.9.0-alpha14"]
                  [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/core.async "0.3.443"]
+                 [org.clojure/tools.cli "0.3.5"]
                  [slingshot "0.12.2"]
                  [clj-http "3.5.0"]
                  [cheshire "5.7.1"]
@@ -38,6 +39,7 @@
   :main clj-money.web.server
   :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
             "rollback" ["run" "-m" "clj-money.db/rollback"]
+            "partition" ["run" "-m" "clj-money.db/create-partitions"]
             "seed" ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]}
   :profiles {:production {:env {:production true}}})
