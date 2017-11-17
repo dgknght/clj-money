@@ -11,6 +11,8 @@
             [honeysql.helpers :as h]
             [clj-postgresql.types]
             [clj-money.util :refer [pprint-and-return]]
+            [clj-money.partitioning :refer [table-name
+                                            tables-for-range]]
             [clj-money.models.storage :refer [Storage]])
   (:import java.sql.BatchUpdateException))
 
@@ -184,17 +186,6 @@
   (if (:count options)
     (h/select sql :%count.*)
     sql))
-
-(defn- append-prices-as-of
-  "This is bit of a kludge because the logic for converting a map
-  to a where clause is limited. Should really make that more robust, 
-  then we won't need this."
-  [criteria options]
-  (if-let [as-of (:as-of options)]
-    (-> criteria
-        (h/order-by [:trade-date :desc])
-        (h/merge-where [:<= :trade-date as-of]))
-    criteria))
 
 (defn- append-grants
   "Appends joins and where clauses necessary to search entities
@@ -471,9 +462,12 @@
   ; Prices
   (create-price
     [_ price]
-    (insert db-spec :prices price :commodity-id
-                                  :trade-date
-                                  :price))
+    (insert db-spec
+            (table-name (:trade-date price) :prices)
+            price
+            :commodity-id
+            :trade-date
+            :price))
 
   (select-prices
     [this criteria]
@@ -482,13 +476,19 @@
   (select-prices
     [_ criteria options]
     (validate-criteria criteria ::price-criteria)
-    (query db-spec (-> (h/select :p.*)
-                       (h/from [:prices :p])
-                       (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                       (h/where (map->where criteria))
-                       (append-prices-as-of options)
-                       (append-limit options)
-                       (append-paging options))))
+    (mapcat (fn [table]
+              (let [sql (-> (h/select :p.*)
+                            (h/from [(keyword table) :p])
+                            (h/join [:commodities :c] [:= :c.id :p.commodity_id])
+                            (append-where criteria)
+
+                            (append-limit options)
+                            (append-paging options))]
+
+                (pprint {:select-prices (sql/format sql)})
+
+                (query db-spec sql)))
+            (tables-for-range (:start-date criteria) (:end-date criteria) :prices)))
 
   (find-price-by-id
     [_ id]

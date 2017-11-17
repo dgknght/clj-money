@@ -31,9 +31,13 @@
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price 12.34M})
-        actual (->> {:commodity-id (:id commodity)}
+        actual (->> {:commodity-id (:id commodity)
+                     :trade-date [:between
+                                  (t/local-date 2017 3 1)
+                                  (t/local-date 2017 3 31)]}
                     (prices/search storage-spec)
-                    (map #(dissoc % :id :created-at :updated-at)))
+                    (map #(dissoc % :id :created-at :updated-at))
+                    )
         expected [{:commodity-id (:id commodity)
                    :trade-date (t/local-date 2017 3 2)
                    :price 12.34M}]]

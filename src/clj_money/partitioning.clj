@@ -1,17 +1,25 @@
 ; should this really exist in sql-storage?
 (ns clj-money.partitioning
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-long]]
+            [clj-time.coerce :refer [to-long
+                                     to-local-date]]
             [environ.core :refer [env]]
             [selmer.parser :refer [render]]
             [clj-money.util :refer [ensure-local-date]]))
 
 (defn table-name
   "Given a date and a base table name, returns the name
-   of the partition table where the date belongs"
+  of the partition table where the date belongs"
   [date root]
-  (format "%s_%04d_%02d" root (t/year date) (t/month date)))
+  (let [[year month] ((juxt t/year t/month) (to-local-date date))]
+    (format "%s_%04d_%02d" (name root) year month)))
+
+(defn tables-for-range
+  [start end root]
+  (dedupe [(table-name start root)
+           (table-name end root)]))
 
 (def ^:private tables
   [:prices]

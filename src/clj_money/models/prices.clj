@@ -107,8 +107,12 @@
   ([storage-spec commodity-id as-of]
    (with-storage [s storage-spec]
      (-> (select-prices s
-                        {:commodity-id commodity-id}
+                        ; TODO this query needs to be broken
+                        ; down by the paritions, as it could
+                        ; result in a false find
+                        {:commodity-id commodity-id
+                         :trade-date [:between (t/minus as-of (t/months 1)) as-of]}
                         {:limit 1
-                         :as-of (to-sql-date as-of)})
+                         :sort [[:trade-date :desc]]})
          first
          after-read))))
