@@ -130,6 +130,8 @@
       ->sql-keys))
 
 (defn- ensure-not-keyword
+  "Make sure the value is not a keyword. It could be a string, an integer
+  or anything else."
   [value]
   (if (keyword? value)
     (name value)
@@ -138,10 +140,15 @@
 (defn- map-entry->statements
   [[key value]]
   (if (coll? value)
-    (if (#{:= :> :>= :<= :< :<>} (first value))
-      ; assuming here that if we have specified the operator
-      ; then we will only have a scalar value
+    (case (first value)
+
+      (:= :> :>= :<= :< :<>)
       [[(first value) key (ensure-not-keyword (second value))]]
+
+      :between
+      [[:>= key (ensure-not-keyword (second value))]
+       [:<= key (ensure-not-keyword (nth value 2))]]
+
       [[:in key (map ensure-not-keyword value)]])
     [[:= key (ensure-not-keyword value)]]))
 
@@ -474,21 +481,21 @@
     (.select-prices this criteria {}))
 
   (select-prices
-    [_ criteria options]
+    [_ {trade-date :trade-date :as criteria} options]
     (validate-criteria criteria ::price-criteria)
-    (mapcat (fn [table]
-              (let [sql (-> (h/select :p.*)
-                            (h/from [(keyword table) :p])
-                            (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                            (append-where criteria)
+    (let [[start end] (if (sequential? trade-date)
+                        (rest trade-date)
+                        [trade-date trade-date])]
+      (mapcat (fn [table]
+                (let [sql (-> (h/select :p.*)
+                              (h/from [(keyword table) :p])
+                              (h/join [:commodities :c] [:= :c.id :p.commodity_id])
+                              (append-where criteria)
 
-                            (append-limit options)
-                            (append-paging options))]
-
-                (pprint {:select-prices (sql/format sql)})
-
-                (query db-spec sql)))
-            (tables-for-range (:start-date criteria) (:end-date criteria) :prices)))
+                              (append-limit options)
+                              (append-paging options))]
+                  (query db-spec sql)))
+              (tables-for-range start end :prices))))
 
   (find-price-by-id
     [_ id]

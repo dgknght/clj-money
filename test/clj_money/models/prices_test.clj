@@ -25,7 +25,7 @@
                   :type :stock
                   :exchange :nasdaq}]})
 
-(deftest a-price-can-be-addied-for-a-commodity
+(deftest create-a-price
   (let [context (serialization/realize storage-spec price-context)
         commodity (-> context :commodities first)
         price (prices/create storage-spec {:commodity-id (:id commodity)
