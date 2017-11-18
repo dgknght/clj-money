@@ -135,15 +135,15 @@
     (name value)
     value))
 
-(defn- extract-operator-and-value
-  [value]
+(defn- map-entry->statements
+  [[key value]]
   (if (coll? value)
     (if (#{:= :> :>= :<= :< :<>} (first value))
       ; assuming here that if we have specified the operator
       ; then we will only have a scalar value
-      [(first value) (ensure-not-keyword (second value))]
-      [:in (map ensure-not-keyword value)])
-    [:= (ensure-not-keyword value)]))
+      [[(first value) key (ensure-not-keyword (second value))]]
+      [[:in key (map ensure-not-keyword value)]])
+    [[:= key (ensure-not-keyword value)]]))
 
 (defn- map->where
   ([m] (map->where m {}))
@@ -151,11 +151,10 @@
    (let [prefix-fn (if-let [prefix (:prefix options)]
                      #(keyword (format "%s.%s" prefix (name %)))
                      identity)]
-     (reduce (fn [result [k v]]
-               (let [[operator value] (extract-operator-and-value v)]
-                 (conj result [operator (prefix-fn k) value])))
-             [:and]
-             m))))
+     (->> m
+          (map #(update-in % [0] prefix-fn))
+          (mapcat map-entry->statements)
+          (reduce conj [:and])))))
 
 (defn- append-where
   [sql criteria]
@@ -280,6 +279,7 @@
                        (append-select-password options)
                        (append-where criteria)
                        (append-limit options))))
+
   (update-user
     [_ user]
     (let [sql (sql/format (-> (h/update :users)
