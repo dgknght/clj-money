@@ -4,9 +4,10 @@
             [clojure.spec :as s]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
-            [clj-time.coerce :as tc]
+            [clj-time.coerce :refer [to-local-date
+                                     to-date-time]]
             [clj-time.periodic :refer [periodic-seq]]
-            [clj-money.util :as util]
+            [clj-money.util :refer [to-sql-date]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
@@ -65,8 +66,8 @@
   (when budget
     (-> budget
         (authorization/tag-resource :budget)
-        (update-in [:start-date] tc/to-local-date)
-        (update-in [:end-date] tc/to-local-date)
+        (update-in [:start-date] to-local-date)
+        (update-in [:end-date] to-local-date)
         (update-in [:period] keyword)
         (assoc :items (select-items-by-budget-id storage (:id budget))))))
 
@@ -103,8 +104,8 @@
                         {:start start
                          :end (t/minus next-start Days/ONE)
                          :index index
-                         :interval (t/interval (tc/to-date-time start)
-                                               (tc/to-date-time next-start))}))
+                         :interval (t/interval (to-date-time start)
+                                               (to-date-time next-start))}))
          (take (:period-count budget)))))
 
 (defn end-date
@@ -113,13 +114,13 @@
       period-seq
       last
       :end
-      tc/to-local-date))
+      to-local-date))
 
 (defn- before-save
   [_ budget]
   (-> budget
-      (assoc :end-date (tc/to-long (end-date budget)))
-      (update-in [:start-date] tc/to-long)
+      (assoc :end-date (to-sql-date (end-date budget)))
+      (update-in [:start-date] to-sql-date)
       (update-in [:period] name)))
 
 (defn- period-count-must-be-greater-than-one
@@ -159,7 +160,7 @@
   "Returns the budget containing the specified date"
   [storage-spec entity-id date]
   (with-storage [s storage-spec]
-    (->> (find-budget-by-date s entity-id (tc/to-long date))
+    (->> (find-budget-by-date s entity-id (to-sql-date date))
          (after-read s))))
 
 (defn reload
@@ -299,9 +300,9 @@
   the specified date is in the specified period"
   [period date]
   (t/within?
-    (tc/to-date-time (:start period))
-    (tc/to-date-time (:end period))
-    (tc/to-date-time date)))
+    (to-date-time (:start period))
+    (to-date-time (:end period))
+    (to-date-time date)))
 
 (defn period-containing
   "Returns the budget period containing the specified date
@@ -309,13 +310,13 @@
   This is a map containing :start-date, :end-date, :index, etc."
   [budget date]
   (->> (map-indexed #(assoc %2 :index %1) (period-seq budget))
-       (filter #(within-period? % (tc/to-date-time date)))
+       (filter #(within-period? % (to-date-time date)))
        first))
 
 (defn percent-of-period
   [budget as-of]
   (let [period (period-containing budget as-of)
         days-in-period (t/in-days (:interval period))
-        days (+ 1 (t/in-days (t/interval (tc/to-date-time (:start period))
-                                         (tc/to-date-time as-of))))]
+        days (+ 1 (t/in-days (t/interval (to-date-time (:start period))
+                                         (to-date-time as-of))))]
     (with-precision 5 (/ days days-in-period))))

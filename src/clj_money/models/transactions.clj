@@ -3,8 +3,9 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
             [clojure.set :refer [difference]]
-            [clj-time.coerce :as tc]
-            [clj-money.util :refer [ensure-local-date pprint-and-return]]
+            [clj-time.coerce :refer [to-local-date]]
+            [clj-money.util :refer [pprint-and-return
+                                    to-sql-date]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
@@ -98,7 +99,7 @@
      (cond-> item
        true (update-in [:action] keyword)
        true (assoc :reconciled? (= "completed" (:reconciliation-status item)))
-       (:transaction-date item) (update-in [:transaction-date] tc/to-local-date)
+       (:transaction-date item) (update-in [:transaction-date] to-local-date)
        account (polarize-item-amount account))
      item)))
 
@@ -150,7 +151,7 @@
   [transaction]
   (-> transaction
       (dissoc :items)
-      (update-in [:transaction-date] tc/to-long)
+      (update-in [:transaction-date] to-sql-date)
       (update-in [:lot-items] #(when %
                                  (map (fn [i]
                                         (update-in i [:lot-action] name))
@@ -189,7 +190,7 @@
   [storage transaction]
   (when transaction
     (-> transaction
-        (update-in [:transaction-date] tc/to-local-date)
+        (update-in [:transaction-date] to-local-date)
         (append-items storage)
         (append-lot-items storage)
         (authorization/tag-resource :transaction))))
@@ -199,7 +200,7 @@
   [storage item transaction-date]
   (->> (select-transaction-items storage
                                  {:i.account-id (:account-id item)
-                                  :t.transaction-date [:< (tc/to-long transaction-date)]}
+                                  :t.transaction-date [:< (to-sql-date transaction-date)]}
                                  {:sort [[:t.transaction-date :desc] [:i.index :desc]]})
        (remove #(= (:id %) (:id item)))
        first))
@@ -281,7 +282,7 @@
      (->> (select-transaction-items
             s
             {:i.account-id (:account-id reference-item)
-             :t.transaction-date [:>= (tc/to-long transaction-date)]}
+             :t.transaction-date [:>= (to-sql-date transaction-date)]}
             {:sort [:index]})
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read)))))
@@ -668,8 +669,8 @@
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
   [storage-spec account-id start end]
-  (let [t1 (find-last-item-before storage-spec account-id (tc/to-long start))
-        t2 (find-last-item-on-or-before storage-spec account-id (tc/to-long end))
+  (let [t1 (find-last-item-before storage-spec account-id (to-sql-date start))
+        t2 (find-last-item-on-or-before storage-spec account-id (to-sql-date end))
         prior-balance (if t1 (:balance t1) 0M)]
     (if t2
       (- (:balance t2) prior-balance)
@@ -678,7 +679,7 @@
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
   [storage-spec account-id as-of]
-  (let [t (find-last-item-on-or-before storage-spec account-id (tc/to-long as-of))]
+  (let [t (find-last-item-on-or-before storage-spec account-id (to-sql-date as-of))]
     (if t
       (:balance t)
       0M)))

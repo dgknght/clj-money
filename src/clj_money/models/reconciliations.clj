@@ -2,8 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec :as s]
             [clojure.pprint :refer [pprint]]
-            [clj-time.coerce :as tc]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-time.coerce :refer [to-local-date]]
+            [clj-money.util :refer [to-sql-date]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -47,14 +47,14 @@
 (defn- before-save
   [reconciliation]
   (-> reconciliation
-      (update-in [:end-of-period] tc/to-long)
+      (update-in [:end-of-period] to-sql-date)
       (update-in [:status] name)))
 
 (defn- after-read
   [reconciliation]
   (when reconciliation
     (-> reconciliation
-        (update-in [:end-of-period] tc/to-local-date)
+        (update-in [:end-of-period] to-local-date)
         (update-in [:status] keyword)
         (authorization/tag-resource :reconciliation))))
 

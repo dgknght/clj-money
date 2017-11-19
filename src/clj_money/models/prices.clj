@@ -4,7 +4,8 @@
             [clojure.tools.logging :as log]
             [clojure.spec :as s]
             [clj-time.core :as t]
-            [clj-time.coerce :as tc]
+            [clj-time.coerce :refer [to-local-date]]
+            [clj-money.util :refer [to-sql-date]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -26,14 +27,14 @@
 
 (defn- before-save
   [price]
-  (update-in price [:trade-date] tc/to-long))
+  (update-in price [:trade-date] to-sql-date))
 
 (defn- after-read
   [price]
   (when price
     (-> price
         (authorization/tag-resource :price)
-        (update-in [:trade-date] tc/to-local-date))))
+        (update-in [:trade-date] to-local-date))))
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])
@@ -46,7 +47,7 @@
                (select-prices
                  storage
                  {:commodity-id commodity-id
-                  :trade-date (tc/to-long trade-date)}))))
+                  :trade-date (to-sql-date trade-date)}))))
 
 (defn- validation-rules
   [storage]
@@ -113,6 +114,6 @@
      (-> (select-prices s
                         {:commodity-id commodity-id}
                         {:limit 1
-                         :as-of (tc/to-long as-of)})
+                         :as-of (to-sql-date as-of)})
          first
          after-read))))

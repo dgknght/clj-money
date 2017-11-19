@@ -2,8 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec :as s]
-            [clj-time.coerce :as tc]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-time.coerce :refer [to-local-date]]
+            [clj-money.util :refer [pprint-and-return
+                                    to-sql-date]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -42,13 +43,13 @@
 (defn- before-save
   [_ lot]
   (-> lot
-      (update-in [:purchase-date] tc/to-long)
+      (update-in [:purchase-date] to-sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 
 (defn- after-read
   ([lot] (after-read nil lot))
   ([_ lot]
-   (update-in lot [:purchase-date] tc/to-local-date)))
+   (update-in lot [:purchase-date] to-local-date)))
 
 (defn- before-validation
   [storage lot]

@@ -63,6 +63,10 @@
     (string? value)
     (parse-local-date value)))
 
+(defn to-sql-date
+  [value]
+  (java.sql.Date. (.getTime (.toDate value))))
+
 (defn pprint-and-return
   [message value]
   (println "")

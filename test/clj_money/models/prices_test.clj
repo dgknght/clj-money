@@ -1,6 +1,7 @@
 (ns clj-money.models.prices-test
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
+            [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
@@ -30,12 +31,21 @@
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        actual (->> {:commodity-id (:id commodity)}
+                    (prices/search storage-spec)
+                    (map #(dissoc % :id :created-at :updated-at)))
+        expected [{:commodity-id (:id commodity)
+                   :trade-date (t/local-date 2017 3 2)
+                   :price 12.34M}]]
     (is (integer? (:id price))
         "The result contains an ID value")
     (is (empty? (validation/error-messages price))
         "The result does not contain any validation errors")
-    (is (seq (filter #(= (t/local-date 2017 3 2) (:trade-date %)) prices))
+    (when-not (= expected actual)
+      (pprint {:expected expected
+               :actual actual
+               :diff (diff expected actual)}))
+    (is (= expected actual)
         "The price can be retrieved after create")))
 
 (deftest commodity-id-is-required
