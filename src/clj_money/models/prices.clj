@@ -15,15 +15,14 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.storage :refer [create-price
-                                              find-price-by-id
                                               update-price
                                               select-prices
                                               delete-price]]))
 
 (s/def ::commodity-id integer?)
 (s/def ::trade-date (partial instance? org.joda.time.LocalDate))
-(s/def ::price (partial instance? BigDecimal))
-(s/def ::id integer?)
+(s/def ::price decimal?)
+(s/def ::id uuid?)
 (s/def ::new-price (s/keys :req-un [::commodity-id ::trade-date ::price]))
 (s/def ::existing-price (s/keys :req-un [::id ::trade-date ::price] :opt-un [::commodity-id]))
 
@@ -32,11 +31,13 @@
   (update-in price [:trade-date] to-sql-date))
 
 (defn- after-read
-  [price]
-  (when price
-    (-> price
-        (authorization/tag-resource :price)
-        (update-in [:trade-date] to-local-date))))
+  ([_ price]
+   (after-read price))
+  ([price]
+   (when price
+     (-> price
+         (authorization/tag-resource :price)
+         (update-in [:trade-date] to-local-date)))))
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])
@@ -70,22 +71,34 @@
 (def create
   (create-fn {:create create-price
               :before-save before-save
+              :after-read after-read
               :spec ::new-price
               :rules-fn validation-rules
               :coercion-rules coercion-rules}))
 
-(defn find-by-id
-  [storage-spec id]
-  (with-storage [s storage-spec]
-    (->> id
-         (find-price-by-id s)
-         after-read)))
-
 (defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> (select-prices s criteria)
-         (map after-read))))
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (->> (select-prices s (-> criteria
+                               ; TODO need a more comprehensive way to ensure criteria
+                               ; values are coerced correctly
+                               (update-in [:trade-date] (fn [value]
+                                                          (if (vector? value)
+                                                            (-> value
+                                                                (update-in [1] to-sql-date)
+                                                                (update-in [2] to-sql-date))
+                                                            (to-sql-date value)))))
+                         options)
+          (map after-read)))))
+
+(defn find-by-id
+  [storage-spec id trade-date]
+  (first (search storage-spec
+                 {:id id
+                  :trade-date trade-date}
+                 {:limit 1})))
 
 (def update
   (update-fn {:update update-price

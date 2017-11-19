@@ -41,7 +41,7 @@
         expected [{:commodity-id (:id commodity)
                    :trade-date (t/local-date 2017 3 2)
                    :price 12.34M}]]
-    (is (integer? (:id price))
+    (is (:id price)
         "The result contains an ID value")
     (is (empty? (validation/error-messages price))
         "The result does not contain any validation errors")
@@ -57,7 +57,10 @@
         commodity (-> context :commodities first)
         price (prices/create storage-spec {:trade-date (t/local-date 2017 3 2)
                                            :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 3 1)
+                                                         (t/local-date 2017 3 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Commodity id is required"] (validation/error-messages price :commodity-id))
@@ -70,7 +73,10 @@
         commodity (-> context :commodities first)
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 1 1)
+                                                         (t/local-date 2017 12 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Trade date is required"] (validation/error-messages price :trade-date))
@@ -84,7 +90,10 @@
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date "notadate"
                                            :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 1 1)
+                                                         (t/local-date 2017 12 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Trade date must be an instance of class org.joda.time.LocalDate"] (validation/error-messages price :trade-date))
@@ -101,7 +110,10 @@
         price-2 (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price 43.21M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 1 1)
+                                                         (t/local-date 2017 12 31)]})]
     (is (integer? (:id price-1))
         "The first result contains an ID value")
     (is (nil? (:id price-2))
@@ -119,7 +131,10 @@
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date "2017-03-02"
                                            :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 3 1)
+                                                         (t/local-date 2017 3 31)]})]
     (is (integer? (:id price))
         "The result contains an ID value")
     (is (empty? (validation/error-messages price))
@@ -132,7 +147,10 @@
         commodity (-> context :commodities first)
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 3 1)
+                                                         (t/local-date 2017 3 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Price is required"] (validation/error-messages price :price))
@@ -146,7 +164,10 @@
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price "notanumber"})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 3 1)
+                                                         (t/local-date 2017 3 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Price must be an instance of class java.math.BigDecimal"] (validation/error-messages price :price))
@@ -160,7 +181,10 @@
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price "12.34"})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices (prices/search storage-spec {:commodity-id (:id commodity)
+                                            :trade-date [:between
+                                                         (t/local-date 2017 3 1)
+                                                         (t/local-date 2017 3 31)]})]
     (is (integer? (:id price))
         "The result contains an ID value")
     (is (empty? (validation/error-messages price))
@@ -176,8 +200,11 @@
 (deftest a-price-can-be-updated
   (let [context (serialization/realize storage-spec existing-price-context)
         price (-> context :prices first)
+
+        _ (pprint {:price price})
+
         result (prices/update storage-spec (assoc price :price "10"))
-        retrieved (prices/find-by-id storage-spec (:id price))]
+        retrieved (prices/find-by-id storage-spec (:id price) (:trade-date price))]
     (is (empty? (validation/error-messages result))
         "The result does not have any validation errors")
     (is (= 10.00M (:price retrieved))

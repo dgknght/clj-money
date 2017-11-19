@@ -19,6 +19,7 @@
 (defn- id-criteria?
   [value]
   (or (integer? value)
+      (uuid? value)
       (and (coll? value)
            (seq value)
            (every? integer? value))))
@@ -40,12 +41,29 @@
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 (s/def ::image-criteria (s/keys :req-un [::user-id]))
-(defmulti price-criteria #(contains? % :commodity-id))
-(defmethod price-criteria true [_]
+
+(defn- price-criteria-selector
+  [criteria]
+  (cond
+
+    (contains? criteria :commodity-id)
+    :commodity-id
+
+    (contains? criteria :id)
+    :id
+
+    :else
+    :entity-id))
+
+(defmulti price-criteria price-criteria-selector)
+(defmethod price-criteria :commodity-id [_]
   (s/keys :req-un [::commodity-id]))
-(defmethod price-criteria false [_]
+(defmethod price-criteria :id [_]
+  (s/keys :req-un [::id]))
+(defmethod price-criteria :entity-id [_]
   (s/keys :req-un [::entity-id]))
-(s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :commodity-id)))
+(s/def ::price-criteria (s/multi-spec price-criteria price-criteria-selector))
+
 (defmulti attachment-criteria #(contains? % :id))
 (defmethod attachment-criteria true [_]
   (s/keys :req-un [::id]))
@@ -164,10 +182,12 @@
           (reduce conj [:and])))))
 
 (defn- append-where
-  [sql criteria]
-  (if (and criteria (seq criteria))
-    (h/merge-where sql (map->where criteria))
-    sql))
+  ([sql criteria]
+   (append-where sql criteria {}))
+  ([sql criteria options]
+   (if (and criteria (seq criteria))
+     (h/merge-where sql (map->where criteria options))
+     sql)))
 
 (defn- append-sort
   [sql options]
@@ -490,16 +510,11 @@
                 (let [sql (-> (h/select :p.*)
                               (h/from [(keyword table) :p])
                               (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                              (append-where criteria)
-
+                              (append-where criteria {:prefix "p"})
                               (append-limit options)
                               (append-paging options))]
                   (query db-spec sql)))
               (tables-for-range start end :prices))))
-
-  (find-price-by-id
-    [_ id]
-    (->clojure-keys (jdbc/get-by-id db-spec :prices id)) )
 
   (update-price
     [_ price]

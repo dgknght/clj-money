@@ -3,11 +3,10 @@
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-long
-                                     to-local-date]]
+            [clj-time.coerce :refer [to-local-date]]
             [environ.core :refer [env]]
             [selmer.parser :refer [render]]
-            [clj-money.util :refer [ensure-local-date]]))
+            [clj-money.util :refer [to-sql-date]]))
 
 (defn table-name
   "Given a date and a base table name, returns the name
@@ -45,8 +44,8 @@
   [date table]
   (render (slurp "resources/db/create_partition_table.sql")
           {:table-name (table-name date table)
-           :start-of-period (to-long (start-of-period date))
-           :start-of-next-period (to-long (start-of-next-period date))
+           :start-of-period (to-local-date (start-of-period date))
+           :start-of-next-period (to-local-date (start-of-next-period date))
            :base-table-name (format "%s_base" table)}))
 
 (defn- create-table-cmds

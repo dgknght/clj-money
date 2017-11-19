@@ -2,7 +2,7 @@ create extension if not exists pgcrypto;
 
 create table prices_base (
   id uuid not null primary key default gen_random_uuid(),
-  trade_date bigint not null,
+  trade_date date not null,
   commodity_id int not null,
   price numeric(10,2) not null,
   created_at timestamp with time zone not null default now(),
