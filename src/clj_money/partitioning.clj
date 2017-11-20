@@ -57,6 +57,11 @@
        (map #(create-table-cmd date %))))
 
 (defn create-partition-tables
+  "Creates the specified partition tables.
+
+  Options:
+    :silent - do not output the commands that are generated
+    :dry-run - do not execute the commands that are generated"
   [date options]
   (jdbc/with-db-connection [c (env :db)]
     (doseq [cmd (create-table-cmds date)]
