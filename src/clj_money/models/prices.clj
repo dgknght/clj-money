@@ -5,7 +5,8 @@
             [clojure.spec :as s]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-local-date]]
-            [clj-money.util :refer [to-sql-date]]
+            [clj-money.util :refer [pprint-and-return
+                                    to-sql-date]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -100,11 +101,15 @@
                   :trade-date trade-date}
                  {:limit 1})))
 
+(defn reload
+  [storage-spec price]
+  (find-by-id storage-spec (:id price) (:trade-date price)))
+
 (def update
   (update-fn {:update update-price
               :before-save before-save
               :rules-fn validation-rules
-              :find find-by-id
+              :reload reload
               :spec ::existing-price
               :after-read after-read
               :coercion-rules coercion-rules}))
@@ -119,13 +124,19 @@
    (most-recent storage-spec commodity-id (t/today)))
   ([storage-spec commodity-id as-of]
    (with-storage [s storage-spec]
-     (-> (select-prices s
-                        ; TODO this query needs to be broken
-                        ; down by the paritions, as it could
-                        ; result in a false find
-                        {:commodity-id commodity-id
-                         :trade-date [:between (t/minus as-of (t/months 1)) as-of]}
-                        {:limit 1
-                         :sort [[:trade-date :desc]]})
-         first
-         after-read))))
+     (->> (select-prices s
+                         ; TODO this query needs to be broken
+                         ; down by the paritions, as it could
+                         ; result in a false find
+                         {:commodity-id commodity-id
+                          :trade-date [:between
+                                       (to-sql-date (t/minus as-of (t/months 1)))
+                                       (to-sql-date as-of)]}
+                         {:limit 1
+                          :sort [[:trade-date :desc]]})
+
+          (pprint-and-return "prices")
+
+          (sort-by :trade-date <)
+          first
+          after-read))))

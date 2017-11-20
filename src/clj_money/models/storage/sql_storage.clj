@@ -506,19 +506,20 @@
     (let [[start end] (if (sequential? trade-date)
                         (rest trade-date)
                         [trade-date trade-date])]
-      (mapcat (fn [table]
-                (let [sql (-> (h/select :p.*)
-                              (h/from [(keyword table) :p])
-                              (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                              (append-where criteria {:prefix "p"})
-                              (append-limit options)
-                              (append-paging options))]
-                  (query db-spec sql)))
-              (tables-for-range start end :prices))))
+      (->> (tables-for-range start end :prices)
+           (map keyword)
+           (mapcat (fn [table]
+                     (let [sql (-> (h/select :p.*)
+                                   (h/from [table :p])
+                                   (h/join [:commodities :c] [:= :c.id :p.commodity_id])
+                                   (append-where criteria {:prefix "p"})
+                                   (append-limit options)
+                                   (append-paging options))]
+                       (query db-spec sql)))))))
 
   (update-price
     [_ price]
-    (let [sql (sql/format (-> (h/update :prices)
+    (let [sql (sql/format (-> (h/update (keyword (table-name (:trade-date price) :prices)))
                               (h/sset (->update-set price
                                                     :trade-date
                                                     :price))
@@ -526,8 +527,10 @@
       (jdbc/execute! db-spec sql)))
 
   (delete-price
-    [_ id]
-    (jdbc/delete! db-spec :prices ["id = ?" id]))
+    [_ price]
+    (jdbc/delete! db-spec
+                  (keyword (table-name (:trade-date price) :prices))
+                  ["id = ?" (:id price)]))
 
   (delete-prices-by-commodity-id
     [_ commodity-id]
