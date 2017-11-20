@@ -29,6 +29,12 @@
              (= 'integer? pred))
     [path (format "%s must be an integer" (humanize (last path)))]))
 
+(defn- interpret-decimal-failure
+  [{:keys [path pred]}]
+  (when (and (symbol? pred)
+             (= 'decimal? pred))
+    [path (format "%s must be a decimal" (humanize (last path)))]))
+
 (defn non-empty-string?
   [value]
   (and (string? value)
@@ -112,6 +118,7 @@
 (def problem-interpreters
   [interpret-required-failure
    interpret-integer-failure
+   interpret-decimal-failure
    interpret-regex-failure
    interpret-empty-string-failure
    interpret-positive-big-dec-failure
