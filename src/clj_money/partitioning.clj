@@ -12,6 +12,8 @@
   "Given a date and a base table name, returns the name
   of the partition table where the date belongs"
   [date root]
+  (if-not date
+    (throw (IllegalArgumentException. "Argument \"date\" cannot be nil")))
   (let [[year month] ((juxt t/year t/month) (to-local-date date))]
     (format "%s_%04d_%02d" (name root) year month)))
 
