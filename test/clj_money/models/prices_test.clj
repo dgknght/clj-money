@@ -170,7 +170,7 @@
                                                          (t/local-date 2017 3 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
-    (is (= ["Price must be an instance of class java.math.BigDecimal"] (validation/error-messages price :price))
+    (is (= ["Price must be a decimal"] (validation/error-messages price :price))
         "The result contains a validation error")
     (is (not (seq (filter #(= (:id commodity) (:commodity-id %)) prices)))
         "The price cannot be retrieved after create")))
@@ -200,9 +200,6 @@
 (deftest a-price-can-be-updated
   (let [context (serialization/realize storage-spec existing-price-context)
         price (-> context :prices first)
-
-        _ (pprint {:price price})
-
         result (prices/update storage-spec (assoc price :price "10"))
         retrieved (prices/find-by-id storage-spec (:id price) (:trade-date price))]
     (is (empty? (validation/error-messages result))
@@ -213,8 +210,9 @@
 (deftest a-price-can-be-deleted
   (let [context (serialization/realize storage-spec existing-price-context)
         price (-> context :prices first)
-        _ (prices/delete storage-spec (:id price))
-        prices (prices/search storage-spec {:commodity-id (:commodity-id price)})]
+        _ (prices/delete storage-spec price)
+        prices (prices/search storage-spec {:commodity-id (:commodity-id price)
+                                            :trade-date (:trade-date price)})]
     (is (empty? (filter #(= (:id price) (:id %))  prices))
         "The result is not retrieved after delete")))
 
