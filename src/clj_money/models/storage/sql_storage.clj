@@ -280,6 +280,14 @@
       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
       (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
 
+(defn- descending-sort?
+  "Returns a boolean value indicating whether or not
+  the first segment of the sort expression specified
+  descending order"
+  [[sort-exp]]
+  (when (and sort-exp (sequential? sort-exp))
+    (= :desc (second sort-exp))))
+
 (deftype SqlStorage [db-spec]
   Storage
 
@@ -505,17 +513,23 @@
     (validate-criteria criteria ::price-criteria)
     (let [[start end] (if (sequential? trade-date)
                         (rest trade-date)
-                        [trade-date trade-date])]
-      (->> (tables-for-range start end :prices)
-           (map keyword)
-           (mapcat (fn [table]
-                     (let [sql (-> (h/select :p.*)
-                                   (h/from [table :p])
-                                   (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                                   (append-where criteria {:prefix "p"})
-                                   (append-limit options)
-                                   (append-paging options))]
-                       (query db-spec sql)))))))
+                        [trade-date trade-date])
+          tables (cond-> (tables-for-range start end :prices)
+                  (descending-sort? (:sort options))
+                  reverse)
+          result (->> tables
+                      (map keyword)
+                      (mapcat (fn [table]
+                                (let [sql (-> (h/select :p.*)
+                                              (h/from [table :p])
+                                              (h/join [:commodities :c] [:= :c.id :p.commodity_id])
+                                              (append-where criteria {:prefix "p"})
+                                              (append-limit options)
+                                              (append-paging options))]
+                                  (query db-spec sql)))))]
+      (if (= 1 (:limit options))
+        (take 1 result)
+        result)))
 
   (update-price
     [_ price]
