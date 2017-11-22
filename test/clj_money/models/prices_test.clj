@@ -8,7 +8,8 @@
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            find-commodity]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
@@ -21,7 +22,7 @@
    :entities [{:name "Personal"}
               {:name "Business"}]
    :commodities [{:name "Apple"
-                  :symbol "APPL"
+                  :symbol "AAPL"
                   :type :stock
                   :exchange :nasdaq}]})
 
@@ -114,7 +115,7 @@
                                             :trade-date [:between
                                                          (t/local-date 2017 1 1)
                                                          (t/local-date 2017 12 31)]})]
-    (is (integer? (:id price-1))
+    (is (:id price-1)
         "The first result contains an ID value")
     (is (nil? (:id price-2))
         "The duplicate value does not receive an ID")
@@ -135,7 +136,7 @@
                                             :trade-date [:between
                                                          (t/local-date 2017 3 1)
                                                          (t/local-date 2017 3 31)]})]
-    (is (integer? (:id price))
+    (is (:id price)
         "The result contains an ID value")
     (is (empty? (validation/error-messages price))
         "The result does not contain any validation errors")
@@ -185,7 +186,7 @@
                                             :trade-date [:between
                                                          (t/local-date 2017 3 1)
                                                          (t/local-date 2017 3 31)]})]
-    (is (integer? (:id price))
+    (is (:id price)
         "The result contains an ID value")
     (is (empty? (validation/error-messages price))
         "The result does not contain any validation errors")
@@ -193,7 +194,7 @@
         "The price can be retrieved after create")))
 
 (def ^:private existing-price-context
-  (assoc price-context :prices [{:commodity-id "APPL"
+  (assoc price-context :prices [{:commodity-id "AAPL"
                                  :trade-date (t/local-date 2017 3 2)
                                  :price 12.34M}]))
 
@@ -217,18 +218,18 @@
         "The result is not retrieved after delete")))
 
 (def ^:private multi-price-context
-  (assoc price-context :prices [{:commodity-id "APPL"
+  (assoc price-context :prices [{:commodity-id "AAPL"
                                  :trade-date (t/local-date 2017 2 27)
                                  :price 12.34M}
-                                {:commodity-id "APPL"
+                                {:commodity-id "AAPL"
                                  :trade-date (t/local-date 2017 3 2)
                                  :price 12.20}
-                                {:commodity-id "APPL"
+                                {:commodity-id "AAPL"
                                  :trade-date (t/local-date 2017 3 1)
                                  :price 12.00}]))
 
 (deftest get-the-most-recent-price-for-a-commodity
   (let [context (serialization/realize storage-spec multi-price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/most-recent storage-spec (:id commodity))]
     (is (= 12.20M (:price price)) "The must recent price is returned")))
