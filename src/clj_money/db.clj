@@ -25,6 +25,8 @@
 
 (defn create-partitions
   [& args]
-  (let [{:keys [arguments options]} (parse-opts args create-partitions-options)]
-    (create-partition-tables (-> arguments first parse-local-date)
-                            options)))
+  (let [{:keys [arguments options]} (parse-opts args create-partitions-options)
+        start-date (-> arguments first parse-local-date)
+        end-date (or (-> arguments second parse-local-date)
+                     start-date)]
+    (create-partition-tables start-date end-date options)))
