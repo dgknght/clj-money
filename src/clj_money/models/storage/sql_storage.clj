@@ -14,7 +14,8 @@
             [clj-money.partitioning :refer [table-name
                                             tables-for-range]]
             [clj-money.models.storage :refer [Storage]])
-  (:import java.sql.BatchUpdateException))
+  (:import [java.sql BatchUpdateException
+                     Date]))
 
 (defn- id-criteria?
   [value]
@@ -30,6 +31,8 @@
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::transaction-id integer?)
+(s/def ::date (partial instance? Date))
+
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
   (s/keys :req-un [::account-id] :opt-un[::commodity-id ::entity-id]))
@@ -41,6 +44,13 @@
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 (s/def ::image-criteria (s/keys :req-un [::user-id]))
+
+(defmulti trade-date vector?)
+(defmethod trade-date true [_]
+  (s/tuple keyword? ::date ::date))
+(defmethod trade-date false [_]
+  ::date)
+(s/def ::trade-date (s/multi-spec trade-date vector?))
 
 (defn- price-criteria-selector
   [criteria]
@@ -57,11 +67,11 @@
 
 (defmulti price-criteria price-criteria-selector)
 (defmethod price-criteria :commodity-id [_]
-  (s/keys :req-un [::commodity-id]))
+  (s/keys :req-un [::commodity-id ::trade-date]))
 (defmethod price-criteria :id [_]
-  (s/keys :req-un [::id]))
+  (s/keys :req-un [::id ::trade-date]))
 (defmethod price-criteria :entity-id [_]
-  (s/keys :req-un [::entity-id]))
+  (s/keys :req-un [::entity-id ::trade-date]))
 (s/def ::price-criteria (s/multi-spec price-criteria price-criteria-selector))
 
 (defmulti attachment-criteria #(contains? % :id))
