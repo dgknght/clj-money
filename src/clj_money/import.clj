@@ -87,6 +87,12 @@
     (log/info (format "imported budget \"%s\"" (:name result))))
   context)
 
+(defn- import-commodity
+  [{:keys [entity storage] :as context} commodity]
+  (let [to-create (assoc commodity :entity-id (:id entity))
+        created (commodities/create storage to-create)]
+    (update-in context [:commodities] #((fnil conj []) % created))))
+
 (defn- resolve-account-references
   [context items]
   (map (fn [item]
@@ -183,10 +189,8 @@
   (import-price context price))
 
 (defmethod process-record :commodity
-  [{:keys [entity storage] :as context} commodity _]
-  (let [to-create (assoc commodity :entity-id (:id entity))
-        created (commodities/create storage to-create)]
-    (update-in context [:commodities] #((fnil conj []) % created))))
+  [context commodity _]
+  (import-commodity context commodity))
 
 (def ^:private reportable-record-types
   #{:commodity :price :account :transaction :budget})
