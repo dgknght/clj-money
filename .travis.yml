@@ -1,6 +1,8 @@
 language: clojure
 services:
   - postgresql
+addons:
+  postgresql: "9.6"
 script:
   - createuser -s -e app_user
   - createdb money_test
