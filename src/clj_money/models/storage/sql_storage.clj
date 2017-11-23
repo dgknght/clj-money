@@ -52,27 +52,12 @@
   ::date)
 (s/def ::trade-date (s/multi-spec trade-date vector?))
 
-(defn- price-criteria-selector
-  [criteria]
-  (cond
-
-    (contains? criteria :commodity-id)
-    :commodity-id
-
-    (contains? criteria :id)
-    :id
-
-    :else
-    :entity-id))
-
-(defmulti price-criteria price-criteria-selector)
-(defmethod price-criteria :commodity-id [_]
+(defmulti price-criteria #(contains? % :id))
+(defmethod price-criteria false [_]
   (s/keys :req-un [::commodity-id ::trade-date]))
-(defmethod price-criteria :id [_]
+(defmethod price-criteria true [_]
   (s/keys :req-un [::id ::trade-date]))
-(defmethod price-criteria :entity-id [_]
-  (s/keys :req-un [::entity-id ::trade-date]))
-(s/def ::price-criteria (s/multi-spec price-criteria price-criteria-selector))
+(s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :id)))
 
 (defmulti attachment-criteria #(contains? % :id))
 (defmethod attachment-criteria true [_]
@@ -498,7 +483,8 @@
     (query db-spec (-> (h/select :*)
                        (h/from :commodities)
                        (h/where (map->where criteria))
-                       (append-paging options))))
+                       (append-paging options)
+                       (append-limit options))))
 
   (delete-commodity
     [_ id]
