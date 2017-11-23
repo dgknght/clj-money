@@ -77,23 +77,19 @@
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
-(defn- include-account?
-  [account]
-  (not (ignored-accounts (:name account))))
-
 (defmethod process-node :gnc:account
   [callback node]
-  (let [account (node->model node account-attributes)
-        account (-> account
-                    (with-meta {:record-type :account
-                                :ignore? (not (include-account? account))})
-                    (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
-                                                   (-> exchange
-                                                       s/lower-case
-                                                       keyword))
-                                       :symbol (:commodity-symbol account)})
-                    (dissoc :commodity-exchange :commodity-symbol))]
-    (callback account)))
+  (let [account (node->model node account-attributes)]
+    (-> account
+        (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
+                                       (-> exchange
+                                           s/lower-case
+                                           keyword))
+                           :symbol (:commodity-symbol account)})
+        (dissoc :commodity-exchange :commodity-symbol)
+        (with-meta {:record-type :account
+                    :ignore? (ignored-accounts (:name account))})
+        callback)))
 
 (def ^:private budget-attributes
   [{:attribute :id
