@@ -280,7 +280,8 @@
                    :trade-date (t/local-date 2016 1 2)
                    :price 10M}]
         actual (map #(select-keys % [:commodity-id :trade-date :price])
-                    (prices/search storage-spec {:commodity-id (:id commodity)}))]
+                    (prices/search storage-spec {:commodity-id (:id commodity)
+                                                 :trade-date (t/local-date 2016 1 2)}))]
     (is (= expected actual) "The price can be retrieved from the database")))
 
 (deftest buying-a-commodity-reduces-the-balance-of-the-account
