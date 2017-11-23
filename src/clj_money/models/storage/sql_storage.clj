@@ -737,19 +737,19 @@
     [this criteria]
     (.select-transaction-items this criteria {}))
 
-(select-transaction-items
-  [_ criteria options]
-  (let [sql (-> (transaction-item-base-query)
-                (adjust-select options)
-                (h/where (map->where criteria))
-                (append-sort (merge
-                               {:sort [:t.transaction_date :i.index]}
-                               options))
-                (append-limit options))
-        result (query db-spec sql)]
-    (if (:count options)
-      (-> result first vals first)
-      result)))
+  (select-transaction-items
+    [_ criteria options]
+    (let [sql (-> (transaction-item-base-query)
+                  (adjust-select options)
+                  (h/where (map->where criteria))
+                  (append-sort (merge
+                                {:sort [:t.transaction_date :i.index]}
+                                options))
+                  (append-limit options))
+          result (query db-spec sql)]
+      (if (:count options)
+        (-> result first vals first)
+        result)))
 
   ; Reconciliations
   (create-reconciliation
