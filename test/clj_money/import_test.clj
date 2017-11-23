@@ -280,7 +280,14 @@
                                     :created-at
                                     :updated-at)
                          lots)
-        prices  (prices/search storage-spec {:entity-id (:id entity)})
+        aapl (first (commodities/search storage-spec
+                                        {:entity-id (:id entity)
+                                         :symbol "AAPL"}
+                                        {:limit 1}))
+        prices  (prices/search storage-spec {:commodity-id (:id aapl)
+                                             :trade-date [:between
+                                                          (t/local-date 2015 1 1)
+                                                          (t/local-date 2015 12 31)]})
         actual-prices (->> prices
                            (map #(dissoc % :id
                                            :commodity-id
