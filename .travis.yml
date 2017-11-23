@@ -1,6 +1,6 @@
 language: clojure
 script:
-  - createuser app_user
+  - createuser -s app_user
   - createdb money_test
   - lein with-profile test migrate
   - lein test
