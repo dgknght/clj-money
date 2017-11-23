@@ -3,4 +3,5 @@ script:
   - createuser -s app_user
   - createdb money_test
   - lein with-profile test migrate
+  - lein with-profile partition 1/1/2015 12/31/2017
   - lein test
