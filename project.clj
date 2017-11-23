@@ -37,6 +37,7 @@
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :main clj-money.web.server
+  :aot [clj-money.web.server]
   :aliases {"migrate" ["run" "-m" "clj-money.db/migrate"]
             "rollback" ["run" "-m" "clj-money.db/rollback"]
             "partition" ["run" "-m" "clj-money.db/create-partitions"]
