@@ -180,12 +180,13 @@
                          :amount 275M}}}]}])
 
 (defn- track-record
-  [store record record-type]
-  (swap! store (fn [f]
-                 (cond-> f
-                   record
-                   (update-in [record-type]
-                              #((fnil conj []) % record))))))
+  [store record]
+  (let [{:keys [record-type ignore?]} (meta record)]
+    (swap! store (fn [f]
+                   (cond-> f
+                     (not ignore?)
+                     (update-in [record-type]
+                                #((fnil conj []) % record)))))))
 
 (deftest read-gnucash-source
   (let [found (atom {})]

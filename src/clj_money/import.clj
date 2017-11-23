@@ -163,33 +163,33 @@
       update-progress))
 
 (defmulti process-record
-  (fn [_ _ record-type]
-    record-type))
+  (fn [_ record]
+    (-> record meta :record-type)))
 
 (defmethod process-record :declaration
-  [context {:keys [record-type record-count]} _]
+  [context {:keys [record-type record-count]}]
   (-> context
       (assoc-in [:progress record-type :total] record-count)
       update-progress))
 
 (defmethod process-record :account
-  [context account _]
+  [context account]
   (import-account context account))
 
 (defmethod process-record :transaction
-  [context transaction _]
+  [context transaction]
   (import-transaction context transaction))
 
 (defmethod process-record :budget
-  [context budget _]
+  [context budget]
   (import-budget context budget))
 
 (defmethod process-record :price
-  [context price _]
+  [context price]
   (import-price context price))
 
 (defmethod process-record :commodity
-  [context commodity _]
+  [context commodity]
   (import-commodity context commodity))
 
 (def ^:private reportable-record-types
@@ -208,13 +208,14 @@
 
   If the record is nil, processing is skipped but
   the progress is updated."
-  [context record record-type]
-  (swap! context #(cond-> %
-                    record
-                    (process-record record record-type)
+  [context record]
+  (let [{:keys [record-type ignore?]} (meta record)]
+    (swap! context #(cond-> %
+                      (not ignore?)
+                      (process-record record)
 
-                    (report-progress? record-type)
-                    (inc-and-update-progress record-type))))
+                      (report-progress? record-type)
+                      (inc-and-update-progress record-type)))))
 
 (defn import-data
   "Reads the contents from the specified input and saves

@@ -85,20 +85,15 @@
   [callback node]
   (let [account (node->model node account-attributes)
         account (-> account
+                    (with-meta {:record-type :account
+                                :ignore? (not (include-account? account))})
                     (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
                                                    (-> exchange
                                                        s/lower-case
                                                        keyword))
                                        :symbol (:commodity-symbol account)})
                     (dissoc :commodity-exchange :commodity-symbol))]
-    (if (include-account? account)
-      (callback account :account)
-      ; when ignoring an account, make the callback
-      ; so that the progress is updated (total count
-      ; of imported accounts should match the declared
-      ; count), but pass nil so that nothing is
-      ; imported
-      (callback nil :account))))
+    (callback account)))
 
 (def ^:private budget-attributes
   [{:attribute :id
@@ -147,7 +142,8 @@
   (-> node
       (node->model budget-attributes)
       (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
-      (callback :budget)))
+      (with-meta {:record-type :budget})
+      callback))
 
 (def ^:private commodity-attributes
   [{:attribute :exchange
@@ -177,7 +173,8 @@
     (when (not= :template (:exchange commodity))
       (-> commodity
           refine-commodity
-          (callback :commodity)))))
+          (with-meta {:record-type :commodity})
+          callback))))
 
 (def ^:private price-attributes
   [{:attribute :trade-date
@@ -196,13 +193,15 @@
   [callback node]
   (-> node
       (node->model price-attributes)
-      (callback :price)))
+      (with-meta {:record-type :price})
+      callback))
 
 (defmethod process-node :gnc:count-data
   [callback node]
-  (let [declaration {:record-type (keyword (-> node :attrs :cd:type))
-                     :record-count (Integer. (:text node))}]
-    (callback declaration :declaration)))
+  (-> {:record-type (-> node :attrs :cd:type keyword)
+       :record-count (Integer. (:text node))}
+      (with-meta {:record-type :declaration})
+      callback))
 
 (def ^:private transaction-item-attributes
   [{:attribute :account-id
@@ -267,7 +266,8 @@
   (-> node
       node->transaction
       (append-trading-attributes node)
-      (callback :transaction)))
+      (with-meta {:record-type :transaction})
+      callback))
 
 (def element-xpath
   (->> ["count-data" "account" "transaction" "budget" "commodity"]
