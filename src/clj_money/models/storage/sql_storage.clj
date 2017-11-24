@@ -510,22 +510,26 @@
     (let [[start end] (if (sequential? trade-date)
                         (rest trade-date)
                         [trade-date trade-date])
-          tables (cond-> (tables-for-range start end :prices)
-                  (descending-sort? (:sort options))
-                  reverse)
-          result (->> tables
-                      (map keyword)
-                      (mapcat (fn [table]
-                                (let [sql (-> (h/select :p.*)
-                                              (h/from [table :p])
-                                              (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                                              (append-where criteria {:prefix "p"})
-                                              (append-limit options)
-                                              (append-paging options))]
-                                  (query db-spec sql)))))]
-      (if (= 1 (:limit options))
-        (take 1 result)
-        result)))
+          tables (tables-for-range start
+                                  end
+                                  :prices
+                                  {:descending? (descending-sort?
+                                                  (:sort options))})]
+      (->> tables
+          (map keyword)
+          (reduce (fn [records table]
+                    (let [sql (-> (h/select :p.*)
+                                  (h/from [table :p])
+                                  (h/join [:commodities :c] [:= :c.id :p.commodity_id])
+                                  (append-where criteria {:prefix "p"})
+                                  (append-limit options)
+                                  (append-paging options))
+                          updated-records (concat records (query db-spec sql))]
+                      (if (and (= 1 (:limit options))
+                                (seq updated-records))
+                        (reduced updated-records)
+                        updated-records) ))
+                  []))))
 
   (update-price
     [_ price]
