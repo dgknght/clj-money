@@ -74,6 +74,7 @@
   (println message)
   (when (meta value)
     (pprint {:meta (meta value)}))
+  (println "type " (type value))
   (pprint value)
   value)
 
