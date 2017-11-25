@@ -522,6 +522,7 @@
                                   (h/from [table :p])
                                   (h/join [:commodities :c] [:= :c.id :p.commodity_id])
                                   (append-where criteria {:prefix "p"})
+                                  (append-sort options)
                                   (append-limit options)
                                   (append-paging options))
                           updated-records (concat records (query db-spec sql))]
