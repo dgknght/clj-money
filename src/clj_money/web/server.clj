@@ -21,6 +21,7 @@
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds]
+            [clj-money.core]
             [clj-money.json]
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-models

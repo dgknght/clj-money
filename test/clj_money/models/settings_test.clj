@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clj-time.core :refer [local-date]]
+            [clj-money.core]
             [clj-money.models.settings :as settings]
             [clj-money.test-helpers :refer [reset-db]]))
 
