@@ -313,6 +313,15 @@
     [this import]
     "Updates an existing import record")
 
+  ; Settings
+  (put-setting
+    [this setting-name setting-value]
+    "Writes an application setting to the database")
+
+  (get-setting
+    [this setting-name]
+    "Reads an application setting from the database")
+
   ; Data integrity transactions
   (with-transaction
     [this func]

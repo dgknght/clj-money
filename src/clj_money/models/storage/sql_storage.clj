@@ -982,6 +982,35 @@
                               (h/where [:= :id (:id import)])))]
       (jdbc/execute! db-spec sql)))
 
+  ; Settings
+  (put-setting
+    [_ setting-name setting-value]
+    (if (= 1 (->> (query db-spec (-> (h/select :%count.name)
+                                     (h/from :settings)
+                                     (h/where [:= :name [setting-name]])))
+                  first
+                  vals
+                  first))
+      (jdbc/execute! db-spec (-> (h/update :settings)
+                                 (h/sset {:value setting-value})
+                                 (h/where [:= :name setting-name])
+                                 (sql/format)))
+      (insert db-spec
+              :settings
+              {:name (name setting-name)
+               :value (prn-str setting-value)}
+              :name,
+              :value)))
+
+  (get-setting
+    [_ setting-name]
+    (->> (query db-spec (-> (h/select :value)
+                            (h/from :settings)
+                            (h/where [:= :name setting-name])
+                            (h/limit 1)))
+         first
+         :value))
+
   ; Database Transaction
   (with-transaction
     [_ func]
