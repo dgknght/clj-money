@@ -31,7 +31,7 @@
 
 (deftest create-a-price
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price 12.34M})
@@ -58,7 +58,7 @@
 
 (deftest commodity-id-is-required
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:trade-date (t/local-date 2017 3 2)
                                            :price 12.34M})
         prices (prices/search storage-spec {:commodity-id (:id commodity)
@@ -74,7 +74,7 @@
 
 (deftest trade-date-is-required
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :price 12.34M})
         prices (prices/search storage-spec {:commodity-id (:id commodity)
@@ -90,7 +90,7 @@
 
 (deftest trade-date-must-be-a-date
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date "notadate"
                                            :price 12.34M})
@@ -107,7 +107,7 @@
 
 (deftest trade-date-must-be-unique
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price-1 (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price 12.34M})
@@ -131,7 +131,7 @@
 
 (deftest trade-date-can-be-a-string-date
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date "2017-03-02"
                                            :price 12.34M})
@@ -148,7 +148,7 @@
 
 (deftest price-is-required
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)})
         prices (prices/search storage-spec {:commodity-id (:id commodity)
@@ -164,7 +164,7 @@
 
 (deftest price-must-be-a-number
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price "notanumber"})
@@ -181,7 +181,7 @@
 
 (deftest price-can-be-a-string-number
   (let [context (serialization/realize storage-spec price-context)
-        commodity (-> context :commodities first)
+        commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
                                            :price "12.34"})
