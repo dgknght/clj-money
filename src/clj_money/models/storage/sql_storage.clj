@@ -283,10 +283,10 @@
     {:trade-date (t/local-date 2017 3 2)} - searches for the specified date
     {:trade-date [:between (t/local-date 2017 1 1) (t/local-date 2017 131)]} - searches the specified range, inclusively
     {:trade-date [:between nil (t/local-date 2017 3 2)]} - searches from the first available date to the specified date"
-  [{trade-date :trade-date}]
+  [{trade-date :trade-date} earliest-fn]
   (if (sequential? trade-date)
     (-> trade-date
-        (update-in [1] #(or % (to-sql-date (t/local-date 2015 1 1))))
+        (update-in [1] #(or % (to-sql-date (earliest-fn))))
         rest)
     [trade-date trade-date]))
 
@@ -520,9 +520,12 @@
     (.select-prices this criteria {}))
 
   (select-prices
-    [_ {trade-date :trade-date :as criteria} options]
+    [this {trade-date :trade-date :as criteria} options]
     (validate-criteria criteria ::price-criteria)
-    (let [[start end] (extract-trade-dates criteria)
+    (let [[start end] (extract-trade-dates criteria (fn []
+                                                      (or (when-let [v (.get-setting this "earliest-partition-date")]
+                                                            (read-string v))
+                                                          (t/local-date 2000 1 1))))
           tables (tables-for-range start
                                    end
                                    :prices
