@@ -6,7 +6,7 @@
             [clojure.pprint :refer [pprint]]
             [clj-time.jdbc]
             [clj-time.core :as t]
-            [clj-time.coerce :as tc]
+            [clj-time.coerce :refer [to-sql-date]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-postgresql.types]
@@ -32,6 +32,7 @@
 (s/def ::commodity-id integer?)
 (s/def ::transaction-id integer?)
 (s/def ::date (partial instance? Date))
+(s/def ::nilable-date #(or (instance? Date %) (nil? %)))
 
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
@@ -47,7 +48,7 @@
 
 (defmulti trade-date vector?)
 (defmethod trade-date true [_]
-  (s/tuple keyword? ::date ::date))
+  (s/tuple keyword? ::nilable-date ::date))
 (defmethod trade-date false [_]
   ::date)
 (s/def ::trade-date (s/multi-spec trade-date vector?))
@@ -274,6 +275,20 @@
       (h/from [:transaction_items :i])
       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
       (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
+
+(defn- extract-trade-dates
+  "Extracts a start and end trade date from the
+  specified search criteria. The valid shapes are
+
+    {:trade-date (t/local-date 2017 3 2)} - searches for the specified date
+    {:trade-date [:between (t/local-date 2017 1 1) (t/local-date 2017 131)]} - searches the specified range, inclusively
+    {:trade-date [:between nil (t/local-date 2017 3 2)]} - searches from the first available date to the specified date"
+  [{trade-date :trade-date}]
+  (if (sequential? trade-date)
+    (-> trade-date
+        (update-in [1] #(or % (to-sql-date (t/local-date 2015 1 1))))
+        rest)
+    [trade-date trade-date]))
 
 (defn- descending-sort?
   "Returns a boolean value indicating whether or not
@@ -507,21 +522,24 @@
   (select-prices
     [_ {trade-date :trade-date :as criteria} options]
     (validate-criteria criteria ::price-criteria)
-    (let [[start end] (if (sequential? trade-date)
-                        (rest trade-date)
-                        [trade-date trade-date])
+    (let [[start end] (extract-trade-dates criteria)
           tables (tables-for-range start
-                                  end
-                                  :prices
-                                  {:descending? (descending-sort?
-                                                  (:sort options))})]
+                                   end
+                                   :prices
+                                   {:descending? (descending-sort?
+                                                   (:sort options))})]
       (->> tables
           (map keyword)
           (reduce (fn [records table]
                     (let [sql (-> (h/select :p.*)
                                   (h/from [table :p])
                                   (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                                  (append-where criteria {:prefix "p"})
+                                  (append-where (dissoc criteria :trade-date) {:prefix "p"})
+                                  (h/merge-where (if (= start end)
+                                                   [:= :trade_date start]
+                                                   [:and
+                                                    [:>= :trade_date start]
+                                                    [:<= :trade_date end]]))
                                   (append-sort options)
                                   (append-limit options)
                                   (append-paging options))

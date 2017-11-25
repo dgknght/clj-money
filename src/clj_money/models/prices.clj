@@ -130,7 +130,7 @@
                          ; result in a false find
                          {:commodity-id commodity-id
                           :trade-date [:between
-                                       (to-sql-date (t/local-date 1900 1 1))
+                                       nil
                                        (to-sql-date as-of)]}
                          {:limit 1
                           :sort [[:trade-date :desc]]})

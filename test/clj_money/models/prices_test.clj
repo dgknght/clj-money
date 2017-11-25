@@ -24,7 +24,10 @@
    :commodities [{:name "Apple"
                   :symbol "AAPL"
                   :type :stock
-                  :exchange :nasdaq}]})
+                  :exchange :nasdaq}
+                 {:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]})
 
 (deftest create-a-price
   (let [context (serialization/realize storage-spec price-context)
@@ -229,7 +232,12 @@
                                  :price 12.00}]))
 
 (deftest get-the-most-recent-price-for-a-commodity
-  (let [context (serialization/realize storage-spec multi-price-context)
-        commodity (find-commodity context "AAPL")
-        price (prices/most-recent storage-spec (:id commodity))]
-    (is (= 12.20M (:price price)) "The must recent price is returned")))
+  (let [context (serialization/realize storage-spec multi-price-context)]
+    (testing "When at least one price exists"
+      (let [commodity (find-commodity context "AAPL")
+            price (prices/most-recent storage-spec (:id commodity))]
+        (is (= 12.20M (:price price)) "The must recent price is returned")))
+    (testing "When no prices exist"
+      (let [commodity (find-commodity context "USD")
+            price (prices/most-recent storage-spec (:id commodity))]
+        (is (nil? price) "The nil is returned")))))
