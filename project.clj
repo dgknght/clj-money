@@ -43,4 +43,5 @@
             "partition" ["run" "-m" "clj-money.db/create-partitions"]
             "seed" ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]}
+  :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:production {:env {:production true}}})
