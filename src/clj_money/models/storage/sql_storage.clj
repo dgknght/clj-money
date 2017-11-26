@@ -4,9 +4,10 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
-            [clj-time.jdbc]
+            #_[clj-time.jdbc]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-sql-date]]
+            [clj-time.coerce :refer [to-sql-date
+                                     to-sql-time]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-postgresql.types]
@@ -15,7 +16,24 @@
                                             tables-for-range]]
             [clj-money.models.storage :refer [Storage]])
   (:import [java.sql BatchUpdateException
-                     Date]))
+                     Date]
+           org.joda.time.LocalDate))
+
+(extend-protocol jdbc/ISQLValue
+  LocalDate
+  (sql-value [v]
+    (let [result (to-sql-date v)]
+      (pprint {:sql-value v
+               :result result})
+      result)))
+
+(extend-protocol jdbc/ISQLValue
+  org.joda.time.DateTime
+  (sql-value [v]
+    (let [result (to-sql-time v)]
+      (pprint {:sql-value v
+               :result result})
+      result)))
 
 (defn- id-criteria?
   [value]
