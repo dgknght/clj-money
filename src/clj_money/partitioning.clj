@@ -81,8 +81,8 @@
        (map #(table-name % (name root)))))
 
 (def ^:private tables
-  [:prices]
-  #_[:transactions
+  [:prices
+   :transactions
    :transaction_items])
 
 (def ^:private create-table-format
