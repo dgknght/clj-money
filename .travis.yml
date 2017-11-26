@@ -1,6 +1,11 @@
 language: clojure
+services:
+  - postgresql
+addons:
+  postgresql: "9.6"
 script:
-  - createuser app_user
+  - createuser -s -e app_user
   - createdb money_test
   - lein with-profile test migrate
+  - lein with-profile test partition 1/1/2015 12/31/2017
   - lein test

@@ -362,9 +362,13 @@
 (deftest deleting-a-commodity-deletes-the-prices
   (let [context (serialization/realize storage-spec commodity-with-prices-context)
         commodity (-> context :commodities first)
-        prices-before (prices/search storage-spec {:commodity-id (:id commodity)})
+        criteria {:commodity-id (:id commodity)
+                  :trade-date [:between
+                               (t/local-date 2016 1 1)
+                               (t/local-date 2016 12 31)]}
+        prices-before (prices/search storage-spec criteria)
         _ (commodities/delete storage-spec (:id commodity))
-        prices-after (prices/search storage-spec {:commodity-id (:id commodity)})]
+        prices-after (prices/search storage-spec criteria)]
     (is (not (empty? prices-before))
         "The commodity prices exist before delete")
     (is (empty? prices-after)

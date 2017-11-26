@@ -47,17 +47,21 @@
 (deftest price-list
   (let [context (serialization/realize storage-spec prices-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
-        commodity (find-commodity context "AAPL")]
+        commodity (find-commodity context "AAPL")
+        criteria {:commodity-id (:id commodity)
+                  :trade-date [:between
+                               (t/local-date 2017 1 1)
+                               (t/local-date 2017 12 31)]}]
     (testing "A user has permission to list prices for commodities in his entities"
       (with-authentication john
-        (is (not= 0 (->> (apply-scope {:commodity-id (:id commodity)} :price)
+        (is (not= 0 (->> (apply-scope criteria :price)
                          (prices/search storage-spec)
                          count))
             "The prices are returned")))
     (testing "A user does not have permission to list prices for commodities in someone else's entity"
       (with-authentication jane
         (is (thrown+? [:type :clj-money.authorization/unauthorized]
-                     (->> (apply-scope {:commodity-id (:id commodity)} :price)
+                     (->> (apply-scope criteria :price)
                           (prices/search storage-spec)
                           count)))))))
 

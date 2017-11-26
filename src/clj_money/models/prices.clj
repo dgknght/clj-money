@@ -5,36 +5,40 @@
             [clojure.spec :as s]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-local-date]]
-            [clj-money.util :refer [to-sql-date]]
+            [clj-money.util :refer [pprint-and-return
+                                    to-sql-date]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
-            [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.helpers :refer [with-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.storage :refer [create-price
-                                              find-price-by-id
                                               update-price
                                               select-prices
                                               delete-price]]))
 
 (s/def ::commodity-id integer?)
 (s/def ::trade-date (partial instance? org.joda.time.LocalDate))
-(s/def ::price (partial instance? BigDecimal))
-(s/def ::id integer?)
+(s/def ::price decimal?)
+(s/def ::id uuid?)
 (s/def ::new-price (s/keys :req-un [::commodity-id ::trade-date ::price]))
 (s/def ::existing-price (s/keys :req-un [::id ::trade-date ::price] :opt-un [::commodity-id]))
 
 (defn- before-save
-  [price]
+  [_ price]
   (update-in price [:trade-date] to-sql-date))
 
 (defn- after-read
-  [price]
-  (when price
-    (-> price
-        (authorization/tag-resource :price)
-        (update-in [:trade-date] to-local-date))))
+  ([_ price]
+   (after-read price))
+  ([price]
+   (when price
+     (-> price
+         (authorization/tag-resource :price)
+         (update-in [:trade-date] to-local-date)))))
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])
@@ -65,41 +69,50 @@
        before-validation
        (validation/validate spec (validation-rules storage))))
 
-(defn create
-  [storage-spec price]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::new-price price)]
-      (if (validation/has-error? validated)
-        validated
-        (->> validated
-             before-save
-             (create-price s)
-             after-read)))))
-
-(defn find-by-id
-  [storage-spec id]
-  (with-storage [s storage-spec]
-    (->> id
-         (find-price-by-id s)
-         after-read)))
+(def create
+  (create-fn {:create create-price
+              :before-save before-save
+              :after-read after-read
+              :spec ::new-price
+              :rules-fn validation-rules
+              :coercion-rules coercion-rules}))
 
 (defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> (select-prices s criteria)
-         (map after-read))))
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (->> (select-prices s (-> criteria
+                               ; TODO need a more comprehensive way to ensure criteria
+                               ; values are coerced correctly
+                               (update-in [:trade-date] (fn [value]
+                                                          (if (vector? value)
+                                                            (-> value
+                                                                (update-in [1] to-sql-date)
+                                                                (update-in [2] to-sql-date))
+                                                            (to-sql-date value)))))
+                         options)
+          (map after-read)))))
 
-(defn update
+(defn find-by-id
+  [storage-spec id trade-date]
+  (first (search storage-spec
+                 {:id id
+                  :trade-date trade-date}
+                 {:limit 1})))
+
+(defn reload
   [storage-spec price]
-  (with-storage [s storage-spec]
-    (let [validated (validate s ::existing-price price)]
-      (if (validation/has-error? validated)
-        validated
-        (do
-          (->> validated
-               before-save
-               (update-price s))
-          (find-by-id s (:id price)))))))
+  (find-by-id storage-spec (:id price) (:trade-date price)))
+
+(def update
+  (update-fn {:update update-price
+              :before-save before-save
+              :rules-fn validation-rules
+              :reload reload
+              :spec ::existing-price
+              :after-read after-read
+              :coercion-rules coercion-rules}))
 
 (defn delete
   [storage-spec id]
@@ -111,9 +124,16 @@
    (most-recent storage-spec commodity-id (t/today)))
   ([storage-spec commodity-id as-of]
    (with-storage [s storage-spec]
-     (-> (select-prices s
-                        {:commodity-id commodity-id}
-                        {:limit 1
-                         :as-of (to-sql-date as-of)})
-         first
-         after-read))))
+     (->> (select-prices s
+                         ; TODO this query needs to be broken
+                         ; down by the paritions, as it could
+                         ; result in a false find
+                         {:commodity-id commodity-id
+                          :trade-date [:between
+                                       nil
+                                       (to-sql-date as-of)]}
+                         {:limit 1
+                          :sort [[:trade-date :desc]]})
+          (sort-by :trade-date <)
+          first
+          after-read))))

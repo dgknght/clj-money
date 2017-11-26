@@ -109,11 +109,12 @@
 
 (defn search
   "Returns commodities matching the specified criteria"
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> criteria
-         (select-commodities s)
-         (map after-read))))
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map after-read
+          (select-commodities s criteria options)))))
 
 (def update
   (update-fn {:spec ::existing-commodity

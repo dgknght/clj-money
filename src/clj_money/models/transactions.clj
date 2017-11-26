@@ -514,13 +514,17 @@
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
-  [storage-spec account-id]
-  (with-storage [s storage-spec]
-    (let [account (accounts/find-by-id storage-spec account-id)]
-      (map #(after-item-read % account)
-           (select-transaction-items s
-                                     {:i.account-id account-id}
-                                     {:sort [[:t.transaction-date :desc] [:i.index :desc]]})))))
+  ([storage-spec account-id]
+   (items-by-account storage-spec account-id {}))
+  ([storage-spec account-id options]
+   (with-storage [s storage-spec]
+     (let [account (accounts/find-by-id storage-spec account-id)]
+       (map #(after-item-read % account)
+            (select-transaction-items s
+                                      {:i.account-id account-id}
+                                      (merge options
+                                             {:sort [[:t.transaction-date :desc]
+                                                     [:i.index :desc]]})))))))
 
 (defn count-items-by-account
   "Returns the number of transaction items in the account"

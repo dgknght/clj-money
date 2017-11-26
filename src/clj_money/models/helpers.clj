@@ -101,7 +101,9 @@
         (if (validation/valid? validated)
           (do
             (process-options options s validated :before-save :update)
-            ((:find options) s (:id validated)))
+            (if (:find options)
+              ((:find options) s (:id validated))
+              ((:reload options) s validated)))
           validated)))))
 
 (defn throw-if-nil

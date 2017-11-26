@@ -65,12 +65,16 @@
 
 (defn to-sql-date
   [value]
-  (java.sql.Date. (.getTime (.toDate value))))
+  (when value
+    (java.sql.Date. (.getTime (.toDate value)))))
 
 (defn pprint-and-return
   [message value]
   (println "")
   (println message)
+  (when (meta value)
+    (pprint {:meta (meta value)}))
+  (println "type " (type value))
   (pprint value)
   value)
 
