@@ -4,9 +4,7 @@
             [clojure.tools.logging :as log]
             [clojure.spec :as s]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-local-date]]
-            [clj-money.util :refer [pprint-and-return
-                                    to-sql-date]]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -27,18 +25,12 @@
 (s/def ::new-price (s/keys :req-un [::commodity-id ::trade-date ::price]))
 (s/def ::existing-price (s/keys :req-un [::id ::trade-date ::price] :opt-un [::commodity-id]))
 
-(defn- before-save
-  [_ price]
-  (update-in price [:trade-date] to-sql-date))
-
 (defn- after-read
   ([_ price]
    (after-read price))
   ([price]
    (when price
-     (-> price
-         (authorization/tag-resource :price)
-         (update-in [:trade-date] to-local-date)))))
+     (authorization/tag-resource price :price))))
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])
@@ -51,7 +43,7 @@
                (select-prices
                  storage
                  {:commodity-id commodity-id
-                  :trade-date (to-sql-date trade-date)}))))
+                  :trade-date trade-date}))))
 
 (defn- validation-rules
   [storage]
@@ -71,7 +63,6 @@
 
 (def create
   (create-fn {:create create-price
-              :before-save before-save
               :after-read after-read
               :spec ::new-price
               :rules-fn validation-rules
@@ -82,16 +73,7 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (->> (select-prices s (-> criteria
-                               ; TODO need a more comprehensive way to ensure criteria
-                               ; values are coerced correctly
-                               (update-in [:trade-date] (fn [value]
-                                                          (if (vector? value)
-                                                            (-> value
-                                                                (update-in [1] to-sql-date)
-                                                                (update-in [2] to-sql-date))
-                                                            (to-sql-date value)))))
-                         options)
+     (->> (select-prices s criteria options)
           (map after-read)))))
 
 (defn find-by-id
@@ -107,7 +89,6 @@
 
 (def update
   (update-fn {:update update-price
-              :before-save before-save
               :rules-fn validation-rules
               :reload reload
               :spec ::existing-price
@@ -125,13 +106,8 @@
   ([storage-spec commodity-id as-of]
    (with-storage [s storage-spec]
      (->> (select-prices s
-                         ; TODO this query needs to be broken
-                         ; down by the paritions, as it could
-                         ; result in a false find
                          {:commodity-id commodity-id
-                          :trade-date [:between
-                                       nil
-                                       (to-sql-date as-of)]}
+                          :trade-date [:between nil as-of]}
                          {:limit 1
                           :sort [[:trade-date :desc]]})
           (sort-by :trade-date <)

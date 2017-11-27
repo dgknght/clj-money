@@ -4,9 +4,11 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
-            [clj-time.jdbc]
+            #_[clj-time.jdbc]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-sql-date]]
+            [clj-time.coerce :refer [to-sql-date
+                                     to-sql-time
+                                     to-local-date]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-postgresql.types]
@@ -15,7 +17,23 @@
                                             tables-for-range]]
             [clj-money.models.storage :refer [Storage]])
   (:import [java.sql BatchUpdateException
-                     Date]))
+                     Date]
+           org.joda.time.LocalDate))
+
+(extend-protocol jdbc/IResultSetReadColumn
+  Date
+  (result-set-read-column [v _ _]
+    (to-local-date v)))
+
+(extend-protocol jdbc/ISQLValue
+  LocalDate
+  (sql-value [v]
+    (to-sql-date v)))
+
+(extend-protocol jdbc/ISQLValue
+  org.joda.time.DateTime
+  (sql-value [v]
+    (to-sql-time v)))
 
 (defn- id-criteria?
   [value]
@@ -31,8 +49,8 @@
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::transaction-id integer?)
-(s/def ::date (partial instance? Date))
-(s/def ::nilable-date #(or (instance? Date %) (nil? %)))
+(s/def ::date (partial instance? LocalDate))
+(s/def ::nilable-date #(or (instance? LocalDate %) (nil? %)))
 
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
