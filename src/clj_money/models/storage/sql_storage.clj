@@ -676,15 +676,14 @@
         (-> result first vals first)
         result)))
 
-(create-transaction
-  [_ transaction]
-  (let [table (format "transactions_%04d_%02d"
-                      (t/year (:transaction-date transaction))
-                      (t/month (:transaction-date transaction)))]
-    (insert db-spec table transaction :entity-id
+  (create-transaction
+    [_ transaction]
+    (insert db-spec
+            (table-name :transactions (:transaction-date transaction))
+            :entity-id
             :description
             :transaction-date
-            :memo)))
+            :memo))
 
   (find-transaction-by-id
     [_ id]
@@ -713,14 +712,17 @@
   ; Transaction Items
   (create-transaction-item
     [_ transaction-item]
-    (insert db-spec :transaction_items transaction-item :transaction-id
-                                                        :account-id
-                                                        :action
-                                                        :amount
-                                                        :value
-                                                        :index
-                                                        :balance
-                                                        :memo))
+    (insert db-spec
+            (table-name :transaction_items (:transaction-date transaction-item))
+            transaction-item
+            :transaction-id
+            :account-id
+            :action
+            :amount
+            :value
+            :index
+            :balance
+            :memo))
 
   (update-transaction-item
     [_ transaction-item]

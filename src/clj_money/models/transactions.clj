@@ -142,6 +142,11 @@
   (-> (coercion/coerce coercion-rules transaction)
       (update-in [:items] #(map before-item-validation %))))
 
+(defn- after-validation
+  [{transaction-date :transaction-date :as transaction}]
+  (update-in transaction [:items] (fn [items]
+                                    (map #(assoc % :transaction-date transaction-date)
+                                         items))))
 (defn- before-save
   "Returns a transaction ready for insertion into the
   database"
@@ -389,7 +394,8 @@
   [storage spec transaction]
   (->> transaction
        before-validation
-       (validation/validate spec (validation-rules storage))))
+       (validation/validate spec (validation-rules storage))
+       after-validation))
 
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
