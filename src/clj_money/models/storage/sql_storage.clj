@@ -49,8 +49,8 @@
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::transaction-id integer?)
-(s/def ::date (partial instance? Date))
-(s/def ::nilable-date #(or (instance? Date %) (nil? %)))
+(s/def ::date (partial instance? LocalDate))
+(s/def ::nilable-date #(or (instance? LocalDate %) (nil? %)))
 
 (defmulti lot-criteria #(contains? % :account-id))
 (defmethod lot-criteria true [_]
