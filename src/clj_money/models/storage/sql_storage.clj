@@ -294,19 +294,20 @@
       (h/join [:transactions :t] [:= :t.id :i.transaction_id])
       (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
 
-(defn- extract-trade-dates
-  "Extracts a start and end trade date from the
+(defn- extract-date-range
+  "Extracts a start and end dates
   specified search criteria. The valid shapes are
 
     {:trade-date (t/local-date 2017 3 2)} - searches for the specified date
     {:trade-date [:between (t/local-date 2017 1 1) (t/local-date 2017 131)]} - searches the specified range, inclusively
     {:trade-date [:between nil (t/local-date 2017 3 2)]} - searches from the first available date to the specified date"
-  [{trade-date :trade-date} earliest-fn]
-  (if (sequential? trade-date)
-    (-> trade-date
-        (update-in [1] #(or % (to-sql-date (earliest-fn))))
-        rest)
-    [trade-date trade-date]))
+  [criteria key-fn earliest-fn]
+  (let [date (key-fn criteria)]
+    (if (sequential? date)
+      (-> date
+          (update-in [1] #(or % (earliest-fn)))
+          rest)
+      [date date])))
 
 (defn- descending-sort?
   "Returns a boolean value indicating whether or not
@@ -540,7 +541,7 @@
   (select-prices
     [this {trade-date :trade-date :as criteria} options]
     (validate-criteria criteria ::price-criteria)
-    (let [[start end] (extract-trade-dates criteria (fn []
+    (let [[start end] (extract-date-range :trade-date criteria (fn []
                                                       (or (when-let [v (.get-setting this "earliest-partition-date")]
                                                             (read-string v))
                                                           (t/local-date 2000 1 1))))
