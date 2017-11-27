@@ -7,7 +7,8 @@
             #_[clj-time.jdbc]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date
-                                     to-sql-time]]
+                                     to-sql-time
+                                     to-local-date]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-postgresql.types]
@@ -19,21 +20,20 @@
                      Date]
            org.joda.time.LocalDate))
 
+(extend-protocol jdbc/IResultSetReadColumn
+  Date
+  (result-set-read-column [v _ _]
+    (to-local-date v)))
+
 (extend-protocol jdbc/ISQLValue
   LocalDate
   (sql-value [v]
-    (let [result (to-sql-date v)]
-      (pprint {:sql-value v
-               :result result})
-      result)))
+    (to-sql-date v)))
 
 (extend-protocol jdbc/ISQLValue
   org.joda.time.DateTime
   (sql-value [v]
-    (let [result (to-sql-time v)]
-      (pprint {:sql-value v
-               :result result})
-      result)))
+    (to-sql-time v)))
 
 (defn- id-criteria?
   [value]
