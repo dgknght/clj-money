@@ -36,7 +36,7 @@
   "Given a date and a base table name, returns the name
   of the partition table where the date belongs"
   [date root]
-  (format "%s%s" (name root) (table-suffix date)))
+  (keyword (format "%s%s" (name root) (table-suffix date))))
 
 (defn- descending-periodic-seq
   ([end period-like]

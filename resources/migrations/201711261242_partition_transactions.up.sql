@@ -22,6 +22,7 @@ create table transaction_items_base (
   balance numeric(10, 2),
   memo varchar(200),
   index bigint not null,
+  reconciliation_id int,
   created_at timestamp with time zone not null default now(),
   updated_at timestamp with time zone not null default now(),
   foreign key (account_id) references accounts (id) on delete cascade

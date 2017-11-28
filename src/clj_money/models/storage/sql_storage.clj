@@ -84,12 +84,24 @@
 (defmethod attachment-criteria false [_]
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
+
+;(defmulti transaction-date vector?)
+;(defmethod transaction-date true [_]
+;  (s/tuple keyword? ::nilable-date ::date))
+;(defmethod transaction-date false [_]
+;  ::date)
+;(s/def ::transaction-date (s/multi-spec transaction-date vector?))
+(s/def ::transaction-date (partial instance? LocalDate))
+
 (defmulti transaction-criteria #(contains? % :lot-id))
 (defmethod transaction-criteria true [_]
-  (s/keys :req-un [::lot-id]))
+  (s/keys :req-un [::lot-id ::transaction-date]))
 (defmethod transaction-criteria false [_]
-  (s/keys :req-un [::entity-id]))
+  (s/keys :req-un [::entity-id ::transaction-date]))
 (s/def ::transaction-criteria (s/multi-spec transaction-criteria #(contains? % :lot-id)))
+
+(s/def ::transaction-item-criteria (s/keys :req-un [::transaction-date]))
+
 (defmulti budget-criteria #(contains? % :id))
 (defmethod budget-criteria true [_]
   (s/keys :req-un [::id]))
@@ -286,13 +298,6 @@
                  (str "The criteria is not valid: " explanation)
                  {:criteria criteria
                   :explanation explanation})))))
-
-(defn- transaction-item-base-query
-  []
-  (-> (h/select :i.* :t.transaction_date :t.description, [:r.status "reconciliation_status"])
-      (h/from [:transaction_items :i])
-      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-      (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
 
 (defn- extract-date-range
   "Extracts a start and end dates
@@ -680,7 +685,8 @@
   (create-transaction
     [_ transaction]
     (insert db-spec
-            (table-name :transactions (:transaction-date transaction))
+            (table-name (:transaction-date transaction) :transactions)
+            transaction
             :entity-id
             :description
             :transaction-date
@@ -714,9 +720,10 @@
   (create-transaction-item
     [_ transaction-item]
     (insert db-spec
-            (table-name :transaction_items (:transaction-date transaction-item))
+            (table-name (:transaction-date transaction-item) :transaction_items)
             transaction-item
             :transaction-id
+            :transaction-date
             :account-id
             :action
             :amount
@@ -789,13 +796,23 @@
 
   (select-transaction-items
     [_ criteria options]
-    (let [sql (-> (transaction-item-base-query)
+    (validate-criteria criteria ::transaction-item-criteria)
+    (let [sql (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
+                  (h/from [(table-name (:transaction-date criteria) :transaction_items) :i])
+                  (h/join [(table-name (:transaction-date criteria) :transactions) :t]
+                          [:= :t.id :i.transaction_id])
+                  (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
                   (adjust-select options)
-                  (h/where (map->where criteria))
+                  (h/where (map->where criteria {:prefix "i"}))
                   (append-sort (merge
-                                {:sort [:t.transaction_date :i.index]}
+                                {:sort [:i.transaction_date :i.index]}
                                 options))
                   (append-limit options))
+
+          _ (pprint {:criteria criteria
+                     :sql sql
+                     :formatted (sql/format sql)})
+
           result (query db-spec sql)]
       (if (:count options)
         (-> result first vals first)

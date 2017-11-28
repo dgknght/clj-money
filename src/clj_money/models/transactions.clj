@@ -163,12 +163,13 @@
   (select-lots-transactions-by-transaction-id storage transaction-id))
 
 (defn- append-items
-  [transaction storage]
+  [{:keys [id transaction-date] :as transaction} storage]
   (when transaction
     (assoc transaction
            :items
            (->> (select-transaction-items storage
-                                          {:transaction-id (:id transaction)}
+                                          {:transaction-id id
+                                           :transaction-date transaction-date}
                                           {:sort [[:action :desc] [:amount :desc]]})
                 (map after-item-read)))))
 
@@ -489,9 +490,12 @@
     (let [validated (validate s ::new-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (if (delay-balances? (:entity-id transaction))
-          (create-transaction-without-balances s validated)
-          (create-transaction-and-adjust-balances s validated))))))
+
+        (create-transaction-without-balances s validated)
+
+        #_(if (delay-balances? (:entity-id transaction))
+            (create-transaction-without-balances s validated)
+            (create-transaction-and-adjust-balances s validated))))))
 
 (defn find-by-id
   "Returns the specified transaction"
