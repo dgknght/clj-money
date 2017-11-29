@@ -320,6 +320,7 @@
 
   (get-setting
     [this setting-name]
+    [this setting-name transform-fn]
     "Reads an application setting from the database")
 
   ; Data integrity transactions

@@ -215,6 +215,38 @@
      (h/merge-where sql (map->where criteria options))
      sql)))
 
+(defn- merge-where-range
+  [sql field-key [start end]]
+  (if (and start end)
+    (h/merge-where (if (= start end)
+                     [:= field-key start]
+                     [:and
+                      [:>= field-key start]
+                      [:<= field-key end]]))
+    sql))
+
+; TODO: maybe extract the sql parts and move this to the partitioning namespace?
+(defmacro with-partitioning
+  [storage table-name d-range options bindings & body]
+  (let [[start# end#] ~d-range
+        tables# (tables-for-range start#
+                                  end#
+                                  ~table-name
+                                  {:descending? (descending-sort?
+                                                  (:sort ~options))})
+        sql-fn# (fn [~(first ~bindings)]
+                  ~@body)]
+    (->> tables#
+         (map keyword)
+         (reduce (fn [records# table#]
+                   (let [sql# (sql-fn# table#)
+                         updated-records# (concat records# (query ~storage sql#))]
+                     (if (and (= 1 (:limit ~options))
+                              (seq updated-records#))
+                       (reduced updated-records#)
+                       updated-records#)))
+                 []))))
+
 (defn- append-sort
   [sql options]
   (if-let [s (:sort options)]
@@ -299,20 +331,22 @@
                  {:criteria criteria
                   :explanation explanation})))))
 
-(defn- extract-date-range
-  "Extracts a start and end dates
-  specified search criteria. The valid shapes are
+(defn- date-range
+  "Given criteria value, returns the start and end dates defining
+  the boundries for the records to be returned
 
-    {:trade-date (t/local-date 2017 3 2)} - searches for the specified date
-    {:trade-date [:between (t/local-date 2017 1 1) (t/local-date 2017 131)]} - searches the specified range, inclusively
-    {:trade-date [:between nil (t/local-date 2017 3 2)]} - searches from the first available date to the specified date"
-  [criteria key-fn earliest-fn]
-  (let [date (key-fn criteria)]
-    (if (sequential? date)
-      (-> date
-          (update-in [1] #(or % (earliest-fn)))
-          rest)
-      [date date])))
+  The value for range-value can be:
+    - (local-date 2017 3 2)
+    - [:between (local-date 2017 3 1) (local-date 2017 3 31)]
+    - [:between nil (local-date 2017 3 2)]"
+  [storage range-value]
+  (if (sequential? range-value)
+    (-> range-value
+        rest
+        (update-in [0] #(or % (.get-setting storage
+                                            "earliest-partition-date"
+                                            (fnil read-string "#local-date \"2000-01-01\""))))
+        [range-value range-value])))
 
 (defn- descending-sort?
   "Returns a boolean value indicating whether or not
@@ -544,38 +578,18 @@
     (.select-prices this criteria {}))
 
   (select-prices
-    [this {trade-date :trade-date :as criteria} options]
+    [this criteria options]
     (validate-criteria criteria ::price-criteria)
-    (let [[start end] (extract-date-range :trade-date criteria (fn []
-                                                      (or (when-let [v (.get-setting this "earliest-partition-date")]
-                                                            (read-string v))
-                                                          (t/local-date 2000 1 1))))
-          tables (tables-for-range start
-                                   end
-                                   :prices
-                                   {:descending? (descending-sort?
-                                                   (:sort options))})]
-      (->> tables
-          (map keyword)
-          (reduce (fn [records table]
-                    (let [sql (-> (h/select :p.*)
-                                  (h/from [table :p])
-                                  (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                                  (append-where (dissoc criteria :trade-date) {:prefix "p"})
-                                  (h/merge-where (if (= start end)
-                                                   [:= :trade_date start]
-                                                   [:and
-                                                    [:>= :trade_date start]
-                                                    [:<= :trade_date end]]))
-                                  (append-sort options)
-                                  (append-limit options)
-                                  (append-paging options))
-                          updated-records (concat records (query db-spec sql))]
-                      (if (and (= 1 (:limit options))
-                                (seq updated-records))
-                        (reduced updated-records)
-                        updated-records) ))
-                  []))))
+    (let [d-range (date-range this (:trade-date criteria))]
+      (with-partitioning storage :prices d-range options [table]
+        (-> (h/select :p.*)
+            (h/from [table :p])
+            (h/join [:commodities :c] [:= :c.id :p.commodity_id])
+            (append-where (dissoc criteria :trade-date) {:prefix "p"})
+            (merge-where-range :trade-date d-range)
+            (append-sort options)
+            (append-limit options)
+            (append-paging options)))))
 
   (update-price
     [_ price]
@@ -1047,13 +1061,18 @@
               :value)))
 
   (get-setting
-    [_ setting-name]
+    [this setting-name]
+    (.get-setting this setting-name identity))
+
+  (get-setting
+    [_ setting-name transform-fn]
     (->> (query db-spec (-> (h/select :value)
                             (h/from :settings)
                             (h/where [:= :name setting-name])
                             (h/limit 1)))
-         first
-         :value))
+        first
+        :value
+        transform-fn))
 
   ; Database Transaction
   (with-transaction
