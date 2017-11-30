@@ -218,34 +218,42 @@
 (defn- merge-where-range
   [sql field-key [start end]]
   (if (and start end)
-    (h/merge-where (if (= start end)
-                     [:= field-key start]
-                     [:and
-                      [:>= field-key start]
-                      [:<= field-key end]]))
+    (h/merge-where sql (if (= start end)
+                         [:= field-key start]
+                         [:and
+                          [:>= field-key start]
+                          [:<= field-key end]]))
     sql))
+
+(defn- descending-sort?
+  "Returns a boolean value indicating whether or not
+  the first segment of the sort expression specified
+  descending order"
+  [[sort-exp]]
+  (when (and sort-exp (sequential? sort-exp))
+    (= :desc (second sort-exp))))
 
 ; TODO: maybe extract the sql parts and move this to the partitioning namespace?
 (defmacro with-partitioning
-  [storage table-name d-range options bindings & body]
-  (let [[start# end#] ~d-range
-        tables# (tables-for-range start#
-                                  end#
-                                  ~table-name
-                                  {:descending? (descending-sort?
-                                                  (:sort ~options))})
-        sql-fn# (fn [~(first ~bindings)]
-                  ~@body)]
-    (->> tables#
-         (map keyword)
-         (reduce (fn [records# table#]
-                   (let [sql# (sql-fn# table#)
-                         updated-records# (concat records# (query ~storage sql#))]
-                     (if (and (= 1 (:limit ~options))
-                              (seq updated-records#))
-                       (reduced updated-records#)
-                       updated-records#)))
-                 []))))
+  [db-spec table-name d-range options bindings & body]
+  `(let [tables# (tables-for-range (first ~d-range)
+                                   (second ~d-range)
+                                   ~table-name
+                                   {:descending? (descending-sort?
+                                                   (:sort ~options))})
+         sql-fn# (fn* [~(first bindings)] ~@body)]
+     (->> tables#
+          (map keyword)
+          (reduce (fn [records# table#]
+                    (let [sql# (-> table#
+                                   sql-fn#
+                                   sql/format)
+                          updated-records# (concat records# (query ~db-spec sql#))]
+                      (if (and (= 1 (:limit ~options))
+                               (seq updated-records#))
+                        (reduced updated-records#)
+                        updated-records#)))
+                  []))))
 
 (defn- append-sort
   [sql options]
@@ -345,16 +353,8 @@
         rest
         (update-in [0] #(or % (.get-setting storage
                                             "earliest-partition-date"
-                                            (fnil read-string "#local-date \"2000-01-01\""))))
-        [range-value range-value])))
-
-(defn- descending-sort?
-  "Returns a boolean value indicating whether or not
-  the first segment of the sort expression specified
-  descending order"
-  [[sort-exp]]
-  (when (and sort-exp (sequential? sort-exp))
-    (= :desc (second sort-exp))))
+                                            (fnil read-string "#local-date \"2000-01-01\"")))))
+    [range-value range-value]))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -581,10 +581,9 @@
     [this criteria options]
     (validate-criteria criteria ::price-criteria)
     (let [d-range (date-range this (:trade-date criteria))]
-      (with-partitioning storage :prices d-range options [table]
+      (with-partitioning db-spec :prices d-range options [table]
         (-> (h/select :p.*)
             (h/from [table :p])
-            (h/join [:commodities :c] [:= :c.id :p.commodity_id])
             (append-where (dissoc criteria :trade-date) {:prefix "p"})
             (merge-where-range :trade-date d-range)
             (append-sort options)
