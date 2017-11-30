@@ -683,14 +683,16 @@
 
   ; Transactions
   (select-transactions
-    [_ criteria options]
+    [this criteria options]
     (validate-criteria criteria ::transaction-criteria)
-    (let [sql (-> (h/select :t.*)
-                  (h/from [:transactions :t])
-                  (adjust-select options)
-                  (append-paging options)
-                  (append-transaction-lot-filter criteria))
-          result (query db-spec sql)]
+    (let [d-range (date-range this (:trade-date criteria))
+          result
+          (with-partitioning db-spec :prices d-range options [table]
+            (-> (h/select :t.*)
+                (h/from [:transactions :t])
+                (adjust-select options)
+                #_(append-paging options)
+                (append-transaction-lot-filter criteria)))]
       (if (:count options) ; TODO remove this duplication with select-transaction-items
         (-> result first vals first)
         result)))
