@@ -245,10 +245,10 @@
      (->> tables#
           (map keyword)
           (reduce (fn [records# table#]
-                    (let [sql# (-> table#
-                                   sql-fn#
-                                   sql/format)
-                          updated-records# (concat records# (query ~db-spec sql#))]
+                    (let [updated-records# (->> table#
+                                                sql-fn#
+                                                (query ~db-spec)
+                                                (concat records#))]
                       (if (and (= 1 (:limit ~options))
                                (seq updated-records#))
                         (reduced updated-records#)
@@ -350,10 +350,10 @@
   [storage range-value]
   (if (sequential? range-value)
     (-> range-value
-        rest
-        (update-in [0] #(or % (.get-setting storage
+        (update-in [1] #(or % (.get-setting storage
                                             "earliest-partition-date"
-                                            (fnil read-string "#local-date \"2000-01-01\"")))))
+                                            (fnil read-string "#local-date \"2000-01-01\""))))
+        rest)
     [range-value range-value]))
 
 (deftype SqlStorage [db-spec]
@@ -588,7 +588,7 @@
             (merge-where-range :trade-date d-range)
             (append-sort options)
             (append-limit options)
-            (append-paging options)))))
+            #_(append-paging options))))) ; paging will have to be reworked
 
   (update-price
     [_ price]
