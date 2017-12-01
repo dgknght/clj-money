@@ -320,7 +320,9 @@
   (let [context (serialization/realize storage-spec insert-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
+         groceries-items] (map #(transactions/items-by-account storage-spec
+                                                               (:id %)
+                                                               [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
                                (:accounts context))]
     (is (= [{:index 2
              :amount 100M
@@ -390,7 +392,8 @@
         [checking-items
          salary-items
          groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
-                               (:accounts context))
+                               (:accounts context)
+                               [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
         expected-checking-items [{:index 2 :amount  100M :balance 1000M}
                                       {:index 1 :amount  100M :balance 1100M}
                                       {:index 0 :amount 1000M :balance 1000M}]

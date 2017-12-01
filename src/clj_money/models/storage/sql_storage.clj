@@ -85,13 +85,12 @@
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
 
-;(defmulti transaction-date vector?)
-;(defmethod transaction-date true [_]
-;  (s/tuple keyword? ::nilable-date ::date))
-;(defmethod transaction-date false [_]
-;  ::date)
-;(s/def ::transaction-date (s/multi-spec transaction-date vector?))
-(s/def ::transaction-date (partial instance? LocalDate))
+(defmulti transaction-date vector?)
+(defmethod transaction-date true [_]
+  (s/tuple keyword? ::nilable-date ::date))
+(defmethod transaction-date false [_]
+  ::date)
+(s/def ::transaction-date (s/multi-spec transaction-date vector?))
 
 (defmulti transaction-criteria #(contains? % :lot-id))
 (defmethod transaction-criteria true [_]
@@ -243,7 +242,9 @@
                                                    (:sort ~options))})
          sql-fn# (fn* [~(first bindings)] ~@body)]
      (->> tables#
-          (map keyword)
+          (map #(if (coll? %)
+                  (map keyword %)
+                  (keyword %)))
           (reduce (fn [records# table#]
                     (let [updated-records# (->> table#
                                                 sql-fn#
@@ -810,28 +811,24 @@
     (.select-transaction-items this criteria {}))
 
   (select-transaction-items
-    [_ criteria options]
+    [this criteria options]
     (validate-criteria criteria ::transaction-item-criteria)
-    (let [sql (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
-                  (h/from [(table-name (:transaction-date criteria) :transaction_items) :i])
-                  (h/join [(table-name (:transaction-date criteria) :transactions) :t]
-                          [:= :t.id :i.transaction_id])
-                  (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
-                  (adjust-select options)
-                  (h/where (map->where criteria {:prefix "i"}))
-                  (append-sort (merge
-                                {:sort [:i.transaction_date :i.index]}
-                                options))
-                  (append-limit options))
-
-          _ (pprint {:criteria criteria
-                     :sql sql
-                     :formatted (sql/format sql)})
-
-          result (query db-spec sql)]
-      (if (:count options)
-        (-> result first vals first)
-        result)))
+    (let [d-range (date-range this (:transaction-date criteria))]
+      (let [result (with-partitioning db-spec [:transaction_items :transactions] d-range options [tables]
+                    (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
+                        (h/from [(first tables) :i])
+                        (h/join [(second tables) :t]
+                                [:= :t.id :i.transaction_id])
+                        (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
+                        (adjust-select options)
+                        (h/where (map->where criteria {:prefix "i"}))
+                        (append-sort (merge
+                                        {:sort [:i.transaction_date :i.index]}
+                                        options))
+                        (append-limit options)))]
+        (if (:count options)
+          (-> result first vals first)
+          result))))
 
   ; Reconciliations
   (create-reconciliation
