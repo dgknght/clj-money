@@ -198,12 +198,13 @@
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item"
-  [storage item transaction-date]
+  [storage {:keys [account-id transaction-date id] :as item}]
   (->> (select-transaction-items storage
-                                 {:account-id (:account-id item)
+                                 {:account-id account-id
+                                  :id [:<> id]
                                   :transaction-date [:between nil transaction-date]}
-                                 {:sort [[:transaction-date :desc] [:index :desc]]})
-       (remove #(= (:id %) (:id item)))
+                                 {:sort [[:transaction-date :desc] [:index :desc]]
+                                  :limit 1})
        first))
 
 (defn- process-item-balance-and-index
@@ -236,7 +237,7 @@
   with new balance and index values"
   [storage transaction-date [account-id items]]
   (let [sorted-items (sort-by :index items)
-        previous-item (get-previous-item storage (first sorted-items) transaction-date)
+        previous-item (get-previous-item storage (first sorted-items))
         previous-balance (or (get previous-item :balance)
                              (bigdec 0))
         previous-index (or (get previous-item :index) -1)]
@@ -275,7 +276,7 @@
             s
             {:account-id (:account-id reference-item)
              :index [:>= (:index reference-item)]
-             :transaction-date [:between (:transaction-date reference-item)]}
+             :transaction-date [:between (:transaction-date reference-item) (t/today)]} ; TODO: let the system look up the latest date
             {:sort [[:index :desc]]})
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read)))))
@@ -479,10 +480,7 @@
     (let [validated (validate s ::new-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-
-        (create-transaction-without-balances s validated)
-
-        #_(if (delay-balances? (:entity-id transaction))
+        (if (delay-balances? (:entity-id transaction))
             (create-transaction-without-balances s validated)
             (create-transaction-and-adjust-balances s validated))))))
 
@@ -577,8 +575,10 @@
       (delete-transaction-item storage id))
     (->> dereferenced-account-ids
          ; fake out an item because that's what get-previous-item expects
-         (map #(hash-map :account-id % :id -1))
-         (map #(or (get-previous-item storage % (:transaction-date transaction))
+         (map #(hash-map :account-id %
+                         :id -1
+                         :transaction-date (:transaction-date transaction)))
+         (map #(or (get-previous-item storage %)
                    (assoc % :index -1 :balance (bigdec 0)))))))
 
 (defn update
@@ -619,7 +619,7 @@
        (map second)
        (map #(sort-by :index %))
        (map first)
-       (map #(or (get-previous-item storage % (:transaction-date transaction))
+       (map #(or (get-previous-item storage %)
                  {:account-id (:account-id %)
                   :index -1
                   :balance 0}))))
