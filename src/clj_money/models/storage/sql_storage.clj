@@ -825,7 +825,11 @@
   (select-transaction-items
     [this criteria options]
     (validate-criteria criteria ::transaction-item-criteria)
-    (let [d-range (date-range this (:transaction-date criteria))]
+    (let [d-range (date-range this (:transaction-date criteria))
+          criteria (update-in criteria [:transaction-date] (fn [_]
+                                                            (if (apply = d-range)
+                                                              (first d-range)
+                                                              (concat [:between] d-range))))]
       (let [result (with-partitioning db-spec [:transaction_items :transactions] d-range options [tables]
                     (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
                         (h/from [(first tables) :i])
