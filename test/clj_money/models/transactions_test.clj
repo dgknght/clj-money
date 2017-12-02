@@ -235,7 +235,11 @@
   (let [context (serialization/realize storage-spec balance-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
+         groceries-items] (map #(transactions/items-by-account
+                                  storage-spec
+                                  (:id %)
+                                  [(t/local-date 2016 1 1)
+                                   (t/local-date 2016 12 31)])
                                (:accounts context))]
            ; Transactions are returned with most recent first
     (is (= [900M 1000M]
@@ -457,16 +461,17 @@
         [checking
          salary
          groceries] (:accounts context)
-        checking-items-before (transactions/items-by-account
+        items-fn (fn []
+                   (transactions/items-by-account
                                 storage-spec
                                 (:id checking)
-                                [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
+                                [(t/local-date 2016 1 1) (t/local-date 2016 12 31)]))
+        checking-items-before (items-fn)
         trans (-> context
                   :transactions
                   second)
         _ (transactions/delete storage-spec (:id trans) (:transaction-date trans))
-        checking-items-after (transactions/items-by-account storage-spec
-                                                             (:id checking))]
+        checking-items-after (items-fn)]
     (testing "transaction item balances are adjusted"
       (let [expected-before [{:index 2 :amount 102M :balance 797M}
                              {:index 1 :amount 101M :balance 899M}
@@ -476,8 +481,16 @@
             expected-after[{:index 1 :amount 102M :balance 898M}
                            {:index 0 :amount 1000M :balance 1000M}]
             actual-after (map #(select-keys % [:index :amount :balance]) checking-items-after)]
+        (if-not (= expected-before actual-before)
+          (pprint {:expected expected-before
+                   :actual actual-before
+                   :diff (diff expected-before actual-before)}))
         (is (= expected-before actual-before)
             "Checking should have the correct items before delete")
+        (if-not (= expected-after actual-after)
+          (pprint {:expected expected-after
+                   :actual actual-after
+                   :diff (diff expected-after actual-after)}))
         (is (= expected-after actual-after)
             "Checking should have the correct items after delete")))
     (testing "account balances are adjusted"
