@@ -169,11 +169,8 @@
   (create-transaction
     [this transaction]
     "Creates a new transaction record")
-  (find-transaction-by-id
-    [this id]
-    "Returns the specified transaction")
   (delete-transaction
-    [this id]
+    [this id transaction-date]
     "Deletes the specified transaction record")
   (update-transaction
     [this id]
@@ -193,7 +190,7 @@
     [this id]
     "Deletes the specified transaction item record")
   (delete-transaction-items-by-transaction-id
-    [this transaction-id]
+    [this transaction-id transaction-date]
     "Deletes the transaction items having the specified id")
   (set-transaction-items-reconciled
     [this reconciliation-id transaction-item-ids]

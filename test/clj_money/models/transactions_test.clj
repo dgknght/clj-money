@@ -391,12 +391,14 @@
   (let [context (serialization/realize storage-spec multi-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
-                               (:accounts context)
-                               [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
+         groceries-items] (map #(transactions/items-by-account
+                                  storage-spec
+                                  (:id %)
+                                  [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
+                               (:accounts context))
         expected-checking-items [{:index 2 :amount  100M :balance 1000M}
-                                      {:index 1 :amount  100M :balance 1100M}
-                                      {:index 0 :amount 1000M :balance 1000M}]
+                                 {:index 1 :amount  100M :balance 1100M}
+                                 {:index 0 :amount 1000M :balance 1000M}]
         actual-checking-items (map #(select-keys % [:index :amount :balance])
                                    checking-items)]
     (is (= expected-checking-items
@@ -455,12 +457,14 @@
         [checking
          salary
          groceries] (:accounts context)
-        checking-items-before (transactions/items-by-account storage-spec
-                                                             (:id checking))
-        _ (transactions/delete storage-spec  (-> context
-                                                :transactions
-                                                second
-                                                :id))
+        checking-items-before (transactions/items-by-account
+                                storage-spec
+                                (:id checking)
+                                [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
+        trans (-> context
+                  :transactions
+                  second)
+        _ (transactions/delete storage-spec (:id trans) (:transaction-date trans))
         checking-items-after (transactions/items-by-account storage-spec
                                                              (:id checking))]
     (testing "transaction item balances are adjusted"

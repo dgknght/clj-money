@@ -20,6 +20,20 @@
                      Date]
            org.joda.time.LocalDate))
 
+(defn- first-key-present
+  "Accepts a list of keys and a map, returning the first
+  key from the list that is present in the map.
+
+  (first-key-present :a :b :c {:b 42})
+  ;; => :b"
+  [& args]
+  (let [m (last args)
+        k (take (- (count args) 1) args)]
+    (-> m
+        keys
+        set
+        (some k))))
+
 (extend-protocol jdbc/IResultSetReadColumn
   Date
   (result-set-read-column [v _ _]
@@ -92,12 +106,18 @@
   ::date)
 (s/def ::transaction-date (s/multi-spec transaction-date vector?))
 
-(defmulti transaction-criteria #(contains? % :lot-id))
-(defmethod transaction-criteria true [_]
+(def ^:private transaction-criteria-key
+  (partial first-key-present :lot-id :entity-id :id))
+(defmulti transaction-criteria transaction-criteria-key)
+(defmethod transaction-criteria :lot-id [_]
   (s/keys :req-un [::lot-id ::transaction-date]))
-(defmethod transaction-criteria false [_]
+(defmethod transaction-criteria :entity-id [_]
   (s/keys :req-un [::entity-id ::transaction-date]))
-(s/def ::transaction-criteria (s/multi-spec transaction-criteria #(contains? % :lot-id)))
+(defmethod transaction-criteria :id [_]
+  (s/keys :req-un [::id ::transaction-date]))
+(s/def
+  ::transaction-criteria
+  (s/multi-spec transaction-criteria transaction-criteria-key))
 
 (s/def ::transaction-item-criteria (s/keys :req-un [::transaction-date]))
 
@@ -686,11 +706,12 @@
   (select-transactions
     [this criteria options]
     (validate-criteria criteria ::transaction-criteria)
-    (let [d-range (date-range this (:trade-date criteria))
+    (let [d-range (date-range this (:transaction-date criteria))
           result
-          (with-partitioning db-spec :prices d-range options [table]
+          (with-partitioning db-spec :transactions d-range options
+            [table]
             (-> (h/select :t.*)
-                (h/from [:transactions :t])
+                (h/from [table :t])
                 (adjust-select options)
                 #_(append-paging options)
                 (append-transaction-lot-filter criteria)))]
@@ -708,18 +729,9 @@
             :transaction-date
             :memo))
 
-  (find-transaction-by-id
-    [_ id]
-    (->> (-> (h/select :*)
-            (h/from :transactions)
-            (h/where [:= :id id])
-            (h/limit 1))
-        (query db-spec )
-        first))
-
   (delete-transaction
-    [_ id]
-    (jdbc/delete! db-spec :transactions ["id = ?" id]))
+    [_ id transaction-date]
+    (jdbc/delete! db-spec (table-name transaction-date :transactions) ["id = ?" id]))
 
   (update-transaction
     [_ transaction]
@@ -787,9 +799,9 @@
     (jdbc/delete! db-spec :transaction_items ["id = ?" id]))
 
   (delete-transaction-items-by-transaction-id
-    [_ transaction-id]
+    [_ transaction-id transaction-date]
     (jdbc/delete! db-spec
-                  :transaction_items
+                  (table-name transaction-date :transaction_items)
                   ["transaction_id = ?" transaction-id]))
 
   (set-transaction-items-reconciled
