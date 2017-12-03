@@ -665,9 +665,9 @@
   [storage-spec account-id date]
   (with-storage [s storage-spec]
     (first (select-transaction-items s
-                                     {:i.account-id account-id
-                                      :t.transaction-date [:<= date]}
-                                     {:sort [[:t.transaction-date :desc] [:i.index :desc]]
+                                     {:account-id account-id
+                                      :transaction-date [:between nil date]}
+                                     {:sort [[:i.transaction-date :desc] [:i.index :desc]]
                                       :limit 1}))))
 
 (defn balance-delta
