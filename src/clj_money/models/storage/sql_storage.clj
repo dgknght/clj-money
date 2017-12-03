@@ -779,7 +779,7 @@
 
   (update-transaction-item-index-and-balance
     [_ transaction-item]
-    (let [sql (sql/format (-> (h/update :transaction_items)
+    (let [sql (sql/format (-> (h/update (table-name (:transaction-date transaction-item) :transaction_items))
                                 (h/sset (->update-set transaction-item
                                                       :index
                                                       :balance))
