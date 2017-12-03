@@ -23,7 +23,8 @@
                                               delete-transaction-items-by-transaction-id
                                               create-lot->transaction-link
                                               delete-lot->transaction-link]])
-  (:import org.joda.time.LocalDate))
+  (:import org.joda.time.LocalDate
+           java.util.UUID))
 
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
@@ -40,7 +41,7 @@
 (s/def ::description validation/non-empty-string?)
 (s/def ::memo #(or (nil? %) (string? %)))
 (s/def ::transaction-date (partial instance? LocalDate))
-(s/def ::id integer?)
+(s/def ::id uuid?)
 (s/def ::entity-id integer?)
 (s/def ::lot-id integer?)
 (s/def ::lot-action #{:buy :sell})
@@ -132,7 +133,7 @@
       (not (empty? (:id item)))) (update-in [:id] #(Integer. %))))
 
 (def ^:private coercion-rules
-  [(coercion/rule :integer [:id])
+  [(coercion/rule :uuid [:id])
    (coercion/rule :integer [:entity-id])
    (coercion/rule :local-date [:transaction-date])])
 
@@ -282,16 +283,19 @@
           (map after-item-read)))))
 
 (defn find-item-by-id
-  [storage-spec id]
-  (first (select-transaction-items storage-spec {:i.id id} {:limit 1})))
+  [storage-spec id transaction-date]
+  (first (select-transaction-items storage-spec
+                                   {:id id
+                                    :transaction-date transaction-date}
+                                   {:limit 1})))
 
 (defn- upsert-item
   "Updates the specified transaction item"
-  [storage item]
+  [storage {:keys [id transaction-date] :as item}]
   (if (:id item)
     (do
       (update-transaction-item storage item)
-      (find-item-by-id storage (:id item)))
+      (find-item-by-id storage id transaction-date))
     (create-transaction-item storage item)))
 
 (defn- update-item-index-and-balance
@@ -494,10 +498,14 @@
 
 (defn find-by-item-id
   "Returns the transaction that has the specified transaction item"
-  [storage-spec item-id]
+  [storage-spec item-id transaction-date]
   (with-storage [s storage-spec]
-    (when-let [transaction-id (:transaction-id (find-item-by-id s item-id))]
-      (find-by-id s transaction-id))))
+    (when-let [{:keys [transaction-id
+                       transaction-date]} (find-item-by-id
+                                            s
+                                            item-id
+                                            transaction-date)]
+      (find-by-id s transaction-id transaction-date))))
 
 (defn find-items-by-ids
   [storage-spec ids]
@@ -551,8 +559,8 @@
 
 (defn reload
   "Returns an updated copy of the transaction"
-  [storage-spec transaction]
-  (find-by-id storage-spec (:id transaction)))
+  [storage-spec {:keys [id transaction-date]}]
+  (find-by-id storage-spec id transaction-date))
 
 (defn- process-removals
   "Given a transaction being updated, deletes an transaction
@@ -572,11 +580,11 @@
                                                    (into #{}))
                                              [existing-trans transaction]))]
     (doseq [id removed-item-ids]
-      (delete-transaction-item storage id))
+      (delete-transaction-item storage id (:transaction-date transaction)))
     (->> dereferenced-account-ids
          ; fake out an item because that's what get-previous-item expects
          (map #(hash-map :account-id %
-                         :id -1
+                         :id (UUID/fromString "00000000-0000-0000-0000-000000000000")
                          :transaction-date (:transaction-date transaction)))
          (map #(or (get-previous-item storage %)
                    (assoc % :index -1 :balance (bigdec 0)))))))
@@ -655,11 +663,13 @@
 (defn- find-last-item-before
   [storage-spec account-id date]
   (with-storage [s storage-spec]
-    (first (select-transaction-items
-             s
-             {:i.account-id account-id
-              :t.transaction-date [:< date]}
-             {:sort [[:t.transaction-date :desc] [:i.index :desc]]}))))
+    (->> (select-transaction-items
+           s
+           {:account-id account-id
+            :transaction-date [:between nil date]}
+           {:sort [[:t.transaction-date :desc] [:i.index :desc]]}) ; TODO: add :limit 1 option
+         (remove #(= date (:transaction-date %))) ; TODO: revert this after reworking logic to deduce partition date range
+         first)))
 
 (defn- find-last-item-on-or-before
   [storage-spec account-id date]
@@ -701,7 +711,8 @@
   related transaction items"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (let [result (->> {:i.account-id account-id} ; Remove the table prefix here
+    (let [result (->> {:account-id account-id
+                       :transaction-date [:between nil (t/today)]} ; TODO: see if this action can be done without loading all items into memory
                       (search-items storage-spec)
                       (reduce calculate-item-index-and-balance {:index 0
                                                                 :balance 0M

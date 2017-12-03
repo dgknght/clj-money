@@ -18,7 +18,8 @@
             [clj-money.models.storage :refer [Storage]])
   (:import [java.sql BatchUpdateException
                      Date]
-           org.joda.time.LocalDate))
+           org.joda.time.LocalDate
+           org.postgresql.util.PSQLException))
 
 (defn- first-key-present
   "Accepts a list of keys and a map, returning the first
@@ -350,6 +351,31 @@
        first
        vals
        first))
+
+(defn- execute
+  [db-spec sql-map]
+  (let [sql (sql/format sql-map)]
+    (try
+      (jdbc/execute! db-spec sql)
+      (catch PSQLException e
+        (pprint {:sql sql
+                 :exception e})
+        (throw (ex-info (.getMessage e) {:sql sql})))
+      (catch BatchUpdateException e
+        (pprint {:sql sql
+                 :batch-update-exception (.getNextException e)})
+        (throw (ex-info (.getMessage (.getNextException e)) {:sql sql}))))))
+
+(defn- delete
+  [db-spec table where]
+  (try
+    (jdbc/delete! db-spec table where)
+    (catch BatchUpdateException e
+      (pprint {:delete-from table
+               :where where
+               :batch-update-exception (.getNextException e)})
+      (throw (ex-info (.getMessage (.getNextException e)) {:table table
+                                                           :where where})))))
 
 (defn- validate-criteria
   [criteria spec]
@@ -735,7 +761,8 @@
 
   (update-transaction
     [_ transaction]
-    (let [sql (sql/format (-> (h/update :transactions)
+    (let [sql (sql/format (-> (h/update (table-name (:transaction-date transaction)
+                                                    :transactions))
                               (h/sset (->update-set
                                         transaction
                                         :description
@@ -762,47 +789,42 @@
 
   (update-transaction-item
     [_ transaction-item]
-    (let [sql (sql/format (-> (h/update :transaction_items)
-                              (h/sset (->update-set transaction-item
-                                                    :amount
-                                                    :memo
-                                                    :action
-                                                    :index
-                                                    :balance
-                                                    :account-id))
-                              (h/where [:= :id (:id transaction-item)])))]
-      (try
-        (jdbc/execute! db-spec sql)
-        (catch BatchUpdateException e
-          (pprint {:sql sql
-                   :batch-update-exception (.getNextException e)})))))
+    (execute db-spec (-> (h/update (table-name
+                                     (:transaction-date transaction-item)
+                                     :transaction_items))
+                         (h/sset (->update-set transaction-item
+                                               :amount
+                                               :memo
+                                               :action
+                                               :index
+                                               :balance
+                                               :account-id))
+                         (h/where [:= :id (:id transaction-item)]))))
 
   (update-transaction-item-index-and-balance
     [_ transaction-item]
-    (let [sql (sql/format (-> (h/update (table-name (:transaction-date transaction-item) :transaction_items))
-                                (h/sset (->update-set transaction-item
-                                                      :index
-                                                      :balance))
-                                (h/where [:and
-                                          [:= :id (:id transaction-item)]
-                                          [:or
-                                           [:!= :balance (:balance transaction-item)]
-                                           [:!= :index (:index transaction-item)]]])))]
-        (try
-          (jdbc/execute! db-spec sql)
-          (catch BatchUpdateException e
-            (pprint {:sql sql
-                    :batch-update-exception (.getNextException e)})))))
+    (execute db-spec (-> (h/update (table-name (:transaction-date transaction-item)
+                                               :transaction_items))
+                         (h/sset (->update-set transaction-item
+                                               :index
+                                               :balance))
+                         (h/where [:and
+                                   [:= :id (:id transaction-item)]
+                                   [:or
+                                     [:!= :balance (:balance transaction-item)]
+                                     [:!= :index (:index transaction-item)]]]))))
 
   (delete-transaction-item
-    [_ id]
-    (jdbc/delete! db-spec :transaction_items ["id = ?" id]))
+    [_ id transaction-date]
+    (delete db-spec
+            (table-name transaction-date :transaction_items)
+            ["id = ?" id]))
 
   (delete-transaction-items-by-transaction-id
     [_ transaction-id transaction-date]
-    (jdbc/delete! db-spec
-                  (table-name transaction-date :transaction_items)
-                  ["transaction_id = ?" transaction-id]))
+    (delete db-spec
+            (table-name transaction-date :transaction_items)
+            ["transaction_id = ?" transaction-id]))
 
   (set-transaction-items-reconciled
     [_ reconciliation-id transaction-item-ids]
@@ -831,17 +853,17 @@
                                                               (first d-range)
                                                               (concat [:between] d-range))))]
       (let [result (with-partitioning db-spec [:transaction_items :transactions] d-range options [tables]
-                    (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
-                        (h/from [(first tables) :i])
-                        (h/join [(second tables) :t]
-                                [:= :t.id :i.transaction_id])
-                        (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
-                        (adjust-select options)
-                        (h/where (map->where criteria {:prefix "i"}))
-                        (append-sort (merge
+                     (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
+                         (h/from [(first tables) :i])
+                         (h/join [(second tables) :t]
+                                 [:= :t.id :i.transaction_id])
+                         (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
+                         (adjust-select options)
+                         (h/where (map->where criteria {:prefix "i"}))
+                         (append-sort (merge
                                         {:sort [:i.transaction_date :i.index]}
                                         options))
-                        (append-limit options)))]
+                         (append-limit options)))]
         (if (:count options)
           (-> result first vals first)
           result))))
