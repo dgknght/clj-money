@@ -20,6 +20,14 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
+(defn items-by-account
+  [account-id]
+  (transactions/items-by-account
+    storage-spec
+    account-id
+    [(t/local-date 2015 1 1)
+     (t/local-date 2017 12 31)]))
+
 (def create-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
@@ -84,20 +92,25 @@
                           (catch RuntimeException e
                             nil))]
         (testing "records are not created"
-          (is (= 0 (count (transactions/search storage-spec {:entity-id (-> context :entities first :id)})))
+          (is (= 0 (count (transactions/search
+                            storage-spec
+                            {:entity-id (-> context :entities first :id)
+                             :transaction-date [:between
+                                                (t/local-date 2016 1 1)
+                                                (t/local-date 2016 12 31)]})))
               "The transaction should not be saved")
-          (is (= 0 (count (transactions/items-by-account storage-spec (:id checking))))
+          (is (= 0 (count (items-by-account (:id checking))))
               "The transaction item for checking should not be created")
-          (is (= 0 (count (transactions/items-by-account storage-spec (:id salary))))
+          (is (= 0 (count (items-by-account (:id salary))))
               "The transaction item for salary should not be created"))
         (testing "account balances are not updated"
           (is (= 0M (->> checking
-                                 (accounts/reload storage-spec)
-                                 :balance))
+                         (accounts/reload storage-spec)
+                         :balance))
               "The checking balance should not be updated")
           (is (= 0M (->> salary
-                                 (accounts/reload storage-spec)
-                                 :balance))
+                         (accounts/reload storage-spec)
+                         :balance))
               "The salary balance should not be updated"))))))
 
 (deftest create-a-transaction-us-string-date
@@ -235,11 +248,7 @@
   (let [context (serialization/realize storage-spec balance-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account
-                                  storage-spec
-                                  (:id %)
-                                  [(t/local-date 2016 1 1)
-                                   (t/local-date 2016 12 31)])
+         groceries-items] (map #(items-by-account (:id %))
                                (:accounts context))]
            ; Transactions are returned with most recent first
     (is (= [900M 1000M]
@@ -254,10 +263,7 @@
   (let [context (serialization/realize storage-spec balance-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account
-                                  storage-spec
-                                  (:id %)
-                                  [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
+         groceries-items] (map #(items-by-account (:id %))
                                (:accounts context))]
     (is (= [1 0] (map :index checking-items)) "The checking transaction items have correct indexes")
     (is (= [0] (map :index salary-items)) "The salary transaction items have the correct indexes")
@@ -327,9 +333,7 @@
   (let [context (serialization/realize storage-spec insert-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account storage-spec
-                                                               (:id %)
-                                                               [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
+         groceries-items] (map #(items-by-account (:id %))
                                (:accounts context))]
     (is (= [{:index 2
              :amount 100M
@@ -398,10 +402,7 @@
   (let [context (serialization/realize storage-spec multi-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account
-                                  storage-spec
-                                  (:id %)
-                                  [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
+         groceries-items] (map #(items-by-account (:id %))
                                (:accounts context))
         expected-checking-items [{:index 2 :amount  100M :balance 1000M}
                                  {:index 1 :amount  100M :balance 1100M}
@@ -464,17 +465,12 @@
         [checking
          salary
          groceries] (:accounts context)
-        items-fn (fn []
-                   (transactions/items-by-account
-                                storage-spec
-                                (:id checking)
-                                [(t/local-date 2016 1 1) (t/local-date 2016 12 31)]))
-        checking-items-before (items-fn)
+        checking-items-before (items-by-account (:id checking))
         trans (-> context
                   :transactions
                   second)
         _ (transactions/delete storage-spec (:id trans) (:transaction-date trans))
-        checking-items-after (items-fn)]
+        checking-items-after (items-by-account (:id checking))]
     (testing "transaction item balances are adjusted"
       (let [expected-before [{:index 2 :amount 102M :balance 797M}
                              {:index 1 :amount 101M :balance 899M}
@@ -564,13 +560,11 @@
         expected-checking [{:index 2 :amount 102M   :balance 798.01M}
                            {:index 1 :amount 99.99M :balance 900.01M}
                            {:index 0 :amount 1000M  :balance 1000M}]
-        actual-checking (->> (:id checking)
-                             (transactions/items-by-account storage-spec)
+        actual-checking (->> (items-by-account (:id checking))
                              (map #(select-keys % [:index :amount :balance])))
         expected-groceries [{:index 1 :amount 102M   :balance 201.99M}
                             {:index 0 :amount 99.99M :balance 99.99M}]
-        actual-groceries (->> (:id groceries)
-                              (transactions/items-by-account storage-spec)
+        actual-groceries (->> (items-by-account (:id groceries))
                               (map #(select-keys % [:index :amount :balance])))]
     (testing "transaction item balances are correct"
       (is (= expected-checking actual-checking)
@@ -634,12 +628,12 @@
                            {:index 1 :amount 102M :balance 898M}
                            {:index 0 :amount 1000M :balance 1000M}]
         actual-checking (->> (:id checking)
-                             (transactions/items-by-account storage-spec)
+                             items-by-account
                              (map #(select-keys % [:index :amount :balance])))
         expected-groceries [{:index 1 :amount 101M :balance 203M}
                             {:index 0 :amount 102M :balance 102M}]
         actual-groceries (->> (:id groceries)
-                              (transactions/items-by-account storage-spec)
+                              items-by-account
                               (map #(select-keys % [:index :amount :balance])))]
     (testing "transaction item balances are correct"
       (is (= expected-checking actual-checking)
@@ -753,7 +747,9 @@
         [t1 t2 t3 t4] (:transactions context)
         updated (assoc t3 :transaction-date (t/local-date 2016 3 8))
         update-calls (atom {})]
-    (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance context update-calls)]
+    (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance
+                                                                      context
+                                                                      update-calls)]
       (transactions/update storage-spec updated)
       (let [expected #{{:index 2
                        :amount 101M
@@ -764,6 +760,10 @@
                                                ; the 4th item should never be updated because the 4rd one did not change a value
             actual (get @update-calls (:id checking))]
         (testing "the expected transactions are updated"
+          (when-not (= expected actual)
+            (pprint {:expected expected
+                     :actual actual
+                     :diff (diff expected actual)}))
           (is (= expected actual)
               "Only items with changes are updated")
           (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
@@ -833,8 +833,8 @@
          groceries] (:accounts context)
         [t1 t2 t3 t4] (:transactions context)
         _ (transactions/update storage-spec (assoc-in t3 [:items 0 :account-id] (:id rent)))
-        groceries-items (transactions/items-by-account storage-spec (:id groceries))
-        rent-items (transactions/items-by-account storage-spec (:id rent))
+        groceries-items (items-by-account (:id groceries))
+        rent-items (items-by-account (:id rent))
         expected-groceries [{:index 1
                              :amount 103M
                              :balance 204M}
@@ -930,7 +930,7 @@
                          :amount 103M
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :amount :balance])
-                          (transactions/items-by-account storage-spec (:id groceries)))]
+                          (items-by-account (:id groceries)))]
     (testing "items are updated correctly"
       (is (= expected-items actual-items)
           "Groceries should have the correct items after update"))
@@ -1025,7 +1025,7 @@
                          :amount 103M
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :amount :balance])
-                          (transactions/items-by-account storage-spec (:id groceries)))]
+                          (items-by-account (:id groceries)))]
     (testing "item values are correct"
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))
@@ -1062,8 +1062,12 @@
                          :amount 13M
                          :balance 13M}]
         actual-items (map #(select-keys % [:index :amount :balance])
-                          (transactions/items-by-account storage-spec (:id pets)))]
+                          (items-by-account (:id pets)))]
     (testing "item values are correct"
+      (when-not (= expected-items actual-items)
+        (pprint {:expected expected-items
+                 :actual actual-items
+                 :diff (diff expected-items actual-items)}))
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))
     (testing "account balances are correct"
