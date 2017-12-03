@@ -254,7 +254,10 @@
   (let [context (serialization/realize storage-spec balance-context)
         [checking-items
          salary-items
-         groceries-items] (map #(transactions/items-by-account storage-spec (:id %))
+         groceries-items] (map #(transactions/items-by-account
+                                  storage-spec
+                                  (:id %)
+                                  [(t/local-date 2016 1 1) (t/local-date 2016 12 31)])
                                (:accounts context))]
     (is (= [1 0] (map :index checking-items)) "The checking transaction items have correct indexes")
     (is (= [0] (map :index salary-items)) "The salary transaction items have the correct indexes")
