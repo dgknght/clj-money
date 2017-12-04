@@ -222,7 +222,7 @@
     :storage          - Unchanged storage service"
   [context item]
   (let [next-index (+ 1 (:previous-index context))
-        account (accounts/find-by-id (:storage context) (:account-id item))
+        account (accounts/find-by-id (:storage context) (:account-id item)) ; TODO: remove redundant calls to find the account
         polarized-amount (accounts/polarize-amount item account)
         next-balance (+ (:previous-balance context) polarized-amount)
         updated-item (-> item
@@ -327,7 +327,7 @@
   items that are affected by a new or updated transaction"
   [{:keys [index balance storage]} item]
   (let [new-index (+ 1 index)
-        account (accounts/find-by-id storage (:account-id item))
+        account (accounts/find-by-id storage (:account-id item)) ; TODO: remove redundant calls to find the account
         polarized-amount (accounts/polarize-amount item account)
         new-balance (+ balance polarized-amount)
         value-changed (update-item-index-and-balance storage (-> item
