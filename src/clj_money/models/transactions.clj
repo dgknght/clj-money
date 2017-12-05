@@ -4,7 +4,8 @@
             [clojure.spec :as s]
             [clojure.set :refer [difference]]
             [clj-time.core :as t]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-money.util :refer [pprint-and-return
+                                    ensure-local-date]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
@@ -123,7 +124,7 @@
   transaction-dates-must-match
   [{:keys [transaction-date items] :as transaction}]
   (->> items
-       (map :transaction-date)
+       (map (comp ensure-local-date :transaction-date))
        (apply = transaction-date)))
 
 (defn- before-item-validation
