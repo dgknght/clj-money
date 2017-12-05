@@ -651,7 +651,7 @@
           "The groceries account balance should be correct after update"))
     (testing "transaction is updated"
       (is (= (t/local-date 2016 3 10)
-             (:transaction-date (transactions/reload storage-spec t3)))
+             (:transaction-date (transactions/reload storage-spec updated)))
           "The transaction should be updated"))))
 
 (def short-circuit-context
