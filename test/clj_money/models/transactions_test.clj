@@ -750,8 +750,8 @@
     (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance
                                                                       context
                                                                       update-calls)]
-      (transactions/update storage-spec updated)
-      (let [expected #{{:index 2
+      (let [result (transactions/update storage-spec updated)
+            expected #{{:index 2
                        :amount 101M
                        :balance 797M}
                       {:index 3
@@ -759,6 +759,8 @@
                        :balance 694M}} ; The first update that doesn't change a value stops the chain
                                                ; the 4th item should never be updated because the 4rd one did not change a value
             actual (get @update-calls (:id checking))]
+        (is (empty? (validation/error-messages result))
+            "The transaction is saved successfully")
         (testing "the expected transactions are updated"
           (when-not (= expected actual)
             (pprint {:expected expected
