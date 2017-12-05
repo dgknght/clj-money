@@ -118,6 +118,14 @@
        (map #(item-value-sum transaction %))
        (apply =)))
 
+(defn- ^{:clj-money.validation/message "Each item must have the same transaction-date as the transaction"
+         :clj-money.validation/path [:items]}
+  transaction-dates-must-match
+  [{:keys [transaction-date items] :as transaction}]
+  (->> items
+       (map :transaction-date)
+       (apply = transaction-date)))
+
 (defn- before-item-validation
   [item]
   (cond-> item
@@ -141,7 +149,11 @@
   "Performs operations required before validation"
   [transaction]
   (-> (coercion/coerce coercion-rules transaction)
-      (update-in [:items] #(map before-item-validation %))))
+      (update-in [:items] (fn [items]
+                            (->> items
+                                 (map #(assoc % :transaction-date
+                                                (:transaction-date transaction)))
+                                 (map before-item-validation))))))
 
 (defn- after-validation
   [{transaction-date :transaction-date :as transaction}]
@@ -378,6 +390,7 @@
 (defn- validation-rules
   [storage]
   [#'sum-of-credits-must-equal-sum-of-debits
+   #'transaction-dates-must-match
    (validation/create-rule (partial no-reconciled-items-changed? storage)
                            [:items]
                            "A reconciled transaction item cannot be changed")])
