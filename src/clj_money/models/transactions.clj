@@ -242,13 +242,12 @@
         previous-balance (or (get previous-item :balance)
                              (bigdec 0))
         previous-index (or (get previous-item :index) -1)]
-    (->> sorted-items
-         (reduce process-item-balance-and-index
-                 {:previous-index previous-index
-                  :previous-balance previous-balance
-                  :items []
-                  :storage storage})
-         :items)))
+    (:items (reduce process-item-balance-and-index
+                    {:previous-index previous-index
+                     :previous-balance previous-balance
+                     :items []
+                     :storage storage}
+                    sorted-items))))
 
 (defn- calculate-balances-and-indexes
   "Updates transaction item and account balances resulting from the
