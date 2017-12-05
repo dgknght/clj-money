@@ -236,7 +236,7 @@
 (defn- add-item-balance-and-index
   "Updates the specified items, which belong to the specified account
   with new balance and index values"
-  [storage transaction-date [account-id items]]
+  [storage [account-id items]]
   (let [sorted-items (sort-by :index items)
         previous-item (get-previous-item storage (first sorted-items))
         previous-balance (or (get previous-item :balance)
@@ -260,12 +260,10 @@
   on the balance of the associated account and is dependant on the action
   (debit or credit) and the account type (asset, liability, equity,
   income, or expense)"
-  [storage transaction-date items]
+  [storage items]
   (->> items
        (group-by :account-id)
-       (mapcat (partial add-item-balance-and-index
-                     storage
-                     transaction-date))))
+       (mapcat #(add-item-balance-and-index storage %))))
 
 (defn- subsequent-items
   "Returns items in the specified account on or after the specified
@@ -461,7 +459,6 @@
   [storage transaction]
   (let [items-with-balances (calculate-balances-and-indexes
                               storage
-                              (:transaction-date transaction)
                               (:items transaction))
         _ (update-affected-balances storage items-with-balances
                                     (:transaction-date transaction))
@@ -599,9 +596,8 @@
                                         storage
                                         validated)
               upserted-items (->> (:items validated)
-                                  (calculate-balances-and-indexes
-                                    storage
-                                    (:transaction-date validated))
+                                  (calculate-balances-and-indexes ; TODO: This appears to be redunant with update-affected-balances, which also does the calculation
+                                    storage)
                                   ; new items need the transaction-id added
                                   (map #(assoc % :transaction-id (:id validated)))
                                   (process-item-upserts storage))]
