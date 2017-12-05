@@ -793,6 +793,7 @@
                                      (:transaction-date transaction-item)
                                      :transaction_items))
                          (h/sset (->update-set transaction-item
+                                               :transaction-date
                                                :amount
                                                :memo
                                                :action
@@ -806,6 +807,7 @@
     (execute db-spec (-> (h/update (table-name (:transaction-date transaction-item)
                                                :transaction_items))
                          (h/sset (->update-set transaction-item
+                                               :transaction-date
                                                :index
                                                :balance))
                          (h/where [:and
