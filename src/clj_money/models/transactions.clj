@@ -287,7 +287,7 @@
             {:account-id (:account-id reference-item)
              :index [:>= (:index reference-item)]
              :transaction-date [:between (:transaction-date reference-item) (t/today)]} ; TODO: let the system look up the latest date
-            {:sort [[:index :desc]]})
+            {:sort [[:index :asc]]})
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read)))))
 
