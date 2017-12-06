@@ -63,7 +63,7 @@
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
-(s/def ::transaction-id integer?)
+(s/def ::transaction-id uuid?)
 (s/def ::date (partial instance? LocalDate))
 (s/def ::nilable-date #(or (instance? LocalDate %) (nil? %)))
 

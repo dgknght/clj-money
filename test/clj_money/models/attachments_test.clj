@@ -53,6 +53,8 @@
         retrieved (->> {:transaction-id (-> context :transactions first :id)}
                        (attachments/search storage-spec)
                        first)]
+    (is (empty? (validation/error-messages result))
+        "The attachment is saved successfully")
     (is retrieved "The value can be retreived from the database")
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")))
 

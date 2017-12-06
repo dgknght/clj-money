@@ -17,7 +17,7 @@
             [clj-money.models.auth-helpers :refer [user-owns-entity?
                                                    user-entity-ids]]))
 
-(s/def ::transaction-id integer?)
+(s/def ::transaction-id uuid?)
 (s/def ::image-id integer?)
 (s/def ::caption string?)
 (s/def ::new-attachment (s/keys :req-un [::transaction-id
