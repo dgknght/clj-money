@@ -26,7 +26,7 @@
 (s/def ::end-of-period #(instance? LocalDate %))
 (s/def ::balance decimal?)
 (s/def ::status #{:new :completed})
-(s/def ::item-id integer?)
+(s/def ::item-id uuid?)
 (s/def ::item-ids (s/coll-of ::item-id))
 
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-ids]))
@@ -37,7 +37,7 @@
    (coercion/rule :decimal [:balance])
    (coercion/rule :integer [:account-id])
    (coercion/rule :integer [:id])
-   (coercion/rule :integer-collection [:item-ids])])
+   (coercion/rule :uuid-collection [:item-ids])])
 
 (defn- before-validation
   [reconciliation]
@@ -78,9 +78,9 @@
   (when reconciliation
     (assoc reconciliation
            :item-ids
-           (mapv :id (transactions/select-items-by-reconciliation-id
+           (mapv :id (transactions/select-items-by-reconciliation
                        storage
-                       (:id reconciliation))))))
+                       reconciliation)))))
 
 (defn find-by-id
   "Returns the specified reconciliation"
