@@ -143,8 +143,7 @@
 
 (defn unbuy
   [{{transaction-id :transaction-id} :params}]
-  (->> (Integer. transaction-id)
-       (trading/unbuy (env :db))
+  (->> (trading/unbuy (env :db))
        :lot
        :account-id
        (format "/accounts/%s")
