@@ -423,14 +423,17 @@
        (map #(after-read s %)
             (select-transactions s criteria parsed-options))))))
 
-(defn select-items-by-reconciliation-id
+(defn select-items-by-reconciliation
   "Returns the transaction items associated with the specified reconciliation"
-  [storage-spec reconciliation-id]
+  [storage-spec reconciliation]
   (with-storage [s storage-spec]
     (map after-item-read
          (select-transaction-items s
-                                   {:reconciliation-id reconciliation-id}
-                                   {:sort [[:t.transaction-date :desc] [:i.index :desc]]}))))
+                                   {:reconciliation-id (:id reconciliation)
+                                    :transaction-date [:between
+                                                       (t/minus (:end-of-period reconciliation) (t/years 1))
+                                                       (t/plus (:end-of-period reconciliation) (t/months 1))]}
+                                   {:sort [[:transaction-date :desc] [:index :desc]]}))))
 
 (defn record-count
   "Returns the number of transactions that belong to the specified entity"
@@ -518,7 +521,10 @@
       (find-by-id s transaction-id transaction-date))))
 
 (defn find-items-by-ids
-  [storage-spec ids]
+  [storage-spec ids date-range]
+
+  (throw (RuntimeException. "Not implemented"))
+
   (with-storage [s storage-spec]
     (->> (select-transaction-items s {:i.id ids})
          (map after-item-read))))
