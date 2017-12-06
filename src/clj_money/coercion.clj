@@ -20,6 +20,13 @@
   [rule-key & paths]
   (map #(rule rule-key %) paths))
 
+(defn parse-uuid-collection
+  [values]
+  (map #(if (instance? UUID %)
+          %
+          (UUID/fromString %))
+       values))
+
 (defmulti parse-integer-collection
   (fn [value]
     (cond
@@ -57,6 +64,7 @@
 (register-coerce-fn :keyword    #(if (keyword? %) % (keyword %)))
 (register-coerce-fn :local-date #(if (string? %) (or (parse-local-date %) %) %))
 (register-coerce-fn :integer-collection parse-integer-collection)
+(register-coerce-fn :uuid-collection parse-uuid-collection)
 (register-coerce-fn :uuid #(if (instance? UUID %) % (UUID/fromString %)))
 
 (defn coerce
