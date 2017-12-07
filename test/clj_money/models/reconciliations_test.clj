@@ -87,7 +87,7 @@
                        :item-ids [{:transaction-date (t/local-date 2017 1 2)
                                    :amount 500M}]})))
 
-(deftest an-incomplete-reconciliation-can-be-created
+(deftest create-a-reconciliation
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -116,7 +116,7 @@
                   set))
           "None of the transaction items should be marked as reconcilied"))))
 
-(deftest a-complete-reconciliation-can-be-created
+(deftest create-a-completed-reconciliation
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -130,7 +130,7 @@
         reconciliation {:account-id (:id checking)
                         :balance 447M
                         :end-of-period (t/local-date 2017 1 31)
-                        :item-ids (map :id [paycheck landlord safeway])
+                        :item-ids (map (juxt :id :transaction-date) [paycheck landlord safeway])
                         :status :completed}
         result (reconciliations/create storage-spec reconciliation)
         retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]

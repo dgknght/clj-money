@@ -2,8 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec :as s]
             [clojure.pprint :refer [pprint]]
-            [clj-time.coerce :refer [to-local-date]]
-            [clj-money.util :refer [to-sql-date]]
+            [clj-time.coerce :refer [to-long
+                                     to-local-date]]
+            [clj-money.util :refer [parse-local-date]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -17,27 +18,40 @@
                                               find-reconciliation-by-id
                                               find-last-reconciliation-by-account-id
                                               find-new-reconciliation-by-account-id
-                                              set-transaction-items-reconciled
+                                              set-transaction-item-reconciled
                                               unreconcile-transaction-items-by-reconciliation-id
                                               delete-reconciliation]])
-  (:import org.joda.time.LocalDate))
+  (:import org.joda.time.LocalDate
+           java.util.UUID))
 
 (s/def ::account-id integer?)
 (s/def ::end-of-period #(instance? LocalDate %))
 (s/def ::balance decimal?)
 (s/def ::status #{:new :completed})
-(s/def ::item-id uuid?)
+(s/def ::item-id (s/tuple uuid? #(instance? LocalDate %)))
 (s/def ::item-ids (s/coll-of ::item-id))
 
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-ids]))
 (s/def ::existing-reconciliation (s/keys :req-un [::id ::end-of-period ::status ::balance] :opt-un [::account-id ::item-ids]))
+
+(coercion/register-coerce-fn
+  :transaction-item-refs
+  (fn [values]
+    (map (fn [[id date]]
+           [(if (uuid? id)
+              id
+              (UUID/fromString id))
+            (if (instance? LocalDate date)
+              date
+              (parse-local-date date))])
+         values)))
 
 (def ^:private coercion-rules
   [(coercion/rule :local-date [:end-of-period])
    (coercion/rule :decimal [:balance])
    (coercion/rule :integer [:account-id])
    (coercion/rule :integer [:id])
-   (coercion/rule :uuid-collection [:item-ids])])
+   (coercion/rule :transaction-item-refs [:item-ids])])
 
 (defn- before-validation
   [reconciliation]
@@ -47,14 +61,12 @@
 (defn- before-save
   [reconciliation]
   (-> reconciliation
-      (update-in [:end-of-period] to-sql-date)
       (update-in [:status] name)))
 
 (defn- after-read
   [reconciliation]
   (when reconciliation
     (-> reconciliation
-        (update-in [:end-of-period] to-local-date)
         (update-in [:status] keyword)
         (authorization/tag-resource :reconciliation))))
 
@@ -67,11 +79,16 @@
 ; TODO this still isn't ensureing that they are only loaded once, need to rework it
 (defn- ensure-transaction-items
   [storage {item-ids :item-ids :as reconciliation}]
-  (update-in reconciliation
-         [::items]
-         (fnil identity (if item-ids
-                          (transactions/find-items-by-ids storage item-ids)
-                          []))))
+  (let [ids (map first item-ids)
+        date-range ((juxt first last) (sort (map second item-ids)))]
+    (update-in reconciliation
+               [::items]
+               (fnil identity (if item-ids
+                                (transactions/find-items-by-ids
+                                  storage
+                                  ids
+                                  date-range)
+                                [])))))
 
 (defn- append-transaction-item-ids
   [storage reconciliation]
@@ -195,7 +212,8 @@
                            before-save
                            (create-reconciliation s))]
           (when (and (:item-ids validated) (seq (:item-ids validated)))
-            (set-transaction-items-reconciled s (:id created) (:item-ids validated)))
+            (doseq [item-ref (:item-ids validated)]
+              (set-transaction-item-reconciled s (:id created) (first item-ref) (second item-ref))))
           (->> created
                (append-transaction-item-ids s)
                after-read))
@@ -231,8 +249,9 @@
                before-save
                (update-reconciliation s))
           (unreconcile-transaction-items-by-reconciliation-id s (:id validated))
-          (when (and (:item-ids validated) (seq (:item-ids validated)))
-            (set-transaction-items-reconciled s (:id validated) (:item-ids validated)))
+          (when (and (:item-ids validated) (seq (:item-ids validated))) ; TODO: remove this redundancy wth create
+            (doseq [[item-id date] (:item-ids validated)]
+              (set-transaction-item-reconciled s (:id validated) item-id date)))
           (reload s validated))
         validated))))
 

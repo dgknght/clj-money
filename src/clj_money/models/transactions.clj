@@ -520,15 +520,6 @@
                                             transaction-date)]
       (find-by-id s transaction-id transaction-date))))
 
-(defn find-items-by-ids
-  [storage-spec ids date-range]
-
-  (throw (RuntimeException. "Not implemented"))
-
-  (with-storage [s storage-spec]
-    (->> (select-transaction-items s {:i.id ids})
-         (map after-item-read))))
-
 (defn items-by-account
   "Returns the transaction items for the specified account"
   ([storage-spec account-id date-spec]
@@ -720,6 +711,13 @@
     (->> criteria
          (select-transaction-items s)
          (map after-item-read))))
+
+(defn find-items-by-ids
+  [storage-spec ids date-range]
+  (search-items
+    storage-spec
+    {:id ids
+     :transaction-date (vec (concat [:between] date-range))}))
 
 (defn recalculate-balances
   "Recalculates balances for the specified account and all

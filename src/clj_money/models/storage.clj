@@ -192,8 +192,8 @@
   (delete-transaction-items-by-transaction-id
     [this transaction-id transaction-date]
     "Deletes the transaction items having the specified id")
-  (set-transaction-items-reconciled
-    [this reconciliation-id transaction-item-ids]
+  (set-transaction-item-reconciled
+    [this reconciliation-id transaction-item-id transaction-date]
     "Updates the specified transaction items to indicate they belong to a reconciliation")
   (unreconcile-transaction-items-by-reconciliation-id
     [this reconciliation-id]

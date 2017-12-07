@@ -828,11 +828,11 @@
             (table-name transaction-date :transaction_items)
             ["transaction_id = ?" transaction-id]))
 
-  (set-transaction-items-reconciled
-    [_ reconciliation-id transaction-item-ids]
-    (jdbc/execute! db-spec (-> (h/update :transaction_items)
+  (set-transaction-item-reconciled
+    [_ reconciliation-id transaction-item-id transaction-date]
+    (jdbc/execute! db-spec (-> (h/update (table-name transaction-date :transaction_items))
                                (h/sset {:reconciliation_id reconciliation-id})
-                               (h/where [:in :id transaction-item-ids])
+                               (h/where [:= :id transaction-item-id])
                                sql/format)))
 
   (unreconcile-transaction-items-by-reconciliation-id
