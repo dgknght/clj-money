@@ -11,7 +11,9 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage]]
+                                              with-transacted-storage
+                                              create-fn
+                                              update-fn]]
             [clj-money.models.storage :refer [create-reconciliation
                                               update-reconciliation
                                               select-reconciliations-by-account-id
@@ -54,27 +56,43 @@
    (coercion/rule :transaction-item-refs [:item-ids])])
 
 (defn- before-validation
-  [reconciliation]
-  (-> (coercion/coerce coercion-rules reconciliation)
-      (update-in [:status] (fnil identity :new))))
+  ([reconciliation]
+   (before-validation nil reconciliation))
+  ([_ reconciliation]
+   (-> (coercion/coerce coercion-rules reconciliation)
+       (update-in [:status] (fnil identity :new)))))
 
 (defn- before-save
-  [reconciliation]
-  (-> reconciliation
-      (update-in [:status] name)))
+  ([reconciliation]
+   (before-save nil reconciliation))
+  ([_ reconciliation]
+   (-> reconciliation
+       (update-in [:status] name))))
+
+(defn- append-transaction-item-ids
+  [reconciliation storage]
+  (when reconciliation
+    (assoc reconciliation
+           :item-ids
+           (mapv :id (transactions/select-items-by-reconciliation
+                       storage
+                       reconciliation)))))
 
 (defn- after-read
-  [reconciliation]
-  (when reconciliation
-    (-> reconciliation
-        (update-in [:status] keyword)
-        (authorization/tag-resource :reconciliation))))
+  ([reconciliation]
+   (after-read nil reconciliation))
+  ([storage reconciliation]
+   (when reconciliation
+     (-> reconciliation
+         (update-in [:status] keyword)
+         (authorization/tag-resource :reconciliation)
+         (append-transaction-item-ids storage)))))
 
 (defn find-last-completed
   "Returns the last reconciled balance for an account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (after-read (find-last-reconciliation-by-account-id s account-id :completed))))
+    (after-read s (find-last-reconciliation-by-account-id s account-id :completed))))
 
 ; TODO this still isn't ensureing that they are only loaded once, need to rework it
 (defn- ensure-transaction-items
@@ -90,23 +108,13 @@
                                   date-range)
                                 [])))))
 
-(defn- append-transaction-item-ids
-  [storage reconciliation]
-  (when reconciliation
-    (assoc reconciliation
-           :item-ids
-           (mapv :id (transactions/select-items-by-reconciliation
-                       storage
-                       reconciliation)))))
-
 (defn find-by-id
   "Returns the specified reconciliation"
   [storage-spec id]
   (with-storage [s storage-spec]
-    (->> id
-         (find-reconciliation-by-id s)
-         (append-transaction-item-ids s)
-         after-read)))
+    (-> (find-reconciliation-by-id s id)
+        (append-transaction-item-ids s)
+        after-read)))
 
 (defn- is-in-balance?
   [storage reconciliation]
@@ -200,30 +208,37 @@
        before-validation
        (validation/validate spec rules)))
 
-(defn create
-  "Creates a new reconciliation record"
-  [storage-spec reconciliation]
-  (with-transacted-storage [s storage-spec]
-    (let [validated (validate ::new-reconciliation
-                              (validation-rules s)
-                              reconciliation)]
-      (if (validation/valid? validated)
-        (let [created (->> validated
-                           before-save
-                           (create-reconciliation s))]
-          (when (and (:item-ids validated) (seq (:item-ids validated)))
-            (doseq [item-ref (:item-ids validated)]
-              (set-transaction-item-reconciled s (:id created) (first item-ref) (second item-ref))))
-          (->> created
-               (append-transaction-item-ids s)
-               after-read))
-        validated))))
+(defn- after-save
+  [storage {item-refs :item-ids :as reconciliation}]
+  ; Set reconciled flag on specified transaction items
+  (when (and item-refs (seq item-refs))
+    (doseq [[item-id transaction-date] item-refs]
+      (set-transaction-item-reconciled storage
+                                       (:id reconciliation)
+                                       item-id 
+                                       transaction-date)))
+  reconciliation)
+
+(defn- create*
+  [storage reconciliation]
+  (merge reconciliation
+  (create-reconciliation storage reconciliation)))
+
+(def create
+  (create-fn {:spec ::new-reconciliation
+              :before-validation before-validation
+              :create create*
+              :before-save before-save
+              :after-save after-save
+              :rules-fn validation-rules
+              :after-read after-read
+              :coercion-rules coercion-rules}))
 
 (defn find-by-account-id
   "Returns the reconciliations for the specified account"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (map after-read
+    (map #(after-read s %)
          (select-reconciliations-by-account-id s account-id))))
 
 (defn reload
