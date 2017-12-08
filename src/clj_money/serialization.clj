@@ -287,7 +287,7 @@
                (mapcat :items)
                (filter #(and (= account-id (:account-id %))
                              (= amount (:amount %))))
-               (map :id)
+               (map (juxt :id :transaction-date))
                first)
               (throw (Exception. (format "Unable to find a transaction with date=%s, amount=%s"
                                          transaction-date
