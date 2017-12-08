@@ -90,7 +90,7 @@
     (with-storage [s storage-spec]
       (let [validated (validate options s model)]
         (if (validation/valid? validated)
-          (process-options options s validated :before-save :create :after-read)
+          (process-options options s validated :before-save :create :after-save :after-read)
           validated)))))
 
 (defn update-fn
