@@ -15,12 +15,15 @@
             [clj-money.models.images :as images]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.auth-helpers :refer [user-owns-entity?
-                                                   user-entity-ids]]))
+                                                   user-entity-ids]])
+  (:import org.joda.time.LocalDate))
 
 (s/def ::transaction-id uuid?)
+(s/def ::transaction-date #(instance? LocalDate %))
 (s/def ::image-id integer?)
 (s/def ::caption string?)
 (s/def ::new-attachment (s/keys :req-un [::transaction-id
+                                         ::transaction-date
                                          ::caption
                                          ::image-id]))
 

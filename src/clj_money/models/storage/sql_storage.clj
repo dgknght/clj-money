@@ -1039,6 +1039,7 @@
   (create-attachment
     [_ attachment]
     (insert db-spec :attachments attachment :transaction-id
+                                            :transaction-date
                                             :caption
                                             :image-id))
 
