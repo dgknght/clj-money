@@ -878,40 +878,13 @@
                                                     :end-of-period
                                                     :status))
 
-  (find-reconciliation-by-id
-    [_ id]
-    (first (query db-spec (-> (h/select :*)
-                              (h/from :reconciliations)
-                              (h/where [:= :id id])
-                              (h/limit 1)))))
-
-  (select-reconciliations-by-account-id
-    [_ account-id]
+  (select-reconciliations
+    [_ criteria options]
     (query db-spec (-> (h/select :*)
                        (h/from :reconciliations)
-                       (h/where [:= :account-id account-id]))))
-
-  (find-last-reconciliation-by-account-id
-    [this account-id]
-    (.find-last-reconciliation-by-account-id this account-id nil))
-
-  (find-last-reconciliation-by-account-id
-    [_ account-id status]
-    (let [sql (-> (h/select :*)
-                  (h/from :reconciliations)
-                  (h/where [:= :account-id account-id])
-                  (h/order-by [:end_of_period :desc])
-                  (h/limit 1))]
-      (first (query db-spec (cond-> sql
-                              status (h/merge-where [:= :status (name status)]))))))
-
-  (find-new-reconciliation-by-account-id
-    [_ account-id]
-    (first (query db-spec (-> (h/select :*)
-                              (h/from :reconciliations)
-                              (h/where [:and [:= :status "new"]
-                                        [:= :account-id account-id]])
-                              (h/limit 1)))))
+                       (append-where criteria)
+                       (append-sort options)
+                       (append-limit options))))
 
   (update-reconciliation
     [_ reconciliation]

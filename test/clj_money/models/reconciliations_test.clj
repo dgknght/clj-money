@@ -102,7 +102,7 @@
                         :balance 447M
                         :end-of-period (t/local-date 2017 1 31)}
         result (reconciliations/create storage-spec reconciliation)
-        retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
+        retrieved (reconciliations/find storage-spec {:account-id (:id checking)})]
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
     (is retrieved "The reconciliation can be retrieved")
     (testing "transaction items are not marked as reconciled"
@@ -133,7 +133,7 @@
                         :item-ids (map (juxt :id :transaction-date) [paycheck landlord safeway])
                         :status :completed}
         result (reconciliations/create storage-spec reconciliation)
-        retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
+        retrieved (reconciliations/find storage-spec {:account-id (:id checking)})]
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
     (is retrieved "The reconciliation can be retrieved")
     (testing "transaction items are marked as reconciled"
@@ -198,7 +198,7 @@
                         :balance 447M
                         :end-of-period "2017-01-01"}
         result (reconciliations/create storage-spec reconciliation)
-        retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
+        retrieved (reconciliations/find storage-spec {:account-id (:id checking)})]
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
     (is retrieved "The reconciliation can be retrieved")
     (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
@@ -211,7 +211,7 @@
                         :balance 447M
                         :end-of-period "1/1/2017"}
         result (reconciliations/create storage-spec reconciliation)
-        retrieved (first (reconciliations/find-by-account-id storage-spec (:id checking)))]
+        retrieved (reconciliations/find storage-spec {:account-id (:id checking)})]
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
     (is retrieved "The reconciliation can be retrieved")
     (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
@@ -322,7 +322,7 @@
                                        {:account-id (:id checking)
                                         :end-of-period (t/local-date 2017 1 31)
                                         :balance 10M
-                                        :item-ids [(:id paycheck)]})]
+                                        :item-ids [((juxt :id :transaction-date) paycheck)]})]
     (is (validation/has-error? result :item-ids))))
 
 (def ^:private working-rec-context
@@ -366,7 +366,7 @@
         result (reconciliations/create storage-spec {:account-id (:id checking)
                                                      :end-of-period (t/local-date 2017 1 31)
                                                      :balance 1500M
-                                                     :item-ids [(:id item)]})]
+                                                     :item-ids [((juxt :id :transaction-date) item)]})]
     (is (validation/has-error? result :item-ids)
         "An item ID that is already reconconciled should be invalid")))
 
@@ -403,7 +403,7 @@
                                                          (mapcat :items)
                                                          (filter (fn [i] (= (:id checking) (:account-id i))))
                                                          last
-                                                         :id))))
+                                                         (juxt :id :transaction-date)))))
         result (reconciliations/update storage-spec updated)]
     (is (validation/has-error? result :balance))))
 
@@ -411,7 +411,9 @@
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
         reconciliation (-> context :reconciliations first)
         item (first (transactions/select-items-by-reconciliation storage-spec reconciliation))
-        transaction (transactions/find-by-id storage-spec (:transaction-id item))
+        transaction (transactions/find-by-id storage-spec
+                                             (:transaction-id item)
+                                             (:transaction-date item))
         result1 (transactions/update storage-spec (update-in transaction [:items]
                                                              #(map (fn [item]
                                                                      (assoc item :amount 1M))

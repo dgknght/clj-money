@@ -207,18 +207,10 @@
   (create-reconciliation
     [this reconciliation]
     "Creates a new reconciliation record")
-  (select-reconciliations-by-account-id
-    [this account-id]
+  (select-reconciliations
+    [this criteria]
+    [this criteria options]
     "Returns reconciliation records for the specified account")
-  (find-reconciliation-by-id
-    [this id]
-    "Returns the specified reconciliation")
-  (find-last-reconciliation-by-account-id
-    [this account-id] [this accont-id status]
-    "Returns the specified reconciliation")
-  (find-new-reconciliation-by-account-id
-    [this account-id]
-    "Returns the first reconciliation with status :new for the specified account")
   (update-reconciliation
     [this reconciliation]
     "Updates the specified reconciliation")

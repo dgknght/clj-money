@@ -16,10 +16,7 @@
                                               update-fn]]
             [clj-money.models.storage :refer [create-reconciliation
                                               update-reconciliation
-                                              select-reconciliations-by-account-id
-                                              find-reconciliation-by-id
-                                              find-last-reconciliation-by-account-id
-                                              find-new-reconciliation-by-account-id
+                                              select-reconciliations
                                               set-transaction-item-reconciled
                                               unreconcile-transaction-items-by-reconciliation-id
                                               delete-reconciliation]])
@@ -39,13 +36,16 @@
 (coercion/register-coerce-fn
   :transaction-item-refs
   (fn [values]
-    (map (fn [[id date]]
-           [(if (uuid? id)
-              id
-              (UUID/fromString id))
-            (if (instance? LocalDate date)
-              date
-              (parse-local-date date))])
+    (map (fn [value]
+           (if (sequential? value)
+             (let [[id date] value]
+               [(if (uuid? id)
+                  id
+                  (UUID/fromString id))
+                (if (instance? LocalDate date)
+                  date
+                  (parse-local-date date))])
+             value))
          values)))
 
 (def ^:private coercion-rules
@@ -69,12 +69,13 @@
    (-> reconciliation
        (update-in [:status] name))))
 
-(defn- append-transaction-item-ids
+(defn- append-transaction-item-refs
   [reconciliation storage]
   (when reconciliation
     (assoc reconciliation
            :item-ids
-           (mapv :id (transactions/select-items-by-reconciliation
+           (mapv (juxt :id :transaction-date)
+                 (transactions/select-items-by-reconciliation
                        storage
                        reconciliation)))))
 
@@ -86,13 +87,27 @@
      (-> reconciliation
          (update-in [:status] keyword)
          (authorization/tag-resource :reconciliation)
-         (append-transaction-item-ids storage)))))
+         (append-transaction-item-refs storage)))))
+
+(defn search
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map #(after-read s %) (select-reconciliations s criteria options)))))
+
+(defn find
+  [storage-spec criteria]
+  (first (search storage-spec criteria {:limit 1})))
 
 (defn find-last-completed
   "Returns the last reconciled balance for an account"
   [storage-spec account-id]
-  (with-storage [s storage-spec]
-    (after-read s (find-last-reconciliation-by-account-id s account-id :completed))))
+  (search storage-spec
+          {:account-id account-id
+           :status :completed}
+          {:limit 1
+           :sort [[:end-of-period :desc]]}))
 
 ; TODO this still isn't ensureing that they are only loaded once, need to rework it
 (defn- ensure-transaction-items
@@ -111,10 +126,7 @@
 (defn find-by-id
   "Returns the specified reconciliation"
   [storage-spec id]
-  (with-storage [s storage-spec]
-    (-> (find-reconciliation-by-id s id)
-        (append-transaction-item-ids s)
-        after-read)))
+  (first (search storage-spec {:id id} {:limit 1})))
 
 (defn- is-in-balance?
   [storage reconciliation]
@@ -167,9 +179,9 @@
   "Returns the uncompleted reconciliation for the specified
   account, if one exists"
   [storage-spec account-id]
-  (with-storage [s storage-spec]
-    (when-let [reconciliation (find-new-reconciliation-by-account-id s account-id)]
-      (after-read reconciliation))))
+  (find storage-spec
+        {:status "new"
+         :account-id account-id}))
 
 (defn- working-reconciliation-exists?
   [storage {:keys [account-id id] :as rec}]
@@ -234,13 +246,6 @@
               :after-read after-read
               :coercion-rules coercion-rules}))
 
-(defn find-by-account-id
-  "Returns the reconciliations for the specified account"
-  [storage-spec account-id]
-  (with-storage [s storage-spec]
-    (map #(after-read s %)
-         (select-reconciliations-by-account-id s account-id))))
-
 (defn reload
   "Returns the same reconciliation reloaded from the data store"
   [storage-spec {id :id}]
@@ -275,9 +280,10 @@
   [storage-spec id]
   (with-transacted-storage [s storage-spec]
     (let [reconciliation (find-by-id s id)
-          most-recent (find-last-reconciliation-by-account-id
-                        s
-                        (:account-id reconciliation))]
+          most-recent (first (search s
+                                     {:account-id (:account-id reconciliation)}
+                                     {:sort [[:end-of-period :desc]]
+                                      :limit 1}))]
       (when (not= id (:id most-recent))
         (throw (ex-info "Only the most recent reconciliation may be deleted" {:specified-reconciliation reconciliation
                                                                               :most-recent-reconciliation most-recent})))
