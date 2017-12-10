@@ -137,10 +137,12 @@
   (find storage-spec {:id id}))
 
 (defn- is-in-balance?
-  [storage reconciliation]
+  [storage {:keys [account-id] :as reconciliation}]
   (or (= :new (:status reconciliation))
-      (let [account (accounts/find-by-id storage (:account-id reconciliation))
-            starting-balance (or (:balance (find-last-completed storage (:account-id reconciliation)))
+      (let [account (accounts/find-by-id storage account-id)
+            starting-balance (or (:balance (find-last-completed
+                                             storage
+                                             account-id))
                                  0M)
             delta (->> reconciliation
                        (ensure-transaction-items storage)
