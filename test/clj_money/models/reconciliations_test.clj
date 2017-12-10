@@ -431,16 +431,16 @@
 
 (deftest a-reconciled-transaction-item-cannot-be-deleted
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
-        item-id (-> context :reconciliations first :item-ids first)
-        transaction-id (:id (transactions/find-by-item-id storage-spec item-id))]
+        [item-id date] (-> context :reconciliations first :item-ids first)
+        transaction-id (:id (transactions/find-by-item-id storage-spec item-id date))]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"A transaction with reconciled items cannot be deleted."
-                            (transactions/delete storage-spec transaction-id))
+                            (transactions/delete storage-spec transaction-id date))
           "An exception is raised")
     (is (do
           (try
-            (transactions/delete storage-spec transaction-id)
+            (transactions/delete storage-spec transaction-id date)
             (catch clojure.lang.ExceptionInfo e nil))
-          (transactions/find-by-item-id storage-spec item-id))
+          (transactions/find-by-item-id storage-spec item-id date))
         "The transaction can be retrieved after the delete has been denied")))
 
 (deftest a-completed-reconciliation-cannot-be-updated
