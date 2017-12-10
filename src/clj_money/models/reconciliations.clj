@@ -97,17 +97,25 @@
      (map #(after-read s %) (select-reconciliations s criteria options)))))
 
 (defn find
-  [storage-spec criteria]
-  (first (search storage-spec criteria {:limit 1})))
+  ([storage-spec criteria]
+   (find storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (search storage-spec criteria (merge options {:limit 1})))))
+
+(defn find-last
+  "Returns the last reconciliation for an account"
+  [storage-spec account-id]
+  (find storage-spec
+        {:account-id account-id}
+        {:sort [[:end-of-period :desc]]}))
 
 (defn find-last-completed
-  "Returns the last reconciled balance for an account"
+  "Returns the last completed reconciliation for an account"
   [storage-spec account-id]
-  (search storage-spec
-          {:account-id account-id
-           :status :completed}
-          {:limit 1
-           :sort [[:end-of-period :desc]]}))
+  (find storage-spec
+        {:account-id account-id
+         :status "completed"}
+        {:sort [[:end-of-period :desc]]}))
 
 ; TODO this still isn't ensureing that they are only loaded once, need to rework it
 (defn- ensure-transaction-items
@@ -126,7 +134,7 @@
 (defn find-by-id
   "Returns the specified reconciliation"
   [storage-spec id]
-  (first (search storage-spec {:id id} {:limit 1})))
+  (find storage-spec {:id id}))
 
 (defn- is-in-balance?
   [storage reconciliation]
@@ -256,6 +264,13 @@
   (let [existing (find-by-id storage (Integer. (:id reconciliation)))]
     (assoc reconciliation :account-id (:account-id existing))))
 
+(defn- item-refs->date-range
+  [item-refs]
+  (when (seq item-refs)
+    ((juxt first last) (->> item-refs
+                            (map second)
+                            sort))))
+
 (defn update
   "Updates the specified reconciliation"
   [storage-spec reconciliation]
@@ -264,11 +279,12 @@
                          (set-account-id s)
                          (validate ::existing-reconciliation (validation-rules s)))]
       (if (validation/valid? validated)
-        (do
+        (let [date-range (item-refs->date-range (:item-ds validated))]
           (->> validated
                before-save
                (update-reconciliation s))
-          (unreconcile-transaction-items-by-reconciliation-id s (:id validated))
+          (when date-range
+            (unreconcile-transaction-items-by-reconciliation-id s (:id validated) date-range))
           (when (and (:item-ids validated) (seq (:item-ids validated))) ; TODO: remove this redundancy wth create
             (doseq [[item-id date] (:item-ids validated)]
               (set-transaction-item-reconciled s (:id validated) item-id date)))
@@ -280,12 +296,11 @@
   [storage-spec id]
   (with-transacted-storage [s storage-spec]
     (let [reconciliation (find-by-id s id)
-          most-recent (first (search s
-                                     {:account-id (:account-id reconciliation)}
-                                     {:sort [[:end-of-period :desc]]
-                                      :limit 1}))]
+          most-recent (find-last s (:account-id reconciliation))
+          date-range (item-refs->date-range (:item-ids reconciliation))]
       (when (not= id (:id most-recent))
         (throw (ex-info "Only the most recent reconciliation may be deleted" {:specified-reconciliation reconciliation
                                                                               :most-recent-reconciliation most-recent})))
-      (unreconcile-transaction-items-by-reconciliation-id s id)
+      (when date-range
+        (unreconcile-transaction-items-by-reconciliation-id s id date-range))
       (delete-reconciliation s id))))

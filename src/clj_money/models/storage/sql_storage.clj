@@ -255,7 +255,7 @@
 
 ; TODO: maybe extract the sql parts and move this to the partitioning namespace?
 (defmacro with-partitioning
-  [db-spec table-name d-range options bindings & body]
+  [exec-fn table-name d-range options bindings & body]
   `(let [tables# (tables-for-range (first ~d-range)
                                    (second ~d-range)
                                    ~table-name
@@ -267,10 +267,8 @@
                   (map keyword %)
                   (keyword %)))
           (reduce (fn [records# table#]
-                    (let [updated-records# (->> table#
-                                                sql-fn#
-                                                (query ~db-spec)
-                                                (concat records#))]
+                    (let [found-records# (~exec-fn (sql-fn# table#))
+                          updated-records# (concat records# found-records#)]
                       (if (and (= 1 (:limit ~options))
                                (seq updated-records#))
                         (reduced updated-records#)
@@ -628,7 +626,7 @@
     [this criteria options]
     (validate-criteria criteria ::price-criteria)
     (let [d-range (date-range this (:trade-date criteria))]
-      (with-partitioning db-spec :prices d-range options [table]
+      (with-partitioning (partial query db-spec) :prices d-range options [table]
         (-> (h/select :p.*)
             (h/from [table :p])
             (append-where (dissoc criteria :trade-date) {:prefix "p"})
@@ -734,7 +732,7 @@
     (validate-criteria criteria ::transaction-criteria)
     (let [d-range (date-range this (:transaction-date criteria))
           result
-          (with-partitioning db-spec :transactions d-range options
+          (with-partitioning (partial query db-spec) :transactions d-range options
             [table]
             (-> (h/select :t.*)
                 (h/from [table :t])
@@ -836,11 +834,12 @@
                                sql/format)))
 
   (unreconcile-transaction-items-by-reconciliation-id
-      [_ reconciliation-id]
-      (jdbc/execute! db-spec (-> (h/update :transaction_items)
-                                 (h/sset {:reconciliation_id nil})
-                                 (h/where [:= :reconciliation-id reconciliation-id])
-                                 sql/format)))
+    [_ reconciliation-id date-range]
+    (with-partitioning (partial jdbc/execute! db-spec) :transaction_items date-range {} [table]
+      (-> (h/update table)
+          (h/sset {:reconciliation_id nil})
+          (h/where [:= :reconciliation-id reconciliation-id])
+          sql/format)))
 
   (select-transaction-items
     [this criteria]
@@ -854,7 +853,7 @@
                                                             (if (apply = d-range)
                                                               (first d-range)
                                                               (concat [:between] d-range))))]
-      (let [result (with-partitioning db-spec [:transaction_items :transactions] d-range options [tables]
+      (let [result (with-partitioning (partial query db-spec) [:transaction_items :transactions] d-range options [tables]
                      (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
                          (h/from [(first tables) :i])
                          (h/join [(second tables) :t]

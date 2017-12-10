@@ -196,7 +196,7 @@
     [this reconciliation-id transaction-item-id transaction-date]
     "Updates the specified transaction items to indicate they belong to a reconciliation")
   (unreconcile-transaction-items-by-reconciliation-id
-    [this reconciliation-id]
+    [this reconciliation-id date-range]
     "Unsets the reconciliation ID to null for all matching values")
   (select-transaction-items
     [this criteria]
