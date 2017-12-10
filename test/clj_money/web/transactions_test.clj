@@ -64,7 +64,10 @@
                                                 :debit-amount-1 ""
                                                 :credit-amount-1 "1000"}}))
         actual (map simplify-transaction
-                    (transm/search storage-spec {:entity-id entity-id}))
+                    (transm/search storage-spec {:entity-id entity-id
+                                                 :transaction-date [:between
+                                                                    (t/local-date 2015 1 1)
+                                                                    (t/local-date 2017 12 31)]}))
         expected [{:transaction-date (t/local-date 2016 3 2)
                    :description "Paycheck"
                    :memo "Partial payment, final"
@@ -104,6 +107,7 @@
         _ (with-authentication (-> context :users first)
             (transactions/update {:params {:id (:id trans)
                                            :transaction-date "2016-01-02"
+                                           :original-transaction-date "2016-01-01"
                                            :description "Employer"
                                            :id-0 (-> trans :items first :id str)
                                            :account-id-0 (:id checking)
@@ -121,7 +125,7 @@
                                            :account-id-3 ""
                                            :credit-amount-3 ""
                                            :debit-amount-3 ""}}))
-        actual (simplify-transaction (transm/find-by-id storage-spec (:id trans)))
+        actual (simplify-transaction (transm/find-by-id storage-spec (:id trans) (t/local-date 2016 1 2)))
         expected {:transaction-date (t/local-date 2016 1 2)
             :description "Employer"
             :entity-id (-> context :entities first :id)

@@ -12,6 +12,7 @@
                                              allowed?
                                              tag-resource
                                              apply-scope]]
+            [clj-money.util :refer [ensure-local-date]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -19,6 +20,7 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.permissions.transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors]]
             [clj-money.util :refer [format-date]])
@@ -247,7 +249,10 @@
 
 (defn update
   [{params :params}]
-  (let [transaction (authorize (transactions/find-by-id (env :db) (:id params))
+  (let [transaction (authorize (transactions/find-by-id
+                                 (env :db)
+                                 (:id params)
+                                 (ensure-local-date (:original-transaction-date params)))
                                :update)
         updated (merge transaction
                        (-> params
