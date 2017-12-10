@@ -108,7 +108,8 @@
         image (find-image context "sample_receipt.jpg")
         attachment (tag-resource {:image-id (:id image)
                                   :caption "other receipt"
-                                  :transaction-id (:id transaction)}
+                                  :transaction-id (:id transaction)
+                                  :transaction-date (:transaction-date transaction)}
                                  :attachment)]
     (testing "A user has permission to create a attachments in his own entities"
       (with-authentication john
