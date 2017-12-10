@@ -402,8 +402,8 @@
                                                          :transactions
                                                          (mapcat :items)
                                                          (filter (fn [i] (= (:id checking) (:account-id i))))
-                                                         last
-                                                         (juxt :id :transaction-date)))))
+                                                         (map (juxt :id :transaction-date))
+                                                         last))))
         result (reconciliations/update storage-spec updated)]
     (is (validation/has-error? result :balance))))
 
