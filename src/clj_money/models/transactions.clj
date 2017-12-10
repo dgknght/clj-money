@@ -139,7 +139,7 @@
       (empty? (:id item))) (dissoc :id)
     (and
       (string? (:id item))
-      (not (empty? (:id item)))) (update-in [:id] #(Integer. %))))
+      (not (empty? (:id item)))) (update-in [:id] #(UUID/fromString %))))
 
 (def ^:private coercion-rules
   [(coercion/rule :uuid [:id])
