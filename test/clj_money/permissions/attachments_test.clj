@@ -78,7 +78,8 @@
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         attachment (find-attachment context "receipt")
         transaction (transactions/find-by-id storage-spec
-                                             (:transaction-id attachment))]
+                                             (:transaction-id attachment)
+                                             (:transaction-date attachment))]
     (testing "A user has permissions on attachment in his own entities"
       (with-authentication john
         (doseq [action [:show :edit :update :delete]]

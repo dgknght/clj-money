@@ -52,7 +52,8 @@
   (let [context (serialization/realize storage-spec attach-context)
         result (attachments/create storage-spec (attributes context))
         transaction (-> context :transactions first)
-        retrieved (->> {:transaction-id (:id transaction)}
+        retrieved (->> {:transaction-id (:id transaction)
+                        :transaction-date (:transaction-date transaction)}
                        (attachments/search storage-spec)
                        first)]
     (is (empty? (validation/error-messages result))
