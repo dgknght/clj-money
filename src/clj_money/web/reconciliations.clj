@@ -24,7 +24,7 @@
                        (accounts/polarize-amount account)
                        util/format-number)]
    [:td.text-center [:input {:type :checkbox
-                             :name "item-ids"
+                             :name "item-refs"
                              :checked (not (nil? (:reconciliation-id transaction-item)))
                              :value (:id transaction-item)}]]])
 

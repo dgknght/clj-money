@@ -330,7 +330,7 @@
 (defn- resolve-reconciliation-transaction-item-ids
   [reconciliation context]
   (update-in reconciliation
-             [:item-ids]
+             [:item-refs]
              #(resolve-transaction-item-ids context
                                             (:account-id reconciliation)
                                             %)))

@@ -74,7 +74,7 @@
            :end-of-period (t/local-date 2017 1 1)
            :balance 1000M
            :status :completed
-           :item-ids [{:transaction-date (t/local-date 2017 1 1)
+           :item-refs [{:transaction-date (t/local-date 2017 1 1)
                        :amount 1000M}]}]))
 
 (def ^:private working-reconciliation-context
@@ -84,7 +84,7 @@
                        :end-of-period (t/local-date 2017 1 2)
                        :balance 500M
                        :status :new
-                       :item-ids [{:transaction-date (t/local-date 2017 1 2)
+                       :item-refs [{:transaction-date (t/local-date 2017 1 2)
                                    :amount 500M}]})))
 
 (deftest create-a-reconciliation
@@ -130,7 +130,7 @@
         reconciliation {:account-id (:id checking)
                         :balance 447M
                         :end-of-period (t/local-date 2017 1 31)
-                        :item-ids (map (juxt :id :transaction-date) [paycheck landlord safeway])
+                        :item-refs (map (juxt :id :transaction-date) [paycheck landlord safeway])
                         :status :completed}
         result (reconciliations/create storage-spec reconciliation)
         retrieved (reconciliations/find storage-spec {:account-id (:id checking)})]
@@ -170,7 +170,7 @@
                        (filter #(= (:id checking) (:account-id %))))
         result (reconciliations/create storage-spec
                                        {:balance 447M
-                                        :item-ids (map :id [paycheck landlord safeway])})]
+                                        :item-refs (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :account-id))))
 
 (deftest end-of-period-is-required
@@ -187,7 +187,7 @@
         result (reconciliations/create storage-spec
                                        {:account-id (:id checking)
                                         :balance 447M
-                                        :item-ids (map :id [paycheck landlord safeway])})]
+                                        :item-refs (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :end-of-period))))
 
 (deftest end-of-period-can-be-an-international-date-string
@@ -254,7 +254,7 @@
                                         :end-of-period (t/local-date 2017 1 31)
                                         :status :bouncy
                                         :balance 447M
-                                        :item-ids (map :id [paycheck landlord safeway])})]
+                                        :item-refs (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :status))))
 
 (deftest balance-must-match-the-calculated-balance
@@ -290,7 +290,7 @@
                                         :balance "notanumber"})]
     (is (validation/has-error? result :balance))))
 
-(deftest item-ids-cannot-be-a-non-number-string
+(deftest item-refs-cannot-be-a-non-number-string
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
@@ -305,10 +305,10 @@
                                        {:account-id (:id checking)
                                         :end-of-period (t/local-date 2017 1 31)
                                         :balance 10M
-                                        :item-ids "notvalid"})]
-    (is (validation/has-error? result :item-ids))))
+                                        :item-refs "notvalid"})]
+    (is (validation/has-error? result :item-refs))))
 
-(deftest item-ids-must-reference-items-that-belong-to-the-account-being-reconciled
+(deftest item-refs-must-reference-items-that-belong-to-the-account-being-reconciled
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         [checking
@@ -322,8 +322,8 @@
                                        {:account-id (:id checking)
                                         :end-of-period (t/local-date 2017 1 31)
                                         :balance 10M
-                                        :item-ids [((juxt :id :transaction-date) paycheck)]})]
-    (is (validation/has-error? result :item-ids))))
+                                        :item-refs [((juxt :id :transaction-date) paycheck)]})]
+    (is (validation/has-error? result :item-refs))))
 
 (def ^:private working-rec-context
   (assoc reconciliation-context
@@ -332,7 +332,7 @@
            :end-of-period (t/local-date 2017 1 1)
            :balance 447M
            :status :new
-           :item-ids [{:transaction-date (t/local-date 2017 1 1)
+           :item-refs [{:transaction-date (t/local-date 2017 1 1)
                        :account-id "Salary"
                        :amount 1000M}
                       {:transaction-date (t/local-date 2017 1 2)
@@ -366,8 +366,8 @@
         result (reconciliations/create storage-spec {:account-id (:id checking)
                                                      :end-of-period (t/local-date 2017 1 31)
                                                      :balance 1500M
-                                                     :item-ids [((juxt :id :transaction-date) item)]})]
-    (is (validation/has-error? result :item-ids)
+                                                     :item-refs [((juxt :id :transaction-date) item)]})]
+    (is (validation/has-error? result :item-refs)
         "An item ID that is already reconconciled should be invalid")))
 
 (deftest a-working-reconciliation-can-be-updated
@@ -398,7 +398,7 @@
         reconciliation (-> context :reconciliations last)
         updated (-> reconciliation
                     (assoc :status :completed)
-                    (update-in [:item-ids] #(conj % (->> context
+                    (update-in [:item-refs] #(conj % (->> context
                                                          :transactions
                                                          (mapcat :items)
                                                          (filter (fn [i] (= (:id checking) (:account-id i))))
@@ -431,7 +431,7 @@
 
 (deftest a-reconciled-transaction-item-cannot-be-deleted
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
-        [item-id date] (-> context :reconciliations first :item-ids first)
+        [item-id date] (-> context :reconciliations first :item-refs first)
         transaction-id (:id (transactions/find-by-item-id storage-spec item-id date))]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"A transaction with reconciled items cannot be deleted."
                             (transactions/delete storage-spec transaction-id date))
