@@ -1,5 +1,5 @@
 (ns clj-money.models.reconciliations
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec :as s]
             [clojure.pprint :refer [pprint]]
             [clj-time.coerce :refer [to-long
