@@ -654,6 +654,51 @@
              (:transaction-date (transactions/reload storage-spec updated)))
           "The transaction should be updated"))))
 
+; TODO: Uncomment this test
+#_(deftest update-a-transaction-cross-partition-boundary
+  (let [context (serialization/realize storage-spec update-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        [t1 t2 t3] (:transactions context)
+        updated (assoc t2 :transaction-date (t/local-date 2016 4 12))
+        result (transactions/update storage-spec updated)
+        expected-checking [{:index 2 :amount 101M :balance 797M}
+                           {:index 1 :amount 102M :balance 898M}
+                           {:index 0 :amount 1000M :balance 1000M}]
+        actual-checking (->> (:id checking)
+                             items-by-account
+                             (map #(select-keys % [:index :amount :balance])))
+        expected-groceries [{:index 1 :amount 101M :balance 203M}
+                            {:index 0 :amount 102M :balance 102M}]
+        actual-groceries (->> (:id groceries)
+                              items-by-account
+                              (map #(select-keys % [:index :amount :balance])))]
+    (is (empty? (validation/error-messages result))
+        "The transaction is saved successfully")
+    (testing "transaction item balances are correct"
+      (when-not (= expected-checking actual-checking)
+        (pprint {:expected expected-checking
+                 :actual actual-checking
+                 :diff (diff expected-checking actual-checking)}))
+      (is (= expected-checking actual-checking)
+          "Checking items should have the correct values after update")
+      (is (= expected-groceries actual-groceries)
+          "Groceries items should have the correct values after update"))
+    (testing "account balances are correct"
+      (is (= 797M (->> checking
+                               (accounts/reload storage-spec)
+                               :balance))
+          "The checkout account balance should be correct after update")
+      (is (= 203M (->> groceries
+                               (accounts/reload storage-spec)
+                               :balance))
+          "The groceries account balance should be correct after update"))
+    (testing "transaction is updated"
+      (is (= (t/local-date 2016 4 12)
+             (:transaction-date (transactions/reload storage-spec t2)))
+          "The transaction should be updated"))))
+
 (def short-circuit-context
   {:users [(factory :user, {:email "john@doe.com"})]
    :entities [{:name "Personal"
