@@ -1,0 +1,44 @@
+Create - delay balancing
+
+1. Validate
+2. Record account IDs from transaction items for balancing later
+3. Save transaction
+  a. before-save
+    i. remote items
+    ii. prepare lot-action for database storage (convert to string)
+  b. create-transaction-and-lot-links
+    i. Create the transaction record
+    ii. Create linking records between the transaction and any associated lots
+  c. after-read
+    i. append items from the database
+    ii. append lot items from the database (will be empty on create, yes?)
+  d. Iterate transaction items, set :balance and :index to 0, create the database record,
+     replace the items in the result with the result of the "create" calls
+
+Create - with balance calculations
+
+1. Validate
+2. calculate-balances-and-indexes
+  a. group by account then for each item group
+    ii. add-item-balance-and-index
+      1. sort by index
+      2. get the previous item, balance, and index
+      3. for each item, process-item-balance-and-index
+        a. calculate the next index
+        b. calculate next balance (look up the account from storage, polarize the amount)
+        c. update the item hash
+        d. (update the processing context)
+3. update-affected-balances
+  a. group items by account, then for each item group
+    i. get the last item (already sorted)
+    ii. look up the account from storage
+    iii. look up the subsequent items for the account from storage
+    iv. for each subsequent item
+      1. calculate-item-index-and-balance
+        a. calculate the next index
+        b. calculate the next balance (look up the account from storage, polarize the amount)
+        c. calculate the new balance
+        d. update the item in storage (short cut further calculations if the balance did not change)
+  b. update the account balance (if not short-cutted)
+4. create transaction items for the transaction and replace the ones in the transaction
+   has with the result
