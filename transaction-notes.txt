@@ -42,3 +42,36 @@ Create - with balance calculations
   b. update the account balance (if not short-cutted)
 4. create transaction items for the transaction and replace the ones in the transaction
    has with the result
+
+Update
+
+1. Validate
+2. process-removals
+  a. select items from the existing transaction that don't exist in the updated transaction
+  b. select accountss no longer referenced by the transaction
+  c. delete transaction items no longer in the transaction
+  d. get the previous item for each removed item (and return this list)
+3. calculate-balances-and-indexes
+  a. group by account then for each item group
+    ii. add-item-balance-and-index
+      1. sort by index
+      2. get the previous item, balance, and index
+      3. for each item, process-item-balance-and-index
+        a. calculate the next index
+        b. calculate next balance (look up the account from storage, polarize the amount)
+        c. update the item hash
+        d. (update the processing context)
+4. process-item-upserts
+5. update-transaction
+6. uplodate-affected-balances
+  a. group items by account, then for each item group
+    i. get the last item (already sorted)
+    ii. look up the account from storage
+    iii. look up the subsequent items for the account from storage
+    iv. for each subsequent item
+      1. calculate-item-index-and-balance
+        a. calculate the next index
+        b. calculate the next balance (look up the account from storage, polarize the amount)
+        c. calculate the new balance
+        d. update the item in storage (short cut further calculations if the balance did not change)
+  b. update the account balance (if not short-cutted)
