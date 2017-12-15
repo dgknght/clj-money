@@ -521,13 +521,15 @@
                   storage
                   (assoc item
                          :index new-index
-                         :balance new-balance))
-        updated (assoc context
-                       :last-index new-index
-                       :last-balance new-balance)]
-    (if changed ; if the index and balance didn't change, we can short circuit the update
-      updated
-      (reduced (dissoc updated :last-balance)))))
+                         :balance new-balance))]
+    ; if the index and balance didn't change, we can short circuit the update
+    (if changed
+      (assoc context
+             :last-index new-index
+             :last-balance new-balance)
+      (-> context
+          (dissoc :last-balance)
+          reduced))))
 
 (defn- recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
