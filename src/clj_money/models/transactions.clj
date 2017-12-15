@@ -497,6 +497,16 @@
    (with-storage [s storage-spec]
      (map after-item-read (select-transaction-items s criteria options)))))
 
+; TODO: This should be lazy
+(defn- account-items-on-or-after
+  "Returns the items in the specified account
+  that occur on or after the specified date"
+  [storage account-id date]
+  (search-items storage
+                {:account-id account-id
+                 :transaction-date [:between date (t/today)]} ; TODO: use last partition value
+                {:sort [:transaction-date :index]}))
+
 (defn- recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
   selects all subsequent items and recalculates the items until
@@ -504,14 +514,9 @@
   a balance is unchanged.
   Returns the new balance of the account of the balance changed,
   or nil if te balance didn't change."
-  [storage [account-id base-item]]
+  [storage [account-id {:keys [transaction-date]}]]
   (let [account (accounts/find-by-id storage account-id)
-        items (search-items storage
-                            {:account-id account-id
-                             :transaction-date [:between
-                                                (:transaction-date base-item)
-                                                (t/today)]} ; TODO: use last partition value
-                            {:sort [:transaction-date :index]})
+        items (account-items-on-or-after storage account-id transaction-date)
         result (reduce (fn [context item]
                          (let [new-index (+ 1 (:last-index context))
                                polarized-amount (accounts/polarize-amount item account)
