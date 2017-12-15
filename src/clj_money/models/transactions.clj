@@ -321,7 +321,7 @@
   (with-storage [s storage-spec]
     (let [records-affected (first (update-transaction-item-index-and-balance
                                     s
-                                    item))]
+                                    (before-save-item item)))]
       (> records-affected 0))))
 
 (defn- calculate-item-index-and-balance
@@ -345,10 +345,9 @@
         account (accounts/find-by-id storage (:account-id item)) ; TODO: remove redundant calls to find the account
         polarized-amount (accounts/polarize-amount item account)
         new-balance (+ balance polarized-amount)
-        value-changed (update-item-index-and-balance storage (-> item
-                                                                 (assoc :index new-index
-                                                                        :balance new-balance)
-                                                                 before-save-item))
+        value-changed (update-item-index-and-balance storage (assoc item
+                                                                    :index new-index
+                                                                    :balance new-balance))
         result {:index new-index
                 :balance new-balance
                 :storage storage}]
@@ -490,12 +489,13 @@
        (create-transaction-item storage)
        after-item-read))
 
-(defn- update-account-balances
-  [& args]
-
-  (pprint {:update-account-balances args}) 
-
-  )
+(defn search-items
+  "Returns transaction items matching the specified criteria"
+  ([storage-spec criteria]
+   (search-items storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map after-item-read (select-transaction-items s criteria options)))))
 
 (defn- recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
@@ -506,25 +506,33 @@
   or nil if te balance didn't change."
   [storage [account-id base-item]]
   (let [account (accounts/find-by-id storage account-id)
-        items (search-items storage {:account-id account-id
-                                     :transaction-date [:between
-                                                        (:transaction-date base-item)
-                                                        (t/today)]})] ; TODO: use last partition value
-    (reduce (fn [context item]
-              (let [new-index (+ 1 (:last-index context))
-                    polarized-amount (accounts/polarize-amount account (:balance item))
-                    new-balance (+ (:last-balance context)
-                                   polarized-amount)
-                    changed (update-item storage (assoc item :index new-index :balance new-balance))]
-                (assoc context :last-index new-index
-                               :last-balance new-balance)))
-            ; TODO short circuit if no change
-            {:last-index 0
-             :last-balance 0M}
-            items))
-  
-  ; TOTO: return the account-id and the new balance (or nil)
-  )
+        items (search-items storage
+                            {:account-id account-id
+                             :transaction-date [:between
+                                                (:transaction-date base-item)
+                                                (t/today)]} ; TODO: use last partition value
+                            {:sort [:transaction-date :index]})
+        result (reduce (fn [context item]
+                         (let [new-index (+ 1 (:last-index context))
+                               polarized-amount (accounts/polarize-amount item account)
+                               new-balance (+ (:last-balance context)
+                                              polarized-amount)
+                               changed (update-item-index-and-balance
+                                         storage
+                                         (assoc item
+                                                :index new-index
+                                                :balance new-balance))
+                               updated (assoc context
+                                              :last-index new-index
+                                              :last-balance new-balance)]
+                           (if changed
+                             updated
+                             (reduced (dissoc updated :last-balance)))))
+                       {:last-index 0
+                        :last-balance 0M}
+                       items)]
+    (when-let [last-balance (:last-balance result)]
+      (accounts/update storage (assoc account :balance last-balance)))))
 
 (defn- recalculate-items
   "Accepts a list of transaction items and processes items
@@ -533,10 +541,8 @@
   [storage base-items]
   (->> base-items
        (group-by :account-id)
-       (map (fn [[account-id items]
-                 [account-id (first items)]]))
-       (map (partial recalculate-account-items storage))
-       (update-account-balances storage)))
+       (map #(update-in % [1] first))
+       (mapv (partial recalculate-account-items storage))))
 
 (defn- create-transaction-and-adjust-balances
   [storage transaction]
@@ -774,14 +780,6 @@
     (if t
       (:balance t)
       0M)))
-
-(defn search-items
-  "Returns transaction items matching the specified criteria"
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> criteria
-         (select-transaction-items s)
-         (map after-item-read))))
 
 (defn find-items-by-ids
   [storage-spec ids date-range]
