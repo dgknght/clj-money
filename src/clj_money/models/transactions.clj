@@ -507,6 +507,28 @@
                  :transaction-date [:between date (t/today)]} ; TODO: use last partition value
                 {:sort [:transaction-date :index]}))
 
+(defn- recalculate-account-item
+  "Accepts a processing context and an item, updates
+  the items :index and :balance attributes, and returns
+  the context with the updated :last-index and :last-balance
+  values"
+  [{:keys [account storage] :as context} item]
+  (let [new-index (+ 1 (:last-index context))
+        polarized-amount (accounts/polarize-amount item account)
+        new-balance (+ (:last-balance context)
+                       polarized-amount)
+        changed (update-item-index-and-balance
+                  storage
+                  (assoc item
+                         :index new-index
+                         :balance new-balance))
+        updated (assoc context
+                       :last-index new-index
+                       :last-balance new-balance)]
+    (if changed ; if the index and balance didn't change, we can short circuit the update
+      updated
+      (reduced (dissoc updated :last-balance)))))
+
 (defn- recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
   selects all subsequent items and recalculates the items until
@@ -517,23 +539,10 @@
   [storage [account-id {:keys [transaction-date]}]]
   (let [account (accounts/find-by-id storage account-id)
         items (account-items-on-or-after storage account-id transaction-date)
-        result (reduce (fn [context item]
-                         (let [new-index (+ 1 (:last-index context))
-                               polarized-amount (accounts/polarize-amount item account)
-                               new-balance (+ (:last-balance context)
-                                              polarized-amount)
-                               changed (update-item-index-and-balance
-                                         storage
-                                         (assoc item
-                                                :index new-index
-                                                :balance new-balance))
-                               updated (assoc context
-                                              :last-index new-index
-                                              :last-balance new-balance)]
-                           (if changed
-                             updated
-                             (reduced (dissoc updated :last-balance)))))
-                       {:last-index 0
+        result (reduce recalculate-account-item
+                       {:account account
+                        :storage storage
+                        :last-index 0
                         :last-balance 0M}
                        items)]
     (when-let [last-balance (:last-balance result)]
