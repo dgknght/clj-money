@@ -72,25 +72,36 @@
                        (dissoc :id :created-at :updated-at)
                        (update-in
                          [:items]
-                         (partial map #(dissoc % :id :created-at :updated-at))))
+                         (partial map #(dissoc % :transaction-id :id :created-at :updated-at))))
             expected {:transaction-date (t/local-date 2016 3 2)
                       :description "Paycheck"
                       :memo "final, partial"
                       :entity-id (-> context :entities first :id)
-                      :items [{:account-id (:id (find-account context "Checking"))
+                      :items [{:description "Paycheck"
+                               :account-id (:id (find-account context "Checking"))
                                :index 1
                                :transaction-date (t/local-date 2016 3 2)
                                :action :debit
                                :memo "conf # 123"
                                :amount 1000M
-                               :balance 1000M}
-                              {:account-id (:id (find-account context "Salary"))
+                               :balance 1000M
+                               :value 1000M
+                               :reconciliation-status nil
+                               :reconciliation-id nil
+                               :reconciled? false}
+                              {:description "Paycheck"
+                               :account-id (:id (find-account context "Salary"))
                                :index 1
                                :transaction-date (t/local-date 2016 3 2)
                                :action :credit
+                               :memo nil
                                :amount 1000M
-                               :balance 1000M}]}]
-        #_(when-not (= expected actual)
+                               :balance 1000M
+                               :value 1000M
+                               :reconciliation-status nil
+                               :reconciliation-id nil
+                               :reconciled? false}]}]
+        (when-not (= expected actual)
           (pprint {:expected expected
                    :actual actual
                    :diff (diff expected actual)}))
