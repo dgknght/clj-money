@@ -1,5 +1,7 @@
 Create - delay balancing
 
+Existing logic
+
 1. Validate
 2. Record account IDs from transaction items for balancing later
 3. Save transaction
@@ -42,6 +44,16 @@ Create - with balance calculations
   b. update the account balance (if not short-cutted)
 4. create transaction items for the transaction and replace the ones in the transaction
    has with the result
+
+Goal Logic
+
+1. Validate
+2. create transaction record
+3. create transaction item records
+4. get preceding transaction items
+5. calculate balances and index in all affected accounts based on preceding items (shortcut once balance is unchanged)
+6. update all affected accounts
+7. reload and return the transaction
 
 Update
 

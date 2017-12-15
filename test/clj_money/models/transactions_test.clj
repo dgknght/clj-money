@@ -14,6 +14,7 @@
             [clj-money.factories.entity-factory]
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
+                                            find-account
                                             assert-validation-error]]))
 
 (def storage-spec (env :db))
@@ -64,16 +65,37 @@
     (testing "return value includes the new id"
       (is (empty? (validation/error-messages transaction)))
       (is (:id transaction) "A map with the new ID is returned"))
-    #_(testing "transaction can be retrieved"
-      (let [retrieved (transactions/find-by-id storage-spec (:id transaction))]
-        (is retrieved "The transaction is retrievable by ID")
-        (is (= 2
-               (count (:items retrieved))) "The items are returned with the transaction")
-        (is (= (t/local-date 2016 3 2)
-               (:transaction-date retrieved))
-            "The transaction date is correct")
-        (is (= "final, partial" (:memo retrieved)) "The transaction memo is correct")
-        (is (= ["conf # 123" nil] (map :memo (:items retrieved))) "The item memos are correct")))))
+    (testing "transaction can be retrieved"
+      (let [actual (-> (transactions/find-by-id storage-spec
+                                                (:id transaction)
+                                                (:transaction-date transaction))
+                       (dissoc :id :created-at :updated-at)
+                       (update-in
+                         [:items]
+                         (partial map #(dissoc % :id :created-at :updated-at))))
+            expected {:transaction-date (t/local-date 2016 3 2)
+                      :description "Paycheck"
+                      :memo "final, partial"
+                      :entity-id (-> context :entities first :id)
+                      :items [{:account-id (:id (find-account context "Checking"))
+                               :index 1
+                               :transaction-date (t/local-date 2016 3 2)
+                               :action :debit
+                               :memo "conf # 123"
+                               :amount 1000M
+                               :balance 1000M}
+                              {:account-id (:id (find-account context "Salary"))
+                               :index 1
+                               :transaction-date (t/local-date 2016 3 2)
+                               :action :credit
+                               :amount 1000M
+                               :balance 1000M}]}]
+        #_(when-not (= expected actual)
+          (pprint {:expected expected
+                   :actual actual
+                   :diff (diff expected actual)}))
+        (is (= expected actual)
+            "The correct data is retreived")))))
 
 (deftest rollback-on-failure
   (let [call-count (atom 0)]

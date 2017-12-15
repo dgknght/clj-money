@@ -211,15 +211,20 @@
         (authorization/tag-resource :transaction))))
 
 (defn- get-previous-item
-  "Finds the transaction item that immediately precedes the specified item"
+  "Finds the transaction item that immediately precedes the specified item,
+  or a fake 'before first' item if there are no preceding items"
   [storage {:keys [account-id transaction-date id] :as item}]
-  (->> (select-transaction-items storage
-                                 {:account-id account-id
-                                  :id [:<> id]
-                                  :transaction-date [:between nil transaction-date]}
-                                 {:sort [[:transaction-date :desc] [:index :desc]]
-                                  :limit 1})
-       first))
+  (or (->> (select-transaction-items storage
+                                     {:account-id account-id
+                                      :id [:<> id]
+                                      :transaction-date [:between nil transaction-date]}
+                                     {:sort [[:transaction-date :desc] [:index :desc]]
+                                      :limit 1})
+           first)
+      {:account-id account-id
+       :transaction-date transaction-date
+       :index -1
+       :balance 0M}))
 
 (defn- process-item-balance-and-index
   "Accepts a context containing
@@ -472,23 +477,89 @@
                                        before-save-item)))
                                (:items transaction)))))
 
+(defn- create-transaction*
+  [storage transaction]
+  (->> transaction
+       before-save
+       (create-transaction storage)))
+
+(defn- create-transaction-item*
+  [storage item]
+  (->> item
+       before-save-item
+       (create-transaction-item storage)
+       after-item-read))
+
+(defn- update-account-balances
+  [& args]
+
+  (pprint {:update-account-balances args}) 
+
+  )
+
+(defn- recalculate-account-items
+  "Accepts a tuple containing an account-id and a base item,
+  selects all subsequent items and recalculates the items until
+  all item for the account have been recalculated or until
+  a balance is unchanged.
+  Returns the new balance of the account of the balance changed,
+  or nil if te balance didn't change."
+  [storage [account-id base-item]]
+  (let [account (accounts/find-by-id storage account-id)
+        items (search-items storage {:account-id account-id
+                                     :transaction-date [:between
+                                                        (:transaction-date base-item)
+                                                        (t/today)]})] ; TODO: use last partition value
+    (reduce (fn [context item]
+              (let [new-index (+ 1 (:last-index context))
+                    polarized-amount (accounts/polarize-amount account (:balance item))
+                    new-balance (+ (:last-balance context)
+                                   polarized-amount)
+                    changed (update-item storage (assoc item :index new-index :balance new-balance))]
+                (assoc context :last-index new-index
+                               :last-balance new-balance)))
+            ; TODO short circuit if no change
+            {:last-index 0
+             :last-balance 0M}
+            items))
+  
+  ; TOTO: return the account-id and the new balance (or nil)
+  )
+
+(defn- recalculate-items
+  "Accepts a list of transaction items and processes items
+  affected by the transaction, updating the index and balance of each.
+  Returns a map of account-id values to new balances."
+  [storage base-items]
+  (->> base-items
+       (group-by :account-id)
+       (map (fn [[account-id items]
+                 [account-id (first items)]]))
+       (map (partial recalculate-account-items storage))
+       (update-account-balances storage)))
+
 (defn- create-transaction-and-adjust-balances
   [storage transaction]
-  (let [items-with-balances (calculate-balances-and-indexes
-                              storage
-                              (:items transaction))
-        _ (update-affected-balances storage items-with-balances
-                                    (:transaction-date transaction))
-        result (->> (assoc transaction :items items-with-balances)
-                    before-save
-                    (create-transaction-and-lot-links storage)
-                    (after-read storage))
-        items (into [] (map #(->> (assoc % :transaction-id (:id result))
-                                  before-save-item
-                                  (create-transaction-item storage)
-                                  after-item-read)
-                            items-with-balances))]
-    (assoc result :items items)))
+
+  ; create transaction record
+  ; create transaction item records
+  ; get preceding transaction items
+  ; calculate balances and index in all affected accounts based on preceding
+  ;   items (shortcut once balance is unchanged)
+  ; update all affected accounts
+  ; reload and return the transaction
+
+  (let [created (create-transaction* storage transaction)
+        ; TODO: link lots
+        items (->> (:items transaction)
+                   (map #(assoc % :transaction-id (:id created)
+                                  :balance 0M
+                                  :index 0M))
+                   (map #(create-transaction-item* storage %)))
+        previous-items (map #(get-previous-item storage %)
+                            items)]
+    (recalculate-items storage previous-items)
+    (reload storage created)))
 
 (defn create
   "Creates a new transaction"
