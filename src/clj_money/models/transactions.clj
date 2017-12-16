@@ -703,7 +703,7 @@
         validated
         (let [existing (find-by-id storage (:id validated) (:transaction-date validated))
 
-              ; dereferenced items
+              ; dereferenced items - items removed from the transaction
               dereferenced-items (remove (fn [{existing-item-id :id}]
                                            (some #(= existing-item-id
                                                      (:id %))
@@ -713,6 +713,18 @@
                                            dereferenced-items)
               _ (doseq [item dereferenced-items]
                   (delete-transaction-item storage (:id item) (:transaction-date item)))
+
+              ; dereferenced accounts - accounts removed from the transaction by changing account-id
+              dereferenced-account-ids (apply difference (->> [existing validated]
+                                                              (map :items)
+                                                              (map #(map :account-id %))
+                                                              (map set)))
+
+              dereferenced-account-id-base-items (->> dereferenced-account-ids
+                                                      (map #(hash-map :account-id %
+                                                                      :transaction-date (:transaction-date validated)
+                                                                      :index (Integer/MAX_VALUE)))
+                                                      (map #(get-previous-item storage %)))
 
               ; current items
               _ (doseq [item (:items transaction)]
@@ -730,7 +742,8 @@
 
               ; process all item updates
               _ (recalculate-items storage (concat current-base-items
-                                                   dereferenced-base-items))
+                                                   dereferenced-base-items
+                                                   dereferenced-account-id-base-items))
 
               ; update the transaction record itself
               updated (update-transaction storage validated)
