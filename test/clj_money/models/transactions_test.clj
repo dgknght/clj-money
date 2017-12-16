@@ -589,7 +589,7 @@
         updated (-> t2
                     (assoc-in [:items 0 :amount] 99.99M)
                     (assoc-in [:items 1 :amount] 99.99M))
-        _ (transactions/update storage-spec updated)
+        result (transactions/update storage-spec updated)
         expected-checking [{:index 2 :amount 102M   :balance 798.01M}
                            {:index 1 :amount 99.99M :balance 900.01M}
                            {:index 0 :amount 1000M  :balance 1000M}]
@@ -599,7 +599,13 @@
                             {:index 0 :amount 99.99M :balance 99.99M}]
         actual-groceries (->> (items-by-account (:id groceries))
                               (map #(select-keys % [:index :amount :balance])))]
+    (is (empty? (validation/error-messages result))
+        "The transaction is updated successfully.")
     (testing "transaction item balances are correct"
+      (when (not= expected-checking actual-checking)
+        (pprint {:expected expected-checking
+                 :actual actual-checking
+                 :diff (diff expected-checking actual-checking)}))
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
       (is (= expected-groceries actual-groceries)
