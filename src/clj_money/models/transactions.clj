@@ -538,22 +538,27 @@
   a balance is unchanged.
   Returns the new balance of the account of the balance changed,
   or nil if te balance didn't change."
-  [storage [account-id {:keys [transaction-date]}]]
+  [storage [account-id {:keys [transaction-date index balance] :as base-item}]]
+
+  ; TODO: I think we want an index here in addition to the transaction date
+
   (let [account (accounts/find-by-id storage account-id)
         items (account-items-on-or-after storage account-id transaction-date)
         result (reduce recalculate-account-item
                        {:account account
                         :storage storage
-                        :last-index 0
-                        :last-balance 0M}
-                       items)]
+                        :last-index index
+                        :last-balance balance}
+                       (remove #(= (:id base-item) (:id %)) items))]
     (when-let [last-balance (:last-balance result)]
       (accounts/update storage (assoc account :balance last-balance)))))
 
 (defn- recalculate-items
-  "Accepts a list of transaction items and processes items
-  affected by the transaction, updating the index and balance of each.
-  Returns a map of account-id values to new balances."
+  "Accepts a list of transaction items that precede a given
+  transaction. Base items are items have the correct index
+  and balance values that will serve as the basis for
+  calculating the indexes and balances of the items 
+  that follow."
   [storage base-items]
   (->> base-items
        (group-by :account-id)
@@ -696,16 +701,41 @@
     (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [existing (find-by-id storage (:id validation) (:transaction-date validated))
-              dereferenced-items (remove (fn [{validated-item-id :id}]
-                                           (some #(= validated-item-id
-                                                     (:id existing-item))
+        (let [existing (find-by-id storage (:id validated) (:transaction-date validated))
+
+              ; dereferenced items
+              dereferenced-items (remove (fn [{existing-item-id :id}]
+                                           (some #(= existing-item-id
+                                                     (:id %))
                                                  (:items validated)))
                                          (:items existing))
-              dereferenced-base-items (map #())
+              dereferenced-base-items (map #(get-previous-item storage %)
+                                           dereferenced-items)
+              _ (doseq [item dereferenced-items]
+                  (delete-transaction-item storage (:id item) (:transaction-date item)))
+
+              ; current items
+              _ (doseq [item (:items transaction)]
+                  (upsert-item storage (before-save-item item)))
+
+              current-base-items (->> (:items transaction)
+                                      (map (fn [current-item]
+                                             (let [existing-item (some #(= (:id %) (:id current-item))(:items existing))]
+                                               (if (> 0 (compare (:transaction-date current-item)
+                                                                 (:transaction-date existing-item)))
+                                                 existing-item
+                                                 current-item))))
+                                      (map #(get-previous-item storage %)))
+
+
+              ; process all item updates
+              _ (recalculate-items storage (concat current-base-items
+                                                   dereferenced-base-items))
+
+              ; update the transaction record itself
               updated (update-transaction storage validated)
-              ])
-        )
+              ]
+          (reload storage validated)))
 
         #_(let [dereferenced-base-items (process-removals
                                         storage

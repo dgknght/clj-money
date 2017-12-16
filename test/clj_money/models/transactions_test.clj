@@ -79,7 +79,7 @@
                       :entity-id (-> context :entities first :id)
                       :items [{:description "Paycheck"
                                :account-id (:id (find-account context "Checking"))
-                               :index 1
+                               :index 0
                                :transaction-date (t/local-date 2016 3 2)
                                :action :debit
                                :memo "conf # 123"
@@ -91,7 +91,7 @@
                                :reconciled? false}
                               {:description "Paycheck"
                                :account-id (:id (find-account context "Salary"))
-                               :index 1
+                               :index 0
                                :transaction-date (t/local-date 2016 3 2)
                                :action :credit
                                :memo nil
@@ -586,6 +586,7 @@
          salary
          groceries] (:accounts context)
         [t1 t2 t3] (:transactions context)
+        ; Change the 2nd transaction amount for 101 to 99.99
         updated (-> t2
                     (assoc-in [:items 0 :amount] 99.99M)
                     (assoc-in [:items 1 :amount] 99.99M))
