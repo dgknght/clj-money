@@ -1,5 +1,6 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer :all]
+            [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
@@ -814,25 +815,38 @@
           (select-keys existing-item
                        [:index :balance]))))
 
+; Trans. Date Amount  Debit     Credit
+; 2016-03-02    1000  Checking  Salary
+; 2016-03-09     101  Groceries Checking
+; 2016-03-16     102  Groceries Checking move this to 3/8
+; 2016-03-23     103  Groceries Checking
+; 2016-03-30     104  Groceries Checking
 (deftest update-a-transaction-short-circuit-updates
   (let [context (serialization/realize storage-spec short-circuit-context)
         [checking
          salary
          groceries] (:accounts context)
         [t1 t2 t3 t4] (:transactions context)
-        updated (assoc t3 :transaction-date (t/local-date 2016 3 8))
+        updated (-> t3
+                    (rename-keys {:transaction-date :original-transaction-date})
+                    (assoc :transaction-date (t/local-date 2016 3 8)))
         update-calls (atom {})]
     (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance
                                                                       context
                                                                       update-calls)]
       (let [result (transactions/update storage-spec updated)
-            expected #{{:index 2
-                       :amount 101M
-                       :balance 797M}
-                      {:index 3
-                       :amount 103M
-                       :balance 694M}} ; The first update that doesn't change a value stops the chain
-                                               ; the 4th item should never be updated because the 4rd one did not change a value
+            expected #{{:index 1
+                        :amount 102M
+                        :balance 898M}
+                       {:index 2
+                        :amount 101M
+                        :balance 797M}
+                       {:index 3
+                        :amount 103M
+                        :balance 694M}} ; The first update that doesn't change
+                                        ; a value stops the chain.
+                                        ; The 4th item should never be updated
+                                        ; because the 3rd one did not change a value.
             actual (get @update-calls (:id checking))]
         (is (empty? (validation/error-messages result))
             "The transaction is saved successfully")
