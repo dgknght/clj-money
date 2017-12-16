@@ -1,6 +1,5 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer :all]
-            [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
@@ -14,6 +13,7 @@
             [clj-money.factories.entity-factory]
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff
                                             find-account
                                             assert-validation-error]]))
 
@@ -101,10 +101,7 @@
                                :reconciliation-status nil
                                :reconciliation-id nil
                                :reconciled? false}]}]
-        (when-not (= expected actual)
-          (pprint {:expected expected
-                   :actual actual
-                   :diff (diff expected actual)}))
+        (pprint-diff expected actual)
         (is (= expected actual)
             "The correct data is retreived")))))
 
@@ -513,16 +510,10 @@
             expected-after[{:index 1 :amount 102M :balance 898M}
                            {:index 0 :amount 1000M :balance 1000M}]
             actual-after (map #(select-keys % [:index :amount :balance]) checking-items-after)]
-        (if-not (= expected-before actual-before)
-          (pprint {:expected expected-before
-                   :actual actual-before
-                   :diff (diff expected-before actual-before)}))
+        (pprint-diff expected-before actual-before)
         (is (= expected-before actual-before)
             "Checking should have the correct items before delete")
-        (if-not (= expected-after actual-after)
-          (pprint {:expected expected-after
-                   :actual actual-after
-                   :diff (diff expected-after actual-after)}))
+        (pprint-diff expected-after actual-after)
         (is (= expected-after actual-after)
             "Checking should have the correct items after delete")))
     (testing "account balances are adjusted"
@@ -603,10 +594,7 @@
     (is (empty? (validation/error-messages result))
         "The transaction is updated successfully.")
     (testing "transaction item balances are correct"
-      (when (not= expected-checking actual-checking)
-        (pprint {:expected expected-checking
-                 :actual actual-checking
-                 :diff (diff expected-checking actual-checking)}))
+      (pprint-diff expected-checking actual-checking)
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
       (is (= expected-groceries actual-groceries)
@@ -717,10 +705,7 @@
     (is (empty? (validation/error-messages result))
         "The transaction is saved successfully")
     (testing "transaction item balances are correct"
-      (when-not (= expected-checking actual-checking)
-        (pprint {:expected expected-checking
-                 :actual actual-checking
-                 :diff (diff expected-checking actual-checking)}))
+      (pprint-diff expected-checking actual-checking)
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
       (is (= expected-groceries actual-groceries)
@@ -847,10 +832,7 @@
         (is (empty? (validation/error-messages result))
             "The transaction is saved successfully")
         (testing "the expected transactions are updated"
-          (when-not (= expected actual)
-            (pprint {:expected expected
-                     :actual actual
-                     :diff (diff expected actual)}))
+          (pprint-diff expected actual)
           (is (= expected actual)
               "Only items with changes are updated")
           (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
@@ -920,8 +902,10 @@
          groceries] (:accounts context)
         [t1 t2 t3 t4] (:transactions context)
         _ (transactions/update storage-spec (assoc-in t3 [:items 0 :account-id] (:id rent)))
-        groceries-items (items-by-account (:id groceries))
-        rent-items (items-by-account (:id rent))
+        actual-groceries (map #(select-keys % [:index :amount :balance])
+                              (items-by-account (:id groceries)))
+        actual-rent (map #(select-keys % [:index :amount :balance])
+                         (items-by-account (:id rent)))
         expected-groceries [{:index 1
                              :amount 103M
                              :balance 204M}
@@ -930,15 +914,15 @@
                              :balance 101M}]
         expected-rent [{:index 0
                         :amount 102M
-                        :balance 102M}]
-        actual-groceries (map #(select-keys % [:index :amount :balance])
-                              groceries-items)]
-    (testing "accounts have the correct items"
+                        :balance 102M}]]
+    (testing "Accounts have the correct items"
+      (pprint-diff expected-groceries actual-groceries)
       (is (= expected-groceries actual-groceries)
           "Groceries should have the correct items after update")
-      (is (= expected-rent
-             (map #(select-keys % [:index :amount :balance]) rent-items))))
-    (testing "accounts have the correct balances"
+      (pprint-diff expected-rent actual-rent)
+      (is (= expected-rent actual-rent)
+          "Rent chould have the correct items after update"))
+    (testing "Accounts have the correct balances"
       (is (= 204M
              (:balance (accounts/reload storage-spec groceries)))
           "The groceries account has the correct balance after update")
@@ -1151,10 +1135,7 @@
         actual-items (map #(select-keys % [:index :amount :balance])
                           (items-by-account (:id pets)))]
     (testing "item values are correct"
-      (when-not (= expected-items actual-items)
-        (pprint {:expected expected-items
-                 :actual actual-items
-                 :diff (diff expected-items actual-items)}))
+      (pprint-diff expected-items actual-items)
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))
     (testing "account balances are correct"

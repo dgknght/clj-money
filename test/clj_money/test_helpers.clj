@@ -1,6 +1,7 @@
 (ns clj-money.test-helpers
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
+            [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
@@ -182,3 +183,10 @@
   [at-time & body]
   `(with-redefs [t/now (fn [] ~at-time)]
      ~@body))
+
+(defn pprint-diff
+  [expected actual]
+  (when (not= expected actual)
+    (pprint {:expected expected
+             :actual actual
+             :diff (diff expected actual)})))
