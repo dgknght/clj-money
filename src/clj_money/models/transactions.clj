@@ -153,7 +153,9 @@
       (update-in [:items] (fn [items]
                             (->> items
                                  (map #(assoc % :transaction-date
-                                                (:transaction-date transaction)))
+                                                (:transaction-date transaction)
+                                                :original-transaction-date
+                                                (:original-transaction-date transaction)))
                                  (map before-item-validation))))))
 
 (defn- after-validation
@@ -701,7 +703,15 @@
     (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [existing (find-by-id storage (:id validated) (:transaction-date validated))
+        (let [search-date (or (:original-transaction-date validated)
+                              (:transaction-date validated))
+              existing (or (find-by-id storage (:id validated) search-date)
+                           (throw (ex-info
+                                    (format "Unable to find transaction with id %s and date %s"
+                                            (:id validated)
+                                            search-date)
+                                    {:id (:id validated)
+                                     :search-date search-date})))
 
               ; dereferenced items - items removed from the transaction
               dereferenced-items (remove (fn [{existing-item-id :id}]
@@ -727,10 +737,10 @@
                                                       (map #(get-previous-item storage %)))
 
               ; current items
-              _ (doseq [item (:items transaction)]
+              _ (doseq [item (:items validated)]
                   (upsert-item storage (before-save-item item)))
 
-              current-base-items (->> (:items transaction)
+              current-base-items (->> (:items validated)
                                       (map (fn [current-item]
                                              (let [existing-item (some #(= (:id %) (:id current-item))(:items existing))]
                                                (if (> 0 (compare (:transaction-date current-item)

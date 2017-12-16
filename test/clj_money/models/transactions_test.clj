@@ -650,22 +650,27 @@
          salary
          groceries] (:accounts context)
         [t1 t2 t3] (:transactions context)
-        updated (assoc t3 :transaction-date (t/local-date 2016 3 10))
-        _ (transactions/update storage-spec updated)
-        expected-checking [{:index 2 :amount 101M :balance 797M}
-                           {:index 1 :amount 102M :balance 898M}
-                           {:index 0 :amount 1000M :balance 1000M}]
+        updated (assoc t3 :transaction-date (t/local-date 2016 3 10)
+                          :original-transaction-date (:transaction-date t3))
+        result (transactions/update storage-spec updated)
+        expected-checking [{:index 2 :transaction-date (t/local-date 2016 3 12) :amount 101M  :balance 797M}
+                           {:index 1 :transaction-date (t/local-date 2016 3 10) :amount 102M  :balance 898M}
+                           {:index 0 :transaction-date (t/local-date 2016 3 2)  :amount 1000M :balance 1000M}]
         actual-checking (->> (:id checking)
                              items-by-account
-                             (map #(select-keys % [:index :amount :balance])))
-        expected-groceries [{:index 1 :amount 101M :balance 203M}
-                            {:index 0 :amount 102M :balance 102M}]
+                             (map #(select-keys % [:index :amount :balance :transaction-date])))
+        expected-groceries [{:index 1 :transaction-date (t/local-date 2016 3 12) :amount 101M :balance 203M}
+                            {:index 0 :transaction-date (t/local-date 2016 3 10) :amount 102M :balance 102M}]
         actual-groceries (->> (:id groceries)
                               items-by-account
-                              (map #(select-keys % [:index :amount :balance])))]
+                              (map #(select-keys % [:index :amount :balance :transaction-date])))]
+    (is (empty? (validation/error-messages result))
+        "The record is saved successfully")
     (testing "transaction item balances are correct"
+      (pprint-diff expected-checking actual-checking)
       (is (= expected-checking actual-checking)
-          "Check items should have the correct values after update")
+          "Checking items should have the correct values after update")
+      (pprint-diff expected-groceries actual-groceries)
       (is (= expected-groceries actual-groceries)
           "Groceries items should have the correct values after update"))
     (testing "account balances are correct"
