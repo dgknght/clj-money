@@ -57,6 +57,8 @@ Goal Logic
 
 Update
 
+Current Logic
+
 1. Validate
 2. process-removals
   a. select items from the existing transaction that don't exist in the updated transaction
@@ -87,3 +89,17 @@ Update
         c. calculate the new balance
         d. update the item in storage (short cut further calculations if the balance did not change)
   b. update the account balance (if not short-cutted)
+
+Goal logic
+
+How to handle updates that cross partition boundries?
+
+1. Validate
+2. Save the transaction record
+3. Delete dereferenced items
+4. Collect base items for accounts for dereferenced items
+5. Upsert transaction items
+6. Collect base items for accounts for items
+7. Process all base items (calculate index and balance)
+8. Update all affected accounts
+9. Reload and return the transaction
