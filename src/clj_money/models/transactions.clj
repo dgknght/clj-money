@@ -185,7 +185,7 @@
                                           {:transaction-id id
                                            :transaction-date transaction-date}
                                           {:sort [[:action :desc] [:amount :desc]]})
-                (map after-item-read)))))
+                (mapv after-item-read)))))
 
 (defn- append-lot-items
   [transaction storage]
@@ -696,7 +696,18 @@
     (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [dereferenced-base-items (process-removals
+        (let [existing (find-by-id storage (:id validation) (:transaction-date validated))
+              dereferenced-items (remove (fn [{validated-item-id :id}]
+                                           (some #(= validated-item-id
+                                                     (:id existing-item))
+                                                 (:items validated)))
+                                         (:items existing))
+              dereferenced-base-items (map #())
+              updated (update-transaction storage validated)
+              ])
+        )
+
+        #_(let [dereferenced-base-items (process-removals
                                         storage
                                         validated)
               upserted-items (->> (:items validated)
@@ -712,7 +723,7 @@
                                     (concat upserted-items
                                             dereferenced-base-items)
                                     (:transaction-date validated))
-          (reload storage validated))))))
+          (reload storage validated)))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
