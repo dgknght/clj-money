@@ -132,6 +132,7 @@
   (cond-> item
     true (update-in [:value] #(or % (:amount item)))
     true (assoc :balance (bigdec 0))
+    true (update-in [:index] (fnil identity (Integer/MAX_VALUE)))
     (string? (:account-id item)) (update-in [:account-id] #(Integer. %))
     (nil? (:id item)) (dissoc :id)
     (and
@@ -737,10 +738,13 @@
                                                       (map #(get-previous-item storage %)))
 
               ; current items
-              _ (doseq [item (:items validated)]
-                  (upsert-item storage (before-save-item item)))
+              upserted-items (mapv #(as-> % i
+                                      (assoc i :transaction-id (:id validated))
+                                      (before-save-item i)
+                                      (upsert-item storage i))
+                                   (:items validated))
 
-              current-base-items (->> (:items validated)
+              current-base-items (->> upserted-items
                                       (map (fn [current-item]
                                              (let [existing-item (some #(= (:id %) (:id current-item))(:items existing))]
                                                (if (> 0 (compare (:transaction-date current-item)
@@ -756,8 +760,7 @@
                                                    dereferenced-account-id-base-items))
 
               ; update the transaction record itself
-              updated (update-transaction storage validated)
-              ]
+              updated (update-transaction storage validated)]
           (reload storage validated)))
 
         #_(let [dereferenced-base-items (process-removals
