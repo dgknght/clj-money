@@ -440,6 +440,7 @@
                                  {:index 0 :amount 1000M :balance 1000M}]
         actual-checking-items (map #(select-keys % [:index :amount :balance])
                                    checking-items)]
+    (pprint-diff expected-checking-items actual-checking-items)
     (is (= expected-checking-items
            actual-checking-items)
         "The checking account items are correct")))
