@@ -612,38 +612,38 @@
 
 (deftest rollback-a-failed-update
   (let [real-reload transactions/reload
-        call-count (atom 0)]
-    (with-redefs [transactions/reload (fn [storage-spec transaction]
-                                        (swap! call-count inc)
-                                        (if (= 2 @call-count)
-                                          (throw (RuntimeException. "Induced exception"))
-                                          (real-reload storage-spec transaction)))]
-      (let [context (serialization/realize storage-spec update-context)
-            [checking
-             salary
-             groceries] (:accounts context)
-            [t1 t2 t3] (:transactions context)
-            updated (-> t2
-                        (assoc-in [:items 0 :amount] 99.99M)
-                        (assoc-in [:items 1 :amount] 99.99M))
-            _ (try
-                (transactions/update storage-spec updated)
-                (catch RuntimeException e nil))]
-        (testing "transaction items are not updated"
-          (is (= #{101M} (->> t2
-                            (transactions/reload storage-spec)
-                            :items
-                            (map :amount)
-                            (into #{})))))
-        (testing "account balances are not updated"
-          (is (= 797M (->> checking
-                                   (accounts/reload storage-spec)
-                                   :balance))
-              "The checkout account balance should not be changed")
-          (is (= 203M (->> groceries
-                                   (accounts/reload storage-spec)
-                                   :balance))
-              "The groceries account balance should not be changed"))))))
+        call-count (atom 0)
+        context (serialization/realize storage-spec update-context)
+        [checking
+         salary
+         groceries] (:accounts context)
+        [t1 t2 t3] (:transactions context)
+        updated (-> t2
+                    (assoc-in [:items 0 :amount] 99.99M)
+                    (assoc-in [:items 1 :amount] 99.99M))
+        _ (with-redefs [transactions/reload (fn [storage-spec transaction]
+                                              (swap! call-count inc)
+                                              (if (= 2 @call-count)
+                                                (throw (RuntimeException. "Induced exception"))
+                                                (real-reload storage-spec transaction)))]
+            (try
+              (transactions/update storage-spec updated)
+              (catch RuntimeException e nil)))]
+    (testing "transaction items are not updated"
+      (is (= #{101M} (->> t2
+                          (transactions/reload storage-spec)
+                          :items
+                          (map :amount)
+                          (into #{})))))
+    (testing "account balances are not updated"
+      (is (= 797M (->> checking
+                       (accounts/reload storage-spec)
+                       :balance))
+          "The checkout account balance should not be changed")
+      (is (= 203M (->> groceries
+                       (accounts/reload storage-spec)
+                       :balance))
+          "The groceries account balance should not be changed"))))
 
 (deftest update-a-transaction-change-date
   (let [context (serialization/realize storage-spec update-context)
