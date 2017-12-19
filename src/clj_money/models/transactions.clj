@@ -556,6 +556,8 @@
     (when-let [last-balance (:last-balance result)]
       (accounts/update storage (assoc account :balance last-balance)))))
 
+; At this point, there should only be one item
+; per account
 (defn- recalculate-items
   "Accepts a list of transaction items that precede a given
   transaction. Base items are items have the correct index
@@ -586,8 +588,11 @@
                                   :balance 0M
                                   :index 0M))
                    (map #(create-transaction-item* storage %)))
-        previous-items (map #(get-previous-item storage %)
-                            items)]
+        previous-items (->> items ; make sure we're only getting on item per account
+                            (group-by :account-id)
+                            (map #(update-in % [1] (partial sort-by :index)))
+                            (map (comp first second))
+                            (map #(get-previous-item storage %)))]
     (recalculate-items storage previous-items)
     (reload storage created)))
 
