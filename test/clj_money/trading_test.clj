@@ -100,24 +100,28 @@
                               :lot-items [{:lot-action :buy
                                            :shares 100M
                                            :price 10M}]
-                              :items [{:action :credit
-                                       :amount 1000M
-                                       :balance 1000M
-                                       :value 1000M
-                                       :account-id (:id ira)
-                                       :index 1
-                                       :memo nil
-                                       :transaction-date (t/local-date 2016 1 2)
-                                       :reconciled? false
-                                       :reconciliation-id nil}
-                                      {:action :debit
+                              :items [{:action :debit
                                        :amount 100M
                                        :balance 100M
                                        :value 1000M
                                        :account-id (:id apple-account)
+                                       :description "Purchase 100 shares of AAPL at 10.000"
                                        :memo nil
                                        :transaction-date (t/local-date 2016 1 2)
                                        :index 0
+                                       :reconciliation-status nil
+                                       :reconciled? false
+                                       :reconciliation-id nil}
+                                      {:action :credit
+                                       :amount 1000M
+                                       :balance 1000M
+                                       :value 1000M
+                                       :account-id (:id ira)
+                                       :description "Purchase 100 shares of AAPL at 10.000"
+                                       :index 1
+                                       :memo nil
+                                       :transaction-date (t/local-date 2016 1 2)
+                                       :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil}]}
         actual-transaction (-> (:transaction result)
