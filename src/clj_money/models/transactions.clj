@@ -565,35 +565,33 @@
   [storage base-items]
   (mapv #(recalculate-account-items storage %) base-items))
 
+(defn- link-lots
+  [storage transaction]
+  (when-let [lot-items (:lot-items transaction)]
+    (doseq [lot-item (:lot-items transaction)]
+      (create-lot->transaction-link storage
+                                    (assoc lot-item
+                                           :transaction-id
+                                           (:id transaction)))))
+  transaction)
+
 (defn- create-transaction-and-adjust-balances
   [storage transaction]
+  (let [created (link-lots storage (create-transaction* storage transaction))]
+    (->> (:items transaction)
 
-  ; create transaction record
-  ; create transaction item records
-  ; get preceding transaction items
-  ; calculate balances and index in all affected accounts based on preceding
-  ;   items (shortcut once balance is unchanged)
-  ; update all affected accounts
-  ; reload and return the transaction
+         ; create database records
+         (map #(assoc % :transaction-id (:id created)))
+         (map #(create-transaction-item* storage %))
 
-  (let [created (create-transaction* storage transaction)
-        _ (when-let [lot-items (:lot-items transaction)]
-            (doseq [lot-item (:lot-items transaction)]
-              (create-lot->transaction-link storage
-                                            (assoc lot-item
-                                                   :transaction-id
-                                                   (:id created)))))
-        items (->> (:items transaction)
-                   (map #(assoc % :transaction-id (:id created)))
-                   (map #(create-transaction-item* storage %)))
-        previous-items (->> items ; make sure we're only getting on item per account
-                            (group-by :account-id)
-                            (map second)
-                            (map #(sort-by :index %))
-                            (map first)
-                            (map #(get-previous-item storage %))
-                            (map #(recalculate-account-items storage %)))]
-    (recalculate-items storage previous-items)
+         ; process indexes and balances, update affected accounts
+         (group-by :account-id)
+         (map second)
+         (map #(sort-by :index %))
+         (map first)
+         (map #(get-previous-item storage %))
+         (map #(recalculate-account-items storage %))
+         (mapv #(recalculate-account-items storage %)))
     (reload storage created)))
 
 (defn create
@@ -760,9 +758,10 @@
 
 
               ; process all item updates
-              _ (recalculate-items storage (concat current-base-items
-                                                   dereferenced-base-items
-                                                   dereferenced-account-id-base-items))
+              _ (->> current-base-items
+                     (concat dereferenced-base-items
+                             dereferenced-account-id-base-items)
+                     (mapv #(recalculate-account-items storage %)))
 
               ; update the transaction record itself
               updated (update-transaction storage validated)]
