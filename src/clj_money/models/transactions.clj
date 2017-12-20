@@ -577,7 +577,12 @@
   ; reload and return the transaction
 
   (let [created (create-transaction* storage transaction)
-        ; TODO: link lots
+        _ (when-let [lot-items (:lot-items transaction)]
+            (doseq [lot-item (:lot-items transaction)]
+              (create-lot->transaction-link storage
+                                            (assoc lot-item
+                                                   :transaction-id
+                                                   (:id created)))))
         items (->> (:items transaction)
                    (map #(assoc % :transaction-id (:id created)))
                    (map #(create-transaction-item* storage %)))
