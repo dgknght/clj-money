@@ -700,6 +700,35 @@
          (map #(or (get-previous-item storage %)
                    (assoc % :index -1 :balance (bigdec 0)))))))
 
+(defn remove-dereferenced-items
+  "Removes transaction items that have been
+  removed from the transaction and returns
+  base items for the affected accounts"
+  [storage updated-transaction existing-transaction]
+  (let [dereferenced-items (remove (fn [{existing-item-id :id}]
+                                     (some #(= existing-item-id
+                                               (:id %))
+                                           (:items updated-transaction)))
+                                   (:items existing-transaction))]
+    (->> dereferenced-items
+         (map (fn [item]
+                (delete-transaction-item storage (:id item) (:transaction-date item))
+                item))
+         (mapv #(get-previous-item storage %)))))
+
+(defn- find-existing-transaction
+  "Given a transaction that has been updated, find the existing
+  transaction in storage. If none can be found, throw an exception."
+  [storage {:keys [id transaction-date original-transaction-date]}]
+  (let [search-date (or original-transaction-date transaction-date)]
+    (or (find-by-id storage id search-date)
+        (throw (ex-info
+                 (format "Unable to find transaction with id %s and date %s"
+                         id
+                         search-date)
+                 {:id id
+                  :search-date search-date})))))
+
 (defn update
   "Updates the specified transaction"
   [storage-spec transaction]
@@ -707,26 +736,8 @@
     (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [search-date (or (:original-transaction-date validated)
-                              (:transaction-date validated))
-              existing (or (find-by-id storage (:id validated) search-date)
-                           (throw (ex-info
-                                    (format "Unable to find transaction with id %s and date %s"
-                                            (:id validated)
-                                            search-date)
-                                    {:id (:id validated)
-                                     :search-date search-date})))
-
-              ; dereferenced items - items removed from the transaction
-              dereferenced-items (remove (fn [{existing-item-id :id}]
-                                           (some #(= existing-item-id
-                                                     (:id %))
-                                                 (:items validated)))
-                                         (:items existing))
-              dereferenced-base-items (map #(get-previous-item storage %)
-                                           dereferenced-items)
-              _ (doseq [item dereferenced-items]
-                  (delete-transaction-item storage (:id item) (:transaction-date item)))
+        (let [existing (find-existing-transaction storage validated)
+              dereferenced-base-items (remove-dereferenced-items storage validated existing)
 
               ; dereferenced accounts - accounts removed from the transaction by changing account-id
               dereferenced-account-ids (apply difference (->> [existing validated]
