@@ -731,6 +731,23 @@
                          :index (Integer/MAX_VALUE)))
          (map #(get-previous-item storage %)))))
 
+(defn- process-updated-transaction-items
+  [storage transaction existing-tx]
+  (->> (:items transaction)
+       (map #(as-> % i
+                (assoc i :transaction-id (:id transaction))
+                (before-save-item i)
+                (upsert-item storage i)))
+       (map (fn [current-item]
+              ; TODO: no need to find the matching item, just use the value from the transaction
+              (let [existing-item (some #(= (:id %) (:id current-item))
+                                        (:items existing-tx))]
+                (if (> 0 (compare (:transaction-date current-item)
+                                  (:transaction-date existing-item)))
+                  existing-item
+                  current-item))))
+       (mapv #(get-previous-item storage %))))
+
 (defn- find-existing-transaction
   "Given a transaction that has been updated, find the existing
   transaction in storage. If none can be found, throw an exception."
@@ -754,22 +771,7 @@
         (let [existing (find-existing-transaction storage validated)
               dereferenced-base-items (remove-dereferenced-items storage validated existing)
               dereferenced-account-base-items (dereferenced-account-base-items storage validated existing)
-
-              ; current items
-              upserted-items (mapv #(as-> % i
-                                      (assoc i :transaction-id (:id validated))
-                                      (before-save-item i)
-                                      (upsert-item storage i))
-                                   (:items validated))
-
-              current-base-items (->> upserted-items
-                                      (map (fn [current-item]
-                                             (let [existing-item (some #(= (:id %) (:id current-item))(:items existing))]
-                                               (if (> 0 (compare (:transaction-date current-item)
-                                                                 (:transaction-date existing-item)))
-                                                 existing-item
-                                                 current-item))))
-                                      (map #(get-previous-item storage %)))
+              current-base-items (process-updated-transaction-items storage validated existing)
 
 
               ; process all item updates
