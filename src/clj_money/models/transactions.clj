@@ -782,25 +782,7 @@
 
               ; update the transaction record itself
               updated (update-transaction storage validated)]
-          (reload storage validated)))
-
-        #_(let [dereferenced-base-items (process-removals
-                                        storage
-                                        validated)
-              upserted-items (->> (:items validated)
-                                  (calculate-balances-and-indexes ; TODO: This appears to be redunant with update-affected-balances, which also does the calculation
-                                    storage)
-                                  ; new items need the transaction-id added
-                                  (map #(assoc % :transaction-id (:id validated)))
-                                  (process-item-upserts storage))]
-          (->> validated
-               before-save
-               (update-transaction storage))
-          (update-affected-balances storage
-                                    (concat upserted-items
-                                            dereferenced-base-items)
-                                    (:transaction-date validated))
-          (reload storage validated)))))
+          (reload storage validated))))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
