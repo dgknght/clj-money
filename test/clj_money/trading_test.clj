@@ -390,32 +390,38 @@
                               :description "Sell 25 shares of AAPL at 15.000"
                               :entity-id (-> context :entities first :id)
                               :memo nil
-                              :items [{:action :credit
-                                       :account-id (:id ltcg)
-                                       :memo "Sell 25 shares of AAPL at 15.000"
-                                       :transaction-date (t/local-date 2017 3 2)
-                                       :amount 125M
-                                       :value 125M
-                                       :balance 125M
-                                       :reconciled? false
-                                       :reconciliation-id nil
-                                       :index 0}
-                                      {:action :debit
+                              :items [{:action :debit
                                        :account-id (:id ira)
                                        :transaction-date (t/local-date 2017 3 2)
+                                       :description "Sell 25 shares of AAPL at 15.000"
                                        :amount 375M
                                        :value 375M
                                        :balance 1375M
+                                       :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil
                                        :memo nil
                                        :index 2}
                                       {:action :credit
+                                       :account-id (:id ltcg)
+                                       :memo "Sell 25 shares of AAPL at 15.000"
+                                       :transaction-date (t/local-date 2017 3 2)
+                                       :description "Sell 25 shares of AAPL at 15.000"
+                                       :amount 125M
+                                       :value 125M
+                                       :balance 125M
+                                       :reconciliation-status nil
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :index 0}
+                                      {:action :credit
                                        :account-id (:id commodity-account)
                                        :transaction-date (t/local-date 2017 3 2)
+                                       :description "Sell 25 shares of AAPL at 15.000"
                                        :amount 25M
                                        :balance 75M
                                        :value 250M
+                                       :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil
                                        :memo nil
