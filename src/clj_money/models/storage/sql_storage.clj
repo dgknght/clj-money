@@ -50,6 +50,11 @@
   (sql-value [v]
     (to-sql-time v)))
 
+(extend-protocol jdbc/ISQLValue
+  clojure.lang.Keyword
+  (sql-value [v]
+    (name v)))
+
 (defn- id-criteria?
   [value]
   (or (integer? value)
