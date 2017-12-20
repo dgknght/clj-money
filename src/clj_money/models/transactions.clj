@@ -702,66 +702,92 @@
          (map #(or (get-previous-item storage %)
                    (assoc % :index -1 :balance (bigdec 0)))))))
 
-(defn remove-dereferenced-items
+(defn process-dereferenced-items
   "Removes transaction items that have been
   removed from the transaction and returns
   base items for the affected accounts"
-  [storage updated-transaction existing-transaction]
+  [{:keys [storage transaction existing] :as context}]
   (let [dereferenced-items (remove (fn [{existing-item-id :id}]
                                      (some #(= existing-item-id
                                                (:id %))
-                                           (:items updated-transaction)))
-                                   (:items existing-transaction))]
-    (->> dereferenced-items
-         (map (fn [item]
-                (delete-transaction-item storage (:id item) (:transaction-date item))
-                item))
-         (mapv #(get-previous-item storage %)))))
+                                           (:items transaction)))
+                                   (:items existing))
+        base-items (->> dereferenced-items
+                        (map (fn [item]
+                               (delete-transaction-item
+                                 storage
+                                 (:id item)
+                                 (:transaction-date item))
+                               item))
+                        (mapv #(get-previous-item storage %)))]
+    (update-in context [:base-items] #(concat % base-items))))
 
-(defn- dereferenced-account-base-items
+(defn- process-dereferenced-accounts
   "Find accounts IDs that are no longer referenced
   by the transaction and looks up base items for
   recalculating affected account items"
-  [storage updated-tx existing-tx]
-  (let [dereferenced-account-ids (apply difference (->> [existing-tx updated-tx]
+  [{:keys [storage transaction existing] :as context}]
+  (let [dereferenced-account-ids (apply difference (->> [existing transaction]
                                                         (map :items)
                                                         (map #(map :account-id %))
-                                                        (map set)))]
-    (->> dereferenced-account-ids
-         (map #(hash-map :account-id %
-                         :transaction-date (:transaction-date updated-tx) ; TODO: get the earlier date
-                         :index (Integer/MAX_VALUE)))
-         (map #(get-previous-item storage %)))))
+                                                        (map set)))
+        base-items (->> dereferenced-account-ids
+                        (map #(hash-map :account-id %
+                                        :transaction-date (:transaction-date transaction) ; TODO: get the earlier date
+                                        :index (Integer/MAX_VALUE)))
+                        (map #(get-previous-item storage %)))]
+    (update-in context [:base-items] #(concat % base-items))))
 
-(defn- process-updated-transaction-items
-  [storage transaction existing-tx]
-  (->> (:items transaction)
-       (map #(as-> % i
-                (assoc i :transaction-id (:id transaction))
-                (before-save-item i)
-                (upsert-item storage i)))
-       (map (fn [current-item]
-              ; TODO: no need to find the matching item, just use the value from the transaction
-              (let [existing-item (some #(= (:id %) (:id current-item))
-                                        (:items existing-tx))]
-                (if (> 0 (compare (:transaction-date current-item)
-                                  (:transaction-date existing-item)))
-                  existing-item
-                  current-item))))
-       (mapv #(get-previous-item storage %))))
+(defn- process-updated-items
+  "Processes the updated items in the transaction
+  in the context and appends items to the :base-items attribute
+  with the list of items that need to be processed for
+  index and balance."
+  [{:keys [storage transaction existing-tx] :as context}]
+  (let [base-items (->> (:items transaction)
+                        (map #(as-> % i
+                                (assoc i :transaction-id (:id transaction))
+                                (before-save-item i)
+                                (upsert-item storage i)))
+                        (map (fn [current-item]
+                               ; TODO: no need to find the matching item, just use the value from the transaction
+                               (let [existing-item (some #(= (:id %) (:id current-item))
+                                                         (:items existing-tx))]
+                                 (if (> 0 (compare (:transaction-date current-item)
+                                                   (:transaction-date existing-item)))
+                                   existing-item
+                                   current-item))))
+                        (mapv #(get-previous-item storage %)))]
+    (update-in context [:base-items] #(concat % base-items))))
 
 (defn- find-existing-transaction
   "Given a transaction that has been updated, find the existing
   transaction in storage. If none can be found, throw an exception."
-  [storage {:keys [id transaction-date original-transaction-date]}]
+  [{storage :storage
+    {:keys [id
+            transaction-date
+            original-transaction-date]} :transaction
+    :as context}]
   (let [search-date (or original-transaction-date transaction-date)]
-    (or (find-by-id storage id search-date)
-        (throw (ex-info
-                 (format "Unable to find transaction with id %s and date %s"
-                         id
-                         search-date)
-                 {:id id
-                  :search-date search-date})))))
+    (assoc context :existing
+           (or (find-by-id storage id search-date)
+               (throw (ex-info
+                        (format "Unable to find transaction with id %s and date %s"
+                                id
+                                search-date)
+                        {:id id
+                         :search-date search-date}))))))
+
+(defn- recalculate-indexes-and-balances-for-update
+  [{:keys [storage base-items] :as context}]
+  (doseq [item base-items]
+    (recalculate-account-items storage item))
+  context)
+
+(defn- update-transaction*
+  [{:keys [storage transaction] :as context}]
+  (let [updated (update-transaction storage transaction)]
+  (assoc context :transaction (reload storage transaction))))
 
 (defn update
   "Updates the specified transaction"
@@ -770,23 +796,16 @@
     (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-
-        ; TODO: rewrite this using an "update-context" map that holds all necessary information
-
-        (let [existing (find-existing-transaction storage validated)
-              dereferenced-base-items (remove-dereferenced-items storage validated existing)
-              dereferenced-account-base-items (dereferenced-account-base-items storage validated existing)
-              current-base-items (process-updated-transaction-items storage validated existing)
-
-              ; process all item updates
-              _ (->> current-base-items
-                     (concat dereferenced-base-items
-                             dereferenced-account-base-items)
-                     (mapv #(recalculate-account-items storage %)))
-
-              ; update the transaction record itself
-              updated (update-transaction storage validated)]
-          (reload storage validated))))))
+        (-> {:transaction validated
+             :storage storage
+             :base-items []}
+            find-existing-transaction
+            process-dereferenced-items
+            process-dereferenced-accounts
+            process-updated-items
+            recalculate-indexes-and-balances-for-update
+            update-transaction*
+            :transaction)))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
