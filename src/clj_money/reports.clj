@@ -414,9 +414,8 @@
 
 (defn- transform-lot-transactions
   [trans]
-  (->> (:lot-items trans)
-       (map (fn [item]
-              (merge item (select-keys trans [:id :transaction-date]))))))
+  (map #(merge % (select-keys trans [:id :transaction-date]))
+       (:lot-items trans)))
 
 (defn- append-lot-transactions
   [storage-spec lot]
