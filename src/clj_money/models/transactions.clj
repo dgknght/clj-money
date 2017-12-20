@@ -716,6 +716,21 @@
                 item))
          (mapv #(get-previous-item storage %)))))
 
+(defn- dereferenced-account-base-items
+  "Find accounts IDs that are no longer referenced
+  by the transaction and looks up base items for
+  recalculating affected account items"
+  [storage updated-tx existing-tx]
+  (let [dereferenced-account-ids (apply difference (->> [existing-tx updated-tx]
+                                                        (map :items)
+                                                        (map #(map :account-id %))
+                                                        (map set)))]
+    (->> dereferenced-account-ids
+         (map #(hash-map :account-id %
+                         :transaction-date (:transaction-date updated-tx) ; TODO: get the earlier date
+                         :index (Integer/MAX_VALUE)))
+         (map #(get-previous-item storage %)))))
+
 (defn- find-existing-transaction
   "Given a transaction that has been updated, find the existing
   transaction in storage. If none can be found, throw an exception."
@@ -738,18 +753,7 @@
         validated
         (let [existing (find-existing-transaction storage validated)
               dereferenced-base-items (remove-dereferenced-items storage validated existing)
-
-              ; dereferenced accounts - accounts removed from the transaction by changing account-id
-              dereferenced-account-ids (apply difference (->> [existing validated]
-                                                              (map :items)
-                                                              (map #(map :account-id %))
-                                                              (map set)))
-
-              dereferenced-account-id-base-items (->> dereferenced-account-ids
-                                                      (map #(hash-map :account-id %
-                                                                      :transaction-date (:transaction-date validated)
-                                                                      :index (Integer/MAX_VALUE)))
-                                                      (map #(get-previous-item storage %)))
+              dereferenced-account-base-items (dereferenced-account-base-items storage validated existing)
 
               ; current items
               upserted-items (mapv #(as-> % i
@@ -771,7 +775,7 @@
               ; process all item updates
               _ (->> current-base-items
                      (concat dereferenced-base-items
-                             dereferenced-account-id-base-items)
+                             dereferenced-account-base-items)
                      (mapv #(recalculate-account-items storage %)))
 
               ; update the transaction record itself
