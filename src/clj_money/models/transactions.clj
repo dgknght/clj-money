@@ -481,9 +481,11 @@
 
 (defn- create-transaction*
   [storage transaction]
-  (->> transaction
-       before-save
-       (create-transaction storage)))
+  (assoc (->> transaction
+              before-save
+              (create-transaction storage))
+         :items (:items transaction)
+         :lot-items (:lot-items transaction)))
 
 (defn- create-transaction-item*
   [storage item]
