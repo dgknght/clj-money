@@ -768,11 +768,13 @@
     (let [validated (validate storage ::existing-transaction transaction)]
       (if (validation/has-error? validated)
         validated
+
+        ; TODO: rewrite this using an "update-context" map that holds all necessary information
+
         (let [existing (find-existing-transaction storage validated)
               dereferenced-base-items (remove-dereferenced-items storage validated existing)
               dereferenced-account-base-items (dereferenced-account-base-items storage validated existing)
               current-base-items (process-updated-transaction-items storage validated existing)
-
 
               ; process all item updates
               _ (->> current-base-items
