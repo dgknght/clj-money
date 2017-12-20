@@ -436,8 +436,8 @@
          groceries-items] (map #(items-by-account (:id %))
                                (:accounts context))
         expected-checking-items [{:index 2 :amount  100M :balance 1000M}
-                                 {:index 1 :amount  100M :balance 1100M}
-                                 {:index 0 :amount 1000M :balance 1000M}]
+                                 {:index 1 :amount 1000M :balance 1100M}
+                                 {:index 0 :amount  100M :balance  100M}]
         actual-checking-items (map #(select-keys % [:index :amount :balance])
                                    checking-items)]
     (pprint-diff expected-checking-items actual-checking-items)

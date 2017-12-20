@@ -216,10 +216,10 @@
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item,
   or a fake 'before first' item if there are no preceding items"
-  [storage {:keys [account-id transaction-date id] :as item}]
+  [storage {:keys [account-id transaction-date transaction-id] :as item}]
   (or (->> (select-transaction-items storage
                                      {:account-id account-id
-                                      :id [:<> id]
+                                      :transaction-id [:<> transaction-id]
                                       :transaction-date [:between nil transaction-date]}
                                      {:sort [[:transaction-date :desc] [:index :desc]]
                                       :limit 1})
@@ -501,13 +501,14 @@
      (map after-item-read (select-transaction-items s criteria options)))))
 
 ; TODO: This should be lazy
-(defn- account-items-on-or-after
+(defn- account-items-after
   "Returns the items in the specified account
   that occur on or after the specified date"
-  [storage account-id date]
+  [storage account-id date index]
   (search-items storage
                 {:account-id account-id
-                 :transaction-date [:between date (t/today)]} ; TODO: use last partition value
+                 :transaction-date [:between date (t/today)] ; TODO: use last partition value
+                 :index [:> index]}
                 {:sort [:transaction-date :index]}))
 
 (defn- recalculate-account-item
@@ -541,18 +542,15 @@
   a balance is unchanged.
   Returns the new balance of the account of the balance changed,
   or nil if te balance didn't change."
-  [storage [account-id {:keys [transaction-date index balance] :as base-item}]]
-
-  ; TODO: I think we want an index here in addition to the transaction date
-
+  [storage {:keys [account-id transaction-date index balance id]}]
   (let [account (accounts/find-by-id storage account-id)
-        items (account-items-on-or-after storage account-id transaction-date)
+        items (account-items-after storage account-id transaction-date index)
         result (reduce recalculate-account-item
                        {:account account
                         :storage storage
                         :last-index index
                         :last-balance balance}
-                       (remove #(= (:id base-item) (:id %)) items))]
+                       (remove #(= id (:id %)) items))]
     (when-let [last-balance (:last-balance result)]
       (accounts/update storage (assoc account :balance last-balance)))))
 
@@ -565,10 +563,7 @@
   calculating the indexes and balances of the items 
   that follow."
   [storage base-items]
-  (->> base-items
-       (group-by :account-id)
-       (map #(update-in % [1] first))
-       (mapv (partial recalculate-account-items storage))))
+  (mapv #(recalculate-account-items storage %) base-items))
 
 (defn- create-transaction-and-adjust-balances
   [storage transaction]
@@ -584,15 +579,15 @@
   (let [created (create-transaction* storage transaction)
         ; TODO: link lots
         items (->> (:items transaction)
-                   (map #(assoc % :transaction-id (:id created)
-                                  :balance 0M
-                                  :index 0M))
+                   (map #(assoc % :transaction-id (:id created)))
                    (map #(create-transaction-item* storage %)))
         previous-items (->> items ; make sure we're only getting on item per account
                             (group-by :account-id)
-                            (map #(update-in % [1] (partial sort-by :index)))
-                            (map (comp first second))
-                            (map #(get-previous-item storage %)))]
+                            (map second)
+                            (map #(sort-by :index %))
+                            (map first)
+                            (map #(get-previous-item storage %))
+                            (map #(recalculate-account-items storage %)))]
     (recalculate-items storage previous-items)
     (reload storage created)))
 
