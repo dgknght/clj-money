@@ -707,12 +707,11 @@
   removed from the transaction and returns
   base items for the affected accounts"
   [{:keys [storage transaction existing] :as context}]
-  (let [dereferenced-items (remove (fn [{existing-item-id :id}]
-                                     (some #(= existing-item-id
-                                               (:id %))
-                                           (:items transaction)))
-                                   (:items existing))
-        base-items (->> dereferenced-items
+  (let [base-items (->> (:items existing)
+                        (remove (fn [{existing-item-id :id}]
+                                  (some #(= existing-item-id
+                                            (:id %))
+                                        (:items transaction))))
                         (map (fn [item]
                                (delete-transaction-item
                                  storage
@@ -763,20 +762,19 @@
 (defn- find-existing-transaction
   "Given a transaction that has been updated, find the existing
   transaction in storage. If none can be found, throw an exception."
-  [{storage :storage
-    {:keys [id
-            transaction-date
-            original-transaction-date]} :transaction
-    :as context}]
+  [storage {:keys [id transaction-date original-transaction-date]}]
   (let [search-date (or original-transaction-date transaction-date)]
-    (assoc context :existing
-           (or (find-by-id storage id search-date)
-               (throw (ex-info
-                        (format "Unable to find transaction with id %s and date %s"
-                                id
-                                search-date)
-                        {:id id
-                         :search-date search-date}))))))
+    (or (find-by-id storage id search-date)
+        (throw (ex-info
+                 (format "Unable to find transaction with id %s and date %s"
+                         id
+                         search-date)
+                 {:id id
+                  :search-date search-date})))))
+
+(defn- assoc-existing-transaction
+  [{:keys [storage transaction] :as context}]
+  (assoc context :existing (find-existing-transaction storage transaction)))
 
 (defn- recalculate-indexes-and-balances-for-update
   [{:keys [storage base-items] :as context}]
@@ -799,7 +797,7 @@
         (-> {:transaction validated
              :storage storage
              :base-items []}
-            find-existing-transaction
+            assoc-existing-transaction
             process-dereferenced-items
             process-dereferenced-accounts
             process-updated-items
