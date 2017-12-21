@@ -1,4 +1,4 @@
-(ns clj-money.models.transactions
+(ns clj-money.permissions.transactions
   (:refer-clojure :exclude [update])
   (:require [clj-money.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [user-owns-entity?
