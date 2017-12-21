@@ -9,7 +9,8 @@
             [clj-money.validation :as validation]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
-                                            with-authentication]]
+                                            with-authentication
+                                            pprint-diff]]
             [clj-money.models.transactions :as transm]
             [clj-money.web.transactions :as transactions]))
 
@@ -127,31 +128,26 @@
                                            :debit-amount-3 ""}}))
         actual (simplify-transaction (transm/find-by-id storage-spec (:id trans) (t/local-date 2016 1 2)))
         expected {:transaction-date (t/local-date 2016 1 2)
-            :description "Employer"
-            :entity-id (-> context :entities first :id)
-            :memo nil
-            :items [{:action :debit
-                     :account-id (:id checking)
-                     :amount 1001M
-                     :balance 1001M
-                     :index 0
-                     :memo nil}
-                    {:action :credit
-                     :account-id (:id salary)
-                     :amount 901M
-                     :balance 901M
-                     :index 0
-                     :memo nil}
-                    {:action :credit
-                     :account-id (:id bonus)
-                     :amount 100M
-                     :balance 100M
-                     :index 0
-                     :memo nil}]}]
-
-    (when (not= expected actual)
-      (pprint {:expected expected
-               :actual actual
-               :diff (diff expected actual)}))
-
+                  :description "Employer"
+                  :entity-id (-> context :entities first :id)
+                  :memo nil
+                  :items [{:action :debit
+                           :account-id (:id checking)
+                           :amount 1001M
+                           :balance 1001M
+                           :index 0
+                           :memo nil}
+                          {:action :credit
+                           :account-id (:id salary)
+                           :amount 901M
+                           :balance 901M
+                           :index 0
+                           :memo nil}
+                          {:action :credit
+                           :account-id (:id bonus)
+                           :amount 100M
+                           :balance 100M
+                           :index 0
+                           :memo nil}]}]
+    (pprint-diff expected actual)
     (is (= expected actual) "The updated transaction can be retrieved")))
