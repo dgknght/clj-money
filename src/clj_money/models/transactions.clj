@@ -865,8 +865,8 @@
            s
            {:account-id account-id
             :transaction-date [:between nil date]}
-           {:sort [[:t.transaction-date :desc] [:i.index :desc]]}) ; TODO: add :limit 1 option
-         (remove #(= date (:transaction-date %))) ; TODO: revert this after reworking logic to deduce partition date range
+           {:sort [[:t.transaction-date :desc] [:i.index :desc]]})
+         (remove #(= date (:transaction-date %))) ; TODO: revert this and add limit 1 after reworking logic to deduce partition date range
          first)))
 
 (defn- find-last-item-on-or-before
