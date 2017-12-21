@@ -258,6 +258,7 @@
                        (-> params
                            (select-keys [:id
                                          :transaction-date
+                                         :original-transaction-date
                                          :description
                                          :memo])
                            (assoc :items (extract-items params))))
