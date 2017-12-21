@@ -737,6 +737,21 @@
                         (map #(get-previous-item storage %)))]
     (update-in context [:base-items] #(concat % base-items))))
 
+(defn- older-item
+  "Given a transaction item and an existing transaction
+  (in the context of processing a transaction update),
+  returns the earlier of the specified item
+  or the corresponding item from the
+  existing transaction"
+  [existing-tx current-item]
+  (if-let [existing-item (some #(= (:id %) (:id current-item))
+                               (:items existing-tx))]
+    (if (> 0 (compare (:transaction-date current-item)
+                      (:transaction-date existing-tx)))
+      existing-item 
+      current-item)
+    current-item))
+
 (defn- process-updated-items
   "Processes the updated items in the transaction
   in the context and appends items to the :base-items attribute
@@ -748,14 +763,7 @@
                                 (assoc i :transaction-id (:id transaction))
                                 (before-save-item i)
                                 (upsert-item storage i)))
-                        (map (fn [current-item]
-                               ; TODO: no need to find the matching item, just use the value from the transaction
-                               (let [existing-item (some #(= (:id %) (:id current-item))
-                                                         (:items existing-tx))]
-                                 (if (> 0 (compare (:transaction-date current-item)
-                                                   (:transaction-date existing-item)))
-                                   existing-item
-                                   current-item))))
+                        (map #(older-item existing-tx %))
                         (mapv #(get-previous-item storage %)))]
     (update-in context [:base-items] #(concat % base-items))))
 
