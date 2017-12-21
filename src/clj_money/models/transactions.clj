@@ -75,16 +75,16 @@
 
 (defn- delay-balances?
   [entity-id]
-  true
   (get-in @ambient-settings [entity-id :delay-balances?]))
 
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
-  (cond-> item
-    true (update-in [:action] name)
-    (and (string? (:memo item))
-         (empty? (:memo item))) (dissoc :memo)))
+  (let [updated (update-in item [:action] name)]
+    (if (and (string? (:memo item))
+             (empty? (:memo item)))
+      (dissoc updated :memo)
+      updated)))
 
 (defn polarize-item-amount
   [item account]
@@ -96,10 +96,12 @@
   ([item] (after-item-read item nil))
   ([item account]
    (if (map? item)
-     (cond-> item
-       true (update-in [:action] keyword)
-       true (assoc :reconciled? (= "completed" (:reconciliation-status item)))
-       account (polarize-item-amount account))
+     (let [updated (-> item
+                       (update-in [:action] keyword)
+                       (assoc :reconciled? (= "completed" (:reconciliation-status item))))]
+       (if account
+         (polarize-item-amount updated account)
+         updated))
      item)))
 
 (defn- item-value-sum
@@ -129,18 +131,25 @@
 
 (defn- before-item-validation
   [item]
-  (cond-> item
-    true (update-in [:value] #(or % (:amount item)))
-    true (assoc :balance (bigdec 0))
-    true (update-in [:index] (fnil identity (Integer/MAX_VALUE)))
-    (string? (:account-id item)) (update-in [:account-id] #(Integer. %))
-    (nil? (:id item)) (dissoc :id)
+  (cond->
+    (-> item
+        (update-in [:value] #(or % (:amount item)))
+        (assoc :balance (bigdec 0))
+        (update-in [:index] (fnil identity (Integer/MAX_VALUE))))
+
+    (string? (:account-id item))
+    (update-in [:account-id] #(Integer. %))
+
+    (or (nil? (:id item))
+        (and
+          (string? (:id item))
+          (empty? (:id item))))
+    (dissoc :id)
+
     (and
       (string? (:id item))
-      (empty? (:id item))) (dissoc :id)
-    (and
-      (string? (:id item))
-      (not (empty? (:id item)))) (update-in [:id] #(UUID/fromString %))))
+      (not (empty? (:id item))))
+    (update-in [:id] #(UUID/fromString %)))) ; TODO: use coercion rule for this
 
 (def ^:private coercion-rules
   [(coercion/rule :uuid [:id])
@@ -269,22 +278,6 @@
                      :items []
                      :storage storage}
                     sorted-items))))
-
-(defn- calculate-balances-and-indexes
-  "Updates transaction item and account balances resulting from the
-  specified transaction.
-  
-  The balance for each transaction item is the sum of the balance of
-  the previous transaction item and the polarized transaction amount.
-  
-  The polarized transaction amount is the positive or negative change
-  on the balance of the associated account and is dependant on the action
-  (debit or credit) and the account type (asset, liability, equity,
-  income, or expense)"
-  [storage items]
-  (->> items
-       (group-by :account-id)
-       (mapcat #(add-item-balance-and-index storage %))))
 
 (defn- subsequent-items
   "Returns items in the specified account on or after the specified
@@ -580,20 +573,20 @@
 (defn- create-transaction-and-adjust-balances
   [storage transaction]
   (let [created (link-lots storage (create-transaction* storage transaction))]
-    (->> (:items transaction)
+    (doall (->> (:items transaction)
 
-         ; create database records
-         (map #(assoc % :transaction-id (:id created)))
-         (map #(create-transaction-item* storage %))
+                ; create database records
+                (map #(assoc % :transaction-id (:id created)))
+                (map #(create-transaction-item* storage %))
 
-         ; process indexes and balances, update affected accounts
-         (group-by :account-id)
-         (map second)
-         (map #(sort-by :index %))
-         (map first)
-         (map #(get-previous-item storage %))
-         (map #(recalculate-account-items storage %))
-         (mapv #(recalculate-account-items storage %)))
+                ; process indexes and balances, update affected accounts
+                (group-by :account-id)
+                (map second)
+                (map #(sort-by :index %))
+                (map first)
+                (map #(get-previous-item storage %))
+                (map #(recalculate-account-items storage %))
+                (map #(recalculate-account-items storage %))))
     (reload storage created)))
 
 (defn create
