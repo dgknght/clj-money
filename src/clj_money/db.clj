@@ -36,16 +36,35 @@
   [["-n" "--dry-run" "Dry run"]
    ["-s" "--silent" "Do not output SQL commands"]])
 
-(defn- update-earliest-partition-date
+(defn- get-setting
+  [setting-name]
+  (when-let [record (first (jdbc/query (env :db) (-> (select :value)
+                                                     (from :settings)
+                                                     (where [:= :name setting-name])
+                                                     sql/format)))]
+    (read-string (:value record))))
+
+(defn- put-earliest-partition-date
   [date]
   (let [setting-name "earliest-partition-date"
-        existing (when-let [record (first (jdbc/query (env :db) (-> (select :value)
-                                                                    (from :settings)
-                                                                    (where [:= :name setting-name])
-                                                                    sql/format)))]
-                   (read-string (:value record)))
+        existing (get-setting setting-name)
         sql (if existing
               (when (t/before? date existing)
+                (-> (update :settings)
+                    (sset {:value (prn-str date)})
+                    (where [:= :name setting-name])))
+              (-> (insert-into :settings)
+                  (values [{:name setting-name
+                            :value (prn-str date)}])))]
+    (when sql
+      (jdbc/execute! (env :db) (sql/format sql)))))
+
+(defn- put-latest-partition-date
+  [date]
+  (let [setting-name "latest-partition-date"
+        existing (get-setting setting-name)
+        sql (if existing
+              (when (t/after? date existing)
                 (-> (update :settings)
                     (sset {:value (prn-str date)})
                     (where [:= :name setting-name])))
@@ -62,4 +81,5 @@
         end-date (or (-> arguments second parse-local-date)
                      start-date)]
     (create-partition-tables start-date end-date options)
-    (update-earliest-partition-date start-date)))
+    (put-earliest-partition-date start-date)
+    (put-latest-partition-date end-date)))
