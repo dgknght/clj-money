@@ -237,7 +237,7 @@
     (testing "When at least one price exists"
       (let [commodity (find-commodity context "AAPL")
             price (prices/most-recent storage-spec (:id commodity))]
-        (is (= 12.20M (:price price)) "The must recent price is returned")))
+        (is (= 12.20M (:price price)) "The most recent price is returned")))
     (testing "When no prices exist"
       (let [commodity (find-commodity context "USD")
             price (prices/most-recent storage-spec (:id commodity))]

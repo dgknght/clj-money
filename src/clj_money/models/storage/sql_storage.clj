@@ -84,10 +84,16 @@
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 (s/def ::image-criteria (s/keys :req-un [::user-id]))
 
-(defmulti trade-date vector?)
-(defmethod trade-date true [_]
-  (s/tuple keyword? ::nilable-date ::date))
-(defmethod trade-date false [_]
+(defmulti trade-date #(if (vector? %)
+                        (if (= :between (first %))
+                          :ternary
+                          :binary)
+                        :unary))
+(defmethod trade-date :ternary [_]
+  (s/tuple keyword? ::date ::date))
+(defmethod trade-date :binary [_]
+  (s/tuple keyword? ::date))
+(defmethod trade-date :unary [_]
   ::date)
 (s/def ::trade-date (s/multi-spec trade-date vector?))
 
@@ -239,16 +245,6 @@
    (if (and criteria (seq criteria))
      (h/merge-where sql (map->where criteria options))
      sql)))
-
-(defn- merge-where-range
-  [sql field-key [start end]]
-  (if (and start end)
-    (h/merge-where sql (if (= start end)
-                         [:= field-key start]
-                         [:and
-                          [:>= field-key start]
-                          [:<= field-key end]]))
-    sql))
 
 (defn- descending-sort?
   "Returns a boolean value indicating whether or not
@@ -403,6 +399,9 @@
         (update-in [1] #(or % (.get-setting storage
                                             "earliest-partition-date"
                                             (fnil read-string "#local-date \"2000-01-01\""))))
+        (update-in [2] #(or % (.get-setting storage
+                                            "latest-partition-date"
+                                            (fnil read-string "#local-date \"2999-01-01\""))))
         rest)
     [range-value range-value]))
 
@@ -634,8 +633,7 @@
       (with-partitioning (partial query db-spec) :prices d-range options [table]
         (-> (h/select :p.*)
             (h/from [table :p])
-            (append-where (dissoc criteria :trade-date) {:prefix "p"})
-            (merge-where-range :trade-date d-range)
+            (append-where criteria {:prefix "p"})
             (append-sort options)
             (append-limit options)
             #_(append-paging options))))) ; paging will have to be reworked

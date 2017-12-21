@@ -107,7 +107,7 @@
    (with-storage [s storage-spec]
      (->> (select-prices s
                          {:commodity-id commodity-id
-                          :trade-date [:between nil as-of]}
+                          :trade-date [:<= as-of]}
                          {:limit 1
                           :sort [[:trade-date :desc]]})
           (sort-by :trade-date <)
