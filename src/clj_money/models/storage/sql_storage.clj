@@ -385,25 +385,45 @@
                  {:criteria criteria
                   :explanation explanation})))))
 
-(defn- date-range
-  "Given criteria value, returns the start and end dates defining
-  the boundries for the records to be returned
+(defmulti ^:private date-range
+  "Accepts a date criteria value and returns a tuple
+  containing the start date in the first position and
+  the end date in the second position"
+  (fn [_ range-value]
+    (if (sequential? range-value)
+      (if (= :between (first range-value))
+        :ternary
+        :binary)
+      :scalar)))
 
-  The value for range-value can be:
-    - (local-date 2017 3 2)
-    - [:between (local-date 2017 3 1) (local-date 2017 3 31)]
-    - [:between nil (local-date 2017 3 2)]"
+(defmethod ^:private date-range :scalar
+  [_ range-value]
+  [range-value range-value])
+
+(defmethod ^:private date-range :binary
+  [storage [operator date]]
+  (if (#{:< :<=} operator)
+    [(.get-setting storage
+                   "earliest-partition-date"
+                   (fnil read-string "#local-date \"2000-01-01\""))
+     date]
+    [date
+     (.get-setting storage
+                   "latest-partition-date"
+                   (fnil read-string "#local-date \"2999-01-01\""))]))
+
+(defmethod ^:private date-range :ternary
   [storage range-value]
-  (if (sequential? range-value)
-    (-> range-value
-        (update-in [1] #(or % (.get-setting storage
-                                            "earliest-partition-date"
-                                            (fnil read-string "#local-date \"2000-01-01\""))))
-        (update-in [2] #(or % (.get-setting storage
-                                            "latest-partition-date"
-                                            (fnil read-string "#local-date \"2999-01-01\""))))
-        rest)
-    [range-value range-value]))
+  (-> range-value
+      (update-in [1] #(or % (.get-setting
+                              storage
+                              "earliest-partition-date"
+                              (fnil read-string "#local-date \"2000-01-01\""))))
+      (update-in [2] #(or % (.get-setting
+                              storage
+                              "latest-partition-date"
+                              (fnil read-string "#local-date \"2999-01-01\""))))
+      rest))
 
 (deftype SqlStorage [db-spec]
   Storage
