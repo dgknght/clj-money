@@ -239,61 +239,6 @@
        :index -1
        :balance 0M}))
 
-(defn- process-item-balance-and-index
-  "Accepts a context containing
-    :previous-index   - The index of the previous item
-    :previous-balance - The balance of the previous item
-    :items            - The items processed so far
-    :storage          - Storage service
-
-  Returns the context with these updates
-    :previous-index   - updated to the index of the item just processed
-    :previous-balance - updated to the balance of the item just processed
-    :items            - appended with the item just processed
-    :storage          - Unchanged storage service"
-  [context item]
-  (let [next-index (+ 1 (:previous-index context))
-        account (accounts/find-by-id (:storage context) (:account-id item)) ; TODO: remove redundant calls to find the account
-        polarized-amount (accounts/polarize-amount item account)
-        next-balance (+ (:previous-balance context) polarized-amount)
-        updated-item (-> item
-                         (assoc :balance next-balance
-                                :index next-index))]
-    (-> context
-        (assoc :previous-index next-index
-               :previous-balance next-balance)
-        (update-in [:items] #(conj % updated-item)))))
-
-(defn- add-item-balance-and-index
-  "Updates the specified items, which belong to the specified account
-  with new balance and index values"
-  [storage [account-id items]]
-  (let [sorted-items (sort-by :index items)
-        previous-item (get-previous-item storage (first sorted-items))
-        previous-balance (or (get previous-item :balance)
-                             (bigdec 0))
-        previous-index (or (get previous-item :index) -1)]
-    (:items (reduce process-item-balance-and-index
-                    {:previous-index previous-index
-                     :previous-balance previous-balance
-                     :items []
-                     :storage storage}
-                    sorted-items))))
-
-(defn- subsequent-items
-  "Returns items in the specified account on or after the specified
-  transaction date, excluding the reference-item"
-  ([storage-spec reference-item]
-   (with-storage [s storage-spec]
-     (->> (select-transaction-items
-            s
-            {:account-id (:account-id reference-item)
-             :index [:>= (:index reference-item)]
-             :transaction-date [:>= (:transaction-date reference-item)]}
-            {:sort [[:index :asc]]})
-          (remove #(= (:id reference-item) (:id %)))
-          (map after-item-read)))))
-
 (defn find-item-by-id
   [storage-spec id transaction-date]
   (first (select-transaction-items storage-spec
@@ -320,53 +265,6 @@
                                     s
                                     (before-save-item item)))]
       (> records-affected 0))))
-
-(defn- calculate-item-index-and-balance
-  "Accepts a transaction item and a context containing
-    :index   - a transaction item index
-    :balance - a transaction item balance
-    :storage - service used to communicate with the data store
-
-  Calculates the new index and balance for the item and updates
-  them in the data store
-
-  Returns a context containing
-    :index   - the new index
-    :balance - the new balance
-    :storage - unchanged
-
-  This is done in the context of updating existing transaction
-  items that are affected by a new or updated transaction"
-  [{:keys [index balance storage]} item]
-  (let [new-index (+ 1 index)
-        account (accounts/find-by-id storage (:account-id item)) ; TODO: remove redundant calls to find the account
-        polarized-amount (accounts/polarize-amount item account)
-        new-balance (+ balance polarized-amount)
-        value-changed (update-item-index-and-balance storage (assoc item
-                                                                    :index new-index
-                                                                    :balance new-balance))
-        result {:index new-index
-                :balance new-balance
-                :storage storage}]
-    (if value-changed
-      result
-      (-> result
-          (assoc ::skip-account-update true)
-          reduced))))
-
-(defn- update-affected-balances
-  "Updates transaction items and corresponding accounts that
-  succeed the specified items"
-  [storage-spec items transaction-date]
-  (doseq [[account-id items] (group-by :account-id items)]
-    (let [last-item (last items) ; these should already be sorted
-          account (accounts/find-by-id storage-spec account-id)
-          subsequent-items (subsequent-items storage-spec last-item)
-          final (reduce calculate-item-index-and-balance
-                        (assoc last-item :storage storage-spec)
-                        subsequent-items)]
-      (when-not (::skip-account-update final)
-        (accounts/update storage-spec (assoc account :balance (:balance final)))))))
 
 (declare reload)
 (defn- no-reconciled-items-changed?
@@ -496,17 +394,6 @@
    (with-storage [s storage-spec]
      (map after-item-read (select-transaction-items s criteria options)))))
 
-; TODO: This should be lazy
-(defn- account-items-after
-  "Returns the items in the specified account
-  that occur on or after the specified date"
-  [storage account-id date index]
-  (search-items storage
-                {:account-id account-id
-                 :transaction-date [:>= date]
-                 :index [:> index]}
-                {:sort [:transaction-date :index]}))
-
 (defn- recalculate-account-item
   "Accepts a processing context and an item, updates
   the items :index and :balance attributes, and returns
@@ -531,16 +418,21 @@
           (dissoc :last-balance)
           reduced))))
 
-(defn- recalculate-account-items
+(defn recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
   selects all subsequent items and recalculates the items until
   all item for the account have been recalculated or until
   a balance is unchanged.
   Returns the new balance of the account of the balance changed,
   or nil if te balance didn't change."
-  [storage {:keys [account-id transaction-date index balance id]}]
+  [storage {:keys [account-id transaction-date index balance id] :as item}]
   (let [account (accounts/find-by-id storage account-id)
-        items (account-items-after storage account-id transaction-date index)
+        items (search-items storage
+                            (cond-> {:account-id account-id
+                                     :index [:> index]}
+                              transaction-date
+                              (assoc :transaction-date [:>= transaction-date]))
+                            {:sort [:transaction-date :index]})
         result (reduce recalculate-account-item
                        {:account account
                         :storage storage
@@ -549,17 +441,6 @@
                        (remove #(= id (:id %)) items))]
     (when-let [last-balance (:last-balance result)]
       (accounts/update storage (assoc account :balance last-balance)))))
-
-; At this point, there should only be one item
-; per account
-(defn- recalculate-items
-  "Accepts a list of transaction items that precede a given
-  transaction. Base items are items have the correct index
-  and balance values that will serve as the basis for
-  calculating the indexes and balances of the items 
-  that follow."
-  [storage base-items]
-  (mapv #(recalculate-account-items storage %) base-items))
 
 (defn- link-lots
   [storage transaction]
@@ -597,8 +478,8 @@
       (if (validation/has-error? validated)
         validated
         (if (delay-balances? (:entity-id transaction))
-            (create-transaction-without-balances s validated)
-            (create-transaction-and-adjust-balances s validated))))))
+          (create-transaction-without-balances s validated)
+          (create-transaction-and-adjust-balances s validated))))))
 
 (defn find-by-id
   "Returns the specified transaction"
@@ -849,7 +730,8 @@
           preceding-items (get-preceding-items s transaction)]
       (delete-transaction-items-by-transaction-id s transaction-id transaction-date)
       (delete-transaction s transaction-id transaction-date)
-      (update-affected-balances s preceding-items transaction-date))))
+      (doseq [item preceding-items]
+        (recalculate-account-items s item)))))
 
 (defn- find-last-item-before
   [storage-spec account-id date]
@@ -896,21 +778,6 @@
     {:id ids
      :transaction-date (vec (concat [:between] date-range))}))
 
-(defn recalculate-balances
-  "Recalculates balances for the specified account and all
-  related transaction items"
-  [storage-spec account-id]
-  (with-storage [s storage-spec]
-    (let [result (->> {:account-id account-id}
-                      (search-items storage-spec)
-                      (reduce calculate-item-index-and-balance {:index 0
-                                                                :balance 0M
-                                                                :storage s}))]
-      (when-not (::skip-account-update result)
-        (accounts/update storage-spec (-> (accounts/find-by-id s account-id)
-                                          (assoc :balance (:balance result))))))))
-
-
 (defmacro with-delayed-balancing
   [storage-spec entity-id & body]
   `(do
@@ -924,8 +791,10 @@
      ~@body
 
      ; Recalculate balances for affected accounts
-     (doseq [account-id# (get-in @ambient-settings [~entity-id :delayed-account-ids])]
-       (recalculate-balances ~storage-spec account-id#))
+     (->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
+          (map #(hash-map :account-id % :index -1 :balance 0M))
+          (map #(recalculate-account-items ~storage-spec %))
+          doall)
 
      ; clean up the ambient settings as if we were never here
      (swap! ambient-settings dissoc ~entity-id)))
