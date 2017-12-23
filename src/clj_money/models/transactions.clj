@@ -230,7 +230,7 @@
   (or (->> (select-transaction-items storage
                                      {:account-id account-id
                                       :transaction-id [:<> transaction-id]
-                                      :transaction-date [:between nil transaction-date]}
+                                      :transaction-date [:<= transaction-date]}
                                      {:sort [[:transaction-date :desc] [:index :desc]]
                                       :limit 1})
            first)
@@ -289,7 +289,7 @@
             s
             {:account-id (:account-id reference-item)
              :index [:>= (:index reference-item)]
-             :transaction-date [:between (:transaction-date reference-item) (t/today)]} ; TODO: let the system look up the latest date
+             :transaction-date [:>= (:transaction-date reference-item)]}
             {:sort [[:index :asc]]})
           (remove #(= (:id reference-item) (:id %)))
           (map after-item-read)))))
@@ -503,7 +503,7 @@
   [storage account-id date index]
   (search-items storage
                 {:account-id account-id
-                 :transaction-date [:between date (t/today)] ; TODO: use last partition value
+                 :transaction-date [:>= date]
                  :index [:> index]}
                 {:sort [:transaction-date :index]}))
 
@@ -586,7 +586,6 @@
                 (map #(sort-by :index %))
                 (map first)
                 (map #(get-previous-item storage %))
-                (map #(recalculate-account-items storage %))
                 (map #(recalculate-account-items storage %))))
     (reload storage created)))
 
@@ -858,9 +857,9 @@
     (->> (select-transaction-items
            s
            {:account-id account-id
-            :transaction-date [:between nil date]}
-           {:sort [[:t.transaction-date :desc] [:i.index :desc]]})
-         (remove #(= date (:transaction-date %))) ; TODO: revert this and add limit 1 after reworking logic to deduce partition date range
+            :transaction-date [:< date]}
+           {:sort [[:t.transaction-date :desc] [:i.index :desc]]
+            :limit 1})
          first)))
 
 (defn- find-last-item-on-or-before
@@ -868,7 +867,7 @@
   (with-storage [s storage-spec]
     (first (select-transaction-items s
                                      {:account-id account-id
-                                      :transaction-date [:between nil date]}
+                                      :transaction-date [:<= date]}
                                      {:sort [[:i.transaction-date :desc] [:i.index :desc]]
                                       :limit 1}))))
 
@@ -902,8 +901,7 @@
   related transaction items"
   [storage-spec account-id]
   (with-storage [s storage-spec]
-    (let [result (->> {:account-id account-id
-                       :transaction-date [:between nil (t/today)]} ; TODO: see if this action can be done without loading all items into memory
+    (let [result (->> {:account-id account-id}
                       (search-items storage-spec)
                       (reduce calculate-item-index-and-balance {:index 0
                                                                 :balance 0M

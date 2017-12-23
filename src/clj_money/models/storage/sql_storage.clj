@@ -4,7 +4,6 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
-            #_[clj-time.jdbc]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
@@ -111,12 +110,19 @@
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
 
-(defmulti transaction-date vector?)
-(defmethod transaction-date true [_]
-  (s/tuple keyword? ::nilable-date ::date))
-(defmethod transaction-date false [_]
+; TODO: Can this be combined with trade-date?
+(defmulti trade-date #(if (vector? %)
+                        (if (= :between (first %))
+                          :ternary
+                          :binary)
+                        :unary))
+(defmethod trade-date :ternary [_]
+  (s/tuple keyword? ::date ::date))
+(defmethod trade-date :binary [_]
+  (s/tuple keyword? ::date))
+(defmethod trade-date :unary [_]
   ::date)
-(s/def ::transaction-date (s/multi-spec transaction-date vector?))
+(s/def ::trade-date (s/multi-spec trade-date vector?))
 
 (def ^:private transaction-criteria-key
   (partial first-key-present :lot-id :entity-id :id))
@@ -131,7 +137,7 @@
   ::transaction-criteria
   (s/multi-spec transaction-criteria transaction-criteria-key))
 
-(s/def ::transaction-item-criteria (s/keys :req-un [::transaction-date]))
+(s/def ::transaction-item-criteria (s/keys :opt-un [::transaction-date]))
 
 (defmulti budget-criteria #(contains? % :id))
 (defmethod budget-criteria true [_]
@@ -397,8 +403,15 @@
       :scalar)))
 
 (defmethod ^:private date-range :scalar
-  [_ range-value]
-  [range-value range-value])
+  [storage range-value]
+  (if range-value
+    [range-value range-value]
+    [(.get-setting storage
+                   "earliest-partition-date"
+                   (fnil read-string "#local-date \"2000-01-01\""))
+     (.get-setting storage
+                   "latest-partition-date"
+                   (fnil read-string "#local-date \"2999-01-01\""))]))
 
 (defmethod ^:private date-range :binary
   [storage [operator date]]
@@ -871,11 +884,7 @@
   (select-transaction-items
     [this criteria options]
     (validate-criteria criteria ::transaction-item-criteria)
-    (let [d-range (date-range this (:transaction-date criteria))
-          criteria (update-in criteria [:transaction-date] (fn [_]
-                                                            (if (apply = d-range)
-                                                              (first d-range)
-                                                              (concat [:between] d-range))))]
+    (let [d-range (date-range this (:transaction-date criteria))]
       (let [result (with-partitioning (partial query db-spec) [:transaction_items :transactions] d-range options [tables]
                      (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
                          (h/from [(first tables) :i])

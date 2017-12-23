@@ -422,9 +422,7 @@
   (assoc lot
          :transactions
          (->> {:lot-id (:id lot)
-               :transaction-date [:between
-                                  (:purchase-date lot)
-                                  (t/today)]}
+               :transaction-date [:>= (:purchase-date lot)]}
               (transactions/search storage-spec)
               (mapcat transform-lot-transactions))))
 
