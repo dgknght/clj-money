@@ -525,7 +525,7 @@
   (with-storage [s storage-spec]
     (select-transaction-items
       s
-      {:i.account-id account-id}
+      {:account-id account-id}
       {:count true})))
 
 (defn unreconciled-items-by-account
@@ -534,7 +534,7 @@
   (with-storage [s storage-spec]
     (let [account (accounts/find-by-id storage-spec account-id)]
       (map #(after-item-read % account)
-           (select-transaction-items s {:i.account-id account-id
+           (select-transaction-items s {:account-id account-id
                                         :reconciliation-id nil})))))
 
 (defn- process-item-upserts
