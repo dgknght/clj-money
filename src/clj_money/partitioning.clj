@@ -43,11 +43,7 @@
 (defn- descending-periodic-seq
   ([end period-like]
    (let [period (.toPeriod period-like)]
-     (map (fn [i]
-
-            (log/debug "dbk descending-periodic-seq " end " index " i)
-
-            (t/minus end (.multipliedBy period i)))
+     (map #(t/minus end (.multipliedBy period %))
           (iterate inc 0))))
   ([start end period-like]
    (let [period (.toPeriod period-like)]
