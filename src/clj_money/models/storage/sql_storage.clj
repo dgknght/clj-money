@@ -260,6 +260,12 @@
   (when (and sort-exp (sequential? sort-exp))
     (= :desc (second sort-exp))))
 
+
+(defn- limit-reached?
+  [records {:keys [limit]}]
+  (and limit
+       (<= limit (count records))))
+
 ; TODO: maybe extract the sql parts and move this to the partitioning namespace?
 (defmacro with-partitioning
   [exec-fn table-name d-range options bindings & body]
@@ -276,8 +282,7 @@
           (reduce (fn [records# table#]
                     (let [found-records# (~exec-fn (sql-fn# table#))
                           updated-records# (concat records# found-records#)]
-                      (if (and (= 1 (:limit ~options))
-                               (seq updated-records#))
+                      (if (limit-reached? updated-records# ~options)
                         (reduced updated-records#)
                         updated-records#)))
                   []))))
@@ -893,9 +898,11 @@
                          (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
                          (adjust-select options)
                          (h/where (map->where criteria {:prefix "i"}))
-                         (append-sort (merge
-                                        {:sort [:i.transaction_date :i.index]}
-                                        options))
+                         (append-sort (if (:count options)
+                                           options
+                                           (merge
+                                             {:sort [:i.transaction_date :i.index]}
+                                             options)))
                          (append-limit options)))]
         (if (:count options)
           (-> result first vals first)
