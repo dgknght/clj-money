@@ -210,12 +210,13 @@
       [:th.text-right "Balance"]
       [:th.text-center "Rec."]
       [:th "&nbsp;"]]
-     (->> (transactions/items-by-account (env :db)
-                                         (:id account)
-                                         (pagination/prepare-options params))
+     (->> (transactions/search-items (env :db)
+                                     {:account-id (:id account)}
+                                     (pagination/prepare-options params))
           (map #(assoc % :transaction (transactions/find-by-id
                                         (env :db)
-                                        (:transaction-id %))))
+                                        (:transaction-id %)
+                                        (:transaction-date %))))
           (map transaction-item-row))]
     [:p
      (pagination/nav
