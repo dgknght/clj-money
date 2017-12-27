@@ -36,7 +36,8 @@
   [{{commodity-id :commodity-id :as params} :params}]
   (let [commodity (commodities/find-by-id (env :db) commodity-id)
         criteria (apply-scope {:commodity-id commodity-id} :price)
-        prices (prices/search (env :db) criteria)]
+        prices (prices/search (env :db) criteria {:limit 100
+                                                  :sort [[:trade-date :desc]]})]
     (with-layout (format "Prices for %s" (:symbol commodity)) {}
       [:div.row
        [:div.col-md-3

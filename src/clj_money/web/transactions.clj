@@ -77,7 +77,9 @@
           (map transaction-row
                (transactions/search (env :db)
                                     criteria
-                                    (pagination/prepare-options params)))]
+                                    (merge {:limit 100
+                                            :sort [[:transaction-date :desc]]} ; TODO Need to get :limit and :per-page in sync
+                                           (pagination/prepare-options params))))]
          (pagination/nav (assoc params
                                 :url (-> (path "/entities" entity-id "transactions")) 
                                 :total (transactions/record-count (env :db) criteria)))))

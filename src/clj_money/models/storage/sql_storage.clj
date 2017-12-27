@@ -98,7 +98,7 @@
 
 (defmulti price-criteria #(contains? % :id))
 (defmethod price-criteria false [_]
-  (s/keys :req-un [::commodity-id ::trade-date]))
+  (s/keys :req-un [::commodity-id] :opt-un [::trade-date]))
 (defmethod price-criteria true [_]
   (s/keys :req-un [::id ::trade-date]))
 (s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :id)))
@@ -128,9 +128,9 @@
   (partial first-key-present :lot-id :entity-id :id))
 (defmulti transaction-criteria transaction-criteria-key)
 (defmethod transaction-criteria :lot-id [_]
-  (s/keys :req-un [::lot-id ::transaction-date]))
+  (s/keys :req-un [::lot-id] :opt-un [::transaction-date]))
 (defmethod transaction-criteria :entity-id [_]
-  (s/keys :req-un [::entity-id ::transaction-date]))
+  (s/keys :req-un [::entity-id] :opt-un [::transaction-date]))
 (defmethod transaction-criteria :id [_]
   (s/keys :req-un [::id ::transaction-date]))
 (s/def
@@ -778,6 +778,7 @@
             (-> (h/select :t.*)
                 (h/from [table :t])
                 (adjust-select options)
+                (append-sort options)
                 #_(append-paging options)
                 (append-transaction-lot-filter criteria)))]
       (if (:count options) ; TODO remove this duplication with select-transaction-items
