@@ -212,7 +212,9 @@
       [:th "&nbsp;"]]
      (->> (transactions/search-items (env :db)
                                      {:account-id (:id account)}
-                                     (pagination/prepare-options params))
+                                     (merge
+                                       {:sort [[:transaction-date :desc] [:index :desc]]}
+                                       (pagination/prepare-options params)))
           (map #(assoc % :transaction (transactions/find-by-id
                                         (env :db)
                                         (:transaction-id %)
