@@ -280,7 +280,8 @@
                   (map keyword %)
                   (keyword %)))
           (reduce (fn [records# table#]
-                    (let [found-records# (~exec-fn (sql-fn# table#))
+                    (let [sql# (sql-fn# table#)
+                          found-records# (~exec-fn sql#)
                           updated-records# (concat records# found-records#)]
                       (if (limit-reached? updated-records# ~options)
                         (reduced updated-records#)
