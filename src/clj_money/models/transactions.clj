@@ -216,12 +216,19 @@
 
 (defn- after-read
   "Returns a transaction that is ready for public use"
-  [storage transaction]
-  (when transaction
-    (-> transaction
-        (append-items storage)
-        (append-lot-items storage)
-        (authorization/tag-resource :transaction))))
+  ([storage transaction]
+   (after-read storage transaction {}))
+  ([storage transaction options]
+   (when transaction
+     (cond-> transaction
+       (:include-items? options)
+       (append-items storage)
+
+       (:include-lot-items? options)
+       (append-lot-items storage)
+
+       true
+       (authorization/tag-resource :transaction)))))
 
 (defn- get-previous-item
   "Finds the transaction item that immediately precedes the specified item,
@@ -319,7 +326,7 @@
                           {:page 1
                            :per-page 10})]
      (with-storage [s storage-spec]
-       (map #(after-read s %)
+       (map #(after-read s % options)
             (select-transactions s criteria parsed-options))))))
 
 (defn select-items-by-reconciliation
@@ -487,7 +494,9 @@
   (first (search storage-spec
                  {:id id
                   :transaction-date transaction-date}
-                 {:limit 1})))
+                 {:limit 1
+                  :include-items? true
+                  :include-lot-items? true})))
 
 (defn find-by-item-id
   "Returns the transaction that has the specified transaction item"

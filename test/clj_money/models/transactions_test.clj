@@ -16,6 +16,7 @@
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
                                             find-account
+                                            find-transaction
                                             assert-validation-error]]))
 
 (def storage-spec (env :db))
@@ -572,6 +573,23 @@
                            {:action :credit
                             :account-id "Checking"
                             :amount 102}]}]})
+
+(deftest get-a-transaction
+  (let [context (serialization/realize storage-spec update-context)
+        {:keys [id transaction-date]} (find-transaction context (t/local-date 2016 3 2) "Paycheck")]
+    (testing "items are not included if not specified"
+      (let [transaction (first (transactions/search storage-spec
+                                                    {:id id
+                                                     :transaction-date transaction-date}))]
+        (is transaction "The transaction is retrieved successfully")
+        (is (nil? (:items transaction)) "The items are not included")))
+    (testing "items are included if specified"
+      (let [transaction (first (transactions/search storage-spec
+                                                    {:id id
+                                                     :transaction-date transaction-date}
+                                                    {:include-items? true}))]
+        (is transaction "The transaction is retrieved successfully")
+        (is (:items transaction) "The items are included")))))
 
 (deftest update-a-transaction-change-amount
   (let [context (serialization/realize storage-spec update-context)

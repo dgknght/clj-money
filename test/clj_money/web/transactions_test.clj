@@ -65,10 +65,12 @@
                                                 :debit-amount-1 ""
                                                 :credit-amount-1 "1000"}}))
         actual (map simplify-transaction
-                    (transm/search storage-spec {:entity-id entity-id
-                                                 :transaction-date [:between
-                                                                    (t/local-date 2015 1 1)
-                                                                    (t/local-date 2017 12 31)]}))
+                    (transm/search storage-spec
+                                   {:entity-id entity-id
+                                    :transaction-date [:between
+                                                       (t/local-date 2015 1 1)
+                                                       (t/local-date 2017 12 31)]}
+                                   {:include-items? true}))
         expected [{:transaction-date (t/local-date 2016 3 2)
                    :description "Paycheck"
                    :memo "Partial payment, final"

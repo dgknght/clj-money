@@ -421,10 +421,11 @@
   [storage-spec lot]
   (assoc lot
          :transactions
-         (->> {:lot-id (:id lot)
-               :transaction-date [:>= (:purchase-date lot)]}
-              (transactions/search storage-spec)
-              (mapcat transform-lot-transactions))))
+         (mapcat transform-lot-transactions (transactions/search
+                                              storage-spec
+                                              {:lot-id (:id lot)
+                                               :transaction-date [:>= (:purchase-date lot)]}
+                                              {:include-lot-items? true}))))
 
 (defn- append-lot-calculated-values
   [storage-spec lot]
