@@ -67,19 +67,20 @@
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
    (with-transactions-layout "Transactions" entity-id options
-     (let [criteria (apply-scope {:entity-id entity-id} :transaction)]
+     (let [criteria (apply-scope {:entity-id entity-id} :transaction)
+           transactions (transactions/search
+                          (env :db)
+                          criteria
+                          (merge {:limit 100
+                                  :sort [[:transaction-date :desc]]} ; TODO Need to get :limit and :per-page in sync
+                                 (pagination/prepare-options params)))]
        (html
          [:table.table.table-striped
           [:tr
            [:th.col-sm-2 "Date"]
            [:th.col-sm-8 "Description"]
            [:th.col-sm-2 "&nbsp;"]]
-          (map transaction-row
-               (transactions/search (env :db)
-                                    criteria
-                                    (merge {:limit 100
-                                            :sort [[:transaction-date :desc]]} ; TODO Need to get :limit and :per-page in sync
-                                           (pagination/prepare-options params))))]
+          (map transaction-row transactions)]
          (pagination/nav (assoc params
                                 :url (-> (path "/entities" entity-id "transactions")) 
                                 :total (transactions/record-count (env :db) criteria)))))
