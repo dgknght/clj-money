@@ -129,9 +129,7 @@
           (is (= 0 (count (transactions/search
                             storage-spec
                             {:entity-id (-> context :entities first :id)
-                             :transaction-date [:between
-                                                (t/local-date 2016 1 1)
-                                                (t/local-date 2016 12 31)]})))
+                             :transaction-date "2016"})))
               "The transaction should not be saved")
           (is (= 0 (count (items-by-account (:id checking))))
               "The transaction item for checking should not be created")

@@ -23,7 +23,8 @@
                                               delete-transaction-item
                                               delete-transaction-items-by-transaction-id
                                               create-lot->transaction-link
-                                              delete-lot->transaction-link]])
+                                              delete-lot->transaction-link
+                                              get-setting]])
   (:import org.joda.time.LocalDate
            java.util.UUID))
 
@@ -435,7 +436,10 @@
    (search-items storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (map after-item-read (select-transaction-items s criteria options)))))
+     (map after-item-read
+          (select-transaction-items s
+                                    (prepare-criteria criteria)
+                                    options)))))
 
 (defn- recalculate-account-item
   "Accepts a processing context and an item, updates
@@ -843,3 +847,11 @@
 
      ; clean up the ambient settings as if we were never here
      (swap! ambient-settings dissoc ~entity-id)))
+
+(defn available-date-range
+  [storage-spec]
+  (with-storage [s storage-spec]
+    (->> ["earliest-partition-date"
+          "latest-partition-date"]
+         (map #(get-setting s %))
+         (map read-string))))

@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clj-time.core :as t]
+            [clj-time.format :refer [formatters unparse-local-date]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
@@ -17,7 +19,8 @@
             [clj-money.url :refer :all]
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number
-                                    pprint-and-return]]
+                                    pprint-and-return
+                                    descending-periodic-seq]]
             [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
@@ -187,6 +190,25 @@
                         :data-confirm "Are you sure you want to remove this transaction?"
                         :method :post})))]]])
 
+(defn- available-month-options []
+  (let [[start end] (transactions/available-date-range (env :db))]
+    (map (fn [date]
+           [:option {:value (unparse-local-date (:year-month formatters) date)}
+            (unparse-local-date (:year-month formatters) date)])
+         (descending-periodic-seq start end (t/months 1)))))
+
+(defn- filter-form
+  [params]
+  [:form {:action (format "/accounts/%s" (:id params))
+          :method :get}
+   [:div.input-group
+    [:select.form-control {:name "transaction-date"
+                           :id "transaction-date" }
+     (available-month-options)]
+    [:span.input-group-btn
+     [:button.btn.btn-default {:type :submit}
+      "Search"]]]])
+
 (defmulti ^:private show-account
   (fn [account params]
     (cond
@@ -202,6 +224,7 @@
 (defmethod ^:private show-account :standard
   [account params]
   (html
+    (filter-form params)
     [:table.table.table-striped.table-hover
      [:tr
       [:th.text-right "Date"]
@@ -211,7 +234,12 @@
       [:th.text-center "Rec."]
       [:th "&nbsp;"]]
      (->> (transactions/search-items (env :db)
-                                     {:account-id (:id account)}
+                                     {:account-id (:id account)
+                                      :transaction-date (or
+                                                          (:transaction-date params)
+                                                          (unparse-local-date
+                                                            (:year-month formatters)
+                                                            (t/today)))}
                                      (merge
                                        {:sort [[:transaction-date :desc] [:index :desc]]}
                                        (pagination/prepare-options params)))
@@ -220,7 +248,7 @@
                                         (:transaction-id %)
                                         (:transaction-date %))))
           (map transaction-item-row))]
-    [:p
+    #_[:p
      (pagination/nav
        (assoc params
               :url (-> (path "/accounts"

@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clj-time.core :as t]
+            [clj-time.format :refer [unparse-local-date formatters]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
@@ -12,7 +14,8 @@
                                              allowed?
                                              tag-resource
                                              apply-scope]]
-            [clj-money.util :refer [ensure-local-date]]
+            [clj-money.util :refer [ensure-local-date
+                                    descending-periodic-seq]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -63,25 +66,51 @@
                                  "Click here to remove this transaction."
                                  "This transaction contains reconciled items and cannot be removed")})))]]])
 
+(defn- available-month-options []
+  (let [[start end] (transactions/available-date-range (env :db))]
+    (map (fn [date]
+           [:option {:value (unparse-local-date (:year-month formatters) date)}
+            (unparse-local-date (:year-month formatters) date)])
+         (descending-periodic-seq start end (t/months 1)))))
+
+(defn- filter-form
+  [params]
+  [:form {:action (format "/entities/%s/transactions" (:entity-id params))
+          :method :get}
+   [:div.input-group
+    [:select.form-control {:name "transaction-date"
+                           :id "transaction-date" }
+     (available-month-options)]
+    [:span.input-group-btn
+     [:button.btn.btn-default {:type :submit}
+      "Search"]]]])
+
 (defn index
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
    (with-transactions-layout "Transactions" entity-id options
-     (let [criteria (apply-scope {:entity-id entity-id} :transaction)
+     (let [criteria (apply-scope {:entity-id entity-id
+                                  :transaction-date (or
+                                                      (:transaction-date params)
+                                                      (unparse-local-date
+                                                        (:year-month formatters)
+                                                        (t/today))) }
+                                 :transaction)
            transactions (transactions/search
                           (env :db)
                           criteria
-                          (merge {:limit 100
-                                  :sort [[:transaction-date :desc]]} ; TODO Need to get :limit and :per-page in sync
+                          (merge {:limit 1000 ; TODO Need to get :limit and :per-page in sync
+                                  :sort [[:transaction-date :desc]]}
                                  (pagination/prepare-options params)))]
        (html
+         (filter-form params)
          [:table.table.table-striped
           [:tr
            [:th.col-sm-2 "Date"]
            [:th.col-sm-8 "Description"]
            [:th.col-sm-2 "&nbsp;"]]
           (map transaction-row transactions)]
-         (pagination/nav (assoc params
+         #_(pagination/nav (assoc params
                                 :url (-> (path "/entities" entity-id "transactions")) 
                                 :total (transactions/record-count (env :db) criteria)))))
      (when (allowed? :create (-> {:entity-id entity-id}

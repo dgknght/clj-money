@@ -107,3 +107,14 @@
 (defn safe-read-string
   [string]
   (read-string (or string "{}")))
+
+(defn descending-periodic-seq
+  ([end period-like]
+   (let [period (.toPeriod period-like)]
+     (map #(t/minus end (.multipliedBy period %))
+          (iterate inc 0))))
+  ([start end period-like]
+   (let [period (.toPeriod period-like)]
+     (take-while (fn [next]
+                   (t/after? next start))
+                 (descending-periodic-seq end period-like)))))

@@ -9,7 +9,8 @@
             [environ.core :refer [env]]
             [selmer.parser :refer [render]]
             [clj-money.util :refer [to-sql-date
-                                    pprint-and-return]]))
+                                    pprint-and-return
+                                    descending-periodic-seq]]))
 
 (defn partition-period
   [& _]
@@ -39,17 +40,6 @@
   (if (coll? root)
     (map #(table-name date %) root)
     (keyword (format "%s%s" (name root) (table-suffix date)))))
-
-(defn- descending-periodic-seq
-  ([end period-like]
-   (let [period (.toPeriod period-like)]
-     (map #(t/minus end (.multipliedBy period %))
-          (iterate inc 0))))
-  ([start end period-like]
-   (let [period (.toPeriod period-like)]
-     (take-while (fn [next]
-                   (t/after? next start))
-                 (descending-periodic-seq end period-like)))))
 
 (defmulti ^:private partition-dates partition-period)
 
