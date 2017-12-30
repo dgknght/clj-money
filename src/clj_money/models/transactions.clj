@@ -313,6 +313,40 @@
 (s/def ::per-page validation/positive-integer?)
 (s/def ::select-options (s/keys :req-un [::page ::per-page]))
 
+(defmulti ^:private parse-date-range
+  type)
+
+(defmethod ^:private parse-date-range :default
+  [value]
+  value)
+
+(defmethod ^:private parse-date-range String
+  [value]
+  (let [[year month day] (->> (re-matches #"(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?"
+                                          value)
+                              rest
+                              (map #(when % (Integer. %))))]
+    (cond
+
+      day
+      (t/local-date year month day)
+
+      month
+      [:between
+       (t/first-day-of-the-month year month)
+       (t/last-day-of-the-month year month)]
+
+      :else
+      [:between
+       (t/local-date year 1 1)
+       (t/local-date year 12 31)])))
+
+(defn- prepare-criteria
+  [criteria]
+  (if (:transaction-date criteria)
+    (update-in criteria [:transaction-date] parse-date-range)
+    criteria))
+
 (defn search
   "Returns the transactions that belong to the specified entity"
   ([storage-spec criteria]
@@ -327,7 +361,9 @@
                            :per-page 10})]
      (with-storage [s storage-spec]
        (map #(after-read s % options)
-            (select-transactions s criteria parsed-options))))))
+            (select-transactions s
+                                 (prepare-criteria criteria)
+                                 parsed-options))))))
 
 (defn select-items-by-reconciliation
   "Returns the transaction items associated with the specified reconciliation"

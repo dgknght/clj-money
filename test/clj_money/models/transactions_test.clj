@@ -15,6 +15,7 @@
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
+                                            find-entity
                                             find-account
                                             find-accounts
                                             find-transaction
@@ -512,10 +513,86 @@
         (is (:items transaction) "The items are included")))))
 
 (def search-context
-  base-context)
+  (merge
+    base-context
+    {:transactions [{:transaction-date "2016-01-01"
+                     :entity-id "Personal"
+                     :description "Paycheck"
+                     :amount 160101M
+                     :debit-account "Checking"
+                     :credit-account "Salary"}
+                    {:transaction-date "2016-06-01"
+                     :entity-id "Personal"
+                     :description "Paycheck"
+                     :amount 160601M
+                     :debit-account "Checking"
+                     :credit-account "Salary"}
+                    {:transaction-date "2017-01-01"
+                     :entity-id "Personal"
+                     :description "Paycheck"
+                     :amount 170101M
+                     :debit-account "Checking"
+                     :credit-account "Salary"}
+                    {:transaction-date "2017-06-01"
+                     :entity-id "Personal"
+                     :description "Paycheck"
+                     :amount 170601M
+                     :debit-account "Checking"
+                     :credit-account "Salary"}
+                    {:transaction-date "2017-06-15"
+                     :entity-id "Personal"
+                     :description "Paycheck"
+                     :amount 170615
+                     :debit-account "Checking"
+                     :credit-account "Salary"}]}))
 
 (deftest search-by-year
-  (let [context (serialization/realize storage-spec search-context)]))
+  (let [context (serialization/realize storage-spec search-context)
+        entity (find-entity context "Personal")
+        actual (transactions/search storage-spec {:transaction-date "2016"
+                                                  :entity-id (:id entity)})]
+    (is (= [(t/local-date 2016 1 1)
+            (t/local-date 2016 6 1)]
+           (map :transaction-date actual))
+        "The transactions from the specified year are returned")))
+
+(deftest search-by-month
+  (let [context (serialization/realize storage-spec search-context)
+        entity (find-entity context "Personal")
+        actual (transactions/search storage-spec {:transaction-date "2017-06"
+                                                  :entity-id (:id entity)})]
+    (is (= [(t/local-date 2017 6 1)
+            (t/local-date 2017 6 15)]
+           (map :transaction-date actual))
+        "The transactions from the specified month are returned")))
+
+(deftest search-by-date-string
+  (let [context (serialization/realize storage-spec search-context)
+        entity (find-entity context "Personal")
+        actual (transactions/search storage-spec {:transaction-date "2017-06-01"
+                                                  :entity-id (:id entity)})]
+    (is (= [(t/local-date 2017 6 1)] (map :transaction-date actual))
+        "The transactions from the specified day are returned")))
+
+(deftest search-by-date
+  (let [context (serialization/realize storage-spec search-context)
+        entity (find-entity context "Personal")
+        actual (transactions/search storage-spec {:transaction-date (t/local-date 2017 6 15)
+                                                  :entity-id (:id entity)})]
+    (is (= [(t/local-date 2017 6 15)] (map :transaction-date actual))
+        "The transactions from the specified day are returned")))
+
+(deftest search-by-date-vector
+  (let [context (serialization/realize storage-spec search-context)
+        entity (find-entity context "Personal")
+        actual (transactions/search storage-spec {:transaction-date [:between
+                                                                     (t/local-date 2017 6 1)
+                                                                     (t/local-date 2017 6 30)]
+                                                  :entity-id (:id entity)})]
+    (is (= [(t/local-date 2017 6 1)
+            (t/local-date 2017 6 15)]
+           (map :transaction-date actual))
+        "The transactions from the specified day are returned")))
 
 (deftest update-a-transaction-change-amount
   (let [context (serialization/realize storage-spec update-context)
