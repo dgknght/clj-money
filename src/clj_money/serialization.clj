@@ -163,12 +163,26 @@
                                     (map #(prepare-item context %)
                                          items))))
 
+(defn- expand-items
+  [transaction]
+  (if (:items transaction)
+    transaction
+    (-> transaction
+        (assoc :items [{:action :debit
+                        :amount (:amount transaction)
+                        :account-id (:debit-account transaction)}
+                       {:action :credit
+                        :amount (:amount transaction)
+                        :account-id (:credit-account transaction)}])
+        (dissoc :amount :debit-account :credit-account))))
+
 (defn- create-transactions
   [storage context transactions]
   []
   (mapv (fn [attributes]
           (transactions/create storage (-> attributes
                                            (resolve-entity context)
+                                           expand-items
                                            (prepare-items context))))
         transactions))
 
