@@ -25,7 +25,8 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
-                                                budget-monitors]]
+                                                budget-monitors
+                                                available-month-options]]
             [clj-money.util :refer [format-date]])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -66,13 +67,6 @@
                                  "Click here to remove this transaction."
                                  "This transaction contains reconciled items and cannot be removed")})))]]])
 
-(defn- available-month-options []
-  (let [[start end] (transactions/available-date-range (env :db))]
-    (map (fn [date]
-           [:option {:value (unparse-local-date (:year-month formatters) date)}
-            (unparse-local-date (:year-month formatters) date)])
-         (descending-periodic-seq start end (t/months 1)))))
-
 (defn- filter-form
   [params]
   [:form {:action (format "/entities/%s/transactions" (:entity-id params))
@@ -80,7 +74,7 @@
    [:div.input-group
     [:select.form-control {:name "transaction-date"
                            :id "transaction-date" }
-     (available-month-options)]
+     (available-month-options (:transaction-date params))]
     [:span.input-group-btn
      [:button.btn.btn-default {:type :submit}
       "Search"]]]])
@@ -89,12 +83,12 @@
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
    (with-transactions-layout "Transactions" entity-id options
-     (let [criteria (apply-scope {:entity-id entity-id
-                                  :transaction-date (or
-                                                      (:transaction-date params)
-                                                      (unparse-local-date
-                                                        (:year-month formatters)
-                                                        (t/today))) }
+     (let [transaction-date (or (:transaction-date params)
+                                (unparse-local-date
+                                  (:year-month formatters)
+                                  (t/today)))
+           criteria (apply-scope {:entity-id entity-id
+                                  :transaction-date transaction-date}
                                  :transaction)
            transactions (transactions/search
                           (env :db)
@@ -103,7 +97,9 @@
                                   :sort [[:transaction-date :desc]]}
                                  (pagination/prepare-options params)))]
        (html
-         (filter-form params)
+         (filter-form (-> params
+                          (select-keys [:entity-id])
+                          (assoc :transaction-date transaction-date)))
          [:table.table.table-striped
           [:tr
            [:th.col-sm-2 "Date"]
@@ -111,8 +107,8 @@
            [:th.col-sm-2 "&nbsp;"]]
           (map transaction-row transactions)]
          #_(pagination/nav (assoc params
-                                :url (-> (path "/entities" entity-id "transactions")) 
-                                :total (transactions/record-count (env :db) criteria)))))
+                                  :url (-> (path "/entities" entity-id "transactions")) 
+                                  :total (transactions/record-count (env :db) criteria)))))
      (when (allowed? :create (-> {:entity-id entity-id}
                                  (tag-resource :transaction)))
        [:p
