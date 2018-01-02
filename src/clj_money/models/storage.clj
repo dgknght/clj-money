@@ -169,11 +169,8 @@
   (create-transaction
     [this transaction]
     "Creates a new transaction record")
-  (find-transaction-by-id
-    [this id]
-    "Returns the specified transaction")
   (delete-transaction
-    [this id]
+    [this id transaction-date]
     "Deletes the specified transaction record")
   (update-transaction
     [this id]
@@ -190,16 +187,16 @@
     [this transaction-item]
     "Updates the specified transaction item, index and balance fields only, returns true if the values changes, false if not")
   (delete-transaction-item
-    [this id]
+    [this id transaction-date]
     "Deletes the specified transaction item record")
   (delete-transaction-items-by-transaction-id
-    [this transaction-id]
+    [this transaction-id transaction-date]
     "Deletes the transaction items having the specified id")
-  (set-transaction-items-reconciled
-    [this reconciliation-id transaction-item-ids]
+  (set-transaction-item-reconciled
+    [this reconciliation-id transaction-item-id transaction-date]
     "Updates the specified transaction items to indicate they belong to a reconciliation")
   (unreconcile-transaction-items-by-reconciliation-id
-    [this reconciliation-id]
+    [this reconciliation-id date-range]
     "Unsets the reconciliation ID to null for all matching values")
   (select-transaction-items
     [this criteria]
@@ -210,18 +207,10 @@
   (create-reconciliation
     [this reconciliation]
     "Creates a new reconciliation record")
-  (select-reconciliations-by-account-id
-    [this account-id]
+  (select-reconciliations
+    [this criteria]
+    [this criteria options]
     "Returns reconciliation records for the specified account")
-  (find-reconciliation-by-id
-    [this id]
-    "Returns the specified reconciliation")
-  (find-last-reconciliation-by-account-id
-    [this account-id] [this accont-id status]
-    "Returns the specified reconciliation")
-  (find-new-reconciliation-by-account-id
-    [this account-id]
-    "Returns the first reconciliation with status :new for the specified account")
   (update-reconciliation
     [this reconciliation]
     "Updates the specified reconciliation")
@@ -320,6 +309,7 @@
 
   (get-setting
     [this setting-name]
+    [this setting-name transform-fn]
     "Reads an application setting from the database")
 
   ; Data integrity transactions

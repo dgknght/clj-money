@@ -222,9 +222,7 @@
     (node->model node transaction-item-attributes)))
 
 (def ^:private transaction-attributes
-  [{:attribute :id
-    :xpath "trn:id"}
-   {:attribute :transaction-date
+  [{:attribute :transaction-date
     :xpath "trn:date-posted/ts:date"
     :transform-fn parse-date}
    {:attribute :description

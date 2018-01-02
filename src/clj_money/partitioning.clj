@@ -9,7 +9,8 @@
             [environ.core :refer [env]]
             [selmer.parser :refer [render]]
             [clj-money.util :refer [to-sql-date
-                                    pprint-and-return]]))
+                                    pprint-and-return
+                                    descending-periodic-seq]]))
 
 (defn partition-period
   [& _]
@@ -30,28 +31,15 @@
   [date]
   (if-not date
     (throw (IllegalArgumentException. "Argument \"date\" cannot be nil")))
-  (table-suffix* (to-local-date date)))
+  (table-suffix* date))
 
 (defn table-name
   "Given a date and a base table name, returns the name
   of the partition table where the date belongs"
   [date root]
-  (format "%s%s" (name root) (table-suffix date)))
-
-(defn- descending-periodic-seq
-  ([end period-like]
-   (let [period (.toPeriod period-like)]
-     (map (fn [i]
-
-            (log/debug "dbk descending-periodic-seq " end " index " i)
-
-            (t/minus end (.multipliedBy period i)))
-          (iterate inc 0))))
-  ([start end period-like]
-   (let [period (.toPeriod period-like)]
-     (take-while (fn [next]
-                   (t/after? next start))
-                 (descending-periodic-seq end period-like)))))
+  (if (coll? root)
+    (map #(table-name date %) root)
+    (keyword (format "%s%s" (name root) (table-suffix date)))))
 
 (defmulti ^:private partition-dates partition-period)
 
@@ -78,11 +66,11 @@
   (->> (partition-dates (to-local-date start)
                         (to-local-date end)
                         options)
-       (map #(table-name % (name root)))))
+       (map #(table-name % root))))
 
 (def ^:private tables
-  [:prices]
-  #_[:transactions
+  [:prices
+   :transactions
    :transaction_items])
 
 (def ^:private create-table-format

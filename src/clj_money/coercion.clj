@@ -1,7 +1,8 @@
 (ns clj-money.coercion
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
-            [clj-money.util :refer [parse-local-date]]))
+            [clj-money.util :refer [parse-local-date]])
+  (:import java.util.UUID))
 
 (def ^:private fns (atom {}))
 
@@ -18,6 +19,13 @@
 (defn rules
   [rule-key & paths]
   (map #(rule rule-key %) paths))
+
+(defn parse-uuid-collection
+  [values]
+  (map #(if (instance? UUID %)
+          %
+          (UUID/fromString %))
+       values))
 
 (defmulti parse-integer-collection
   (fn [value]
@@ -56,6 +64,8 @@
 (register-coerce-fn :keyword    #(if (keyword? %) % (keyword %)))
 (register-coerce-fn :local-date #(if (string? %) (or (parse-local-date %) %) %))
 (register-coerce-fn :integer-collection parse-integer-collection)
+(register-coerce-fn :uuid-collection parse-uuid-collection)
+(register-coerce-fn :uuid #(if (instance? UUID %) % (UUID/fromString %)))
 
 (defn coerce
   "Given a model and a list of coercion rules, applies the rules to the model"

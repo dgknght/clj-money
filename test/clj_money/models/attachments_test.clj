@@ -42,17 +42,22 @@
              :content-type "image/jpeg"}]})
 
 (defn- attributes
-  [context]
-  {:transaction-id (-> context :transactions first :id)
+  [{[transaction] :transactions :as context}]
+  {:transaction-id (:id transaction)
+   :transaction-date (:transaction-date transaction)
    :image-id (-> context :images first :id)
    :caption "receipt"})
 
 (deftest create-an-attachment
   (let [context (serialization/realize storage-spec attach-context)
         result (attachments/create storage-spec (attributes context))
-        retrieved (->> {:transaction-id (-> context :transactions first :id)}
+        transaction (-> context :transactions first)
+        retrieved (->> {:transaction-id (:id transaction)
+                        :transaction-date (:transaction-date transaction)}
                        (attachments/search storage-spec)
                        first)]
+    (is (empty? (validation/error-messages result))
+        "The attachment is saved successfully")
     (is retrieved "The value can be retreived from the database")
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")))
 

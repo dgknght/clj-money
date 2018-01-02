@@ -24,10 +24,13 @@
                                                      :meta (meta resource)}))))
 
 (defmethod ^:private lookup-entity-id :attachment
-  [{storage-spec :storage-spec :as context} resource]
-  (->> (:transaction-id resource)
-       (transactions/find-by-id storage-spec)
-       (lookup-entity-id context)))
+  [{storage-spec :storage-spec :as context}
+   {:keys [transaction-id transaction-date]}]
+  (lookup-entity-id
+    context
+    (transactions/find-by-id storage-spec
+                             transaction-id
+                             transaction-date)))
 
 (defmethod ^:private lookup-entity-id :budget-item
   [{storage-spec :storage-spec :as context} resource]

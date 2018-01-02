@@ -78,7 +78,8 @@
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         attachment (find-attachment context "receipt")
         transaction (transactions/find-by-id storage-spec
-                                             (:transaction-id attachment))]
+                                             (:transaction-id attachment)
+                                             (:transaction-date attachment))]
     (testing "A user has permissions on attachment in his own entities"
       (with-authentication john
         (doseq [action [:show :edit :update :delete]]
@@ -108,7 +109,8 @@
         image (find-image context "sample_receipt.jpg")
         attachment (tag-resource {:image-id (:id image)
                                   :caption "other receipt"
-                                  :transaction-id (:id transaction)}
+                                  :transaction-id (:id transaction)
+                                  :transaction-date (:transaction-date transaction)}
                                  :attachment)]
     (testing "A user has permission to create a attachments in his own entities"
       (with-authentication john

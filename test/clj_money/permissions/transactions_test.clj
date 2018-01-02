@@ -59,7 +59,11 @@
         entity (find-entity context "Personal")]
     (testing "A user has permission to list transactions in his entities"
       (with-authentication john
-        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)} :transaction)
+        (is (not= 0 (->> (apply-scope {:entity-id (:id entity)
+                                       :transaction-date [:between
+                                                          (t/local-date 2015 1 1)
+                                                          (t/local-date 2017 12 31)]}
+                                      :transaction)
                          (transactions/search storage-spec)
                          count))
             "The transactions are returned")))

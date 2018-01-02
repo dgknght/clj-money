@@ -156,12 +156,9 @@
                                                        first
                                                        :id)))))
         actual-inc-stmt (reports/income-statement storage-spec
-                                                  (:id entity)
-                                                  (t/local-date 1999 1 1)
-                                                  (t/local-date 9999 12 31))
+                                                  (:id entity))
         actual-bal-sheet (reports/balance-sheet storage-spec
-                                                (:id entity)
-                                                (t/local-date 9999 12 31))]
+                                                (:id entity))]
     (is entity "It returns a value")
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (is (= expected-accounts actual-accounts)

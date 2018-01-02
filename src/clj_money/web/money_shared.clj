@@ -3,17 +3,22 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clj-time.core :as t]
+            [clj-time.format :refer [unparse-local-date
+                                     formatters]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
-            [clj-money.util :refer [format-number]]
+            [clj-money.util :refer [format-number
+                                    descending-periodic-seq]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.authorization :refer [authorize
                                              allowed?
                                              apply-scope]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.transactions :as transactions]
             [clj-money.permissions.entities]
             [clj-money.permissions.accounts]
             [clj-money.reports :as reports])
@@ -107,3 +112,13 @@
   (map #(vector :option {:value (first %)} (second %))
        {:fifo "First in, first out"
         :lifo "Last in, first out"}))
+
+(defn available-month-options
+  [selected]
+  (let [[start end] (transactions/available-date-range (env :db))]
+    (map (fn [date]
+           (let [formatted (unparse-local-date (:year-month formatters) date)]
+             [:option {:value formatted
+                       :selected (= formatted selected)}
+              formatted]))
+         (descending-periodic-seq start end (t/months 1)))))

@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clj-time.core :as t]
+            [clj-time.format :refer [unparse-local-date formatters]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
@@ -12,6 +14,8 @@
                                              allowed?
                                              tag-resource
                                              apply-scope]]
+            [clj-money.util :refer [ensure-local-date
+                                    descending-periodic-seq]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -19,8 +23,10 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.permissions.transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
-                                                budget-monitors]]
+                                                budget-monitors
+                                                available-month-options]]
             [clj-money.util :refer [format-date]])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -61,24 +67,48 @@
                                  "Click here to remove this transaction."
                                  "This transaction contains reconciled items and cannot be removed")})))]]])
 
+(defn- filter-form
+  [params]
+  [:form {:action (format "/entities/%s/transactions" (:entity-id params))
+          :method :get}
+   [:div.input-group
+    [:select.form-control {:name "transaction-date"
+                           :id "transaction-date" }
+     (available-month-options (:transaction-date params))]
+    [:span.input-group-btn
+     [:button.btn.btn-default {:type :submit}
+      "Search"]]]])
+
 (defn index
   ([req] (index req {}))
   ([{{entity-id :entity-id :as params} :params} options]
    (with-transactions-layout "Transactions" entity-id options
-     (let [criteria (apply-scope {:entity-id entity-id} :transaction)]
+     (let [transaction-date (or (:transaction-date params)
+                                (unparse-local-date
+                                  (:year-month formatters)
+                                  (t/today)))
+           criteria (apply-scope {:entity-id entity-id
+                                  :transaction-date transaction-date}
+                                 :transaction)
+           transactions (transactions/search
+                          (env :db)
+                          criteria
+                          (merge {:limit 1000 ; TODO Need to get :limit and :per-page in sync
+                                  :sort [[:transaction-date :desc]]}
+                                 (pagination/prepare-options params)))]
        (html
+         (filter-form (-> params
+                          (select-keys [:entity-id])
+                          (assoc :transaction-date transaction-date)))
          [:table.table.table-striped
           [:tr
            [:th.col-sm-2 "Date"]
            [:th.col-sm-8 "Description"]
            [:th.col-sm-2 "&nbsp;"]]
-          (map transaction-row
-               (transactions/search (env :db)
-                                    criteria
-                                    (pagination/prepare-options params)))]
-         (pagination/nav (assoc params
-                                :url (-> (path "/entities" entity-id "transactions")) 
-                                :total (transactions/record-count (env :db) criteria)))))
+          (map transaction-row transactions)]
+         #_(pagination/nav (assoc params
+                                  :url (-> (path "/entities" entity-id "transactions")) 
+                                  :total (transactions/record-count (env :db) criteria)))))
      (when (allowed? :create (-> {:entity-id entity-id}
                                  (tag-resource :transaction)))
        [:p
@@ -247,12 +277,16 @@
 
 (defn update
   [{params :params}]
-  (let [transaction (authorize (transactions/find-by-id (env :db) (:id params))
+  (let [transaction (authorize (transactions/find-by-id
+                                 (env :db)
+                                 (:id params)
+                                 (ensure-local-date (:original-transaction-date params)))
                                :update)
         updated (merge transaction
                        (-> params
                            (select-keys [:id
                                          :transaction-date
+                                         :original-transaction-date
                                          :description
                                          :memo])
                            (assoc :items (extract-items params))))

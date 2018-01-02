@@ -2,6 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clj-time.core :as t]
+            [clj-time.format :refer [unparse-local-date
+                                     formatters]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
@@ -26,7 +29,8 @@
             [clj-money.models.lots :as lots]
             [clj-money.models.prices :as prices]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
-                                                budget-monitors]]
+                                                budget-monitors
+                                                available-month-options]]
             [clj-money.reports :as reports])
   (:use [clj-money.web.shared :refer :all]))
 
@@ -187,6 +191,18 @@
                         :data-confirm "Are you sure you want to remove this transaction?"
                         :method :post})))]]])
 
+(defn- filter-form
+  [params]
+  [:form {:action (format "/accounts/%s" (:account-id params))
+          :method :get}
+   [:div.input-group
+    [:select.form-control {:name "transaction-date"
+                           :id "transaction-date" }
+     (available-month-options (:transaction-date params))]
+    [:span.input-group-btn
+     [:button.btn.btn-default {:type :submit}
+      "Search"]]]])
+
 (defmulti ^:private show-account
   (fn [account params]
     (cond
@@ -201,49 +217,60 @@
 
 (defmethod ^:private show-account :standard
   [account params]
-  (html
-    [:table.table.table-striped.table-hover
-     [:tr
-      [:th.text-right "Date"]
-      [:th "Description"]
-      [:th.text-right "Amount"]
-      [:th.text-right "Balance"]
-      [:th.text-center "Rec."]
-      [:th "&nbsp;"]]
-     (->> (transactions/items-by-account (env :db)
-                                         (:id account)
-                                         (pagination/prepare-options params))
-          (map #(assoc % :transaction (transactions/find-by-id
-                                        (env :db)
-                                        (:transaction-id %))))
-          (map transaction-item-row))]
-    [:p
-     (pagination/nav
-       (assoc params
-              :url (-> (path "/accounts"
-                             (:id account)))
-              :total (transactions/count-items-by-account (env :db) (:id account))))]
+  (let [transaction-date (or
+                           (:transaction-date params)
+                           (unparse-local-date
+                             (:year-month formatters)
+                             (t/today)))]
+    (html
+      (filter-form {:transaction-date transaction-date
+                    :account-id (:id account)})
+      [:table.table.table-striped.table-hover
+       [:tr
+        [:th.text-right "Date"]
+        [:th "Description"]
+        [:th.text-right "Amount"]
+        [:th.text-right "Balance"]
+        [:th.text-center "Rec."]
+        [:th "&nbsp;"]]
+       (->> (transactions/search-items (env :db)
+                                       {:account-id (:id account)
+                                        :transaction-date transaction-date}
+                                       (merge
+                                         {:sort [[:transaction-date :desc] [:index :desc]]}
+                                         (pagination/prepare-options params)))
+            (map #(assoc % :transaction (transactions/find-by-id
+                                          (env :db)
+                                          (:transaction-id %)
+                                          (:transaction-date %))))
+            (map transaction-item-row))]
+      #_[:p
+         (pagination/nav
+           (assoc params
+                  :url (-> (path "/accounts"
+                                 (:id account)))
+                  :total (transactions/count-items-by-account (env :db) (:id account))))]
 
-    [:p
-     [:a.btn.btn-primary
-      {:href (-> (path "/entities"
-                       (:entity-id account)
-                       "transactions"
-                       "new")
-                 (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
-                 format-url)
-       :title "Click here to add a new transaction."}
-      "Add"]
-     "&nbsp;"
-     [:a.btn.btn-default
-      {:href (format "/accounts/%s/reconciliations/new" (:id account))
-       :title "Click here to reconcile this account."}
-      "Reconcile"]
-     "&nbsp;"
-     [:a.btn.btn-default
-      {:href (format "/entities/%s/accounts" (:entity-id account))
-       :title "Click here to return to the list of accounts."}
-      "Back"]]))
+      [:p
+       [:a.btn.btn-primary
+        {:href (-> (path "/entities"
+                         (:entity-id account)
+                         "transactions"
+                         "new")
+                   (query {:redirect (url-encode (format "/accounts/%s" (:id account)))})
+                   format-url)
+         :title "Click here to add a new transaction."}
+        "Add"]
+       "&nbsp;"
+       [:a.btn.btn-default
+        {:href (format "/accounts/%s/reconciliations/new" (:id account))
+         :title "Click here to reconcile this account."}
+        "Reconcile"]
+       "&nbsp;"
+       [:a.btn.btn-default
+        {:href (format "/entities/%s/accounts" (:entity-id account))
+         :title "Click here to return to the list of accounts."}
+        "Back"]])))
 
 (defn- commodity-row
   [{:keys [style

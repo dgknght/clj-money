@@ -23,6 +23,24 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
+(defn items-by-account
+  [account-id]
+  (map #(dissoc %
+                :id
+                :polarized-amount
+                :entity-id
+                :transaction-id
+                :reconciled?
+                :reconciliation-id
+                :created-at
+                :updated-at
+                :reconciliation-status)
+       (transactions/items-by-account
+         storage-spec
+         account-id
+         [(t/local-date 2015 1 1)
+          (t/local-date 2017 12 31)])))
+
 (def ^:private purchase-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
@@ -82,22 +100,28 @@
                               :lot-items [{:lot-action :buy
                                            :shares 100M
                                            :price 10M}]
-                              :items [{:action :credit
-                                       :amount 1000M
-                                       :balance 1000M
-                                       :value 1000M
-                                       :account-id (:id ira)
-                                       :index 1
-                                       :memo nil
-                                       :reconciled? false
-                                       :reconciliation-id nil}
-                                      {:action :debit
+                              :items [{:action :debit
                                        :amount 100M
                                        :balance 100M
                                        :value 1000M
                                        :account-id (:id apple-account)
+                                       :description "Purchase 100 shares of AAPL at 10.000"
                                        :memo nil
+                                       :transaction-date (t/local-date 2016 1 2)
                                        :index 0
+                                       :reconciliation-status nil
+                                       :reconciled? false
+                                       :reconciliation-id nil}
+                                      {:action :credit
+                                       :amount 1000M
+                                       :balance 1000M
+                                       :value 1000M
+                                       :account-id (:id ira)
+                                       :description "Purchase 100 shares of AAPL at 10.000"
+                                       :index 1
+                                       :memo nil
+                                       :transaction-date (t/local-date 2016 1 2)
+                                       :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil}]}
         actual-transaction (-> (:transaction result)
@@ -127,6 +151,10 @@
                                                        :balance)]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
+    (when-not (= expected-transaction actual-transaction)
+      (pprint {:expected expected-transaction
+               :actual actual-transaction
+               :diff (diff expected-transaction actual-transaction)}))
     (is (= expected-transaction actual-transaction)
         "The resulting transaction has the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
@@ -362,29 +390,38 @@
                               :description "Sell 25 shares of AAPL at 15.000"
                               :entity-id (-> context :entities first :id)
                               :memo nil
-                              :items [{:action :credit
-                                       :account-id (:id ltcg)
-                                       :memo "Sell 25 shares of AAPL at 15.000"
-                                       :amount 125M
-                                       :value 125M
-                                       :balance 125M
-                                       :reconciled? false
-                                       :reconciliation-id nil
-                                       :index 0}
-                                      {:action :debit
+                              :items [{:action :debit
                                        :account-id (:id ira)
+                                       :transaction-date (t/local-date 2017 3 2)
+                                       :description "Sell 25 shares of AAPL at 15.000"
                                        :amount 375M
                                        :value 375M
                                        :balance 1375M
+                                       :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil
                                        :memo nil
                                        :index 2}
                                       {:action :credit
+                                       :account-id (:id ltcg)
+                                       :memo "Sell 25 shares of AAPL at 15.000"
+                                       :transaction-date (t/local-date 2017 3 2)
+                                       :description "Sell 25 shares of AAPL at 15.000"
+                                       :amount 125M
+                                       :value 125M
+                                       :balance 125M
+                                       :reconciliation-status nil
+                                       :reconciled? false
+                                       :reconciliation-id nil
+                                       :index 0}
+                                      {:action :credit
                                        :account-id (:id commodity-account)
+                                       :transaction-date (t/local-date 2017 3 2)
+                                       :description "Sell 25 shares of AAPL at 15.000"
                                        :amount 25M
                                        :balance 75M
                                        :value 250M
+                                       :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil
                                        :memo nil
@@ -407,6 +444,10 @@
         "The shares-owned value of the original lot is updated")
     (is (:transaction result)
         "The result contains the transaction record")
+    (when-not (= expected-transaction actual-transaction)
+      (pprint {:expected expected-transaction
+               :actual actual-transaction
+               :diff (diff expected-transaction actual-transaction)}))
     (is (= expected-transaction actual-transaction)
         "The transaction contains the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
@@ -574,16 +615,7 @@
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 25M :value 375M)))
-        gains-items (->> {:i.account-id (:id lt-capital-gains)} ; TODO remove table prefix
-                         (transactions/search-items storage-spec)
-                         (map #(dissoc % :id
-                                         :entity-id
-                                         :transaction-id
-                                         :reconciled?
-                                         :reconciliation-id
-                                         :created-at
-                                         :updated-at
-                                         :reconciliation-status)))
+        gains-items (items-by-account (:id lt-capital-gains))
         expected [{:transaction-date (t/local-date 2017 3 2)
                    :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
@@ -605,16 +637,7 @@
                                          (assoc :shares 25M
                                                 :value 375M
                                                 :trade-date (t/local-date 2017 3 1))))
-        gains-items (->> {:i.account-id (:id st-capital-gains)}
-                         (transactions/search-items storage-spec)
-                         (map #(dissoc % :id
-                                         :entity-id
-                                         :transaction-id
-                                         :reconciled?
-                                         :reconciliation-id
-                                         :created-at
-                                         :updated-at
-                                         :reconciliation-status)))
+        gains-items (items-by-account (:id st-capital-gains))
         expected [{:transaction-date (t/local-date 2017 3 1)
                    :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
@@ -634,16 +657,7 @@
         _ (trading/sell storage-spec (-> context
                                          sale-attributes
                                          (assoc :shares 100M :value 850M)))
-        gains-items (->> {:i.account-id (:id capital-loss)}
-                         (transactions/search-items storage-spec)
-                         (map #(dissoc % :id
-                                         :entity-id
-                                         :transaction-id
-                                         :reconciled?
-                                         :reconciliation-id
-                                         :created-at
-                                         :updated-at
-                                         :reconciliation-status)))
+        gains-items (items-by-account (:id capital-loss))
         expected [{:transaction-date (t/local-date 2017 3 2)
                    :description "Sell 100 shares of AAPL at 8.500"
                    :action :debit
@@ -653,7 +667,7 @@
                    :memo "Sell 100 shares of AAPL at 8.500"
                    :balance 150M
                    :index 0}]]
-    (if-not (= expected gains-items)
+    (when-not (= expected gains-items)
       (pprint {:expected expected
                :actual gains-items
                :diff (diff expected gains-items)}))
@@ -788,7 +802,7 @@
                                             :commodity-id (:id commodity)
                                             :account-id (:id ira)
                                             :value 1000M})
-        result (trading/unbuy storage-spec (-> purchase :transaction :id))]
+        result (trading/unbuy storage-spec (:transaction purchase))]
     ; TODO Should we delete the price that was created?
     (testing "the account balance"
       (is (= 2000M (:balance (accounts/reload storage-spec ira)))
@@ -808,7 +822,7 @@
                                             :value 1000M})
         _ (trading/sell storage-spec (sale-attributes context))]
     (is (thrown-with-msg? IllegalStateException #"Cannot undo"
-                          (trading/unbuy storage-spec (-> purchase :transaction :id))))))
+                          (trading/unbuy storage-spec (:transaction purchase))))))
 
 (deftest undo-a-sale
   (let [context (serialization/realize storage-spec purchase-context)
@@ -820,7 +834,7 @@
                                             :account-id (:id ira)
                                             :value 1000M})
         sale (trading/sell storage-spec (sale-attributes context))
-        result (trading/unsell storage-spec (-> sale :transaction :id))]
+        result (trading/unsell storage-spec (:transaction sale))]
     ; IRA balance balance before purchase: $2,000
     ;                      after purchase: $1,000
     ;                          after sale: $1,375

@@ -16,7 +16,8 @@
             [clj-money.models.storage :refer [create-price
                                               update-price
                                               select-prices
-                                              delete-price]]))
+                                              delete-price
+                                              get-setting]]))
 
 (s/def ::commodity-id integer?)
 (s/def ::trade-date (partial instance? org.joda.time.LocalDate))
@@ -100,14 +101,24 @@
   (with-storage [s storage-spec]
     (delete-price s id)))
 
+(defn available-date-range
+  [storage-spec]
+  (with-storage [s storage-spec]
+    (->> ["earliest-partition-date"
+          "latest-partition-date"]
+         (map #(get-setting s %))
+         (map read-string))))
+
 (defn most-recent
   ([storage-spec commodity-id]
-   (most-recent storage-spec commodity-id (t/today)))
+   (most-recent storage-spec
+                commodity-id
+                (second (available-date-range storage-spec))))
   ([storage-spec commodity-id as-of]
    (with-storage [s storage-spec]
      (->> (select-prices s
                          {:commodity-id commodity-id
-                          :trade-date [:between nil as-of]}
+                          :trade-date [:<= as-of]}
                          {:limit 1
                           :sort [[:trade-date :desc]]})
           (sort-by :trade-date <)

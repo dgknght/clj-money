@@ -253,15 +253,15 @@
 
 (defn unbuy
   "Reverses a commodity purchase"
-  [storage-spec transaction-id]
+  [storage-spec {transaction-id :id transaction-date :transaction-date}]
   (with-transacted-storage [s storage-spec]
-    (let [transaction (transactions/find-by-id s transaction-id)
+    (let [transaction (transactions/find-by-id s transaction-id transaction-date)
           lot (lots/find-by-id s (-> transaction :lot-items first :lot-id))
           commodity (commodities/find-by-id s (:commodity-id lot))]
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.
                  "Cannot undo a purchase if shares have been sold from the lot")))
-      (transactions/delete s (:id transaction))
+      (transactions/delete s transaction-id transaction-date)
       (lots/delete s (:id lot))
       {:transaction transaction
        :lot lot
@@ -377,10 +377,10 @@
              create-sale-transaction)))))
 
 (defn unsell
-  [storage-spec transaction-id]
+  [storage-spec {transaction-id :id transaction-date :transaction-date}]
   (with-transacted-storage [s storage-spec]
-    (let [transaction (transactions/find-by-id s transaction-id)]
+    (let [transaction (transactions/find-by-id s transaction-id transaction-date)]
       (doseq [lot-item (:lot-items transaction)]
         (let [lot (lots/find-by-id s (:lot-id lot-item))]
           (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
-      (transactions/delete s transaction-id))))
+      (transactions/delete s transaction-id transaction-date))))

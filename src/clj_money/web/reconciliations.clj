@@ -24,7 +24,7 @@
                        (accounts/polarize-amount account)
                        util/format-number)]
    [:td.text-center [:input {:type :checkbox
-                             :name "item-ids"
+                             :name "item-refs"
                              :checked (not (nil? (:reconciliation-id transaction-item)))
                              :value (:id transaction-item)}]]])
 
@@ -34,8 +34,7 @@
     (reduce +
             0M
             (->> reconciliation
-                 :id
-                 (transactions/select-items-by-reconciliation-id (env :db))
+                 (transactions/select-items-by-reconciliation (env :db))
                  (map #(transactions/polarize-item-amount % account))
                  (map :polarized-amount)))
     0M))

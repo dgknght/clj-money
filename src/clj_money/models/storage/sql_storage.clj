@@ -4,7 +4,6 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
-            #_[clj-time.jdbc]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
@@ -18,7 +17,22 @@
             [clj-money.models.storage :refer [Storage]])
   (:import [java.sql BatchUpdateException
                      Date]
-           org.joda.time.LocalDate))
+           org.joda.time.LocalDate
+           org.postgresql.util.PSQLException))
+
+(defn- first-key-present
+  "Accepts a list of keys and a map, returning the first
+  key from the list that is present in the map.
+
+  (first-key-present :a :b :c {:b 42})
+  ;; => :b"
+  [& args]
+  (let [m (last args)
+        k (take (- (count args) 1) args)]
+    (-> m
+        keys
+        set
+        (some k))))
 
 (extend-protocol jdbc/IResultSetReadColumn
   Date
@@ -35,6 +49,11 @@
   (sql-value [v]
     (to-sql-time v)))
 
+(extend-protocol jdbc/ISQLValue
+  clojure.lang.Keyword
+  (sql-value [v]
+    (name v)))
+
 (defn- id-criteria?
   [value]
   (or (integer? value)
@@ -48,7 +67,7 @@
 (s/def ::lot-id integer?)
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
-(s/def ::transaction-id integer?)
+(s/def ::transaction-id uuid?)
 (s/def ::date (partial instance? LocalDate))
 (s/def ::nilable-date #(or (instance? LocalDate %) (nil? %)))
 
@@ -64,16 +83,22 @@
 (s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
 (s/def ::image-criteria (s/keys :req-un [::user-id]))
 
-(defmulti trade-date vector?)
-(defmethod trade-date true [_]
-  (s/tuple keyword? ::nilable-date ::date))
-(defmethod trade-date false [_]
+(defmulti trade-date #(if (vector? %)
+                        (if (= :between (first %))
+                          :ternary
+                          :binary)
+                        :unary))
+(defmethod trade-date :ternary [_]
+  (s/tuple keyword? ::date ::date))
+(defmethod trade-date :binary [_]
+  (s/tuple keyword? ::date))
+(defmethod trade-date :unary [_]
   ::date)
 (s/def ::trade-date (s/multi-spec trade-date vector?))
 
 (defmulti price-criteria #(contains? % :id))
 (defmethod price-criteria false [_]
-  (s/keys :req-un [::commodity-id ::trade-date]))
+  (s/keys :req-un [::commodity-id] :opt-un [::trade-date]))
 (defmethod price-criteria true [_]
   (s/keys :req-un [::id ::trade-date]))
 (s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :id)))
@@ -84,12 +109,36 @@
 (defmethod attachment-criteria false [_]
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
-(defmulti transaction-criteria #(contains? % :lot-id))
-(defmethod transaction-criteria true [_]
-  (s/keys :req-un [::lot-id]))
-(defmethod transaction-criteria false [_]
-  (s/keys :req-un [::entity-id]))
-(s/def ::transaction-criteria (s/multi-spec transaction-criteria #(contains? % :lot-id)))
+
+; TODO: Can this be combined with trade-date?
+(defmulti trade-date #(if (vector? %)
+                        (if (= :between (first %))
+                          :ternary
+                          :binary)
+                        :unary))
+(defmethod trade-date :ternary [_]
+  (s/tuple keyword? ::date ::date))
+(defmethod trade-date :binary [_]
+  (s/tuple keyword? ::date))
+(defmethod trade-date :unary [_]
+  ::date)
+(s/def ::trade-date (s/multi-spec trade-date vector?))
+
+(def ^:private transaction-criteria-key
+  (partial first-key-present :lot-id :entity-id :id))
+(defmulti transaction-criteria transaction-criteria-key)
+(defmethod transaction-criteria :lot-id [_]
+  (s/keys :req-un [::lot-id] :opt-un [::transaction-date]))
+(defmethod transaction-criteria :entity-id [_]
+  (s/keys :req-un [::entity-id] :opt-un [::transaction-date]))
+(defmethod transaction-criteria :id [_]
+  (s/keys :req-un [::id ::transaction-date]))
+(s/def
+  ::transaction-criteria
+  (s/multi-spec transaction-criteria transaction-criteria-key))
+
+(s/def ::transaction-item-criteria (s/keys :opt-un [::transaction-date]))
+
 (defmulti budget-criteria #(contains? % :id))
 (defmethod budget-criteria true [_]
   (s/keys :req-un [::id]))
@@ -203,6 +252,42 @@
      (h/merge-where sql (map->where criteria options))
      sql)))
 
+(defn- descending-sort?
+  "Returns a boolean value indicating whether or not
+  the first segment of the sort expression specified
+  descending order"
+  [[sort-exp]]
+  (when (and sort-exp (sequential? sort-exp))
+    (= :desc (second sort-exp))))
+
+
+(defn- limit-reached?
+  [records {:keys [limit]}]
+  (and limit
+       (<= limit (count records))))
+
+; TODO: maybe extract the sql parts and move this to the partitioning namespace?
+(defmacro with-partitioning
+  [exec-fn table-name d-range options bindings & body]
+  `(let [tables# (tables-for-range (first ~d-range)
+                                   (second ~d-range)
+                                   ~table-name
+                                   {:descending? (descending-sort?
+                                                   (:sort ~options))})
+         sql-fn# (fn* [~(first bindings)] ~@body)]
+     (->> tables#
+          (map #(if (coll? %)
+                  (map keyword %)
+                  (keyword %)))
+          (reduce (fn [records# table#]
+                    (let [sql# (sql-fn# table#)
+                          found-records# (~exec-fn sql#)
+                          updated-records# (concat records# found-records#)]
+                      (if (limit-reached? updated-records# ~options)
+                        (reduced updated-records#)
+                        updated-records#)))
+                  []))))
+
 (defn- append-sort
   [sql options]
   (if-let [s (:sort options)]
@@ -278,6 +363,31 @@
        vals
        first))
 
+(defn- execute
+  [db-spec sql-map]
+  (let [sql (sql/format sql-map)]
+    (try
+      (jdbc/execute! db-spec sql)
+      (catch PSQLException e
+        (pprint {:sql sql
+                 :exception e})
+        (throw (ex-info (.getMessage e) {:sql sql})))
+      (catch BatchUpdateException e
+        (pprint {:sql sql
+                 :batch-update-exception (.getNextException e)})
+        (throw (ex-info (.getMessage (.getNextException e)) {:sql sql}))))))
+
+(defn- delete
+  [db-spec table where]
+  (try
+    (jdbc/delete! db-spec table where)
+    (catch BatchUpdateException e
+      (pprint {:delete-from table
+               :where where
+               :batch-update-exception (.getNextException e)})
+      (throw (ex-info (.getMessage (.getNextException e)) {:table table
+                                                           :where where})))))
+
 (defn- validate-criteria
   [criteria spec]
   (when-not (s/valid? spec criteria)
@@ -287,34 +397,52 @@
                  {:criteria criteria
                   :explanation explanation})))))
 
-(defn- transaction-item-base-query
-  []
-  (-> (h/select :i.* :t.transaction_date :t.description, [:r.status "reconciliation_status"])
-      (h/from [:transaction_items :i])
-      (h/join [:transactions :t] [:= :t.id :i.transaction_id])
-      (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])))
+(defmulti ^:private date-range
+  "Accepts a date criteria value and returns a tuple
+  containing the start date in the first position and
+  the end date in the second position"
+  (fn [_ range-value]
+    (if (sequential? range-value)
+      (if (= :between (first range-value))
+        :ternary
+        :binary)
+      :scalar)))
 
-(defn- extract-trade-dates
-  "Extracts a start and end trade date from the
-  specified search criteria. The valid shapes are
+(defmethod ^:private date-range :scalar
+  [storage range-value]
+  (if range-value
+    [range-value range-value]
+    [(.get-setting storage
+                   "earliest-partition-date"
+                   (fnil read-string "#local-date \"2000-01-01\""))
+     (.get-setting storage
+                   "latest-partition-date"
+                   (fnil read-string "#local-date \"2999-01-01\""))]))
 
-    {:trade-date (t/local-date 2017 3 2)} - searches for the specified date
-    {:trade-date [:between (t/local-date 2017 1 1) (t/local-date 2017 131)]} - searches the specified range, inclusively
-    {:trade-date [:between nil (t/local-date 2017 3 2)]} - searches from the first available date to the specified date"
-  [{trade-date :trade-date} earliest-fn]
-  (if (sequential? trade-date)
-    (-> trade-date
-        (update-in [1] #(or % (to-sql-date (earliest-fn))))
-        rest)
-    [trade-date trade-date]))
+(defmethod ^:private date-range :binary
+  [storage [operator date]]
+  (if (#{:< :<=} operator)
+    [(.get-setting storage
+                   "earliest-partition-date"
+                   (fnil read-string "#local-date \"2000-01-01\""))
+     date]
+    [date
+     (.get-setting storage
+                   "latest-partition-date"
+                   (fnil read-string "#local-date \"2999-01-01\""))]))
 
-(defn- descending-sort?
-  "Returns a boolean value indicating whether or not
-  the first segment of the sort expression specified
-  descending order"
-  [[sort-exp]]
-  (when (and sort-exp (sequential? sort-exp))
-    (= :desc (second sort-exp))))
+(defmethod ^:private date-range :ternary
+  [storage range-value]
+  (-> range-value
+      (update-in [1] #(or % (.get-setting
+                              storage
+                              "earliest-partition-date"
+                              (fnil read-string "#local-date \"2000-01-01\""))))
+      (update-in [2] #(or % (.get-setting
+                              storage
+                              "latest-partition-date"
+                              (fnil read-string "#local-date \"2999-01-01\""))))
+      rest))
 
 (deftype SqlStorage [db-spec]
   Storage
@@ -538,38 +666,16 @@
     (.select-prices this criteria {}))
 
   (select-prices
-    [this {trade-date :trade-date :as criteria} options]
+    [this criteria options]
     (validate-criteria criteria ::price-criteria)
-    (let [[start end] (extract-trade-dates criteria (fn []
-                                                      (or (when-let [v (.get-setting this "earliest-partition-date")]
-                                                            (read-string v))
-                                                          (t/local-date 2000 1 1))))
-          tables (tables-for-range start
-                                   end
-                                   :prices
-                                   {:descending? (descending-sort?
-                                                   (:sort options))})]
-      (->> tables
-          (map keyword)
-          (reduce (fn [records table]
-                    (let [sql (-> (h/select :p.*)
-                                  (h/from [table :p])
-                                  (h/join [:commodities :c] [:= :c.id :p.commodity_id])
-                                  (append-where (dissoc criteria :trade-date) {:prefix "p"})
-                                  (h/merge-where (if (= start end)
-                                                   [:= :trade_date start]
-                                                   [:and
-                                                    [:>= :trade_date start]
-                                                    [:<= :trade_date end]]))
-                                  (append-sort options)
-                                  (append-limit options)
-                                  (append-paging options))
-                          updated-records (concat records (query db-spec sql))]
-                      (if (and (= 1 (:limit options))
-                                (seq updated-records))
-                        (reduced updated-records)
-                        updated-records) ))
-                  []))))
+    (let [d-range (date-range this (:trade-date criteria))]
+      (with-partitioning (partial query db-spec) :prices d-range options [table]
+        (-> (h/select :p.*)
+            (h/from [table :p])
+            (append-where criteria {:prefix "p"})
+            (append-sort options)
+            (append-limit options)
+            #_(append-paging options))))) ; paging will have to be reworked
 
   (update-price
     [_ price]
@@ -664,41 +770,40 @@
 
   ; Transactions
   (select-transactions
-    [_ criteria options]
+    [this criteria options]
     (validate-criteria criteria ::transaction-criteria)
-    (let [sql (-> (h/select :t.*)
-                  (h/from [:transactions :t])
-                  (adjust-select options)
-                  (append-paging options)
-                  (append-transaction-lot-filter criteria))
-          result (query db-spec sql)]
+    (let [d-range (date-range this (:transaction-date criteria))
+          result
+          (with-partitioning (partial query db-spec) :transactions d-range options
+            [table]
+            (-> (h/select :t.*)
+                (h/from [table :t])
+                (adjust-select options)
+                (append-sort options)
+                #_(append-paging options)
+                (append-transaction-lot-filter criteria)))]
       (if (:count options) ; TODO remove this duplication with select-transaction-items
         (-> result first vals first)
         result)))
 
   (create-transaction
     [_ transaction]
-    (insert db-spec :transactions transaction :entity-id
-                                              :description
-                                              :transaction-date
-                                              :memo))
-
-  (find-transaction-by-id
-    [_ id]
-    (->> (-> (h/select :*)
-            (h/from :transactions)
-            (h/where [:= :id id])
-            (h/limit 1))
-        (query db-spec )
-        first))
+    (insert db-spec
+            (table-name (:transaction-date transaction) :transactions)
+            transaction
+            :entity-id
+            :description
+            :transaction-date
+            :memo))
 
   (delete-transaction
-    [_ id]
-    (jdbc/delete! db-spec :transactions ["id = ?" id]))
+    [_ id transaction-date]
+    (jdbc/delete! db-spec (table-name transaction-date :transactions) ["id = ?" id]))
 
   (update-transaction
     [_ transaction]
-    (let [sql (sql/format (-> (h/update :transactions)
+    (let [sql (sql/format (-> (h/update (table-name (:transaction-date transaction)
+                                                    :transactions))
                               (h/sset (->update-set
                                         transaction
                                         :description
@@ -710,90 +815,100 @@
   ; Transaction Items
   (create-transaction-item
     [_ transaction-item]
-    (insert db-spec :transaction_items transaction-item :transaction-id
-                                                        :account-id
-                                                        :action
-                                                        :amount
-                                                        :value
-                                                        :index
-                                                        :balance
-                                                        :memo))
+    (insert db-spec
+            (table-name (:transaction-date transaction-item) :transaction_items)
+            transaction-item
+            :transaction-id
+            :transaction-date
+            :account-id
+            :action
+            :amount
+            :value
+            :index
+            :balance
+            :memo))
 
   (update-transaction-item
     [_ transaction-item]
-    (let [sql (sql/format (-> (h/update :transaction_items)
-                              (h/sset (->update-set transaction-item
-                                                    :amount
-                                                    :memo
-                                                    :action
-                                                    :index
-                                                    :balance
-                                                    :account-id))
-                              (h/where [:= :id (:id transaction-item)])))]
-      (try
-        (jdbc/execute! db-spec sql)
-        (catch BatchUpdateException e
-          (pprint {:sql sql
-                   :batch-update-exception (.getNextException e)})))))
+    (execute db-spec (-> (h/update (table-name
+                                     (:transaction-date transaction-item)
+                                     :transaction_items))
+                         (h/sset (->update-set transaction-item
+                                               :transaction-date
+                                               :amount
+                                               :memo
+                                               :action
+                                               :index
+                                               :balance
+                                               :account-id))
+                         (h/where [:= :id (:id transaction-item)]))))
 
   (update-transaction-item-index-and-balance
     [_ transaction-item]
-    (let [sql (sql/format (-> (h/update :transaction_items)
-                                (h/sset (->update-set transaction-item
-                                                      :index
-                                                      :balance))
-                                (h/where [:and
-                                          [:= :id (:id transaction-item)]
-                                          [:or
-                                           [:!= :balance (:balance transaction-item)]
-                                           [:!= :index (:index transaction-item)]]])))]
-        (try
-          (jdbc/execute! db-spec sql)
-          (catch BatchUpdateException e
-            (pprint {:sql sql
-                    :batch-update-exception (.getNextException e)})))))
+    (execute db-spec (-> (h/update (table-name (:transaction-date transaction-item)
+                                               :transaction_items))
+                         (h/sset (->update-set transaction-item
+                                               :transaction-date
+                                               :index
+                                               :balance))
+                         (h/where [:and
+                                   [:= :id (:id transaction-item)]
+                                   [:or
+                                     [:!= :balance (:balance transaction-item)]
+                                     [:!= :index (:index transaction-item)]]]))))
 
   (delete-transaction-item
-    [_ id]
-    (jdbc/delete! db-spec :transaction_items ["id = ?" id]))
+    [_ id transaction-date]
+    (delete db-spec
+            (table-name transaction-date :transaction_items)
+            ["id = ?" id]))
 
   (delete-transaction-items-by-transaction-id
-    [_ transaction-id]
-    (jdbc/delete! db-spec
-                  :transaction_items
-                  ["transaction_id = ?" transaction-id]))
+    [_ transaction-id transaction-date]
+    (delete db-spec
+            (table-name transaction-date :transaction_items)
+            ["transaction_id = ?" transaction-id]))
 
-  (set-transaction-items-reconciled
-    [_ reconciliation-id transaction-item-ids]
-    (jdbc/execute! db-spec (-> (h/update :transaction_items)
+  (set-transaction-item-reconciled
+    [_ reconciliation-id transaction-item-id transaction-date]
+    (jdbc/execute! db-spec (-> (h/update (table-name transaction-date :transaction_items))
                                (h/sset {:reconciliation_id reconciliation-id})
-                               (h/where [:in :id transaction-item-ids])
+                               (h/where [:= :id transaction-item-id])
                                sql/format)))
 
   (unreconcile-transaction-items-by-reconciliation-id
-      [_ reconciliation-id]
-      (jdbc/execute! db-spec (-> (h/update :transaction_items)
-                                 (h/sset {:reconciliation_id nil})
-                                 (h/where [:= :reconciliation-id reconciliation-id])
-                                 sql/format)))
+    [_ reconciliation-id date-range]
+    (with-partitioning (partial jdbc/execute! db-spec) :transaction_items date-range {} [table]
+      (-> (h/update table)
+          (h/sset {:reconciliation_id nil})
+          (h/where [:= :reconciliation-id reconciliation-id])
+          sql/format)))
 
   (select-transaction-items
     [this criteria]
     (.select-transaction-items this criteria {}))
 
   (select-transaction-items
-    [_ criteria options]
-    (let [sql (-> (transaction-item-base-query)
-                  (adjust-select options)
-                  (h/where (map->where criteria))
-                  (append-sort (merge
-                                {:sort [:t.transaction_date :i.index]}
-                                options))
-                  (append-limit options))
-          result (query db-spec sql)]
-      (if (:count options)
-        (-> result first vals first)
-        result)))
+    [this criteria options]
+    (validate-criteria criteria ::transaction-item-criteria)
+    (let [d-range (date-range this (:transaction-date criteria))]
+      (let [result (with-partitioning (partial query db-spec) [:transaction_items :transactions] d-range options [tables]
+                     (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
+                         (h/from [(first tables) :i])
+                         (h/join [(second tables) :t]
+                                 [:= :t.id :i.transaction_id])
+                         (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
+                         (adjust-select options)
+                         (h/where (map->where criteria {:prefix "i"}))
+                         (append-sort (if (:count options)
+                                           options
+                                           (merge
+                                             {:sort [:i.transaction_date :i.index]}
+                                             options)))
+                         (append-limit options)))]
+        (if (:count options)
+          (-> result first vals first)
+          result))))
 
   ; Reconciliations
   (create-reconciliation
@@ -803,40 +918,13 @@
                                                     :end-of-period
                                                     :status))
 
-  (find-reconciliation-by-id
-    [_ id]
-    (first (query db-spec (-> (h/select :*)
-                              (h/from :reconciliations)
-                              (h/where [:= :id id])
-                              (h/limit 1)))))
-
-  (select-reconciliations-by-account-id
-    [_ account-id]
+  (select-reconciliations
+    [_ criteria options]
     (query db-spec (-> (h/select :*)
                        (h/from :reconciliations)
-                       (h/where [:= :account-id account-id]))))
-
-  (find-last-reconciliation-by-account-id
-    [this account-id]
-    (.find-last-reconciliation-by-account-id this account-id nil))
-
-  (find-last-reconciliation-by-account-id
-    [_ account-id status]
-    (let [sql (-> (h/select :*)
-                  (h/from :reconciliations)
-                  (h/where [:= :account-id account-id])
-                  (h/order-by [:end_of_period :desc])
-                  (h/limit 1))]
-      (first (query db-spec (cond-> sql
-                              status (h/merge-where [:= :status (name status)]))))))
-
-  (find-new-reconciliation-by-account-id
-    [_ account-id]
-    (first (query db-spec (-> (h/select :*)
-                              (h/from :reconciliations)
-                              (h/where [:and [:= :status "new"]
-                                        [:= :account-id account-id]])
-                              (h/limit 1)))))
+                       (append-where criteria)
+                       (append-sort options)
+                       (append-limit options))))
 
   (update-reconciliation
     [_ reconciliation]
@@ -964,6 +1052,7 @@
   (create-attachment
     [_ attachment]
     (insert db-spec :attachments attachment :transaction-id
+                                            :transaction-date
                                             :caption
                                             :image-id))
 
@@ -1024,13 +1113,18 @@
               :value)))
 
   (get-setting
-    [_ setting-name]
+    [this setting-name]
+    (.get-setting this setting-name identity))
+
+  (get-setting
+    [_ setting-name transform-fn]
     (->> (query db-spec (-> (h/select :value)
                             (h/from :settings)
                             (h/where [:= :name setting-name])
                             (h/limit 1)))
-         first
-         :value))
+        first
+        :value
+        transform-fn))
 
   ; Database Transaction
   (with-transaction

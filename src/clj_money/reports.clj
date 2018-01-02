@@ -127,8 +127,7 @@
   "Returns the data used to populate an income statement report"
   ([storage-spec entity-id]
    (let [base (t/today)
-         start (t/local-date (t/year base) 1 1)
-         end (t/local-date (t/year base) (t/month base) (t/number-of-days-in-the-month base))]
+         [start end] (transactions/available-date-range storage-spec)]
      (income-statement storage-spec entity-id start end)))
   ([storage-spec entity-id start end]
    (->> {:entity-id entity-id}
@@ -195,7 +194,7 @@
   "Returns the data used to populate a balance sheet report"
   ([storage-spec entity-id]
    (let [base (t/today)
-         end (t/local-date (t/year base) (t/month base) (t/number-of-days-in-the-month base))]
+         [_ end] (transactions/available-date-range storage-spec)]
      (balance-sheet storage-spec entity-id end)))
   ([storage-spec entity-id as-of]
    (let [entity (entities/find-by-id storage-spec entity-id)]
@@ -414,17 +413,18 @@
 
 (defn- transform-lot-transactions
   [trans]
-  (->> (:lot-items trans)
-       (map (fn [item]
-              (merge item (select-keys trans [:id :transaction-date]))))))
+  (map #(merge % (select-keys trans [:id :transaction-date]))
+       (:lot-items trans)))
 
 (defn- append-lot-transactions
   [storage-spec lot]
   (assoc lot
          :transactions
-         (->> {:lot-id (:id lot)}
-              (transactions/search storage-spec)
-              (mapcat transform-lot-transactions))))
+         (mapcat transform-lot-transactions (transactions/search
+                                              storage-spec
+                                              {:lot-id (:id lot)
+                                               :transaction-date [:>= (:purchase-date lot)]}
+                                              {:include-lot-items? true}))))
 
 (defn- append-lot-calculated-values
   [storage-spec lot]
