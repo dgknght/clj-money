@@ -193,7 +193,7 @@
 
 (defn- filter-form
   [params]
-  [:form {:action (format "/accounts/%s" (:id params))
+  [:form {:action (format "/accounts/%s" (:account-id params))
           :method :get}
    [:div.input-group
     [:select.form-control {:name "transaction-date"
@@ -223,7 +223,8 @@
                              (:year-month formatters)
                              (t/today)))]
     (html
-      (filter-form {:transaction-date transaction-date})
+      (filter-form {:transaction-date transaction-date
+                    :account-id (:id account)})
       [:table.table.table-striped.table-hover
        [:tr
         [:th.text-right "Date"]
