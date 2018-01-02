@@ -127,8 +127,7 @@
   "Returns the data used to populate an income statement report"
   ([storage-spec entity-id]
    (let [base (t/today)
-         start (t/local-date (t/year base) 1 1)
-         end (t/local-date (t/year base) (t/month base) (t/number-of-days-in-the-month base))]
+         [start end] (transactions/available-date-range storage-spec)]
      (income-statement storage-spec entity-id start end)))
   ([storage-spec entity-id start end]
    (->> {:entity-id entity-id}
@@ -195,7 +194,7 @@
   "Returns the data used to populate a balance sheet report"
   ([storage-spec entity-id]
    (let [base (t/today)
-         end (t/local-date (t/year base) (t/month base) (t/number-of-days-in-the-month base))]
+         [_ end] (transactions/available-date-range storage-spec)]
      (balance-sheet storage-spec entity-id end)))
   ([storage-spec entity-id as-of]
    (let [entity (entities/find-by-id storage-spec entity-id)]
