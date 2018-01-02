@@ -19,7 +19,6 @@
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
-            [clj-money.pagination :as pagination]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
@@ -93,9 +92,8 @@
            transactions (transactions/search
                           (env :db)
                           criteria
-                          (merge {:limit 1000 ; TODO Need to get :limit and :per-page in sync
-                                  :sort [[:transaction-date :desc]]}
-                                 (pagination/prepare-options params)))]
+                          {:limit 1000
+                           :sort [[:transaction-date :desc]]})]
        (html
          (filter-form (-> params
                           (select-keys [:entity-id])
@@ -105,10 +103,7 @@
            [:th.col-sm-2 "Date"]
            [:th.col-sm-8 "Description"]
            [:th.col-sm-2 "&nbsp;"]]
-          (map transaction-row transactions)]
-         #_(pagination/nav (assoc params
-                                  :url (-> (path "/entities" entity-id "transactions")) 
-                                  :total (transactions/record-count (env :db) criteria)))))
+          (map transaction-row transactions)]))
      (when (allowed? :create (-> {:entity-id entity-id}
                                  (tag-resource :transaction)))
        [:p

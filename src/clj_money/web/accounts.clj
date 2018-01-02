@@ -21,7 +21,6 @@
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number
                                     pprint-and-return]]
-            [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
@@ -236,20 +235,12 @@
        (->> (transactions/search-items (env :db)
                                        {:account-id (:id account)
                                         :transaction-date transaction-date}
-                                       (merge
-                                         {:sort [[:transaction-date :desc] [:index :desc]]}
-                                         (pagination/prepare-options params)))
+                                       {:sort [[:transaction-date :desc] [:index :desc]]})
             (map #(assoc % :transaction (transactions/find-by-id
                                           (env :db)
                                           (:transaction-id %)
                                           (:transaction-date %))))
             (map transaction-item-row))]
-      #_[:p
-         (pagination/nav
-           (assoc params
-                  :url (-> (path "/accounts"
-                                 (:id account)))
-                  :total (transactions/count-items-by-account (env :db) (:id account))))]
 
       [:p
        [:a.btn.btn-primary
