@@ -727,8 +727,10 @@
 
 (defn- update-transaction*
   [{:keys [storage transaction] :as context}]
-  (let [updated (update-transaction storage transaction)]
-  (assoc context :transaction (reload storage transaction))))
+  (->> transaction
+       before-save
+       (update-transaction storage))
+  (assoc context :transaction (reload storage transaction)))
 
 (defn update
   "Updates the specified transaction"

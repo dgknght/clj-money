@@ -74,6 +74,7 @@
         expected [{:transaction-date (t/local-date 2016 3 2)
                    :description "Paycheck"
                    :memo "Partial payment, final"
+                   :amount 1000M
                    :entity-id entity-id
                    :items [{:account-id (:id checking)
                             :memo "conf # 123"
@@ -88,6 +89,7 @@
                             :balance 1000M
                             :index 0}]}]]
     (is (empty? (validation/error-messages result)) "The result should be valid")
+    (pprint-diff expected actual)
     (is (= expected actual) "The transaction should be retrievable")))
 
 (def update-context
@@ -133,6 +135,7 @@
                   :description "Employer"
                   :entity-id (-> context :entities first :id)
                   :memo nil
+                  :amount 1001M
                   :items [{:action :debit
                            :account-id (:id checking)
                            :amount 1001M
