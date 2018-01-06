@@ -97,10 +97,12 @@
                               :transaction-date (t/local-date 2016 1 2)
                               :description "Purchase 100 shares of AAPL at 10.000"
                               :memo nil
+                              :amount 1000M
                               :lot-items [{:lot-action :buy
                                            :shares 100M
                                            :price 10M}]
                               :items [{:action :debit
+                                       :negative false
                                        :amount 100M
                                        :balance 100M
                                        :value 1000M
@@ -113,6 +115,7 @@
                                        :reconciled? false
                                        :reconciliation-id nil}
                                       {:action :credit
+                                       :negative false
                                        :amount 1000M
                                        :balance 1000M
                                        :value 1000M
@@ -390,7 +393,9 @@
                               :description "Sell 25 shares of AAPL at 15.000"
                               :entity-id (-> context :entities first :id)
                               :memo nil
+                              :amount 375M
                               :items [{:action :debit
+                                       :negative false
                                        :account-id (:id ira)
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
@@ -403,6 +408,7 @@
                                        :memo nil
                                        :index 2}
                                       {:action :credit
+                                       :negative false
                                        :account-id (:id ltcg)
                                        :memo "Sell 25 shares of AAPL at 15.000"
                                        :transaction-date (t/local-date 2017 3 2)
@@ -415,6 +421,7 @@
                                        :reconciliation-id nil
                                        :index 0}
                                       {:action :credit
+                                       :negative true
                                        :account-id (:id commodity-account)
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
