@@ -186,10 +186,10 @@
   [transaction]
   (-> transaction
       (dissoc :items)
-      (assoc :amount (->> (:items transaction)
-                          (filter #(= :credit (:action %)))
-                          (map :amount)
-                          (reduce +)))
+      (assoc :value (->> (:items transaction)
+                         (filter #(= :credit (:action %)))
+                         (map :value)
+                         (reduce +)))
       (update-in [:lot-items] #(when %
                                  (map (fn [i]
                                         (update-in i [:lot-action] name))

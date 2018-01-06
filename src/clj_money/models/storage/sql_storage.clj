@@ -795,7 +795,7 @@
             :description
             :transaction-date
             :memo
-            :amount))
+            :value))
 
   (delete-transaction
     [_ id transaction-date]
@@ -810,7 +810,7 @@
                                         :description
                                         :transaction-date
                                         :memo
-                                        :amount))
+                                        :value))
                               (h/where [:= :id (:id transaction)])))]
       (jdbc/execute! db-spec sql)))
 

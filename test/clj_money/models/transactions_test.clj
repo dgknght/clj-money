@@ -81,7 +81,7 @@
                       :description "Paycheck"
                       :memo "final, partial"
                       :entity-id (-> context :entities first :id)
-                      :amount 1000M
+                      :value 1000M
                       :items [{:description "Paycheck"
                                :account-id (:id (find-account context "Checking"))
                                :index 0
@@ -507,7 +507,7 @@
                                                      :transaction-date transaction-date}))]
         (is transaction "The transaction is retrieved successfully")
         (is (nil? (:items transaction)) "The items are not included")
-        (is (= 1000M (:amount transaction)) "The correct amount is returned")))
+        (is (= 1000M (:value transaction)) "The correct value is returned")))
     (testing "items are included if specified"
       (let [transaction (first (transactions/search storage-spec
                                                     {:id id

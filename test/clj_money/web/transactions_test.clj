@@ -74,7 +74,7 @@
         expected [{:transaction-date (t/local-date 2016 3 2)
                    :description "Paycheck"
                    :memo "Partial payment, final"
-                   :amount 1000M
+                   :value 1000M
                    :entity-id entity-id
                    :items [{:account-id (:id checking)
                             :memo "conf # 123"
@@ -135,7 +135,7 @@
                   :description "Employer"
                   :entity-id (-> context :entities first :id)
                   :memo nil
-                  :amount 1001M
+                  :value 1001M
                   :items [{:action :debit
                            :account-id (:id checking)
                            :amount 1001M
