@@ -81,13 +81,16 @@
                       :description "Paycheck"
                       :memo "final, partial"
                       :entity-id (-> context :entities first :id)
+                      :value 1000M
                       :items [{:description "Paycheck"
                                :account-id (:id (find-account context "Checking"))
                                :index 0
                                :transaction-date (t/local-date 2016 3 2)
                                :action :debit
+                               :negative false
                                :memo "conf # 123"
                                :amount 1000M
+                               :polarized-amount 1000M
                                :balance 1000M
                                :value 1000M
                                :reconciliation-status nil
@@ -98,8 +101,10 @@
                                :index 0
                                :transaction-date (t/local-date 2016 3 2)
                                :action :credit
+                               :negative false
                                :memo nil
                                :amount 1000M
+                               :polarized-amount 1000M
                                :balance 1000M
                                :value 1000M
                                :reconciliation-status nil
@@ -501,7 +506,8 @@
                                                     {:id id
                                                      :transaction-date transaction-date}))]
         (is transaction "The transaction is retrieved successfully")
-        (is (nil? (:items transaction)) "The items are not included")))
+        (is (nil? (:items transaction)) "The items are not included")
+        (is (= 1000M (:value transaction)) "The correct value is returned")))
     (testing "items are included if specified"
       (let [transaction (first (transactions/search storage-spec
                                                     {:id id

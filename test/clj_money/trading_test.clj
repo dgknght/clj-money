@@ -10,7 +10,8 @@
             [clj-money.test-helpers :refer [reset-db
                                             find-account
                                             find-accounts
-                                            find-commodity]]
+                                            find-commodity
+                                            pprint-diff]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -97,11 +98,14 @@
                               :transaction-date (t/local-date 2016 1 2)
                               :description "Purchase 100 shares of AAPL at 10.000"
                               :memo nil
+                              :value 1000M
                               :lot-items [{:lot-action :buy
                                            :shares 100M
                                            :price 10M}]
                               :items [{:action :debit
                                        :amount 100M
+                                       :negative false
+                                       :polarized-amount 100M
                                        :balance 100M
                                        :value 1000M
                                        :account-id (:id apple-account)
@@ -114,6 +118,8 @@
                                        :reconciliation-id nil}
                                       {:action :credit
                                        :amount 1000M
+                                       :negative false
+                                       :polarized-amount 1000M
                                        :balance 1000M
                                        :value 1000M
                                        :account-id (:id ira)
@@ -151,10 +157,7 @@
                                                        :balance)]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
-    (when-not (= expected-transaction actual-transaction)
-      (pprint {:expected expected-transaction
-               :actual actual-transaction
-               :diff (diff expected-transaction actual-transaction)}))
+    (pprint-diff expected-transaction actual-transaction)
     (is (= expected-transaction actual-transaction)
         "The resulting transaction has the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
@@ -371,10 +374,10 @@
                                             :shares 100M
                                             :value 1000M})
         commodity-account (->> {:entity-id (-> context :entities first :id)
-                                            :commodity-id (:id commodity)}
+                                :commodity-id (:id commodity)}
                                (accounts/search storage-spec)
                                first)
-        lot (-> purchase :lot)
+        lot (:lot purchase)
         result (trading/sell storage-spec (sale-attributes context))
         actual-transaction (-> result
                                :transaction
@@ -390,11 +393,14 @@
                               :description "Sell 25 shares of AAPL at 15.000"
                               :entity-id (-> context :entities first :id)
                               :memo nil
+                              :value 375M
                               :items [{:action :debit
                                        :account-id (:id ira)
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
                                        :amount 375M
+                                       :negative false
+                                       :polarized-amount 375M
                                        :value 375M
                                        :balance 1375M
                                        :reconciliation-status nil
@@ -408,6 +414,8 @@
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
                                        :amount 125M
+                                       :negative false
+                                       :polarized-amount 125M
                                        :value 125M
                                        :balance 125M
                                        :reconciliation-status nil
@@ -419,6 +427,8 @@
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
                                        :amount 25M
+                                       :negative false
+                                       :polarized-amount 25M
                                        :balance 75M
                                        :value 250M
                                        :reconciliation-status nil
@@ -444,10 +454,7 @@
         "The shares-owned value of the original lot is updated")
     (is (:transaction result)
         "The result contains the transaction record")
-    (when-not (= expected-transaction actual-transaction)
-      (pprint {:expected expected-transaction
-               :actual actual-transaction
-               :diff (diff expected-transaction actual-transaction)}))
+    (pprint-diff expected-transaction actual-transaction)
     (is (= expected-transaction actual-transaction)
         "The transaction contains the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
@@ -621,10 +628,12 @@
                    :action :credit
                    :account-id (:id lt-capital-gains)
                    :amount 125M
+                   :negative false
                    :value 125M
                    :memo "Sell 25 shares of AAPL at 15.000"
                    :balance 125M
                    :index 0}]]
+    (pprint-diff expected gains-items)
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
@@ -643,10 +652,12 @@
                    :action :credit
                    :account-id (:id st-capital-gains)
                    :amount 125M
+                   :negative false
                    :value 125M
                    :memo "Sell 25 shares of AAPL at 15.000"
                    :balance 125M
                    :index 0}]]
+    (pprint-diff expected gains-items)
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-loss-debits-capital-loss
@@ -663,14 +674,12 @@
                    :action :debit
                    :account-id (:id capital-loss)
                    :amount 150M
+                   :negative false
                    :value 150M
                    :memo "Sell 100 shares of AAPL at 8.500"
                    :balance 150M
                    :index 0}]]
-    (when-not (= expected gains-items)
-      (pprint {:expected expected
-               :actual gains-items
-               :diff (diff expected gains-items)}))
+    (pprint-diff expected gains-items)
     (is (= expected gains-items) "The capital loss account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)

@@ -14,7 +14,8 @@
                                              allowed?
                                              tag-resource
                                              apply-scope]]
-            [clj-money.util :refer [ensure-local-date
+            [clj-money.util :refer [format-number
+                                    ensure-local-date
                                     descending-periodic-seq]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
@@ -45,6 +46,7 @@
   [:tr
    [:td (format-date (:transaction-date transaction))]
    [:td (:description transaction)]
+   [:td.text-right (format-number (:value transaction))]
    [:td
     [:div.btn-group
      (when (allowed? :update transaction)
@@ -101,7 +103,8 @@
          [:table.table.table-striped
           [:tr
            [:th.col-sm-2 "Date"]
-           [:th.col-sm-8 "Description"]
+           [:th.col-sm-6 "Description"]
+           [:th.col-sm-2.text-right "Value"]
            [:th.col-sm-2 "&nbsp;"]]
           (map transaction-row transactions)]))
      (when (allowed? :create (-> {:entity-id entity-id}

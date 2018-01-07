@@ -35,7 +35,6 @@
             0M
             (->> reconciliation
                  (transactions/select-items-by-reconciliation (env :db))
-                 (map #(transactions/polarize-item-amount % account))
                  (map :polarized-amount)))
     0M))
 

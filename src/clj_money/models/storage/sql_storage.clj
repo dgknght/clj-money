@@ -794,7 +794,8 @@
             :entity-id
             :description
             :transaction-date
-            :memo))
+            :memo
+            :value))
 
   (delete-transaction
     [_ id transaction-date]
@@ -808,7 +809,8 @@
                                         transaction
                                         :description
                                         :transaction-date
-                                        :memo))
+                                        :memo
+                                        :value))
                               (h/where [:= :id (:id transaction)])))]
       (jdbc/execute! db-spec sql)))
 
@@ -823,6 +825,7 @@
             :account-id
             :action
             :amount
+            :negative
             :value
             :index
             :balance
@@ -836,6 +839,7 @@
                          (h/sset (->update-set transaction-item
                                                :transaction-date
                                                :amount
+                                               :negative
                                                :memo
                                                :action
                                                :index

@@ -78,31 +78,36 @@
   [entity-id]
   (get-in @ambient-settings [entity-id :delay-balances?]))
 
+(defn- remove-empty-strings
+  [model & keys]
+  (reduce (fn [m k]
+            (if (and (string? (k m))
+                     (empty? (k m)))
+              (dissoc m k)
+              m))
+          model
+          keys))
+
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
-  (let [updated (update-in item [:action] name)]
-    (if (and (string? (:memo item))
-             (empty? (:memo item)))
-      (dissoc updated :memo)
-      updated)))
-
-(defn polarize-item-amount
-  [item account]
-  (assoc item :polarized-amount (accounts/polarize-amount item account)))
+  (-> item
+    (update-in [:action] name)
+    (remove-empty-strings :memo)
+    (update-in [:negative] (fnil identity false))))
 
 (defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return
   from the data store"
   ([item] (after-item-read item nil))
-  ([item account]
+  ([{:keys [amount negative reconciliation-status] :as item} account]
    (if (map? item)
-     (let [updated (-> item
-                       (update-in [:action] keyword)
-                       (assoc :reconciled? (= "completed" (:reconciliation-status item))))]
-       (if account
-         (polarize-item-amount updated account)
-         updated))
+     (-> item
+         (update-in [:action] keyword)
+         (assoc :reconciled? (= "completed" reconciliation-status)
+                :polarized-amount (if negative
+                                    (* -1 amount)
+                                    amount)))
      item)))
 
 (defn- item-value-sum
@@ -181,6 +186,10 @@
   [transaction]
   (-> transaction
       (dissoc :items)
+      (assoc :value (->> (:items transaction)
+                         (filter #(= :credit (:action %)))
+                         (map :value)
+                         (reduce +)))
       (update-in [:lot-items] #(when %
                                  (map (fn [i]
                                         (update-in i [:lot-action] name))
@@ -454,6 +463,7 @@
         changed (update-item-index-and-balance
                   storage
                   (assoc item
+                         :negative (< polarized-amount 0M)
                          :index new-index
                          :balance new-balance))]
     ; if the index and balance didn't change, we can short circuit the update
@@ -501,7 +511,9 @@
 
 (defn- create-transaction-and-adjust-balances
   [storage transaction]
-  (let [created (link-lots storage (create-transaction* storage transaction))]
+  (let [created (->> transaction
+                     (create-transaction* storage)
+                     (link-lots storage))]
     (doall (->> (:items transaction)
 
                 ; create database records
@@ -715,8 +727,10 @@
 
 (defn- update-transaction*
   [{:keys [storage transaction] :as context}]
-  (let [updated (update-transaction storage transaction)]
-  (assoc context :transaction (reload storage transaction))))
+  (->> transaction
+       before-save
+       (update-transaction storage))
+  (assoc context :transaction (reload storage transaction)))
 
 (defn update
   "Updates the specified transaction"
