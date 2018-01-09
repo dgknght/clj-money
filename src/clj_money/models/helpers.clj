@@ -77,9 +77,8 @@
 (defn- process-options
   [options storage model & fn-keys]
   (->> fn-keys
-       (map #(or
-               (% options)
-               (fn [_ model] model)))
+       (map #(% options))
+       (keep identity)
        (reduce (fn [model f]
                  (f storage model))
                model)))
