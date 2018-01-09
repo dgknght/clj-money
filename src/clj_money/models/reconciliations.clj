@@ -66,8 +66,7 @@
   ([reconciliation]
    (before-save nil reconciliation))
   ([_ reconciliation]
-   (-> reconciliation
-       (update-in [:status] name))))
+   (update-in reconciliation [:status] name)))
 
 (defn- append-transaction-item-refs
   [reconciliation storage]
@@ -230,15 +229,28 @@
        before-validation
        (validation/validate spec rules)))
 
+(defn- item-refs->date-range
+  [item-refs]
+  (when (seq item-refs)
+    ((juxt first last) (->> item-refs
+                            (map second)
+                            sort))))
+
 (defn- after-save
-  [storage {item-refs :item-refs :as reconciliation}]
+  [storage {:keys [id item-refs] :as reconciliation}]
   ; Set reconciled flag on specified transaction items
-  (when (and item-refs (seq item-refs))
-    (doseq [[item-ref transaction-date] item-refs]
-      (set-transaction-item-reconciled storage
-                                       (:id reconciliation)
-                                       item-ref
-                                       transaction-date)))
+  (let [date-range (item-refs->date-range item-refs)]
+    (when date-range
+      (unreconcile-transaction-items-by-reconciliation-id
+        storage
+        id
+        date-range))
+    (when (and item-refs (seq item-refs))
+      (doseq [[item-ref transaction-date] item-refs]
+        (set-transaction-item-reconciled storage
+                                         id
+                                         item-ref
+                                         transaction-date))))
   reconciliation)
 
 (defn- create*
@@ -266,32 +278,20 @@
   (let [existing (find-by-id storage (Integer. (:id reconciliation)))]
     (assoc reconciliation :account-id (:account-id existing))))
 
-(defn- item-refs->date-range
-  [item-refs]
-  (when (seq item-refs)
-    ((juxt first last) (->> item-refs
-                            (map second)
-                            sort))))
+(defn- update*
+  [storage reconciliation]
+  )
 
-(defn update
-  "Updates the specified reconciliation"
-  [storage-spec reconciliation]
-  (with-storage [s storage-spec]
-    (let [validated (->> reconciliation
-                         (set-account-id s)
-                         (validate ::existing-reconciliation (validation-rules s)))]
-      (if (validation/valid? validated)
-        (let [date-range (item-refs->date-range (:item-ds validated))]
-          (->> validated
-               before-save
-               (update-reconciliation s))
-          (when date-range
-            (unreconcile-transaction-items-by-reconciliation-id s (:id validated) date-range))
-          (when (and (:item-refs validated) (seq (:item-refs validated))) ; TODO: remove this redundancy wth create
-            (doseq [[item-ref date] (:item-refs validated)]
-              (set-transaction-item-reconciled s (:id validated) item-ref date)))
-          (reload s validated))
-        validated))))
+(def update
+  (update-fn {:spec ::existing-reconciliation
+              :before-validation before-validation
+              :update update-reconciliation
+              :before-save before-save
+              :after-save after-save
+              :rules-fn validation-rules
+              :after-read after-read
+              :coercion-rules coercion-rules
+              :reload reload}))
 
 (defn delete
   "Removes the specified reconciliation from the system. (Only the most recent may be deleted.)"
