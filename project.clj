@@ -7,6 +7,7 @@
                  [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/core.async "0.3.443"]
                  [org.clojure/tools.cli "0.3.5"]
+                 [org.clojure/data.xml "0.0.8"]
                  [slingshot "0.12.2"]
                  [clj-http "3.5.0"]
                  [cheshire "5.7.1"]
@@ -41,6 +42,7 @@
   :aliases {"migrate"               ["run" "-m" "clj-money.db/migrate"]
             "rollback"              ["run" "-m" "clj-money.db/rollback"]
             "partition"             ["run" "-m" "clj-money.db/create-partitions"]
+            "chunk-file"            ["run" "-m" "clj-money.import.gnucash/chunk-file"]
             "seed"                  ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]}
   :jvm-opts ["-Duser.timezone=UTC"]

@@ -5,11 +5,16 @@
             [clojure.set :refer [rename-keys]]
             [clojure.string :as s]
             [clojure.tools.logging :as log]
+            [clojure.tools.cli :refer [parse-opts]]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
-            [clj-money.util :refer [pprint-and-return]]
+            [clojure.data.xml :as x]
+            [clj-money.util :refer [pprint-and-return
+                                    pprint-and-return-l]]
             [clj-money.import :refer [read-source]])
-  (:import java.util.zip.GZIPInputStream))
+  (:import java.util.zip.GZIPInputStream
+           [java.io FileInputStream
+                    File]))
 
 (defn- parse-date
   [string-date]
@@ -269,16 +274,59 @@
        (concat ["/gnc-v2/gnc:book/gnc:pricedb/price"])
        (s/join " | ")))
 
+(defn- parse-input
+  [input]
+  (log/debug "reading the input stream into the DOM")
+  ($x element-xpath (-> (GZIPInputStream. input)
+                        io/reader
+                        slurp
+                        xml->doc)))
+
 (defmethod read-source :gnucash
   [_ input callback]
   (with-namespace-context namespace-map
-    (log/debug "reading the input stream into the DOM")
-    (let [xml (->> (GZIPInputStream. input)
-                   io/reader
-                   slurp
-                   xml->doc)]
-      (log/debug "finished building DOM from input stream")
-      (log/debug "processing the DOM source")
-      (doseq [node ($x element-xpath xml)]
-        (process-node callback node))
-      (log/debug "finished processing the DOM source"))))
+    (log/debug "processing the DOM source")
+    (doseq [node (parse-input input)]
+      (process-node callback node))
+    (log/debug "finished processing the DOM source")))
+
+(defn- advance-context
+  [{:keys [node-count max-node-count] :as context}]
+  (if (< node-count max-node-count)
+    (update-in context [:node-count] inc) 
+    (-> context
+        (assoc :node-count 0)
+        (update-in [:output-paths] #(conj % (format "%s/%s_%s"
+                                                    (:output-folder context)
+                                                    (:file-name context)
+                                                    (count %)))))))
+
+(defn- rewrite-node
+  [context node]
+  (let [result (advance-context context)]
+    (pprint {:context context})
+    result))
+
+(def ^:private chunk-file-options
+  [["-v" "--verbose" "Print a lot of details about what's going on"]
+   ["-m" "--maximum MAXIMUM" "The maximum number of nodes to include in each output file"
+    :parse-fn #(Integer/parseInt %)
+    :default 100]])
+
+(defn chunk-file
+  "Accepts a path to a gnucash file and creates multiple, smaller files
+  that container the same data, returning the paths to the new files"
+  [& args]
+  (let [opts (parse-opts args chunk-file-options)
+        input-path (-> opts :arguments first)
+        input-file (File. input-path)
+        output-folder (.getParent input-file)
+        file-name (.getName input-file)]
+    (with-namespace-context namespace-map
+      (reduce rewrite-node
+              {:putput-paths []
+               :max-node-count (-> opts :options :maximum)
+               :node-count 0
+               :file-name file-name
+               :output-folder output-folder}
+              (parse-input (FileInputStream. input-path))))))
