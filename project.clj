@@ -7,7 +7,6 @@
                  [org.clojure/tools.logging "0.3.1"]
                  [org.clojure/core.async "0.3.443"]
                  [org.clojure/tools.cli "0.3.5"]
-                 [org.clojure/data.xml "0.0.8"]
                  [slingshot "0.12.2"]
                  [clj-http "3.5.0"]
                  [cheshire "5.7.1"]

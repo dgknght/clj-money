@@ -8,7 +8,6 @@
             [clojure.tools.cli :refer [parse-opts]]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
-            [clojure.data.xml :as x]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.import :refer [read-source]])
@@ -290,28 +289,55 @@
       (process-node callback node))
     (log/debug "finished processing the DOM source")))
 
+(defn- finalize-output-file
+  [context]
+  (if-let [output (:output context)]
+    (do
+      (doto output
+        .flush
+        .close)
+      (dissoc context :output))
+    context))
+
+(defn- initialize-output-file
+  [context]
+  (let [output-path (format "%s/%s_%s.edn"
+                            (:output-folder context)
+                            (:file-name context)
+                            (count (:output-paths context)))]
+    (-> context
+        (update-in [:output-paths] #(conj % output-path))
+        (assoc :output (io/writer output-path))
+        (assoc :node-count 0))))
+
+(defn- advance-output-file
+  [context]
+  (-> context
+      (finalize-output-file)
+      (initialize-output-file)))
+
 (defn- advance-context
   [{:keys [node-count max-node-count] :as context}]
-  (if (< node-count max-node-count)
-    (update-in context [:node-count] inc) 
-    (-> context
-        (assoc :node-count 0)
-        (update-in [:output-paths] #(conj % (format "%s/%s_%s"
-                                                    (:output-folder context)
-                                                    (:file-name context)
-                                                    (count %)))))))
+  (cond-> context
+    (< node-count max-node-count)
+    (update-in [:node-count] inc)
 
-(defn- rewrite-node
-  [context node]
-  (let [result (advance-context context)]
-    (pprint {:context context})
-    result))
+    (>= node-count max-node-count)
+    advance-output-file))
 
 (def ^:private chunk-file-options
   [["-v" "--verbose" "Print a lot of details about what's going on"]
    ["-m" "--maximum MAXIMUM" "The maximum number of nodes to include in each output file"
     :parse-fn #(Integer/parseInt %)
     :default 100]])
+
+(defmacro ^:private with-input-file
+  [bindings & body]
+  `(let [input-stream# (FileInputStream. ~(second bindings))
+         body-fn# (fn [~(first bindings)]
+                    ~@body)]
+     (body-fn# input-stream#)
+     (.close input-stream#)))
 
 (defn chunk-file
   "Accepts a path to a gnucash file and creates multiple, smaller files
@@ -321,12 +347,19 @@
         input-path (-> opts :arguments first)
         input-file (File. input-path)
         output-folder (.getParent input-file)
-        file-name (.getName input-file)]
-    (with-namespace-context namespace-map
-      (reduce rewrite-node
-              {:putput-paths []
-               :max-node-count (-> opts :options :maximum)
-               :node-count 0
-               :file-name file-name
-               :output-folder output-folder}
-              (parse-input (FileInputStream. input-path))))))
+        file-name (.getName input-file)
+        context (atom (initialize-output-file {:output-paths []
+                                               :max-node-count (-> opts :options :maximum)
+                                               :node-count 0
+                                               :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
+                                               :output-folder output-folder}))]
+    (with-input-file [input-stream input-file]
+      (read-source :gnucash
+                   input-stream
+                   (fn [record]
+                     (swap! context advance-context)
+
+                     (pprint {:context @context})
+
+                     (.write (:output @context) (prn-str record)))))
+    (finalize-output-file @context)))
