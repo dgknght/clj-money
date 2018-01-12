@@ -12,8 +12,7 @@
                                     pprint-and-return-l]]
             [clj-money.import :refer [read-source]])
   (:import java.util.zip.GZIPInputStream
-           [java.io FileInputStream
-                    File]))
+           [java.io File FileInputStream]))
 
 (defn- parse-date
   [string-date]
@@ -289,55 +288,39 @@
       (process-node callback node))
     (log/debug "finished processing the DOM source")))
 
-(defn- finalize-output-file
-  [context]
-  (if-let [output (:output context)]
-    (do
-      (doto output
-        .flush
-        .close)
-      (dissoc context :output))
+(defn- process-output
+  [{:keys [verbose records output-folder file-name output-paths] :as context}]
+  (if (seq records)
+    (let [output-path (format "%s/%s_%s.edn"
+                              output-folder
+                              file-name
+                              (count output-paths))]
+
+      (when verbose
+        (println "Writing" (count records) "to" output-path))
+
+      (with-open [writer (io/writer output-path)]
+        (.write writer (prn-str records)))
+
+      (when verbose
+        (println "Done."))
+
+      (-> context
+          (assoc :records [])
+          (update-in [:output-paths] #(conj % output-path))))
     context))
 
-(defn- initialize-output-file
-  [context]
-  (let [output-path (format "%s/%s_%s.edn"
-                            (:output-folder context)
-                            (:file-name context)
-                            (count (:output-paths context)))]
-    (-> context
-        (update-in [:output-paths] #(conj % output-path))
-        (assoc :output (io/writer output-path))
-        (assoc :node-count 0))))
-
-(defn- advance-output-file
-  [context]
-  (-> context
-      (finalize-output-file)
-      (initialize-output-file)))
-
 (defn- advance-context
-  [{:keys [node-count max-node-count] :as context}]
-  (cond-> context
-    (< node-count max-node-count)
-    (update-in [:node-count] inc)
-
-    (>= node-count max-node-count)
-    advance-output-file))
+  [{:keys [records max-record-count] :as context}]
+  (if (>= (count records) max-record-count)
+    (process-output context)
+    context))
 
 (def ^:private chunk-file-options
   [["-v" "--verbose" "Print a lot of details about what's going on"]
-   ["-m" "--maximum MAXIMUM" "The maximum number of nodes to include in each output file"
+   ["-m" "--maximum MAXIMUM" "The maximum number of records to include in each output file"
     :parse-fn #(Integer/parseInt %)
-    :default 100]])
-
-(defmacro ^:private with-input-file
-  [bindings & body]
-  `(let [input-stream# (FileInputStream. ~(second bindings))
-         body-fn# (fn [~(first bindings)]
-                    ~@body)]
-     (body-fn# input-stream#)
-     (.close input-stream#)))
+    :default 1000]])
 
 (defn chunk-file
   "Accepts a path to a gnucash file and creates multiple, smaller files
@@ -348,18 +331,20 @@
         input-file (File. input-path)
         output-folder (.getParent input-file)
         file-name (.getName input-file)
-        context (atom (initialize-output-file {:output-paths []
-                                               :max-node-count (-> opts :options :maximum)
-                                               :node-count 0
-                                               :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
-                                               :output-folder output-folder}))]
-    (with-input-file [input-stream input-file]
+        context (atom {:output-paths []
+                       :verbose (:vervose opts)
+                       :records []
+                       :max-record-count (-> opts :options :maximum)
+                       :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
+                       :output-folder output-folder})]
+    (with-open [input-stream (FileInputStream. input-file)]
       (read-source :gnucash
                    input-stream
                    (fn [record]
-                     (swap! context advance-context)
-
-                     (pprint {:context @context})
-
-                     (.write (:output @context) (prn-str record)))))
-    (finalize-output-file @context)))
+                     (when (not (:verbose opts))
+                       (print "."))
+                     (swap! context #(-> %
+                                         (update-in [:records] (fn [records] (conj records record)))
+                                         advance-context))))
+      (process-output @context)))
+  (println ""))
