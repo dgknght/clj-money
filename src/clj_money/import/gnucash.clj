@@ -11,8 +11,10 @@
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.import :refer [read-source]])
-  (:import java.util.zip.GZIPInputStream
-           [java.io File FileInputStream]))
+  (:import [java.util.zip GZIPInputStream
+                          GZIPOutputStream]
+           [java.io File FileInputStream
+                         FileOutputStream]))
 
 (defn- parse-date
   [string-date]
@@ -291,19 +293,17 @@
 (defn- process-output
   [{:keys [verbose records output-folder file-name output-paths] :as context}]
   (if (seq records)
-    (let [output-path (format "%s/%s_%s.edn"
+    (let [output-path (format "%s/%s_%s.edn.gz"
                               output-folder
                               file-name
                               (count output-paths))]
 
-      (when verbose
-        (println "Writing" (count records) "to" output-path))
+      (log/info "Writing" (count records) "records to" output-path)
 
-      (with-open [writer (io/writer output-path)]
+      (with-open [writer (io/writer (GZIPOutputStream. (FileOutputStream. output-path)))]
         (.write writer (prn-str records)))
 
-      (when verbose
-        (println "Done."))
+      (log/info "Finished writing" output-path)
 
       (-> context
           (assoc :records [])
