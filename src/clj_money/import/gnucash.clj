@@ -36,8 +36,7 @@
        (into {})))
 
 (defmulti process-node
-  (fn [_ node]
-    (:tag node)))
+  :tag)
 
 (defn- process-node-attribute
   [node result {:keys [attribute xpath transform-fn default]}]
@@ -82,19 +81,23 @@
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
+(defn- node->account
+  [node]
+  (with-namespace-context namespace-map
+    (let [account (node->model node account-attributes)]
+      (-> account
+          (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
+                                         (-> exchange
+                                             s/lower-case
+                                             keyword))
+                             :symbol (:commodity-symbol account)})
+          (dissoc :commodity-exchange :commodity-symbol)
+          (with-meta {:record-type :account
+                      :ignore? (ignored-accounts (:name account))})))))
+
 (defmethod process-node :gnc:account
-  [callback node]
-  (let [account (node->model node account-attributes)]
-    (-> account
-        (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
-                                       (-> exchange
-                                           s/lower-case
-                                           keyword))
-                           :symbol (:commodity-symbol account)})
-        (dissoc :commodity-exchange :commodity-symbol)
-        (with-meta {:record-type :account
-                    :ignore? (ignored-accounts (:name account))})
-        callback)))
+  [node]
+  (node->account node))
 
 (def ^:private budget-attributes
   [{:attribute :id
@@ -139,12 +142,11 @@
                              (into #{}))))))
 
 (defmethod process-node :gnc:budget
-  [callback node]
+  [node]
   (-> node
       (node->model budget-attributes)
       (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
-      (with-meta {:record-type :budget})
-      callback))
+      (with-meta {:record-type :budget})))
 
 (def ^:private commodity-attributes
   [{:attribute :exchange
@@ -168,14 +170,18 @@
     (nil? (#{:nasdaq :nyse} (:exchange commodity)))
     (dissoc :exchange)))
 
+(defn- node->commodity
+  [node]
+  (with-namespace-context namespace-map
+    (let [commodity (node->model node commodity-attributes)]
+      (when (not= :template (:exchange commodity))
+        (-> commodity
+            refine-commodity
+            (with-meta {:record-type :commodity}))))))
+
 (defmethod process-node :gnc:commodity
-  [callback node]
-  (let [commodity (node->model node commodity-attributes)]
-    (when (not= :template (:exchange commodity))
-      (-> commodity
-          refine-commodity
-          (with-meta {:record-type :commodity})
-          callback))))
+  [node]
+  (node->commodity node))
 
 (def ^:private price-attributes
   [{:attribute :trade-date
@@ -191,18 +197,16 @@
     :xpath "price:commodity/cmdty:id"}])
 
 (defmethod process-node :price
-  [callback node]
+  [node]
   (-> node
       (node->model price-attributes)
-      (with-meta {:record-type :price})
-      callback))
+      (with-meta {:record-type :price})))
 
 (defmethod process-node :gnc:count-data
-  [callback node]
+  [node]
   (-> {:record-type (-> node :attrs :cd:type keyword)
        :record-count (Integer. (:text node))}
-      (with-meta {:record-type :declaration})
-      callback))
+      (with-meta {:record-type :declaration})))
 
 (def ^:private transaction-item-attributes
   [{:attribute :account-id
@@ -261,12 +265,11 @@
     transaction))
 
 (defmethod process-node :gnc:transaction
-  [callback node]
+  [node]
   (-> node
       node->transaction
       (append-trading-attributes node)
-      (with-meta {:record-type :transaction})
-      callback))
+      (with-meta {:record-type :transaction})))
 
 (def element-xpath
   (->> ["count-data" "account" "transaction" "budget" "commodity"]
@@ -283,12 +286,14 @@
                         xml->doc)))
 
 (defmethod read-source :gnucash
-  [_ input callback]
+  [_ input]
   (with-namespace-context namespace-map
     (log/debug "processing the DOM source")
-    (doseq [node (parse-input input)]
-      (process-node callback node))
-    (log/debug "finished processing the DOM source")))
+    (let [result (->> (parse-input input)
+                      (map process-node)
+                      (filter identity))]
+      (log/debug "finished processing the DOM source")
+      result)))
 
 (defn- process-output
   [{:keys [verbose records output-folder file-name output-paths] :as context}]
@@ -338,13 +343,11 @@
                        :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
                        :output-folder output-folder})]
     (with-open [input-stream (FileInputStream. input-file)]
-      (read-source :gnucash
-                   input-stream
-                   (fn [record]
-                     (when (not (:verbose opts))
-                       (print "."))
-                     (swap! context #(-> %
-                                         (update-in [:records] (fn [records] (conj records record)))
-                                         advance-context))))
+      (doseq [record (read-source :gnucash input-stream)]
+        (when (not (:verbose opts))
+          (print "."))
+        (swap! context #(-> %
+                            (update-in [:records] (fn [records] (conj records record)))
+                            advance-context)))
       (process-output @context)))
   (println ""))

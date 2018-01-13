@@ -20,7 +20,7 @@
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
 (defmulti read-source
-  (fn [source-type _ _]
+  (fn [source-type _]
     source-type))
 
 (defn- import-price
@@ -235,5 +235,6 @@
                                                            (:entity-name impt))})
           [input source-type] (prepare-input s (:image-id impt))]
       (transactions/with-delayed-balancing s (-> @context :entity :id)
-        (read-source source-type input (partial process-callback context)))
+        (doseq [record (read-source source-type input)]
+          (process-callback context record)))
       (:entity @context))))

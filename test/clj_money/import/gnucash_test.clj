@@ -176,25 +176,22 @@
 (defn- track-record
   [store record]
   (let [{:keys [record-type ignore?]} (meta record)]
-    (swap! store (fn [f]
-                   (cond-> f
-                     (not ignore?)
-                     (update-in [record-type]
-                                #((fnil conj []) % record)))))))
+    (if ignore?
+      store
+      (update-in store
+                 [record-type]
+                 #((fnil conj []) % record)))))
 
 (deftest read-gnucash-source
-  (let [found (atom {})]
-    (read-source :gnucash
-                 input
-                 (partial track-record found))
-    (is (= declarations (:declaration @found)) "The correct declarations are found")
-    (is (= accounts (:account @found)) "The correct accounts are found")
-    (is (= budgets (:budget @found)) "The current budgets are found")
-    (when-not (= transactions (:transaction @found))
+  (let [found (reduce track-record {} (read-source :gnucash input))]
+    (is (= declarations (:declaration found)) "The correct declarations are found")
+    (is (= accounts (:account found)) "The correct accounts are found")
+    (is (= budgets (:budget found)) "The current budgets are found")
+    (when-not (= transactions (:transaction found))
       (pprint {:expected transactions
-               :actual (:transaction @found)
-               :diff (diff transactions (:transaction @found))}))
-    (is (= transactions (:transaction @found)) "The correct transactions are found")))
+               :actual (:transaction found)
+               :diff (diff transactions (:transaction found))}))
+    (is (= transactions (:transaction found)) "The correct transactions are found")))
 
 (def ^:private commodities-input
   (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
@@ -245,14 +242,11 @@
       set))
 
 (deftest read-gnucash-source-with-commodities
-  (let [found (atom {})]
-    (read-source :gnucash
-                 commodities-input
-                 (partial track-record found))
-    (is (= commodities (:commodity @found)) "The correct commodities are found")
-    (is (= prices (:price @found)) "The correct prices are found")
-    (is (= commodity-declarations (set (:declaration @found)))
+  (let [found (reduce track-record {} (read-source :gnucash commodities-input))]
+    (is (= commodities (:commodity found)) "The correct commodities are found")
+    (is (= prices (:price found)) "The correct prices are found")
+    (is (= commodity-declarations (set (:declaration found)))
         "The correct declarations are found")
     (is (= accounts-with-commodities
-           (set (:account @found)))
+           (set (:account found)))
         "The correct accounts are found")))
