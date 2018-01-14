@@ -45,7 +45,7 @@
                        identity)
         raw-value ($x:text? xpath node)
         value (if raw-value
-                (transform-fn raw-value)
+                 (transform-fn raw-value)
                 default)]
     (if (nil? value)
       result
@@ -53,7 +53,8 @@
 
 (defn- node->model
   [node attributes]
-  (reduce (partial process-node-attribute node) {} attributes))
+  (with-namespace-context namespace-map
+    (reduce (partial process-node-attribute node) {} attributes)))
 
 (def ^:private account-types-map
   {"ASSET"      :asset
@@ -83,17 +84,16 @@
 
 (defn- node->account
   [node]
-  (with-namespace-context namespace-map
-    (let [account (node->model node account-attributes)]
-      (-> account
-          (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
-                                         (-> exchange
-                                             s/lower-case
-                                             keyword))
-                             :symbol (:commodity-symbol account)})
-          (dissoc :commodity-exchange :commodity-symbol)
-          (with-meta {:record-type :account
-                      :ignore? (ignored-accounts (:name account))})))))
+  (let [account (node->model node account-attributes)]
+    (-> account
+        (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
+                                       (-> exchange
+                                           s/lower-case
+                                           keyword))
+                           :symbol (:commodity-symbol account)})
+        (dissoc :commodity-exchange :commodity-symbol)
+        (with-meta {:record-type :account
+                    :ignore? (ignored-accounts (:name account))}))))
 
 (defmethod process-node :gnc:account
   [node]
@@ -128,8 +128,7 @@
 
 (defn- node->budget-item-period
   [node]
-  (with-namespace-context namespace-map
-    (node->model node budget-item-period-attributes)))
+  (node->model node budget-item-period-attributes))
 
 (defn- node->budget-item
   [node]
@@ -143,10 +142,11 @@
 
 (defmethod process-node :gnc:budget
   [node]
-  (-> node
-      (node->model budget-attributes)
-      (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
-      (with-meta {:record-type :budget})))
+  (with-namespace-context namespace-map
+    (-> node
+        (node->model budget-attributes)
+        (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
+        (with-meta {:record-type :budget}))))
 
 (def ^:private commodity-attributes
   [{:attribute :exchange
@@ -172,12 +172,11 @@
 
 (defn- node->commodity
   [node]
-  (with-namespace-context namespace-map
-    (let [commodity (node->model node commodity-attributes)]
-      (when (not= :template (:exchange commodity))
-        (-> commodity
-            refine-commodity
-            (with-meta {:record-type :commodity}))))))
+  (let [commodity (node->model node commodity-attributes)]
+    (when (not= :template (:exchange commodity))
+      (-> commodity
+          refine-commodity
+          (with-meta {:record-type :commodity})))))
 
 (defmethod process-node :gnc:commodity
   [node]
@@ -225,10 +224,7 @@
 
 (defn- node->transaction-item
   [node]
-  ; I'm not sure why I need to add the namespace
-  ; context again here
-  (with-namespace-context namespace-map
-    (node->model node transaction-item-attributes)))
+  (node->model node transaction-item-attributes))
 
 (def ^:private transaction-attributes
   [{:attribute :transaction-date
@@ -250,20 +246,21 @@
 
 (defn- append-trading-attributes
   [transaction node]
-  (if (= :buy (:action transaction))
-    (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
-          commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
-                                                    ($x:text "split:account" commodity-item-node))
-                                            node))
-          symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
-          exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
-      (assoc transaction
-             :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
-             :commodity-account-id ($x:text "split:account" commodity-item-node)
-             :account-id ($x:text "act:parent" commodity-account-node)
-             :symbol symbol
-             :exchange exchange))
-    transaction))
+  (with-namespace-context namespace-map
+    (if (= :buy (:action transaction))
+      (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
+            commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
+                                                      ($x:text "split:account" commodity-item-node))
+                                              node))
+            symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
+            exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
+        (assoc transaction
+               :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
+               :commodity-account-id ($x:text "split:account" commodity-item-node)
+               :account-id ($x:text "act:parent" commodity-account-node)
+               :symbol symbol
+               :exchange exchange))
+      transaction)))
 
 (defmethod process-node :gnc:transaction
   [node]
