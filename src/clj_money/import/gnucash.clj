@@ -242,10 +242,11 @@
 
 (defn- node->transaction
   [node]
-  (-> node
-      (node->model transaction-attributes)
-      (assoc :items (->> ($x "trn:splits/trn:split" node)
-                         (map node->transaction-item)))))
+  (with-namespace-context namespace-map
+    (-> node
+        (node->model transaction-attributes)
+        (assoc :items (->> ($x "trn:splits/trn:split" node)
+                           (map node->transaction-item))))))
 
 (defn- append-trading-attributes
   [transaction node]
