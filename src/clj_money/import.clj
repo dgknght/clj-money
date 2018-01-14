@@ -162,33 +162,33 @@
                  (fnil inc 0))
       update-progress))
 
-(defmulti process-record
+(defmulti import-record
   (fn [_ record]
     (-> record meta :record-type)))
 
-(defmethod process-record :declaration
+(defmethod import-record :declaration
   [context {:keys [record-type record-count]}]
   (-> context
       (assoc-in [:progress record-type :total] record-count)
       update-progress))
 
-(defmethod process-record :account
+(defmethod import-record :account
   [context account]
   (import-account context account))
 
-(defmethod process-record :transaction
+(defmethod import-record :transaction
   [context transaction]
   (import-transaction context transaction))
 
-(defmethod process-record :budget
+(defmethod import-record :budget
   [context budget]
   (import-budget context budget))
 
-(defmethod process-record :price
+(defmethod import-record :price
   [context price]
   (import-price context price))
 
-(defmethod process-record :commodity
+(defmethod import-record :commodity
   [context commodity]
   (import-commodity context commodity))
 
@@ -199,10 +199,10 @@
   [record-type]
   (reportable-record-types record-type))
 
-(defn process-callback
+(defn process-record
   "Top-level callback processing
 
-  This function calls the multimethod process-record
+  This function calls the multimethod import-record
   to dispatch to the correct import logic for the
   record-type.
 
@@ -212,7 +212,7 @@
   (let [{:keys [record-type ignore?]} (meta record)]
     (swap! context #(cond-> %
                       (not ignore?)
-                      (process-record record)
+                      (import-record record)
 
                       (report-progress? record-type)
                       (inc-and-update-progress record-type)))))
@@ -236,5 +236,5 @@
           [input source-type] (prepare-input s (:image-id impt))]
       (transactions/with-delayed-balancing s (-> @context :entity :id)
         (doseq [record (read-source source-type input)]
-          (process-callback context record)))
+          (process-record context record)))
       (:entity @context))))
