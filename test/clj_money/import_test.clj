@@ -11,7 +11,8 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
@@ -161,12 +162,16 @@
                                                 (:id entity))]
     (is entity "It returns a value")
     (is (= "Personal" (:name entity)) "It returns the new entity")
+    (pprint-diff expected-accounts actual-accounts)
     (is (= expected-accounts actual-accounts)
         "The correct accounts are created")
+    (pprint-diff expected-inc-stmt actual-inc-stmt)
     (is (= expected-inc-stmt actual-inc-stmt)
         "The income statement is correct after import")
+    (pprint-diff expected-bal-sheet actual-bal-sheet)
     (is (= expected-bal-sheet actual-bal-sheet)
         "The balance sheet is correct after import")
+    (pprint-diff expected-updates @updates)
     (is (= expected-updates @updates)
         "The import record is updated at each insert")))
 
@@ -234,6 +239,7 @@
                                      250M 275M 275M
                                      200M 200M 250M
                                      250M 275M 275M]}]}]
+    (pprint-diff expected actual)
     (is (= expected actual) "The budget exists after import with correct values")))
 
 (def gnucash-commodities-sample
