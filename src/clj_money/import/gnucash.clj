@@ -35,8 +35,112 @@
        (map #(vector % (format "http://www.gnucash.org/XML/%s" %)))
        (into {})))
 
-(defmulti process-node
-  :tag)
+(def ^:private account-types-map
+  {"ASSET"      :asset
+   "BANK"       :asset
+   "INCOME"     :income
+   "EXPENSE"    :expense
+   "LIABILITY"  :liability
+   "CREDIT"     :liability
+   "STOCK"      :asset})
+
+(def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
+
+(defn- refine-account
+  [account]
+  (-> account
+      (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
+                                     (-> exchange
+                                         s/lower-case
+                                         keyword))
+                         :symbol (:commodity-symbol account)})
+      (dissoc :commodity-exchange :commodity-symbol)
+      (vary-meta assoc :ignore? (contains? ignored-accounts (:name account)))))
+
+(def ^:private translation-map
+  {:gnc:account {:attributes [{:attribute :name
+                           :xpath "act:name"}
+                          {:attribute :type
+                           :xpath "act:type"
+                           :transform-fn #(get account-types-map % :equity)}
+                          {:attribute :id
+                           :xpath "act:id"}
+                          {:attribute :parent-id
+                           :xpath "act:parent"}
+                          {:attribute :commodity-exchange
+                           :xpath "act:commodity/cmdty:space"}
+                          {:attribute :commodity-symbol
+                           :xpath "act:commodity/cmdty:id"}]
+                 :refine-fn refine-account
+                 :meta {:record-type :account}}
+   :gnc:budget {:attributes [{:attribute :id
+                          :xpath "bgt:id"}
+                         {:attribute :name
+                          :xpath "bgt:name"}
+                         {:attribute :start-date
+                          :xpath "bgt:recurrence/recurrence:start/gdate"
+                          :transform-fn parse-date}
+                         {:attribute :period
+                          :xpath "bgt:recurrence/recurrence:period_type"
+                          :transform-fn keyword}
+                         {:attribute :period-count
+                          :xpath "bgt:num-periods"
+                          :transform-fn #(Integer. %)}]
+                :meta {:record-type :budget}}
+   :budget-item {:attributes [{:attribute :account-id
+                               :xpath "slot:key"}]}
+   :budget-item-period {:attributes [{:attribute :index
+                                      :xpath "slot:key"
+                                      :transform-fn #(Integer. %)}
+                                     {:attribute :amount
+                                      :xpath "slot:value"
+                                      :transform-fn parse-decimal}]}
+   :gnc:commodity {:attributes [{:attribute :exchange
+                             :xpath "cmdty:space"
+                             :transform-fn (comp keyword s/lower-case)}
+                            {:attribute :symbol
+                             :xpath "cmdty:id"}
+                            {:attribute :name
+                             :xpath "cmdty:name"}
+                            {:attribute :type
+                             :xpath "cmdty:quote_source"
+                             :transform-fn keyword
+                             :default :stock}]
+                   :meta {:record-type :commodity}}
+   :price {:attributes [{:attribute :trade-date
+                         :xpath "price:time/ts:date"
+                         :transform-fn parse-date}
+                        {:attribute :price
+                         :xpath "price:value"
+                         :transform-fn parse-decimal}
+                        {:attribute :exchange
+                         :xpath "price:commodity/cmdty:space"
+                         :transform-fn (comp keyword s/lower-case)}
+                        {:attribute :symbol
+                         :xpath "price:commodity/cmdty:id"}]
+           :meta {:record-type :price}}
+   :transaction-item {:attributes [{:attribute :account-id
+                                    :xpath "split:account"}
+                                   {:attribute :reconciled
+                                    :xpath "split:reconciled-state"
+                                    :transform-fn #(= "y" %)}
+                                   {:attribute :amount
+                                    :xpath "split:value"
+                                    :transform-fn parse-decimal}
+                                   {:attribute :action
+                                    :xpath "split:value"
+                                    :transform-fn #(if (= \- (first %))
+                                                     :credit
+                                                     :debit)}]}
+   :gnc:transaction {:attributes [{:attribute :transaction-date
+                               :xpath "trn:date-posted/ts:date"
+                               :transform-fn parse-date}
+                              {:attribute :description
+                               :xpath "trn:description"}
+                              {:attribute :action
+                               :xpath "trn:splits/trn:split/split:action"
+                               :transform-fn (comp keyword s/lower-case)}]
+                     :meta {:record-type :transaction}}})
 
 (defn- process-node-attribute
   [node result {:keys [attribute xpath transform-fn default]}]
@@ -56,81 +160,26 @@
   (with-namespace-context namespace-map
     (reduce (partial process-node-attribute node) {} attributes)))
 
-(def ^:private account-types-map
-  {"ASSET"      :asset
-   "BANK"       :asset
-   "INCOME"     :income
-   "EXPENSE"    :expense
-   "LIABILITY"  :liability
-   "CREDIT"     :liability
-   "STOCK"      :asset})
+(defmulti ^:private process-node
+  :tag)
 
-(def ^:private account-attributes
-  [{:attribute :name
-    :xpath "act:name"}
-   {:attribute :type
-    :xpath "act:type"
-    :transform-fn #(get account-types-map % :equity)}
-   {:attribute :id
-    :xpath "act:id"}
-   {:attribute :parent-id
-    :xpath "act:parent"}
-   {:attribute :commodity-exchange
-    :xpath "act:commodity/cmdty:space"}
-   {:attribute :commodity-symbol
-    :xpath "act:commodity/cmdty:id"}])
-
-(def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
-
-(defn- node->account
+(defmethod process-node :gnc:count-data
   [node]
-  (let [account (node->model node account-attributes)]
-    (-> account
-        (assoc :commodity {:exchange (when-let [exchange (:commodity-exchange account)]
-                                       (-> exchange
-                                           s/lower-case
-                                           keyword))
-                           :symbol (:commodity-symbol account)})
-        (dissoc :commodity-exchange :commodity-symbol)
-        (with-meta {:record-type :account
-                    :ignore? (ignored-accounts (:name account))}))))
+  (-> {:record-type (-> node :attrs :cd:type keyword)
+       :record-count (Integer. (:text node))}
+      (with-meta {:record-type :declaration})))
 
-(defmethod process-node :gnc:account
+(defmethod process-node :default
   [node]
-  (node->account node))
+  (let [{:keys [attributes
+                refine-fn
+                meta]} ((:tag node) translation-map)]
+    (-> node
+        (node->model attributes)
+        (with-meta meta)
+        ((or refine-fn identity)))))
 
-(def ^:private budget-attributes
-  [{:attribute :id
-    :xpath "bgt:id"}
-   {:attribute :name
-    :xpath "bgt:name"}
-   {:attribute :start-date
-    :xpath "bgt:recurrence/recurrence:start/gdate"
-    :transform-fn parse-date}
-   {:attribute :period
-    :xpath "bgt:recurrence/recurrence:period_type"
-    :transform-fn keyword}
-   {:attribute :period-count
-    :xpath "bgt:num-periods"
-    :transform-fn #(Integer. %)}])
-
-(def ^:private budget-item-attributes
-  [{:attribute :account-id
-    :xpath "slot:key"}])
-
-(def ^:private budget-item-period-attributes
-  [{:attribute :index
-    :xpath "slot:key"
-    :transform-fn #(Integer. %)}
-   {:attribute :amount
-    :xpath "slot:value"
-    :transform-fn parse-decimal}])
-
-(defn- node->budget-item-period
-  [node]
-  (node->model node budget-item-period-attributes))
-
-(defn- node->budget-item
+#_(defn- node->budget-item
   [node]
   (with-namespace-context namespace-map
     (-> node
@@ -140,7 +189,7 @@
                              (map node->budget-item-period)
                              (into #{}))))))
 
-(defmethod process-node :gnc:budget
+#_(defmethod process-node :gnc:budget
   [node]
   (with-namespace-context namespace-map
     (-> node
@@ -148,20 +197,7 @@
         (assoc :items (map node->budget-item ($x "bgt:slots/slot" node)))
         (with-meta {:record-type :budget}))))
 
-(def ^:private commodity-attributes
-  [{:attribute :exchange
-    :xpath "cmdty:space"
-    :transform-fn (comp keyword s/lower-case)}
-   {:attribute :symbol
-    :xpath "cmdty:id"}
-   {:attribute :name
-    :xpath "cmdty:name"}
-   {:attribute :type
-    :xpath "cmdty:quote_source"
-    :transform-fn keyword
-    :default :stock}])
-
-(defn- refine-commodity
+#_(defn- refine-commodity
   [commodity]
   (cond-> commodity
     (nil? (:name commodity))
@@ -170,7 +206,7 @@
     (nil? (#{:nasdaq :nyse} (:exchange commodity)))
     (dissoc :exchange)))
 
-(defn- node->commodity
+#_(defn- node->commodity
   [node]
   (let [commodity (node->model node commodity-attributes)]
     (when (not= :template (:exchange commodity))
@@ -178,65 +214,13 @@
           refine-commodity
           (with-meta {:record-type :commodity})))))
 
-(defmethod process-node :gnc:commodity
-  [node]
-  (node->commodity node))
-
-(def ^:private price-attributes
-  [{:attribute :trade-date
-    :xpath "price:time/ts:date"
-    :transform-fn parse-date}
-   {:attribute :price
-    :xpath "price:value"
-    :transform-fn parse-decimal}
-   {:attribute :exchange
-    :xpath "price:commodity/cmdty:space"
-    :transform-fn (comp keyword s/lower-case)}
-   {:attribute :symbol
-    :xpath "price:commodity/cmdty:id"}])
-
-(defmethod process-node :price
+#_(defmethod process-node :price
   [node]
   (-> node
       (node->model price-attributes)
       (with-meta {:record-type :price})))
 
-(defmethod process-node :gnc:count-data
-  [node]
-  (-> {:record-type (-> node :attrs :cd:type keyword)
-       :record-count (Integer. (:text node))}
-      (with-meta {:record-type :declaration})))
-
-(def ^:private transaction-item-attributes
-  [{:attribute :account-id
-    :xpath "split:account"}
-   {:attribute :reconciled
-    :xpath "split:reconciled-state"
-    :transform-fn #(= "y" %)}
-   {:attribute :amount
-    :xpath "split:value"
-    :transform-fn parse-decimal}
-   {:attribute :action
-    :xpath "split:value"
-    :transform-fn #(if (= \- (first %))
-                     :credit
-                     :debit)}])
-
-(defn- node->transaction-item
-  [node]
-  (node->model node transaction-item-attributes))
-
-(def ^:private transaction-attributes
-  [{:attribute :transaction-date
-    :xpath "trn:date-posted/ts:date"
-    :transform-fn parse-date}
-   {:attribute :description
-    :xpath "trn:description"}
-   {:attribute :action
-    :xpath "trn:splits/trn:split/split:action"
-    :transform-fn (comp keyword s/lower-case)}])
-
-(defn- node->transaction
+#_(defn- node->transaction
   [node]
   (with-namespace-context namespace-map
     (-> node
@@ -262,7 +246,7 @@
                :exchange exchange))
       transaction)))
 
-(defmethod process-node :gnc:transaction
+#_(defmethod process-node :gnc:transaction
   [node]
   (-> node
       node->transaction

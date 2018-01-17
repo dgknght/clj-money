@@ -9,7 +9,8 @@
             [clj-factory.core :refer [factory]]
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.models.entities :as entities]
             [clj-money.reports :as reports]
             [clj-money.import :refer [read-source]]
@@ -185,12 +186,11 @@
 (deftest read-gnucash-source
   (let [found (reduce track-record {} (read-source :gnucash input))]
     (is (= declarations (:declaration found)) "The correct declarations are found")
+    (pprint-diff accounts (:account found))
     (is (= accounts (:account found)) "The correct accounts are found")
+    (pprint-diff budgets (:budget found))
     (is (= budgets (:budget found)) "The current budgets are found")
-    (when-not (= transactions (:transaction found))
-      (pprint {:expected transactions
-               :actual (:transaction found)
-               :diff (diff transactions (:transaction found))}))
+    (pprint-diff transactions (:transaction found))
     (is (= transactions (:transaction found)) "The correct transactions are found")))
 
 (def ^:private commodities-input
