@@ -243,10 +243,14 @@
 
 (deftest read-gnucash-source-with-commodities
   (let [found (reduce track-record {} (read-source :gnucash commodities-input))]
+    (pprint-diff commodities (:commodity found))
     (is (= commodities (:commodity found)) "The correct commodities are found")
+    (pprint-diff prices (:price found))
     (is (= prices (:price found)) "The correct prices are found")
+    (pprint-diff commodity-declarations (set (:declaration found)))
     (is (= commodity-declarations (set (:declaration found)))
         "The correct declarations are found")
+    (pprint-diff accounts-with-commodities (set (:account found)))
     (is (= accounts-with-commodities
            (set (:account found)))
         "The correct accounts are found")))
