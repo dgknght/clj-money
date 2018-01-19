@@ -21,7 +21,7 @@
 
 (def ^:private declarations
   [{:record-type :commodity
-    :record-count 1}
+    :record-count 2}
    {:record-type :account
     :record-count 9}
    {:record-type :transaction
@@ -217,7 +217,7 @@
 
 (def ^:private commodity-declarations
   #{{:record-type :commodity
-     :record-count 2}
+     :record-count 3}
     {:record-type :price
      :record-count 2}
     {:record-type :account
