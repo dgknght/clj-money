@@ -212,9 +212,11 @@
 
 (defmethod process-node :gnc:count-data
   [node]
-  (-> {:record-type (-> node :attrs :cd:type keyword)
-       :record-count (Integer. (:text node))}
-      (with-meta {:record-type :declaration})))
+  (let [record-type (-> node :attrs :cd:type keyword)]
+  (-> {:record-type record-type
+       :record-count (+ (Integer. (:text node))
+                        (if (= :commodity record-type) 1 0))}
+      (with-meta {:record-type :declaration}))))
 
 (defmethod process-node :default
   [node]

@@ -4,7 +4,7 @@
             [clojure.data :refer [diff]]
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
-            [clojure.core.async :refer [go <! <!! chan]]
+            [clojure.core.async :refer [go-loop <! <!! chan]]
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
@@ -41,24 +41,28 @@
               :image-id "sample.gnucash"}]})
 
 (def expected-updates
-  (concat [{:commodity {:total 1}}
-           {:commodity {:total 1}
+  (concat [{:commodity {:total 2}}
+           {:commodity {:total 2}
             :account {:total 9}}
-           {:commodity {:total 1}
+           {:commodity {:total 2}
             :account {:total 9}
             :transaction {:total 6}}
-           {:commodity {:total 1
+           {:commodity {:total 2
                         :imported 1}
             :account {:total 9}
+            :transaction {:total 6}}
+           {:commodity {:total 2
+                        :imported 2}
+            :account {:total 9}
             :transaction {:total 6}}]
-          (map (fn [i] {:commodity {:total 1
-                                    :imported 1}
+          (map (fn [i] {:commodity {:total 2
+                                    :imported 2}
                         :account {:total 9
                                   :imported (+ 1 i)}
                         :transaction {:total 6}})
                (range 9))
-          (map (fn [i] {:commodity {:total 1
-                                    :imported 1}
+          (map (fn [i] {:commodity {:total 2
+                                    :imported 2}
                         :account {:total 9
                                   :imported 9}
                         :transaction {:total 6
@@ -193,15 +197,11 @@
         imp (-> context :imports first)
         channel (chan)
         updates (atom [])]
-    (go
-      (while true
-        (let [p (<! channel)]
-          (swap! updates #(conj % p)))))
+    (go-loop [p (<! channel)]
+             (swap! updates #(conj % p))
+             (recur (<! channel)))
     (import-data storage-spec imp channel)
-    (if-not (= (set expected-updates) (set @updates))
-      (pprint {:expected expected-updates
-               :actual @updates
-               :diff (diff expected-updates @updates)}))
+    (pprint-diff (set expected-updates) (set @updates))
     (is (= (set expected-updates) (set @updates))
         "The import record is updated at each insert")
     (shutdown-agents)))
