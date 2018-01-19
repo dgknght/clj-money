@@ -111,12 +111,30 @@
     (= :template (:exchange commodity))
     (vary-meta assoc :ignore? true)))
 
+(defn- append-trading-attributes
+  [transaction node]
+  (with-namespace-context namespace-map
+    (if (= :buy (:action transaction))
+      (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
+            commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
+                                                      ($x:text "split:account" commodity-item-node))
+                                              node))
+            symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
+            exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
+        (assoc transaction
+               :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
+               :commodity-account-id ($x:text "split:account" commodity-item-node)
+               :account-id ($x:text "act:parent" commodity-account-node)
+               :symbol symbol
+               :exchange exchange))
+      transaction)))
+
 (defn- refine-transaction
   [transaction node]
   (with-namespace-context namespace-map
-    (assoc transaction
-           :items
-           (map process-node ($x "trn:splits/trn:split" node)))))
+    (-> transaction
+        (assoc :items (map process-node ($x "trn:splits/trn:split" node)))
+        (append-trading-attributes node))))
 
 (def ^:private translation-map
   {:gnc:account {:attributes [{:attribute :name
@@ -230,24 +248,6 @@
         (node->model attributes)
         (with-meta meta)
         r-fn)))
-
-(defn- append-trading-attributes
-  [transaction node]
-  (with-namespace-context namespace-map
-    (if (= :buy (:action transaction))
-      (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
-            commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
-                                                      ($x:text "split:account" commodity-item-node))
-                                              node))
-            symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
-            exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
-        (assoc transaction
-               :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
-               :commodity-account-id ($x:text "split:account" commodity-item-node)
-               :account-id ($x:text "act:parent" commodity-account-node)
-               :symbol symbol
-               :exchange exchange))
-      transaction)))
 
 (def element-xpath
   (->> ["count-data" "account" "transaction" "budget" "commodity"]

@@ -297,5 +297,7 @@
                                            :created-at
                                            :updated-at))
                            (into #{}))]
+    (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots) "The correct lots are present after import")
+    (pprint-diff expected-prices actual-prices)
     (is (= expected-prices, actual-prices) "The correct prices are present after import")))
