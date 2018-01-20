@@ -203,13 +203,22 @@
                                       (map (juxt :id :transaction-date))
                                       first))))
 
+(defn- find-image
+  [original-filename context]
+  (->> (:images context)
+       (filter #(= original-filename (:original-filename %)))
+       first))
+
 (defn- resolve-image
   [model context]
-  (assoc model :image-id (->> context
-                              :images
-                              (filter #(= (:original-filenamme %)
-                                          (:image-id model)))
-                              first)))
+  (update-in model [:image-id] #(:id (find-image % context))))
+
+(defn- resolve-images
+  [model context]
+  (update-in model [:image-ids] #(->> %
+                                      (map (fn [filename]
+                                             (find-image filename context)))
+                                      (map :id))))
 
 (defn- create-attachment
   [model storage]
@@ -388,16 +397,6 @@
   [context storage]
   (update-in context [:images] #(create-images storage context %)))
 
-(defn- find-image
-  [context original-filename]
-  (->> (:images context)
-       (filter #(= original-filename (:original-filename %)))
-       first))
-
-(defn- resolve-image
-  [model context]
-  (update-in model [:image-id] #(:id (find-image context %))))
-
 (defn- create-import
   [model storage]
   (imports/create storage model))
@@ -407,7 +406,7 @@
   (mapv (fn [attributes]
           (-> attributes
               (resolve-user context)
-              (resolve-image context)
+              (resolve-images context)
               (create-import storage)
               throw-on-invalid))
         imports))

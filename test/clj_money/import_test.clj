@@ -51,7 +51,7 @@
   {:users [(factory :user, {:email "john@doe.com"})]
    :images (source-type images)
    :imports [{:entity-name "Personal"
-              :image-id "sample.gnucash"}]})
+              :image-ids (map :original-filename (source-type images))}]})
 
 (def expected-updates
   (concat [{:commodity {:total 2}}
@@ -213,7 +213,7 @@
              :content-type "application/gnucash"
              :original-filename "budget_sample.gnucash"}]
    :imports [{:entity-name "Personal"
-              :image-id "budget_sample.gnucash"}]})
+              :image-ids ["budget_sample.gnucash"]}]})
 
 (deftest receive-updates-asynchronously
   (let [context (serialization/realize
@@ -278,7 +278,7 @@
              :content-type "application/gnucash"
              :original-filename "sample_with_commodities.gnucash"}]
    :imports [{:entity-name "Personal"
-              :image-id "sample_with_commodities.gnucash"}]})
+              :image-ids ["sample_with_commodities.gnucash"]}]})
 
 (def ^:private expected-lots
   [{:purchase-date (t/local-date 2015 1 17)

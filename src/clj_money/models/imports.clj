@@ -11,15 +11,15 @@
                                               update-fn]]
             [clj-money.models.storage :refer [create-import
                                               update-import
-                                              find-import-by-id]])
-  (:import [java.io ByteArrayOutputStream
-                    InputStream]))
+                                              find-import-by-id]]))
 
+(s/def ::id integer?)
 (s/def ::entity-name string?)
-(s/def ::image-id integer?)
+(s/def ::image-ids (s/coll-of integer?))
 (s/def ::user-id integer?)
-(s/def ::new-import (s/keys :req-un [::user-id ::entity-name ::image-id]))
-(s/def ::existing-import (s/keys :req-un []))
+(s/def ::new-import (s/keys :req-un [::user-id ::entity-name ::image-ids]))
+(s/def ::progress map?)
+(s/def ::existing-import (s/keys :req-un [::id ::progress]))
 
 (def create
   (create-fn {:create create-import

@@ -26,7 +26,9 @@
   [context]
   {:user-id (-> context :users first :id)
    :entity-name "Personal"
-   :image-id (-> context :images first :id)})
+   :image-ids (->> (:images context)
+                   (map :id)
+                   (take 1))})
 
 (deftest create-an-import
   (let [context (serialization/realize storage-spec import-context)
@@ -43,12 +45,12 @@
     (is (not (empty? (validation/error-messages result :user-id)))
         "There is a validation error on :user-id")))
 
-(deftest image-id-is-required
+(deftest image-ids-is-required
   (let [context (serialization/realize storage-spec import-context)
         result (imports/create storage-spec
-                               (dissoc (attributes context) :image-id))]
-    (is (not (empty? (validation/error-messages result :image-id)))
-        "There is a validation error on :image-id")))
+                               (dissoc (attributes context) :image-ids))]
+    (is (not (empty? (validation/error-messages result :image-ids)))
+        "There is a validation error on :image-ids")))
 
 (deftest entity-name-is-required
   (let [context (serialization/realize storage-spec import-context)

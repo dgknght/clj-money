@@ -143,10 +143,11 @@
 (defn- prepare-input
   "Returns the input data and source type based
   on the specified image"
-  [storage image-id]
-  (let [image (images/find-by-id storage image-id)
-        extension (re-find #"(?<=\.).*$" (:original-filename image))]
-    [(io/input-stream (byte-array (:body image))) (keyword extension)]))
+  [storage image-ids]
+  (let [images (map #(images/find-by-id storage %) image-ids)
+        extension (re-find #"(?<=\.).*$" (:original-filename (first images)))]
+    [(map #(io/input-stream (byte-array (:body %))) images)
+     (keyword extension)]))
 
 (defn- update-progress
   [{:keys [callback progress] :as context}]
@@ -233,8 +234,8 @@
                           :entity (entities/find-or-create s
                                                            user
                                                            (:entity-name impt))})
-          [input source-type] (prepare-input s (:image-id impt))]
+          [inputs source-type] (prepare-input s (:image-ids impt))]
       (transactions/with-delayed-balancing s (-> @context :entity :id)
-        (doseq [record (read-source source-type input)]
+        (doseq [record (mapcat #(read-source source-type %) inputs)]
           (process-record context record)))
       (:entity @context))))

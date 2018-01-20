@@ -1086,7 +1086,7 @@
     [_ import]
     (insert db-spec :imports import :entity-name
                                     :user-id
-                                    :image-id))
+                                    :image-ids))
 
   (find-import-by-id
     [_ id]
