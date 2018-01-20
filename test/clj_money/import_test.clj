@@ -8,6 +8,8 @@
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
+            [clj-money.util :refer [file-ext
+                                    file-name]]
             [clj-money.io :refer [read-bytes]]
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
@@ -29,14 +31,23 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
-(def gnucash-sample
-  (io/input-stream "resources/fixtures/sample.gnucash"))
+(defn- path->image
+  [path]
+  (let [ext (file-ext path)
+        filename (file-name path)]
+    {:body (-> path
+               io/input-stream
+               read-bytes)
+     :content-type (format "application/%s" ext)
+     :original-filename filename}))
 
-(def import-context
+(def images
+  {:gnucash (map path->image ["resources/fixtures/sample.gnucash"])})
+
+(defn- import-context
+  [source-type]
   {:users [(factory :user, {:email "john@doe.com"})]
-   :images [{:body (read-bytes gnucash-sample)
-             :content-type "application/gnucash"
-             :original-filename "sample.gnucash"}]
+   :images (source-type images)
    :imports [{:entity-name "Personal"
               :image-id "sample.gnucash"}]})
 
@@ -137,7 +148,9 @@
     :balance 2000M}])
 
 (deftest import-a-simple-file
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (serialization/realize
+                  storage-spec
+                  (import-context :gnucash))
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
@@ -191,7 +204,9 @@
               :image-id "budget_sample.gnucash"}]})
 
 (deftest receive-updates-asynchronously
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (serialization/realize
+                  storage-spec
+                  (import-context :gnucash))
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
