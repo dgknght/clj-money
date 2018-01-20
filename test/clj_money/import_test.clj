@@ -42,7 +42,9 @@
      :original-filename filename}))
 
 (def images
-  {:gnucash (map path->image ["resources/fixtures/sample.gnucash"])})
+  {:gnucash (map path->image ["resources/fixtures/sample.gnucash"])
+   :edn     (map path->image ["resources/fixtures/sample_0.edn.gz"
+                              "resources/fixtures/sample_1.edn.gz"])})
 
 (defn- import-context
   [source-type]
@@ -147,11 +149,9 @@
     :commodity-id "USD"
     :balance 2000M}])
 
-(deftest import-a-simple-file
-  (let [context (serialization/realize
-                  storage-spec
-                  (import-context :gnucash))
-        user (-> context :users first)
+(defn- test-import
+  [context]
+  (let [user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
         updates (atom [])
@@ -159,10 +159,10 @@
         actual-accounts (->> {:entity-id (:id entity)}
                              (accounts/search storage-spec)
                              (map #(dissoc % :created-at
-                                             :updated-at
-                                             :id
-                                             :entity-id
-                                             :commodity)))
+                                           :updated-at
+                                           :id
+                                           :entity-id
+                                           :commodity)))
         expected-accounts (->> expected-accounts
                                (map #(assoc % :tags #{}))
                                (map #(update-in %
@@ -191,6 +191,18 @@
     (pprint-diff expected-updates @updates)
     (is (= expected-updates @updates)
         "The import record is updated at each insert")))
+
+(deftest import-a-simple-gnucash-file
+  (test-import
+    (serialization/realize
+      storage-spec
+      (import-context :gnucash))))
+
+(deftest import-a-simple-edn-file
+  (test-import
+    (serialization/realize
+      storage-spec
+      (import-context :edn))))
 
 (def gnucash-budget-sample
   (io/input-stream "resources/fixtures/budget_sample.gnucash"))
