@@ -8,6 +8,7 @@
             [clojure.tools.cli :refer [parse-opts]]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
+            [clj-money.core]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.import :refer [read-source]])
@@ -283,8 +284,9 @@
 
       (log/info "Writing" (count records) "records to" output-path)
 
-      (with-open [writer (io/writer (GZIPOutputStream. (FileOutputStream. output-path)))]
-        (.write writer (prn-str records)))
+      (binding [*print-meta* true]
+        (with-open [writer (io/writer (GZIPOutputStream. (FileOutputStream. output-path)))]
+          (.write writer (prn-str records))))
 
       (log/info "Finished writing" output-path)
 
