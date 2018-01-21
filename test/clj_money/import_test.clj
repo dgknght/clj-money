@@ -26,7 +26,8 @@
             [clj-money.models.prices :as prices]
             [clj-money.reports :as reports]
             [clj-money.import :refer [import-data]]
-            [clj-money.import.gnucash :as gnucash]))
+            clj-money.import.gnucash
+            clj-money.import.edn))
 
 (def storage-spec (env :db))
 
