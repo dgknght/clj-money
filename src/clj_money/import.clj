@@ -140,14 +140,21 @@
     (trading/buy (:storage context) purchase))
   context)
 
+(defn- get-source-type
+  [{content-type :content-type}]
+  (->> content-type
+       (re-matches #"^application\/(.*)")
+       second
+       keyword))
+
 (defn- prepare-input
   "Returns the input data and source type based
   on the specified image"
   [storage image-ids]
   (let [images (map #(images/find-by-id storage %) image-ids)
-        extension (re-find #"(?<=\.).*$" (:original-filename (first images)))]
+        source-type (-> images first get-source-type)]
     [(map #(io/input-stream (byte-array (:body %))) images)
-     (keyword extension)]))
+     source-type]))
 
 (defn- update-progress
   [{:keys [callback progress] :as context}]

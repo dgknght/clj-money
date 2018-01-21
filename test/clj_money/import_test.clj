@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :refer [go-loop <! <!! chan]]
+            [clojure.string :as s]
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
@@ -34,11 +35,12 @@
 (defn- path->image
   [path]
   (let [ext (file-ext path)
+        content-type (s/replace ext #"\.gz$" "")
         filename (file-name path)]
     {:body (-> path
                io/input-stream
                read-bytes)
-     :content-type (format "application/%s" ext)
+     :content-type (format "application/%s" content-type)
      :original-filename filename}))
 
 (def images
