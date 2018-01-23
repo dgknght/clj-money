@@ -6,6 +6,7 @@
             [clojure.string :as s]
             [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
+            [clojure.core.async :refer [chan go go-loop <! <!! >!]]
             [clj-time.core :as t]
             [clj-xpath.core :refer :all]
             [clj-money.core]
@@ -317,17 +318,25 @@
         output-folder (.getParent input-file)
         file-name (.getName input-file)
         context (atom {:output-paths []
-                       :verbose (:vervose opts)
+                       :verbose (:verbose opts)
                        :records []
                        :max-record-count (-> opts :options :maximum)
                        :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
-                       :output-folder output-folder})]
-    (with-open [input-stream (FileInputStream. input-file)]
-      (doseq [record (read-source :gnucash input-stream)]
-        (when (not (:verbose opts))
-          (print "."))
-        (swap! context #(-> %
-                            (update-in [:records] (fn [records] (conj records record)))
-                            advance-context)))
-      (process-output @context)))
-  (println ""))
+                       :output-folder output-folder})
+        record-chan (chan)
+        result (go
+                 (with-open [input-stream (FileInputStream. input-file)]
+                   (doseq [record (read-source :gnucash input-stream)]
+                     (swap! context #(-> %
+                                         (update-in [:records] (fn [records] (conj records record)))
+                                         advance-context))
+                     (>! record-chan record))
+                   (process-output @context)))]
+    (go-loop [record (<! record-chan)]
+             (when (not (:verbose opts))
+               (print (-> record meta :record-type name first))
+               (flush))
+             (recur (<! record-chan)))
+    (println "reading the source file...")
+    (<!! result)
+    (println "\nDone")))
