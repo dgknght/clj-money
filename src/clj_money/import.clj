@@ -218,31 +218,33 @@
   the progress is updated."
   [context record]
   (let [{:keys [record-type ignore?]} (meta record)]
-    (swap! context #(cond-> %
-                      (not ignore?)
-                      (import-record record)
+    (cond-> context
+      (not ignore?)
+      (import-record record)
 
-                      (report-progress? record-type)
-                      (inc-and-update-progress record-type)))))
+      (report-progress? record-type)
+      (inc-and-update-progress record-type))))
 
 (defn import-data
   "Reads the contents from the specified input and saves
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  [storage-spec impt progress-callback]
+  [storage-spec import-spec progress-callback]
   (with-transacted-storage [s storage-spec]
-    (let [user (users/find-by-id s (:user-id impt))
-          context  (atom {:storage s
-                          :import impt
-                          :callback progress-callback
-                          :progress {}
-                          :accounts {}
-                          :entity (entities/find-or-create s
-                                                           user
-                                                           (:entity-name impt))})
-          [inputs source-type] (prepare-input s (:image-ids impt))]
-      (transactions/with-delayed-balancing s (-> @context :entity :id)
-        (doseq [record (mapcat #(read-source source-type %) inputs)]
-          (process-record context record)))
-      (:entity @context))))
+    (let [user (users/find-by-id s (:user-id import-spec))
+          [inputs source-type] (prepare-input s (:image-ids import-spec))
+          entity (entities/find-or-create s
+                                          user
+                                          (:entity-name import-spec))
+          result (transactions/with-delayed-balancing s (:id entity)
+                   (->> inputs
+                        (mapcat #(read-source source-type %))
+                        (reduce process-record
+                                {:storage s
+                                 :import import-spec
+                                 :callback progress-callback
+                                 :progress {}
+                                 :accounts {}
+                                 :entity entity})))]
+      entity)))
