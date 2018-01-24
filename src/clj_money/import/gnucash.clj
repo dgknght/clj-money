@@ -308,15 +308,26 @@
     :parse-fn #(Integer/parseInt %)
     :default 1000]])
 
-(defn chunk-file
-  "Accepts a path to a gnucash file and creates multiple, smaller files
-  that container the same data, returning the paths to the new files"
-  [& args]
+(defn- parse-chunk-file-opts
+  [args]
   (let [opts (parse-opts args chunk-file-options)
         input-path (-> opts :arguments first)
         input-file (File. input-path)
         output-folder (.getParent input-file)
-        file-name (.getName input-file)
+        file-name (.getName input-file)]
+    {:options (:options opts)
+     :input-file input-file
+     :file-name file-name
+     :output-folder output-folder}))
+
+(defn chunk-file
+  "Accepts a path to a gnucash file and creates multiple, smaller files
+  that container the same data, returning the paths to the new files"
+  [& args]
+  (let [{:keys [input-file
+                output-folder
+                file-name]
+         :as opts} (parse-chunk-file-opts args)
         record-chan (chan)
         result (go
                  (with-open [input-stream (FileInputStream. input-file)]
@@ -328,7 +339,7 @@
                                (>!! record-chan record)
                                updated))
                            {:output-paths []
-                            :verbose (:verbose opts)
+                            :verbose (-> opts :options :verbose)
                             :records []
                             :max-record-count (-> opts :options :maximum)
                             :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
