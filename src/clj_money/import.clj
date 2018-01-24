@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [go >!]]
+            [clojure.core.async :refer [go >! >!!]]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -157,10 +157,12 @@
      source-type]))
 
 (defn- update-progress
-  [{:keys [callback progress] :as context}]
-  (if (fn? callback)
-    (callback progress)
-    (go (>! callback progress)))
+  [{:keys [progress-chan progress] :as context}]
+  ; this will block until the item is taken off the channel
+  ; in the future we may want more flexibility than that, but
+  ; for now this is ensuring that updates are received in the
+  ; correct order
+  (>!! progress-chan progress)
   context)
 
 (defn- inc-and-update-progress
@@ -230,7 +232,7 @@
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  [storage-spec import-spec progress-callback]
+  [storage-spec import-spec progress-chan]
   (with-transacted-storage [s storage-spec]
     (let [user (users/find-by-id s (:user-id import-spec))
           [inputs source-type] (prepare-input s (:image-ids import-spec))
@@ -243,7 +245,7 @@
                         (reduce process-record
                                 {:storage s
                                  :import import-spec
-                                 :callback progress-callback
+                                 :progress-chan progress-chan
                                  :progress {}
                                  :accounts {}
                                  :entity entity})))]

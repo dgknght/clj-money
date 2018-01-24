@@ -33,6 +33,12 @@
 
 (use-fixtures :each (partial reset-db storage-spec))
 
+(defn- nil-chan []
+  (let [c (chan)]
+    (go-loop [v (<! c)]
+             (recur (<! c)))
+    c))
+
 (defn- path->image
   [path]
   (let [ext (file-ext path)
@@ -158,7 +164,11 @@
         image (-> context :images first)
         imp (-> context :imports first)
         updates (atom [])
-        entity (import-data storage-spec imp (fn [p] (swap! updates #(conj % p))))
+        progress-chan (chan)
+        _ (go-loop [p (<! progress-chan)]
+                   (swap! updates #(conj % p))
+                   (recur (<! progress-chan)))
+        entity (import-data storage-spec imp progress-chan)
         actual-accounts (->> {:entity-id (:id entity)}
                              (accounts/search storage-spec)
                              (map #(dissoc % :created-at
@@ -241,7 +251,7 @@
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
-        result (import-data storage-spec imp (fn [progress]))
+        result (import-data storage-spec imp (nil-chan))
         entity (first (entities/select storage-spec (:id user)))
         [salary groceries] (->> {:entity-id (:id entity)}
                                 (accounts/search storage-spec)
@@ -300,7 +310,7 @@
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
-        result (import-data storage-spec imp (fn [progress]))
+        result (import-data storage-spec imp (nil-chan))
         entity (first (entities/select storage-spec (:id user)))
         account (->> {:entity-id (:id entity)}
                      (accounts/search storage-spec)
