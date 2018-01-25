@@ -276,21 +276,22 @@
       result)))
 
 (defn- process-output
-  [{:keys [verbose records output-folder file-name output-paths] :as context}]
+  [{:keys [verbose
+           records
+           output-folder
+           file-name
+           output-paths
+           progress-chan]
+    :as context}]
   (if (seq records)
     (let [output-path (format "%s/%s_%s.edn.gz"
                               output-folder
                               file-name
                               (count output-paths))]
-
-      (log/info "Writing" (count records) "records to" output-path)
-
       (binding [*print-meta* true]
         (with-open [writer (io/writer (GZIPOutputStream. (FileOutputStream. output-path)))]
           (.write writer (prn-str records))))
-
-      (log/info "Finished writing" output-path)
-
+      (>!! progress-chan [:output-path output-path])
       (-> context
           (assoc :records [])
           (update-in [:output-paths] #(conj % output-path))))
@@ -326,7 +327,7 @@
 (defn- process-chunk-record
   "Processes a single record for the file chunking process"
   [{:keys [progress-chan] :as context} record]
-  (>!! progress-chan record)
+  (>!! progress-chan [:record record])
   (-> context
       (update-in [:records] #(conj % record))
       advance-context))
@@ -342,19 +343,24 @@
         progress-chan (chan)
         result (go
                  (with-open [input-stream (FileInputStream. input-file)]
-                   (reduce process-chunk-record
-                           {:output-paths []
-                            :verbose (-> opts :options :verbose)
-                            :records []
-                            :max-record-count (-> opts :options :maximum)
-                            :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
-                            :output-folder output-folder
-                            :progress-chan progress-chan}
-                           (read-source :gnucash input-stream))))]
-    (go-loop [record (<! progress-chan)]
-             (when (not (:verbose opts))
-               (print (-> record meta :record-type name first))
-               (flush))
+                   (->> (read-source :gnucash input-stream)
+                        (reduce process-chunk-record
+                                {:output-paths []
+                                 :verbose (-> opts :options :verbose)
+                                 :records []
+                                 :max-record-count (-> opts :options :maximum)
+                                 :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
+                                 :output-folder output-folder
+                                 :progress-chan progress-chan})
+                        process-output)))]
+    (go-loop [value (<! progress-chan)]
+             (case (first value)
+               :record
+               (when (not (:verbose opts))
+                 (print (-> value second meta :record-type name first))
+                 (flush))
+               :output-path
+               (println "\n" (second value)))
              (recur (<! progress-chan)))
     (println "reading the source file...")
     (<!! result)
