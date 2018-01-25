@@ -309,6 +309,9 @@
     :default 1000]])
 
 (defn- parse-chunk-file-opts
+  "Accepts the raw arguments passed into chunk-file
+  and returns a map containing the information needed
+  to service the request"
   [args]
   (let [opts (parse-opts args chunk-file-options)
         input-path (-> opts :arguments first)
@@ -320,6 +323,14 @@
      :file-name file-name
      :output-folder output-folder}))
 
+(defn- process-chunk-record
+  "Processes a single record for the file chunking process"
+  [{:keys [progress-chan] :as context} record]
+  (>!! progress-chan record)
+  (-> context
+      (update-in [:records] #(conj % record))
+      advance-context))
+
 (defn chunk-file
   "Accepts a path to a gnucash file and creates multiple, smaller files
   that container the same data, returning the paths to the new files"
@@ -328,28 +339,23 @@
                 output-folder
                 file-name]
          :as opts} (parse-chunk-file-opts args)
-        record-chan (chan)
+        progress-chan (chan)
         result (go
                  (with-open [input-stream (FileInputStream. input-file)]
-                   (reduce (fn [context record]
-                             (let [updated (-> context
-                                               (update-in [:records] (fn [records] (conj records record)))
-                                               advance-context)]
-                               (process-output updated)
-                               (>!! record-chan record)
-                               updated))
+                   (reduce process-chunk-record
                            {:output-paths []
                             :verbose (-> opts :options :verbose)
                             :records []
                             :max-record-count (-> opts :options :maximum)
                             :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
-                            :output-folder output-folder}
+                            :output-folder output-folder
+                            :progress-chan progress-chan}
                            (read-source :gnucash input-stream))))]
-    (go-loop [record (<! record-chan)]
+    (go-loop [record (<! progress-chan)]
              (when (not (:verbose opts))
                (print (-> record meta :record-type name first))
                (flush))
-             (recur (<! record-chan)))
+             (recur (<! progress-chan)))
     (println "reading the source file...")
     (<!! result)
     (println "\nDone")))
