@@ -324,6 +324,34 @@
      :file-name file-name
      :output-folder output-folder}))
 
+(defmulti ^:private keep-record?
+  (fn [record _]
+    (-> record meta :record-type)))
+
+(defmethod ^:private keep-record? :default
+  [_ _]
+  true)
+
+(defmethod ^:private keep-record? :price
+  [{:keys [trade-date] :as record} filter-state]
+  (let [key-fn (juxt :exchange :symbol)
+        trade-date-key (key-fn record)
+        last-trade-date (get-in @filter-state
+                                [:trade-dates trade-date-key]
+                                (t/local-date 1900 1 1))
+        cut-off (t/plus last-trade-date (t/months 1))]
+    (when (< 0 (compare trade-date cut-off))
+      (swap! filter-state #(assoc-in % [:trade-dates trade-date-key] trade-date))
+      true)))
+
+(defn- filter-record
+  [xf]
+  (let [filter-state (atom {})]
+    (fn [result record]
+      (if (keep-record? record filter-state)
+        (xf result record)
+        result))))
+
 (defn- process-chunk-record
   "Processes a single record for the file chunking process"
   [{:keys [progress-chan] :as context} record]
@@ -344,14 +372,16 @@
         result (go
                  (with-open [input-stream (FileInputStream. input-file)]
                    (->> (read-source :gnucash input-stream)
-                        (reduce process-chunk-record
-                                {:output-paths []
-                                 :verbose (-> opts :options :verbose)
-                                 :records []
-                                 :max-record-count (-> opts :options :maximum)
-                                 :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
-                                 :output-folder output-folder
-                                 :progress-chan progress-chan})
+                        (transduce
+                          filter-record
+                          process-chunk-record
+                          {:output-paths []
+                           :verbose (-> opts :options :verbose)
+                           :records []
+                           :max-record-count (-> opts :options :maximum)
+                           :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
+                           :output-folder output-folder
+                           :progress-chan progress-chan})
                         process-output)))]
     (go-loop [value (<! progress-chan)]
              (case (first value)
