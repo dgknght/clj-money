@@ -297,12 +297,6 @@
           (update-in [:output-paths] #(conj % output-path))))
     context))
 
-(defn- advance-context
-  [{:keys [records max-record-count] :as context}]
-  (if (>= (count records) max-record-count)
-    (process-output context)
-    context))
-
 (def ^:private chunk-file-options
   [["-v" "--verbose" "Print a lot of details about what's going on"]
    ["-m" "--maximum MAXIMUM" "The maximum number of records to include in each output file"
@@ -345,20 +339,30 @@
       true)))
 
 (defn- filter-record
-  [xf]
-  (let [filter-state (atom {})]
-    (fn [result record]
-      (if (keep-record? record filter-state)
-        (xf result record)
-        result))))
+  ([xf]
+   (let [filter-state (atom {})]
+     (fn
+       ([] (xf))
+       ([result] (xf result))
+       ([result record]
+        (if (keep-record? record filter-state)
+          (xf result record)
+          result))))))
+
+(defn- advance-context
+  [{:keys [records max-record-count] :as context}]
+  (if (>= (count records) max-record-count)
+    (process-output context)
+    context))
 
 (defn- process-chunk-record
   "Processes a single record for the file chunking process"
-  [{:keys [progress-chan] :as context} record]
-  (>!! progress-chan [:record record])
-  (-> context
-      (update-in [:records] #(conj % record))
-      advance-context))
+  ([result] result)
+  ([{:keys [progress-chan] :as context} record]
+   (>!! progress-chan [:record record])
+   (-> context
+       (update-in [:records] #(conj % record))
+       advance-context)))
 
 (defn chunk-file
   "Accepts a path to a gnucash file and creates multiple, smaller files
