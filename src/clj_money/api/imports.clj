@@ -41,24 +41,36 @@
 
 (defn- infer-content-type
   [source-file]
-  (let [ext (second (re-matches #".*\.(.*)$" (:filename source-file)))]
-    (if (= "gnucash" ext)
-      "application/gnucash"
-      (throw (ex-info "Unable to infer the content type from the source file" {:extension ext
-                                                                               :source-file source-file})))))
+  (let [filename (:filename source-file)
+        stripped-filename (string/replace filename #"\.gz$" "")
+        ext (second (re-matches #".*\.(.*)?$" stripped-filename))]
+    (if (#{"gnucash" "edn"} ext)
+      (format "application/%s" ext)
+      (throw (ex-info (format
+                        "Unable to infer the content type from the source file: %s"
+                        (:filename source-file))
+                      {:extension ext
+                       :source-file source-file})))))
 
+(defn- create-images
+  [params user]
+  (let [content-type (infer-content-type (:source-file-0 params))]
+    (->> (range 10)
+         (map #(format "source-file-%s" %))
+         (map (comp params keyword))
+         (take-while map?)
+         (map #(images/find-or-create (env :db) {:user-id (:id user)
+                                                 :content-type content-type
+                                                 :original-filename (:filename %)
+                                                 :body (read-bytes (:tempfile %))})))))
 (defn create
   [{params :params}]
   (let [user (friend/current-authentication)
-        content-type (infer-content-type (:source-file params))
-        image (images/find-or-create (env :db) {:user-id (:id user)
-                                                :content-type content-type
-                                                :original-filename (-> params :source-file :filename)
-                                                :body (read-bytes (-> params :source-file :tempfile))})]
-    (if (empty? (validation/error-messages image))
+        images (create-images params user)]
+    (if (not-any? #(validation/error-messages %) images)
       (let [import (imports/create (env :db) {:user-id (:id user)
                                               :entity-name (:entity-name params)
-                                              :image-id (:id image)})]
+                                              :image-ids (map :id images)})]
         (if (empty? (validation/error-messages import))
           (do
             (launch-and-track-import import)
@@ -69,11 +81,11 @@
                                          vals
                                          (mapcat identity)
                                          (string/join ", ")))})))
-      (response {:error (format "Unable to save the source file. %s"
-                                (->> image
-                                     validation/error-messages
-                                     vals
-                                     (mapcat identity)
+      (response {:error (format "Unable to save the source file(s). %s"
+                                (->> images
+                                     (map validation/error-messages)
+                                     (map vals)
+                                     flatten
                                      (string/join ", ")))}))))
 
 (defn show

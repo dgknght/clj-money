@@ -101,13 +101,22 @@
       };
 
       $scope.startImport = function() {
-        $scope.statusMessage = "Uploading the file...";
+        $scope.statusMessage = "Uploading the files...";
         $scope.alerts.length = 0;
         apiClient.createImport({
           "entity-name": $scope.entityName,
-          "source-file": $scope.sourceFile
+          "source-file-0": $scope.sourceFile0,
+          "source-file-1": $scope.sourceFile1,
+          "source-file-2": $scope.sourceFile2,
+          "source-file-3": $scope.sourceFile3,
+          "source-file-4": $scope.sourceFile4,
+          "source-file-5": $scope.sourceFile5,
+          "source-file-6": $scope.sourceFile6,
+          "source-file-7": $scope.sourceFile7,
+          "source-file-8": $scope.sourceFile8,
+          "source-file-9": $scope.sourceFile9,
         }, $scope.antiForgeryToken).then(function(response) {
-          $scope.statusMessage = "Processing the file...";
+          $scope.statusMessage = "Processing the files...";
           $scope.activeImport = response.data.import;
           trackImportProgress();
         },
