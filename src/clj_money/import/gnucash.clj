@@ -276,6 +276,7 @@
       result)))
 
 (defn- process-output
+  "Writes the records to the next output file and resets the record buffer"
   [{:keys [verbose
            records
            output-folder
@@ -349,20 +350,34 @@
           (xf result record)
           result))))))
 
-(defn- advance-context
-  [{:keys [records max-record-count] :as context}]
-  (if (>= (count records) max-record-count)
-    (process-output context)
-    context))
+(defn- evaluate-output
+  "Evaluates the output for the chunking process
+  and writes the file and resets the record buffer if the
+  maximum number of records has been reached"
+  ([context _] (evaluate-output context))
+  ([{:keys [records max-record-count] :as context}]
+   (if (>= (count records) max-record-count)
+     (process-output context)
+     context)))
 
-(defn- process-chunk-record
-  "Processes a single record for the file chunking process"
-  ([result] result)
-  ([{:keys [progress-chan] :as context} record]
-   (>!! progress-chan [:record record])
-   (-> context
-       (update-in [:records] #(conj % record))
-       advance-context)))
+(defn- append-record
+  [xf]
+  (fn
+    ([] (xf))
+    ([context] (xf context))
+    ([context record]
+     (xf
+       (update-in context [:records] #(conj % record))
+       record))))
+
+(defn- notify-record
+  [progress-chan xf]
+  (fn
+    ([] (xf))
+    ([context] (xf context))
+    ([context record]
+     (>!! progress-chan [:record record])
+     (xf context record))))
 
 (defn chunk-file
   "Accepts a path to a gnucash file and creates multiple, smaller files
@@ -377,8 +392,10 @@
                  (with-open [input-stream (FileInputStream. input-file)]
                    (->> (read-source :gnucash input-stream)
                         (transduce
-                          filter-record
-                          process-chunk-record
+                          (comp filter-record
+                                append-record
+                                (partial notify-record progress-chan))
+                          evaluate-output
                           {:output-paths []
                            :verbose (-> opts :options :verbose)
                            :records []
