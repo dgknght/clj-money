@@ -18,17 +18,6 @@
 (def ^:private expected-record-types
   [:budget :account :transaction :commodity :price])
 
-(defn- progress-complete?
-  [progress]
-  (let [filtered (select-keys progress expected-record-types)]
-    (and (seq filtered)
-         (every? (fn [[_ {:keys [total imported]}]]
-                   (= total imported))
-                 filtered))))
-
-; TODO Maybe it would be better if the channel received
-; a special message that indicated the file had been
-; completely read?
 (defn- launch-and-track-import
   [import]
   (let [progress-chan (chan)]
@@ -37,7 +26,7 @@
                (let [progress (<! progress-chan)]
                  (imports/update (env :db)
                                  (assoc import :progress progress))
-                 (recur (not (progress-complete? progress))))))
+                 (recur (not (:finished progress))))))
     (go (import-data (env :db) import progress-chan))))
 
 (defn- infer-content-type

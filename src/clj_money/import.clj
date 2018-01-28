@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [go >! >!!]]
+            [clojure.core.async :refer [>!!]]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -156,76 +156,68 @@
     [(map #(io/input-stream (byte-array (:body %))) images)
      source-type]))
 
-(defn- notify-progress
-  [{:keys [progress-chan progress] :as context}]
-  ; this will block until the item is taken off the channel
-  ; in the future we may want more flexibility than that, but
-  ; for now this is ensuring that updates are received in the
-  ; correct order
-  (>!! progress-chan progress)
-  context)
+(defn- inc-progress
+  [xf]
+  (fn
+    ([context] (xf context))
+    ([context record]
+     (xf
+       (update-in context [:progress
+                           (-> record meta :record-type)
+                           :imported]
+                  (fnil inc 0))
+       record))))
 
-(defn- inc-and-notify-progress
-  [context record-type]
-  (-> context
-      (update-in [:progress record-type :imported]
-                 (fnil inc 0))
-      notify-progress))
-
-(defmulti import-record
+(defmulti import-record*
   (fn [_ record]
     (-> record meta :record-type)))
 
-(defmethod import-record :declaration
+(defmethod import-record* :declaration
   [context {:keys [record-type record-count]}]
-  (-> context
-      (assoc-in [:progress record-type :total] record-count)
-      notify-progress))
+  (assoc-in context
+            [:progress record-type :total]
+            record-count))
 
-(defmethod import-record :account
+(defmethod import-record* :account
   [context account]
   (import-account context account))
 
-(defmethod import-record :transaction
+(defmethod import-record* :transaction
   [context transaction]
   (import-transaction context transaction))
 
-(defmethod import-record :budget
+(defmethod import-record* :budget
   [context budget]
   (import-budget context budget))
 
-(defmethod import-record :price
+(defmethod import-record* :price
   [context price]
   (import-price context price))
 
-(defmethod import-record :commodity
+(defmethod import-record* :commodity
   [context commodity]
   (import-commodity context commodity))
+
+(defn- import-record
+  [xf]
+  (fn
+    ([] (xf))
+    ([context] (xf context))
+    ([context record]
+     (xf (import-record* context record) record))))
 
 (def ^:private reportable-record-types
   #{:commodity :price :account :transaction :budget})
 
 (defn- report-progress?
-  [record-type]
-  (reportable-record-types record-type))
+  [record]
+  (reportable-record-types (-> record meta :record-type)))
 
-(defn process-record
-  "Top-level callback processing
-
-  This function calls the multimethod import-record
-  to dispatch to the correct import logic for the
-  record-type.
-
-  If the record is nil, processing is skipped but
-  the progress is updated."
-  [context record]
-  (let [{:keys [record-type ignore?]} (meta record)]
-    (cond-> context
-      (not ignore?)
-      (import-record record)
-
-      (report-progress? record-type)
-      (inc-and-notify-progress record-type))))
+(defn- notify-progress
+  ([progress-chan context] context)
+  ([progress-chan context _]
+   (>!! progress-chan (:progress context))
+   context))
 
 (defn import-data
   "Reads the contents from the specified input and saves
@@ -242,11 +234,17 @@
           result (transactions/with-delayed-balancing s (:id entity)
                    (->> inputs
                         (mapcat #(read-source source-type %))
-                        (reduce process-record
-                                {:storage s
-                                 :import import-spec
-                                 :progress-chan progress-chan
-                                 :progress {}
-                                 :accounts {}
-                                 :entity entity})))]
+                        (transduce (comp (remove #(-> % meta :ignore?))
+                                         import-record
+                                         (filter #(report-progress? %))
+                                         inc-progress)
+                                   (partial notify-progress progress-chan)
+                                   {:storage s
+                                    :import import-spec
+                                    :progress {}
+                                    :accounts {}
+                                    :entity entity})))]
+      (>!! progress-chan (-> result
+                             :progress
+                             (assoc :finished true)))
       entity)))

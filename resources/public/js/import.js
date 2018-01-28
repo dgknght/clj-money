@@ -38,15 +38,6 @@
       $scope.alerts = [];
       $scope.statusMessage = null;
 
-      var importIsComplete = function(imp) {
-        var progress = imp.progress;
-        if (_.isEmpty(progress))
-          return false;
-        return _.every(progress, function(prop) {
-          return prop.total == prop.imported;
-        });
-      };
-
       var updateProgressBars = function(progress) {
         _.chain(progress)
           .keys()
@@ -71,7 +62,7 @@
               window.setTimeout(function() {
                 updateProgressBars($scope.activeImport.progress);
               }, 250);
-              if (importIsComplete($scope.activeImport)) {
+              if ($scope.activeImport.finished) {
                 $scope.statusMessage = null;
                 $scope.alerts.push({
                   message: "Import complete.",

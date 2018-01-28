@@ -847,20 +847,21 @@
      ; Make a note that balances should not be calculated
      ; for this entity
      (swap! ambient-settings update-in
-                             [~entity-id]
-                             (fnil #(assoc % :delay-balances? true
-                                             :delayed-account-ids #{})
-                                   {}))
-     ~@body
+            [~entity-id]
+            (fnil #(assoc % :delay-balances? true
+                          :delayed-account-ids #{})
+                  {}))
+     (let [result# (do ~@body)]
 
-     ; Recalculate balances for affected accounts
-     (->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
-          (map #(hash-map :account-id % :index -1 :balance 0M))
-          (map #(recalculate-account-items ~storage-spec %))
-          doall)
+       ; Recalculate balances for affected accounts
+       (->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
+            (map #(hash-map :account-id % :index -1 :balance 0M))
+            (map #(recalculate-account-items ~storage-spec %))
+            doall)
 
-     ; clean up the ambient settings as if we were never here
-     (swap! ambient-settings dissoc ~entity-id)))
+       ; clean up the ambient settings as if we were never here
+       (swap! ambient-settings dissoc ~entity-id)
+       result#)))
 
 (defn available-date-range
   [storage-spec]
