@@ -156,7 +156,7 @@
     [(map #(io/input-stream (byte-array (:body %))) images)
      source-type]))
 
-(defn- update-progress
+(defn- notify-progress
   [{:keys [progress-chan progress] :as context}]
   ; this will block until the item is taken off the channel
   ; in the future we may want more flexibility than that, but
@@ -165,12 +165,12 @@
   (>!! progress-chan progress)
   context)
 
-(defn- inc-and-update-progress
+(defn- inc-and-notify-progress
   [context record-type]
   (-> context
       (update-in [:progress record-type :imported]
                  (fnil inc 0))
-      update-progress))
+      notify-progress))
 
 (defmulti import-record
   (fn [_ record]
@@ -180,7 +180,7 @@
   [context {:keys [record-type record-count]}]
   (-> context
       (assoc-in [:progress record-type :total] record-count)
-      update-progress))
+      notify-progress))
 
 (defmethod import-record :account
   [context account]
@@ -225,7 +225,7 @@
       (import-record record)
 
       (report-progress? record-type)
-      (inc-and-update-progress record-type))))
+      (inc-and-notify-progress record-type))))
 
 (defn import-data
   "Reads the contents from the specified input and saves
