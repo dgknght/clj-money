@@ -12,6 +12,7 @@
             [clj-money.models.images :as images]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash]
+            [clj-money.import.edn]
             [clj-money.models.imports :as imports]))
 
 (def ^:private expected-record-types
