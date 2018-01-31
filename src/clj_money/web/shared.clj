@@ -211,7 +211,10 @@
      (head ~page-title ~options)
      [:body
       (primary-nav (get-entity-from-options ~options))
-      [:div.container {:style "margin-top: 2em;"}
+      [:div {:style "margin-top: 2em;"
+             :class (if (:fluid ~options)
+                      "container-fluid"
+                      "container")}
        (html
          (let [side-bar# (:side-bar ~options)]
            [:div.row

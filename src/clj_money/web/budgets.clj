@@ -271,7 +271,8 @@
   "Renders the budet details"
   [{{id :id} :params}]
   (let [budget (for-display id)]
-    (with-layout (str "Budget: " (:name budget)) {:entity-id (:entity-id budget)}
+    (with-layout (str "Budget: " (:name budget)) {:entity-id (:entity-id budget)
+                                                  :fluid true}
       [:div.row
        [:div.col-md-12
         [:table.table.table-striped
