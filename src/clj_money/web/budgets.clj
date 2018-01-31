@@ -540,3 +540,14 @@
     (if (empty? (validation/error-messages updated))
       (redirect (format "/budgets/%s" (:budget-id updated)))
       (edit-item {:item updated}))))
+
+(defn delete-item
+  "Deletes the specified item and redirects to the budget on success"
+  [{params :params}]
+  (let [item (authorize (budgets/find-item-by-id (env :db) (:id params)) :delete)]
+    (try
+      (budgets/delete-item (env :db) (:id item))
+      (redirect (format "/budgets/%s" (:budget-id item)))
+      (catch Exception e
+        (log/error e "Unable to delete the budget item with id=" (:id params))
+        (show {:params {:id (:budget-id item)}})))))

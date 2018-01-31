@@ -257,6 +257,10 @@
     [this budget-id]
     "Returns the budget items for the specified budget")
 
+  (delete-budget-item
+    [this id]
+    "Deletes the specified budget item")
+
   ; Images
   (create-image
     [this image]

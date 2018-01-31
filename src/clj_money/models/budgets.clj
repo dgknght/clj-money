@@ -25,7 +25,8 @@
                                               find-budget-item-by-id
                                               select-budgets
                                               select-budget-items-by-budget-id
-                                              delete-budget]])
+                                              delete-budget
+                                              delete-budget-item]])
   (:import (org.joda.time LocalDate
                           Months
                           Weeks
@@ -294,6 +295,12 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-budget s id)))
+
+(defn delete-item
+  "Removes the specified budget from the system"
+  [storage-spec id]
+  (with-storage [s storage-spec]
+    (delete-budget-item s id)))
 
 (defn- within-period?
   "Returns a boolean value indicating whether or not

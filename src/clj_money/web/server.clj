@@ -90,6 +90,7 @@
   (route POST "/budgets/:budget-id/items" budgets/create-item)
   (route GET "/budget-items/:id/edit/:method" budgets/edit-item)
   (route POST "/budget-items/:id" budgets/update-item)
+  (route POST "/budget-items/:id/delete" budgets/delete-item)
 
   ; Budget monitors
   (route GET "/entities/:entity-id/monitors" entities/monitors)

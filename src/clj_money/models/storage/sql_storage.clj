@@ -1022,6 +1022,10 @@
                        (h/from :budget_items)
                        (h/where [:= :budget_id budget-id]))))
 
+  (delete-budget-item
+    [_ id]
+    (jdbc/delete! db-spec :budget_items ["id = ?" id]))
+
   ; Images
 
   (create-image
