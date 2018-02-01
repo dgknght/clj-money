@@ -52,11 +52,18 @@
 (declare process-node)
 
 (defn- process-node-attribute
-  [node result {:keys [attribute xpath transform-fn default]}]
+  [node result {:keys [attribute
+                       xpath
+                       col-xpath
+                       transform-fn
+                       default]}]
   (let [transform-fn (if transform-fn
                        transform-fn
                        identity)
-        raw-value ($x:text? xpath node)
+        raw-value (some (fn [[query f]]
+                          (when query (f query node)))
+                        [[xpath $x:text?]
+                         [col-xpath $x]])
         value (if raw-value
                  (transform-fn raw-value)
                 default)]
@@ -218,13 +225,18 @@
                                               :credit
                                               :debit)}]}
    :gnc:transaction {:attributes [{:attribute :transaction-date
-                               :xpath "trn:date-posted/ts:date"
-                               :transform-fn parse-date}
-                              {:attribute :description
-                               :xpath "trn:description"}
-                              {:attribute :action
-                               :xpath "trn:splits/trn:split/split:action"
-                               :transform-fn (comp keyword s/lower-case)}]
+                                   :xpath "trn:date-posted/ts:date"
+                                   :transform-fn parse-date}
+                                  {:attribute :description
+                                   :xpath "trn:description"}
+                                  {:attribute :action
+                                   :col-xpath "trn:splits/trn:split/split:action"
+                                   :transform-fn #(when (seq %)
+                                                    (-> %
+                                                        first
+                                                        :text
+                                                        s/lower-case
+                                                        keyword))}]
                      :meta {:record-type :transaction}
                      :refine-fn refine-transaction}})
 
