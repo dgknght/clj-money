@@ -28,9 +28,10 @@
 (defn- parse-decimal
   [string-decimal]
   (when-let [match (re-find #"(\d+)\/(\d+)" string-decimal)]
-    (apply / (->> match
-                  rest
-                  (map bigdec)))))
+    (with-precision 4
+      (apply / (->> match
+                    rest
+                    (map bigdec))))))
 
 (def ^:private namespace-map
   (->> ["gnc" "act" "trn" "ts" "split" "bgt" "recurrence" "slot" "cd" "cmdty" "price"]
@@ -291,7 +292,8 @@
                               (count output-paths))]
       (binding [*print-meta* true]
         (with-open [writer (io/writer (GZIPOutputStream. (FileOutputStream. output-path)))]
-          (.write writer (prn-str records))))
+          (with-precision 4
+            (.write writer (prn-str records)))))
       (>!! progress-chan [:output-path output-path])
       (-> context
           (assoc :records [])
@@ -390,20 +392,24 @@
         progress-chan (chan)
         result (go
                  (with-open [input-stream (FileInputStream. input-file)]
-                   (->> (read-source :gnucash input-stream)
-                        (transduce
-                          (comp filter-record
-                                append-record
-                                (partial notify-record progress-chan))
-                          evaluate-output
-                          {:output-paths []
-                           :verbose (-> opts :options :verbose)
-                           :records []
-                           :max-record-count (-> opts :options :maximum)
-                           :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
-                           :output-folder output-folder
-                           :progress-chan progress-chan})
-                        process-output)))]
+                   (try
+                     (->> (read-source :gnucash input-stream)
+                          (transduce
+                            (comp filter-record
+                                  append-record
+                                  (partial notify-record progress-chan))
+                            evaluate-output
+                            {:output-paths []
+                             :verbose (-> opts :options :verbose)
+                             :records []
+                             :max-record-count (-> opts :options :maximum)
+                             :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
+                             :output-folder output-folder
+                             :progress-chan progress-chan})
+                          process-output)
+                     (catch Exception e
+                       (pprint {:error-reading-source e
+                                :stack-trace (.getStackTrace e)})))))]
     (go-loop [value (<! progress-chan)]
              (case (first value)
                :record
