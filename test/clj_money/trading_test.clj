@@ -8,9 +8,11 @@
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
+                                            find-entity
                                             find-account
                                             find-accounts
                                             find-commodity
+                                            find-transaction
                                             pprint-diff]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
@@ -352,16 +354,20 @@
      :value 375M}))
 
 (defn- sell-context
-  []
-  (let [context (serialization/realize storage-spec purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        result  (trading/buy storage-spec {:account-id (:id ira)
-                                           :commodity-id (:id commodity)
-                                           :trade-date (t/local-date 2016 3 2)
-                                           :shares 100M
-                                           :value 1000M})]
-    (assoc context :lots [(:lot result)])))
+  ([]
+   (sell-context purchase-context))
+  ([base-context]
+   (let [context (serialization/realize storage-spec base-context)
+         ira (find-account context "IRA")
+         commodity (find-commodity context "AAPL")
+         result  (trading/buy storage-spec {:account-id (:id ira)
+                                            :commodity-id (:id commodity)
+                                            :trade-date (t/local-date 2016 3 2)
+                                            :shares 100M
+                                            :value 1000M})]
+     (-> context
+         (assoc :lots [(:lot result)])
+         (update-in [:transactions] #(conj % (:transaction result)))))))
 
 (deftest sell-a-commodity
   (let [context (serialization/realize storage-spec purchase-context)
@@ -855,3 +861,37 @@
         (let [lot (lots/find-by-id storage-spec (:id lot))]
           (is (= (:shares-owned lot) (:shares-purchased lot))
               "The shares-owned should be restored"))))))
+
+(defn- transfer-context []
+  (-> purchase-context
+      (update-in [:accounts] #(conj % {:name "IRA 2"
+                                       :type :asset}))
+      sell-context))
+
+(deftest transfer-a-commodity
+  (let [context (transfer-context)
+        [ira ira-2] (find-accounts context "IRA" "IRA 2")
+        commodity (find-commodity context "AAPL")
+        result (trading/transfer storage-spec {:commodity commodity
+                                               :from-account ira
+                                               :to-account ira-2
+                                               :shares 100})
+        entity (find-entity context "Personal")
+        actual-lots (map #(dissoc % :created-at :updated-at :id)
+                         (lots/search storage-spec {:commodity-id (:id commodity)}))
+        expected-lots [{:commodity-id (:id commodity)
+                        :account-id (:id ira-2)
+                        :shares-owned 100M
+                        :purchase-price 10M
+                        :shares-purchased 100M}]]
+
+    (pprint {:lots (:lots result)})
+
+    (is result "A non-nil result is returned")
+    (is (= 0M (:balance (accounts/reload storage-spec ira)))
+        "The balance in the 'from' account is updated correctly")
+    (is (= 1000M (:balance (accounts/reload storage-spec ira-2)))
+        "The balance in the 'to' account is updated correclty")
+    (pprint-diff expected-lots actual-lots)
+    (is (= expected-lots actual-lots)
+        "The lots are adjusted correctly.")))

@@ -78,6 +78,12 @@
                             :entity-id (:entity-id parent)
                             :tags #{:tradable}}))
 
+(defn- find-or-create-commodity-account
+  [storage parent commodity]
+  (some #(% storage parent commodity)
+        [find-commodity-account
+         create-commodity-account]))
+
 (defn- acquire-accounts
   "Give a purchase context, acquires the accounts
   necessary to complete the purchase"
@@ -86,9 +92,9 @@
   (let [account (->> account-id
                      (accounts/find-by-id storage)
                      (ensure-tag storage :trading))
-        commodity-account (some #(% storage account commodity)
-                                [find-commodity-account
-                                 create-commodity-account])]
+        commodity-account (find-or-create-commodity-account storage
+                                                            account
+                                                            commodity)]
     (merge context {:account account
                     :commodity-account commodity-account})))
 
@@ -384,3 +390,16 @@
         (let [lot (lots/find-by-id s (:lot-id lot-item))]
           (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
       (transactions/delete s transaction-id transaction-date))))
+
+(defn transfer
+  [storage-spec {:keys [commodity from-account to-account shares]}]
+  (with-transacted-storage [s storage-spec]
+    (let [to-commodity-account (find-or-create-commodity-account
+                                 s
+                                 to-account
+                                 commodity)
+          lots (lots/search s {:commodity-id (:id commodity)
+                               :account-id (:id from-account)
+                               :shares-owned [:> 0M]})]
+      {:lots (map #(lots/update s (assoc % :account-id (:id to-account)))
+                  lots)})))
