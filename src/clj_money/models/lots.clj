@@ -13,7 +13,6 @@
             [clj-money.models.storage :refer [create-lot
                                               select-lots-by-commodity-id
                                               select-lots-by-entity-id
-                                              select-lots-by-transaction-id
                                               select-lots
                                               update-lot
                                               find-lot-by-id
@@ -85,13 +84,6 @@
   (with-storage [s storage-spec]
     (->> commodity-id
          (select-lots-by-commodity-id s)
-         (map after-read))))
-
-(defn select-by-transaction-id
-  [storage-spec commodity-id]
-  (with-storage [s storage-spec]
-    (->> commodity-id
-         (select-lots-by-transaction-id s)
          (map after-read))))
 
 (defn find-by-id
