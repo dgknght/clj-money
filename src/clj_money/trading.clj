@@ -17,12 +17,15 @@
 
 (s/def ::commodity-id integer?)
 (s/def ::account-id integer?)
+(s/def ::to-account-id integer?)
+(s/def ::from-account-id integer?)
 (s/def ::inventory-method #{:fifo :lifo})
 (s/def ::lt-capital-gains-account-id integer?)
 (s/def ::lt-capital-loss-account-id integer?)
 (s/def ::st-capital-gains-account-id integer?)
 (s/def ::st-capital-loss-account-id integer?)
 (s/def ::trade-date #(instance? org.joda.time.LocalDate %))
+(s/def ::transfer-date #(instance? org.joda.time.LocalDate %))
 (s/def ::shares decimal?)
 (s/def ::value decimal?)
 (s/def ::purchase (s/keys :req-un [::commodity-id
@@ -39,6 +42,11 @@
                                ::lt-capital-loss-account-id
                                ::st-capital-gains-account-id
                                ::st-capital-loss-account-id]))
+(s/def ::transfer (s/keys :req-un [::transfer-date
+                                   ::shares
+                                   ::from-account-id
+                                   ::to-account-id
+                                   ::commodity-id]))
 
 (defn- create-price
   "Given a context, calculates and appends the share price"
@@ -391,15 +399,56 @@
           (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
       (transactions/delete s transaction-id transaction-date))))
 
+(def ^:private transfer-coercion-rules
+  [(coercion/rule :local-date [:transfer-date])
+   (coercion/rule :integer [:from-account-id])
+   (coercion/rule :integer [:to-account-id])
+   (coercion/rule :integer [:commodity-id])
+   (coercion/rule :decimal [:shares])])
+
+(defn- validate-transfer
+  [storage transfer]
+  (->> transfer
+       (coercion/coerce transfer-coercion-rules)
+       (validation/validate ::transfer)))
+
 (defn transfer
-  [storage-spec {:keys [commodity from-account to-account shares]}]
+  [storage-spec transfer]
   (with-transacted-storage [s storage-spec]
-    (let [to-commodity-account (find-or-create-commodity-account
-                                 s
-                                 to-account
-                                 commodity)
-          lots (lots/search s {:commodity-id (:id commodity)
-                               :account-id (:id from-account)
-                               :shares-owned [:> 0M]})]
-      {:lots (map #(lots/update s (assoc % :account-id (:id to-account)))
-                  lots)})))
+    (let [{:keys [commodity-id
+                  from-account-id
+                  to-account-id
+                  shares
+                  transfer-date]
+           :as validated} (validate-transfer s transfer)]
+      (if (validation/valid? validated)
+        (let [commodity (commodities/find-by-id s commodity-id)
+              [from-account
+               to-account] (map #(accounts/find-by-id s %) [from-account-id
+                                                            to-account-id])
+              to-commodity-account (find-or-create-commodity-account
+                                     s
+                                     to-account
+                                     commodity)
+              lots (lots/search s {:commodity-id (:id commodity)
+                                   :account-id (:id from-account)
+                                   :shares-owned [:> 0M]})
+              updated-lots (mapv #(lots/update
+                                    s
+                                    (assoc % :account-id (:id to-account)))
+                                 lots)
+              transaction (transactions/create s {:entity-id (:entity-id commodity)
+                                                  :transaction-date transfer-date
+                                                  :description (format "Transfer %s shares of %s"
+                                                                       shares
+                                                                       (:symbol commodity))
+                                                  :items [{:action :credit
+                                                           :amount shares
+                                                           :account-id (:id from-account)}
+                                                          {:action :debit
+                                                           :amount shares
+                                                           :account-id (:id to-account)}]})]
+
+          {:lots updated-lots
+           :transaction transaction})
+        validated))))

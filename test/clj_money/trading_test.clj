@@ -872,10 +872,11 @@
   (let [context (transfer-context)
         [ira ira-2] (find-accounts context "IRA" "IRA 2")
         commodity (find-commodity context "AAPL")
-        result (trading/transfer storage-spec {:commodity commodity
-                                               :from-account ira
-                                               :to-account ira-2
-                                               :shares 100})
+        result (trading/transfer storage-spec {:commodity-id (:id commodity)
+                                               :from-account-id (:id ira)
+                                               :to-account-id (:id ira-2)
+                                               :shares 100
+                                               :transfer-date (t/local-date 2016 4 2)})
         entity (find-entity context "Personal")
         actual-lots (map #(dissoc % :created-at :updated-at :id)
                          (lots/search storage-spec {:commodity-id (:id commodity)}))
@@ -883,15 +884,42 @@
                         :account-id (:id ira-2)
                         :shares-owned 100M
                         :purchase-price 10M
-                        :shares-purchased 100M}]]
-
-    (pprint {:lots (:lots result)})
-
+                        :shares-purchased 100M
+                        :purchase-date (t/local-date 2016 3 2)}]
+        expected-transaction {:transaction-date (t/local-date 2016 4 2)
+                              :description "Transfer 100 shares of AAPL"
+                              :entity-id (:entity-id commodity)
+                              :items [{:action :debit
+                                       :amount 100M
+                                       :account-id (:id ira-2)}
+                                      {:action :credit
+                                       :amount 100M
+                                       :account-id (:id ira)}]}
+        actual-transaction (-> (:transaction result)
+                               (select-keys [:entity-id
+                                             :transaction-date
+                                             :description
+                                             :items])
+                               (update-in [:items]
+                                          (fn [items]
+                                            (map #(select-keys
+                                                    %
+                                                    [:action
+                                                     :amount
+                                                     :action
+                                                     :value
+                                                     :balance])
+                                                 items))))]
     (is result "A non-nil result is returned")
+    (is (empty? (validation/error-messages result))
+        "The result does not contain validation errors")
+    (pprint-diff expected-transaction actual-transaction)
+    (is (= expected-transaction actual-transaction)
+        "The correct transaction is returned")
+    (pprint-diff expected-lots actual-lots)
+    (is (= expected-lots actual-lots)
+        "The lots are adjusted correctly.")
     (is (= 0M (:balance (accounts/reload storage-spec ira)))
         "The balance in the 'from' account is updated correctly")
     (is (= 1000M (:balance (accounts/reload storage-spec ira-2)))
-        "The balance in the 'to' account is updated correclty")
-    (pprint-diff expected-lots actual-lots)
-    (is (= expected-lots actual-lots)
-        "The lots are adjusted correctly.")))
+        "The balance in the 'to' account is updated correclty")))
