@@ -411,8 +411,9 @@
                                                    :parent-id])
                                      (tag-resource :account)
                                      (authorize :create)))]
+
     (if (validation/has-error? account)
-      (new-account {:params (select-keys account [:entity-id])} account)
+      (new-account {:params (select-keys params [:entity])} account)
       (redirect (str "/entities/" (:entity-id account) "/accounts")))))
 
 (defn edit
