@@ -439,6 +439,8 @@
                                     s
                                     (assoc % :account-id (:id to-account)))
                                  lots)
+              price (prices/most-recent s (:id commodity) transfer-date)
+              value (* shares (:price price))
               transaction (transactions/create s {:entity-id (:entity-id commodity)
                                                   :transaction-date transfer-date
                                                   :description (format "Transfer %s shares of %s"
@@ -446,9 +448,11 @@
                                                                        (:symbol commodity))
                                                   :items [{:action :credit
                                                            :amount shares
+                                                           :value value
                                                            :account-id (:id from-commodity-account)}
                                                           {:action :debit
                                                            :amount shares
+                                                           :value value
                                                            :account-id (:id to-commodity-account)}]})]
 
           {:lots updated-lots

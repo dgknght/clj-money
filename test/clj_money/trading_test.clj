@@ -899,12 +899,12 @@
                               :entity-id (:entity-id commodity)
                               :items [{:action :debit
                                        :amount 100M
-                                       :value 100M ; TODO this should be calculated to 1,000, but need to work out the details
+                                       :value 1000M
                                        :balance 100M
                                        :account-id (:id ira-2-commodity-account)}
                                       {:action :credit
                                        :amount 100M
-                                       :value 100M
+                                       :value 1000M
                                        :balance 0M
                                        :account-id (:id ira-commodity-account)}]}
         actual-transaction (-> (:transaction result)
