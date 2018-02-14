@@ -877,6 +877,14 @@
                                                :to-account-id (:id ira-2)
                                                :shares 100
                                                :transfer-date (t/local-date 2016 4 2)})
+        [ira-commodity-account
+         ira-2-commodity-account] (->> [ira ira-2]
+                                       (map :id)
+                                       (map #(accounts/search
+                                               storage-spec
+                                               {:parent-id %
+                                                :commodity-id (:id commodity)}))
+                                       (map first))
         entity (find-entity context "Personal")
         actual-lots (map #(dissoc % :created-at :updated-at :id)
                          (lots/search storage-spec {:commodity-id (:id commodity)}))
@@ -891,10 +899,14 @@
                               :entity-id (:entity-id commodity)
                               :items [{:action :debit
                                        :amount 100M
-                                       :account-id (:id ira-2)}
+                                       :value 100M ; TODO this should be calculated to 1,000, but need to work out the details
+                                       :balance 100M
+                                       :account-id (:id ira-2-commodity-account)}
                                       {:action :credit
                                        :amount 100M
-                                       :account-id (:id ira)}]}
+                                       :value 100M
+                                       :balance 0M
+                                       :account-id (:id ira-commodity-account)}]}
         actual-transaction (-> (:transaction result)
                                (select-keys [:entity-id
                                              :transaction-date
@@ -905,6 +917,7 @@
                                             (map #(select-keys
                                                     %
                                                     [:action
+                                                     :account-id
                                                      :amount
                                                      :action
                                                      :value
@@ -919,7 +932,12 @@
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
         "The lots are adjusted correctly.")
-    (is (= 0M (:balance (accounts/reload storage-spec ira)))
+    ; Original account balance was 2,000, we bought 1,000 worth of
+    ; shares of AAPL, then transfered those shares out of the account
+    ; leaving 1,000 in cash
+    (is (= 1000M (:balance (accounts/reload storage-spec ira)))
         "The balance in the 'from' account is updated correctly")
-    (is (= 1000M (:balance (accounts/reload storage-spec ira-2)))
+    ; No money was ever addedto the second account, so the balance
+    ; is still 0
+    (is (= 0M (:balance (accounts/reload storage-spec ira-2)))
         "The balance in the 'to' account is updated correclty")))

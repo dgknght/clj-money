@@ -426,10 +426,12 @@
               [from-account
                to-account] (map #(accounts/find-by-id s %) [from-account-id
                                                             to-account-id])
-              to-commodity-account (find-or-create-commodity-account
-                                     s
-                                     to-account
-                                     commodity)
+              [from-commodity-account
+               to-commodity-account] (map #(find-or-create-commodity-account
+                                             s
+                                             %
+                                             commodity)
+                                          [from-account to-account])
               lots (lots/search s {:commodity-id (:id commodity)
                                    :account-id (:id from-account)
                                    :shares-owned [:> 0M]})
@@ -444,10 +446,10 @@
                                                                        (:symbol commodity))
                                                   :items [{:action :credit
                                                            :amount shares
-                                                           :account-id (:id from-account)}
+                                                           :account-id (:id from-commodity-account)}
                                                           {:action :debit
                                                            :amount shares
-                                                           :account-id (:id to-account)}]})]
+                                                           :account-id (:id to-commodity-account)}]})]
 
           {:lots updated-lots
            :transaction transaction})
