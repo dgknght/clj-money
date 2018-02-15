@@ -254,3 +254,38 @@
     (is (= accounts-with-commodities
            (set (:account found)))
         "The correct accounts are found")))
+
+(def ^:private extended-commodities-input
+  (io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash"))
+
+; IRA        294fd407b010e07e8fb54a4cab3fbd8c
+; Apple IRA  d65092fee5cfdacab77e7b37942675bb
+; 401k       fc053b4fc6b94898a5d6fa53ed203bd0
+; Apple 401k 77bfb9a7eb53ebfd5dd13b22476f58dd
+(deftest read-gnucash-source-with-trading-actions
+  (let [found (reduce track-record {} (read-source
+                                        :gnucash
+                                        extended-commodities-input))
+        expected-transactions [{:transaction-date (t/local-date 2015 1 17)
+                                :description "Purchase 100 shares of AAPL"
+                                :items [{:action :credit
+                                         :account-id "77bfb9a7eb53ebfd5dd13b22476f58dd"
+                                         :amount 100M
+                                         :value 1000M}
+                                        {:action :debit
+                                         :account-id "fc053b4fc6b94898a5d6fa53ed203bd0"
+                                         :amount 1000M
+                                         :value 1000M}]}
+                               {:transaction-date (t/local-date 2015 3 2)
+                                :description "Transfer 100 shares of AAPL"
+                                :items [{:action :credit
+                                         :account-id "77bfb9a7eb53ebfd5dd13b22476f58dd"
+                                         :amount 100M
+                                         :value 1000M}
+                                        {:action :debit
+                                         :account-id "d65092fee5cfdacab77e7b37942675bb"
+                                         :amount 100M
+                                         :value 1000M}]}]]
+    (pprint-diff expected-transactions (:transaction found))
+    (is (= expected-transactions (:transaction found))
+        "The correct transactions are found")))
