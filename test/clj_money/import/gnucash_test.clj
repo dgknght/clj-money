@@ -19,6 +19,17 @@
 (def ^:private input
   (io/input-stream "resources/fixtures/budget_sample.gnucash"))
 
+(def ids
+  {:checking    "ed92489659ab879fb9354a3a050fb65d"
+   :salary      "1b71fd298aeca1a18d35b04a7618e76e"
+   :groceries   "835bfe9b2728976d06e63b90aea8c090"
+   :credit-card "337685830c05f47b2b09734a05a7c1a2"
+   :401k        "fc053b4fc6b94898a5d6fa53ed203bd0"
+   :apple-401k  "77bfb9a7eb53ebfd5dd13b22476f58dd"
+   :ira         "294fd407b010e07e8fb54a4cab3fbd8c"
+   :apple-ira   "d65092fee5cfdacab77e7b37942675bb"
+   :other-inc   "8c62d43a4feee76da698912d7ff3a6ca"})
+
 (def ^:private declarations
   [{:record-type :commodity
     :record-count 2}
@@ -31,25 +42,25 @@
 
 (def ^:private accounts
   [{:name "Checking"
-    :id "ed92489659ab879fb9354a3a050fb65d"
+    :id (:checking ids)
     :parent-id "d005a139a1aaab6899867923509b96ca"
     :type :asset
     :commodity {:exchange :iso4217
                 :symbol "USD"}}
    {:name "Salary"
-    :id "1b71fd298aeca1a18d35b04a7618e76e"
+    :id (:salary ids)
     :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
     :type :income
     :commodity {:exchange :iso4217
                 :symbol "USD"}}
    {:name "Groceries"
-    :id "835bfe9b2728976d06e63b90aea8c090"
+    :id (:groceries ids)
     :parent-id "abff103816fb2e5cb93778b1ea51ca45"
     :type :expense
     :commodity {:exchange :iso4217
                 :symbol "USD"}}
    {:name "Credit Card"
-    :id "337685830c05f47b2b09734a05a7c1a2"
+    :id (:credit-card ids)
     :parent-id "9ee0484c7788656a0800e28ec8cefaff"
     :type :liability
     :commodity {:exchange :iso4217
@@ -59,61 +70,61 @@
   [{:transaction-date (t/local-date 2015 1 1)
     :description "Paycheck"
     :items [{:action :debit
-             :account-id "ed92489659ab879fb9354a3a050fb65d"
+             :account-id (:checking ids)
              :amount 1000M
              :reconciled false}
             {:action :credit
-             :account-id "1b71fd298aeca1a18d35b04a7618e76e"
+             :account-id (:salary ids)
              :amount 1000M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 4)
     :description "Kroger"
     :items [{:action :debit
-             :account-id "835bfe9b2728976d06e63b90aea8c090"
+             :account-id (:groceries ids)
              :amount 100M
              :reconciled false}
             {:action :credit
-             :account-id "ed92489659ab879fb9354a3a050fb65d"
+             :account-id (:checking ids)
              :amount 100M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 11)
     :description "Kroger"
     :items [{:action :debit
-             :account-id "835bfe9b2728976d06e63b90aea8c090"
+             :account-id (:groceries ids)
              :amount 100M
              :reconciled false}
             {:action :credit
-             :account-id "ed92489659ab879fb9354a3a050fb65d"
+             :account-id (:checking ids)
              :amount 100M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 12)
     :description "Kroger"
     :items [{:action :debit
-             :account-id "ed92489659ab879fb9354a3a050fb65d"
+             :account-id (:checking ids)
              :amount 10M
              :reconciled false}
             {:action :credit
-             :account-id "835bfe9b2728976d06e63b90aea8c090"
+             :account-id (:groceries ids)
              :amount 10M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 15)
     :description "Paycheck"
     :items [{:action :debit
-             :account-id "ed92489659ab879fb9354a3a050fb65d"
+             :account-id (:checking ids)
              :amount 1000M
              :reconciled false}
             {:action :credit
-             :account-id "1b71fd298aeca1a18d35b04a7618e76e"
+             :account-id (:salary ids)
              :amount 1000M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 18)
     :description "Kroger"
     :items [{:action :debit
-             :account-id "835bfe9b2728976d06e63b90aea8c090"
+             :account-id (:groceries ids)
              :amount 100M
              :reconciled false}
             {:action :credit
-             :account-id "337685830c05f47b2b09734a05a7c1a2"
+             :account-id (:credit-card ids)
              :amount 100M
              :reconciled false}]}])
 
@@ -123,7 +134,7 @@
     :start-date (t/local-date 2017 1 1)
     :period :month
     :period-count 12
-    :items [{:account-id "1b71fd298aeca1a18d35b04a7618e76e"
+    :items [{:account-id (:salary ids)
              :periods #{{:index 0
                          :amount 1000M}
                         {:index 1
@@ -148,7 +159,7 @@
                          :amount 1000M}
                         {:index 11
                          :amount 1000M}}}
-            {:account-id "835bfe9b2728976d06e63b90aea8c090"
+            {:account-id (:groceries ids)
              :periods #{{:index 0
                          :amount 200M}
                         {:index 1
@@ -227,14 +238,14 @@
 
 (def ^:private accounts-with-commodities
   (-> accounts
-      (concat [{:id "fc053b4fc6b94898a5d6fa53ed203bd0"
+      (concat [{:id (:401k ids)
                 :parent-id "d005a139a1aaab6899867923509b96ca"
                 :name "401k"
                 :type :asset
                 :commodity {:exchange :iso4217
                             :symbol "USD"}}
-               {:id "77bfb9a7eb53ebfd5dd13b22476f58dd"
-                :parent-id "fc053b4fc6b94898a5d6fa53ed203bd0"
+               {:id (:apple-401k ids)
+                :parent-id (:401k ids)
                 :name "Apple, Inc"
                 :type :asset
                 :commodity {:exchange :nasdaq
@@ -258,34 +269,72 @@
 (def ^:private extended-commodities-input
   (io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash"))
 
-; IRA        294fd407b010e07e8fb54a4cab3fbd8c
-; Apple IRA  d65092fee5cfdacab77e7b37942675bb
-; 401k       fc053b4fc6b94898a5d6fa53ed203bd0
-; Apple 401k 77bfb9a7eb53ebfd5dd13b22476f58dd
 (deftest read-gnucash-source-with-trading-actions
   (let [found (reduce track-record {} (read-source
                                         :gnucash
                                         extended-commodities-input))
-        expected-transactions [{:transaction-date (t/local-date 2015 1 17)
-                                :description "Purchase 100 shares of AAPL"
-                                :items [{:action :credit
-                                         :account-id "77bfb9a7eb53ebfd5dd13b22476f58dd"
-                                         :amount 100M
-                                         :value 1000M}
-                                        {:action :debit
-                                         :account-id "fc053b4fc6b94898a5d6fa53ed203bd0"
+        expected-transactions [{:transaction-date (t/local-date 2015 1 16)
+                                :description "Retirement"
+                                :items [{:action :debit
+                                         :account-id (:401k ids)
                                          :amount 1000M
-                                         :value 1000M}]}
+                                         :reconciled false}
+                                        {:action :credit
+                                         :account-id (:checking ids)
+                                         :amount 1000M
+                                         :reconciled false}]}
+                               {:transaction-date (t/local-date 2015 1 17)
+                                :description "Purchase shares AAPL"
+                                :action :buy
+                                :symbol "AAPL"
+                                :exchange :nasdaq
+                                :shares 100M
+                                :account-id (:401k ids)
+                                :commodity-account-id (:apple-401k ids)
+                                :items [{:action :debit
+                                         :account-id (:apple-401k ids)
+                                         :amount 1000M
+                                         :reconciled false}
+                                        {:action :credit
+                                         :account-id (:401k ids)
+                                         :amount 1000M
+                                         :reconciled false}]}
                                {:transaction-date (t/local-date 2015 3 2)
-                                :description "Transfer 100 shares of AAPL"
-                                :items [{:action :credit
-                                         :account-id "77bfb9a7eb53ebfd5dd13b22476f58dd"
-                                         :amount 100M
-                                         :value 1000M}
+                                :description "Transfer shares of AAPL"
+                                :action :transfer
+                                :shares 100M
+                                :from-account-id (:apple-401k ids)
+                                :to-account-id (:ira ids) ; or maybe :apple-ira?
+                                :items [{:action :debit
+                                         :account-id (:apple-ira ids)
+                                         :amount 1000M
+                                         :reconciled false}
+                                        {:action :credit
+                                         :account-id (:apple-401k ids)
+                                         :amount 1000M
+                                         :reconciled false}]}
+                               {:transaction-date (t/local-date 2015 4 1)
+                                :description "Stock Split"
+                                :action :split
+                                :shares-gained 100M
+                                :commodity-account-id (:apple-ira ids)
+                                :items [{:action :debit
+                                         :account-id (:apple-ira ids)
+                                         ; TODO add some shares here
+                                         :amount 0M}
                                         {:action :debit
-                                         :account-id "d65092fee5cfdacab77e7b37942675bb"
-                                         :amount 100M
-                                         :value 1000M}]}]]
-    (pprint-diff expected-transactions (:transaction found))
-    (is (= expected-transactions (:transaction found))
+                                         :account-id (:ira ids)
+                                         :amount 1M}
+                                        {:action :credit
+                                         :account-id (:other-inc ids)
+                                         :amount 1M}]}]
+        inv-account-ids (->> [:ira :apple-ira :401k :apple-401k]
+                             (map #(% ids))
+                             set)
+        actual-transactions (filter (fn [transaction]
+                                      (some #(inv-account-ids (:account-id %))
+                                            (:items transaction)))
+                                    (:transaction found))]
+    (pprint-diff expected-transactions actual-transactions)
+    (is (= expected-transactions actual-transactions)
         "The correct transactions are found")))
