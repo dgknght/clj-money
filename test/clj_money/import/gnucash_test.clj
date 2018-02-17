@@ -303,8 +303,9 @@
                                 :description "Transfer shares of AAPL"
                                 :action :transfer
                                 :shares 100M
+                                :value 1000M
                                 :from-account-id (:apple-401k ids)
-                                :to-account-id (:ira ids) ; or maybe :apple-ira?
+                                :to-account-id (:apple-ira ids)
                                 :items [{:action :debit
                                          :account-id (:apple-ira ids)
                                          :amount 1000M
@@ -321,13 +322,16 @@
                                 :items [{:action :debit
                                          :account-id (:apple-ira ids)
                                          ; TODO add some shares here
-                                         :amount 0M}
+                                         :amount 0M
+                                         :reconciled false}
                                         {:action :debit
                                          :account-id (:ira ids)
-                                         :amount 1M}
+                                         :amount 1M
+                                         :reconciled false}
                                         {:action :credit
                                          :account-id (:other-inc ids)
-                                         :amount 1M}]}]
+                                         :amount 1M
+                                         :reconciled false}]}]
         inv-account-ids (->> [:ira :apple-ira :401k :apple-401k]
                              (map #(% ids))
                              set)
