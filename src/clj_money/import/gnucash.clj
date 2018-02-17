@@ -121,23 +121,78 @@
     (= :template (:exchange commodity))
     (vary-meta assoc :ignore? true)))
 
-(defn- append-trading-attributes
+(defmulti ^:private append-trading-attributes
+  (fn [transaction _]
+    (case (:actions transaction)
+      #{} :none
+      #{:buy} :purchase
+      #{:buy :sell} :transfer
+      #{:split} :split
+      :unknown)))
+
+(defmethod ^:private append-trading-attributes :none
+  [transaction _]
+  (dissoc transaction :actions))
+
+(defmethod ^:private append-trading-attributes :unknown
+  [transaction node]
+  (println "*** unknown trading transaction type ***")
+  (println (:actions transaction))
+  (println "*** unknown trading transaction type ***")
+  transaction)
+
+(defmethod ^:private append-trading-attributes :transfer
   [transaction node]
   (with-namespace-context namespace-map
-    (if (= :buy (:action transaction))
-      (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
-            commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
-                                                      ($x:text "split:account" commodity-item-node))
-                                              node))
-            symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
-            exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
-        (assoc transaction
-               :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
-               :commodity-account-id ($x:text "split:account" commodity-item-node)
-               :account-id ($x:text "act:parent" commodity-account-node)
-               :symbol symbol
-               :exchange exchange))
-      transaction)))
+    (let [[to-node
+           from-node] (->> ["Buy" "Sell"]
+                           (map #(format
+                                   "trn:splits/trn:split[split:action = \"%s\"]"
+                                   %))
+                           (map #($x % node))
+                           (map first))
+          [to-account-id
+           from-account-id] (mapv #($x:text "split:account" %)
+                                 [to-node from-node])]
+      (-> transaction
+          (dissoc :actions)
+          (assoc
+            :action :transfer
+            :shares (parse-decimal ($x:text "split:quantity" to-node))
+            :value (parse-decimal ($x:text "split:value" to-node))
+            :to-account-id to-account-id
+            :from-account-id from-account-id)))))
+
+(defmethod ^:private append-trading-attributes :split
+  [transaction node]
+  (with-namespace-context namespace-map
+    (let [split-node (first ($x
+                              "trn:splits/trn:split[split:action = \"Split\"]"
+                              node))]
+      (-> transaction
+          (dissoc :actions)
+          (assoc :action :split
+                 :shares-gained (parse-decimal ($x:text "split:quantity" split-node))
+                 :commodity-account-id ($x:text "split:account" split-node))))))
+
+(defmethod ^:private append-trading-attributes :purchase
+  [transaction node]
+  (with-namespace-context namespace-map
+    (let [commodity-item-node (first ($x "trn:splits/trn:split[split:action = \"Buy\"]" node))
+          commodity-account-node (first ($x (format "//gnc:book/gnc:account[act:id = \"%s\"]"
+                                                    ($x:text "split:account" commodity-item-node))
+                                            node))
+          symbol ($x:text "act:commodity/cmdty:id" commodity-account-node)
+          exchange (keyword (s/lower-case ($x:text "act:commodity/cmdty:space" commodity-account-node)))]
+      (-> transaction
+          (dissoc :actions)
+          (assoc
+            :action :buy
+            :shares (parse-decimal ($x:text "split:quantity" commodity-item-node))
+            :commodity-account-id ($x:text "split:account" commodity-item-node)
+            :account-id ($x:text "act:parent" commodity-account-node)
+            :symbol symbol
+            :exchange exchange)))))
 
 (defn- refine-transaction
   [transaction node]
@@ -229,14 +284,13 @@
                                    :transform-fn parse-date}
                                   {:attribute :description
                                    :xpath "trn:description"}
-                                  {:attribute :action
+                                  {:attribute :actions
                                    :col-xpath "trn:splits/trn:split/split:action"
-                                   :transform-fn #(when (seq %)
-                                                    (-> %
-                                                        first
-                                                        :text
-                                                        s/lower-case
-                                                        keyword))}]
+                                   :transform-fn #(->> %
+                                                       (map (comp keyword
+                                                               s/lower-case
+                                                               :text))
+                                                       set)}]
                      :meta {:record-type :transaction}
                      :refine-fn refine-transaction}})
 
