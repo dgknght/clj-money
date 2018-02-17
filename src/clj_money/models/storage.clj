@@ -52,12 +52,6 @@
   (create-account
     [this account]
     "Creates a new account record")
-  (find-account-by-id
-    [this id]
-    "Returns the account having the specified ID")
-  (find-account-by-entity-id-and-name
-    [this entity-id account-name]
-    "Returns the account having the specified entity-id and name")
   (update-account
     [this account]
     "Updates the specified account")
@@ -65,7 +59,7 @@
     [this id]
     "Deletes the specified account")
   (select-accounts
-    [this criteria]
+    [this criteria options]
     "Returns the accounts matching the specified criteria")
 
   ; Commodities

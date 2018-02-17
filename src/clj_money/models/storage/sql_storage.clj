@@ -558,20 +558,6 @@
                                       :parent-id
                                       :balance))
 
-  (find-account-by-id
-    [_ id]
-    (->clojure-keys (jdbc/get-by-id db-spec :accounts id)))
-
-  ; TODO Remove this method
-  (find-account-by-entity-id-and-name
-    [_ entity-id account-name]
-    (first (query db-spec (-> (h/select :*)
-                       (h/from :accounts)
-                       (h/where [:and
-                                 [:= :entity_id entity-id]
-                                 [:= :name account-name]])
-                       (h/limit 1)))))
-
   (update-account
     [_ account]
     (let [updates (->update-set account :name
@@ -587,10 +573,10 @@
     (jdbc/delete! db-spec :accounts ["id = ?" id]))
 
   (select-accounts
-    [_ criteria]
-    (when-not (some #(% criteria) [:parent-id :entity-id])
+    [_ criteria options]
+    (when-not (some #(% criteria) [:id :parent-id :entity-id])
       (throw (ex-info
-               "The criteria must specify parent-id or entity-id"
+               "The criteria must specify id, parent-id or entity-id"
                {:criteria criteria})))
     (let [sql (-> (h/select :a.*
                             [:c.name :commodity-name]
@@ -601,7 +587,8 @@
                   (h/from [:accounts :a])
                   (h/join [:commodities :c] [:= :c.id :a.commodity-id])
                   (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
-                  (h/where (map->where criteria {:prefix "a"})))]
+                  (h/where (map->where criteria {:prefix "a"}))
+                  (append-limit options))]
       (query db-spec sql)))
 
   ; Commodities

@@ -13,8 +13,6 @@
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-account
-                                              find-account-by-id
-                                              find-account-by-entity-id-and-name
                                               select-accounts
                                               update-account
                                               delete-account]]
@@ -112,10 +110,35 @@
            (nil? (:parent-id account)))
          (dissoc :parent-id)))))
 
+(defn search
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map after-read (select-accounts s criteria options)))))
+
+(defn find-by
+  "Returns the first account that matches the specified criteria"
+  [storage-spec criteria]
+  (first (search storage-spec criteria {:limit 1})))
+
+(defn find-by-id
+  "Returns the account having the specified id"
+  [storage-spec id]
+  (when id
+    (find-by storage-spec {:id id})))
+
+(defn find-by-name
+  "Returns the account having the specified name"
+  [storage-spec entity-id account-name]
+  (find-by storage-spec {:entity-id entity-id
+                         :name account-name}))
+
+
 (defn- name-is-unique?
   [storage {:keys [id parent-id name entity-id]}]
-  (->> (select-accounts storage {:entity-id entity-id
-                                 :name name})
+  (->> (search storage {:entity-id entity-id
+                        :name name})
        (remove #(= (:id %) id))
        (filter #(= (:parent-id %) parent-id))
        empty?))
@@ -149,23 +172,6 @@
               :rules-fn validation-rules
               :coercion-rules coercion-rules
               :spec ::new-account}))
-
-(defn find-by-id
-  "Returns the account having the specified id"
-  [storage-spec id]
-  (when id
-    (with-storage [s storage-spec]
-      (after-read (find-account-by-id s id)))))
-
-(defn find-by-name
-  "Returns the account having the specified name"
-  [storage-spec entity-id account-name]
-  (with-storage [s storage-spec]
-    (after-read
-      (find-account-by-entity-id-and-name s
-                                          entity-id
-                                          account-name))))
-
 (defn reload
   "Returns a fresh copy of the specified account from the data store"
   [storage-spec {:keys [id]}]
@@ -206,13 +212,6 @@
                                                vec)
                                           []))
            types))))
-
-(defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> criteria
-         (select-accounts s)
-         (map after-read))))
 
 (def update
   (update-fn {:before-save before-save
