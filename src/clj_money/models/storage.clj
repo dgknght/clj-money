@@ -67,10 +67,6 @@
     [this commodity]
     "Creates a new commodity record")
 
-  (find-commodity-by-id
-    [this id]
-    "Returns the specified commodity record")
-
   (update-commodity
     [this commodity]
     "Updates the specified commodity")

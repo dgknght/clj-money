@@ -80,7 +80,14 @@
 (s/def ::lot-transaction-criteria
   (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
-(s/def ::commodity-criteria (s/keys :req-un [::entity-id]))
+
+(defmulti commodity-criteria #(contains? % :id))
+(defmethod commodity-criteria true [_]
+  (s/keys :req-un [::id]))
+(defmethod commodity-criteria false [_]
+  (s/keys :req-un [::entity-id]))
+(s/def ::commodity-criteria (s/multi-spec commodity-criteria #(contains? % :id)))
+
 (s/def ::image-criteria (s/keys :req-un [::user-id]))
 
 (defmulti trade-date #(if (vector? %)
@@ -599,15 +606,6 @@
                                            :symbol
                                            :exchange
                                            :entity-id))
-
-  (find-commodity-by-id
-    [_ id]
-    (->> (-> (h/select :*)
-             (h/from :commodities)
-             (h/where [:= :id id])
-             (h/limit 1))
-        (query db-spec )
-        first))
 
   (update-commodity
     [_ commodity]

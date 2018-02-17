@@ -12,7 +12,6 @@
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-commodity
-                                              find-commodity-by-id
                                               update-commodity
                                               select-commodities
                                               delete-prices-by-commodity-id
@@ -101,12 +100,6 @@
               :create create-commodity
               :after-read after-read}))
 
-(defn find-by-id
-  "Returns the commodity having the specified ID"
-  [storage-spec id]
-  (with-storage [s storage-spec]
-    (after-read (find-commodity-by-id s id))))
-
 (defn search
   "Returns commodities matching the specified criteria"
   ([storage-spec criteria]
@@ -115,6 +108,15 @@
    (with-storage [s storage-spec]
      (map after-read
           (select-commodities s criteria options)))))
+
+(defn find-by
+  [storage-spec criteria]
+  (first (search storage-spec criteria {:limit 1})))
+
+(defn find-by-id
+  "Returns the commodity having the specified ID"
+  [storage-spec id]
+  (find-by storage-spec {:id id}))
 
 (def update
   (update-fn {:spec ::existing-commodity
