@@ -338,3 +338,36 @@
     (is (= expected-lots actual-lots) "The correct lots are present after import")
     (pprint-diff expected-prices actual-prices)
     (is (= expected-prices, actual-prices) "The correct prices are present after import")))
+
+(def gnucash-ext-commodities-sample
+  (io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash"))
+
+(def ^:private ext-commodities-context
+  {:users [(factory :user, {:email "john@doe.com"})]
+   :images [{:body (read-bytes gnucash-ext-commodities-sample)
+             :content-type "application/gnucash"
+             :original-filename "sample_with_commodities_ext.gnucash"}]
+   :imports [{:entity-name "Personal"
+              :image-ids ["sample_with_commodities_ext.gnucash"]}]})
+
+(deftest import-commodities-with-extended-actions
+  (let [context (serialization/realize storage-spec ext-commodities-context)
+        entity (import-data storage-spec
+                            (-> context :imports first)
+                            (nil-chan))
+        commodity (commodities/find-by storage-spec {:entity-id (:id entity)
+                                                     :symbol "AAPL"})
+        lots (lots/search storage-spec {:commodity-id (:id commodity)})
+        ira (accounts/find-by storage-spec {:entity-id (:id entity)
+                                            :name "IRA"})
+        commodity-account (accounts/find-by storage-spec
+                                            {:parent-id (:id ira)
+                                             :commodity-id (:id commodity)})
+        expected-lots [{:purchase-date (t/local-date 2015 1 17)
+                        :shares-purchased 200M
+                        :shares-owned 200M
+                        :account-id (:id commodity-account)}]
+        actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
+    (pprint-diff expected-lots actual-lots)
+    (is (= expected-lots actual-lots)
+        "The commodity has the correct lots after import")))
