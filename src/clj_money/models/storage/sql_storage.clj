@@ -238,7 +238,7 @@
   (if (coll? value)
     (case (first value)
 
-      (:= :> :>= :<= :< :<>)
+      (:= :> :>= :<= :< :<> :!=)
       [[(first value) key (ensure-not-keyword (second value))]]
 
       :between
@@ -716,8 +716,8 @@
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
                        (h/where (map->where criteria))
-                       (h/merge-where [:!= :shares_owned 0])
-                       (append-limit options))))
+                       (append-limit options)
+                       (append-sort options))))
 
   (delete-lot
     [_ id]

@@ -284,15 +284,14 @@
 (defn- find-lot
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage inventory-method] :as context}]
-  (let [sort-fn (if (= :lifo inventory-method)
-                  (partial sort #(compare (:purchase-date %2) (:purchase-date %1)))
-                  (partial sort-by :created-at))]
-    (->> (select-keys context [:commodity-id :account-id])
-         (lots/search storage)
-         (filter #(> (:shares-owned %) 0)) ; should really do this in the database query
-         sort-fn
-         first)))
+  [{:keys [storage inventory-method commodity-id account-id] :as context}]
+  (lots/find-by storage
+                {:commodity-id commodity-id
+                 :account-id account-id
+                 :shares-owned [:!= 0]}
+                {:sort [[:purchase-date (if (= :lifo inventory-method)
+                                          :desc
+                                          :asc)]]}))
 
 (defn- process-lot-sale
   [context lot shares-to-sell]

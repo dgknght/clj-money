@@ -49,8 +49,10 @@
      (map after-read (select-lots s criteria options)))))
 
 (defn find-by
-  [storage-spec criteria]
-  (first (search storage-spec criteria {:limit 1})))
+  ([storage-spec criteria]
+   (find-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (search storage-spec criteria (merge options {:limit 1})))))
 
 (defn find-by-id
   [storage-spec id]
