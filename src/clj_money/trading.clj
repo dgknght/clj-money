@@ -458,3 +458,7 @@
           {:lots updated-lots
            :transaction transaction})
         validated))))
+
+(defn split
+  [storage-spec {:keys [commodity-id shares-gained]}]
+  [])

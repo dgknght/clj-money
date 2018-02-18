@@ -941,3 +941,21 @@
     ; is still 0
     (is (= 0M (:balance (accounts/reload storage-spec ira-2)))
         "The balance in the 'to' account is updated correclty")))
+
+(deftest split-a-commodity
+  (let [context (sell-context)
+        commodity (find-commodity context "AAPL")
+        commodity-account (accounts/find-by storage-spec {:commodity-id (:id commodity)
+                                                          :entity-id (:entity-id commodity)})
+        result (trading/split storage-spec {:commodity-id (:id commodity)
+                                            :shares-gained 100M})
+        lots (lots/search storage-spec {:commodity-id (:id commodity)})
+        actual-lots (map #(dissoc % :id :created-at :updated-at :commodity-id) lots)
+        expected-lots [{:purchase-date (t/local-date 2016 3 2)
+                        :account-id (:id commodity-account)
+                        :purchase-price 5M
+                        :shares-purchase 200M
+                        :shares-owned 200M}]]
+    (pprint-diff expected-lots actual-lots)
+    (is (= expected-lots actual-lots)
+        "The lots are adjusted correctly")))
