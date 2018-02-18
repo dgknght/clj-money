@@ -71,12 +71,20 @@
 (s/def ::date (partial instance? LocalDate))
 (s/def ::nilable-date #(or (instance? LocalDate %) (nil? %)))
 
-(defmulti lot-criteria #(contains? % :account-id))
-(defmethod lot-criteria true [_]
-  (s/keys :req-un [::account-id] :opt-un[::commodity-id]))
-(defmethod lot-criteria false [_]
-  (s/keys :req-un [::commodity-id] :opt-un[::account-id]))
-(s/def ::lot-criteria (s/multi-spec lot-criteria #(contains? % :account-id)))
+(defmulti lot-criteria (fn [criteria]
+                         (->> #{:id :account-id :commodity-id}
+                              (filter #(contains? criteria %))
+                              first)))
+(defmethod lot-criteria :account-id   [_] (s/keys :req-un [::account-id]   :opt-un[::commodity-id]))
+(defmethod lot-criteria :commodity-id [_] (s/keys :req-un [::commodity-id] :opt-un[::account-id]))
+(defmethod lot-criteria :default      [_] (s/keys :req-un [::id]           :opt-un[::commodity-id ::account-id]))
+(s/def ::lot-criteria
+  (s/multi-spec lot-criteria
+                (fn [criteria]
+                  (->> #{:id :account-id :commodity-id}
+                       (filter #(contains? criteria %))
+                       first))))
+
 (s/def ::lot-transaction-criteria
   (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
 (s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
@@ -690,20 +698,6 @@
                               :purchase-date
                               :shares-purchased
                               :shares-owned))
-
-  (select-lots-by-entity-id
-    [_ entity-id]
-    (query db-spec (-> (h/select :*)
-                       (h/from [:lots :l])
-                       (h/join [:accounts :a] [:= :a.id :l.account_id])
-                       (h/where [:= :a.entity_id entity-id]))))
-
-  (select-lots-by-commodity-id
-    [_ commodity-id]
-    (query db-spec (-> (h/select :*)
-                       (h/from :lots)
-                       (h/where [:= :commodity_id commodity-id]))))
-
   (update-lot
     [_ lot]
     (let [sql (sql/format (-> (h/update :lots)
@@ -716,17 +710,14 @@
                               (h/where [:= :id (:id lot)])))]
       (jdbc/execute! db-spec sql)))
 
-  (find-lot-by-id
-    [_ id]
-    (->clojure-keys (jdbc/get-by-id db-spec :lots id)))
-
   (select-lots
-    [_ criteria]
+    [_ criteria options]
     (validate-criteria criteria ::lot-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :lots)
                        (h/where (map->where criteria))
-                       (h/merge-where [:!= :shares_owned 0]))))
+                       (h/merge-where [:!= :shares_owned 0])
+                       (append-limit options))))
 
   (delete-lot
     [_ id]

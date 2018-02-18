@@ -111,28 +111,12 @@
     [this lot]
     "Creates a new lot record")
 
-  (select-lots-by-entity-id
-    [this entity-id]
-    "Returns the lots for the specified entity")
-
-  (select-lots-by-commodity-id
-    [this commodity-id]
-    "Returns the lots for the specified commodity")
-
-  (select-lots-by-transaction-id
-    [this transaction-id]
-    "Returns the lots for the specified transaction")
-
   (update-lot
     [this lot]
     "Updates the specified lot record")
 
-  (find-lot-by-id
-    [this id]
-    "Returns the lot having the specified id")
-
   (select-lots
-    [this criteria]
+    [this criteria options]
     "Returns the lots matching the specified criteria")
 
   (delete-lot
