@@ -944,18 +944,35 @@
 
 (deftest split-a-commodity
   (let [context (sell-context)
+        ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         commodity-account (accounts/find-by storage-spec {:commodity-id (:id commodity)
                                                           :entity-id (:entity-id commodity)})
         result (trading/split storage-spec {:commodity-id (:id commodity)
+                                            :account-id (:id ira)
                                             :shares-gained 100M})
         lots (lots/search storage-spec {:commodity-id (:id commodity)})
         actual-lots (map #(dissoc % :id :created-at :updated-at :commodity-id) lots)
         expected-lots [{:purchase-date (t/local-date 2016 3 2)
-                        :account-id (:id commodity-account)
+                        :account-id (:id ira)
                         :purchase-price 5M
-                        :shares-purchase 200M
-                        :shares-owned 200M}]]
+                        :shares-purchased 200M
+                        :shares-owned 200M}]
+        transactions (transactions/search-items storage-spec
+                                                {:account-id (:id commodity-account)})
+        actual-transactions (map #(dissoc % :id :created-at :updated-at) transactions)
+        expected-transactions [{:transaction-date (t/local-date 2015 1 1)
+                                :description "Purchase 200 shares of AAPL"
+                                :items [{:action :debit
+                                         :account-id (:id commodity-account)
+                                         :amount 200M
+                                         :value 1000M}
+                                        {:action :credit
+                                         :account-id (:id ira)
+                                         :amount 1000M
+                                         :value 1000M}]}]]
+    (is (= 2M (:ratio result))
+        "The correct split ratio is returned")
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
         "The lots are adjusted correctly")))

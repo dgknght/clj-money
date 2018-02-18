@@ -705,6 +705,7 @@
                                                     :purchase-date
                                                     :account-id
                                                     :commodity-id
+                                                    :purchase-price
                                                     :shares-owned
                                                     :shares-purchased))
                               (h/where [:= :id (:id lot)])))]
