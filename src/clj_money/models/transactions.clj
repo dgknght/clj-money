@@ -204,11 +204,12 @@
   (when transaction
     (assoc transaction
            :items
-           (->> (select-transaction-items storage
-                                          {:transaction-id id
-                                           :transaction-date transaction-date}
-                                          {:sort [[:action :desc] [:amount :desc]]})
-                (mapv after-item-read)))))
+           (mapv after-item-read
+                 (select-transaction-items
+                   storage
+                   {:transaction-id id
+                    :transaction-date transaction-date}
+                   {:sort [[:action :desc] [:amount :desc]]})))))
 
 (defn- append-lot-items
   [transaction storage]
