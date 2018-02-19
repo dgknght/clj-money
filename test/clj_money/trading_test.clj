@@ -958,21 +958,33 @@
                         :purchase-price 5M
                         :shares-purchased 200M
                         :shares-owned 200M}]
-        transactions (transactions/search-items storage-spec
-                                                {:account-id (:id commodity-account)})
-        actual-transactions (map #(dissoc % :id :created-at :updated-at) transactions)
-        expected-transactions [{:transaction-date (t/local-date 2015 1 1)
-                                :description "Purchase 200 shares of AAPL"
-                                :items [{:action :debit
-                                         :account-id (:id commodity-account)
-                                         :amount 200M
-                                         :value 1000M}
-                                        {:action :credit
-                                         :account-id (:id ira)
-                                         :amount 1000M
-                                         :value 1000M}]}]]
+        items (transactions/search-items storage-spec
+                                         {:account-id (:id commodity-account)})
+        actual-items (map #(dissoc %
+                                   :id
+                                   :updated-at
+                                   :created-at
+                                   :index
+                                   :transaction-id
+                                   :negative
+                                   :polarized-amount
+                                   :transaction-date
+                                   :memo
+                                   :reconciliation-id
+                                   :reconciliation-status
+                                   :reconciled?)
+                          items)
+        expected-items [{:action :debit
+                         :account-id (:id commodity-account)
+                         :amount 200M
+                         :value 1000M
+                         :balance 200M
+                         :description "Purchase 200 shares of AAPL at 5.000"}]]
     (is (= 2M (:ratio result))
         "The correct split ratio is returned")
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
-        "The lots are adjusted correctly")))
+        "The lots are adjusted correctly")
+    (pprint-diff expected-items actual-items)
+    (is (= expected-items actual-items)
+        "The items are adjusted correctly.")))
