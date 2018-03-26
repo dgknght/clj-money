@@ -70,20 +70,11 @@
 (s/def ::transaction-id uuid?)
 (s/def ::date (partial instance? LocalDate))
 (s/def ::nilable-date #(or (instance? LocalDate %) (nil? %)))
-
-(defmulti lot-criteria (fn [criteria]
-                         (->> #{:id :account-id :commodity-id}
-                              (filter #(contains? criteria %))
-                              first)))
-(defmethod lot-criteria :account-id   [_] (s/keys :req-un [::account-id]   :opt-un[::commodity-id]))
-(defmethod lot-criteria :commodity-id [_] (s/keys :req-un [::commodity-id] :opt-un[::account-id]))
-(defmethod lot-criteria :default      [_] (s/keys :req-un [::id]           :opt-un[::commodity-id ::account-id]))
 (s/def ::lot-criteria
-  (s/multi-spec lot-criteria
-                (fn [criteria]
-                  (->> #{:id :account-id :commodity-id}
-                       (filter #(contains? criteria %))
-                       first))))
+  (s/and (fn [model]
+           (when-let [v (some #(get model %) #{:id :account-id :commodity-id :entity-id})]
+             (integer? v)))
+         (s/keys :opt-un [::id ::account-id ::commodity-id ::entity-id])))
 
 (s/def ::lot-transaction-criteria
   (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
@@ -266,6 +257,14 @@
    (if (and criteria (seq criteria))
      (h/merge-where sql (map->where criteria options))
      sql)))
+
+(defn- append-entity-id-to-lot-query
+  [sql entity-id]
+  (if entity-id
+    (-> sql
+        (h/join [:commodities :c] [:= :c.id :lots.commodity_id])
+        (h/merge-where [:= :c.entity-id entity-id]))
+    sql))
 
 (defn- descending-sort?
   "Returns a boolean value indicating whether or not
@@ -714,11 +713,14 @@
   (select-lots
     [_ criteria options]
     (validate-criteria criteria ::lot-criteria)
-    (query db-spec (-> (h/select :*)
-                       (h/from :lots)
-                       (h/where (map->where criteria))
-                       (append-limit options)
-                       (append-sort options))))
+    (let [entity-id (:entity-id criteria)
+          filtered-criteria (dissoc criteria :entity-id)]
+      (query db-spec (-> (h/select :*)
+                         (h/from :lots)
+                         (h/where (map->where filtered-criteria))
+                         (append-entity-id-to-lot-query entity-id)
+                         (append-limit options)
+                         (append-sort options)))))
 
   (delete-lot
     [_ id]
