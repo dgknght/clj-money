@@ -64,7 +64,8 @@
 
 (s/def ::user-id integer?)
 (s/def ::entity-id id-criteria?)
-(s/def ::lot-id integer?)
+(s/def ::lot-id (s/or :id integer?
+                      :ids (s/coll-of integer?)))
 (s/def ::account-id integer?)
 (s/def ::commodity-id integer?)
 (s/def ::transaction-id uuid?)

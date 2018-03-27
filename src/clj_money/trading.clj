@@ -466,15 +466,28 @@
                     (update-in [:purchase-price] #(/ % ratio)))]
     (lots/update storage updated)))
 
+(defn- apply-split-to-item
+  [storage ratio item]
+  item)
+
 (defn split
   [storage-spec {:keys [commodity-id account-id shares-gained]}]
   (with-transacted-storage [s storage-spec]
-  (let [lots (lots/search storage-spec {:commodity-id commodity-id
-                                        :account-id account-id
-                                        :shares-owned [:!= 0M]})
-        shares-owned (->> lots
-                          (map :shares-owned)
-                          (reduce + 0M))
-        ratio (/ (+ shares-owned shares-gained) shares-owned)]
-    {:lots (mapv #(apply-split-to-lot s ratio %) lots)
-     :ratio ratio})))
+    (let [lots (lots/search s {:commodity-id commodity-id
+                               :account-id account-id
+                               :shares-owned [:!= 0M]})
+          transactions (transactions/search s
+                                            {:lot-id (map :id lots)}
+                                            {:include-items? true})
+          shares-owned (->> lots
+                            (map :shares-owned)
+                            (reduce + 0M))
+          ratio (/ (+ shares-owned shares-gained) shares-owned)]
+
+      (pprint {:transactions transactions})
+
+      {:lots (mapv #(apply-split-to-lot s ratio %) lots)
+       :items (->> transactions
+                   (mapcat :items)
+                   (mapv #(apply-split-to-item s ratio %)))
+       :ratio ratio})))
