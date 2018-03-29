@@ -470,24 +470,54 @@
   [storage ratio item]
   item)
 
+(defn- split-transaction
+  [context]
+  )
+
+(defn- append-split-lots
+  [{:keys [storage commodity-id account-id] :as context}]
+  (assoc context :lots (lots/search storage {:commodity-id commodity-id
+                                             :account-id account-id
+                                             :shares-owned [:!= 0M]})))
+
+(defn- append-split-ratio
+  [{:keys [shares-gained lots] :as context}]
+  (let [shares-owned (->> lots
+                          (map :shares-owned)
+                          (reduce + 0M))]
+    (assoc context :ratio (/ (+ shares-owned shares-gained)
+                             shares-owned))))
+
+(defn- process-split-lots
+  [{:keys [storage lots ratio] :as context}]
+  (assoc-in context
+            [:result :lots]
+            (mapv #(apply-split-to-lot storage ratio %) lots)))
+
+(defn- create-split-transaction
+  [context]
+  #_(transactions/create storage
+                       {:transaction-date split-date
+                        :description (format "Split shares of %s %s"
+                                             (:symbol commodity)
+                                             ratio)
+                        :items [{:action :debit
+                                 :account-id commodity-account-id
+                                 :amount 0M
+                                 :value shares-gained}
+                                {:action :credit
+                                 :account-id account-id
+                                 :amount 0M
+                                 :value 0M}]})
+  context)
+
 (defn split
-  [storage-spec {:keys [commodity-id account-id shares-gained]}]
+  [storage-spec split]
   (with-transacted-storage [s storage-spec]
-    (let [lots (lots/search s {:commodity-id commodity-id
-                               :account-id account-id
-                               :shares-owned [:!= 0M]})
-          transactions (transactions/search s
-                                            {:lot-id (map :id lots)}
-                                            {:include-items? true})
-          shares-owned (->> lots
-                            (map :shares-owned)
-                            (reduce + 0M))
-          ratio (/ (+ shares-owned shares-gained) shares-owned)]
-
-      (pprint {:transactions transactions})
-
-      {:lots (mapv #(apply-split-to-lot s ratio %) lots)
-       :items (->> transactions
-                   (mapcat :items)
-                   (mapv #(apply-split-to-item s ratio %)))
-       :ratio ratio})))
+    (-> (assoc split
+               :result {}
+               :storage s)
+        append-split-lots
+        append-split-ratio
+        process-split-lots
+        create-split-transaction)))

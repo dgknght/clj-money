@@ -974,17 +974,26 @@
                                    :reconciliation-status
                                    :reconciled?)
                           items)
-        expected-items [{:action :debit
-                         :account-id (:id commodity-account)
-                         :amount 200M
-                         :value 1000M
-                         :balance 200M
-                         :description "Purchase 200 shares of AAPL at 5.000"}]]
+        expected-transaction {:transaction-date (t/local-date 2016 3 2)
+                              :description "Split AAPL 2 to 1"
+                              :items [{:action :debit
+                                       :account-id (:id commodity-account)
+                                       :amount 100M
+                                       :value 1000M
+                                       :balance 100M
+                                       :description "Purchase 100 shares of AAPL at 10.000"}
+                                      {:action :debit
+                                       :account-id (:id commodity)
+                                       :amount 100M
+                                       :value 0M
+                                       :balance 200M
+                                       :description "Gain 100 shares in 2 for 1 split"}]}
+        actual-transaction (:transaction result)]
     (is (= 2M (:ratio result))
         "The correct split ratio is returned")
+    (pprint-diff expected-transaction actual-transaction)
+    (is (= expected-transaction actual-transaction)
+        "The result contains the transaction that was created")
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
-        "The lots are adjusted correctly")
-    (pprint-diff expected-items actual-items)
-    (is (= expected-items actual-items)
-        "The items are adjusted correctly.")))
+        "The lots are adjusted correctly")))
