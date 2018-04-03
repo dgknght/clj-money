@@ -412,61 +412,80 @@
    (coercion/rule :decimal [:shares])])
 
 (defn- validate-transfer
-  [storage transfer]
+  [transfer]
   (->> transfer
        (coercion/coerce transfer-coercion-rules)
        (validation/validate ::transfer)))
 
-(defn transfer
-  [storage-spec transfer]
-  (with-transacted-storage [s storage-spec]
-    (let [{:keys [commodity-id
-                  from-account-id
-                  to-account-id
-                  shares
-                  transfer-date]
-           :as validated} (validate-transfer s transfer)]
-      (if (validation/valid? validated)
-        (let [commodity (commodities/find-by-id s commodity-id)
-              [from-account
-               to-account] (map #(accounts/find-by-id s %) [from-account-id
-                                                            to-account-id])
-              [from-commodity-account
-               to-commodity-account] (map #(find-or-create-commodity-account
-                                             s
-                                             %
-                                             commodity)
-                                          [from-account to-account])
-              lots (lots/search s {:commodity-id (:id commodity)
-                                   :account-id (:id from-account)
-                                   :shares-owned [:> 0M]})
-              updated-lots (mapv #(lots/update
-                                    s
-                                    (assoc % :account-id (:id to-account)))
-                                 lots)
-              price (prices/most-recent s (:id commodity) transfer-date)
-              value (* shares (:price price))
-              transaction (transactions/create s {:entity-id (:entity-id commodity)
-                                                  :transaction-date transfer-date
-                                                  :description (format "Transfer %s shares of %s"
-                                                                       shares
-                                                                       (:symbol commodity))
-                                                  :items [{:action :credit
-                                                           :amount shares
-                                                           :value value
-                                                           :account-id (:id from-commodity-account)}
-                                                          {:action :debit
-                                                           :amount shares
-                                                           :value value
-                                                           :account-id (:id to-commodity-account)}]})]
-
-          {:lots updated-lots
-           :transaction transaction})
-        validated))))
-
 (defn- append-commodity
   [{:keys [storage commodity-id] :as context}]
   (assoc context :commodity (commodities/find-by-id storage commodity-id)))
+
+(defn- append-transfer-accounts
+  [{:keys  [storage from-account-id to-account-id commodity] :as context}]
+  (let [[from-account
+         to-account] (map #(accounts/find-by-id storage %)
+                          [from-account-id
+                           to-account-id])
+        [from-commodity-account
+         to-commodity-account] (map #(find-or-create-commodity-account
+                                       storage
+                                       %
+                                       commodity)
+                                    [from-account to-account])]
+    (assoc context
+           :from-account from-account
+           :from-commodity-account from-commodity-account
+           :to-account to-account
+           :to-commodity-account to-commodity-account)))
+
+(defn- process-transfer-lots
+  [{:keys [storage commodity from-account to-account] :as context}]
+  (assoc context :lots (mapv #(lots/update
+                                storage
+                                (assoc % :account-id (:id to-account)))
+                             (lots/search storage {:commodity-id (:id commodity)
+                                                   :account-id (:id from-account)
+                                                   :shares-owned [:> 0M]}))))
+
+(defn- create-transfer-transaction
+  [{:keys [commodity
+           from-commodity-account
+           to-commodity-account
+           transfer-date
+           shares]
+    s :storage
+    :as context}]
+  (let [price (prices/most-recent s (:id commodity) transfer-date)
+        value (* shares (:price price))
+        transaction (transactions/create s {:entity-id (:entity-id commodity)
+                                            :transaction-date transfer-date
+                                            :description (format "Transfer %s shares of %s"
+                                                                 shares
+                                                                 (:symbol commodity))
+                                            :items [{:action :credit
+                                                     :amount shares
+                                                     :value value
+                                                     :account-id (:id from-commodity-account)}
+                                                    {:action :debit
+                                                     :amount shares
+                                                     :value value
+                                                     :account-id (:id to-commodity-account)}]})]
+    (assoc context :transaction transaction)))
+
+(defn transfer
+  [storage-spec transfer]
+  (let [validated (validate-transfer transfer)]
+    (if (validation/valid? validated)
+      (with-transacted-storage [s storage-spec]
+        (-> validated
+            (assoc :storage s)
+            append-commodity
+            append-transfer-accounts
+            process-transfer-lots
+            create-transfer-transaction
+            (select-keys [:lots :transaction])))
+      validated)))
 
 (defn- append-commodity-account
   [{:keys [storage commodity] :as context}]
