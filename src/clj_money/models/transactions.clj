@@ -31,7 +31,7 @@
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
 ; Amount is the quantity of the commodity that is exchanged
-(s/def ::amount validation/positive-big-dec?)
+(s/def ::amount validation/big-dec-not-less-than-zero?)
 ; Balance is the running total of amounts for the account to which
 ; the item belongs
 (s/def ::balance (partial instance? BigDecimal))
@@ -57,7 +57,7 @@
                                   :opt-un [::balance
                                            ::index
                                            ::memo]))
-(s/def ::items (s/coll-of ::transaction-item :min-count 2))
+(s/def ::items (s/coll-of ::transaction-item :min-count 1))
 (s/def ::new-transaction (s/keys :req-un [::description
                                           ::transaction-date
                                           ::items
@@ -114,10 +114,10 @@
   "Returns the sum of values of the items in the transaction having
   the specified action"
   [transaction action]
-  (reduce + 0 (->> (:items transaction)
+  (reduce + 0M (->> (:items transaction)
 
-                   (filter #(= action (:action %)))
-                   (map :value))))
+                    (filter #(= action (:action %)))
+                    (map :value))))
 
 (defn- ^{:clj-money.validation/message "The total debits does not match the total credits"
          :clj-money.validation/path [:items]}

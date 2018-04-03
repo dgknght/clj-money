@@ -178,7 +178,7 @@
 
 (deftest items-are-required
   (let [context (serialization/realize storage-spec base-context)]
-    (assert-validation-error :items "Count must be greater than or equal to 2"
+    (assert-validation-error :items "Count must be greater than or equal to 1"
                              (transactions/create
                                storage-spec
                                (-> context
