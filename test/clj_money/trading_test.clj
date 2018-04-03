@@ -973,9 +973,6 @@
                         :purchase-price 5M
                         :shares-purchased 200M
                         :shares-owned 200M}]
-        items (transactions/search-items storage-spec
-                                         {:account-id (:id commodity-account)})
-        actual-items (map #(apply dissoc % ignorable-item-attributes) items)
         expected-transaction {:entity-id (:entity-id commodity)
                               :transaction-date (t/local-date 2016 3 2)
                               :description "Split shares of AAPL 2 to 1"
@@ -1006,4 +1003,7 @@
         "The result contains the transaction that was created")
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
-        "The lots are adjusted correctly")))
+        "The lots are adjusted correctly")
+    ; TODO Need to workout balance of amount vs balance of value
+    #_(is (= 200M (:balance (accounts/reload storage-spec ira)))
+        "The account has the correct balance after the transfer.")))
