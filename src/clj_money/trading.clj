@@ -26,8 +26,10 @@
 (s/def ::st-capital-loss-account-id integer?)
 (s/def ::trade-date #(instance? org.joda.time.LocalDate %))
 (s/def ::transfer-date #(instance? org.joda.time.LocalDate %))
+(s/def ::split-date #(instance? org.joda.time.LocalDate %))
 (s/def ::shares decimal?)
 (s/def ::value decimal?)
+(s/def ::shares-gained decimal?)
 (s/def ::purchase (s/keys :req-un [::commodity-id
                                    ::account-id
                                    ::trade-date
@@ -47,6 +49,10 @@
                                    ::from-account-id
                                    ::to-account-id
                                    ::commodity-id]))
+(s/def ::split (s/keys :req-un [::split-date
+                                ::commodity-id
+                                ::account-id
+                                ::shares-gained]))
 
 (defn- create-price
   "Given a context, calculates and appends the share price"
@@ -458,6 +464,17 @@
            :transaction transaction})
         validated))))
 
+(defn- append-commodity
+  [{:keys [storage commodity-id] :as context}]
+  (assoc context :commodity (commodities/find-by-id storage commodity-id)))
+
+(defn- append-commodity-account
+  [{:keys [storage commodity] :as context}]
+  (assoc context
+         :commodity-account
+         (accounts/find-by storage {:commodity-id (:id commodity)
+                                    :entity-id (:entity-id commodity)})))
+
 (defn- apply-split-to-lot
   [storage ratio lot]
   (let [updated (-> lot
@@ -469,10 +486,6 @@
 (defn- apply-split-to-item
   [storage ratio item]
   item)
-
-(defn- split-transaction
-  [context]
-  )
 
 (defn- append-split-lots
   [{:keys [storage commodity-id account-id] :as context}]
@@ -490,34 +503,53 @@
 
 (defn- process-split-lots
   [{:keys [storage lots ratio] :as context}]
-  (assoc-in context
-            [:result :lots]
-            (mapv #(apply-split-to-lot storage ratio %) lots)))
+  (assoc context
+         :lots
+          (mapv #(apply-split-to-lot storage ratio %) lots)))
+
+(defn- ratio->words
+  [ratio]
+  ; We'll need to expand this at some point to handle
+  ; reverse splits and stranger splits, like 3:2
+  (format "%s to 1" ratio))
 
 (defn- create-split-transaction
-  [context]
-  #_(transactions/create storage
-                       {:transaction-date split-date
-                        :description (format "Split shares of %s %s"
-                                             (:symbol commodity)
-                                             ratio)
-                        :items [{:action :debit
-                                 :account-id commodity-account-id
-                                 :amount 0M
-                                 :value shares-gained}
-                                {:action :credit
-                                 :account-id account-id
-                                 :amount 0M
-                                 :value 0M}]})
-  context)
+  [{:keys [storage
+           commodity
+           split-date
+           ratio
+           commodity-account
+           shares-gained
+           account-id] :as context}]
+  (assoc context
+         :transaction
+         (transactions/create storage
+                              {:entity-id (:entity-id commodity)
+                               :transaction-date split-date
+                               :description (format "Split shares of %s %s"
+                                                    (:symbol commodity)
+                                                    (ratio->words ratio))
+                               :items [{:action :debit
+                                        :account-id (:id commodity-account)
+                                        :amount shares-gained
+                                        :value 0M}]})))
+
+(defn- validate-split
+  [split]
+  (->> split
+       #_(coercion/coerce split-coercion-rules)
+       (validation/validate ::split)))
 
 (defn split
   [storage-spec split]
-  (with-transacted-storage [s storage-spec]
-    (-> (assoc split
-               :result {}
-               :storage s)
-        append-split-lots
-        append-split-ratio
-        process-split-lots
-        create-split-transaction)))
+  (let [validated (validate-split split)]
+    (if (validation/valid? validated)
+      (with-transacted-storage [s storage-spec]
+        (-> (assoc validated :storage s)
+            append-commodity
+            append-commodity-account
+            append-split-lots
+            append-split-ratio
+            process-split-lots
+            create-split-transaction
+            (dissoc :storage))) validated)))

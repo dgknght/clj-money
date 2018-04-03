@@ -942,6 +942,20 @@
     (is (= 0M (:balance (accounts/reload storage-spec ira-2)))
         "The balance in the 'to' account is updated correclty")))
 
+(def ignorable-item-attributes
+  #{:id
+    :updated-at
+    :created-at
+    :index
+    :transaction-id
+    :negative
+    :polarized-amount
+    :transaction-date
+    :memo
+    :reconciliation-id
+    :reconciliation-status
+    :reconciled?})
+
 (deftest split-a-commodity
   (let [context (sell-context)
         ira (find-account context "IRA")
@@ -950,7 +964,8 @@
                                                           :entity-id (:entity-id commodity)})
         result (trading/split storage-spec {:commodity-id (:id commodity)
                                             :account-id (:id ira)
-                                            :shares-gained 100M})
+                                            :shares-gained 100M
+                                            :split-date (t/local-date 2016 3 2)})
         lots (lots/search storage-spec {:commodity-id (:id commodity)})
         actual-lots (map #(dissoc % :id :created-at :updated-at :commodity-id) lots)
         expected-lots [{:purchase-date (t/local-date 2016 3 2)
@@ -960,35 +975,30 @@
                         :shares-owned 200M}]
         items (transactions/search-items storage-spec
                                          {:account-id (:id commodity-account)})
-        actual-items (map #(dissoc %
-                                   :id
-                                   :updated-at
-                                   :created-at
-                                   :index
-                                   :transaction-id
-                                   :negative
-                                   :polarized-amount
-                                   :transaction-date
-                                   :memo
-                                   :reconciliation-id
-                                   :reconciliation-status
-                                   :reconciled?)
-                          items)
-        expected-transaction {:transaction-date (t/local-date 2016 3 2)
-                              :description "Split AAPL 2 to 1"
+        actual-items (map #(apply dissoc % ignorable-item-attributes) items)
+        expected-transaction {:entity-id (:entity-id commodity)
+                              :transaction-date (t/local-date 2016 3 2)
+                              :description "Split shares of AAPL 2 to 1"
+                              :value 0M
                               :items [{:action :debit
                                        :account-id (:id commodity-account)
                                        :amount 100M
-                                       :value 1000M
-                                       :balance 100M
-                                       :description "Purchase 100 shares of AAPL at 10.000"}
-                                      {:action :debit
-                                       :account-id (:id commodity)
-                                       :amount 100M
-                                       :value 0M
                                        :balance 200M
-                                       :description "Gain 100 shares in 2 for 1 split"}]}
-        actual-transaction (:transaction result)]
+                                       :value 0M
+                                       :description "Split shares of AAPL 2 to 1"}]}
+        actual-transaction (update-in (dissoc (:transaction result)
+                                              :memo
+                                              :id
+                                              :updated-at
+                                              :created-at)
+                                      [:items]
+                                      #(map (fn [item]
+                                              (apply dissoc
+                                                     item
+                                                     ignorable-item-attributes))
+                                            %))]
+    (is (empty? (validation/error-messages result))
+        "The result has no validation errors")
     (is (= 2M (:ratio result))
         "The correct split ratio is returned")
     (pprint-diff expected-transaction actual-transaction)
