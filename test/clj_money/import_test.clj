@@ -358,15 +358,15 @@
         commodity (commodities/find-by storage-spec {:entity-id (:id entity)
                                                      :symbol "AAPL"})
         lots (lots/search storage-spec {:commodity-id (:id commodity)})
-        ira (accounts/find-by storage-spec {:entity-id (:id entity)
-                                            :name "IRA"})
+        account (accounts/find-by storage-spec {:entity-id (:id entity)
+                                            :name "401k"})
         commodity-account (accounts/find-by storage-spec
-                                            {:parent-id (:id ira)
+                                            {:parent-id (:id account)
                                              :commodity-id (:id commodity)})
         expected-lots [{:purchase-date (t/local-date 2015 1 17)
                         :shares-purchased 200M
                         :shares-owned 200M
-                        :account-id (:id commodity-account)}]
+                        :account-id (:id account)}]
         actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)

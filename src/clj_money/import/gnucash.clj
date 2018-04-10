@@ -172,6 +172,7 @@
       (-> transaction
           (dissoc :actions)
           (assoc :action :split
+                 :split-date (:transaction-date transaction)
                  :shares-gained (parse-decimal ($x:text "split:quantity" split-node))
                  :commodity-account-id ($x:text "split:account" split-node))))))
 
