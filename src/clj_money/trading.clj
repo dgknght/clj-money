@@ -424,9 +424,9 @@
 (defn- append-transfer-accounts
   [{:keys  [storage from-account-id to-account-id commodity] :as context}]
   (let [[from-account
-         to-account] (map #(accounts/find-by-id storage %)
-                          [from-account-id
-                           to-account-id])
+         to-account] (->> [from-account-id to-account-id]
+                          (map #(accounts/find-by-id storage %))
+                          (map #(ensure-tag storage :trading %)))
         [from-commodity-account
          to-commodity-account] (map #(find-or-create-commodity-account
                                        storage
@@ -514,11 +514,14 @@
 
 (defn- append-split-ratio
   [{:keys [shares-gained lots] :as context}]
-  (let [shares-owned (->> lots
-                          (map :shares-owned)
-                          (reduce + 0M))]
-    (assoc context :ratio (/ (+ shares-owned shares-gained)
-                             shares-owned))))
+  (if (empty? lots)
+    (throw (ex-info "Not lots found to which to apply the split."
+                    (select-keys context [:commodity-id :account-id])))
+    (let [shares-owned (->> lots
+                            (map :shares-owned)
+                            (reduce + 0M))]
+      (assoc context :ratio (/ (+ shares-owned shares-gained)
+                               shares-owned)))))
 
 (defn- process-split-lots
   [{:keys [storage lots ratio] :as context}]
