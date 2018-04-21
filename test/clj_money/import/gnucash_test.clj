@@ -317,6 +317,7 @@
                                {:transaction-date (t/local-date 2015 4 1)
                                 :description "Stock Split"
                                 :action :split
+                                :split-date (t/local-date 2015 4 1)
                                 :shares-gained 100M
                                 :commodity-account-id (:apple-ira ids)
                                 :items [{:action :debit
