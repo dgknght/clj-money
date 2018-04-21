@@ -15,7 +15,8 @@
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+                                            pprint-diff
+                                            find-accounts]]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
@@ -358,16 +359,23 @@
         commodity (commodities/find-by storage-spec {:entity-id (:id entity)
                                                      :symbol "AAPL"})
         lots (lots/search storage-spec {:commodity-id (:id commodity)})
-        account (accounts/find-by storage-spec {:entity-id (:id entity)
-                                            :name "401k"})
-        commodity-account (accounts/find-by storage-spec
-                                            {:parent-id (:id account)
-                                             :commodity-id (:id commodity)})
+        [ira four-o-one-k] (map #(accounts/find-by storage-spec
+                                                   {:name %
+                                                    :entity-id (:id entity)})
+                                ["IRA" "401k"])
         expected-lots [{:purchase-date (t/local-date 2015 1 17)
                         :shares-purchased 200M
                         :shares-owned 200M
-                        :account-id (:id account)}]
+                        :purchase-price 5M ; originally purchased 100 shares at $10/share
+                        :commodity-id (:id commodity)
+                        :account-id (:id ira)}]
         actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
+    (is (:trading (:tags ira))
+        "The IRA account has the correct tags")
+    (is (:trading (:tags four-o-one-k))
+        "The 401k account has the correct tags")
+    (is (= 0M (:balance four-o-one-k)) "All shares have been transfered out of 401k")
+    (is (= 1000M (:balance ira)) "Shares have been transfered into IRA")
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
         "The commodity has the correct lots after import")))
