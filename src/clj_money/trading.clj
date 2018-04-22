@@ -488,11 +488,12 @@
       validated)))
 
 (defn- append-commodity-account
-  [{:keys [storage commodity] :as context}]
+  [{:keys [storage commodity account-id] :as context}]
   (assoc context
          :commodity-account
          (accounts/find-by storage {:commodity-id (:id commodity)
-                                    :entity-id (:entity-id commodity)})))
+                                    :entity-id (:entity-id commodity)
+                                    :parent-id account-id})))
 
 (defn- apply-split-to-lot
   [storage ratio lot]
