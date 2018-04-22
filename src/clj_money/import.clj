@@ -140,19 +140,6 @@
     (trading/buy (:storage context) purchase))
   context)
 
-; This is maybe too specific to GnuCash. It would be better if the
-; gnucash namespace did these lookups
-(defn- ensure-split-ids
-  [{:keys [commodity-account-id commodity-id account-id] :as transaction}
-   {:keys [accounts storage] :as context}]
-  (if (and account-id commodity-id)
-    transaction
-    (let  [commodity-account (accounts/find-by-id
-                               storage
-                               (accounts commodity-account-id))]
-      (assoc transaction :commodity-id (:commodity-id commodity-account)
-                         :account-id (:parent-id commodity-account)))))
-
 (defmethod ^:private import-transaction :transfer
   [{:keys [storage accounts] :as context}
    {:keys [from-account-id to-account-id] :as transaction}]
@@ -166,6 +153,19 @@
                              :from-account-id (:id from-account)
                              :to-account-id (:parent-id to-commodity-account))))
   context)
+
+; This is maybe too specific to GnuCash. It would be better if the
+; gnucash namespace did these lookups
+(defn- ensure-split-ids
+  [{:keys [commodity-account-id commodity-id account-id] :as transaction}
+   {:keys [accounts storage] :as context}]
+  (if (and account-id commodity-id)
+    transaction
+    (let  [commodity-account (accounts/find-by-id
+                               storage
+                               (accounts commodity-account-id))]
+      (assoc transaction :commodity-id (:commodity-id commodity-account)
+                         :account-id (:parent-id commodity-account)))))
 
 (defmethod ^:private import-transaction :split
   [context transaction]
