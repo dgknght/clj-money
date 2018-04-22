@@ -849,7 +849,8 @@
      ; for this entity
      (swap! ambient-settings update-in
             [~entity-id]
-            (fnil #(assoc % :delay-balances? true
+            (fnil #(assoc %
+                          :delay-balances? true
                           :delayed-account-ids #{})
                   {}))
      (let [result# (do ~@body)]
