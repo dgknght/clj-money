@@ -395,7 +395,7 @@
                                  :balance 100M
                                  :value 1000M}
                                 {:transaction-date (t/local-date 2015 4 1)
-                                 :description "Split shares of AAP 2 for 1"
+                                 :description "Split shares of AAPL 2 for 1"
                                  :index 1
                                  :action :debit
                                  :account-id (:id ira-aapl)

@@ -975,14 +975,14 @@
                         :shares-owned 200M}]
         expected-transaction {:entity-id (:entity-id commodity)
                               :transaction-date (t/local-date 2016 3 2)
-                              :description "Split shares of AAPL 2 to 1"
+                              :description "Split shares of AAPL 2 for 1"
                               :value 0M
                               :items [{:action :debit
                                        :account-id (:id commodity-account)
                                        :amount 100M
                                        :balance 200M
                                        :value 0M
-                                       :description "Split shares of AAPL 2 to 1"}]}
+                                       :description "Split shares of AAPL 2 for 1"}]}
         actual-transaction (update-in (dissoc (:transaction result)
                                               :memo
                                               :id

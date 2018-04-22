@@ -533,7 +533,7 @@
   [ratio]
   ; We'll need to expand this at some point to handle
   ; reverse splits and stranger splits, like 3:2
-  (format "%s to 1" ratio))
+  (format "%s for 1" ratio))
 
 (defn- create-split-transaction
   [{:keys [storage
