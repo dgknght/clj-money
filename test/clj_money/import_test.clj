@@ -356,26 +356,68 @@
         entity (import-data storage-spec
                             (-> context :imports first)
                             (nil-chan))
-        commodity (commodities/find-by storage-spec {:entity-id (:id entity)
-                                                     :symbol "AAPL"})
-        lots (lots/search storage-spec {:commodity-id (:id commodity)})
         [ira four-o-one-k] (map #(accounts/find-by storage-spec
                                                    {:name %
                                                     :entity-id (:id entity)})
                                 ["IRA" "401k"])
-        expected-lots [{:purchase-date (t/local-date 2015 1 17)
-                        :shares-purchased 200M
-                        :shares-owned 200M
-                        :purchase-price 5M ; originally purchased 100 shares at $10/share
-                        :commodity-id (:id commodity)
-                        :account-id (:id ira)}]
-        actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
-    (is (:trading (:tags ira))
-        "The IRA account has the correct tags")
-    (is (:trading (:tags four-o-one-k))
-        "The 401k account has the correct tags")
-    (is (= 0M (:balance four-o-one-k)) "All shares have been transfered out of 401k")
-    (is (= 1000M (:balance ira)) "Shares have been transfered into IRA")
-    (pprint-diff expected-lots actual-lots)
-    (is (= expected-lots actual-lots)
-        "The commodity has the correct lots after import")))
+        aapl (commodities/find-by storage-spec {:entity-id (:id entity)
+                                                :symbol "AAPL"})]
+
+    (testing "lots are adjusted"
+      (let [
+            lots (lots/search storage-spec {:commodity-id (:id aapl)})
+            expected-lots [{:purchase-date (t/local-date 2015 1 17)
+                            :shares-purchased 200M
+                            :shares-owned 200M
+                            :purchase-price 5M ; originally purchased 100 shares at $10/share
+                            :commodity-id (:id aapl)
+                            :account-id (:id ira)}]
+            actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
+        (pprint-diff expected-lots actual-lots)
+        (is (= expected-lots actual-lots)
+            "The commodity has the correct lots after import")))
+
+    (testing "accounts are tagged correctly"
+      (is (:trading (:tags ira))
+          "The IRA account has the correct tags")
+      (is (:trading (:tags four-o-one-k))
+          "The 401k account has the correct tags"))
+
+    (testing "transactions are created correctly"
+      (let [ira-aapl (accounts/find-by storage-spec {:parent-id (:id ira)
+                                                     :commodity-id (:id aapl)})
+            expected-ira-items [{:transaction-date (t/local-date 2015 3 2)
+                                 :description "Transfer 100 shares of AAPL"
+                                 :index 0
+                                 :action :debit
+                                 :account-id (:id ira-aapl)
+                                 :amount 100M
+                                 :balance 100M
+                                 :value 1000M}
+                                {:transaction-date (t/local-date 2015 4 1)
+                                 :description "Split shares of AAP 2 for 1"
+                                 :index 1
+                                 :action :debit
+                                 :account-id (:id ira-aapl)
+                                 :amount 100M
+                                 :balance 200M
+                                 :value 0M}]
+            actual-ira-items (->> {:account-id (:id ira-aapl)}
+                                  (transactions/search-items storage-spec)
+                                  (map #(dissoc % :created-at
+                                                  :updated-at
+                                                  :id
+                                                  :memo
+                                                  :transaction-id
+                                                  :negative
+                                                  :polarized-amount
+                                                  :reconciliation-status
+                                                  :reconciliation-id
+                                                  :reconciled?)))]
+        (pprint-diff expected-ira-items actual-ira-items)
+        (is (= expected-ira-items actual-ira-items)
+            "The IRA account has the correct items")))
+
+    (testing "account balances are calculated correctly"
+      (is (= 0M (:balance four-o-one-k)) "All shares have been transfered out of 401k")
+      (is (= 200M (:balance ira)) "Shares have been transfered into IRA")))) ; TODO Adjust this to account for value, not shares
