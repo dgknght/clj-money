@@ -30,9 +30,12 @@
 (s/def ::type #{:asset :liability :equity :income :expense})
 (s/def ::commodity-id integer?)
 (s/def ::parent-id (s/nilable integer?))
-(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type ::commodity-id] :opt-un [::parent-id]))
-(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::name] :opt-un [::parent-id ::commodity-id]))
-; :balance and :children-balance are not specified because they are always calculated and not passed in
+(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type ::commodity-id]
+                             :opt-un [::parent-id]))
+(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::name]
+                                  :opt-un [::parent-id ::commodity-id]))
+; :value and :children-value are not specified because they are always
+; calculated and not passed in
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -74,7 +77,8 @@
   "Adjusts account data for saving in the database"
   [storage account]
   (-> account
-      (update-in [:balance] (fnil identity 0M))
+      (update-in [:quantity] (fnil identity 0M))
+      (update-in [:value] (fnil identity 0M))
       (update-in [:type] name)
       (update-in [:tags] #(if (seq %)
                             (mapv name %)
@@ -190,7 +194,7 @@
                       (sort-by :name)
                       vec)]
     (assoc account :children children
-                   :children-balance (reduce #(+ %1 (:balance %2) (:children-balance %2))
+                   :children-value (reduce #(+ %1 (:value %2) (:children-value %2))
                                              0
                                              children))))
 
@@ -233,10 +237,10 @@
   [account]
   (#{:asset :expense} (:type account)))
 
-(defn polarize-amount
+(defn polarize-quantity
   "Adjusts the polarity of an amount as appropriate given
   a transaction item action and the type of the associated account"
   [transaction-item account]
   (let [polarizer (* (if (left-side? account) 1 -1)
                      (if (= :debit (:action transaction-item)) 1 -1))]
-    (* (:amount transaction-item) polarizer)))
+    (* (:quantity transaction-item) polarizer)))

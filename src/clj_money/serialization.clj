@@ -147,15 +147,15 @@
   [model context]
   (update-in model [:account-id] #(:id (find-account context %))))
 
-(defn- coerce-amount
+(defn- coerce-quantity
   [item]
-  (update-in item [:amount] bigdec))
+  (update-in item [:quantity] bigdec))
 
 (defn- prepare-item
   [context item]
   (-> item
       (resolve-account context)
-      coerce-amount))
+      coerce-quantity))
 
 (defn- prepare-items
   [transaction context]
@@ -169,12 +169,12 @@
     transaction
     (-> transaction
         (assoc :items [{:action :debit
-                        :amount (:amount transaction)
+                        :quantity (:quantity transaction)
                         :account-id (:debit-account transaction)}
                        {:action :credit
-                        :amount (:amount transaction)
+                        :quantity (:quantity transaction)
                         :account-id (:credit-account transaction)}])
-        (dissoc :amount :debit-account :credit-account))))
+        (dissoc :quantity :debit-account :credit-account))))
 
 (defn- create-transactions
   [storage context transactions]
@@ -336,18 +336,18 @@
 
 (defn- resolve-transaction-item-ids
   [context account-id items]
-  (mapv (fn [{:keys [transaction-date amount]}]
+  (mapv (fn [{:keys [transaction-date quantity]}]
           (or (->> context
                :transactions
                (filter #(= transaction-date (:transaction-date %)))
                (mapcat :items)
                (filter #(and (= account-id (:account-id %))
-                             (= amount (:amount %))))
+                             (= quantity (:quantity %))))
                (map (juxt :id :transaction-date))
                first)
-              (throw (Exception. (format "Unable to find a transaction with date=%s, amount=%s"
+              (throw (Exception. (format "Unable to find a transaction with date=%s, quantity=%s"
                                          transaction-date
-                                         amount)))))
+                                         quantity)))))
         items))
 
 (defn- resolve-reconciliation-transaction-item-ids

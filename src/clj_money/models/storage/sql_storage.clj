@@ -571,7 +571,8 @@
                                       :commodity-id
                                       :entity-id
                                       :parent-id
-                                      :balance))
+                                      :quantity
+                                      :value))
 
   (update-account
     [_ account]
@@ -580,7 +581,8 @@
                                         :tags
                                         :commodity-id
                                         :parent-id
-                                        :balance)]
+                                        :quantity,
+                                        :value)]
       (jdbc/update! db-spec :accounts updates ["id = ?" (:id account)])))
 
   (delete-account
@@ -804,7 +806,7 @@
             :transaction-date
             :account-id
             :action
-            :amount
+            :quantity
             :negative
             :value
             :index
@@ -818,7 +820,7 @@
                                      :transaction_items))
                          (h/sset (->update-set transaction-item
                                                :transaction-date
-                                               :amount
+                                               :quantity
                                                :negative
                                                :memo
                                                :action

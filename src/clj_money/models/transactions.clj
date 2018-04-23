@@ -30,14 +30,13 @@
 
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
-; Amount is the quantity of the commodity that is exchanged
-(s/def ::amount validation/big-dec-not-less-than-zero?)
-; Balance is the running total of amounts for the account to which
+(s/def ::quantity validation/big-dec-not-less-than-zero?)
+; Balance is the running total of quantities for the account to which
 ; the item belongs
 (s/def ::balance (partial instance? BigDecimal))
 ; Value is the value of the line item expressed in the entity's
-; default currency. For most transactions, this will be the same
-; as the amount. For transactions involving foreign currencies
+; default commodity. For most transactions, this will be the same
+; as the quantity. For transactions involving foreign currencies
 ; and commodity purchases (like stock trades) it will be different.
 (s/def ::value validation/positive-big-dec?)
 (s/def ::description validation/non-empty-string?)
@@ -53,7 +52,7 @@
 (s/def ::index integer?)
 (s/def ::transaction-item (s/keys :req-un [::account-id
                                            ::action
-                                           ::amount]
+                                           ::quantity]
                                   :opt-un [::balance
                                            ::index
                                            ::memo]))
@@ -100,14 +99,14 @@
   "Makes adjustments to a transaction item in prepartion for return
   from the data store"
   ([item] (after-item-read item nil))
-  ([{:keys [amount negative reconciliation-status] :as item} account]
+  ([{:keys [quantity negative reconciliation-status] :as item} account]
    (if (map? item)
      (-> item
          (update-in [:action] keyword)
          (assoc :reconciled? (= "completed" reconciliation-status)
-                :polarized-amount (if negative
-                                    (* -1 amount)
-                                    amount)))
+                :polarized-quantity (if negative
+                                      (* -1 quantity)
+                                      quantity)))
      item)))
 
 (defn- item-value-sum
@@ -139,7 +138,7 @@
   [item]
   (cond->
     (-> item
-        (update-in [:value] #(or % (:amount item)))
+        (update-in [:value] #(or % (:quantity item)))
         (assoc :balance (bigdec 0))
         (update-in [:index] (fnil identity (Integer/MAX_VALUE))))
 
@@ -209,7 +208,7 @@
                    storage
                    {:transaction-id id
                     :transaction-date transaction-date}
-                   {:sort [[:action :desc] [:amount :desc]]})))))
+                   {:sort [[:action :desc] [:quantity :desc]]})))))
 
 (defn- append-lot-items
   [transaction storage]
@@ -292,7 +291,7 @@
           reconciled (->> existing
                           :items
                           (filter :reconciled?)
-                          (map #(select-keys % [:id :amount :account-id :action]))
+                          (map #(select-keys % [:id :quantity :account-id :action]))
                           set)
           ids (->> reconciled
                    (map :id)
@@ -300,7 +299,7 @@
           incoming (->> transaction
                         :items
                         (filter #(ids (:id %)))
-                        (map #(select-keys % [:id :amount :account-id :action]))
+                        (map #(select-keys % [:id :quantity :account-id :action]))
                         set)]
       (= incoming reconciled))
     true))
@@ -456,15 +455,16 @@
   the items :index and :balance attributes, and returns
   the context with the updated :last-index and :last-balance
   values"
-  [{:keys [account storage] :as context} item]
-  (let [new-index (+ 1 (:last-index context))
-        polarized-amount (accounts/polarize-amount item account)
-        new-balance (+ (:last-balance context)
-                       polarized-amount)
+  [{:keys [account storage last-index last-balance] :as context}
+   item]
+  (let [new-index (+ 1 last-index)
+        polarized-quantity (accounts/polarize-quantity item account)
+        new-balance (+ last-balance
+                       polarized-quantity)
         changed (update-item-index-and-balance
                   storage
                   (assoc item
-                         :negative (< polarized-amount 0M)
+                         :negative (< polarized-quantity 0M)
                          :index new-index
                          :balance new-balance))]
     ; if the index and balance didn't change, we can short circuit the update
@@ -498,7 +498,7 @@
                         :last-balance balance}
                        (remove #(= id (:id %)) items))]
     (when-let [last-balance (:last-balance result)]
-      (accounts/update storage (assoc account :balance last-balance)))))
+      (accounts/update storage (assoc account :quantity last-balance)))))
 
 (defn- link-lots
   [storage transaction]
@@ -684,7 +684,7 @@
                                (:items existing-tx))]
     (if (> 0 (compare (:transaction-date current-item)
                       (:transaction-date existing-tx)))
-      existing-item 
+      existing-item
       current-item)
     current-item))
 

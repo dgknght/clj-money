@@ -14,6 +14,7 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff
                                             assert-validation-error
                                             simplify-account-groups
                                             find-account]]))
@@ -62,7 +63,8 @@
         expected [{:name "Checking"
                    :type :asset
                    :tags #{}
-                   :balance 0M
+                   :quantity 0M
+                   :value 0M
                    :entity-id entity-id
                    :commodity {:symbol "USD"
                                :name "US Dollar"
@@ -71,7 +73,8 @@
                   {:name "Credit card"
                    :type :liability
                    :tags #{}
-                   :balance 0M
+                   :quantity 0M
+                   :value 0M
                    :entity-id entity-id
                    :commodity {:symbol "USD"
                                :name "US Dollar"
@@ -178,9 +181,11 @@
                                :symbol "USD"
                                :type :currency
                                :default true}
-                   :balance 0M}]]
+                   :quantity 0M
+                   :value 0M}]]
     (is (empty? (validation/error-messages result))
         "The result has no validation errors.")
+    (pprint-diff expected accounts)
     (is (= expected accounts) "The account can be retrieved")))
 
 (def ^:private duplicate-name-context
@@ -362,28 +367,28 @@
     (is (not-any? #(= (:id account) (:id %)) accounts)
         "The deleted account is no longer returned from the database")))
 
-(defmacro test-amount-polarization
-  [context account-type action amount expected message]
+(defmacro test-polarization
+  [context account-type action quantity expected message]
   `(let [account# (accounts/create storage-spec (assoc (attributes ~context)
                                                        :type ~account-type))
          item# {:account-id (:id account#)
                 :action ~action
-                :amount ~amount}
-         polarized-amount# (accounts/polarize-amount item# account#)]
-     (is (= ~expected polarized-amount#) ~message)))
+                :quantity ~quantity}
+         polarized# (accounts/polarize-quantity item# account#)]
+     (is (= ~expected polarized#) ~message)))
 
-(deftest polarize-an-amount
+(deftest polarize-a-quantity
   (let [context (serialization/realize storage-spec account-context)]
     ; Debits
-    (test-amount-polarization context :asset     :debit 100M  100M "A debit in an asset account increases the balance")
-    (test-amount-polarization context :expense   :debit 100M  100M "A debit in an expense account increases the balance")
-    (test-amount-polarization context :liability :debit 100M -100M "A debit in an liability account decreases the balance")
-    (test-amount-polarization context :equity    :debit 100M -100M "A debit in an equity account decreases the balance")
-    (test-amount-polarization context :income    :debit 100M -100M "A debit in an income account decreases the balance")
+    (test-polarization context :asset     :debit 100M  100M "A debit in an asset account increases the balance")
+    (test-polarization context :expense   :debit 100M  100M "A debit in an expense account increases the balance")
+    (test-polarization context :liability :debit 100M -100M "A debit in an liability account decreases the balance")
+    (test-polarization context :equity    :debit 100M -100M "A debit in an equity account decreases the balance")
+    (test-polarization context :income    :debit 100M -100M "A debit in an income account decreases the balance")
 
     ;; Credits
-    (test-amount-polarization context :asset     :credit 100M -100M "A credit in an asset account decreases the balance")
-    (test-amount-polarization context :expense   :credit 100M -100M "A credit in an expense account dereases the balance")
-    (test-amount-polarization context :liability :credit 100M  100M "A credit in an liability account increases the balance")
-    (test-amount-polarization context :equity    :credit 100M  100M "A credit in an equity account increases the balance")
-    (test-amount-polarization context :income    :credit 100M  100M "A credit in an income account increases the balance")))
+    (test-polarization context :asset     :credit 100M -100M "A credit in an asset account decreases the balance")
+    (test-polarization context :expense   :credit 100M -100M "A credit in an expense account dereases the balance")
+    (test-polarization context :liability :credit 100M  100M "A credit in an liability account increases the balance")
+    (test-polarization context :equity    :credit 100M  100M "A credit in an equity account increases the balance")
+    (test-polarization context :income    :credit 100M  100M "A credit in an income account increases the balance")))
