@@ -39,7 +39,7 @@
 
 (defn- simplify-transaction-item
   [item]
-  (select-keys item [:account-id :amount :action :balance :index :memo]))
+  (select-keys item [:account-id :quantity :action :balance :index :memo]))
 
 (defn- simplify-transaction
   [transaction]
@@ -58,12 +58,12 @@
                                                 :description "Paycheck"
                                                 :memo "Partial payment, final"
                                                 :account-id-0 (str (:id checking))
-                                                :debit-amount-0 "1000"
-                                                :credit-amount-0 ""
+                                                :debit-quantity-0 "1000"
+                                                :credit-quantity-0 ""
                                                 :memo-0 "conf # 123"
                                                 :account-id-1 (str (:id salary))
-                                                :debit-amount-1 ""
-                                                :credit-amount-1 "1000"}}))
+                                                :debit-quantity-1 ""
+                                                :credit-quantity-1 "1000"}}))
         actual (map simplify-transaction
                     (transm/search storage-spec
                                    {:entity-id entity-id
@@ -78,13 +78,13 @@
                    :entity-id entity-id
                    :items [{:account-id (:id checking)
                             :memo "conf # 123"
-                            :amount 1000M
+                            :quantity 1000M
                             :action :debit
                             :balance 1000M
                             :index 0}
                            {:account-id (:id salary)
                             :memo nil
-                            :amount 1000M
+                            :quantity 1000M
                             :action :credit
                             :balance 1000M
                             :index 0}]}]]
@@ -98,10 +98,10 @@
                           :description "Paycheck"
                           :items [{:action :debit
                                    :account-id "Checking"
-                                   :amount 1000M}
+                                   :quantity 1000M}
                                   {:action :credit
                                    :account-id "Salary"
-                                   :amount 1000M}]}]}))
+                                   :quantity 1000M}]}]}))
 
 (deftest update-a-transaction
   (let [context (serialization/realize storage-spec update-context)
@@ -116,20 +116,20 @@
                                            :description "Employer"
                                            :id-0 (-> trans :items first :id str)
                                            :account-id-0 (:id checking)
-                                           :credit-amount-0 ""
-                                           :debit-amount-0 "1001"
+                                           :credit-quantity-0 ""
+                                           :debit-quantity-0 "1001"
                                            :id-1 (-> trans :items second :id str)
                                            :account-id-1 (:id salary)
-                                           :credit-amount-1 "901"
-                                           :debit-amount-1 ""
+                                           :credit-quantity-1 "901"
+                                           :debit-quantity-1 ""
                                            :id-2 ""
                                            :account-id-2 (:id bonus)
-                                           :credit-amount-2 "100"
-                                           :debit-amount-2 ""
+                                           :credit-quantity-2 "100"
+                                           :debit-quantity-2 ""
                                            :id-3 ""
                                            :account-id-3 ""
-                                           :credit-amount-3 ""
-                                           :debit-amount-3 ""}}))
+                                           :credit-quantity-3 ""
+                                           :debit-quantity-3 ""}}))
         actual (simplify-transaction (transm/find-by-id storage-spec (:id trans) (t/local-date 2016 1 2)))
         expected {:transaction-date (t/local-date 2016 1 2)
                   :description "Employer"
@@ -138,19 +138,19 @@
                   :value 1001M
                   :items [{:action :debit
                            :account-id (:id checking)
-                           :amount 1001M
+                           :quantity 1001M
                            :balance 1001M
                            :index 0
                            :memo nil}
                           {:action :credit
                            :account-id (:id salary)
-                           :amount 901M
+                           :quantity 901M
                            :balance 901M
                            :index 0
                            :memo nil}
                           {:action :credit
                            :account-id (:id bonus)
-                           :amount 100M
+                           :quantity 100M
                            :balance 100M
                            :index 0
                            :memo nil}]}]
