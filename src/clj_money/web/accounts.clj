@@ -56,8 +56,8 @@
                       :title "Click here to add a child to this account."}
         "+"])]]
    [:td.text-right
-    [:span {:class (format "balance-depth-%s" depth)}
-     (format-number (+ (:balance account) (:children-balance account)))]]
+    [:span {:class (format "value-depth-%s" depth)}
+     (format-number (+ (:value account) (:children-value account)))]]
    [:td
     [:span.btn-group
      (when (allowed? :show account)
@@ -114,9 +114,9 @@
     [:tr.account-type
      [:td type]
      [:td.text-right (->> accounts
-                          (map (juxt :balance :children-balance))
-                          (reduce (fn [sum [balance children-balance]]
-                                    (+ sum balance children-balance))
+                          (map (juxt :value :children-value))
+                          (reduce (fn [sum [value children-value]]
+                                    (+ sum value children-value))
                                   0)
                           format-number)]
      [:td "&nbsp;"]]
@@ -145,14 +145,14 @@
 (defn- transaction-item-row
   [{:keys [transaction
            description
-           polarized-amount
+           polarized-quantity
            reconciled?
            account-id
            balance] :as item}]
   [:tr
    [:td.text-right (:transaction-date transaction)]
    [:td (:description transaction)]
-   [:td.text-right (format-number polarized-amount)]
+   [:td.text-right (format-number polarized-quantity)]
    [:td.text-right (format-number balance)]
    [:td.text-center [:span.glyphicon
                      {:aria-hidden "true"

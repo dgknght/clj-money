@@ -3,7 +3,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
-            [clj-time.format :refer [unparse-local-date formatters]]
+            [clj-time.format :refer [parse-local-date unparse-local-date formatters]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
@@ -42,23 +42,23 @@
 
 (defn- transaction-row
   "Renders a row in the transaction table"
-  [transaction]
+  [{:keys [transaction-date id] :as transaction}]
   [:tr
-   [:td (format-date (:transaction-date transaction))]
+   [:td (format-date transaction-date)]
    [:td (:description transaction)]
    [:td.text-right (format-number (:value transaction))]
    [:td
     [:div.btn-group
      (when (allowed? :update transaction)
        (glyph-button :pencil
-                     (format "/transactions/%s/edit" (:id transaction))
+                     (format "/transactions/%s/%s/edit" transaction-date id)
                      {:level :info
                       :size :extra-small
                       :title "Click here to edit this transaction."}))
      (when (allowed? :delete transaction)
        (let [can-delete? (transactions/can-delete? transaction)]
          (glyph-button :remove
-                       (format "/transactions/%s/delete" (:id transaction))
+                       (format "/transactions/%s/%s/delete" transaction-date id)
                        {:level :danger
                         :disabled (not can-delete?)
                         :size :extra-small
@@ -258,9 +258,12 @@
 (defn edit
   ([req] (edit req {}))
   ([{params :params transaction :transaction} options]
-   (let [id (:id params)
+   (let [[transaction-date id] ((juxt :transaction-date :id) params)
          transaction (or transaction
-                         (authorize (transactions/find-by-id (env :db) id) :update))
+                         (authorize (transactions/find-by-id (env :db)
+                                                             id
+                                                             transaction-date)
+                                    :update))
          action (cond-> (path "/transactions"
                               (:id transaction))
 

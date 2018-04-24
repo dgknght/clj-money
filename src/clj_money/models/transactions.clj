@@ -351,11 +351,25 @@
        (t/local-date year 1 1)
        (t/local-date year 12 31)])))
 
+(defn- ensure-transaction-date-type
+  [criteria]
+  (if-let [transaction-date (:transaction-date criteria)]
+    (assoc criteria :transaction-date (parse-date-range transaction-date))
+    criteria))
+
+(defn- ensure-id-type
+  [criteria]
+  (if-let [id (:id criteria)]
+    (if (string? id)
+      (assoc criteria :id (java.util.UUID/fromString id))
+      criteria)
+    criteria))
+
 (defn- prepare-criteria
   [criteria]
-  (if (:transaction-date criteria)
-    (update-in criteria [:transaction-date] parse-date-range)
-    criteria))
+  (-> criteria
+      ensure-transaction-date-type
+      ensure-id-type))
 
 (defn search
   "Returns the transactions that belong to the specified entity"
