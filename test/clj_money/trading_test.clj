@@ -74,10 +74,10 @@
                    :description "Opening balance"
                    :items [{:action :debit
                             :account-id "IRA"
-                            :amount 2000M}
+                            :quantity 2000M}
                            {:action :credit
                             :account-id "Opening balances"
-                            :amount 2000M}]}]})
+                            :quantity 2000M}]}]})
 
 (defn- purchase-attributes
   [context]
@@ -105,9 +105,9 @@
                                            :shares 100M
                                            :price 10M}]
                               :items [{:action :debit
-                                       :amount 100M
+                                       :quantity 100M
                                        :negative false
-                                       :polarized-amount 100M
+                                       :polarized-quantity 100M
                                        :balance 100M
                                        :value 1000M
                                        :account-id (:id apple-account)
@@ -119,9 +119,9 @@
                                        :reconciled? false
                                        :reconciliation-id nil}
                                       {:action :credit
-                                       :amount 1000M
+                                       :quantity 1000M
                                        :negative false
-                                       :polarized-amount 1000M
+                                       :polarized-quantity 1000M
                                        :balance 1000M
                                        :value 1000M
                                        :account-id (:id ira)
@@ -151,12 +151,15 @@
                                     :entity-id (-> context :entities first :id)
                                     :type :asset
                                     :parent-id (:id ira)
-                                    :tags #{:tradable}}
+                                    :tags #{:tradable}
+                                    :quantity 100M
+                                   ; :value 1000M TODO Restore this check
+                                    }
         actual-commodity-account (dissoc apple-account :id
                                                        :created-at
                                                        :updated-at
-                                                       :commodity
-                                                       :balance)]
+                                                       :value
+                                                       :commodity)]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (pprint-diff expected-transaction actual-transaction)
@@ -173,6 +176,7 @@
         "The lot is valid")
     (is (empty? (-> result :lot-transaction validation/error-messages))
         "The lot transaction is valud")
+    (pprint-diff expected-commodity-account actual-commodity-account)
     (is (= expected-commodity-account
            actual-commodity-account)
         "The commodity account is created")
@@ -208,9 +212,9 @@
                                              purchase-attributes
                                              (assoc :fee 5M
                                                     :fee-account-id (:id inv-exp))))]
-    (is (= 995M (:balance (accounts/reload storage-spec ira)))
+    (is (= 995M (:quantity (accounts/reload storage-spec ira)))
         "The investment account balance reflects the fee")
-    (is (= 5M (:balance (accounts/reload storage-spec inv-exp)))
+    (is (= 5M (:quantity (accounts/reload storage-spec inv-exp)))
         "The investment expense account reflects the fee")))
 
 (deftest purchase-requires-a-commodity-id
@@ -326,8 +330,7 @@
                                      :trade-date (t/local-date 2016 1 2)
                                      :shares 100M
                                      :value 999M})
-        new-balance (->> (accounts/reload storage-spec ira)
-                         :balance)]
+        new-balance (:quantity (accounts/reload storage-spec ira))]
     (is (= 1001M new-balance) "The account balance decreases by the amount of the purchase")))
 
 (defn- sale-attributes
@@ -351,7 +354,7 @@
      :inventory-method :fifo
      :trade-date (t/local-date 2017 3 2)
      :shares 25M
-     :value 375M}))
+     :value 375M})) ; Sell at $15/share or $125 gain
 
 (defn- sell-context
   ([]
@@ -404,9 +407,9 @@
                                        :account-id (:id ira)
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
-                                       :amount 375M
+                                       :quantity 375M
                                        :negative false
-                                       :polarized-amount 375M
+                                       :polarized-quantity 375M
                                        :value 375M
                                        :balance 1375M
                                        :reconciliation-status nil
@@ -419,9 +422,9 @@
                                        :memo "Sell 25 shares of AAPL at 15.000"
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
-                                       :amount 125M
+                                       :quantity 125M
                                        :negative false
-                                       :polarized-amount 125M
+                                       :polarized-quantity 125M
                                        :value 125M
                                        :balance 125M
                                        :reconciliation-status nil
@@ -432,9 +435,9 @@
                                        :account-id (:id commodity-account)
                                        :transaction-date (t/local-date 2017 3 2)
                                        :description "Sell 25 shares of AAPL at 15.000"
-                                       :amount 25M
+                                       :quantity 25M
                                        :negative false
-                                       :polarized-amount 25M
+                                       :polarized-quantity 25M
                                        :balance 75M
                                        :value 250M
                                        :reconciliation-status nil
@@ -492,9 +495,9 @@
                                  sale-attributes
                                  (assoc :fee 5M
                                         :fee-account-id (:id inv-exp))))]
-    (is (= 1370M (:balance (accounts/reload storage-spec ira)))
+    (is (= 1370M (:quantity (accounts/reload storage-spec ira)))
         "The investment account balance reflects the fee")
-    (is (= 5M (:balance (accounts/reload storage-spec inv-exp)))
+    (is (= 5M (:quantity (accounts/reload storage-spec inv-exp)))
         "The investment fee account balance reflects the fee")))
 
 (deftest sales-requires-an-account-id
@@ -598,8 +601,7 @@
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (assoc :shares 50M :value 560M)))
-        new-balance (->> (accounts/reload storage-spec ira)
-                         :balance)]
+        new-balance (:quantity (accounts/reload storage-spec ira))]
     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 
 (deftest selling-a-commodity-updates-a-lot-record
@@ -633,7 +635,8 @@
                    :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
                    :account-id (:id lt-capital-gains)
-                   :amount 125M
+                   :quantity 125M
+                   :polarized-quantity 125M
                    :negative false
                    :value 125M
                    :memo "Sell 25 shares of AAPL at 15.000"
@@ -657,7 +660,8 @@
                    :description "Sell 25 shares of AAPL at 15.000"
                    :action :credit
                    :account-id (:id st-capital-gains)
-                   :amount 125M
+                   :quantity 125M
+                   :polarized-quantity 125M
                    :negative false
                    :value 125M
                    :memo "Sell 25 shares of AAPL at 15.000"
@@ -679,7 +683,8 @@
                    :description "Sell 100 shares of AAPL at 8.500"
                    :action :debit
                    :account-id (:id capital-loss)
-                   :amount 150M
+                   :quantity 150M
+                   :polarized-quantity 150M
                    :negative false
                    :value 150M
                    :memo "Sell 100 shares of AAPL at 8.500"
@@ -820,7 +825,7 @@
         result (trading/unbuy storage-spec (:transaction purchase))]
     ; TODO Should we delete the price that was created?
     (testing "the account balance"
-      (is (= 2000M (:balance (accounts/reload storage-spec ira)))
+      (is (= 2000M (:quantity (accounts/reload storage-spec ira)))
           "The account balance is restored"))
     (testing "the affected lots"
       (is (= [] (lots/search storage-spec {:account-id (:id ira)}))
@@ -854,7 +859,7 @@
     ;                      after purchase: $1,000
     ;                          after sale: $1,375
     ;                        after unsale: $1,000
-    (is (= 1000M (:balance (accounts/reload storage-spec ira)))
+    (is (= 1000M (:quantity (accounts/reload storage-spec ira)))
         "The account balance is restored")
     (testing "the affected lots"
       (doseq [lot (:lots sale)]
@@ -898,12 +903,12 @@
                               :description "Transfer 100 shares of AAPL"
                               :entity-id (:entity-id commodity)
                               :items [{:action :debit
-                                       :amount 100M
+                                       :quantity 100M
                                        :value 1000M
                                        :balance 100M
                                        :account-id (:id ira-2-commodity-account)}
                                       {:action :credit
-                                       :amount 100M
+                                       :quantity 100M
                                        :value 1000M
                                        :balance 0M
                                        :account-id (:id ira-commodity-account)}]}
@@ -918,7 +923,7 @@
                                                     %
                                                     [:action
                                                      :account-id
-                                                     :amount
+                                                     :quantity
                                                      :action
                                                      :value
                                                      :balance])
@@ -935,11 +940,11 @@
     ; Original account balance was 2,000, we bought 1,000 worth of
     ; shares of AAPL, then transfered those shares out of the account
     ; leaving 1,000 in cash
-    (is (= 1000M (:balance (accounts/reload storage-spec ira)))
+    (is (= 1000M (:quantity (accounts/reload storage-spec ira)))
         "The balance in the 'from' account is updated correctly")
     ; No money was ever addedto the second account, so the balance
     ; is still 0
-    (is (= 0M (:balance (accounts/reload storage-spec ira-2)))
+    (is (= 0M (:quantity (accounts/reload storage-spec ira-2)))
         "The balance in the 'to' account is updated correclty")))
 
 (def ignorable-item-attributes
@@ -979,7 +984,8 @@
                               :value 0M
                               :items [{:action :debit
                                        :account-id (:id commodity-account)
-                                       :amount 100M
+                                       :quantity 100M
+                                       :polarized-quantity 100M
                                        :balance 200M
                                        :value 0M
                                        :description "Split shares of AAPL 2 for 1"}]}
@@ -1004,6 +1010,5 @@
     (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
         "The lots are adjusted correctly")
-    ; TODO Need to workout balance of amount vs balance of value
-    #_(is (= 200M (:balance (accounts/reload storage-spec ira)))
+    #_(is (= 200M (:quantity (accounts/reload storage-spec ira)))
         "The account has the correct balance after the transfer.")))

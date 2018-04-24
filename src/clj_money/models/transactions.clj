@@ -476,6 +476,11 @@
           (dissoc :last-balance)
           reduced))))
 
+(defn- to-entity-currency
+  [amount account]
+  ; TODO look up the entity currency and convert if needed
+  amount)
+
 (defn recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
   selects all subsequent items and recalculates the items until
@@ -498,7 +503,8 @@
                         :last-balance balance}
                        (remove #(= id (:id %)) items))]
     (when-let [last-balance (:last-balance result)]
-      (accounts/update storage (assoc account :quantity last-balance)))))
+      (accounts/update storage (assoc account :quantity last-balance
+                                              :value (to-entity-currency last-balance account))))))
 
 (defn- link-lots
   [storage transaction]

@@ -142,19 +142,23 @@
   [{:name "Checking"
     :type :asset
     :commodity-id "USD"
-    :balance 1810M}
+    :quantity 1810M
+    :value 1810M}
    {:name "Credit Card"
     :type :liability
     :commodity-id "USD"
-    :balance 100M}
+    :quantity 100M
+    :value 100M}
    {:name "Groceries"
     :type :expense
     :commodity-id "USD"
-    :balance 290M}
+    :quantity 290M
+    :value 290M}
    {:name "Salary"
     :type :income
     :commodity-id "USD"
-    :balance 2000M}])
+    :quantity 2000M
+    :value 2000M}])
 
 (defn- test-import
   [context]
@@ -308,8 +312,7 @@
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
-        result (import-data storage-spec imp (nil-chan))
-        entity (first (entities/select storage-spec (:id user)))
+        entity (import-data storage-spec imp (nil-chan))
         account (->> {:entity-id (:id entity)}
                      (accounts/search storage-spec)
                      (filter #(= "401k" (:name %)))
@@ -391,7 +394,7 @@
                                  :index 0
                                  :action :debit
                                  :account-id (:id ira-aapl)
-                                 :amount 100M
+                                 :quantity 100M
                                  :balance 100M
                                  :value 1000M}
                                 {:transaction-date (t/local-date 2015 4 1)
@@ -399,7 +402,7 @@
                                  :index 1
                                  :action :debit
                                  :account-id (:id ira-aapl)
-                                 :amount 100M
+                                 :quantity 100M
                                  :balance 200M
                                  :value 0M}]
             actual-ira-items (->> {:account-id (:id ira-aapl)}
@@ -410,7 +413,7 @@
                                                   :memo
                                                   :transaction-id
                                                   :negative
-                                                  :polarized-amount
+                                                  :polarized-quantity
                                                   :reconciliation-status
                                                   :reconciliation-id
                                                   :reconciled?)))]

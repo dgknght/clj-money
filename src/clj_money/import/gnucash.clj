@@ -272,7 +272,7 @@
                             {:attribute :reconciled
                              :xpath "split:reconciled-state"
                              :transform-fn #(= "y" %)}
-                            {:attribute :amount
+                            {:attribute :quantity
                              :xpath "split:value"
                              :transform-fn parse-decimal}
                             {:attribute :action

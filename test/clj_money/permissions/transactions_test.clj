@@ -48,10 +48,10 @@
                    :entity-id "Personal"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount 1000M}
+                            :quantity 1000M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount 1000M}]}]})
+                            :quantity 1000M}]}]})
 
 (deftest transaction-list
   (let [context (serialization/realize storage-spec transactions-context)
@@ -109,10 +109,10 @@
                                    :entity-id (:id personal)
                                    :items [{:action :debit
                                             :account-id "Checking"
-                                            :amount 1000M}
+                                            :quantity 1000M}
                                            {:action :credit
                                             :account-id "Salary"
-                                            :amount 1000M}]}
+                                            :quantity 1000M}]}
                                   :transaction)]
     (testing "A user has permission to create a transactions in his own entities"
       (with-authentication john

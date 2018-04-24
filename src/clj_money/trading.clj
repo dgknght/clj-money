@@ -150,15 +150,15 @@
         currency-amount (+ value fee)
         items (cond-> [{:action :credit
                         :account-id (:account-id context)
-                        :amount currency-amount
+                        :quantity currency-amount
                         :value currency-amount}
                        {:action :debit
                         :account-id (-> context :commodity-account :id)
-                        :amount shares
+                        :quantity shares
                         :value value}]
                 (not= 0M fee) (conj {:action :debit
                                      :account-id fee-account-id
-                                     :amount fee
+                                     :quantity fee
                                      :value fee}))]
     (assoc context
            :transaction
@@ -175,36 +175,36 @@
 
 (defn- create-capital-gains-items
   [{gains :gains :as context}]
-  (mapv (fn [{:keys [amount description long-term?]}]
+  (mapv (fn [{:keys [quantity description long-term?]}]
           (let [account-key (keyword (format "%s-capital-%s-account-id"
                                              (if long-term? "lt" "st")
-                                             (if (< amount 0) "loss" "gains")))
-                action (if (< amount 0) :debit :credit)
+                                             (if (< quantity 0) "loss" "gains")))
+                action (if (< quantity 0) :debit :credit)
                 account-id (account-key context)]
             {:action action
              :account-id account-id
-             :amount (.abs amount)
-             :value (.abs amount)
+             :quantity (.abs quantity)
+             :value (.abs quantity)
              :memo description}))
         gains))
 
 (defn- create-sale-transaction-items
   [{:keys [shares value] :as context}]
-  (let [total-gains (reduce + (map :amount (:gains context)))
+  (let [total-gains (reduce + (map :quantity (:gains context)))
         fee (or (:fee context) 0M)
         items (-> (create-capital-gains-items context)
                   (conj {:action :debit
                          :account-id (:account-id context)
-                         :amount (- value fee)
+                         :quantity (- value fee)
                          :value (- value fee)})
                   (conj {:action :credit
                          :account-id (-> context :commodity-account :id)
-                         :amount shares
+                         :quantity shares
                          :value (- value total-gains)}))]
     (cond-> items
       (not= 0M fee) (conj {:action :debit
                            :account-id (:fee-account-id context)
-                           :amount fee
+                           :quantity fee
                            :value fee}))))
 
 (defn- create-sale-transaction
@@ -330,7 +330,7 @@
                                                             shares-sold
                                                             (-> context :commodity :symbol)
                                                             (format-number sale-price {:format :commodity-price}) )
-                                       :amount gain
+                                       :quantity gain
                                        :long-term? long-term?})))
      remaining-shares-to-sell]))
 
@@ -464,11 +464,11 @@
                                                                  shares
                                                                  (:symbol commodity))
                                             :items [{:action :credit
-                                                     :amount shares
+                                                     :quantity shares
                                                      :value value
                                                      :account-id (:id from-commodity-account)}
                                                     {:action :debit
-                                                     :amount shares
+                                                     :quantity shares
                                                      :value value
                                                      :account-id (:id to-commodity-account)}]})]
     (assoc context :transaction transaction)))
@@ -554,7 +554,7 @@
                                                     (ratio->words ratio))
                                :items [{:action :debit
                                         :account-id (:id commodity-account)
-                                        :amount shares-gained
+                                        :quantity shares-gained
                                         :value 0M}]})))
 
 (defn- validate-split

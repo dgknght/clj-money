@@ -71,61 +71,61 @@
     :description "Paycheck"
     :items [{:action :debit
              :account-id (:checking ids)
-             :amount 1000M
+             :quantity 1000M
              :reconciled false}
             {:action :credit
              :account-id (:salary ids)
-             :amount 1000M
+             :quantity 1000M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 4)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:groceries ids)
-             :amount 100M
+             :quantity 100M
              :reconciled false}
             {:action :credit
              :account-id (:checking ids)
-             :amount 100M
+             :quantity 100M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 11)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:groceries ids)
-             :amount 100M
+             :quantity 100M
              :reconciled false}
             {:action :credit
              :account-id (:checking ids)
-             :amount 100M
+             :quantity 100M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 12)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:checking ids)
-             :amount 10M
+             :quantity 10M
              :reconciled false}
             {:action :credit
              :account-id (:groceries ids)
-             :amount 10M
+             :quantity 10M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 15)
     :description "Paycheck"
     :items [{:action :debit
              :account-id (:checking ids)
-             :amount 1000M
+             :quantity 1000M
              :reconciled false}
             {:action :credit
              :account-id (:salary ids)
-             :amount 1000M
+             :quantity 1000M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 18)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:groceries ids)
-             :amount 100M
+             :quantity 100M
              :reconciled false}
             {:action :credit
              :account-id (:credit-card ids)
-             :amount 100M
+             :quantity 100M
              :reconciled false}]}])
 
 (def ^:private budgets
@@ -277,11 +277,11 @@
                                 :description "Retirement"
                                 :items [{:action :debit
                                          :account-id (:401k ids)
-                                         :amount 1000M
+                                         :quantity 1000M
                                          :reconciled false}
                                         {:action :credit
                                          :account-id (:checking ids)
-                                         :amount 1000M
+                                         :quantity 1000M
                                          :reconciled false}]}
                                {:transaction-date (t/local-date 2015 1 17)
                                 :description "Purchase shares AAPL"
@@ -293,11 +293,11 @@
                                 :commodity-account-id (:apple-401k ids)
                                 :items [{:action :debit
                                          :account-id (:apple-401k ids)
-                                         :amount 1000M
+                                         :quantity 1000M
                                          :reconciled false}
                                         {:action :credit
                                          :account-id (:401k ids)
-                                         :amount 1000M
+                                         :quantity 1000M
                                          :reconciled false}]}
                                {:transaction-date (t/local-date 2015 3 2)
                                 :description "Transfer shares of AAPL"
@@ -308,11 +308,11 @@
                                 :to-account-id (:apple-ira ids)
                                 :items [{:action :debit
                                          :account-id (:apple-ira ids)
-                                         :amount 1000M
+                                         :quantity 1000M
                                          :reconciled false}
                                         {:action :credit
                                          :account-id (:apple-401k ids)
-                                         :amount 1000M
+                                         :quantity 1000M
                                          :reconciled false}]}
                                {:transaction-date (t/local-date 2015 4 1)
                                 :description "Stock Split"
@@ -323,15 +323,15 @@
                                 :items [{:action :debit
                                          :account-id (:apple-ira ids)
                                          ; TODO add some shares here
-                                         :amount 0M
+                                         :quantity 0M
                                          :reconciled false}
                                         {:action :debit
                                          :account-id (:ira ids)
-                                         :amount 1M
+                                         :quantity 1M
                                          :reconciled false}
                                         {:action :credit
                                          :account-id (:other-inc ids)
-                                         :amount 1M
+                                         :quantity 1M
                                          :reconciled false}]}]
         inv-account-ids (->> [:ira :apple-ira :401k :apple-401k]
                              (map #(% ids))

@@ -119,7 +119,7 @@
                       (:description result)
                       (reduce + (->> (:items result)
                                      (filter #(= :debit (:action %)))
-                                     (map :amount))))))
+                                     (map :quantity))))))
   ; Update anything in the context?
   ; don't want to include all transactions,
   ; as that can be many
@@ -136,7 +136,7 @@
                   :account-id ((:accounts context) (:account-id transaction))
                   :trade-date (:transaction-date transaction)
                   :shares (:shares transaction)
-                  :value (:amount (first (:items transaction)))}]
+                  :value (:quantity (first (:items transaction)))}]
     (trading/buy (:storage context) purchase))
   context)
 
