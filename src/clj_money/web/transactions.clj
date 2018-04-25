@@ -171,6 +171,9 @@
 (defn- form-fields
   [transaction back-url]
   (html
+    [:input {:type :hidden
+             :name :original-transaction-date
+             :value (:transaction-date transaction)}]
     [:div.row
      [:div.col-md-6
       (date-input-field transaction :transaction-date)]
@@ -265,6 +268,7 @@
                                                              transaction-date)
                                     :update))
          action (cond-> (path "/transactions"
+                              (:transaction-date transaction)
                               (:id transaction))
 
                   (:redirect params)
