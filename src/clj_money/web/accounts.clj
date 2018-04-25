@@ -143,12 +143,13 @@
       "Add"])))
 
 (defn- transaction-item-row
-  [{:keys [transaction
-           description
+  [{:keys [description
            polarized-quantity
            reconciled?
            account-id
-           balance] :as item}]
+           balance]
+    {:keys [id transaction-date] :as transaction} :transaction
+    :as item}]
   [:tr
    [:td.text-right (:transaction-date transaction)]
    [:td (:description transaction)]
@@ -161,14 +162,14 @@
     [:span.btn-group
      (when (allowed? :update transaction)
        (glyph-button :pencil
-                     (-> (path "/transactions" (:id transaction) "edit")
+                     (-> (path "/transactions" transaction-date id "edit")
                          (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                          format-url)
                      {:level :info
                       :size :extra-small
                       :title "Click here to edit this transaction."}))
      (glyph-button :paperclip
-                   (-> (path "/transactions" (:id transaction) "attachments")
+                   (-> (path "/transactions" id "attachments")
                        (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                        format-url)
                    {:level :default
@@ -177,7 +178,7 @@
      (when (allowed? :delete transaction)
        (let [can-delete? (transactions/can-delete? transaction)]
          (glyph-button :remove
-                       (-> (path "/transactions" (:id transaction) "delete")
+                       (-> (path "/transactions" transaction-date id "delete")
                            (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                            format-url)
                        {:level :danger
