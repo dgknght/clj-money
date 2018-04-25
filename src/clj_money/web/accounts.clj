@@ -56,8 +56,8 @@
                       :title "Click here to add a child to this account."}
         "+"])]]
    [:td.text-right
-    [:span {:class (format "balance-depth-%s" depth)}
-     (format-number (+ (:balance account) (:children-balance account)))]]
+    [:span {:class (format "value-depth-%s" depth)}
+     (format-number (+ (:value account) (:children-value account)))]]
    [:td
     [:span.btn-group
      (when (allowed? :show account)
@@ -114,9 +114,9 @@
     [:tr.account-type
      [:td type]
      [:td.text-right (->> accounts
-                          (map (juxt :balance :children-balance))
-                          (reduce (fn [sum [balance children-balance]]
-                                    (+ sum balance children-balance))
+                          (map (juxt :value :children-value))
+                          (reduce (fn [sum [value children-value]]
+                                    (+ sum value children-value))
                                   0)
                           format-number)]
      [:td "&nbsp;"]]
@@ -143,16 +143,17 @@
       "Add"])))
 
 (defn- transaction-item-row
-  [{:keys [transaction
-           description
-           polarized-amount
+  [{:keys [description
+           polarized-quantity
            reconciled?
            account-id
-           balance] :as item}]
+           balance]
+    {:keys [id transaction-date] :as transaction} :transaction
+    :as item}]
   [:tr
    [:td.text-right (:transaction-date transaction)]
    [:td (:description transaction)]
-   [:td.text-right (format-number polarized-amount)]
+   [:td.text-right (format-number polarized-quantity)]
    [:td.text-right (format-number balance)]
    [:td.text-center [:span.glyphicon
                      {:aria-hidden "true"
@@ -161,14 +162,14 @@
     [:span.btn-group
      (when (allowed? :update transaction)
        (glyph-button :pencil
-                     (-> (path "/transactions" (:id transaction) "edit")
+                     (-> (path "/transactions" transaction-date id "edit")
                          (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                          format-url)
                      {:level :info
                       :size :extra-small
                       :title "Click here to edit this transaction."}))
      (glyph-button :paperclip
-                   (-> (path "/transactions" (:id transaction) "attachments")
+                   (-> (path "/transactions" id "attachments")
                        (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                        format-url)
                    {:level :default
@@ -177,7 +178,7 @@
      (when (allowed? :delete transaction)
        (let [can-delete? (transactions/can-delete? transaction)]
          (glyph-button :remove
-                       (-> (path "/transactions" (:id transaction) "delete")
+                       (-> (path "/transactions" transaction-date id "delete")
                            (query {:redirect (url-encode (format "/accounts/%s" account-id))})
                            format-url)
                        {:level :danger
@@ -411,8 +412,9 @@
                                                    :parent-id])
                                      (tag-resource :account)
                                      (authorize :create)))]
+
     (if (validation/has-error? account)
-      (new-account {:params (select-keys account [:entity-id])} account)
+      (new-account {:params (select-keys params [:entity])} account)
       (redirect (str "/entities/" (:entity-id account) "/accounts")))))
 
 (defn edit

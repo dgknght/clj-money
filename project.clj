@@ -41,6 +41,7 @@
   :aliases {"migrate"               ["run" "-m" "clj-money.db/migrate"]
             "rollback"              ["run" "-m" "clj-money.db/rollback"]
             "partition"             ["run" "-m" "clj-money.db/create-partitions"]
+            "chunk-file"            ["run" "-m" "clj-money.import.gnucash/chunk-file"]
             "seed"                  ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]}
   :jvm-opts ["-Duser.timezone=UTC"]

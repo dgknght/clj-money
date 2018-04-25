@@ -117,9 +117,9 @@
   (route GET "/entities/:entity-id/transactions" transactions/index)
   (route GET "/entities/:entity-id/transactions/new" transactions/new-transaction)
   (route POST "/entities/:entity-id/transactions" transactions/create)
-  (route GET "/transactions/:id/edit" transactions/edit)
-  (route POST "/transactions/:id" transactions/update)
-  (route POST "/transactions/:id/delete" transactions/delete)
+  (route GET "/transactions/:transaction-date/:id/edit" transactions/edit)
+  (route POST "/transactions/:transaction-date/:id" transactions/update)
+  (route POST "/transactions/:transaction-date/:id/delete" transactions/delete)
 
   ; Attachments
   (route GET "/transactions/:transaction-id/attachments" attachments/index)

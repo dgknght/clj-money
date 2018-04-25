@@ -3,7 +3,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
-            [clj-time.format :refer [unparse-local-date formatters]]
+            [clj-time.format :refer [parse-local-date unparse-local-date formatters]]
             [environ.core :refer [env]]
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
@@ -42,23 +42,23 @@
 
 (defn- transaction-row
   "Renders a row in the transaction table"
-  [transaction]
+  [{:keys [transaction-date id] :as transaction}]
   [:tr
-   [:td (format-date (:transaction-date transaction))]
+   [:td (format-date transaction-date)]
    [:td (:description transaction)]
    [:td.text-right (format-number (:value transaction))]
    [:td
     [:div.btn-group
      (when (allowed? :update transaction)
        (glyph-button :pencil
-                     (format "/transactions/%s/edit" (:id transaction))
+                     (format "/transactions/%s/%s/edit" transaction-date id)
                      {:level :info
                       :size :extra-small
                       :title "Click here to edit this transaction."}))
      (when (allowed? :delete transaction)
        (let [can-delete? (transactions/can-delete? transaction)]
          (glyph-button :remove
-                       (format "/transactions/%s/delete" (:id transaction))
+                       (format "/transactions/%s/%s/delete" transaction-date id)
                        {:level :danger
                         :disabled (not can-delete?)
                         :size :extra-small
@@ -132,31 +132,31 @@
    [:td.col-sm-4
     (text-input-element (str "memo-" index) (:memo item) {:suppress-label? true}) ]
    [:td.col-sm-2
-    (text-input-element (str "credit-amount-" index) (:credit-amount item) {:suppress-label? true})]
+    (text-input-element (str "credit-quantity-" index) (:credit-quantity item) {:suppress-label? true})]
    [:td.col-sm-2
-    (text-input-element (str "debit-amount-" index) (:debit-amount item) {:suppress-label? true})]])
+    (text-input-element (str "debit-quantity-" index) (:debit-quantity item) {:suppress-label? true})]])
 
 (defn- ->form-item
   "Tranforms a transaction item as managed by the system into a
   item that can be used by the form"
   [transaction-item]
   (-> transaction-item
-      (assoc :credit-amount (when (= :credit (:action transaction-item))
-                              (:amount transaction-item))
-             :debit-amount (when (= :debit (:action transaction-item))
-                             (:amount transaction-item)))
-      (dissoc :amount :action)))
+      (assoc :credit-quantity (when (= :credit (:action transaction-item))
+                              (:quantity transaction-item))
+             :debit-quantity (when (= :debit (:action transaction-item))
+                             (:quantity transaction-item)))
+      (dissoc :quantity :action)))
 
 (defn- ->transaction-item
   "Transforms a form item into a transaction item"
-  [{:keys [credit-amount debit-amount] :as item}]
-  (let [[action amount] (if (seq credit-amount)
-                          [:credit (bigdec credit-amount)]
-                          [:debit (bigdec debit-amount)])]
+  [{:keys [credit-quantity debit-quantity] :as item}]
+  (let [[action quantity] (if (seq credit-quantity)
+                          [:credit (bigdec credit-quantity)]
+                          [:debit (bigdec debit-quantity)])]
     (-> item
         (assoc :action action
-               :amount amount)
-        (dissoc :credit-amount :debit-amount))))
+               :quantity quantity)
+        (dissoc :credit-quantity :debit-quantity))))
 
 (defn- items-for-form
   [transaction]
@@ -166,11 +166,14 @@
                (concat (:items transaction)
                        (repeat {:action nil
                                 :account-id nil
-                                :amount nil}))))
+                                :quantity nil}))))
 
 (defn- form-fields
   [transaction back-url]
   (html
+    [:input {:type :hidden
+             :name :original-transaction-date
+             :value (:transaction-date transaction)}]
     [:div.row
      [:div.col-md-6
       (date-input-field transaction :transaction-date)]
@@ -234,7 +237,7 @@
   [params]
   (->> (iterate inc 0)
        (map (fn [index]
-               (let [attr [:id :account-id :debit-amount :credit-amount :memo]
+               (let [attr [:id :account-id :debit-quantity :credit-quantity :memo]
                      indexed-attr (map #(keyword (str (name %) "-" index)) attr)
                      item (zipmap attr (map #(% params) indexed-attr))]
                  item))) 
@@ -246,7 +249,7 @@
   (let [transaction (-> params
                         (assoc :items (extract-items params))
                         (select-keys [:entity-id :transaction-date :description :items :memo])
-                        (update-in [:items] (partial map #(select-keys % [:account-id :action :amount :memo])))
+                        (update-in [:items] (partial map #(select-keys % [:account-id :action :quantity :memo])))
                         (tag-resource :transaction)
                         (authorize :create))
         result (transactions/create (env :db) transaction)
@@ -258,10 +261,14 @@
 (defn edit
   ([req] (edit req {}))
   ([{params :params transaction :transaction} options]
-   (let [id (:id params)
+   (let [[transaction-date id] ((juxt :transaction-date :id) params)
          transaction (or transaction
-                         (authorize (transactions/find-by-id (env :db) id) :update))
+                         (authorize (transactions/find-by-id (env :db)
+                                                             id
+                                                             transaction-date)
+                                    :update))
          action (cond-> (path "/transactions"
+                              (:transaction-date transaction)
                               (:id transaction))
 
                   (:redirect params)

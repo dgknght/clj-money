@@ -146,7 +146,7 @@
             delta (->> reconciliation
                        (ensure-transaction-items storage)
                        ::items
-                       (map #(accounts/polarize-amount % account))
+                       (map #(accounts/polarize-quantity % account))
                        (reduce +))]
         (= (:balance reconciliation)
            (+ starting-balance delta)))))

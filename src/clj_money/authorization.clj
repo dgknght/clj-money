@@ -9,12 +9,11 @@
 (defn get-resource-tag
   "Returns a keyword identifying the type of the resource"
   [resource]
-  (let [result (if (keyword? resource)
-                 resource
-                 (-> resource meta ::resource-type))]
-    (if result
-      result
-      (throw (ex-info "Unable to determine the resource type." {:resource resource})))))
+  (if-let [result (if (keyword? resource)
+                    resource
+                    (-> resource meta ::resource-type))]
+    result
+    (throw (ex-info "Unable to determine the resource type." {:resource resource}))))
 
 (defn tag-resource
   "Adds meta data to identity the type of the specified resource"

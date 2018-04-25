@@ -21,7 +21,7 @@
    [:td.text-right (util/format-date (:transaction-date transaction-item))]
    [:td (:description transaction-item)]
    [:td.text-right (-> transaction-item
-                       (accounts/polarize-amount account)
+                       (accounts/polarize-quantity account)
                        util/format-number)]
    [:td.text-center [:input {:type :checkbox
                              :name "item-refs"
@@ -35,7 +35,7 @@
             0M
             (->> reconciliation
                  (transactions/select-items-by-reconciliation (env :db))
-                 (map :polarized-amount)))
+                 (map :polarized-quantity)))
     0M))
 
 (defn- reconciliation-form

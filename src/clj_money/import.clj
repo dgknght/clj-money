@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [go >!]]
+            [clojure.core.async :refer [>!!]]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -20,7 +20,7 @@
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
 (defmulti read-source
-  (fn [source-type _ _]
+  (fn [source-type _]
     source-type))
 
 (defn- import-price
@@ -119,7 +119,7 @@
                       (:description result)
                       (reduce + (->> (:items result)
                                      (filter #(= :debit (:action %)))
-                                     (map :amount))))))
+                                     (map :quantity))))))
   ; Update anything in the context?
   ; don't want to include all transactions,
   ; as that can be many
@@ -136,104 +136,150 @@
                   :account-id ((:accounts context) (:account-id transaction))
                   :trade-date (:transaction-date transaction)
                   :shares (:shares transaction)
-                  :value (:amount (first (:items transaction)))}]
+                  :value (:quantity (first (:items transaction)))}]
     (trading/buy (:storage context) purchase))
   context)
+
+(defmethod ^:private import-transaction :transfer
+  [{:keys [storage accounts] :as context}
+   {:keys [from-account-id to-account-id] :as transaction}]
+  (let [from-commodity-account (accounts/find-by-id storage (accounts from-account-id))
+        from-account (accounts/find-by-id storage (:parent-id from-commodity-account))
+        to-commodity-account (accounts/find-by-id storage (accounts to-account-id))]
+    (trading/transfer (:storage context)
+                      (assoc transaction
+                             :transfer-date (:transaction-date transaction)
+                             :commodity-id (:commodity-id from-commodity-account)
+                             :from-account-id (:id from-account)
+                             :to-account-id (:parent-id to-commodity-account))))
+  context)
+
+; This is maybe too specific to GnuCash. It would be better if the
+; gnucash namespace did these lookups
+(defn- ensure-split-ids
+  [{:keys [commodity-account-id commodity-id account-id] :as transaction}
+   {:keys [accounts storage] :as context}]
+  (if (and account-id commodity-id)
+    transaction
+    (let  [commodity-account (accounts/find-by-id
+                               storage
+                               (accounts commodity-account-id))]
+      (assoc transaction :commodity-id (:commodity-id commodity-account)
+                         :account-id (:parent-id commodity-account)))))
+
+(defmethod ^:private import-transaction :split
+  [context transaction]
+  (let  [split (-> transaction
+                   (ensure-split-ids context)
+                   (dissoc :items))]
+    (trading/split (:storage context) split))
+  context)
+
+(defn- get-source-type
+  [{content-type :content-type}]
+  (->> content-type
+       (re-matches #"^application\/(.*)")
+       second
+       keyword))
 
 (defn- prepare-input
   "Returns the input data and source type based
   on the specified image"
-  [storage image-id]
-  (let [image (images/find-by-id storage image-id)
-        extension (re-find #"(?<=\.).*$" (:original-filename image))]
-    [(io/input-stream (byte-array (:body image))) (keyword extension)]))
+  [storage image-ids]
+  (let [images (map #(images/find-by-id storage %) image-ids)
+        source-type (-> images first get-source-type)]
+    [(map #(io/input-stream (byte-array (:body %))) images)
+     source-type]))
 
-(defn- update-progress
-  [{:keys [callback progress] :as context}]
-  (if (fn? callback)
-    (callback progress)
-    (go (>! callback progress)))
-  context)
+(defn- inc-progress
+  [xf]
+  (fn
+    ([context] (xf context))
+    ([context record]
+     (xf
+       (update-in context [:progress
+                           (-> record meta :record-type)
+                           :imported]
+                  (fnil inc 0))
+       record))))
 
-(defn- inc-and-update-progress
-  [context record-type]
-  (-> context
-      (update-in [:progress record-type :imported]
-                 (fnil inc 0))
-      update-progress))
-
-(defmulti process-record
+(defmulti import-record*
   (fn [_ record]
     (-> record meta :record-type)))
 
-(defmethod process-record :declaration
+(defmethod import-record* :declaration
   [context {:keys [record-type record-count]}]
-  (-> context
-      (assoc-in [:progress record-type :total] record-count)
-      update-progress))
+  (assoc-in context
+            [:progress record-type :total]
+            record-count))
 
-(defmethod process-record :account
+(defmethod import-record* :account
   [context account]
   (import-account context account))
 
-(defmethod process-record :transaction
+(defmethod import-record* :transaction
   [context transaction]
   (import-transaction context transaction))
 
-(defmethod process-record :budget
+(defmethod import-record* :budget
   [context budget]
   (import-budget context budget))
 
-(defmethod process-record :price
+(defmethod import-record* :price
   [context price]
   (import-price context price))
 
-(defmethod process-record :commodity
+(defmethod import-record* :commodity
   [context commodity]
   (import-commodity context commodity))
+
+(defn- import-record
+  [xf]
+  (fn
+    ([] (xf))
+    ([context] (xf context))
+    ([context record]
+     (xf (import-record* context record) record))))
 
 (def ^:private reportable-record-types
   #{:commodity :price :account :transaction :budget})
 
 (defn- report-progress?
-  [record-type]
-  (reportable-record-types record-type))
+  [record]
+  (reportable-record-types (-> record meta :record-type)))
 
-(defn process-callback
-  "Top-level callback processing
-
-  This function calls the multimethod process-record
-  to dispatch to the correct import logic for the
-  record-type.
-
-  If the record is nil, processing is skipped but
-  the progress is updated."
-  [context record]
-  (let [{:keys [record-type ignore?]} (meta record)]
-    (swap! context #(cond-> %
-                      (not ignore?)
-                      (process-record record)
-
-                      (report-progress? record-type)
-                      (inc-and-update-progress record-type)))))
+(defn- notify-progress
+  ([progress-chan context] context)
+  ([progress-chan context _]
+   (>!! progress-chan (:progress context))
+   context))
 
 (defn import-data
   "Reads the contents from the specified input and saves
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  [storage-spec impt progress-callback]
+  [storage-spec import-spec progress-chan]
   (with-transacted-storage [s storage-spec]
-    (let [user (users/find-by-id s (:user-id impt))
-          context  (atom {:storage s
-                          :import impt
-                          :callback progress-callback
-                          :progress {}
-                          :accounts {}
-                          :entity (entities/find-or-create s
-                                                           user
-                                                           (:entity-name impt))})
-          [input source-type] (prepare-input s (:image-id impt))]
-      (transactions/with-delayed-balancing s (-> @context :entity :id)
-        (read-source source-type input (partial process-callback context)))
-      (:entity @context))))
+    (let [user (users/find-by-id s (:user-id import-spec))
+          [inputs source-type] (prepare-input s (:image-ids import-spec))
+          entity (entities/find-or-create s
+                                          user
+                                          (:entity-name import-spec))
+          result (transactions/with-delayed-balancing s (:id entity)
+                   (->> inputs
+                        (mapcat #(read-source source-type %))
+                        (transduce (comp (remove #(-> % meta :ignore?))
+                                         import-record
+                                         (filter #(report-progress? %))
+                                         inc-progress)
+                                   (partial notify-progress progress-chan)
+                                   {:storage s
+                                    :import import-spec
+                                    :progress {}
+                                    :accounts {}
+                                    :entity entity})))]
+      (>!! progress-chan (-> result
+                             :progress
+                             (assoc :finished true)))
+      entity)))

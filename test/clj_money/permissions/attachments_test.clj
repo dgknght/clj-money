@@ -43,10 +43,10 @@
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount 1000M}
+                            :quantity 1000M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount 1000M}]}]
+                            :quantity 1000M}]}]
    :images [{:original-filename "sample_receipt.jpg"
              :body "resources/fixtures/sample_receipt.jpg"
              :content-type "image/jpeg"}]

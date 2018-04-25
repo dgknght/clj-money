@@ -30,14 +30,13 @@
 
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
-; Amount is the quantity of the commodity that is exchanged
-(s/def ::amount validation/positive-big-dec?)
-; Balance is the running total of amounts for the account to which
+(s/def ::quantity validation/big-dec-not-less-than-zero?)
+; Balance is the running total of quantities for the account to which
 ; the item belongs
 (s/def ::balance (partial instance? BigDecimal))
 ; Value is the value of the line item expressed in the entity's
-; default currency. For most transactions, this will be the same
-; as the amount. For transactions involving foreign currencies
+; default commodity. For most transactions, this will be the same
+; as the quantity. For transactions involving foreign currencies
 ; and commodity purchases (like stock trades) it will be different.
 (s/def ::value validation/positive-big-dec?)
 (s/def ::description validation/non-empty-string?)
@@ -53,11 +52,11 @@
 (s/def ::index integer?)
 (s/def ::transaction-item (s/keys :req-un [::account-id
                                            ::action
-                                           ::amount]
+                                           ::quantity]
                                   :opt-un [::balance
                                            ::index
                                            ::memo]))
-(s/def ::items (s/coll-of ::transaction-item :min-count 2))
+(s/def ::items (s/coll-of ::transaction-item :min-count 1))
 (s/def ::new-transaction (s/keys :req-un [::description
                                           ::transaction-date
                                           ::items
@@ -100,24 +99,24 @@
   "Makes adjustments to a transaction item in prepartion for return
   from the data store"
   ([item] (after-item-read item nil))
-  ([{:keys [amount negative reconciliation-status] :as item} account]
+  ([{:keys [quantity negative reconciliation-status] :as item} account]
    (if (map? item)
      (-> item
          (update-in [:action] keyword)
          (assoc :reconciled? (= "completed" reconciliation-status)
-                :polarized-amount (if negative
-                                    (* -1 amount)
-                                    amount)))
+                :polarized-quantity (if negative
+                                      (* -1 quantity)
+                                      quantity)))
      item)))
 
 (defn- item-value-sum
   "Returns the sum of values of the items in the transaction having
   the specified action"
   [transaction action]
-  (reduce + 0 (->> (:items transaction)
+  (reduce + 0M (->> (:items transaction)
 
-                   (filter #(= action (:action %)))
-                   (map :value))))
+                    (filter #(= action (:action %)))
+                    (map :value))))
 
 (defn- ^{:clj-money.validation/message "The total debits does not match the total credits"
          :clj-money.validation/path [:items]}
@@ -139,7 +138,7 @@
   [item]
   (cond->
     (-> item
-        (update-in [:value] #(or % (:amount item)))
+        (update-in [:value] #(or % (:quantity item)))
         (assoc :balance (bigdec 0))
         (update-in [:index] (fnil identity (Integer/MAX_VALUE))))
 
@@ -204,11 +203,12 @@
   (when transaction
     (assoc transaction
            :items
-           (->> (select-transaction-items storage
-                                          {:transaction-id id
-                                           :transaction-date transaction-date}
-                                          {:sort [[:action :desc] [:amount :desc]]})
-                (mapv after-item-read)))))
+           (mapv after-item-read
+                 (select-transaction-items
+                   storage
+                   {:transaction-id id
+                    :transaction-date transaction-date}
+                   {:sort [[:action :desc] [:quantity :desc]]})))))
 
 (defn- append-lot-items
   [transaction storage]
@@ -291,7 +291,7 @@
           reconciled (->> existing
                           :items
                           (filter :reconciled?)
-                          (map #(select-keys % [:id :amount :account-id :action]))
+                          (map #(select-keys % [:id :quantity :account-id :action]))
                           set)
           ids (->> reconciled
                    (map :id)
@@ -299,7 +299,7 @@
           incoming (->> transaction
                         :items
                         (filter #(ids (:id %)))
-                        (map #(select-keys % [:id :amount :account-id :action]))
+                        (map #(select-keys % [:id :quantity :account-id :action]))
                         set)]
       (= incoming reconciled))
     true))
@@ -351,11 +351,25 @@
        (t/local-date year 1 1)
        (t/local-date year 12 31)])))
 
+(defn- ensure-transaction-date-type
+  [criteria]
+  (if-let [transaction-date (:transaction-date criteria)]
+    (assoc criteria :transaction-date (parse-date-range transaction-date))
+    criteria))
+
+(defn- ensure-id-type
+  [criteria]
+  (if-let [id (:id criteria)]
+    (if (string? id)
+      (assoc criteria :id (java.util.UUID/fromString id))
+      criteria)
+    criteria))
+
 (defn- prepare-criteria
   [criteria]
-  (if (:transaction-date criteria)
-    (update-in criteria [:transaction-date] parse-date-range)
-    criteria))
+  (-> criteria
+      ensure-transaction-date-type
+      ensure-id-type))
 
 (defn search
   "Returns the transactions that belong to the specified entity"
@@ -455,15 +469,16 @@
   the items :index and :balance attributes, and returns
   the context with the updated :last-index and :last-balance
   values"
-  [{:keys [account storage] :as context} item]
-  (let [new-index (+ 1 (:last-index context))
-        polarized-amount (accounts/polarize-amount item account)
-        new-balance (+ (:last-balance context)
-                       polarized-amount)
+  [{:keys [account storage last-index last-balance] :as context}
+   item]
+  (let [new-index (+ 1 last-index)
+        polarized-quantity (accounts/polarize-quantity item account)
+        new-balance (+ last-balance
+                       polarized-quantity)
         changed (update-item-index-and-balance
                   storage
                   (assoc item
-                         :negative (< polarized-amount 0M)
+                         :negative (< polarized-quantity 0M)
                          :index new-index
                          :balance new-balance))]
     ; if the index and balance didn't change, we can short circuit the update
@@ -474,6 +489,11 @@
       (-> context
           (dissoc :last-balance)
           reduced))))
+
+(defn- to-entity-currency
+  [amount account]
+  ; TODO look up the entity currency and convert if needed
+  amount)
 
 (defn recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
@@ -497,7 +517,8 @@
                         :last-balance balance}
                        (remove #(= id (:id %)) items))]
     (when-let [last-balance (:last-balance result)]
-      (accounts/update storage (assoc account :balance last-balance)))))
+      (accounts/update storage (assoc account :quantity last-balance
+                                              :value (to-entity-currency last-balance account))))))
 
 (defn- link-lots
   [storage transaction]
@@ -683,7 +704,7 @@
                                (:items existing-tx))]
     (if (> 0 (compare (:transaction-date current-item)
                       (:transaction-date existing-tx)))
-      existing-item 
+      existing-item
       current-item)
     current-item))
 
@@ -847,20 +868,22 @@
      ; Make a note that balances should not be calculated
      ; for this entity
      (swap! ambient-settings update-in
-                             [~entity-id]
-                             (fnil #(assoc % :delay-balances? true
-                                             :delayed-account-ids #{})
-                                   {}))
-     ~@body
+            [~entity-id]
+            (fnil #(assoc %
+                          :delay-balances? true
+                          :delayed-account-ids #{})
+                  {}))
+     (let [result# (do ~@body)]
 
-     ; Recalculate balances for affected accounts
-     (->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
-          (map #(hash-map :account-id % :index -1 :balance 0M))
-          (map #(recalculate-account-items ~storage-spec %))
-          doall)
+       ; Recalculate balances for affected accounts
+       (->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
+            (map #(hash-map :account-id % :index -1 :balance 0M))
+            (map #(recalculate-account-items ~storage-spec %))
+            doall)
 
-     ; clean up the ambient settings as if we were never here
-     (swap! ambient-settings dissoc ~entity-id)))
+       ; clean up the ambient settings as if we were never here
+       (swap! ambient-settings dissoc ~entity-id)
+       result#)))
 
 (defn available-date-range
   [storage-spec]

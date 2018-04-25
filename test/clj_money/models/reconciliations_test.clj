@@ -38,34 +38,34 @@
                    :description "Paycheck"
                    :items [{:action :debit
                             :account-id "Checking"
-                            :amount 1000M}
+                            :quantity 1000M}
                            {:action :credit
                             :account-id "Salary"
-                            :amount 1000M}]}
+                            :quantity 1000M}]}
                   {:transaction-date (t/local-date 2017 1 2)
                    :description "Landlord"
                    :items [{:action :debit
                             :account-id "Rent"
-                            :amount 500M}
+                            :quantity 500M}
                            {:action :credit
                             :account-id "Checking"
-                            :amount 500M}]}
+                            :quantity 500M}]}
                   {:transaction-date (t/local-date 2017 1 3)
                    :description "Kroger"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount 45M}
+                            :quantity 45M}
                            {:action :credit
                             :account-id "Checking"
-                            :amount 45M}]}
+                            :quantity 45M}]}
                   {:transaction-date (t/local-date 2017 1 10)
                    :description "Safeway"
                    :items [{:action :debit
                             :account-id "Groceries"
-                            :amount 53M}
+                            :quantity 53M}
                            {:action :credit
                             :account-id "Checking"
-                            :amount 53M}]}]})
+                            :quantity 53M}]}]})
 
 (def ^:private existing-reconciliation-context
   (assoc reconciliation-context
@@ -75,7 +75,7 @@
            :balance 1000M
            :status :completed
            :item-refs [{:transaction-date (t/local-date 2017 1 1)
-                       :amount 1000M}]}]))
+                       :quantity 1000M}]}]))
 
 (def ^:private working-reconciliation-context
   (update-in existing-reconciliation-context
@@ -85,7 +85,7 @@
                        :balance 500M
                        :status :new
                        :item-refs [{:transaction-date (t/local-date 2017 1 2)
-                                   :amount 500M}]})))
+                                   :quantity 500M}]})))
 
 (deftest create-a-reconciliation
   (let [context (serialization/realize storage-spec
@@ -334,13 +334,13 @@
            :status :new
            :item-refs [{:transaction-date (t/local-date 2017 1 1)
                        :account-id "Salary"
-                       :amount 1000M}
+                       :quantity 1000M}
                       {:transaction-date (t/local-date 2017 1 2)
                        :account-id "Rent"
-                       :amount 500M}
+                       :quantity 500M}
                       {:transaction-date (t/local-date 2017 1 10)
                        :account-id "Groceries"
-                       :amount 53M}]}]))
+                       :quantity 53M}]}]))
 
 (deftest find-the-working-reconciliation
   (let [context (serialization/realize storage-spec
@@ -407,7 +407,7 @@
         result (reconciliations/update storage-spec updated)]
     (is (validation/has-error? result :balance))))
 
-(deftest the-amount-and-action-of-a-reconciled-item-cannot-be-changed
+(deftest the-quantity-and-action-of-a-reconciled-item-cannot-be-changed
   (let [context (serialization/realize storage-spec existing-reconciliation-context)
         reconciliation (-> context :reconciliations first)
         item (first (transactions/select-items-by-reconciliation storage-spec reconciliation))
@@ -416,7 +416,7 @@
                                              (:transaction-date item))
         result1 (transactions/update storage-spec (update-in transaction [:items]
                                                              #(map (fn [item]
-                                                                     (assoc item :amount 1M))
+                                                                     (assoc item :quantity 1M))
                                                                    %)))
         result2 (transactions/update storage-spec (update-in transaction [:items]
                                                              #(map (fn [item]

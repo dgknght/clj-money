@@ -62,6 +62,12 @@
   (and (decimal? value)
        (pos? value)))
 
+(defn big-dec-not-less-than-zero?
+  [value]
+  (and (decimal? value)
+       (or (pos? value)
+           (zero? value))))
+
 (defn- interpret-positive-big-dec-failure
   [{:keys [path pred]}]
   (when (and (symbol? pred)

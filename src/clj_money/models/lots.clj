@@ -11,12 +11,8 @@
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-lot
-                                              select-lots-by-commodity-id
-                                              select-lots-by-entity-id
-                                              select-lots-by-transaction-id
                                               select-lots
                                               update-lot
-                                              find-lot-by-id
                                               delete-lot]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]))
@@ -40,16 +36,33 @@
                                        ::shares-purchased
                                        ::shares-owned]))
 
+(defn- after-read
+  ([lot] (after-read nil lot))
+  ([_ lot]
+   (update-in lot [:purchase-date] to-local-date)))
+
+(defn search
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map after-read (select-lots s criteria options)))))
+
+(defn find-by
+  ([storage-spec criteria]
+   (find-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (search storage-spec criteria (merge options {:limit 1})))))
+
+(defn find-by-id
+  [storage-spec id]
+  (find-by storage-spec {:id id}))
+
 (defn- before-save
   [_ lot]
   (-> lot
       (update-in [:purchase-date] to-sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
-
-(defn- after-read
-  ([lot] (after-read nil lot))
-  ([_ lot]
-   (update-in lot [:purchase-date] to-local-date)))
 
 (defn- before-validation
   [storage lot]
@@ -82,24 +95,9 @@
 
 (defn select-by-commodity-id
   [storage-spec commodity-id]
-  (with-storage [s storage-spec]
-    (->> commodity-id
-         (select-lots-by-commodity-id s)
-         (map after-read))))
-
-(defn select-by-transaction-id
-  [storage-spec commodity-id]
-  (with-storage [s storage-spec]
-    (->> commodity-id
-         (select-lots-by-transaction-id s)
-         (map after-read))))
-
-(defn find-by-id
-  [storage-spec id]
-  (with-storage [s storage-spec]
-    (->> id
-         (find-lot-by-id s)
-         after-read)))
+  (if commodity-id
+    (search storage-spec {:commodity-id commodity-id})
+    []))
 
 (def update
   (update-fn {:before-save before-save
@@ -110,13 +108,6 @@
               :spec ::existing-lot
               :coercion-rules coercion-rules
               :find find-by-id}))
-
-(defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (->> criteria
-         (select-lots s)
-         (map after-read))))
 
 (defn- lot-unrealized-gains
   [storage price-fn as-of {:keys [purchase-price
@@ -129,9 +120,8 @@
 (defn unrealized-gains
   [storage-spec entity-id as-of]
   (with-storage [s storage-spec]
-    (let [lots (->> (select-lots-by-entity-id s entity-id)
-                    (map after-read)
-                    (filter #(< 0 (compare as-of (:purchase-date %)))))
+    (let [lots (search s {:entity-id entity-id
+                          :purchase-date [:<= as-of]})
           commodity-prices (->> lots
                                 (map :commodity-id)
                                 (into #{})

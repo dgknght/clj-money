@@ -36,12 +36,22 @@
                                :id "entity-name"
                                :ng-model "entityName"
                                :autofocus true}]]
-        [:div.form-group
-         [:label.control-label {:for "source-file"} "Source file"]
-         [:input.form-control {:type :file
-                               :file-model "sourceFile"
-                               :name "source-file"
-                               :id "source-file"}]]]
+        (map
+          (fn [index]
+            (let [[snake-name
+                   camel-name
+                   label] (map #(format % index)
+                               ["source-file-%s"
+                                "sourceFile%s"
+                                "Source file %s"])]
+              [:div.form-group
+               [:label.control-label {:for snake-name}
+                label]
+               [:input.form-control {:type :file
+                                     :file-model camel-name
+                                     :name snake-name
+                                     :id snake-name}]]))
+          (range 10))]
        [:button.btn.btn-primary
         {:title "Click here to upload the specified file and import the data into a new entity."
          :ng-click "startImport();"}

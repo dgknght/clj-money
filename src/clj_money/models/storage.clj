@@ -52,12 +52,6 @@
   (create-account
     [this account]
     "Creates a new account record")
-  (find-account-by-id
-    [this id]
-    "Returns the account having the specified ID")
-  (find-account-by-entity-id-and-name
-    [this entity-id account-name]
-    "Returns the account having the specified entity-id and name")
   (update-account
     [this account]
     "Updates the specified account")
@@ -65,17 +59,13 @@
     [this id]
     "Deletes the specified account")
   (select-accounts
-    [this criteria]
+    [this criteria options]
     "Returns the accounts matching the specified criteria")
 
   ; Commodities
   (create-commodity
     [this commodity]
     "Creates a new commodity record")
-
-  (find-commodity-by-id
-    [this id]
-    "Returns the specified commodity record")
 
   (update-commodity
     [this commodity]
@@ -121,28 +111,12 @@
     [this lot]
     "Creates a new lot record")
 
-  (select-lots-by-entity-id
-    [this entity-id]
-    "Returns the lots for the specified entity")
-
-  (select-lots-by-commodity-id
-    [this commodity-id]
-    "Returns the lots for the specified commodity")
-
-  (select-lots-by-transaction-id
-    [this transaction-id]
-    "Returns the lots for the specified transaction")
-
   (update-lot
     [this lot]
     "Updates the specified lot record")
 
-  (find-lot-by-id
-    [this id]
-    "Returns the lot having the specified id")
-
   (select-lots
-    [this criteria]
+    [this criteria options]
     "Returns the lots matching the specified criteria")
 
   (delete-lot

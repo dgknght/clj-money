@@ -17,14 +17,19 @@
 
 (s/def ::commodity-id integer?)
 (s/def ::account-id integer?)
+(s/def ::to-account-id integer?)
+(s/def ::from-account-id integer?)
 (s/def ::inventory-method #{:fifo :lifo})
 (s/def ::lt-capital-gains-account-id integer?)
 (s/def ::lt-capital-loss-account-id integer?)
 (s/def ::st-capital-gains-account-id integer?)
 (s/def ::st-capital-loss-account-id integer?)
 (s/def ::trade-date #(instance? org.joda.time.LocalDate %))
+(s/def ::transfer-date #(instance? org.joda.time.LocalDate %))
+(s/def ::split-date #(instance? org.joda.time.LocalDate %))
 (s/def ::shares decimal?)
 (s/def ::value decimal?)
+(s/def ::shares-gained decimal?)
 (s/def ::purchase (s/keys :req-un [::commodity-id
                                    ::account-id
                                    ::trade-date
@@ -39,6 +44,15 @@
                                ::lt-capital-loss-account-id
                                ::st-capital-gains-account-id
                                ::st-capital-loss-account-id]))
+(s/def ::transfer (s/keys :req-un [::transfer-date
+                                   ::shares
+                                   ::from-account-id
+                                   ::to-account-id
+                                   ::commodity-id]))
+(s/def ::split (s/keys :req-un [::split-date
+                                ::commodity-id
+                                ::account-id
+                                ::shares-gained]))
 
 (defn- create-price
   "Given a context, calculates and appends the share price"
@@ -78,6 +92,12 @@
                             :entity-id (:entity-id parent)
                             :tags #{:tradable}}))
 
+(defn- find-or-create-commodity-account
+  [storage parent commodity]
+  (some #(% storage parent commodity)
+        [find-commodity-account
+         create-commodity-account]))
+
 (defn- acquire-accounts
   "Give a purchase context, acquires the accounts
   necessary to complete the purchase"
@@ -86,9 +106,9 @@
   (let [account (->> account-id
                      (accounts/find-by-id storage)
                      (ensure-tag storage :trading))
-        commodity-account (some #(% storage account commodity)
-                                [find-commodity-account
-                                 create-commodity-account])]
+        commodity-account (find-or-create-commodity-account storage
+                                                            account
+                                                            commodity)]
     (merge context {:account account
                     :commodity-account commodity-account})))
 
@@ -130,15 +150,15 @@
         currency-amount (+ value fee)
         items (cond-> [{:action :credit
                         :account-id (:account-id context)
-                        :amount currency-amount
+                        :quantity currency-amount
                         :value currency-amount}
                        {:action :debit
                         :account-id (-> context :commodity-account :id)
-                        :amount shares
+                        :quantity shares
                         :value value}]
                 (not= 0M fee) (conj {:action :debit
                                      :account-id fee-account-id
-                                     :amount fee
+                                     :quantity fee
                                      :value fee}))]
     (assoc context
            :transaction
@@ -155,36 +175,36 @@
 
 (defn- create-capital-gains-items
   [{gains :gains :as context}]
-  (mapv (fn [{:keys [amount description long-term?]}]
+  (mapv (fn [{:keys [quantity description long-term?]}]
           (let [account-key (keyword (format "%s-capital-%s-account-id"
                                              (if long-term? "lt" "st")
-                                             (if (< amount 0) "loss" "gains")))
-                action (if (< amount 0) :debit :credit)
+                                             (if (< quantity 0) "loss" "gains")))
+                action (if (< quantity 0) :debit :credit)
                 account-id (account-key context)]
             {:action action
              :account-id account-id
-             :amount (.abs amount)
-             :value (.abs amount)
+             :quantity (.abs quantity)
+             :value (.abs quantity)
              :memo description}))
         gains))
 
 (defn- create-sale-transaction-items
   [{:keys [shares value] :as context}]
-  (let [total-gains (reduce + (map :amount (:gains context)))
+  (let [total-gains (reduce + (map :quantity (:gains context)))
         fee (or (:fee context) 0M)
         items (-> (create-capital-gains-items context)
                   (conj {:action :debit
                          :account-id (:account-id context)
-                         :amount (- value fee)
+                         :quantity (- value fee)
                          :value (- value fee)})
                   (conj {:action :credit
                          :account-id (-> context :commodity-account :id)
-                         :amount shares
+                         :quantity shares
                          :value (- value total-gains)}))]
     (cond-> items
       (not= 0M fee) (conj {:action :debit
                            :account-id (:fee-account-id context)
-                           :amount fee
+                           :quantity fee
                            :value fee}))))
 
 (defn- create-sale-transaction
@@ -270,15 +290,14 @@
 (defn- find-lot
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage inventory-method] :as context}]
-  (let [sort-fn (if (= :lifo inventory-method)
-                  (partial sort #(compare (:purchase-date %2) (:purchase-date %1)))
-                  (partial sort-by :created-at))]
-    (->> (select-keys context [:commodity-id :account-id])
-         (lots/search storage)
-         (filter #(> (:shares-owned %) 0)) ; should really do this in the database query
-         sort-fn
-         first)))
+  [{:keys [storage inventory-method commodity-id account-id] :as context}]
+  (lots/find-by storage
+                {:commodity-id commodity-id
+                 :account-id account-id
+                 :shares-owned [:!= 0]}
+                {:sort [[:purchase-date (if (= :lifo inventory-method)
+                                          :desc
+                                          :asc)]]}))
 
 (defn- process-lot-sale
   [context lot shares-to-sell]
@@ -311,7 +330,7 @@
                                                             shares-sold
                                                             (-> context :commodity :symbol)
                                                             (format-number sale-price {:format :commodity-price}) )
-                                       :amount gain
+                                       :quantity gain
                                        :long-term? long-term?})))
      remaining-shares-to-sell]))
 
@@ -384,3 +403,176 @@
         (let [lot (lots/find-by-id s (:lot-id lot-item))]
           (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
       (transactions/delete s transaction-id transaction-date))))
+
+(def ^:private transfer-coercion-rules
+  [(coercion/rule :local-date [:transfer-date])
+   (coercion/rule :integer [:from-account-id])
+   (coercion/rule :integer [:to-account-id])
+   (coercion/rule :integer [:commodity-id])
+   (coercion/rule :decimal [:shares])])
+
+(defn- validate-transfer
+  [transfer]
+  (->> transfer
+       (coercion/coerce transfer-coercion-rules)
+       (validation/validate ::transfer)))
+
+(defn- append-commodity
+  [{:keys [storage commodity-id] :as context}]
+  (assoc context :commodity (commodities/find-by-id storage commodity-id)))
+
+(defn- append-transfer-accounts
+  [{:keys  [storage from-account-id to-account-id commodity] :as context}]
+  (let [[from-account
+         to-account] (->> [from-account-id to-account-id]
+                          (map #(accounts/find-by-id storage %))
+                          (map #(ensure-tag storage :trading %)))
+        [from-commodity-account
+         to-commodity-account] (map #(find-or-create-commodity-account
+                                       storage
+                                       %
+                                       commodity)
+                                    [from-account to-account])]
+    (assoc context
+           :from-account from-account
+           :from-commodity-account from-commodity-account
+           :to-account to-account
+           :to-commodity-account to-commodity-account)))
+
+(defn- process-transfer-lots
+  [{:keys [storage commodity from-account to-account] :as context}]
+  (assoc context :lots (mapv #(lots/update
+                                storage
+                                (assoc % :account-id (:id to-account)))
+                             (lots/search storage {:commodity-id (:id commodity)
+                                                   :account-id (:id from-account)
+                                                   :shares-owned [:> 0M]}))))
+
+(defn- create-transfer-transaction
+  [{:keys [commodity
+           from-commodity-account
+           to-commodity-account
+           transfer-date
+           shares]
+    s :storage
+    :as context}]
+  (let [price (prices/most-recent s (:id commodity) transfer-date)
+        value (* shares (:price price))
+        transaction (transactions/create s {:entity-id (:entity-id commodity)
+                                            :transaction-date transfer-date
+                                            :description (format "Transfer %s shares of %s"
+                                                                 shares
+                                                                 (:symbol commodity))
+                                            :items [{:action :credit
+                                                     :quantity shares
+                                                     :value value
+                                                     :account-id (:id from-commodity-account)}
+                                                    {:action :debit
+                                                     :quantity shares
+                                                     :value value
+                                                     :account-id (:id to-commodity-account)}]})]
+    (assoc context :transaction transaction)))
+
+(defn transfer
+  [storage-spec transfer]
+  (let [validated (validate-transfer transfer)]
+    (if (validation/valid? validated)
+      (with-transacted-storage [s storage-spec]
+        (-> validated
+            (assoc :storage s)
+            append-commodity
+            append-transfer-accounts
+            process-transfer-lots
+            create-transfer-transaction
+            (select-keys [:lots :transaction])))
+      validated)))
+
+(defn- append-commodity-account
+  [{:keys [storage commodity account-id] :as context}]
+  (assoc context
+         :commodity-account
+         (accounts/find-by storage {:commodity-id (:id commodity)
+                                    :entity-id (:entity-id commodity)
+                                    :parent-id account-id})))
+
+(defn- apply-split-to-lot
+  [storage ratio lot]
+  (let [updated (-> lot
+                    (update-in [:shares-purchased] #(* % ratio))
+                    (update-in [:shares-owned] #(* % ratio))
+                    (update-in [:purchase-price] #(/ % ratio)))]
+    (lots/update storage updated)))
+
+(defn- apply-split-to-item
+  [storage ratio item]
+  item)
+
+(defn- append-split-lots
+  [{:keys [storage commodity-id account-id] :as context}]
+  (assoc context :lots (lots/search storage {:commodity-id commodity-id
+                                             :account-id account-id
+                                             :shares-owned [:!= 0M]})))
+
+(defn- append-split-ratio
+  [{:keys [shares-gained lots] :as context}]
+  (if (empty? lots)
+    (throw (ex-info "Not lots found to which to apply the split."
+                    (select-keys context [:commodity-id :account-id])))
+    (let [shares-owned (->> lots
+                            (map :shares-owned)
+                            (reduce + 0M))]
+      (assoc context :ratio (/ (+ shares-owned shares-gained)
+                               shares-owned)))))
+
+(defn- process-split-lots
+  [{:keys [storage lots ratio] :as context}]
+  (assoc context
+         :lots
+          (mapv #(apply-split-to-lot storage ratio %) lots)))
+
+(defn- ratio->words
+  [ratio]
+  ; We'll need to expand this at some point to handle
+  ; reverse splits and stranger splits, like 3:2
+  (format "%s for 1" ratio))
+
+(defn- create-split-transaction
+  [{:keys [storage
+           commodity
+           split-date
+           ratio
+           commodity-account
+           shares-gained
+           account-id] :as context}]
+  (assoc context
+         :transaction
+         (transactions/create storage
+                              {:entity-id (:entity-id commodity)
+                               :transaction-date split-date
+                               :description (format "Split shares of %s %s"
+                                                    (:symbol commodity)
+                                                    (ratio->words ratio))
+                               :items [{:action :debit
+                                        :account-id (:id commodity-account)
+                                        :quantity shares-gained
+                                        :value 0M}]})))
+
+(defn- validate-split
+  [split]
+  (->> split
+       #_(coercion/coerce split-coercion-rules)
+       (validation/validate ::split)))
+
+(defn split
+  [storage-spec split]
+  (let [validated (validate-split split)]
+    (if (validation/valid? validated)
+      (with-transacted-storage [s storage-spec]
+        (-> (assoc validated :storage s)
+            append-commodity
+            append-commodity-account
+            append-split-lots
+            append-split-ratio
+            process-split-lots
+            create-split-transaction
+            (dissoc :storage))) validated)))

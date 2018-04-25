@@ -7,7 +7,9 @@
             [clj-money.util :refer [parse-local-date
                                     format-date
                                     format-number
-                                    keywordify-keys]]))
+                                    keywordify-keys
+                                    file-ext
+                                    file-name]]))
 
 (deftest format-a-date
   (is (= "3/2/2016" (format-date (t/local-date 2016 3 2)))))
@@ -38,3 +40,23 @@
                                       {:v1 2}]}}]
     (is (= expected output)
         "The map is returned with keys replaced by keyword equivalents")))
+
+(deftest extract-file-extension
+  (let [tests [{:input "/home/name/file.txt"
+                :expected "txt"}
+               {:input "/home/name/file.tar.gz"
+                :expected "tar.gz"}]]
+    (doseq [{:keys [input expected]} tests]
+      (testing (format "Given \"%s\", it should return \"%s\"" input expected)
+        (is (= expected (file-ext input))
+            "The correct value is returned")))))
+
+(deftest extract-file-name
+  (let [tests [{:input "/home/name/file.txt"
+                :expected "file.txt"}
+               {:input "/home/name/file.tar.gz"
+                :expected "file.tar.gz"}]]
+    (doseq [{:keys [input expected]} tests]
+      (testing (format "Given \"%s\", it should return \"%s\"" input expected)
+        (is (= expected (file-name input))
+            "The correct value is returned")))))

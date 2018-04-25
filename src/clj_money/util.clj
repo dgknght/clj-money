@@ -1,6 +1,7 @@
 (ns clj-money.util
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.string :refer [split]]
             [clojure.tools.logging :as log]
             [clj-time.core :as t])
   (:import java.text.DecimalFormat
@@ -118,3 +119,13 @@
      (take-while (fn [next]
                    (t/after? next start))
                  (descending-periodic-seq end period-like)))))
+
+(defn file-name
+  [path]
+  (last (split path (re-pattern java.io.File/separator))))
+
+(defn file-ext
+  [path]
+  (->> (split (file-name path) #"\.")
+       rest
+       (clojure.string/join ".")))

@@ -147,15 +147,15 @@
   [model context]
   (update-in model [:account-id] #(:id (find-account context %))))
 
-(defn- coerce-amount
+(defn- coerce-quantity
   [item]
-  (update-in item [:amount] bigdec))
+  (update-in item [:quantity] bigdec))
 
 (defn- prepare-item
   [context item]
   (-> item
       (resolve-account context)
-      coerce-amount))
+      coerce-quantity))
 
 (defn- prepare-items
   [transaction context]
@@ -169,12 +169,12 @@
     transaction
     (-> transaction
         (assoc :items [{:action :debit
-                        :amount (:amount transaction)
+                        :quantity (:quantity transaction)
                         :account-id (:debit-account transaction)}
                        {:action :credit
-                        :amount (:amount transaction)
+                        :quantity (:quantity transaction)
                         :account-id (:credit-account transaction)}])
-        (dissoc :amount :debit-account :credit-account))))
+        (dissoc :quantity :debit-account :credit-account))))
 
 (defn- create-transactions
   [storage context transactions]
@@ -203,13 +203,22 @@
                                       (map (juxt :id :transaction-date))
                                       first))))
 
+(defn- find-image
+  [original-filename context]
+  (->> (:images context)
+       (filter #(= original-filename (:original-filename %)))
+       first))
+
 (defn- resolve-image
   [model context]
-  (assoc model :image-id (->> context
-                              :images
-                              (filter #(= (:original-filenamme %)
-                                          (:image-id model)))
-                              first)))
+  (update-in model [:image-id] #(:id (find-image % context))))
+
+(defn- resolve-images
+  [model context]
+  (update-in model [:image-ids] #(->> %
+                                      (map (fn [filename]
+                                             (find-image filename context)))
+                                      (map :id))))
 
 (defn- create-attachment
   [model storage]
@@ -327,18 +336,18 @@
 
 (defn- resolve-transaction-item-ids
   [context account-id items]
-  (mapv (fn [{:keys [transaction-date amount]}]
+  (mapv (fn [{:keys [transaction-date quantity]}]
           (or (->> context
                :transactions
                (filter #(= transaction-date (:transaction-date %)))
                (mapcat :items)
                (filter #(and (= account-id (:account-id %))
-                             (= amount (:amount %))))
+                             (= quantity (:quantity %))))
                (map (juxt :id :transaction-date))
                first)
-              (throw (Exception. (format "Unable to find a transaction with date=%s, amount=%s"
+              (throw (Exception. (format "Unable to find a transaction with date=%s, quantity=%s"
                                          transaction-date
-                                         amount)))))
+                                         quantity)))))
         items))
 
 (defn- resolve-reconciliation-transaction-item-ids
@@ -388,16 +397,6 @@
   [context storage]
   (update-in context [:images] #(create-images storage context %)))
 
-(defn- find-image
-  [context original-filename]
-  (->> (:images context)
-       (filter #(= original-filename (:original-filename %)))
-       first))
-
-(defn- resolve-image
-  [model context]
-  (update-in model [:image-id] #(:id (find-image context %))))
-
 (defn- create-import
   [model storage]
   (imports/create storage model))
@@ -407,7 +406,7 @@
   (mapv (fn [attributes]
           (-> attributes
               (resolve-user context)
-              (resolve-image context)
+              (resolve-images context)
               (create-import storage)
               throw-on-invalid))
         imports))
