@@ -123,6 +123,12 @@
               :value (- (:income summary) (:expense summary))
               :style :summary}])))
 
+(defn- remove-zero-values
+  [records]
+  (remove #(and (= 0M (:value %))
+                      (= :data (:style %)))
+          records))
+
 (defn income-statement
   "Returns the data used to populate an income statement report"
   ([storage-spec entity-id]
@@ -135,7 +141,8 @@
         (accounts/nest [:income :expense])
         (into [])
         (set-balance-deltas-in-account-groups storage-spec start end)
-        transform-income-statement)))
+        transform-income-statement
+        remove-zero-values)))
 
 (defn- transform-balance-sheet
   "Accepts group accounts and returns a report structure"
@@ -203,7 +210,8 @@
           accounts/nest
           (set-balances-in-account-groups storage-spec entity as-of)
           (append-pseudo-accounts storage-spec entity-id as-of)
-          transform-balance-sheet))))
+          transform-balance-sheet
+          remove-zero-values))))
 
 (defn- ->budget-report-record
   [storage budget period-count as-of account]
