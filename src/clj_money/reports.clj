@@ -18,18 +18,18 @@
 (defn- set-balance-delta
   [storage-spec account start end]
   (let [children (set-balance-deltas storage-spec start end (:children account))
-        new-children-balance (reduce #(+ %1
-                                         (:balance %2)
-                                         (:children-balance %2))
+        new-children-value (reduce #(+ %1
+                                         (:value %2)
+                                         (:children-value %2))
                                      0
                                      children)
-        new-balance (transactions/balance-delta storage-spec
-                                                (:id account)
-                                                start
-                                                end)]
+        new-value (transactions/balance-delta storage-spec
+                                              (:id account)
+                                              start
+                                              end)]
     (assoc account :children children
-                   :children-balance new-children-balance
-                   :balance new-balance)))
+                   :children-value new-children-value
+                   :value new-value)))
 
 ; TODO consider removing this function
 (defn- set-balance-deltas
@@ -40,8 +40,8 @@
   [account-group calc-fn]
   (let [updated (update-in account-group [:accounts] calc-fn)]
     (assoc updated :value (reduce #(+ %1
-                                      (:balance %2)
-                                      (:children-balance %2))
+                                      (:value %2)
+                                      (:children-value %2))
                                   (bigdec 0)
                                   (:accounts updated)))))
 
@@ -74,14 +74,14 @@
   [storage-spec entity account as-of]
   (let [children (set-balances storage-spec entity as-of (:children account))
         new-children-balance (reduce #(+ %1
-                                         (:balance %2)
-                                         (:children-balance %2))
+                                         (:value %2)
+                                         (:children-value %2))
                                      0
                                      children)
         new-balance (account-value-as-of storage-spec entity account as-of)]
     (assoc account :children children
-                   :children-balance new-children-balance
-                   :balance new-balance)))
+                   :children-value new-children-balance
+                   :value new-balance)))
 
 ; TODO consider removing this function
 (defn- set-balances
@@ -98,7 +98,7 @@
 (defn- transform-account
   [account depth]
   (concat [{:caption (:name account)
-            :value (+ (:balance account) (:children-balance account))
+            :value (+ (:value account) (:children-value account))
             :style :data
             :depth depth}]
           (mapcat #(transform-account % (+ 1 depth))
@@ -166,8 +166,8 @@
                (-> entry
                    (update-in [:accounts] #(concat %
                                                    [{:name caption
-                                                     :balance value
-                                                     :children-balance 0}]))
+                                                     :value value
+                                                     :children-value 0}]))
                    (update-in [:value] #(+ % value))))))
 
 (def ^:private pseudo-accounts
