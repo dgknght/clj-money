@@ -26,6 +26,11 @@
                  [ring/ring-anti-forgery "1.2.0"]
                  [hiccup "1.0.5"]
                  [selmer "1.11.7" :exclusions [joda-time]]
+                 [reagent "0.8.0"]
+                 [org.clojure/clojurescript "1.10.238"]
+                 [clojure-guava "0.0.8" :exclusions [org.clojure/clojure]]
+                 [closure-clj "0.1.2"]
+                 [selmer "1.11.2"]
                  [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.7.2"]
@@ -34,11 +39,35 @@
                  [faker "0.3.2"]
                  [com.draines/postal "2.0.2"]]
   :min-lein-version "2.0.0"
-  :plugins [[lein-environ "1.1.0"]]
+  :plugins [[lein-environ "1.1.0"] 
+            [lein-cljsbuild "1.1.7"]]
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :main clj-money.web.server
   :aot [clj-money.web.server]
+  :clean-targets ^{:protect false} [:target-path
+                                    [:cljsbuild :builds :app :compiler :output-dir]
+                                    [:cljsbuild :builds :app :compiler :output-to]]
+  :resource-paths ["resources" "target/cljsbuild"]
+
+  :minify-assets {:assets
+                  {"resources/public/css/clj-money.min.css" "resources/public/css/clj-money.css"}}
+
+  :cljsbuild {:builds {:min {:source-paths ["src/cljs"]
+                             :compiler {:output-to  "target/cljsbuild/public/js/app.js"
+                                        :output-dir "target/cljsbuild/public/js"
+                                        :source-map "target/cljsbuild/public/js/app.js.map"
+                                        :optimizations :advanced
+                                        :pretty-print false}}
+                       :app {:source-paths ["src/cljs"]
+                             :compiler {:main "clj-money.dev"
+                                        :asset-path "js/out"
+                                        :output-to  "target/cljsbuild/public/js/app.js"
+                                        :output-dir "target/cljsbuild/public/js/out"
+                                        :source-map true
+                                        :optimizations :none
+                                        :pretty-print true}}}}
+
   :aliases {"migrate"               ["run" "-m" "clj-money.db/migrate"]
             "rollback"              ["run" "-m" "clj-money.db/rollback"]
             "partition"             ["run" "-m" "clj-money.db/create-partitions"]

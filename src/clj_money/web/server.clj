@@ -33,6 +33,7 @@
             [clj-money.web.imports :as imports]
             [clj-money.api.imports :as imports-api]
             [clj-money.web.accounts :as accounts]
+            [clj-money.web.apps :as apps]
             [clj-money.web.budgets :as budgets]
             [clj-money.web.commodities :as commodities]
             [clj-money.web.prices :as prices]
@@ -157,7 +158,11 @@
   
   ; Reports
   (route GET "/entities/:entity-id/reports" reports/render)
-  (route GET "/entities/:entity-id/reports/:type" reports/render))
+  (route GET "/entities/:entity-id/reports/:type" reports/render)
+
+  ; Single page apps
+  (route GET "/apps" apps/index)
+  (route GET "/apps/:id" apps/show))
 
 (defroutes api-routes ;TODO Finish setting up these routes
   (route POST "/api/imports" imports-api/create)
