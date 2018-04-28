@@ -50,6 +50,7 @@
   :clean-targets ^{:protect false} [:target-path
                                     [:cljsbuild :builds :app :compiler :output-dir]
                                     [:cljsbuild :builds :app :compiler :output-to]]
+  :source-paths ["src/clj"]
   :resource-paths ["resources" "target/cljsbuild"]
 
   :minify-assets {:assets
