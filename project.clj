@@ -5,7 +5,8 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0-alpha14"]
                  [org.clojure/tools.logging "0.3.1"]
-                 [org.clojure/core.async "0.3.443"]
+                 [org.clojure/core.async "0.3.443" :exclusions [org.clojure/data.priority-map
+                                                                org.clojure/core.cache]]
                  [org.clojure/tools.cli "0.3.5"]
                  [slingshot "0.12.2"]
                  [clj-http "3.5.0"]
@@ -14,7 +15,8 @@
                  [ch.qos.logback/logback-classic "1.1.3"]
                  [org.clojure/java.jdbc "0.6.1"]
                  [org.postgresql/postgresql "9.4-1201-jdbc41"]
-                 [clj-postgresql "0.7.0"]
+                 [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
+                                                      org.postgresql/postgresql]]
                  [honeysql "0.8.0"]
                  [clj-time "0.12.0"]
                  [compojure "1.4.0"]
@@ -23,7 +25,7 @@
                  [ring/ring-json "0.4.0"]
                  [ring/ring-anti-forgery "1.1.0"]
                  [hiccup "1.0.5"]
-                 [selmer "1.11.2"]
+                 [selmer "1.11.2" :exclusions [joda-time]]
                  [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.6.3"]
@@ -32,8 +34,7 @@
                  [faker "0.2.2"]
                  [com.draines/postal "2.0.2"]]
   :min-lein-version "2.0.0"
-  :plugins [[lein-environ "1.1.0"]
-            [lein-deps-tree "0.1.2"]]
+  :plugins [[lein-environ "1.1.0"]]
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :main clj-money.web.server
