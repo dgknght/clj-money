@@ -130,7 +130,7 @@
                              :value 1710.00M
                              :style :data
                              :depth 0}
-                            {:caption "Unrealized Gains"
+                            #_{:caption "Unrealized Gains"
                              :value 0M
                              :style :data
                              :depth 0}
