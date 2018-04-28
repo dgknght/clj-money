@@ -1,7 +1,7 @@
 (ns clj-money.models.users
   (:refer-clojure :exclude [find update])
   (:require [clojure.tools.logging :as log]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.set :refer [rename-keys]]
             [clojure.string :as string]
             [clojure.pprint :refer [pprint]]
@@ -27,12 +27,10 @@
   ([_ user]
    (before-save user)))
 
-(def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
-
 (s/def ::first-name validation/non-empty-string?)
 (s/def ::last-name validation/non-empty-string?)
 (s/def ::password validation/non-empty-string?)
-(s/def ::email (s/and string? (partial re-matches EmailPattern)))
+(s/def ::email validation/email?)
 (s/def ::new-user (s/keys :req-un [::first-name ::last-name ::password ::email]))
 (s/def ::existing-user (s/keys :req-un [::id ::first-name ::last-name ::email] :opt-un [::password]))
 

@@ -1,7 +1,7 @@
 (ns clj-money.models.commodities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clj-money.util :refer [safe-invoke]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]

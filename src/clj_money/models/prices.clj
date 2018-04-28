@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clj-time.core :as t]
             [clj-money.util :refer [pprint-and-return]]
             [clj-money.validation :as validation]
@@ -20,7 +20,7 @@
                                               get-setting]]))
 
 (s/def ::commodity-id integer?)
-(s/def ::trade-date (partial instance? org.joda.time.LocalDate))
+(s/def ::trade-date validation/local-date?)
 (s/def ::price decimal?)
 (s/def ::id uuid?)
 (s/def ::new-price (s/keys :req-un [::commodity-id ::trade-date ::price]))

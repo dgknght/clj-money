@@ -1,61 +1,38 @@
 (ns clj-money.validation
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
+            [clj-money.util :refer [pprint-and-return]]
             [clj-money.inflection :refer [singular
                                           humanize
                                           ordinal]])
   (:import org.joda.time.LocalDate
            java.util.Date))
 
+(def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
+
+(defn email?
+  [value]
+  (and (string? value)
+       (re-matches EmailPattern value)))
+
 (defn local-date?
   [value]
   (instance? LocalDate value))
-
-(defn- interpret-local-date-failure
-  [{:keys [path pred] :as problem}]
-  (when (and (list? pred)
-             (= 'instance? (first pred))
-             (= LocalDate (second pred)))
-    [path (format "%s must be a date" (humanize (last path)))]))
-
-(defn- interpret-integer-failure
-  [{:keys [path pred]}]
-  (when (and (symbol? pred)
-             (= 'integer? pred))
-    [path (format "%s must be an integer" (humanize (last path)))]))
-
-(defn- interpret-decimal-failure
-  [{:keys [path pred]}]
-  (when (and (symbol? pred)
-             (= 'decimal? pred))
-    [path (format "%s must be a decimal" (humanize (last path)))]))
 
 (defn non-empty-string?
   [value]
   (and (string? value)
        (pos? (count value))))
 
-(defn- interpret-empty-string-failure
-  [{:keys [path pred]}]
-  (when (and (symbol? pred)
-             (= 'non-empty-string? pred))
-    [path (format "%s cannot be empty" (humanize (last path)))]))
-
 (defn positive-integer?
   [value]
   (and (integer? value)
        (pos? value)))
-
-(defn- interpret-positive-integer-failure
-  [{:keys [path pred]}]
-  (when (and (symbol? pred)
-             (= 'positive-integer? pred))
-    [path (format "%s must be greater than zero" (humanize (last path)))]))
 
 (defn positive-big-dec?
   [value]
@@ -68,11 +45,20 @@
        (or (pos? value)
            (zero? value))))
 
-(defn- interpret-positive-big-dec-failure
-  [{:keys [path pred]}]
-  (when (and (symbol? pred)
-             (= 'positive-big-dec? pred))
-    [path (format "%s must be a positive number" (humanize (last path)))]))
+(def ^:private simple-pred-map
+  {'clj-money.validation/local-date? "%s must be a date"
+   'clj-money.validation/email? "%s must be a valid email"
+   'clj-money.validation/positive-integer? "%s must be greater than zero"
+   'clj-money.validation/positive-big-dec? "%s must be a positive number"
+   'clj-money.validation/non-empty-string? "%s cannot be empty"
+   'clojure.core/integer? "%s must be an integer"
+   'clojure.core/decimal? "%s must be a decimal"})
+
+(defn- interpret-simple-pred-failure
+  [{:keys [path pred] :as problem}]
+  (when (symbol? pred)
+    (when-let [fmt (simple-pred-map pred)]
+      [path (format fmt (-> path last humanize))])))
 
 (defn- interpret-regex-failure
   [{:keys [path pred]}]
@@ -81,10 +67,13 @@
     [path (format "%s is not valid" (humanize (last path)))]))
 
 (defn- interpret-required-failure
-  [{:keys [path pred in] :as problem}]
+  [{:keys [pred in] :as problem}]
   (when (and (coll? pred)
-             (= 'contains? (first pred)))
-    [(concat in [(nth pred 2)]) (format "%s is required" (humanize (nth pred 2)))]))
+             (not (set? pred))
+             (coll? (last pred))
+             (= 'clojure.core/contains? (->> pred last first)))
+    (let [k (->> pred last last)]
+      [(concat in [k]) (format "%s is required" (humanize k))])))
 
 (defn- interpret-set-inclusion-failure
   [{:keys [pred path] :as problem}]
@@ -114,7 +103,7 @@
 (defn- interpret-type-failure
   [{:keys [pred path] :as problem}]
   (when (and (seq? pred)
-             (= 'instance? (second pred)))
+             (= 'clojure.core/instance? (second pred)))
     (let [humanized (-> path last humanize)
           message (if (:val problem)
                     (format "%s must be an instance of %s" humanized (nth pred 2))   
@@ -123,16 +112,11 @@
 
 (def problem-interpreters
   [interpret-required-failure
-   interpret-integer-failure
-   interpret-decimal-failure
+   interpret-simple-pred-failure
    interpret-regex-failure
-   interpret-empty-string-failure
-   interpret-positive-big-dec-failure
-   interpret-positive-integer-failure
    interpret-collection-count-failure
    interpret-set-inclusion-failure
    interpret-type-failure
-   interpret-local-date-failure
    interpret-unknown-failure])
 
 (defn- problem->message
@@ -155,7 +139,7 @@
 (defn- interpret-problems
   [explanation]
   (->> explanation
-       :clojure.spec/problems
+       :clojure.spec.alpha/problems
        (map (comp problem->message flatten-multi-spec-paths))
        (reduce (fn [result [k message]]
                  (update-in result k (fnil #(conj % message) [])))

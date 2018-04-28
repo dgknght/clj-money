@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [digest :refer [sha-1]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]

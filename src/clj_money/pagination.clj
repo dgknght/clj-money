@@ -1,5 +1,5 @@
 (ns clj-money.pagination
-  (:require [clojure.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clj-money.url :as url]

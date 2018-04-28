@@ -1,7 +1,7 @@
 (ns clj-money.models.transactions
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.set :refer [difference]]
             [clj-time.core :as t]
             [clj-money.util :refer [pprint-and-return

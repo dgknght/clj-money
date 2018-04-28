@@ -101,7 +101,7 @@
                                                          (t/local-date 2017 12 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
-    (is (= ["Trade date must be an instance of class org.joda.time.LocalDate"] (validation/error-messages price :trade-date))
+    (is (= ["Trade date must be a date"] (validation/error-messages price :trade-date))
         "The result contains a validation error")
     (is (not (seq (filter #(= (:id commodity) (:commodity-id %)) prices)))
         "The price cannot be retrieved after create")))

@@ -1,7 +1,7 @@
 (ns clj-money.models.lots
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clj-time.coerce :refer [to-local-date]]
             [clj-money.util :refer [pprint-and-return
                                     to-sql-date]]

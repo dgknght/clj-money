@@ -1,6 +1,6 @@
 (ns clj-money.validation-test
   (:require [clojure.test :refer :all]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clj-money.validation :as validation]))
 

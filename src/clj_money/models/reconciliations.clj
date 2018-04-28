@@ -1,6 +1,6 @@
 (ns clj-money.models.reconciliations
   (:refer-clojure :exclude [update find])
-  (:require [clojure.spec :as s]
+  (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [clj-time.coerce :refer [to-long
                                      to-local-date]]
@@ -24,10 +24,10 @@
            java.util.UUID))
 
 (s/def ::account-id integer?)
-(s/def ::end-of-period #(instance? LocalDate %))
+(s/def ::end-of-period validation/local-date?)
 (s/def ::balance decimal?)
 (s/def ::status #{:new :completed})
-(s/def ::item-ref (s/tuple uuid? #(instance? LocalDate %)))
+(s/def ::item-ref (s/tuple uuid? validation/local-date?))
 (s/def ::item-refs (s/coll-of ::item-ref))
 
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-refs]))

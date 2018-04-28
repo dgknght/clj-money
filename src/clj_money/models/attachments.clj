@@ -1,7 +1,7 @@
 (ns clj-money.models.attachments
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]

@@ -1,7 +1,7 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clojure.set :refer [rename-keys]]
             [clojure.reflect :refer :all]

@@ -1,7 +1,7 @@
 (ns clj-money.models.grants
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]

@@ -274,11 +274,9 @@
   (let [context (serialization/realize storage-spec account-context)
         attr (-> context
                  attributes
-                 (dissoc :name))]
-    (assert-validation-error
-      :name
-      "Name is required"
-      (accounts/create storage-spec attr))))
+                 (dissoc :name))
+        result (accounts/create storage-spec attr)]
+    (assert-validation-error :name "Name is required" result)))
 
 (deftest name-is-unique-within-a-parent
   (let [context (serialization/realize storage-spec duplicate-name-context)

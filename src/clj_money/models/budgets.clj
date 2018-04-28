@@ -1,7 +1,7 @@
 (ns clj-money.models.budgets
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-local-date

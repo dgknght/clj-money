@@ -1,7 +1,7 @@
 (ns clj-money.trading
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clj-time.core :as t]
             [clj-money.util :refer [format-number
                                     pprint-and-return]]
@@ -24,9 +24,9 @@
 (s/def ::lt-capital-loss-account-id integer?)
 (s/def ::st-capital-gains-account-id integer?)
 (s/def ::st-capital-loss-account-id integer?)
-(s/def ::trade-date #(instance? org.joda.time.LocalDate %))
-(s/def ::transfer-date #(instance? org.joda.time.LocalDate %))
-(s/def ::split-date #(instance? org.joda.time.LocalDate %))
+(s/def ::trade-date validation/local-date?)
+(s/def ::transfer-date validation/local-date?)
+(s/def ::split-date validation/local-date?)
 (s/def ::shares decimal?)
 (s/def ::value decimal?)
 (s/def ::shares-gained decimal?)

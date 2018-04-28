@@ -53,7 +53,7 @@
   (testing "Email must be a valid email address"
     (assert-validation-error
       :email
-      "Email is not valid"
+      "Email must be a valid email"
       (users/create storage-spec (assoc attributes :email "notavalidemail"))))
   (testing "First name is required"
     (assert-validation-error

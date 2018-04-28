@@ -1,7 +1,7 @@
 (ns clj-money.models.imports
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec :as s]
+            [clojure.spec.alpha :as s]
             [clojure.java.io :as io]
             [cheshire.core :as json]
             [clj-money.validation :as validation]
