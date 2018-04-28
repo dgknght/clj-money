@@ -28,7 +28,9 @@
                  [selmer "1.11.7" :exclusions [joda-time]]
                  [reagent "0.8.0"]
                  [org.clojure/clojurescript "1.10.238"]
-                 [clojure-guava "0.0.8" :exclusions [org.clojure/clojure]]
+                 [com.google.guava/guava "22.0"]
+                 [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
+                                                     com.google.guava/guava]]
                  [closure-clj "0.1.2"]
                  [selmer "1.11.2"]
                  [environ "1.1.0"]
