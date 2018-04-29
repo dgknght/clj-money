@@ -31,6 +31,8 @@
                  [com.google.guava/guava "22.0"]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava]]
+                 [secretary "1.2.3"]
+                 [venantius/accountant "0.2.4"]
                  [closure-clj "0.1.2"]
                  [selmer "1.11.2"]
                  [environ "1.1.0"]
@@ -63,7 +65,7 @@
                                         :optimizations :advanced
                                         :pretty-print false}}
                        :app {:source-paths ["src/cljs"]
-                             :compiler {:main "clj-money.dev"
+                             :compiler {:main "clj-money.core"
                                         :asset-path "js/out"
                                         :output-to  "target/cljsbuild/public/js/app.js"
                                         :output-dir "target/cljsbuild/public/js/out"
