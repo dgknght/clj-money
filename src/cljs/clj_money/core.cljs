@@ -3,7 +3,7 @@
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]))
 
-(def app-state (r/atom {}))
+(def current-entity (r/atom nil))
 
 (def entities
   [{:id 1 :name "Personal"}
@@ -33,23 +33,23 @@
          :data-toggle "dropdown"
          :role "button"
          :aria-haspopup true}
-        (-> @app-state :current-entity :name)
+        (:name @current-entity)
         [:span.caret]]
        [:ul.dropdown-menu
-        (concat
-          (for [entity entities]
-            ^{:key entity} [:li {:class (when (= (:id entity)
-                                                 (:id (:current-entity @app-state)))
-                                          "active")}
-                            [:a {:href "#"
-                                 :on-click (fn []
-                                             (.log js/console "selected entity")
-                                             (swap! app-state
-                                                    #(assoc % :currency-entity entity)))}
-                             (:name entity)]])
-          [[:li.divider {:role "separator"}]
-           [:li
-            [:a {:href "#"} "Manage Entities"]]])]]]]]])
+        (doall
+          (concat
+            (for [entity entities]
+              ^{:key entity} [:li {:class (when (= (:id entity)
+                                                   (:id @current-entity))
+                                            "active")}
+                              [:a {:href "#"
+                                   :on-click (fn []
+                                               (.log js/console "selected entity " (prn-str entity))
+                                               (reset! current-entity entity))}
+                               (:name entity)]])
+            [^{:key :entities-separator} [:li.divider {:role "separator"}]
+             ^{:key :manage-entities} [:li
+              [:a {:href "#"} "Manage Entities"]]]))]]]]]])
 
 (defn home-page []
   [:div
@@ -69,7 +69,5 @@
      :path-exists? #(secretary/locate-route %)})
   (accountant/dispatch-current!)
   (mount-root))
-
-(swap! app-state #(assoc % :current-entity (first entities)))
 
 (init!)
