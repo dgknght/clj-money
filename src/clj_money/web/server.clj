@@ -16,6 +16,7 @@
                                           wrap-json-params
                                           wrap-json-response]]
             [ring.middleware.resource :refer [wrap-resource]]
+            [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
@@ -187,6 +188,7 @@
          :credential-fn (partial clj-money.models.users/authenticate (env :db))
          :redirect-on-auth? false})
       (wrap-resource "public")
+      wrap-content-type
       wrap-exception-handling
       wrap-params
       wrap-multipart-params
