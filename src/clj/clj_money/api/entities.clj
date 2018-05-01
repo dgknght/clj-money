@@ -1,10 +1,11 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [ring.util.response :refer [response]]
-            [cemerick.friend :as friend]
+  (:require [ring.util.response :refer [status response]]
+            [cemerick.friend :refer [current-authentication]]
+            [environ.core :refer [env]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]))
 
 (defn index
   [req]
-  (response {:entities "This is a test"}))
+  (response (entities/select (env :db) (:id (current-authentication)))))

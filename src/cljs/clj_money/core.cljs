@@ -1,13 +1,24 @@
 (ns clj-money.core
-  (:require [reagent.core :as r]
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [clojure.walk :refer [keywordize-keys]]
+            [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
-            [accountant.core :as accountant]))
+            [accountant.core :as accountant]
+            [cljs-http.client :as http]
+            [cljs.core.async :refer [<!]]
+            [cognitect.transit :as transit]))
 
 (def current-entity (r/atom nil))
 
-(def entities
-  [{:id 1 :name "Personal"}
-   {:id 2 :name "Business"}])
+(def entities (r/atom []))
+
+(defn- load-entities []
+  (go (let [response (<! (http/get "/api/entities"))]
+        (if (= 200 (:status response))
+          (let [parsed (keywordize-keys (transit/read (transit/reader :json {:keywordize-keys true}) (:body response)))]
+            (reset! current-entity (first parsed))
+            (reset! entities parsed))
+          (.log js/console "Unable to get the entities from the service" (:body response))))))
 
 (defn nav []
   [:nav.navbar.navbar-inverse
@@ -38,14 +49,12 @@
        [:ul.dropdown-menu
         (doall
           (concat
-            (for [entity entities]
+            (for [entity @entities]
               ^{:key entity} [:li {:class (when (= (:id entity)
                                                    (:id @current-entity))
                                             "active")}
                               [:a {:href "#"
-                                   :on-click (fn []
-                                               (.log js/console "selected entity " (prn-str entity))
-                                               (reset! current-entity entity))}
+                                   :on-click #(reset! current-entity entity)}
                                (:name entity)]])
             [^{:key :entities-separator} [:li.divider {:role "separator"}]
              ^{:key :manage-entities} [:li
@@ -68,6 +77,7 @@
     {:nav-handler #(secretary/dispatch! %)
      :path-exists? #(secretary/locate-route %)})
   (accountant/dispatch-current!)
-  (mount-root))
+  (mount-root)
+  (load-entities))
 
 (init!)

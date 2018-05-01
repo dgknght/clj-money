@@ -28,6 +28,7 @@
                  [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-anti-forgery "1.2.0" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
+                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader]]
                  [selmer "1.11.7" :exclusions [joda-time
                                                com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
