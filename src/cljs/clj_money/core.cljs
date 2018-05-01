@@ -1,24 +1,29 @@
 (ns clj-money.core
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [clojure.walk :refer [keywordize-keys]]
-            [reagent.core :as r]
+  (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
-            [cljs-http.client :as http]
-            [cljs.core.async :refer [<!]]
-            [cognitect.transit :as transit]))
+            [clj-money.data :as data]
+            [clj-money.entities :as entities]))
 
 (def current-entity (r/atom nil))
 
 (def entities (r/atom []))
 
 (defn- load-entities []
-  (go (let [response (<! (http/get "/api/entities"))]
-        (if (= 200 (:status response))
-          (let [parsed (keywordize-keys (transit/read (transit/reader :json {:keywordize-keys true}) (:body response)))]
-            (reset! current-entity (first parsed))
-            (reset! entities parsed))
-          (.log js/console "Unable to get the entities from the service" (:body response))))))
+  (data/get-entities (fn [result]
+                       (reset! current-entity (first result))
+                       (reset! entities result))))
+
+(defn- entity-nav-item
+  [entity]
+  ^{:key entity}
+  [:li {:class (when (= (:id entity)
+                        (:id @current-entity))
+                 "active")}
+   [:a {:href "#"
+        :on-click #(reset! current-entity entity)}
+    (:name entity)]])
 
 (defn nav []
   [:nav.navbar.navbar-inverse
@@ -49,16 +54,10 @@
        [:ul.dropdown-menu
         (doall
           (concat
-            (for [entity @entities]
-              ^{:key entity} [:li {:class (when (= (:id entity)
-                                                   (:id @current-entity))
-                                            "active")}
-                              [:a {:href "#"
-                                   :on-click #(reset! current-entity entity)}
-                               (:name entity)]])
+            (map entity-nav-item @entities)
             [^{:key :entities-separator} [:li.divider {:role "separator"}]
              ^{:key :manage-entities} [:li
-              [:a {:href "#"} "Manage Entities"]]]))]]]]]])
+              [:a {:href "/entities"} "Manage Entities"]]]))]]]]]])
 
 (defn home-page []
   [:div
@@ -66,11 +65,23 @@
    [:div.container
     [:h1 "This Is ClojureScript"]]])
 
-(secretary/defroute "/" []
-  (.log js/console "exercise the root route"))
+(defn entities-page []
+  [:div
+   [nav]
+   [:div.container
+    (entities/management entities)]])
+
+(def app-element
+  (.getElementById js/document "app"))
+
+(secretary/defroute root-path "/" []
+  (r/render home-page app-element))
+
+(secretary/defroute entities-path "/entities" []
+  (r/render entities-page app-element))
 
 (defn mount-root []
-  (r/render home-page (.getElementById js/document "app")))
+  (r/render home-page app-element))
 
 (defn init! []
   (accountant/configure-navigation!
