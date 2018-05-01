@@ -27,11 +27,12 @@
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-models
                                           wrap-exception-handling]]
+            [clj-money.api.imports :as imports-api]
+            [clj-money.api.entities :as entities-api]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
             [clj-money.web.imports :as imports]
-            [clj-money.api.imports :as imports-api]
             [clj-money.web.accounts :as accounts]
             [clj-money.web.apps :as apps]
             [clj-money.web.budgets :as budgets]
@@ -164,7 +165,10 @@
   (route GET "/apps" apps/index)
   (route GET "/apps/:id" apps/show))
 
-(defroutes api-routes ;TODO Finish setting up these routes
+(defroutes api-routes
+  (route GET "/api/entities" entities-api/index)
+
+  ; Imports
   (route POST "/api/imports" imports-api/create)
   (route GET "/api/imports/:id" imports-api/show))
 
