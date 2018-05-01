@@ -3,11 +3,13 @@
   :url "http://money.herokuapp.com"
   :license {:name "Eclipse Public License v1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.9.0"]
+  :dependencies [[org.clojure/clojure "1.9.0" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "0.4.0"]
                  [org.clojure/core.async "0.4.474" :exclusions [org.clojure/data.priority-map
-                                                                org.clojure/core.cache]]
+                                                                org.clojure/core.cache
+                                                                org.clojure/tools.reader]]
                  [org.clojure/tools.cli "0.3.7"]
+                 [org.clojure/tools.reader "1.1.0"]
                  [slingshot "0.12.2"]
                  [clj-http "3.9.0"]
                  [cheshire "5.8.0"]
@@ -25,15 +27,17 @@
                  [ring/ring-json "0.4.0"]
                  [ring/ring-anti-forgery "1.2.0"]
                  [hiccup "1.0.5"]
-                 [selmer "1.11.7" :exclusions [joda-time com.google.javascript/clojure-compiler]]
-                 [reagent "0.8.0" :exclusions [com.google.code.findbugs/jsr305]]
-                 [org.clojure/clojurescript "1.10.238"]
+                 [selmer "1.11.7" :exclusions [joda-time
+                                               com.google.javascript/closure-compiler]]
+                 [reagent "0.8.0" :exclusions [com.google.code.findbugs/jsr305
+                                               org.clojure/tools.reader]]
+                 [org.clojure/clojurescript "1.10.238" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "22.0" :exclusions [com.google.code.findbugs/jsr305]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava]]
-                 [secretary "1.2.3" :exclusions [com.google.javascript/clojure-compiler]]
-                 [venantius/accountant "0.2.4" :exclusions [com.google.javascript/clojure-compiler]]
-                 [closure-clj "0.1.2"]
+                 [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler]]
+                 [venantius/accountant "0.2.4" :exclusions [com.google.javascript/closure-compiler]]
+                 [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler]]
                  [environ "1.1.0"]
                  [com.cemerick/friend "0.2.3"]
                  [ragtime "0.7.2"]
