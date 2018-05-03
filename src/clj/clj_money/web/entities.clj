@@ -56,7 +56,7 @@
   "Renders form fields for the entity"
   [entity]
   (html
-    (text-input-field entity :name {:autofocus true
+    (text-input-field entity :name {:autofocus "true"
                                     :maxlength 100})
     [:input.btn.btn-primary {:type :submit :value "Save"}]))
 
