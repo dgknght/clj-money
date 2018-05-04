@@ -180,6 +180,22 @@
   (route GET  "/users/:token/password" users/new-password)
   (route POST "/users/:token/password" users/set-password))
 
+(defmulti render-404
+  (fn [req]
+    (let [accept (get (:headers req) "accept")]
+      (log/debug "accept " accept)
+      :json)))
+
+(defmethod render-404 :json
+  [req]
+  {:status 404
+   :headers {"Content-Type" "application/json"}
+   :body "{message: \"not found\"}"})
+
+(defmethod render-404 :html
+  [req]
+  (slurp (io/resource "404.html")))
+
 (defroutes routes
   open-routes
   (friend/logout (POST "/logout" [] (redirect "/")))
@@ -188,7 +204,7 @@
   (ANY "*" req
        (do
          (log/debug "unable to match route for " req)
-         (route/not-found (slurp (io/resource "404.html"))))))
+         (route/not-found (render-404 req)))))
 
 (def app
   (-> routes

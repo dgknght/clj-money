@@ -125,18 +125,19 @@
    {:url "/entities/:entity-id/budgets"      :caption "Budgets"}
    {:url "/entities/:entity-id/transactions" :caption "Transactions"}
    {:url "/entities/:entity-id/commodities"  :caption "Commodities"}
-   {:url "/entities/:entity-id/reports"      :caption "Reports"}])
+   {:url "/entities/:entity-id/reports"      :caption "Reports"}
+   {:url "/apps"                             :caption "SPA"}])
 
 (defn primary-nav
   "Renders the site primary navigation"
   [entity]
   (if-let [user (friend/current-authentication)]
     (if-let [entity (or entity (first (entities/select (env :db) (:id user))))]
-      (let [items (->> item-templates
-                       (map (fn [item]
-                              (update-in item
-                                         [:url]
-                                         #(string/replace % ":entity-id" (str (:id entity)))))))]
+      (let [items (mapv (fn [item]
+                          (update-in item
+                                     [:url]
+                                     #(string/replace % ":entity-id" (str (:id entity)))))
+                        item-templates)]
         (bootstrap-nav items user entity))
       (bootstrap-nav [] user nil))
     (bootstrap-nav [] nil nil)))
