@@ -9,7 +9,7 @@
                                                                 org.clojure/core.cache
                                                                 org.clojure/tools.reader]]
                  [org.clojure/tools.cli "0.3.7" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/tools.reader "1.1.0" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/tools.reader "1.1.0"]
                  [slingshot "0.12.2" :exclusions [org.clojure/tools.reader]]
                  [clj-http "3.9.0" :exclusions [org.clojure/tools.reader]]
                  [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]
@@ -34,15 +34,16 @@
                                                org.clojure/tools.reader]]
                  [reagent "0.8.0" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
-                 [org.clojure/clojurescript "1.10.238" :exclusions [org.clojure/tools.reader
-                                                                    org.clojure/tools.reader]]
+                 [org.clojure/clojurescript "1.10.238" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "22.0" :exclusions [com.google.code.findbugs/jsr305
                                                              org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
                                                      com.google.guava/guava
                                                      org.clojure/tools.reader]]
-                 [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler org.clojure/tools.reader]]
-                 [venantius/accountant "0.2.4" :exclusions [com.google.javascript/closure-compiler org.clojure/tools.reader]]
+                 [secretary "1.2.3" :exclusions [com.google.javascript/closure-compiler
+                                                 org.clojure/tools.reader]]
+                 [venantius/accountant "0.2.4" :exclusions [com.google.javascript/closure-compiler
+                                                            org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
                  [environ "1.1.0" :exclusions [org.clojure/tools.reader]]
