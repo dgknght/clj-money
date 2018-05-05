@@ -55,7 +55,7 @@
                  [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
-            [lein-cljsbuild "1.1.7" :exclusions [org.clojure/tools.reader]]]
+            [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]]
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :main clj-money.web.server
