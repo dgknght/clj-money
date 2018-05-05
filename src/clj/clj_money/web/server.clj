@@ -22,6 +22,7 @@
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds]
+            [cheshire.core :as json]
             [clj-money.core]
             [clj-money.json]
             [clj-money.middleware :refer [wrap-integer-id-params
@@ -180,31 +181,35 @@
   (route GET  "/users/:token/password" users/new-password)
   (route POST "/users/:token/password" users/set-password))
 
+(def ^:private accept-map
+  {"application/json" :json})
+
 (defmulti render-404
   (fn [req]
     (let [accept (get (:headers req) "accept")]
-      (log/debug "accept " accept)
-      :json)))
+      (get accept-map accept :html))))
 
 (defmethod render-404 :json
   [req]
   {:status 404
    :headers {"Content-Type" "application/json"}
-   :body "{message: \"not found\"}"})
+   :body (json/generate-string {:message "not found"})})
 
 (defmethod render-404 :html
   [req]
-  (slurp (io/resource "404.html")))
+  (route/not-found (slurp (io/resource "404.html"))))
 
 (defroutes routes
   open-routes
   (friend/logout (POST "/logout" [] (redirect "/")))
-  (friend/wrap-authorize protected-routes #{:user})
+  (-> protected-routes
+      (friend/wrap-authorize #{:user})
+      wrap-anti-forgery)
   (friend/wrap-authorize api-routes #{:user})
   (ANY "*" req
        (do
-         (log/debug "unable to match route for " req)
-         (route/not-found (render-404 req)))))
+         (log/debug "unable to match route for " (:uri req))
+         (render-404 req))))
 
 (def app
   (-> routes
@@ -220,7 +225,6 @@
       wrap-json-params
       wrap-keyword-params
       wrap-json-response
-      wrap-anti-forgery
       wrap-session))
 
 (defn -main [& [port]]
