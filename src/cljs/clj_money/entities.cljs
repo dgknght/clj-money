@@ -7,12 +7,15 @@
 
 (defn- delete
   [entity entities]
-  (data/delete-entity entity (fn []
-                               (swap! entities (fn [old-list]
-                                                 (remove 
-                                                   #(= (:id %)
-                                                       (:id entity))
-                                                   old-list))))))
+  (data/delete-entity entity
+                      (fn []
+                        (swap! entities (fn [old-list]
+                                          (remove
+                                            #(= (:id %)
+                                                (:id entity))
+                                            old-list))))
+                      (fn [message]
+                        (js/alert message))))
 
 
 (defn- entity-row
@@ -21,7 +24,7 @@
   [:tr
    [:td (:name entity)]
    [:td
-    [:div.button-grp
+    [:div.btn-group
      [:button.btn.btn-xs.btn-info {:on-click #(edit entity entities)
                                    :title "Click here to edit this entity."}
       [:span.glyphicon.glyphicon-pencil {:arial-hidden true}]]

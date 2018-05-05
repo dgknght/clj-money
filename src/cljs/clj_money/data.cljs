@@ -20,8 +20,8 @@
 
 (defn get-entities
   [callback]
-  (go (let [response (<! (http/get (path :entities) {"Content-Type" "application/json"
-                                                     "Accept" "application/json"}))]
+  (go (let [response (<! (http/get (path :entities) {:headers {"Content-Type" "application/json"
+                                                               "Accept" "application/json"}}))]
         (if (= 200 (:status response))
           (let [reader (transit/reader :json {:keywordize-keys true})]
             (-> (transit/read reader (:body response))
@@ -30,11 +30,11 @@
           (.log js/console "Unable to get the entities from the service" (:body response))))))
 
 (defn delete-entity
-  [entity callback]
+  [entity success-fn error-fn]
   (go (let [response (<! (http/delete (path :entities
                                             (:id entity))
-                                      {"Content-Type" "application/json"
-                                       "Accept" "application/json"}))]
+                                      {:headers {"Content-Type" "application/json"
+                                                 "Accept" "application/json"}}))]
         (if (= 204 (:status response))
-          (callback)
-          (.log js/console "Unable to delete the entity " (prn-str entity) (:body response))))))
+          (success-fn)
+          (error-fn (-> response :body :message))))))
