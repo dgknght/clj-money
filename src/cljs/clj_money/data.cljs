@@ -40,5 +40,5 @@
           (success-fn)
           404
           (error-fn "The specified resource could not be found on the server.")
-          :else
+
           (error-fn (-> response :body :message))))))

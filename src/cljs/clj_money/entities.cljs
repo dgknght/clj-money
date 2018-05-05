@@ -33,6 +33,15 @@
                                      :title "Click here to remove this entity."}
       [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]]])
 
+(defn- entity-table
+  [entities]
+  [:table.table.table-striped.table-hover
+      [:tbody
+       [:tr
+        [:th.col-sm-10 "Name"]
+        [:th.col-sm-2 " "]]
+       (doall (map #(entity-row % entities) @entities))]])
+
 ; Expects an atom containing a list of entities
 (defn management
   "Renders an entity management form"
@@ -41,9 +50,4 @@
    [:h1 "Entities"]
    [:div.row
     [:div.col-md-6
-     [:table.table.table-striped.table-hover
-      [:tbody
-       [:tr
-        [:th.col-sm-10 "Name"]
-        [:th.col-sm-2 " "]]
-       (doall (map #(entity-row % @entities) @entities))]]]]])
+     [entity-table entities]]]])

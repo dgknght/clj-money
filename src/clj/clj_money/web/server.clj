@@ -167,7 +167,8 @@
   (route GET "/apps/:id" apps/show))
 
 (defroutes api-routes
-  (route GET "/api/entities" entities-api/index)
+  (route GET    "/api/entities" entities-api/index)
+  (route DELETE "/api/entities/:id" entities-api/delete)
 
   ; Imports
   (route POST "/api/imports" imports-api/create)

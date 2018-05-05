@@ -9,3 +9,8 @@
 (defn index
   [req]
   (response (entities/select (env :db) (:id (current-authentication)))))
+
+(defn delete
+  [{{id :id} :params}]
+  (entities/delete (env :db) id)
+  {:status 204})
