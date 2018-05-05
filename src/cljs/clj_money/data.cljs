@@ -35,6 +35,10 @@
                                             (:id entity))
                                       {:headers {"Content-Type" "application/json"
                                                  "Accept" "application/json"}}))]
-        (if (= 204 (:status response))
+        (case (:status response)
+          204
           (success-fn)
+          404
+          (error-fn "The specified resource could not be found on the server.")
+          :else
           (error-fn (-> response :body :message))))))

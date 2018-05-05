@@ -1,9 +1,10 @@
 (ns clj-money.entities
-  (:require [clj-money.data :as data]))
+  (:require [clj-money.data :as data]
+            [clj-money.notifications :refer [notify]]))
 
 (defn- edit
   [entity entities]
-  (.log js/console "edit " (prn-str entity)))
+  (notify "Edit coming soon!" :info))
 
 (defn- delete
   [entity entities]
@@ -15,7 +16,7 @@
                                                 (:id entity))
                                             old-list))))
                       (fn [message]
-                        (js/alert message))))
+                        (notify message :danger))))
 
 
 (defn- entity-row
