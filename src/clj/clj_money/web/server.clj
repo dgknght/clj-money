@@ -240,10 +240,11 @@
       wrap-session))
 
 (defroutes app
+  wrapped-open-routes
   (friend/logout (POST "/logout" [] (redirect "/")))
   wrapped-protected-routes
-  wrapped-api-routes
-  wrapped-open-routes
+  ;wrapped-api-routes
+  ;wrapped-open-routes
   (ANY "*" req
        (do
          (log/debug "unable to match route for " (:uri req))
