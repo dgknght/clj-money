@@ -194,42 +194,63 @@
   [req]
   (route/not-found (slurp (io/resource "404.html"))))
 
-(def wrapped-protected-routes
-  (-> protected-routes
-      (friend/authenticate
-        {:workflows [(workflows/interactive-form)]
-         :credential-fn (partial clj-money.models.users/authenticate (env :db))
-         :redirect-on-auth? false})
-      (friend/wrap-authorize #{:user})
-      wrap-anti-forgery
-      wrap-models
-      wrap-integer-id-params
-      wrap-content-type
-      wrap-exception-handling
-      wrap-params
-      wrap-multipart-params
-      wrap-keyword-params
-      wrap-session))
+; API Routes
+; wrap-anti-forgery
+; wrap-json-params
+; wrap-json-response
+; wrap-authentication
+; wrap-authorization
+; wrap-models
+; wrap-integer-id-params
+; wrap-exception-handling
+; wrap-params
+; wrap-session
 
-(def wrapped-api-routes
+; Authenticated UI routes
+; wrap-anti-forgery
+; wrap-keyword-params
+; wrap-multipart-params
+; wrap-authentication
+; wrap-authorization
+; wrap-models
+; wrap-integer-id-params
+; wrap-exception-handling
+; wrap-params
+; wrap-session
+
+; Open UI routes
+; wrap-anti-forgery
+; wrap-models
+; wrap-integer-id-params
+; wrap-exception-handling
+; wrap-params
+; wrap-session
+
+(defroutes authorized-routes
   (-> api-routes
+      wrap-json-params
+      wrap-json-response)
+  (-> protected-routes
+      wrap-keyword-params
+      wrap-multipart-params))
+
+(def wrapped-authorized-routes
+  (-> authorized-routes
       (friend/authenticate
         {:workflows [(workflows/interactive-form)]
          :credential-fn (partial clj-money.models.users/authenticate (env :db))
          :redirect-on-auth? false})
       (friend/wrap-authorize #{:user})
+      (wrap-anti-forgery {:context "protected routes"})
       wrap-models
       wrap-integer-id-params
-      wrap-content-type
       wrap-exception-handling
       wrap-params
-      wrap-json-params
-      wrap-json-response
       wrap-session))
 
 (def wrapped-open-routes
   (-> open-routes
-      wrap-anti-forgery
+      (wrap-anti-forgery {:context "open routes"})
       wrap-models
       wrap-integer-id-params
       (wrap-resource "public")
@@ -241,10 +262,8 @@
 
 (defroutes app
   wrapped-open-routes
+  wrapped-authorized-routes
   (friend/logout (POST "/logout" [] (redirect "/")))
-  wrapped-protected-routes
-  ;wrapped-api-routes
-  ;wrapped-open-routes
   (ANY "*" req
        (do
          (log/debug "unable to match route for " (:uri req))
