@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [compojure.core :refer [defroutes GET PUT POST DELETE ANY]]
+            [compojure.core :refer [defroutes routes GET PUT POST DELETE ANY]]
             [compojure.handler :refer [site]]
             [compojure.route :as route]
             [clojure.java.io :as io]
@@ -194,21 +194,37 @@
   [req]
   (route/not-found (slurp (io/resource "404.html"))))
 
+(defn wrap-authenticate
+  [handler]
+  (friend/authenticate
+    handler
+    {:workflows [(workflows/interactive-form)]
+     :credential-fn (partial clj-money.models.users/authenticate (env :db))
+     :redirect-on-auth? false}))
+
 (defroutes app
-  (-> (routes (-> api-routes
-                  wrap-json-params
-                  wrap-json-response)
+  (-> (routes open-routes
               (-> protected-routes
-                  wrap-multipart-params)
-              open-routes)
-      wrap-anti-forger
+                  wrap-models
+                  wrap-integer-id-params
+                  wrap-multipart-params
+                  wrap-keyword-params
+                  wrap-params
+                  (friend/wrap-authorize #{:user})
+                  wrap-authenticate)
+              (-> api-routes
+                  wrap-models
+                  wrap-integer-id-params
+                  wrap-json-response
+                  wrap-keyword-params
+                  wrap-json-params
+                  wrap-params
+                  (friend/wrap-authorize #{:user})
+                  wrap-authenticate))
+      wrap-anti-forgery
       wrap-exception-handling
-      wrap-models
-      wrap-integer-id-params
-      (wrap-resource "public")
       wrap-content-type
-      wrap-keyword-params
-      wrap-params
+      (wrap-resource "public")
       wrap-session)
   (friend/logout (POST "/logout" [] (redirect "/")))
   (ANY "*" req
