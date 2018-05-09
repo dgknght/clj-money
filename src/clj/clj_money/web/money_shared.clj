@@ -93,7 +93,7 @@
   (let [entity (if (map? entity-or-id)
                  entity-or-id
                  (entities/find-by-id (env :db) entity-or-id))]
-    (when (allowed? :show entity)
+    (when (and entity (allowed? :show entity))
       (html
         [:h3 "Budget monitors"]
         (->> (-> entity
