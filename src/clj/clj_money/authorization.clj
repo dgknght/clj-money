@@ -9,6 +9,8 @@
 (defn get-resource-tag
   "Returns a keyword identifying the type of the resource"
   [resource]
+  (if-not resource
+    (throw (IllegalArgumentException. "resource cannot be null")))
   (if-let [result (if (keyword? resource)
                     resource
                     (-> resource meta ::resource-type))]
