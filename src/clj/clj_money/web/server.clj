@@ -194,75 +194,22 @@
   [req]
   (route/not-found (slurp (io/resource "404.html"))))
 
-; API Routes
-; wrap-anti-forgery
-; wrap-json-params
-; wrap-json-response
-; wrap-authentication
-; wrap-authorization
-; wrap-models
-; wrap-integer-id-params
-; wrap-exception-handling
-; wrap-params
-; wrap-session
-
-; Authenticated UI routes
-; wrap-anti-forgery
-; wrap-keyword-params
-; wrap-multipart-params
-; wrap-authentication
-; wrap-authorization
-; wrap-models
-; wrap-integer-id-params
-; wrap-exception-handling
-; wrap-params
-; wrap-session
-
-; Open UI routes
-; wrap-anti-forgery
-; wrap-models
-; wrap-integer-id-params
-; wrap-exception-handling
-; wrap-params
-; wrap-session
-
-(defroutes authorized-routes
-  (-> api-routes
-      wrap-json-params
-      wrap-json-response)
-  (-> protected-routes
-      wrap-keyword-params
-      wrap-multipart-params))
-
-(def wrapped-authorized-routes
-  (-> authorized-routes
-      (friend/authenticate
-        {:workflows [(workflows/interactive-form)]
-         :credential-fn (partial clj-money.models.users/authenticate (env :db))
-         :redirect-on-auth? false})
-      (friend/wrap-authorize #{:user})
-      (wrap-anti-forgery {:context "protected routes"})
-      wrap-models
-      wrap-integer-id-params
+(defroutes app
+  (-> (routes (-> api-routes
+                  wrap-json-params
+                  wrap-json-response)
+              (-> protected-routes
+                  wrap-multipart-params)
+              open-routes)
+      wrap-anti-forger
       wrap-exception-handling
-      wrap-params
-      wrap-session))
-
-(def wrapped-open-routes
-  (-> open-routes
-      (wrap-anti-forgery {:context "open routes"})
       wrap-models
       wrap-integer-id-params
       (wrap-resource "public")
       wrap-content-type
-      wrap-exception-handling
-      wrap-params
       wrap-keyword-params
-      wrap-session))
-
-(defroutes app
-  wrapped-open-routes
-  wrapped-authorized-routes
+      wrap-params
+      wrap-session)
   (friend/logout (POST "/logout" [] (redirect "/")))
   (ANY "*" req
        (do
