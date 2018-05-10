@@ -209,13 +209,14 @@
      :redirect-on-auth? false}))
 
 (defroutes app
-  (-> (routes open-routes
-              (-> protected-routes
-                  wrap-multipart-params
-                  wrap-keyword-params
-                  wrap-params
-                  (friend/wrap-authorize #{:user})
-                  wrap-authenticate)
+  (-> (routes (-> (routes open-routes
+                          (-> protected-routes
+                              wrap-multipart-params
+                              wrap-keyword-params
+                              wrap-params
+                              (friend/wrap-authorize #{:user})
+                              wrap-authenticate))
+                  wrap-anti-forgery)
               (-> api-routes
                   wrap-json-response
                   wrap-keyword-params
@@ -223,7 +224,6 @@
                   wrap-params
                   (friend/wrap-authorize #{:user})
                   wrap-authenticate))
-      wrap-anti-forgery
       wrap-exception-handling
       wrap-content-type
       (wrap-resource "public")
