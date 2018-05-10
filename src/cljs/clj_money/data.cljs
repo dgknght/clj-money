@@ -23,10 +23,7 @@
   (go (let [response (<! (http/get (path :entities) {:headers {"Content-Type" "application/json"
                                                                "Accept" "application/json"}}))]
         (if (= 200 (:status response))
-          (let [reader (transit/reader :json {:keywordize-keys true})]
-            (-> (transit/read reader (:body response))
-                keywordize-keys
-                callback))
+          (callback (:body response))
           (.log js/console "Unable to get the entities from the service" (:body response))))))
 
 (defn delete-entity
