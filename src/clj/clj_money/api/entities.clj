@@ -13,4 +13,5 @@
 (defn delete
   [{{id :id} :params}]
   (entities/delete (env :db) id)
-  {:status 204})
+  {:status 204
+   :body []})
