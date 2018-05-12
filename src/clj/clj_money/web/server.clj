@@ -208,26 +208,74 @@
      :credential-fn (partial clj-money.models.users/authenticate (env :db))
      :redirect-on-auth? false}))
 
+(defn- api?
+  [{uri :uri}]
+  (when uri
+    (re-find #"^/api" uri)))
+
+(def ^:private open-route-rules
+  ["/"
+   [:get "/login"]
+   [:get "/signup"]
+   [:post "/users"]
+   [:get "/users/:token/password"]
+   [:post "/users/:token/password"]])
+
+(defn- open?
+  [{uri :uri method :request-method}]
+  (some (fn [rule]
+          (if (coll? rule)
+            (and (= uri (second rule))
+                 (= method (first rule)))
+            (= uri rule)))
+        open-route-rules))
+
+(defn- apply-wrapper
+  [handler wrapper]
+  (let [[wrapper-fn
+         description
+         test-fn] (if (= 2 (count wrapper))
+                    (conj wrapper (constantly true))
+                    wrapper)
+        wrapped-fn (wrapper-fn handler)]
+    (fn [request]
+
+      (when-not request
+        (throw (IllegalArgumentException. "request cannot be nil")))
+
+      (if (test-fn request)
+        (do
+          (log/debug "apply middleware " (:uri request) description)
+          (handler (wrapped-fn request)))
+        (do
+          (log/debug "ignore middleware " (:uri request) description)
+          (handler request))))))
+
+(defn-  wrap-routes
+  [handler & wrappers]
+  (reduce apply-wrapper
+          handler
+          wrappers))
+
+(def wrapped-routes
+  (wrap-routes (routes open-routes
+                       api-routes
+                       protected-routes)
+               [wrap-multipart-params               "multipart params" (complement api?)]
+               [wrap-keyword-params                 "keyword params"   (complement api?)]
+               [wrap-json-params                    "json params"      api?]
+               [wrap-json-response                  "json response"    api?]
+               [wrap-keyword-params                 "keyword params"]
+               [wrap-params                         "params"]
+               [wrap-exception-handling             "excpetion handling"]
+               [wrap-content-type                   "content-type"]
+               [#(wrap-resource % "public")         "public resources"]
+               [#(friend/wrap-authorize % #{:user}) "authorization"    (complement open?)]
+               [wrap-authenticate                   "authentication"   (complement open?)]
+               [wrap-session                        "session"]))
+
 (defroutes app
-  (-> (routes (-> (routes open-routes
-                          (-> protected-routes
-                              wrap-multipart-params
-                              wrap-keyword-params
-                              wrap-params
-                              (friend/wrap-authorize #{:user})
-                              wrap-authenticate))
-                  wrap-anti-forgery)
-              (-> api-routes
-                  wrap-json-response
-                  wrap-keyword-params
-                  wrap-json-params
-                  wrap-params
-                  (friend/wrap-authorize #{:user})
-                  wrap-authenticate))
-      wrap-exception-handling
-      wrap-content-type
-      (wrap-resource "public")
-      wrap-session)
+  wrapped-routes
   (friend/logout (POST "/logout" [] (redirect "/")))
   (ANY "*" req
        (do
