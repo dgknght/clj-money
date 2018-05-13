@@ -236,19 +236,14 @@
          description
          test-fn] (if (= 2 (count wrapper))
                     (conj wrapper (constantly true))
-                    wrapper)
-        wrapped-fn (wrapper-fn handler)]
-    (fn [request]
-
-      (when-not request
-        (throw (IllegalArgumentException. "request cannot be nil")))
-
+                    wrapper)]
+    (fn [{:keys [request-method uri] :as request}]
       (if (test-fn request)
         (do
-          (log/debug "apply middleware " (:uri request) description)
-          (handler (wrapped-fn request)))
+          (log/debug "apply middleware " description request-method uri)
+          ((wrapper-fn handler) request))
         (do
-          (log/debug "ignore middleware " (:uri request) description)
+          (log/debug "ignore middleware " description request-method uri)
           (handler request))))))
 
 (defn-  wrap-routes
@@ -269,10 +264,10 @@
                [wrap-params                         "params"]
                [wrap-exception-handling             "excpetion handling"]
                [wrap-content-type                   "content-type"]
-               [#(wrap-resource % "public")         "public resources"]
                [#(friend/wrap-authorize % #{:user}) "authorization"    (complement open?)]
                [wrap-authenticate                   "authentication"   (complement open?)]
-               [wrap-session                        "session"]))
+               [wrap-session                        "session"]
+               [#(wrap-resource % "public")         "public resources"]))
 
 (defroutes app
   wrapped-routes
