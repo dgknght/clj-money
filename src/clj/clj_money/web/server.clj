@@ -240,10 +240,10 @@
     (fn [{:keys [request-method uri] :as request}]
       (if (test-fn request)
         (do
-          (log/debug "apply middleware " description request-method uri)
+          (log/debug "apply middleware " description " to " request-method " " route)
           ((wrapper-fn handler) request))
         (do
-          (log/debug "ignore middleware " description request-method uri)
+          (log/debug "ignore middleware " description " for " request-method " " route)
           (handler request))))))
 
 (defn-  wrap-routes
