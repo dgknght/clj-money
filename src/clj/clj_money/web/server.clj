@@ -230,16 +230,11 @@
                     (conj wrapper (constantly true))
                     wrapper)]
     (fn [{:keys [request-method uri] :as request}]
-      (when (test-fn request)
-        (pprint {(str "enter " description " " request-method " " uri) (select-keys request [:cookies :session :headers])}))
-      (let [apply? (test-fn request)
-            working-handler (if apply?
-                              (wrapper-fn handler)
-                              handler)
-            response (working-handler request)]
-        (when apply?
-          (pprint {(str "exit " description " " request-method " " uri) (select-keys response [:cookies :session :headers])}))
-        response))))
+      (if (test-fn request)
+        (do
+          (log/trace "apply middleware " description " to " request-method " " uri)
+          ((wrapper-fn handler) request))
+        (handler request)))))
 
 (defn-  wrap-routes
   [handler & wrappers]
@@ -261,7 +256,6 @@
                [wrap-content-type                   "content-type"]
                [#(friend/wrap-authorize % #{:user}) "authorization"    (complement open?)]
                [wrap-authenticate                   "authentication"   (complement open?)]
-               [wrap-session                        "session"]
                [#(wrap-resource % "public")         "public resources"]))
 
 (defroutes app
