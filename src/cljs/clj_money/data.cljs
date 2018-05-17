@@ -14,9 +14,9 @@
 
 (defn- path
   [& segments]
-  (->> (concat [:api] segments)
-       (map stringify)
-       (string/join "/")))
+  (str "/" (->> (concat [:api] segments)
+                (map stringify)
+                (string/join "/"))))
 
 (defn get-entities
   [callback]
