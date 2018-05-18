@@ -1,10 +1,22 @@
 (ns clj-money.entities
-  (:require [clj-money.data :as data]
-            [clj-money.notifications :refer [notify]]))
+  (:require [reagent.core :as r]
+            [clj-money.data :as data]
+            [clj-money.notifications :as notify]))
+
+(def editing-entity (r/atom nil))
 
 (defn- edit
-  [entity entities]
-  (notify "Edit coming soon!" :info))
+  [entity]
+  (reset! editing-entity entity))
+
+(defn- finish-edit
+  []
+  (notify/warning "Not implemented.")
+  (reset! editing-entity nil))
+
+(defn- cancel-edit
+  []
+  (reset! editing-entity nil))
 
 (defn- delete
   [entity entities]
@@ -15,8 +27,7 @@
                                             #(= (:id %)
                                                 (:id entity))
                                             old-list))))
-                      (fn [message]
-                        (notify message :danger))))
+                      notify/danger))
 
 
 (defn- entity-row
@@ -25,13 +36,20 @@
   [:tr
    [:td (:name entity)]
    [:td
-    [:div.btn-group
-     [:button.btn.btn-xs.btn-info {:on-click #(edit entity entities)
+    [:div.btn-group {:class (when @editing-entity "hidden")}
+     [:button.btn.btn-xs.btn-info {:on-click #(edit entity)
                                    :title "Click here to edit this entity."}
       [:span.glyphicon.glyphicon-pencil {:arial-hidden true}]]
      [:button.btn.btn-xs.btn-danger {:on-click #(delete entity entities)
                                      :title "Click here to remove this entity."}
-      [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]]])
+      [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]
+    [:div.btn-group {:class (when (not= (:id @editing-entity) (:id entity)) "hidden")}
+     [:button.btn.btn-xs.btn-success {:on-click finish-edit
+                                      :title "Click here to save your changes to this entity"}
+      [:span.glyphicon.glyphicon-ok {:arial-hidden true}]]
+     [:button.btn.btn-xs.btn-danger {:on-click cancel-edit
+                                     :title "Click here to cancel this edit."}
+      [:span.glyphicon.glyphicon-ban-circle{:arial-hidden true}]]]]])
 
 (defn- entity-table
   [entities]
