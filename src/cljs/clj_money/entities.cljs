@@ -1,5 +1,6 @@
 (ns clj-money.entities
   (:require [reagent.core :as r]
+            [reagent-forms.core :refer [bind-fields]]
             [clj-money.data :as data]
             [clj-money.notifications :as notify]))
 
@@ -30,26 +31,34 @@
                       notify/danger))
 
 
+(def ^:private entity-form-template
+  [:input.form-control {:field :text :id :name}])
+
 (defn- entity-row
   [entity entities]
-  ^{:key entity}
-  [:tr
-   [:td (:name entity)]
-   [:td
-    [:div.btn-group {:class (when @editing-entity "hidden")}
-     [:button.btn.btn-xs.btn-info {:on-click #(edit entity)
-                                   :title "Click here to edit this entity."}
-      [:span.glyphicon.glyphicon-pencil {:arial-hidden true}]]
-     [:button.btn.btn-xs.btn-danger {:on-click #(delete entity entities)
-                                     :title "Click here to remove this entity."}
-      [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]
-    [:div.btn-group {:class (when (not= (:id @editing-entity) (:id entity)) "hidden")}
-     [:button.btn.btn-xs.btn-success {:on-click finish-edit
-                                      :title "Click here to save your changes to this entity"}
-      [:span.glyphicon.glyphicon-ok {:arial-hidden true}]]
-     [:button.btn.btn-xs.btn-danger {:on-click cancel-edit
-                                     :title "Click here to cancel this edit."}
-      [:span.glyphicon.glyphicon-ban-circle{:arial-hidden true}]]]]])
+  (let [editing? (= (:id @editing-entity) (:id entity))]
+    ^{:key entity}
+    [:tr
+     [:td
+      [:span {:class (when editing? "hidden")}
+       (:name entity)]
+      [:span {:class (when (not editing?) "hidden")}
+       [bind-fields entity-form-template (r/atom entity)]]]
+     [:td
+      [:div.btn-group {:class (when editing? "hidden")}
+       [:button.btn.btn-xs.btn-info {:on-click #(edit entity)
+                                     :title "Click here to edit this entity."}
+        [:span.glyphicon.glyphicon-pencil {:arial-hidden true}]]
+       [:button.btn.btn-xs.btn-danger {:on-click #(delete entity entities)
+                                       :title "Click here to remove this entity."}
+        [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]
+      [:div.btn-group {:class (when (not editing?) "hidden")}
+       [:button.btn.btn-xs.btn-success {:on-click finish-edit
+                                        :title "Click here to save your changes to this entity"}
+        [:span.glyphicon.glyphicon-ok {:arial-hidden true}]]
+       [:button.btn.btn-xs.btn-danger {:on-click cancel-edit
+                                       :title "Click here to cancel this edit."}
+        [:span.glyphicon.glyphicon-ban-circle{:arial-hidden true}]]]]]))
 
 (defn- entity-table
   [entities]
