@@ -48,124 +48,130 @@
             [clj-money.web.users :as users]
             [clj-money.web.grants :as grants]))
 
+(defmacro model-route
+  [method path handler]
+  `(~method ~path req# (-> ~handler
+                           wrap-models
+                           wrap-integer-id-params)))
+
 (defroutes all-routes
   ; Entities
-  (GET "/entities" req entities/index)
-  (GET "/entities/new" req entities/new-entity)
-  (POST "/entities" req entities/create-entity)
-  (GET "/entities/:id/edit" req entities/edit-entity)
-  (POST "/entities/:id" req entities/update)
-  (POST "/entities/:id/delete" req entities/delete)
+  (model-route GET "/entities" entities/index)
+  (model-route GET "/entities/new" entities/new-entity)
+  (model-route POST "/entities" entities/create-entity)
+  (model-route GET "/entities/:id/edit" entities/edit-entity)
+  (model-route POST "/entities/:id" entities/update)
+  (model-route POST "/entities/:id/delete" entities/delete)
 
   ; User grants
-  (GET "/entities/:entity-id/grants" req grants/index)
-  (GET "/entities/:entity-id/grants/new" req grants/new-grant)
-  (POST "/entities/:entity-id/grants" req grants/create)
-  (GET "/grants/:id/edit" req grants/edit)
-  (POST "/grants/:id" req grants/update)
-  (POST "/grants/:id/delete" req grants/delete)
+  (model-route GET "/entities/:entity-id/grants" grants/index)
+  (model-route GET "/entities/:entity-id/grants/new" grants/new-grant)
+  (model-route POST "/entities/:entity-id/grants" grants/create)
+  (model-route GET "/grants/:id/edit" grants/edit)
+  (model-route POST "/grants/:id" grants/update)
+  (model-route POST "/grants/:id/delete" grants/delete)
 
   ; Accounts
-  (GET "/entities/:entity-id/accounts" req accounts/index)
-  (GET "/entities/:entity-id/accounts/new" req accounts/new-account)
-  (POST "/entities/:entity-id/accounts" req accounts/create)
-  (GET "/accounts/:id" req accounts/show)
-  (GET "/accounts/:id/edit" req accounts/edit)
-  (POST "/accounts/:id" req accounts/update)
-  (POST "/accounts/:id/delete" req accounts/delete)
+  (model-route GET "/entities/:entity-id/accounts" accounts/index)
+  (model-route GET "/entities/:entity-id/accounts/new" accounts/new-account)
+  (model-route POST "/entities/:entity-id/accounts" accounts/create)
+  (model-route GET "/accounts/:id" accounts/show)
+  (model-route GET "/accounts/:id/edit" accounts/edit)
+  (model-route POST "/accounts/:id" accounts/update)
+  (model-route POST "/accounts/:id/delete" accounts/delete)
 
   ; Budgets
-  (GET "/entities/:entity-id/budgets" req budgets/index)
-  (GET "/entities/:entity-id/budgets/new" req budgets/new-budget)
-  (POST "/entities/:entity-id/budgets" req budgets/create)
-  (GET "/budgets/:id/edit" req budgets/edit)
-  (POST "/budgets/:id" req budgets/update)
-  (POST "/budgets/:id/delete" req budgets/delete)
-  (GET "/budgets/:id" req budgets/show)
+  (model-route GET "/entities/:entity-id/budgets" budgets/index)
+  (model-route GET "/entities/:entity-id/budgets/new" budgets/new-budget)
+  (model-route POST "/entities/:entity-id/budgets" budgets/create)
+  (model-route GET "/budgets/:id/edit" budgets/edit)
+  (model-route POST "/budgets/:id" budgets/update)
+  (model-route POST "/budgets/:id/delete" budgets/delete)
+  (model-route GET "/budgets/:id" budgets/show)
 
   ; Budget items
-  (GET "/budgets/:budget-id/items/new/:method" req budgets/new-item)
-  (POST "/budgets/:budget-id/items" req budgets/create-item)
-  (GET "/budget-items/:id/edit/:method" req budgets/edit-item)
-  (POST "/budget-items/:id" req budgets/update-item)
-  (POST "/budget-items/:id/delete" req budgets/delete-item)
+  (model-route GET "/budgets/:budget-id/items/new/:method" budgets/new-item)
+  (model-route POST "/budgets/:budget-id/items" budgets/create-item)
+  (model-route GET "/budget-items/:id/edit/:method" budgets/edit-item)
+  (model-route POST "/budget-items/:id" budgets/update-item)
+  (model-route POST "/budget-items/:id/delete" budgets/delete-item)
 
   ; Budget monitors
-  (GET "/entities/:entity-id/monitors" req entities/monitors)
-  (POST "/entities/:entity-id/monitors" req entities/create-monitor)
-  (POST "/entities/:entity-id/monitors/:account-id/delete" req entities/delete-monitor)
+  (model-route GET "/entities/:entity-id/monitors" entities/monitors)
+  (model-route POST "/entities/:entity-id/monitors" entities/create-monitor)
+  (model-route POST "/entities/:entity-id/monitors/:account-id/delete" entities/delete-monitor)
 
   ; Commodities
-  (GET "/entities/:entity-id/commodities" req commodities/index)
-  (GET "/entities/:entity-id/commodities/new" req commodities/new-commodity)
-  (POST "/entities/:entity-id/commodities" req commodities/create)
-  (GET "/commodities/:id/edit" req commodities/edit)
-  (POST "/commodities/:id" req commodities/update)
-  (POST "/commodities/:id/delete" req commodities/delete)
+  (model-route GET "/entities/:entity-id/commodities" commodities/index)
+  (model-route GET "/entities/:entity-id/commodities/new" commodities/new-commodity)
+  (model-route POST "/entities/:entity-id/commodities" commodities/create)
+  (model-route GET "/commodities/:id/edit" commodities/edit)
+  (model-route POST "/commodities/:id" commodities/update)
+  (model-route POST "/commodities/:id/delete" commodities/delete)
 
   ; Prices
-  (GET "/commodities/:commodity-id/prices" req prices/index)
-  (GET "/commodities/:commodity-id/prices/new" req prices/new-price)
-  (POST "/commodities/:commodity-id/prices" req prices/create)
-  (POST "/commodities/:commodity-id/prices/fetch" req prices/fetch)
-  (POST "/entities/:entity-id/prices/fetch" req prices/fetch-all)
-  (POST "/prices/:id/delete" req prices/delete)
+  (model-route GET "/commodities/:commodity-id/prices" prices/index)
+  (model-route GET "/commodities/:commodity-id/prices/new" prices/new-price)
+  (model-route POST "/commodities/:commodity-id/prices" prices/create)
+  (model-route POST "/commodities/:commodity-id/prices/fetch" prices/fetch)
+  (model-route POST "/entities/:entity-id/prices/fetch" prices/fetch-all)
+  (model-route POST "/prices/:id/delete" prices/delete)
 
   ; Transactions
-  (GET "/entities/:entity-id/transactions" req transactions/index)
-  (GET "/entities/:entity-id/transactions/new" req transactions/new-transaction)
-  (POST "/entities/:entity-id/transactions" req transactions/create)
-  (GET "/transactions/:transaction-date/:id/edit" req transactions/edit)
-  (POST "/transactions/:transaction-date/:id" req transactions/update)
-  (POST "/transactions/:transaction-date/:id/delete" req transactions/delete)
+  (model-route GET "/entities/:entity-id/transactions" transactions/index)
+  (model-route GET "/entities/:entity-id/transactions/new" transactions/new-transaction)
+  (model-route POST "/entities/:entity-id/transactions" transactions/create)
+  (model-route GET "/transactions/:transaction-date/:id/edit" transactions/edit)
+  (model-route POST "/transactions/:transaction-date/:id" transactions/update)
+  (model-route POST "/transactions/:transaction-date/:id/delete" transactions/delete)
 
   ; Attachments
-  (GET "/transactions/:transaction-id/attachments" req attachments/index)
-  (GET "/transactions/:transaction-id/attachments" req attachments/index)
-  (GET "/transactions/:transaction-id/attachments/new" req attachments/new-attachment)
-  (POST "/transactions/:transaction-id/attachments" req attachments/create)
-  (GET "/attachments/:id/edit" req attachments/edit)
-  (POST "/attachments/:id" req attachments/update)
-  (POST "/attachments/:id/delete" req attachments/delete)
+  (model-route GET "/transactions/:transaction-id/attachments" attachments/index)
+  (model-route GET "/transactions/:transaction-id/attachments" attachments/index)
+  (model-route GET "/transactions/:transaction-id/attachments/new" attachments/new-attachment)
+  (model-route POST "/transactions/:transaction-id/attachments" attachments/create)
+  (model-route GET "/attachments/:id/edit" attachments/edit)
+  (model-route POST "/attachments/:id" attachments/update)
+  (model-route POST "/attachments/:id/delete" attachments/delete)
 
   ; Images
-  (GET "/images/:image-id" req images/show)
+  (model-route GET "/images/:image-id" images/show)
 
   ; Trading
-  (GET "/accounts/:account-id/purchases/new" req trading/new-purchase)
-  (POST "/accounts/:account-id/purchases" req trading/purchase)
-  (GET "/accounts/:account-id/sales/new" req trading/new-sale)
-  (POST "/accounts/:account-id/sales" req trading/sell)
-  (POST "/transactions/:transaction-id/unbuy" req trading/unbuy)
+  (model-route GET "/accounts/:account-id/purchases/new" trading/new-purchase)
+  (model-route POST "/accounts/:account-id/purchases" trading/purchase)
+  (model-route GET "/accounts/:account-id/sales/new" trading/new-sale)
+  (model-route POST "/accounts/:account-id/sales" trading/sell)
+  (model-route POST "/transactions/:transaction-id/unbuy" trading/unbuy)
 
   ; Lots
-  (GET "/accounts/:account-id/lots" req lots/index)
+  (model-route GET "/accounts/:account-id/lots" lots/index)
 
   ; Reconciliations
-  (GET "/accounts/:account-id/reconciliations/new" req reconciliations/new-reconciliation)
-  (POST "/accounts/:account-id/reconciliations" req reconciliations/create)
-  (GET "/reconciliations/:id" req reconciliations/show)
-  (GET "/reconciliations/:id/edit" req reconciliations/edit)
-  (POST "/reconciliations/:id" req reconciliations/update)
-  (POST "/reconciliations/:id/delete" req reconciliations/delete)
+  (model-route GET "/accounts/:account-id/reconciliations/new" reconciliations/new-reconciliation)
+  (model-route POST "/accounts/:account-id/reconciliations" reconciliations/create)
+  (model-route GET "/reconciliations/:id" reconciliations/show)
+  (model-route GET "/reconciliations/:id/edit" reconciliations/edit)
+  (model-route POST "/reconciliations/:id" reconciliations/update)
+  (model-route POST "/reconciliations/:id/delete" reconciliations/delete)
 
   ; Imports
   (GET "/imports/new" req imports/new-import)
   
   ; Reports
-  (GET "/entities/:entity-id/reports" req reports/render)
-  (GET "/entities/:entity-id/reports/:type" req reports/render)
+  (model-route GET "/entities/:entity-id/reports" reports/render)
+  (model-route GET "/entities/:entity-id/reports/:type" reports/render)
 
   ; Single page apps
   (GET "/apps" req apps/index)
   (GET "/apps/:id" req apps/show)
 
-  (GET "/api/entities" req entities-api/index)
-  (DELETE "/api/entities/:id" req entities-api/delete)
+  (model-route GET "/api/entities" entities-api/index)
+  (model-route DELETE "/api/entities/:id" entities-api/delete)
 
   ; Imports
   (POST "/api/imports" req imports-api/create)
-  (GET "/api/imports/:id" req imports-api/show)
+  (model-route GET "/api/imports/:id" imports-api/show)
 
   (GET "/" req pages/home)
   (GET "/login" req pages/login)
@@ -244,8 +250,6 @@
 
 (def wrapped-routes
   (wrap-routes all-routes
-               [wrap-models                         "models"]
-               [wrap-integer-id-params              "multipart params"]
                [wrap-multipart-params               "multipart params" (complement api?)]
                [wrap-keyword-params                 "keyword params"   (complement api?)]
                [wrap-json-params                    "json params"      api?]
