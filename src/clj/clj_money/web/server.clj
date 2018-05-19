@@ -204,7 +204,8 @@
     handler
     {:workflows [(workflows/interactive-form)]
      :credential-fn (partial clj-money.models.users/authenticate (env :db))
-     :redirect-on-auth? false}))
+     :redirect-on-auth? "/apps"
+     :default-landing-uri "/apps"}))
 
 (defn- api?
   [{uri :uri}]
