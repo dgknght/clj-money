@@ -7,23 +7,13 @@
             [clj-money.notifications :refer [notifications unnotify]]
             [clj-money.entities :as entities]))
 
-(def current-entity (r/atom nil))
-
-(def entities (r/atom []))
-
-(defn- load-entities []
-  (data/get-entities (fn [result]
-                       (reset! current-entity (first result))
-                       (reset! entities result))))
-
 (defn- entity-nav-item
   [entity]
   ^{:key entity}
-  [:li {:class (when (= (:id entity)
-                        (:id @current-entity))
+  [:li {:class (when (entities/active? entity)
                  "active")}
    [:a {:href "#"
-        :on-click #(reset! current-entity entity)}
+        :on-click #(entities/activate entity)}
     (:name entity)]])
 
 (defn nav []
@@ -50,12 +40,12 @@
          :data-toggle "dropdown"
          :role "button"
          :aria-haspopup true}
-        (:name @current-entity)
+        (:name @entities/current)
         [:span.caret]]
        [:ul.dropdown-menu
         (doall
           (concat
-            (map entity-nav-item @entities)
+            (map entity-nav-item @entities/all-entities)
             [^{:key :entities-separator} [:li.divider {:role "separator"}]
              ^{:key :manage-entities} [:li
               [:a {:href "/entities"} "Manage Entities"]]]))]]]]]])
@@ -89,7 +79,7 @@
    [nav]
    [alerts]
    [:div.container
-    (entities/management entities)]])
+    [entities/management]]])
 
 (def app-element
   (.getElementById js/document "app"))
@@ -109,6 +99,6 @@
      :path-exists? #(secretary/locate-route %)})
   (accountant/dispatch-current!)
   (mount-root)
-  (load-entities))
+  (entities/load))
 
 (init!)

@@ -1,10 +1,16 @@
 (ns clj-money.entities
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
+            [clj-money.util :as util]
             [clj-money.data :as data]
             [clj-money.notifications :as notify]))
 
-(def editing-entity (r/atom nil))
+(def all-entities (r/atom []))
+
+(def current (r/atom nil))
+
+(def ^:private editing-entity
+  (r/atom nil))
 
 (defn- edit
   [entity]
@@ -12,7 +18,8 @@
 
 (defn- finish-edit
   []
-  (notify/warning "Not implemented.")
+  ; TODO Add something to show the user the save is happening in the background
+  (data/update-entity @editing-entity (constantly true) #(notify/danger %))
   (reset! editing-entity nil))
 
 (defn- cancel-edit
@@ -20,61 +27,80 @@
   (reset! editing-entity nil))
 
 (defn- delete
-  [entity entities]
+  [entity]
   (data/delete-entity entity
                       (fn []
-                        (swap! entities (fn [old-list]
-                                          (remove
-                                            #(= (:id %)
-                                                (:id entity))
-                                            old-list))))
+                        (swap! all-entities (fn [old-list]
+                                              (remove
+                                                #(= (:id %)
+                                                    (:id entity))
+                                                old-list))))
                       notify/danger))
 
-
-(def ^:private entity-form-template
-  [:input.form-control {:field :text :id :name}])
+(def ^:private entity-form
+  [:form
+  [:div.form-group
+   [:label.control-label {:for :name}]
+   [:input.form-control {:field :text :id :name}]
+   [:span.help-block {:field :alert :id :name :event empty?}
+    "Name is required."]]
+  [:button.btn.btn-primary {:type :button :on-click finish-edit}
+   [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}] "Save"]
+  [:button.btn.btn-danger {:type :button :on-click cancel-edit}
+   [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}] "Cancel"]])
 
 (defn- entity-row
-  [entity entities]
-  (let [editing? (= (:id @editing-entity) (:id entity))]
-    ^{:key entity}
-    [:tr
-     [:td
-      [:span {:class (when editing? "hidden")}
-       (:name entity)]
-      [:span {:class (when (not editing?) "hidden")}
-       [bind-fields entity-form-template (r/atom entity)]]]
-     [:td
-      [:div.btn-group {:class (when editing? "hidden")}
-       [:button.btn.btn-xs.btn-info {:on-click #(edit entity)
-                                     :title "Click here to edit this entity."}
-        [:span.glyphicon.glyphicon-pencil {:arial-hidden true}]]
-       [:button.btn.btn-xs.btn-danger {:on-click #(delete entity entities)
-                                       :title "Click here to remove this entity."}
-        [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]
-      [:div.btn-group {:class (when (not editing?) "hidden")}
-       [:button.btn.btn-xs.btn-success {:on-click finish-edit
-                                        :title "Click here to save your changes to this entity"}
-        [:span.glyphicon.glyphicon-ok {:arial-hidden true}]]
-       [:button.btn.btn-xs.btn-danger {:on-click cancel-edit
-                                       :title "Click here to cancel this edit."}
-        [:span.glyphicon.glyphicon-ban-circle{:arial-hidden true}]]]]]))
+  [entity]
+  ^{:key entity}
+  [:tr
+   [:td
+    (:name entity)]
+   [:td
+    [:div.btn-group
+     [:button.btn.btn-xs.btn-info {:on-click #(edit entity)
+                                   :title "Click here to edit this entity."}
+      [:span.glyphicon.glyphicon-pencil {:arial-hidden true}]]
+     [:button.btn.btn-xs.btn-danger {:on-click #(delete entity)
+                                     :title "Click here to remove this entity."}
+      [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]]])
 
 (defn- entity-table
-  [entities]
+  []
   [:table.table.table-striped.table-hover
       [:tbody
        [:tr
         [:th.col-sm-10 "Name"]
         [:th.col-sm-2 " "]]
-       (doall (map #(entity-row % entities) @entities))]])
+       (doall (map #(entity-row %) @all-entities))]])
 
-; Expects an atom containing a list of entities
 (defn management
   "Renders an entity management form"
-  [entities]
+  []
   [:section
-   [:h1 "Entities"]
-   [:div.row
+   [:div.row {:class (when-not @editing-entity "hidden")}
+    [:h1 "Edit Entity"]
     [:div.col-md-6
-     [entity-table entities]]]])
+     [bind-fields entity-form editing-entity]]]
+   [:div.row {:class (when @editing-entity "hidden")}
+    [:div.col-md-6
+     [:h1 "Entities"]
+     [entity-table]]]])
+
+(defn load
+  "Loads the entities that are available to the user"
+  []
+  (data/get-entities (fn [result]
+                       (swap! current (fnil identity (first result)))
+                       (reset! all-entities result))))
+
+(defn active?
+  "Returns a boolean value indicating whether or not
+  the specified entity is the active entity"
+  [entity]
+  (= (:id entity)
+     (:id @current)))
+
+(defn activate
+  "Sets the specified entity as the active entity"
+  [entity]
+  (reset! @current entity))
