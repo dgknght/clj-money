@@ -39,15 +39,18 @@
 
 (def ^:private entity-form
   [:form
-  [:div.form-group
-   [:label.control-label {:for :name}]
-   [:input.form-control {:field :text :id :name}]
-   [:span.help-block {:field :alert :id :name :event empty?}
-    "Name is required."]]
-  [:button.btn.btn-primary {:type :button :on-click finish-edit}
-   [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}] "Save"]
-  [:button.btn.btn-danger {:type :button :on-click cancel-edit}
-   [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}] "Cancel"]])
+   [:div.form-group
+    [:label.control-label {:for :name}]
+    [:input.form-control {:field :text :id :name}]
+    [:span.help-block {:field :alert :id :name :event empty?}
+     "Name is required."]]
+   [:button.btn.btn-primary {:type :button :on-click finish-edit}
+    [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
+    (util/space) "Save"]
+   (util/space)
+   [:button.btn.btn-danger {:type :button :on-click cancel-edit}
+    [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
+    (util/space) "Cancel"]])
 
 (defn- entity-row
   [entity]
