@@ -251,7 +251,7 @@
 
 (def wrapped-routes
   (wrap-routes all-routes
-               [wrap-anti-forgery                   "anti-forgery"]
+               [wrap-anti-forgery                   "anti-forgery"     (complement api?)]
                [wrap-multipart-params               "multipart params" (complement api?)]
                [wrap-keyword-params                 "keyword params"   (complement api?)]
                [wrap-json-params                    "json params"      api?]
