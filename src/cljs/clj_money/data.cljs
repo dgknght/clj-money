@@ -33,7 +33,7 @@
          (if (= 204 (:status response))
            (success-fn)
            (do
-             (.log js/console "Unable to update the entity " (prn-str entity) ": " (:body response))
+             (.log js/console "Unable to update the entity " (prn-str entity) ": " (prn-str response))
              (error-fn (-> response :body :message))))))))
 
 (defn delete-entity

@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
-            [compojure.core :refer [defroutes routes GET PUT POST DELETE ANY]]
+            [compojure.core :refer [defroutes routes GET PUT PATCH POST DELETE ANY]]
             [compojure.handler :refer [site]]
             [compojure.route :as route]
             [clojure.java.io :as io]
@@ -167,6 +167,7 @@
   (GET "/apps/:id" req apps/show)
 
   (model-route GET "/api/entities" entities-api/index)
+  (model-route PATCH "/api/entities/:id" entities-api/update)
   (model-route DELETE "/api/entities/:id" entities-api/delete)
 
   ; Imports
