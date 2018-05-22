@@ -53,8 +53,9 @@
           action
           @auth-context)
         auth-fns)
-      (throw (ex-info (format "No authorization rules registered for %s." tag)
-                      {:action action :resource tag})))))
+      (throw+ {:type ::no-rules
+               :action action
+               :resource tag}))))
 
 (defn authorize
   "Raises an error if the current user does not have
