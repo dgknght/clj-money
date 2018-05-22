@@ -240,7 +240,7 @@
     (fn [{:keys [request-method uri] :as request}]
       (if (test-fn request)
         (do
-          (log/trace "apply middleware " description " to " request-method " " uri)
+          (log/trace "apply middleware" description "to" request-method uri)
           ((wrapper-fn handler) request))
         (handler request)))))
 
