@@ -1,7 +1,9 @@
 (ns clj-money.middleware
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [ring.util.response :refer [response status header]]
             [environ.core :refer [env]]
+            [cheshire.core :as json]
             [slingshot.slingshot :refer [try+]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]))
@@ -57,10 +59,22 @@
     (try+
       (handler request)
       (catch [:type :clj-money.models/not-found] error-data
-        {:status 404
-         :headers {}
-         :body "not found"})
+        (-> (json/generate-string {:message "not found"})
+            response
+            (status 404)
+            (header "Content-Type" "application/json"))) ; TODO respond with content type according to accept header
+      (catch [:type :clj-money.authorization/no-rules] error-data
+        (-> (json/generate-string {:message "no authorization rules"})
+            response
+            (status 500)
+            (header "Content-Type" "application/json")))
       (catch [:type :clj-money.authorization/unauthorized] error-data
-        {:status 404
-         :headers {}
-         :body "not found"})))) ; TODO create a full not-found page
+        (if (env :show-error-messages?)
+          (-> (json/generate-string {:message "unauthorized"})
+              response
+              (status 403)
+              (header "Content-Type" "application/json"))
+          (-> (json/generate-string {:message "not found"})
+              response
+              (status 404)
+              (header "Content-Type" "application/json"))))))) ; TODO create a full not-found page
