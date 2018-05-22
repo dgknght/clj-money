@@ -28,8 +28,8 @@
 
 (defn update-entity
   ([entity success-fn error-fn]
-   (go (let [response (<! (http/patch (path :entities (:id entity) {:headers {"Content-Type" "application/json"
-                                                                              "Accept" "application/json"}})))]
+   (go (let [response (<! (http/patch (path :entities (:id entity)) {:headers {"Content-Type" "application/json"
+                                                                               "Accept" "application/json"}}))]
          (if (= 204 (:status response))
            (success-fn)
            (do
