@@ -15,12 +15,16 @@
 
 (defn update
   [{{id :id} :params}]
-  (let [entity (authorize :update (entities/find-by-id (env :db) id))]
+  (let [entity (authorize (entities/find-by-id (env :db) id) :update)]
     (try
-      (entities/update (env :db) entity)
-      (-> []
-          response
-          (status 204))
+      (let [result (entities/update (env :db) entity)]
+        (if (validation/has-error? result)
+          (-> (validation/error-messages result)
+              response
+              ))
+        (-> []
+            response
+            (status 204)))
       (catch Exception e
         (->  (if (env :show-error-messages?)
                (.getMessage e)
@@ -31,7 +35,7 @@
 
 (defn delete
   [{{id :id} :params}]
-  (let [entity (authorize :delete (entities/find-by-id (env :db) id))]
+  (let [entity (authorize (entities/find-by-id (env :db) id) :delete)]
     (try
     (entities/delete (env :db) (:id entity))
     (catch Exception e
