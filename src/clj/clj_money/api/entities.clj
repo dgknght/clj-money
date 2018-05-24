@@ -14,17 +14,17 @@
   (response (entities/select (env :db) (:id (current-authentication)))))
 
 (defn update
-  [{{id :id} :params}]
-  (let [entity (authorize (entities/find-by-id (env :db) id) :update)]
+  [{:keys [params] :as req}]
+  (let [entity (authorize (entities/find-by-id (env :db) (:id params)) :update)
+        updated (merge entity (select-keys params [:name]))]
     (try
-      (let [result (entities/update (env :db) entity)]
+      (let [result (entities/update (env :db) updated)]
         (if (validation/has-error? result)
           (-> (validation/error-messages result)
-              response
-              ))
+              response))
         (-> []
-            response
-            (status 204)))
+            (response result)
+            (status 200)))
       (catch Exception e
         (->  (if (env :show-error-messages?)
                (.getMessage e)

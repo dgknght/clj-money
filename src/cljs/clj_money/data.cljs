@@ -28,10 +28,11 @@
 
 (defn update-entity
   ([entity success-fn error-fn]
-   (go (let [response (<! (http/patch (path :entities (:id entity)) {:headers {"Content-Type" "application/json"
+   (go (let [response (<! (http/patch (path :entities (:id entity)) {:json-params entity
+                                                                     :headers {"Content-Type" "application/json"
                                                                                "Accept" "application/json"}}))]
-         (if (= 204 (:status response))
-           (success-fn)
+         (if (= 200 (:status response))
+           (success-fn response)
            (do
              (.log js/console "Unable to update the entity " (prn-str entity) ": " (prn-str response))
              (error-fn (-> response :body :message))))))))

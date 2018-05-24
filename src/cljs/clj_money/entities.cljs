@@ -19,7 +19,11 @@
 (defn- finish-edit
   []
   ; TODO Add something to show the user the save is happening in the background
-  (data/update-entity @editing-entity (constantly true) #(notify/danger %))
+  (let [updated (data/update-entity @editing-entity (constantly true) #(notify/danger %))]
+    (swap! all-entities #(map (fn [e]
+                               (if (= (:id e)  (:id updated))
+                                 updated
+                                 e)))))
   (reset! editing-entity nil))
 
 (defn- cancel-edit
