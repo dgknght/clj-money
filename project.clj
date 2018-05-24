@@ -70,20 +70,20 @@
   :minify-assets {:assets
                   {"resources/public/css/clj-money.min.css" "resources/public/css/clj-money.css"}}
 
-  :cljsbuild {:builds {:min {:source-paths ["src/cljs"]
-                             :compiler {:output-to  "target/cljsbuild/public/js/app.js"
-                                        :output-dir "target/cljsbuild/public/js"
-                                        :source-map "target/cljsbuild/public/js/app.js.map"
-                                        :optimizations :advanced
-                                        :pretty-print false}}
-                       :app {:source-paths ["src/cljs"]
-                             :compiler {:main "clj-money.core"
-                                        :asset-path "js/out"
-                                        :output-to  "target/cljsbuild/public/js/app.js"
-                                        :output-dir "target/cljsbuild/public/js/out"
-                                        :source-map true
-                                        :optimizations :none
-                                        :pretty-print true}}}}
+  :cljsbuild {:builds [{:source-paths ["src/cljs"]
+                        :compiler {:output-to  "target/cljsbuild/public/js/app.js"
+                                   :output-dir "target/cljsbuild/public/js"
+                                   :source-map "target/cljsbuild/public/js/app.js.map"
+                                   :optimizations :advanced
+                                   :pretty-print false}}
+                       {:source-paths ["src/cljs"]
+                        :compiler {:main "clj-money.core"
+                                   :asset-path "js/out"
+                                   :output-to  "target/cljsbuild/public/js/app.js"
+                                   :output-dir "target/cljsbuild/public/js/out"
+                                   :source-map true
+                                   :optimizations :none
+                                   :pretty-print true}}]}
 
   :aliases {"migrate"               ["run" "-m" "clj-money.db/migrate"]
             "rollback"              ["run" "-m" "clj-money.db/rollback"]
