@@ -254,10 +254,9 @@
   (wrap-routes all-routes
                [wrap-anti-forgery                   "anti-forgery"     (complement api?)]
                [wrap-multipart-params               "multipart params" (complement api?)]
-               [wrap-keyword-params                 "keyword params"   (complement api?)]
+               [wrap-keyword-params                 "keyword params"]
                [wrap-json-params                    "json params"      api?]
                [wrap-json-response                  "json response"    api?]
-               [wrap-keyword-params                 "keyword params"]
                [wrap-params                         "params"]
                [wrap-exception-handling             "excpetion handling"]
                [wrap-content-type                   "content-type"]
