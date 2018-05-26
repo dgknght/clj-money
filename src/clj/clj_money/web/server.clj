@@ -244,6 +244,13 @@
           ((wrapper-fn handler) request))
         (handler request)))))
 
+(defn- wrap-response-spy
+  [handler]
+  (fn [request]
+    (let [response (handler request)]
+      (log/spy response)
+      response)))
+
 (defn-  wrap-routes
   [handler & wrappers]
   (reduce apply-wrapper
@@ -262,7 +269,8 @@
                [wrap-content-type                   "content-type"]
                [#(friend/wrap-authorize % #{:user}) "authorization"    (complement open?)]
                [wrap-authenticate                   "authentication"   (complement open?)]
-               [#(wrap-resource % "public")         "public resources"]))
+               [#(wrap-resource % "public")         "public resources"]
+               [wrap-response-spy                   "response spy"]))
 
 (defroutes app
   wrapped-routes
