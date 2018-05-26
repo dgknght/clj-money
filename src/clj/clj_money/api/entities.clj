@@ -4,6 +4,7 @@
             [ring.util.response :refer [status response header]]
             [cemerick.friend :refer [current-authentication]]
             [environ.core :refer [env]]
+            [cheshire.core :as json]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize]]
             [clj-money.models.entities :as entities]
@@ -20,11 +21,16 @@
     (try
       (let [result (entities/update (env :db) updated)]
         (if (validation/has-error? result)
-          (-> (validation/error-messages result)
-              response))
-        (-> []
-            (response result)
-            (status 200)))
+          (-> {:message (validation/error-messages result)}
+              json/generate-string
+              response
+              (header "Content-Type" "application/json")
+              (status 422))
+          (-> result
+              json/generate-string
+              response
+              (header "Content-Type" "application/json")
+              (status 200))))
       (catch Exception e
         (->  (if (env :show-error-messages?)
                (.getMessage e)
