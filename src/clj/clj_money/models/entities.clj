@@ -22,7 +22,7 @@
 (s/def ::user-id integer?)
 (s/def ::monitored-account-ids (s/coll-of integer?))
 (s/def ::inventory-method #{:fifo :lifo})
-(s/def ::settings (s/keys :opt-un [::inventory-method ::monitored-account-id]))
+(s/def ::settings (s/keys :opt-un [::inventory-method ::monitored-account-ids]))
 (s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::settings]))
 (s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::user-id ::settings]))
 
