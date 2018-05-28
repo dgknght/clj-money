@@ -3,7 +3,10 @@
             [reagent-forms.core :refer [bind-fields]]
             [clj-money.util :as util]
             [clj-money.data :as data]
-            [clj-money.notifications :as notify]))
+            [clj-money.notifications :as notify]
+            [clj-money.forms :refer [text-input
+                                     select-input
+                                     required]]))
 
 (def all-entities (r/atom []))
 
@@ -43,11 +46,8 @@
 
 (def ^:private entity-form
   [:form
-   [:div.form-group
-    [:label.control-label {:for :name}]
-    [:input.form-control {:field :text :id :name}]
-    [:span.help-block {:field :alert :id :name :event empty?}
-     "Name is required."]]
+   (text-input :name required)
+   (select-input :settings.inventory-method ["fifo" "lifo"])
    [:button.btn.btn-primary {:type :button :on-click finish-edit}
     [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
     (util/space) "Save"]
