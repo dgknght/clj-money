@@ -248,6 +248,7 @@
   [handler]
   (fn [request]
     (let [response (handler request)]
+      (log/debug "response to " (:uri request))
       (log/spy response)
       response)))
 
