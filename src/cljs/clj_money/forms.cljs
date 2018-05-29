@@ -10,7 +10,7 @@
   [:div.form-group
    (label field)
    [:input.form-control {:field :text :id field}]
-   (map #(% field) validations)])
+   (mapv #(% field) validations)])
 
 (defn select-input
   [field options]
@@ -24,5 +24,6 @@
 
 (defn required
   [field]
+  ^{:key (keyword (str (name field) "-required"))}
   [:span.help-block {:field :alert :id field :event empty?}
-     (str (-> field name infl/title-case) " is required.")])
+   (str (-> field name infl/title-case) " is required.")])
