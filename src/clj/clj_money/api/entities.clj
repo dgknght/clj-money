@@ -1,6 +1,7 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [ring.util.response :refer [status response header]]
             [cemerick.friend :refer [current-authentication]]
             [environ.core :refer [env]]

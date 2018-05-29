@@ -5,7 +5,7 @@
             [clj-money.data :as data]
             [clj-money.notifications :as notify]
             [clj-money.forms :refer [text-input
-                                     select-input
+                                     radio-buttons
                                      required]]))
 
 (defonce all-entities (r/atom []))
@@ -47,7 +47,7 @@
 (def ^:private entity-form
   [:form
    (text-input :name required)
-   (select-input :settings.inventory-method ["fifo" "lifo"])
+   (radio-buttons :settings.inventory-method ["fifo" "lifo"])
    [:button.btn.btn-primary {:type :button :on-click finish-edit}
     [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
     (util/space) "Save"]

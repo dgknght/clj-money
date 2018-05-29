@@ -19,11 +19,22 @@
    (label field)
    [:select.form-control {:field :list :id field}
     (for [option options]
-      ^{:key option}
+      ^{:key (str (name field) ".option-" option)}
       [:option {:key option} option])]])
+
+(defn radio-buttons
+  [field values]
+  [:fieldset
+   [:legend (-> field name infl/last-segment infl/title-case)]
+   (for [value values]
+     ^{:key (str (name field) ".value-" value)}
+     [:div.radio
+      [:label
+       [:input {:field :radio :value value :name field}]
+       value]])])
 
 (defn required
   [field]
-  ^{:key (keyword (str (name field) "-required"))}
+  ^{:key (str (name field) ".required")}
   [:span.help-block {:field :alert :id field :event empty?}
    (str (-> field name infl/last-segment infl/title-case) " is required.")])

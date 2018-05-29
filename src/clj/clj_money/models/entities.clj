@@ -62,7 +62,7 @@
                            "Name is already in use")])
 
 (def ^:private coercion-rules
-  [(coercion/rule :keyword [:inventory-method])])
+  [(coercion/rule :keyword [:settings :inventory-method])])
 
 (def create
   (create-fn {:before-validation before-validation
@@ -79,7 +79,7 @@
    (select storage-spec user-id {}))
   ([storage-spec user-id options]
    (with-storage [s storage-spec]
-     (select-entities s user-id options))))
+     (map after-read (select-entities s user-id options)))))
 
 (defn find-by-id
   "Finds the entity with the specified ID"
@@ -87,6 +87,11 @@
   (with-storage [s storage-spec]
     (->> (find-entity-by-id s id)
          after-read)))
+
+(defn reload
+  "Reloads the specified entity"
+  [storage-spec entity]
+  (find-by-id storage-spec (:id entity)))
 
 (defn find-by-name
   "Finds the entity having the specified name
