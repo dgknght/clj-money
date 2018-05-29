@@ -81,17 +81,17 @@
    [:div.container
     [entities/management]]])
 
-(def app-element
+(defn app-element []
   (.getElementById js/document "app"))
 
 (secretary/defroute root-path "/" []
-  (r/render home-page app-element))
+  (r/render home-page (app-element)))
 
 (secretary/defroute entities-path "/entities" []
-  (r/render entities-page app-element))
+  (r/render entities-page (app-element)))
 
 (defn mount-root []
-  (r/render home-page app-element))
+  (r/render home-page (app-element)))
 
 (defn init! []
   (accountant/configure-navigation!
