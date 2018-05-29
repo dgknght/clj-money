@@ -16,4 +16,4 @@
      (head "clj-money" {})
      [:body
       [:div#app]
-      (include-js "/js/app.js")]]))
+      (include-js "/js/app/main.js")]]))

@@ -56,7 +56,8 @@
                  [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
-            [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]]
+            [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
+            [lein-figwheel "0.5.16"]]
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :main clj-money.web.server
@@ -70,17 +71,20 @@
   :minify-assets {:assets
                   {"resources/public/css/clj-money.min.css" "resources/public/css/clj-money.css"}}
 
-  :cljsbuild {:builds [{:source-paths ["src/cljs"]
-                        :compiler {:output-to  "target/cljsbuild/public/js/app.js"
-                                   :output-dir "target/cljsbuild/public/js"
-                                   :source-map "target/cljsbuild/public/js/app.js.map"
+  :cljsbuild {:builds [{:id :production
+                        :source-paths ["src/cljs"]
+                        :compiler {:output-to  "target/cljsbuild/public/js/prod/app.js"
+                                   :output-dir "target/cljsbuild/public/js/prod"
+                                   :source-map "target/cljsbuild/public/js/prod/app.js.map"
                                    :optimizations :advanced
                                    :pretty-print false}}
-                       {:source-paths ["src/cljs"]
+                       {:id :development
+                        :figwheel true
+                        :source-paths ["src/cljs"]
                         :compiler {:main "clj-money.core"
-                                   :asset-path "js/out"
-                                   :output-to  "target/cljsbuild/public/js/app.js"
-                                   :output-dir "target/cljsbuild/public/js/out"
+                                   :asset-path "/js/app"
+                                   :output-to  "resources/public/js/app/main.js"
+                                   :output-dir "resources/public/js/app"
                                    :source-map true
                                    :optimizations :none
                                    :pretty-print true}}]}
