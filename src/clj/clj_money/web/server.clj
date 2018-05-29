@@ -246,9 +246,9 @@
 
 (defn- wrap-response-spy
   [handler]
-  (fn [request]
+  (fn [{:keys [request-method uri] :as request}]
     (let [response (handler request)]
-      (log/debug "response to " (:uri request))
+      (log/debug "response to " request-method uri)
       (log/spy response)
       response)))
 
