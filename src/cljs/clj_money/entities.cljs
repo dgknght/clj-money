@@ -78,7 +78,8 @@
        [:tr
         [:th.col-sm-10 "Name"]
         [:th.col-sm-2 " "]]
-       (doall (map #(entity-row %) @all-entities))]])
+       (for [entity @all-entities]
+         (entity-row entity))]])
 
 (defn management
   "Renders an entity management form"
@@ -110,4 +111,4 @@
 (defn activate
   "Sets the specified entity as the active entity"
   [entity]
-  (reset! @current entity))
+  (reset! current entity))
