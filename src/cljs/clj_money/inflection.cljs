@@ -20,6 +20,12 @@
   "Renders the string in title case. E.g.
   (title-case \"my important thing\") => \"My Important Thing\""
   [s]
-  (->> (string/split s #"\b")
+  (->> (-> s
+           (string/replace "-" " ")
+           (string/split #"\b"))
        (map title-case-word)
        (string/join "")))
+
+(defn last-segment
+  [value]
+  (last (string/split value #"\.")))

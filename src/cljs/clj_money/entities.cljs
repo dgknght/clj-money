@@ -8,11 +8,11 @@
                                      select-input
                                      required]]))
 
-(def all-entities (r/atom []))
+(defonce all-entities (r/atom []))
 
-(def current (r/atom nil))
+(defonce current (r/atom nil))
 
-(def ^:private editing-entity
+(defonce ^:private editing-entity
   (r/atom nil))
 
 (defn- edit
@@ -66,10 +66,10 @@
     [:div.btn-group
      [:button.btn.btn-xs.btn-info {:on-click #(edit entity)
                                    :title "Click here to edit this entity."}
-      [:span.glyphicon.glyphicon-pencil {:arial-hidden true}]]
+      [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]]
      [:button.btn.btn-xs.btn-danger {:on-click #(delete entity)
                                      :title "Click here to remove this entity."}
-      [:span.glyphicon.glyphicon-remove {:arial-hidden true}]]]]])
+      [:span.glyphicon.glyphicon-remove {:aria-hidden true}]]]]])
 
 (defn- entity-table
   []
