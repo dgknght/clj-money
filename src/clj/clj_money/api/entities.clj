@@ -18,7 +18,7 @@
 (defn update
   [{:keys [params] :as req}]
   (let [entity (authorize (entities/find-by-id (env :db) (:id params)) :update)
-        updated (merge entity (select-keys params [:name]))]
+        updated (merge entity (select-keys params [:name :settings]))]
     (try
       (let [result (entities/update (env :db) updated)]
         (if (validation/has-error? result)
