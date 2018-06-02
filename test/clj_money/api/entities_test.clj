@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
+            [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
@@ -32,7 +33,7 @@
         retrieved (entities/reload storage-spec entity)]
     (is (= 200 (:status response))
         "The request is successful")
-    (is (= :fifo (-> response :body :settings :inventory-method))
+    (is (= "fifo" (-> response :body (json/parse-string true) :settings :inventory-method))
         "The response includes the updated inventory-method value")
     (is (= :fifo (-> retrieved :settings :inventory-method))
         "The record is updated")))
