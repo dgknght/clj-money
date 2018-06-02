@@ -19,15 +19,28 @@
   [entity]
   (reset! editing-entity entity))
 
-(defn- finish-edit
+(defn- relay-updated-entity
+  "Accepts an entity and replaces the corresponding enty
+  in all-entities"
+  [entity]
+  (swap! all-entities
+         #(map (fn [e]
+                 (if (= (:id e)  (:id entity))
+                   entity
+                   e))
+               %)))
+
+(defn- finalize-edit
+  [entity]
+  (relay-updated-entity entity)
+  (reset! editing-entity nil))
+
+(defn- submit-edit
   []
   ; TODO Add something to show the user the save is happening in the background
-  (let [updated (data/update-entity @editing-entity (constantly true) #(notify/danger %))]
-    (swap! all-entities #(map (fn [e]
-                               (if (= (:id e)  (:id updated))
-                                 updated
-                                 e)))))
-  (reset! editing-entity nil))
+  (data/update-entity @editing-entity
+                      finalize-edit
+                      #(notify/danger %)))
 
 (defn- cancel-edit
   []
@@ -48,7 +61,7 @@
   [:form
    (text-input :name required)
    (radio-buttons :settings.inventory-method ["fifo" "lifo"])
-   [:button.btn.btn-primary {:type :button :on-click finish-edit}
+   [:button.btn.btn-primary {:type :button :on-click submit-edit}
     [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
     (util/space) "Save"]
    (util/space)
