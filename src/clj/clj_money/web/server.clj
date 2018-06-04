@@ -30,6 +30,7 @@
                                           wrap-exception-handling]]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
+            [clj-money.api.entities :as commodities-api]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
@@ -169,6 +170,10 @@
   (model-route GET "/api/entities" entities-api/index)
   (model-route PATCH "/api/entities/:id" entities-api/update)
   (model-route DELETE "/api/entities/:id" entities-api/delete)
+
+  (model-route GET "/api/entities/:id/commodities" commodities-api/index)
+  (model-route PATCH "/api/commodities/:id" commodities-api/update)
+  (model-route DELETE "/api/commodities/:id" commodities-api/delete)
 
   ; Imports
   (POST "/api/imports" req imports-api/create)

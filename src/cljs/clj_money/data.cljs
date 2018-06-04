@@ -18,13 +18,20 @@
                 (map stringify)
                 (string/join "/"))))
 
-(defn get-entities
-  [callback]
-  (go (let [response (<! (http/get (path :entities) {:headers {"Content-Type" "application/json"
-                                                               "Accept" "application/json"}}))]
+(defn- get-models
+  [path success-fn]
+
+  (.log js/console "get-models " path)
+
+  (go (let [response (<! (http/get path {:headers {"Content-Type" "application/json"
+                                                   "Accept" "application/json"}}))]
         (if (= 200 (:status response))
-          (callback (:body response))
-          (.log js/console "Unable to get the entities from the service" (:body response))))))
+          (success-fn (:body response))
+          (.log js/console "Unable to get the resources from the service" (:body response))))))
+
+(defn get-entities
+  [success-fn]
+  (get-models (path :entities) success-fn))
 
 (defn update-entity
   ([entity success-fn error-fn]
@@ -50,3 +57,10 @@
           (error-fn "The specified resource could not be found on the server.")
 
           (error-fn (-> response :body :message))))))
+
+(defn get-commodities
+  [entity-id success-fn]
+
+  (.log js/console "get-commodities " entity-id)
+
+  (get-models (path :entities entity-id :commodities) success-fn))

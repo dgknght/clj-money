@@ -5,7 +5,8 @@
             [accountant.core :as accountant]
             [clj-money.data :as data]
             [clj-money.notifications :refer [notifications unnotify]]
-            [clj-money.entities :as entities]))
+            [clj-money.entities :as entities]
+            [clj-money.commodities :as commodities]))
 
 (defn- entity-nav-item
   [entity]
@@ -16,7 +17,7 @@
         :on-click #(entities/activate entity)}
     (:name entity)]])
 
-(defn nav []
+(defn nav [active-nav]
   [:nav.navbar.navbar-inverse
    [:div.container
     [:div.navbar-header
@@ -34,6 +35,13 @@
 
     [:div#navbar.collapse.navbar-collapse
      [:ul.nav.navbar-nav
+      [:li
+       [:a {:href "/commodities"
+            :class (when (= active-nav :commodities)
+                     "active")}
+        "Commodities"]]]
+     [:div.navbar-right
+     [:ul.nav.navbar-nav
       [:li.dropdown {:role "presentation"}
        [:a.dropdown-toggle
         {:href "#"
@@ -48,7 +56,7 @@
             (map entity-nav-item @entities/all-entities)
             [^{:key :entities-separator} [:li.divider {:role "separator"}]
              ^{:key :manage-entities} [:li
-              [:a {:href "/entities"} "Manage Entities"]]]))]]]]]])
+                                       [:a {:href "/entities"} "Manage Entities"]]]))]]]]]]])
 
 (defn alert
   [index {:keys [message severity] :as notification}]
@@ -76,19 +84,29 @@
 
 (defn entities-page []
   [:div
-   [nav]
+   [nav :entities]
    [alerts]
    [:div.container
     [entities/management]]])
 
+(defn commodities-page []
+  [:div
+   [nav :commodities]
+   [alerts]
+   [:div.container
+    [commodities/management]]])
+
 (defn app-element []
   (.getElementById js/document "app"))
 
-(secretary/defroute root-path "/" []
+(secretary/defroute "/" []
   (r/render home-page (app-element)))
 
-(secretary/defroute entities-path "/entities" []
+(secretary/defroute "/entities" []
   (r/render entities-page (app-element)))
+
+(secretary/defroute "/commodities" []
+  (r/render commodities-page (app-element)))
 
 (defn mount-root []
   (r/render home-page (app-element)))
