@@ -30,7 +30,7 @@
                                           wrap-exception-handling]]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
-            [clj-money.api.entities :as commodities-api]
+            [clj-money.api.commodities :as commodities-api]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
