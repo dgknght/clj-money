@@ -37,17 +37,23 @@
      [:ul.nav.navbar-nav
       [:li
        [:a {:href "/commodities"
+            :title "Click here to manage commodities for this entity."
             :class (when (= active-nav :commodities)
                      "active")}
         "Commodities"]]]
      [:div.navbar-right
      [:ul.nav.navbar-nav
+      [:li
+       [:a {:href (str "/entities/" (:id @entities/current) "/accounts")
+            :title "Click here to go to the basic HTML site"}
+        "HTML"]]
       [:li.dropdown {:role "presentation"}
        [:a.dropdown-toggle
         {:href "#"
          :data-toggle "dropdown"
          :role "button"
-         :aria-haspopup true}
+         :aria-haspopup true
+         :title "Select the entity you want to work with here."}
         (:name @entities/current)
         [:span.caret]]
        [:ul.dropdown-menu
