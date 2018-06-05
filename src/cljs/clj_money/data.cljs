@@ -20,9 +20,6 @@
 
 (defn- get-models
   [path success-fn]
-
-  (.log js/console "get-models " path)
-
   (go (let [response (<! (http/get path {:headers {"Content-Type" "application/json"
                                                    "Accept" "application/json"}}))]
         (if (= 200 (:status response))
@@ -60,7 +57,4 @@
 
 (defn get-commodities
   [entity-id success-fn]
-
-  (.log js/console "get-commodities " entity-id)
-
   (get-models (path :entities entity-id :commodities) success-fn))
