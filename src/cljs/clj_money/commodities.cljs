@@ -12,7 +12,7 @@
 
 (defn- load-commodities
   []
-  (data/get-commodities (:id entities/current) #(reset! commodities %)))
+  (data/get-commodities (:id @entities/current) #(reset! commodities %)))
 
 (defn- commodity-row
   [commodity]
