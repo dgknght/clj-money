@@ -3,66 +3,44 @@
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
+            [clj-money.util :refer [path]]
             [clj-money.data :as data]
             [clj-money.notifications :refer [notifications unnotify]]
             [clj-money.entities :as entities]
-            [clj-money.commodities :as commodities]))
+            [clj-money.commodities :as commodities]
+            [clj-money.bootstrap :as bootstrap]))
 
-(defn- entity-nav-item
-  [entity]
-  ^{:key entity}
-  [:li {:class (when (entities/active? entity)
-                 "active")}
-   [:a {:href "#"
-        :on-click #(entities/activate entity)}
-    (:name entity)]])
+(defn- entity->nav-item
+  [{:keys [id name] :as entity}]
+  {:id id
+   :caption name
+   :on-click #(entities/activate entity)})
 
 (defn nav [active-nav]
-  [:nav.navbar.navbar-inverse
-   [:div.container
-    [:div.navbar-header
-     [:button.navbar-toggle.collapsed {:type "button"
-                                       :data-toggle "collapse"
-                                       :data-target "#navbar"
-                                       :aria-expanded "false"
-                                       :aria-controls "navbar"} 
-      [:span.sr-only "Toggle navigation"] 
-      [:span.icon-bar] 
-      [:span.icon-bar] 
-      [:span.icon-bar]] 
-
-     [:a.navbar-brand {:href "/"} "clj-money"]] 
-
-    [:div#navbar.collapse.navbar-collapse
-     [:ul.nav.navbar-nav
-      [:li
-       [:a {:href "/commodities"
-            :title "Click here to manage commodities for this entity."
-            :class (when (= active-nav :commodities)
-                     "active")}
-        "Commodities"]]]
-     [:div.navbar-right
-     [:ul.nav.navbar-nav
-      [:li
-       [:a {:href (str "/entities/" (:id @entities/current) "/accounts")
-            :title "Click here to go to the basic HTML site"}
-        "HTML"]]
-      [:li.dropdown {:role "presentation"}
-       [:a.dropdown-toggle
-        {:href "#"
-         :data-toggle "dropdown"
-         :role "button"
-         :aria-haspopup true
-         :title "Select the entity you want to work with here."}
-        (:name @entities/current)
-        [:span.caret]]
-       [:ul.dropdown-menu
-        (doall
-          (concat
-            (map entity-nav-item @entities/all-entities)
-            [^{:key :entities-separator} [:li.divider {:role "separator"}]
-             ^{:key :manage-entities} [:li
-                                       [:a {:href "/entities"} "Manage Entities"]]]))]]]]]]])
+  (bootstrap/nav-bar
+    {:title "clj-money"
+     :title-url "/"
+     :items [{:id :commodities
+              :active? (= :commodities active-nav)
+              :url "/commodities"
+              :caption "Commodities"
+              :tool-tip "Click here to manage commodities"}]
+     :secondary-items [{:id :html
+                        :caption "HTML"
+                        :url (path :entities
+                                   (:id @entities/current)
+                                   :accounts)}
+                       {:id :entities
+                        :role :dropdown
+                        :caption (:name @entities/current)
+                        :children (concat (map entity->nav-item
+                                               @entities/all-entities)
+                                          [{:role :separator
+                                            :id "entity-separator"}
+                                           {:id "manage-entities"
+                                            :url "/entities"
+                                            :caption "Manage Entities"
+                                            :tool-tip "Click here to manage your entities."}])}]}))
 
 (defn alert
   [index {:keys [message severity] :as notification}]
