@@ -2,21 +2,13 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]
-            [clojure.string :as string]
             [clojure.walk :refer [keywordize-keys]]
-            [cognitect.transit :as transit]))
-
-(defn- stringify
-  [value]
-  (if (keyword? value)
-    (name value)
-    (.toString value)))
+            [cognitect.transit :as transit]
+            [clj-money.util :as util]))
 
 (defn- path
   [& segments]
-  (str "/" (->> (concat [:api] segments)
-                (map stringify)
-                (string/join "/"))))
+  (apply util/path (concat [:api] segments)))
 
 (defn- get-models
   [path success-fn]
