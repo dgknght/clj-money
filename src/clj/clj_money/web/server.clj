@@ -272,10 +272,10 @@
                [wrap-json-response                  "json response"    api?]
                [wrap-params                         "params"]
                [wrap-exception-handling             "excpetion handling"]
-               [wrap-content-type                   "content-type"]
                [#(friend/wrap-authorize % #{:user}) "authorization"    (complement open?)]
                [wrap-authenticate                   "authentication"   (complement open?)]
                [#(wrap-resource % "public")         "public resources"]
+               [wrap-content-type                   "content-type"]
                [wrap-response-spy                   "response spy"]))
 
 (defroutes app
