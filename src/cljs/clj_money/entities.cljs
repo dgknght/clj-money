@@ -1,16 +1,16 @@
 (ns clj-money.entities
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
+            [secretary.core :as secretary :include-macros true]
             [clj-money.util :as util]
             [clj-money.data :as data]
+            [clj-money.state :as state]
             [clj-money.notifications :as notify]
+            [clj-money.dom :refer [app-element]]
+            [clj-money.layout :refer [with-layout]]
             [clj-money.forms :refer [text-input
                                      radio-buttons
                                      required]]))
-
-(defonce all-entities (r/atom []))
-
-(defonce current (r/atom nil))
 
 (defonce ^:private editing-entity
   (r/atom nil))
@@ -21,9 +21,9 @@
 
 (defn- relay-updated-entity
   "Accepts an entity and replaces the corresponding enty
-  in all-entities"
+  in state/entities"
   [entity]
-  (swap! all-entities
+  (swap! state/entities
          #(map (fn [e]
                  (if (= (:id e)  (:id entity))
                    entity
@@ -50,7 +50,7 @@
   [entity]
   (data/delete-entity entity
                       (fn []
-                        (swap! all-entities (fn [old-list]
+                        (swap! state/entities (fn [old-list]
                                               (remove
                                                 #(= (:id %)
                                                     (:id entity))
@@ -91,37 +91,20 @@
        [:tr
         [:th.col-sm-10 "Name"]
         [:th.col-sm-2 " "]]
-       (for [entity @all-entities]
+       (for [entity @state/entities]
          (entity-row entity))]])
 
-(defn management
-  "Renders an entity management form"
-  []
-  [:section
-   [:div.row {:class (when-not @editing-entity "hidden")}
-    [:h1 "Edit Entity"]
-    [:div.col-md-6
-     [bind-fields entity-form editing-entity]]]
-   [:div.row {:class (when @editing-entity "hidden")}
-    [:div.col-md-6
-     [:h1 "Entities"]
-     [entity-table]]]])
+(defn entities-page []
+  (with-layout
+    [:section
+     [:div.row {:class (when-not @editing-entity "hidden")}
+      [:h1 "Edit Entity"]
+      [:div.col-md-6
+       [bind-fields entity-form editing-entity]]]
+     [:div.row {:class (when @editing-entity "hidden")}
+      [:div.col-md-6
+       [:h1 "Entities"]
+       [entity-table]]]]))
 
-(defn load
-  "Loads the entities that are available to the user"
-  []
-  (data/get-entities (fn [result]
-                       (swap! current (fnil identity (first result)))
-                       (reset! all-entities result))))
-
-(defn active?
-  "Returns a boolean value indicating whether or not
-  the specified entity is the active entity"
-  [entity]
-  (= (:id entity)
-     (:id @current)))
-
-(defn activate
-  "Sets the specified entity as the active entity"
-  [entity]
-  (reset! current entity))
+(secretary/defroute "/entities" []
+  (r/render entities-page (app-element)))

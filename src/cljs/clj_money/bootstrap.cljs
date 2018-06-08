@@ -65,3 +65,24 @@
         [:ul.nav.navbar-nav
          (for [item secondary-items]
            (nav-item item))]])]]])
+
+(defn- alert
+  [index {:keys [message severity] :or {severity :info}}]
+  ^{:key message}
+  [:div {:class ["alert" (str "alert-" (name severity))]
+         :role "alert"}
+   [:button.close {:type :button
+                   :aria-label "Close"
+                   :on-click #(unnotify index)}
+    [:span.glyphicon.glyphicon-remove {:aria-hidden "true"}]]
+   message])
+
+(defn alerts
+  "Renders alerts. The argument should be a sequence of maps containing:
+    :message The text to be displayed
+    :severity One of success, info, warning, or danger (optional, defaults to info)"
+  [alerts]
+  (when (seq alerts)
+    [:div#notifications.row
+     [:div.col-md-6.col-md-offset-3
+      (doall (map-indexed alert @notifications))]]))
