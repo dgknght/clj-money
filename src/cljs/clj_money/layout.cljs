@@ -38,7 +38,6 @@
 (defn with-layout
   [body]
   [:div
-    :div
     [nav]
     [bootstrap/alerts @notifications]
     [:div.container

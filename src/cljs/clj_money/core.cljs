@@ -7,6 +7,7 @@
             [clj-money.state :as state]
             [clj-money.data :as data]
             [clj-money.notifications :refer [notifications unnotify]]
+            [clj-money.entities :as entities]
             [clj-money.commodities :as commodities]
             [clj-money.bootstrap :as bootstrap]
             [clj-money.dom :refer [app-element]]
@@ -29,6 +30,9 @@
      :path-exists? #(secretary/locate-route %)})
   (accountant/dispatch-current!)
   (mount-root)
-  (data/get-entities #(reset! state/entities %)))
+  (data/get-entities (fn [entities]
+                       (reset! state/entities entities)
+                       (when (seq entities)
+                         (reset! state/current-entity (first entities))))))
 
 (init!)

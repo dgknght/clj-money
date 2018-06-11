@@ -26,21 +26,24 @@
    [:td (:exchange commodity)]
    [:td "coming soon..."]])
 
+(defn- commodity-list []
+  (load-commodities)
+  (fn []
+    [:table.table.table-stripped.table-hover
+     [:tbody
+      [:tr
+       [:th "Name"]
+       [:th "Symbol"]
+       [:th "Exchange"]
+       [:th "Latest Price"]]
+      (for [commodity @commodities]
+        (commodity-row commodity))]]))
+
 (defn commodities-page []
   (with-layout
-    (load-commodities)
-    (fn []
-      [:section
+    [:section
        [:h1 "Commodities"]
-       [:table.table.table-stripped.table-hover
-        [:tbody
-         [:tr
-          [:th "Name"]
-          [:th "Symbol"]
-          [:th "Exchange"]
-          [:th "Latest Price"]]
-         (for [commodity @commodities]
-           (commodity-row commodity))]]])))
+       [commodity-list]]))
 
 (secretary/defroute "/commodities" []
   (r/render commodities-page (app-element)))
