@@ -14,7 +14,6 @@
             [clj-money.layout :refer [with-layout]]))
 
 (defn home-page []
-  (.log js/console "home-page")
   (with-layout
     [:h1 "This Is ClojureScript"]))
 
