@@ -21,5 +21,6 @@
                (subvec coll (inc index)))))
 
 (defn unnotify
-  [index]
-  (swap! notifications #(remove-at % index)))
+  [notification]
+  (swap! notifications (fn [notifications]
+                         (remove notifications #(= % notification)))))
