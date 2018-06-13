@@ -1,14 +1,14 @@
 (ns clj-money.layout
   (:require [clj-money.bootstrap :as bootstrap]
             [clj-money.state :as state]
-            [clj-money.notifications :refer [notifications]]
+            [clj-money.notifications :refer [notifications unnotify]]
             [clj-money.util :refer [path]]))
 
 (defn- entity->nav-item
   [{:keys [id name] :as entity}]
   {:id id
    :caption name
-   :on-click #(reset! state/current-entity %)})
+   :on-click #(reset! state/current-entity entity)})
 
 (defn nav [active-nav]
   (bootstrap/nav-bar
@@ -39,6 +39,6 @@
   [body]
   [:div
     [nav]
-    [bootstrap/alerts @notifications]
+    [bootstrap/alerts @notifications #(unnotify %)]
     [:div.container
      body]])
