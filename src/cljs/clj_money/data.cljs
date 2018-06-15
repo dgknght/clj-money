@@ -28,7 +28,7 @@
                                                                      :headers {"Content-Type" "application/json"
                                                                                "Accept" "application/json"}}))]
          (if (= 200 (:status response))
-           (success-fn response)
+           (success-fn (:body response))
            (do
              (.log js/console "Unable to update the entity " (prn-str entity) ": " (prn-str response))
              (error-fn (-> response :body :message))))))))

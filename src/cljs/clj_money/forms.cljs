@@ -8,10 +8,10 @@
 (defn text-input
   [field & validations]
   [:div.form-group
-   (label field)
+   [label field]
    [:input.form-control {:field :text :id field}]
    (for [validation validations]
-     (validation field))])
+       (validation field))])
 
 (defn select-input
   [field options]

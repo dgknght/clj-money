@@ -27,7 +27,7 @@
    [:td "coming soon..."]])
 
 (defn- commodity-list []
-  (load-commodities)
+  #_(load-commodities)
   (fn []
     [:table.table.table-stripped.table-hover
      [:tbody

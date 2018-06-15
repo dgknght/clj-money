@@ -13,7 +13,7 @@
 (defn nav [active-nav]
   (bootstrap/nav-bar
     {:title "clj-money"
-     :title-url "/"
+     :title-url "/apps/default"
      :items [{:id :commodities
               :active? (= :commodities active-nav)
               :url "/commodities"

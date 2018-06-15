@@ -12,31 +12,6 @@
                                      radio-buttons
                                      required]]))
 
-(declare entities-path)
-(declare entity-path)
-
-(defn- relay-updated-entity
-  "Accepts an entity and replaces the corresponding enty
-  in state/entities"
-  [entity]
-  (swap! state/entities
-         #(map (fn [e]
-                 (if (= (:id e)  (:id entity))
-                   entity
-                   e))
-               %)))
-
-(defn- finalize-edit
-  [entity]
-  (relay-updated-entity entity))
-
-(defn- save
-  [entity]
-  ; TODO Add something to show the user the save is happening in the background
-  (data/update-entity entity
-                      finalize-edit
-                      #(notify/danger %)))
-
 (defn- delete
   [entity]
   (data/delete-entity entity
@@ -50,15 +25,61 @@
 
 (def ^:private entity-form
   [:form
-   (text-input :name required)
+   (text-input :name :required)
    (radio-buttons :settings.inventory-method ["fifo" "lifo"])
-   [:button.btn.btn-primary {:type :button}
-    [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
-    (util/space) "Save"]
-   (util/space)
-   [:a.btn.btn-danger {:href "#"}
-    [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
-    (util/space) "Cancel"]])
+   ])
+
+(defn find-entity
+  [id]
+  (->> @state/entities
+       (filter #(= id (:id %)))
+       first))
+
+(defn- relay-updated-entity
+  "Accepts an entity and replaces the corresponding enty
+  in state/entities"
+  [entity]
+
+  (.log js/console "relay update " (prn-str entity))
+
+  (swap! state/entities
+         #(map (fn [e]
+
+                 (.log js/console "test against " (prn-str e))
+
+                 (if (= (:id e)  (:id entity))
+                   entity
+                   e))
+               %)))
+
+(defn- save-entity
+  [entity]
+  (data/update-entity entity
+                      (fn [entity]
+                        (relay-updated-entity entity)
+                        (secretary/dispatch! "/entities"))
+                      #(notify/danger %)))
+
+(defn- cancel-edit
+  [id]
+  (.log js/console "reload the entity with this id: " (prn-str id)))
+
+(defn edit-entity
+  [id]
+  (let [entity (r/atom (-> id js/parseInt find-entity))]
+    (with-layout
+      [:div.row
+       [:h1 "Edit Entity"]
+       [:div.col-md-6
+        [bind-fields entity-form entity]
+        [:button.btn.btn-primary {:type :button
+                                  :on-click #(save-entity @entity)}
+         [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
+         (util/space) "Save"]
+        (util/space)
+        [:button.btn.btn-danger {:on-click #(cancel-edit (:id @entity))}
+         [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
+         (util/space) "Cancel"]]])))
 
 (defn- entity-row
   [entity]
@@ -68,11 +89,11 @@
     (:name entity)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-xs.btn-info {:href (util/path :entities (:id entity) :edit)
-                                   :title "Click here to edit this entity."}
+     [:a.btn.btn-xs.btn-info {:href (util/path :entities (:id entity) :edit)
+                              :title "Click here to edit this entity."}
       [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]]
-     [:button.btn.btn-xs.btn-danger {:on-click #(delete entity)
-                                     :title "Click here to remove this entity."}
+     [:a.btn.btn-xs.btn-danger {:on-click #(delete entity)
+                                :title "Click here to remove this entity."}
       [:span.glyphicon.glyphicon-remove {:aria-hidden true}]]]]])
 
 (defn- entity-table
@@ -85,19 +106,6 @@
        (for [entity @state/entities]
          (entity-row entity))]])
 
-(defn find-entity
-  [id]
-  (->> @state/entities
-       (filter #(= id (:id %)))
-       first))
-
-(defn edit-entity
-  [id]
-  [:div.row
-      [:h1 "Edit Entity"]
-      [:div.col-md-6
-       [bind-fields entity-form (find-entity id)]]])
-
 (defn entities-page []
   (with-layout
     [:div.row
@@ -106,7 +114,7 @@
       [entity-table]]]))
 
 (secretary/defroute entity-path "/entities/:id/edit" {id :id}
-  (r/render (edit-entity id) (app-element)))
+  (r/render [edit-entity id] (app-element)))
 
 (secretary/defroute entities-path "/entities" []
-  (r/render entities-page (app-element)))
+  (r/render [entities-page] (app-element)))
