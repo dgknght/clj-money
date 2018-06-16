@@ -168,6 +168,7 @@
   (GET "/apps/:id" req apps/show)
 
   (model-route GET "/api/entities" entities-api/index)
+  (model-route POST "/api/entities" entities-api/create)
   (model-route PATCH "/api/entities/:id" entities-api/update)
   (model-route DELETE "/api/entities/:id" entities-api/delete)
 

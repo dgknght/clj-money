@@ -29,6 +29,30 @@
    (radio-buttons :settings.inventory-method ["fifo" "lifo"])
    ])
 
+(defn- create-entity
+  [entity]
+  (data/create-entity entity
+                      (fn [created]
+                        (swap! state/entities #(conj % created))
+                        (secretary/dispatch! "/entities"))
+                      #(notify/danger %)))
+
+(defn- new-entity []
+  (let [entity (r/atom {})]
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [:h1 "New Entity"]
+        [bind-fields entity-form entity]
+        [:button.btn.btn-primary {:on-click #(create-entity @entity)}
+         [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
+         (util/space)
+         "Save"]
+        (util/space)
+        [:a.btn.btn-danger {:href "/entities"}
+         [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
+         (util/space) "Cancel"] ]])))
+
 (defn find-entity
   [id]
   (->> @state/entities
@@ -39,9 +63,6 @@
   "Accepts an entity and replaces the corresponding enty
   in state/entities"
   [entity]
-
-  (.log js/console "relay update " (prn-str entity))
-
   (swap! state/entities
          #(map (fn [e]
 
@@ -69,8 +90,8 @@
   (let [entity (r/atom (-> id js/parseInt find-entity))]
     (with-layout
       [:div.row
-       [:h1 "Edit Entity"]
        [:div.col-md-6
+        [:h1 "Edit Entity"]
         [bind-fields entity-form entity]
         [:button.btn.btn-primary {:type :button
                                   :on-click #(save-entity @entity)}
@@ -98,20 +119,28 @@
 
 (defn- entity-table
   []
+  [:section
   [:table.table.table-striped.table-hover
-      [:tbody
-       [:tr
-        [:th.col-sm-10 "Name"]
-        [:th.col-sm-2 " "]]
-       (for [entity @state/entities]
-         (entity-row entity))]])
+   [:tbody
+    [:tr
+     [:th.col-sm-10 "Name"]
+     [:th.col-sm-2 " "]]
+    (for [entity @state/entities]
+      (entity-row entity))]]])
 
 (defn entities-page []
   (with-layout
     [:div.row
      [:div.col-md-6
       [:h1 "Entities"]
-      [entity-table]]]))
+      [entity-table]
+      [:a.btn.btn-primary {:href "/entities/new"}
+       [:span.glyphicon.glyphicon-plus {:aria-hidden true}]
+       (util/space)
+       "Add"]]]))
+
+(secretary/defroute new-entity-path "/entities/new" []
+  (r/render [new-entity] (app-element)))
 
 (secretary/defroute entity-path "/entities/:id/edit" {id :id}
   (r/render [edit-entity id] (app-element)))

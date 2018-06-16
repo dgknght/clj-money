@@ -76,7 +76,7 @@
          :role "alert"}
    [:button.close {:type :button
                    :aria-label "Close"
-                   :on-click #(remove-fn alert)}
+                   :on-click remove-fn}
     [:span.glyphicon.glyphicon-remove {:aria-hidden "true"}]]
    message])
 

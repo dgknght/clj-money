@@ -18,10 +18,14 @@
     [:h1 "This Is ClojureScript"]))
 
 (secretary/defroute "/" []
-  (r/render home-page (app-element)))
+  (r/render [home-page] (app-element)))
+
+(defonce mounted? (atom false))
 
 (defn mount-root []
-  (r/render home-page (app-element)))
+  (when-not @mounted?
+    (reset! mounted? true)
+    (r/render home-page (app-element))))
 
 (defn init! []
   (accountant/configure-navigation!

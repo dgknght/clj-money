@@ -7,13 +7,65 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-money.validation :as validation]
-            [clj-money.authorization :refer [authorize]]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource]]
             [clj-money.models.entities :as entities]
             [clj-money.permissions.entities]))
 
 (defn index
   [req]
   (response (entities/select (env :db) (:id (current-authentication)))))
+
+(defn- ->response
+  ([value] (->response value 200))
+  ([value status-code]
+   (-> value
+       json/generate-string
+       response
+       (header "Content-Type" "application/json")
+       (status status-code))))
+
+(defn- error->response
+  [error safe-error-message]
+  (->response
+    (if (env :show-error-messages?)
+      {:message (.getMessage error)
+       :type (.getName (.getClass error))
+       :stack (.getStackTrace error)}
+      {:message safe-error-message})
+    500))
+
+(defn- invalid->response
+  [model]
+  (->response {:message (validation/error-messages model)}
+              422))
+
+(defn- log-error
+  [error message]
+  (log/error message
+             ": "
+             (.getClass error)
+             " - "
+             (.getMessage error)
+             "\n  "
+             (->> (.getStackTrace error)
+                  (map str)
+                  (clojure.string/join "\n  "))))
+
+(defn create
+  [{:keys [params] :as req}]
+  (let [entity (-> params
+                   (select-keys [:name :settings])
+                   (assoc :user-id (:id (current-authentication)))
+                   (tag-resource :entity))]
+    (try
+      (let [result (entities/create (env :db) entity)]
+        (if (validation/has-error? result)
+          (invalid->response result)
+          (->response result 201)))
+      (catch Exception e
+        (log-error e "Unable to create the entity.")
+        (error->response e "Unable to create the entity.")))))
 
 (defn update
   [{:keys [params] :as req}]
