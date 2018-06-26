@@ -14,20 +14,20 @@
 
 (defn- delete
   [entity]
-  (data/delete-entity entity
-                      (fn []
-                        (swap! state/entities (fn [old-list]
-                                              (remove
-                                                #(= (:id %)
-                                                    (:id entity))
-                                                old-list))))
-                      notify/danger))
+  (when (js/confirm "Are you sure you want to delete this entity?")
+    (data/delete-entity entity
+                        (fn []
+                          (swap! state/entities (fn [old-list]
+                                                  (remove
+                                                    #(= (:id %)
+                                                        (:id entity))
+                                                    old-list))))
+                        notify/danger)))
 
 (def ^:private entity-form
   [:form
    (text-input :name :required)
-   (radio-buttons :settings.inventory-method ["fifo" "lifo"])
-   ])
+   (radio-buttons :settings.inventory-method ["fifo" "lifo"])])
 
 (defn- create-entity
   [entity]
