@@ -65,9 +65,6 @@
   [entity]
   (swap! state/entities
          #(map (fn [e]
-
-                 (.log js/console "test against " (prn-str e))
-
                  (if (= (:id e)  (:id entity))
                    entity
                    e))
