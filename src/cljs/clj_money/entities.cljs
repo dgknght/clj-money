@@ -81,10 +81,6 @@
                         (secretary/dispatch! "/entities"))
                       #(notify/danger %)))
 
-(defn- cancel-edit
-  [id]
-  (.log js/console "reload the entity with this id: " (prn-str id)))
-
 (defn edit-entity
   [id]
   (let [entity (r/atom (-> id js/parseInt find-entity))]
@@ -98,7 +94,7 @@
          [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
          (util/space) "Save"]
         (util/space)
-        [:button.btn.btn-danger {:on-click #(cancel-edit (:id @entity))}
+        [:button.btn.btn-danger {:on-click #(secretary/dispatch! "/entities")}
          [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
          (util/space) "Cancel"]]])))
 
