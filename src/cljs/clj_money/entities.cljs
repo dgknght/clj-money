@@ -51,7 +51,7 @@
         (util/space)
         [:a.btn.btn-danger {:href "/entities"}
          [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
-         (util/space) "Cancel"] ]])))
+         (util/space) "Cancel"]]])))
 
 (defn find-entity
   [id]
