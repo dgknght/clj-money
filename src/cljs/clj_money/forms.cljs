@@ -14,13 +14,15 @@
        (validation field))])
 
 (defn select-input
-  [field options]
-  [:div.form-group
+  ([field html-options] (select-input field html-options {}))
+  ([field html-options options]
+  [:div.form-group {:field :container
+                    :visible? (:visible? options)}
    (label field)
    [:select.form-control {:field :list :id field}
-    (for [option options]
+    (for [option html-options]
       ^{:key (str (name field) ".option-" option)}
-      [:option {:key option} option])]])
+      [:option {:key option} option])]]))
 
 (defn radio-buttons
   [field values]
