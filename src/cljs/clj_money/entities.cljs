@@ -44,10 +44,8 @@
        [:div.col-md-6
         [:h1 "New Entity"]
         [bind-fields entity-form entity]
-        [:button.btn.btn-primary {:on-click #(create-entity @entity)}
-         [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
-         (util/space)
-         "Save"]
+        (util/button "Save" #(create-entity @entity) {:class "btn btn-primary"
+                                                      :icon :ok})
         (util/space)
         [:a.btn.btn-danger {:href "/entities"}
          [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
@@ -86,14 +84,11 @@
        [:div.col-md-6
         [:h1 "Edit Entity"]
         [bind-fields entity-form entity]
-        [:button.btn.btn-primary {:type :button
-                                  :on-click #(save-entity @entity)}
-         [:span.glyphicon.glyphicon-ok {:aria-hidden "true"}]
-         (util/space) "Save"]
+        (util/button "Save" #(save-entity @entity) {:class "btn btn-primary"
+                                                    :icon :ok})
         (util/space)
-        [:button.btn.btn-danger {:on-click #(secretary/dispatch! "/entities")}
-         [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
-         (util/space) "Cancel"]]])))
+        (util/link-to "Cancel" "/entities" {:class "btn btn-danger"
+                                            :icon :ban-circle})]])))
 
 (defn- entity-row
   [entity]
@@ -127,10 +122,7 @@
      [:div.col-md-6
       [:h1 "Entities"]
       [entity-table]
-      [:a.btn.btn-primary {:href "/entities/new"}
-       [:span.glyphicon.glyphicon-plus {:aria-hidden true}]
-       (util/space)
-       "Add"]]]))
+      (util/add-button "/entities/new")]]))
 
 (secretary/defroute new-entity-path "/entities/new" []
   (r/render [new-entity] (app-element)))
