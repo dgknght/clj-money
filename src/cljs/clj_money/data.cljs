@@ -18,20 +18,24 @@
           (success-fn (:body response))
           (.log js/console "Unable to get the resources from the service" (:body response))))))
 
+(defn create-model
+  [path model success-fn error-fn]
+  (go (let [response (<! (http/post path {:json-params model
+                                          :headers {"Content-Type" "application/json"
+                                                    "Accept" "application/json"}}))]
+        (if (= 201 (:status response))
+          (success-fn (:body response))
+          (do
+            (.log js/console "Unable to create the model " (prn-str model) ": " (prn-str response))
+            (error-fn (-> response :body :message)))))))
+
 (defn get-entities
   [success-fn]
   (get-models (path :entities) success-fn))
 
 (defn create-entity
   [entity success-fn error-fn]
-  (go (let [response (<! (http/post (path :entities) {:json-params entity
-                                                      :headers {"Content-Type" "application/json"
-                                                                "Accept" "application/json"}}))]
-        (if (= 201 (:status response))
-          (success-fn (:body response))
-          (do
-            (.log js/console "Unable to create the entity " (prn-str entity) ": " (prn-str response))
-            (error-fn (-> response :body :message)))))))
+  (create-model (path :entities) entity success-fn error-fn))
 
 (defn update-entity
   ([entity success-fn error-fn]
@@ -61,3 +65,13 @@
 (defn get-commodities
   [entity-id success-fn]
   (get-models (path :entities entity-id :commodities) success-fn))
+
+(defn create-commodity
+  [commodity success-fn error-fn]
+
+  (.log js/console "create-commodity " (prn-str commodity))
+
+  (create-model (path :entities (:entity-id commodity) :commodities)
+                commodity
+                success-fn
+                error-fn))

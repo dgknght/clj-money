@@ -45,7 +45,9 @@
 
 (defn- create-commodity
   [commodity]
-  (.log js/console "create commodity " (prn-str commodity)))
+  (data/create-commodity commodity
+                         #(secretary/dispatch! "/commodities")
+                         notify/danger))
 
 (def ^:private commodity-form
   [:form
@@ -55,7 +57,7 @@
    (text-input :name :required)])
 
 (defn- new-commodity []
-  (let [commodity (r/atom {})]
+  (let [commodity (r/atom {:entity-id (:id @state/current-entity)})]
   (with-layout
     [:div.row
      [:div.col-md-6
