@@ -198,10 +198,8 @@
                   :name "US Dollar"
                   :entity-id "Business"
                   :type :currency}]
-   :entities [{:name "Personal"
-               :settings {:default-commodity-id "USD"}}
-              {:name "Business"
-               :settings {:default-commodity-id "USD"}}]
+   :entities [{:name "Personal"}
+              {:name "Business"}]
    :accounts [{:name "Credit card"
                :type :liability
                :entity-id "Personal"}
