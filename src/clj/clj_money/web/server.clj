@@ -172,7 +172,7 @@
   (model-route PATCH "/api/entities/:id" entities-api/update)
   (model-route DELETE "/api/entities/:id" entities-api/delete)
 
-  (model-route GET "/api/entities/:id/commodities" commodities-api/index)
+  (model-route GET "/api/entities/:entity-id/commodities" commodities-api/index)
   (model-route PATCH "/api/commodities/:id" commodities-api/update)
   (model-route DELETE "/api/commodities/:id" commodities-api/delete)
 
