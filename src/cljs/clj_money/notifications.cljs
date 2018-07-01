@@ -7,7 +7,8 @@
   ([message] (notify message :info))
   ([message severity]
    (swap! notifications #(conj % {:message message
-                                  :severity severity}))))
+                                  :severity severity
+                                  :id (random-uuid)}))))
 
 (defn success [message] (notify message :success))
 (defn info    [message] (notify message :info))
@@ -23,4 +24,5 @@
 (defn unnotify
   [notification]
   (swap! notifications (fn [notifications]
-                         (remove notifications #(= % notification)))))
+                         (remove #(= (:id %) (:id notification))
+                                 notifications))))
