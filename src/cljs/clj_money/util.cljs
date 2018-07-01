@@ -22,12 +22,14 @@
 (defn link-to
   "return hiccup representing an anchor tag. Options can include:
     :icon - a Bootstrap glyphicon. Specify the part after 'glyphicon-'
-    :class - the HTML class(es) to be applied to the anchor element"
+    :class - the HTML class(es) to be applied to the anchor element
+    <other> - any other HTML attributes"
   ([caption url] (link-to caption url {}))
   ([caption url options]
    "test"
-   [:a {:href url
-        :class (:class options)}
+   [:a (-> options
+           (dissoc :icon)
+           (assoc :href url))
     (when-let [icon (:icon options)]
       [:span.glyphicon
         {:aria-hidden true
@@ -47,8 +49,7 @@
 (defn button
   ([caption on-click] (button caption on-click {}))
   ([caption on-click options]
-   [:button {:class (:class options)
-             :on-click on-click}
+   [:button (assoc options :on-click on-click)
     (when-let [icon (:icon options)]
       [:span.glyphicon {:aria-hidden "true"
                         :class (str "glyphicon-" (if (keyword? icon)

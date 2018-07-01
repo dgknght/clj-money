@@ -16,11 +16,12 @@
   [{{entity-id :entity-id} :params}]
   (->response (commodities/search (env :db) {:entity-id entity-id})))
 
+(defn get-commodity
+  [{{id :id} :params}]
+  (->response (commodities/find-by-id (env :db) id)))
+
 (defn create
   [{params :params}]
-
-  (log/debug "create commodity " (prn-str params))
-
   (let [commodity (-> params
                       (select-keys [:entity-id
                                     :name
@@ -35,8 +36,19 @@
       (status (->response result) 201))))
 
 (defn update
-  [req]
-  (->response {}))
+  [{params :params}]
+  (let [commodity (authorize (commodities/find-by-id (env :db) (:id params))
+                             :update)
+        updated (merge commodity (select-keys params [:id
+                                                      :entity-id
+                                                      :symbol
+                                                      :name
+                                                      :exchange
+                                                      :type]))
+        result (commodities/update (env :db) updated)]
+    (if (validation/has-error? result)
+      (status (->response result) 422)
+      (status (->response result) 200))))
 
 (defn delete
   [req]

@@ -29,6 +29,17 @@
             (.log js/console "Unable to create the model " (prn-str model) ": " (prn-str response))
             (error-fn (-> response :body :message)))))))
 
+(defn update-model
+  [path model success-fn error-fn]
+  (go (let [response (<! (http/patch path {:json-params model
+                                           :headers {"Content-Type" "application/json"
+                                                     "Accept" "application/json"}}))]
+        (if (= 200 (:status response))
+          (success-fn (:body response))
+          (do
+            (.log js/console "Unable to update the model " (prn-str model) ": " (prn-str response))
+            (error-fn (-> response :body :message)))))))
+
 (defn get-entities
   [success-fn]
   (get-models (path :entities) success-fn))
@@ -66,12 +77,20 @@
   [entity-id success-fn]
   (get-models (path :entities entity-id :commodities) success-fn))
 
+(defn get-commodity
+  [id success-fn]
+  (get-models (path :commodities id) success-fn))
+
 (defn create-commodity
   [commodity success-fn error-fn]
-
-  (.log js/console "create-commodity " (prn-str commodity))
-
   (create-model (path :entities (:entity-id commodity) :commodities)
+                commodity
+                success-fn
+                error-fn))
+
+(defn update-commodity
+  [commodity success-fn error-fn]
+  (update-model (path :commodities (:id commodity))
                 commodity
                 success-fn
                 error-fn))

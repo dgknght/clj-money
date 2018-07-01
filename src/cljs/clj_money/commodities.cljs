@@ -12,6 +12,10 @@
                                      select-input
                                      required]]))
 
+(defn- delete-commodity
+  [commodity]
+  (js/alert "not implemented yet."))
+
 (defn- commodity-row
   [commodity]
   ^{:key (:id commodity)}
@@ -19,7 +23,19 @@
    [:td (:name commodity)]
    [:td (:symbol commodity)]
    [:td (:exchange commodity)]
-   [:td "coming soon..."]])
+   [:td "coming soon..."]
+   [:td
+    [:div.btn-group
+     (util/link-to nil
+                   (util/path :commodities (:id commodity) :edit)
+                   {:icon :pencil
+                    :class "btn btn-info btn-xs"
+                    :title "Click here to edit this commodity."})
+     (util/button nil
+                  #(delete-commodity commodity)
+                  {:title "Click here to remove this commodity."
+                   :icon :remove
+                   :class "btn btn-danger btn-xs"})]]])
 
 (defn- commodity-list []
   (let [commodities (r/atom [])]
@@ -32,7 +48,8 @@
          [:th "Name"]
          [:th "Symbol"]
          [:th "Exchange"]
-         [:th "Latest Price"]]
+         [:th "Latest Price"]
+         [:td (util/space)]]
         (for [commodity @commodities]
           (commodity-row commodity))]])))
 
@@ -58,19 +75,46 @@
 
 (defn- new-commodity []
   (let [commodity (r/atom {:entity-id (:id @state/current-entity)})]
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [:h1 "New Commodity"]
+        [bind-fields commodity-form commodity]
+        (util/button "Save" #(create-commodity @commodity) {:class "btn btn-primary"
+                                                            :icon :ok})
+        (util/space)
+        (util/link-to "Cancel" "/commodities" {:class "btn btn-danger"
+                                               :icon :ban-circle})]])))
+
+(defn- edit-commodity
+  [id]
   (with-layout
-    [:div.row
-     [:div.col-md-6
-     [:h1 "New Commodity"]
-     [bind-fields commodity-form commodity]
-     (util/button "Save" #(create-commodity @commodity) {:class "btn btn-primary"
-                                                         :icon :ok})
-     (util/space)
-     (util/link-to "Cancel" "/commodities" {:class "btn btn-danger"
-                                            :icon :ban-circle})]])))
+    (let [commodity (r/atom {})]
+      (data/get-commodity id #(reset! commodity %))
+      [:div.row
+       [:div.col-md-6
+        [:h1 "Edit Commodity"]
+        [bind-fields commodity-form commodity]
+        (util/button "Save"
+                     #(data/update-commodity @commodity
+                                             (fn [_]
+                                               (secretary/dispatch! "/commodities"))
+                                             notify/danger)
+                     {:class "btn btn-primary"
+                      :title "Click here to save this commodity"
+                      :icon :ok})
+        (util/space)
+        (util/link-to "Cancel"
+                      "/commodities"
+                      {:class "btn btn-danger"
+                       :title "Click here to return to the list of commodities."
+                       :icon :ban-circle})]])))
 
 (secretary/defroute "/commodities/new" []
   (r/render [new-commodity] (app-element)))
 
 (secretary/defroute "/commodities" []
   (r/render [commodities-page] (app-element)))
+
+(secretary/defroute "/commodities/:id/edit" [id]
+  (r/render [edit-commodity id] (app-element)))
