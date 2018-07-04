@@ -67,11 +67,10 @@
            (nav-item item))]])]]])
 
 (defn- alert
-  [{:keys [message severity]
-    :or {severity :info}
-    :as alert}
+  [{:keys [id message severity]
+    :or {severity :info}}
    remove-fn]
-  ^{:key message}
+  ^{:key id}
   [:div {:class ["alert" (str "alert-" (name severity))]
          :role "alert"}
    [:button.close {:type :button
@@ -85,7 +84,8 @@
     :message The text to be displayed
     :severity One of success, info, warning, or danger (optional, defaults to info)"
   [alerts remove-fn]
-  (when (seq alerts)
+  (when (seq @alerts)
     [:div#notifications.row
      [:div.col-md-6.col-md-offset-3
-      (doall (map #(alert % remove-fn) alerts))]]))
+      (for [a @alerts]
+        [alert a remove-fn])]]))

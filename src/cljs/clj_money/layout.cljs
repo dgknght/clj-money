@@ -39,6 +39,6 @@
   [body]
   [:div
     [nav]
-    [bootstrap/alerts @notifications unnotify]
+    [bootstrap/alerts notifications unnotify]
     [:div.container
      body]])

@@ -6,9 +6,10 @@
 (defn notify
   ([message] (notify message :info))
   ([message severity]
-   (swap! notifications #(conj % {:message message
-                                  :severity severity
-                                  :id (random-uuid)}))))
+   (let [notification {:message message
+                       :severity severity
+                       :id (random-uuid)}]
+     (swap! notifications #(conj % notification)))))
 
 (defn success [message] (notify message :success))
 (defn info    [message] (notify message :info))
