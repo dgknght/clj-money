@@ -6,7 +6,9 @@
             [cemerick.friend :refer [current-authentication]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
-            [clj-money.api :refer [->response error->response]]
+            [clj-money.api :refer [->response
+                                   error->response
+                                   delete-resource]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
                                              tag-resource]]
@@ -76,15 +78,4 @@
 
 (defn delete
   [{{id :id} :params}]
-  (let [entity (authorize (entities/find-by-id (env :db) id) :delete)]
-    (try
-    (entities/delete (env :db) (:id entity))
-    (catch Exception e
-      (-> (if (env :show-error-messages?)
-            (.getMessage e)
-            "Unable to delete the entity.")
-          response
-          (header "Content-Type" "application/json")
-          (status 500))))
-    {:status 204
-     :body []}))
+  (delete-resource id entities/find-by-id entities/delete))

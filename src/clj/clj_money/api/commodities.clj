@@ -5,7 +5,9 @@
             [environ.core :refer [env]]
             [ring.util.response :refer [status response header]]
             [cheshire.core :as json]
-            [clj-money.api :refer [->response error->response]]
+            [clj-money.api :refer [->response
+                                   error->response
+                                   delete-resource]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
                                              tag-resource]]
@@ -51,5 +53,5 @@
       (status (->response result) 200))))
 
 (defn delete
-  [req]
-  (->response []))
+  [{{id :id} :params}]
+  (delete-resource id commodities/find-by-id commodities/delete))
