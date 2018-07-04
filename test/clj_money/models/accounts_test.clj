@@ -17,6 +17,8 @@
                                             pprint-diff
                                             assert-validation-error
                                             simplify-account-groups
+                                            find-entity
+                                            find-commodity
                                             find-account]]))
 
 (def storage-spec (env :db))
@@ -28,8 +30,7 @@
    :commodities [{:symbol "USD"
                   :type :currency
                   :name "US Dollar"}]
-   :entities [{:name "Personal"
-               :settings {:default-commodity-id "USD"}}]})
+   :entities [{:name "Personal"}]})
 
 (defn- attributes
   [context]
@@ -44,8 +45,7 @@
                   :type :currency
                   :name "US Dollar"
                   :entity-id "Personal"}]
-   :entities [{:name "Personal"
-               :settings {:default-commodity-id "USD"}}]
+   :entities [{:name "Personal"}]
    :accounts [{:name "Credit card"
                :type :liability}
               {:name "Checking"
@@ -97,8 +97,7 @@
                   :type :currency
                   :name "US Dollar"
                   :entity-id "Personal"}]
-   :entities [{:name "Personal"
-               :settings {:default-commodity-id "USD"}}]
+   :entities [{:name "Personal"}]
    :accounts [{:name "Savings"
                :type :asset}
               {:name "Reserve"
@@ -168,15 +167,16 @@
 (deftest create-an-account
   (let [context (serialization/realize storage-spec account-context)
         result (accounts/create storage-spec (attributes context))
-        entity-id (-> context :entities first :id)
-        accounts (->> {:entity-id entity-id}
+        entity (find-entity context "Personal")
+        usd (find-commodity context "USD")
+        accounts (->> {:entity-id (:id entity)}
                       (accounts/search storage-spec)
                       (map #(dissoc % :id :updated-at :created-at)))
         expected [{:name "Checking"
                    :type :asset
-                   :entity-id entity-id
+                   :entity-id (:id entity)
                    :tags #{:something-special}
-                   :commodity-id (-> context :commodities first :id)
+                   :commodity-id (:id usd)
                    :commodity {:name "US Dollar"
                                :symbol "USD"
                                :type :currency
@@ -239,8 +239,7 @@
    :commodities [{:symbol "USD"
                   :type :currency
                   :name "US Dollar"}]
-   :entities [{:name "Personal"
-               :settings {:default-commodity-id "USD"}}]
+   :entities [{:name "Personal"}]
    :accounts [{:name "Savings"
                :type :asset}]})
 

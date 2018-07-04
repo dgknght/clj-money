@@ -92,8 +92,23 @@
                            [:symbol]
                            "Symbol must be unique for a given exchange")])
 
+(defn- set-implicit-default
+  "After a commodity is saved, checks to see if it is
+  the only commodity. If so, update the entity to indicate
+  this is the default."
+  [storage commodity]
+  (let [other-commodities (select-commodities storage {:entity-id (:entity-id commodity)
+                                                       :id [:!= (:id commodity)]})]
+    (when (empty? other-commodities)
+      (let [entity (entities/find-by-id storage (:entity-id commodity))]
+        (entities/update storage (assoc-in entity
+                                           [:settings :default-commodity-id]
+                                           (:id commodity)))))
+    commodity))
+
 (def create
   (create-fn {:before-save before-save
+              :after-save set-implicit-default
               :rules-fn validation-rules
               :coercion-rules coercion-rules
               :spec ::new-commodity

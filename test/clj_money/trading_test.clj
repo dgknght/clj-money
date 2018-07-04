@@ -474,12 +474,14 @@
                                           :lt-capital-loss-account-id
                                           :st-capital-loss-account-id
                                           :inventory-method])
-            actual (->> context
-                        :entities
-                        first
-                        :id
-                        (entities/find-by-id storage-spec)
-                        :settings)]
+            actual (-> (entities/find-by-id storage-spec (:entity-id commodity))
+                       :settings
+                       (select-keys [:lt-capital-gains-account-id
+                                     :st-capital-gains-account-id
+                                     :lt-capital-loss-account-id
+                                     :st-capital-loss-account-id
+                                     :inventory-method]))]
+        (pprint-diff expected actual)
         (is (= expected actual)
             "The entity settings are updated with default account ids")))))
 
