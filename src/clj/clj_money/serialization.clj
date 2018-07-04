@@ -422,20 +422,6 @@
        (filter #(= symbol (:symbol %)))
        first))
 
-(defn- resolve-default-commodity-id
-  [storage context entity]
-  (if-let [symbol (-> entity :settings :default-commodity-id)]
-    (entities/update storage (assoc-in entity
-                                       [:settings :default-commodity-id]
-                                       (:id (get-commodity context symbol))))
-    entity))
-
-(defn- resolve-default-commodity-ids
-  [context storage]
-  (update-in context
-             [:entities]
-             #(map (partial resolve-default-commodity-id storage context) %)))
-
 (defn realize
   "Realizes a test context"
   [storage-spec input]
@@ -447,7 +433,6 @@
         (realize-entities s)
         (realize-grants s)
         (realize-commodities s)
-        (resolve-default-commodity-ids s)
         (realize-accounts s)
         (realize-prices s)
         (realize-lots s)
