@@ -12,12 +12,19 @@
                                      select-input
                                      required]]))
 
-(defn- delete-commodity
-  [commodity]
-  (js/alert "not implemented yet."))
+(defn- delete
+  [commodity collection]
+  (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
+    (data/delete-commodity commodity
+                           (fn [_]
+                             (swap! collection (fn [commodities]
+                                                 (remove #(= (:id %)
+                                                             (:id commodity))
+                                                         commodities))))
+                           notify/danger)))
 
 (defn- commodity-row
-  [commodity]
+  [commodity collection]
   ^{:key (:id commodity)}
   [:tr
    [:td (:name commodity)]
@@ -32,7 +39,7 @@
                     :class "btn btn-info btn-xs"
                     :title "Click here to edit this commodity."})
      (util/button nil
-                  #(delete-commodity commodity)
+                  #(delete commodity collection)
                   {:title "Click here to remove this commodity."
                    :icon :remove
                    :class "btn btn-danger btn-xs"})]]])
@@ -51,7 +58,7 @@
          [:th "Latest Price"]
          [:td (util/space)]]
         (for [commodity @commodities]
-          (commodity-row commodity))]])))
+          (commodity-row commodity commodities))]])))
 
 (defn- commodities-page []
   (with-layout

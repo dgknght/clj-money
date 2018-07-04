@@ -3,13 +3,9 @@
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
-            [clj-money.util :refer [path]]
             [clj-money.state :as state]
             [clj-money.data :as data]
-            [clj-money.notifications :refer [notifications unnotify]]
             [clj-money.entities :as entities]
-            [clj-money.commodities :as commodities]
-            [clj-money.bootstrap :as bootstrap]
             [clj-money.dom :refer [app-element]]
             [clj-money.layout :refer [with-layout]]))
 

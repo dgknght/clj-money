@@ -40,6 +40,19 @@
             (.log js/console "Unable to update the model " (prn-str model) ": " (prn-str response))
             (error-fn (-> response :body :message)))))))
 
+(defn- delete-model
+  [path success-fn error-fn]
+  (go (let [response (<! (http/delete path
+                                      {:headers {"Content-Type" "application/json"
+                                                 "Accept" "application/json"}}))]
+        (case (:status response)
+          204
+          (success-fn)
+          404
+          (error-fn "The specified resource could not be found on the server.")
+
+          (error-fn (-> response :body :message))))))
+
 (defn get-entities
   [success-fn]
   (get-models (path :entities) success-fn))
@@ -61,17 +74,9 @@
 
 (defn delete-entity
   [entity success-fn error-fn]
-  (go (let [response (<! (http/delete (path :entities
-                                            (:id entity))
-                                      {:headers {"Content-Type" "application/json"
-                                                 "Accept" "application/json"}}))]
-        (case (:status response)
-          204
-          (success-fn)
-          404
-          (error-fn "The specified resource could not be found on the server.")
-
-          (error-fn (-> response :body :message))))))
+  (delete-model (path :entities (:id entity))
+                success-fn
+                error-fn))
 
 (defn get-commodities
   [entity-id success-fn]
@@ -92,5 +97,11 @@
   [commodity success-fn error-fn]
   (update-model (path :commodities (:id commodity))
                 commodity
+                success-fn
+                error-fn))
+
+(defn delete-commodity
+  [commodity success-fn error-fn]
+  (delete-model (path :commodities (:id commodity))
                 success-fn
                 error-fn))
