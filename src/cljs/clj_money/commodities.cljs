@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
-            [clj-money.data :as data]
+            [clj-money.api.commodities :as commodities]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -15,13 +15,13 @@
 (defn- delete
   [commodity collection]
   (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
-    (data/delete-commodity commodity
-                           (fn [_]
-                             (swap! collection (fn [commodities]
-                                                 (remove #(= (:id %)
-                                                             (:id commodity))
-                                                         commodities))))
-                           notify/danger)))
+    (commodities/delete commodity
+                        (fn [_]
+                          (swap! collection (fn [commodities]
+                                              (remove #(= (:id %)
+                                                          (:id commodity))
+                                                      commodities))))
+                        notify/danger)))
 
 (defn- commodity-row
   [commodity collection]
@@ -46,8 +46,8 @@
 
 (defn- commodity-list []
   (let [commodities (r/atom [])]
-    (data/get-commodities (:id @state/current-entity)
-                          #(reset! commodities %))
+    (commodities/get-all (:id @state/current-entity)
+                         #(reset! commodities %))
     (fn []
       [:table.table.table-striped.table-hover
        [:tbody
@@ -69,9 +69,9 @@
 
 (defn- create-commodity
   [commodity]
-  (data/create-commodity commodity
-                         #(secretary/dispatch! "/commodities")
-                         notify/danger))
+  (commodities/create commodity
+                      #(secretary/dispatch! "/commodities")
+                      notify/danger))
 
 (def ^:private commodity-form
   [:form
@@ -97,16 +97,16 @@
   [id]
   (with-layout
     (let [commodity (r/atom {})]
-      (data/get-commodity id #(reset! commodity %))
+      (commodities/get-one id #(reset! commodity %))
       [:div.row
        [:div.col-md-6
         [:h1 "Edit Commodity"]
         [bind-fields commodity-form commodity]
         (util/button "Save"
-                     #(data/update-commodity @commodity
-                                             (fn [_]
-                                               (secretary/dispatch! "/commodities"))
-                                             notify/danger)
+                     #(commodities/update @commodity
+                                          (fn [_]
+                                            (secretary/dispatch! "/commodities"))
+                                          notify/danger)
                      {:class "btn btn-primary"
                       :title "Click here to save this commodity"
                       :icon :ok})

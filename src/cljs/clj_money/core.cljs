@@ -4,8 +4,9 @@
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
             [clj-money.state :as state]
-            [clj-money.data :as data]
-            [clj-money.entities :as entities]
+            [clj-money.entities]
+            [clj-money.commodities]
+            [clj-money.api.entities :as entities]
             [clj-money.dom :refer [app-element]]
             [clj-money.layout :refer [with-layout]]))
 
@@ -29,9 +30,9 @@
      :path-exists? #(secretary/locate-route %)})
   (accountant/dispatch-current!)
   (mount-root)
-  (data/get-entities (fn [entities]
-                       (reset! state/entities entities)
-                       (when (seq entities)
-                         (reset! state/current-entity (first entities))))))
+  (entities/get-all (fn [entities]
+                      (reset! state/entities entities)
+                      (when (seq entities)
+                        (reset! state/current-entity (first entities))))))
 
 (init!)

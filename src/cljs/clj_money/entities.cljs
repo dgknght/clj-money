@@ -3,7 +3,7 @@
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
             [clj-money.util :as util]
-            [clj-money.data :as data]
+            [clj-money.api.entities :as entities]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -15,14 +15,14 @@
 (defn- delete
   [entity]
   (when (js/confirm "Are you sure you want to delete this entity?")
-    (data/delete-entity entity
-                        (fn []
-                          (swap! state/entities (fn [old-list]
-                                                  (remove
-                                                    #(= (:id %)
-                                                        (:id entity))
-                                                    old-list))))
-                        notify/danger)))
+    (entities/delete entity
+                     (fn []
+                       (swap! state/entities (fn [old-list]
+                                               (remove
+                                                 #(= (:id %)
+                                                     (:id entity))
+                                                 old-list))))
+                     notify/danger)))
 
 (def ^:private entity-form
   [:form
@@ -31,11 +31,11 @@
 
 (defn- create-entity
   [entity]
-  (data/create-entity entity
-                      (fn [created]
-                        (swap! state/entities #(conj % created))
-                        (secretary/dispatch! "/entities"))
-                      #(notify/danger %)))
+  (entities/create entity
+                   (fn [created]
+                     (swap! state/entities #(conj % created))
+                     (secretary/dispatch! "/entities"))
+                   #(notify/danger %)))
 
 (defn- new-entity []
   (let [entity (r/atom {})]
@@ -70,11 +70,11 @@
 
 (defn- save-entity
   [entity]
-  (data/update-entity entity
-                      (fn [entity]
-                        (relay-updated-entity entity)
-                        (secretary/dispatch! "/entities"))
-                      #(notify/danger %)))
+  (entities/update entity
+                   (fn [entity]
+                     (relay-updated-entity entity)
+                     (secretary/dispatch! "/entities"))
+                   #(notify/danger %)))
 
 (defn edit-entity
   [id]
