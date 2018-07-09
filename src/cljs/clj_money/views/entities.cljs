@@ -1,4 +1,4 @@
-(ns clj-money.entities
+(ns clj-money.views.entities
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
