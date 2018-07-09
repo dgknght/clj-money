@@ -6,6 +6,7 @@
             [clj-money.state :as state]
             [clj-money.views.entities]
             [clj-money.views.commodities]
+            [clj-money.views.accounts]
             [clj-money.api.entities :as entities]
             [clj-money.dom :refer [app-element]]
             [clj-money.layout :refer [with-layout]]))

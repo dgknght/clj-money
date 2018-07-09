@@ -11,12 +11,14 @@
   (apply util/path (concat [:api] segments)))
 
 (defn get-resources
-  [path success-fn]
+  [path success-fn error-fn]
   (go (let [response (<! (http/get path {:headers {"Content-Type" "application/json"
                                                    "Accept" "application/json"}}))]
         (if (= 200 (:status response))
           (success-fn (:body response))
-          (.log js/console "Unable to get the resources from the service" (:body response))))))
+          (do
+            (.log js/console "Unable to get the resources from the service" (:body response))
+            (error-fn (-> response :body :message)))))))
 
 (defn create-resource
   [path model success-fn error-fn]

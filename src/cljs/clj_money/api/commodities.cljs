@@ -3,12 +3,14 @@
   (:require [clj-money.api :as api]))
 
 (defn get-all
-  [entity-id success-fn]
-  (api/get-resources (api/path :entities entity-id :commodities) success-fn))
+  [entity-id success-fn error-fn]
+  (api/get-resources (api/path :entities entity-id :commodities)
+                     success-fn
+                     error-fn))
 
 (defn get-one
-  [id success-fn]
-  (api/get-resources (api/path :commodities id) success-fn))
+  [id success-fn error-fn]
+  (api/get-resources (api/path :commodities id) success-fn error-fn))
 
 (defn create
   [commodity success-fn error-fn]

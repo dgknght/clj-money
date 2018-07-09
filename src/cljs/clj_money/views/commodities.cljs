@@ -47,7 +47,8 @@
 (defn- commodity-list []
   (let [commodities (r/atom [])]
     (commodities/get-all (:id @state/current-entity)
-                         #(reset! commodities %))
+                         #(reset! commodities %)
+                         notify/danger)
     (fn []
       [:table.table.table-striped.table-hover
        [:tbody
@@ -97,7 +98,7 @@
   [id]
   (with-layout
     (let [commodity (r/atom {})]
-      (commodities/get-one id #(reset! commodity %))
+      (commodities/get-one id #(reset! commodity %) notify/danger)
       [:div.row
        [:div.col-md-6
         [:h1 "Edit Commodity"]

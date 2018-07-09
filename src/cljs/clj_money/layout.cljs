@@ -18,7 +18,12 @@
               :active? (= :commodities active-nav)
               :url "/commodities"
               :caption "Commodities"
-              :tool-tip "Click here to manage commodities"}]
+              :tool-tip "Click here to manage commodities."}
+             {:id :accounts
+              :active? (= :accounts active-nav)
+              :url "/accounts"
+              :caption "Accounts"
+              :tool-tip "Click here to manage accounts."}]
      :secondary-items [{:id :html
                         :caption "HTML"
                         :url (path :entities
