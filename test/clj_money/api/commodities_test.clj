@@ -102,3 +102,27 @@
                                        (map :name)
                                        (into #{})))
             "The commodity is updated in the data store.")))))
+
+(deftest delete-a-commodity
+  (let [context (serialization/realize storage-spec commodities-context)
+        entity (find-entity context "Personal")
+        commodity (find-commodity context "USD")]
+    (testing "A user cannot delete a commodity from another user's entity"
+      (let [_ (is (thrown? ExceptionInfo
+                   (with-authentication (find-user context "jane@doe.com")
+                     (api/delete {:params {:id (:id commodity)}}))))
+            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
+        (is (= #{"USD"} (->> commodities
+                             (map :symbol)
+                             (into #{})))
+            "The commodity is stil retrievable after attempt to delete")))
+    (testing "A user can delete a commodity from their entity"
+      (let [response (with-authentication (find-user context "john@doe.com")
+                       (api/delete {:params {:id (:id commodity)}}))
+            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
+        (is (= 204 (:status response)) "The response is successful and empty")
+        (is (not ((->> commodities
+                       (map :symbol)
+                       (into #{}))
+                  "USD"))
+            "The commodity is not retrieved after delete")))))
