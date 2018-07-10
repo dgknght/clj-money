@@ -17,14 +17,9 @@
 
 (defn index
   [{{entity-id :entity-id} :params}]
-  (try+ ; TODO this should be handled in the middleware
-    (->response (commodities/search
-                  (env :db)
-                  (apply-scope {:entity-id entity-id} :commodity)))
-    (catch [:type :clj-money.authorization/unauthorized] _
-      (-> []
-          response
-          (status 404)))))
+  (->response (commodities/search
+                (env :db)
+                (apply-scope {:entity-id entity-id} :commodity))))
 
 (defn get-commodity
   [{{id :id} :params}]

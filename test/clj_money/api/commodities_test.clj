@@ -13,7 +13,8 @@
                                             find-entity
                                             find-commodity]]
             [clj-money.api.commodities :as api]
-            [clj-money.models.commodities :as commodities]))
+            [clj-money.models.commodities :as commodities])
+  (:import clojure.lang.ExceptionInfo))
 
 (def storage-spec (env :db))
 
@@ -43,9 +44,37 @@
                              (into #{})))
             "The response contains the commodities.")))
     (testing "A user cannot get a list of someone else's entities"
+      (let [user (find-user context "jane@doe.com")]
+        (is (thrown? ExceptionInfo
+                     (with-authentication user
+                       (api/index {:params {:entity-id (:id entity)}}))))))))
+
+(defn- commodity-attributes
+  [entity-id]
+  {:entity-id entity-id
+   :type "stock"
+   :name "Apple, Inc."
+   :symbol "AAPL"
+   :exchange "nasdaq"})
+
+(deftest create-a-commodity
+  (let [context (serialization/realize storage-spec commodities-context)
+        entity (find-entity context "Personal")]
+    (testing "A user cannot create a commodity for someone else's entities"
       (let [user (find-user context "jane@doe.com")
+            _ (is (thrown? ExceptionInfo
+                           (with-authentication user
+                             (api/create {:params (commodity-attributes (:id entity))})))) 
+            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
+        (is (not ((->> commodities
+                      (map :symbol)
+                      (into #{}))
+                  "AAPL"))
+            "The commodity is not created.")))
+    (testing "A user can create a commodity for his own entity"
+      (let [user (find-user context "john@doe.com")
             response (with-authentication user
-                       (api/index {:params {:entity-id (:id entity)}}))]
-        (is (= 404 (:status response)) "The response is not-found")
-        (is (empty? (:body response))
-            "The response does not contain the commodities.")))))
+                       (api/create {:params (commodity-attributes (:id entity))}))]
+        (is (= 201 (:status response)) "The response is a successful creation")
+        (is (-> response :body :id)
+            "The response contains the new commodity id.")))))
