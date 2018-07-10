@@ -78,9 +78,9 @@
         entity (find-entity context "Personal")
         user (find-user context "john@doe.com")
         response (with-authentication user
-                   (api/delete {:params {:entity-id (:id entity)}}))
+                   (api/delete {:params {:id (:id entity)}}))
         retrieved (entities/select storage-spec (:id user))]
-    (is (= 202 (:status response)) "The response is successful and empty")
+    (is (= 204 (:status response)) "The response is successful and empty")
     (is (= #{"Business"} (->> retrieved
                               (map :name)
                               (into #{})))
