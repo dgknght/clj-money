@@ -78,3 +78,27 @@
         (is (= 201 (:status response)) "The response is a successful creation")
         (is (-> response :body :id)
             "The response contains the new commodity id.")))))
+
+(deftest update-a-commodity
+  (let [context (serialization/realize storage-spec commodities-context)
+        commodity (find-commodity context "USD")]
+    (testing "A user cannot update a commodity for another user's entity"
+      (is (thrown? ExceptionInfo
+                   (with-authentication (find-user context "jane@doe.com")
+                     (api/update {:params {:id (:id commodity)
+                                           :name "US Doll Hairs"
+                                           :symbol "USD"
+                                           :type "currency"}})))))
+    (testing "A user can update a commodity in their entity"
+      (let [response (with-authentication (find-user context "john@doe.com")
+                     (api/update {:params {:id (:id commodity)
+                                           :name "US Doll Hairs"
+                                           :symbol "USD"
+                                           :type "currency"}}))
+            entity (find-entity context "Personal")
+            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
+        (is (= 200 (:status response)) "The response is successful")
+        (is (= #{"US Doll Hairs"} (->> commodities
+                                       (map :name)
+                                       (into #{})))
+            "The commodity is updated in the data store.")))))
