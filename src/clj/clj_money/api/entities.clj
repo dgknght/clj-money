@@ -1,14 +1,15 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
             [ring.util.response :refer [status response header]]
             [cemerick.friend :refer [current-authentication]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-money.api :refer [->response
                                    error->response
-                                   delete-resource]]
+                                   invalid->response
+                                   delete-resource
+                                   log-error]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
                                              tag-resource]]
@@ -18,23 +19,6 @@
 (defn index
   [req]
   (response (entities/select (env :db) (:id (current-authentication)))))
-
-(defn- invalid->response
-  [model]
-  (->response {:message (validation/error-messages model)}
-              422))
-
-(defn- log-error
-  [error message]
-  (log/error message
-             ": "
-             (.getClass error)
-             " - "
-             (.getMessage error)
-             "\n  "
-             (->> (.getStackTrace error)
-                  (map str)
-                  (clojure.string/join "\n  "))))
 
 (defn create
   [{:keys [params] :as req}]

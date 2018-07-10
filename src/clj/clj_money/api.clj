@@ -1,15 +1,17 @@
 (ns clj-money.api
   (:refer-clojure :exclude [update])
-  (:require [ring.util.response :refer [status response header]]
+  (:require [clojure.tools.logging :as log]
+            [ring.util.response :refer [status response header]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
+            [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize]]))
 
 (defn ->response
   ([value] (->response value 200))
   ([value status-code]
    (-> value
-       json/generate-string
+       #_json/generate-string ; TODO decide if this should be handled here or in middleware
        response
        (header "Content-Type" "application/json")
        (status status-code))))
@@ -23,6 +25,11 @@
        :stack (.getStackTrace error)}
       {:message safe-error-message})
     500))
+
+(defn invalid->response
+  [model]
+  (->response {:message (validation/error-messages model)}
+              422))
 
 (defn delete-resource
   [id find-fn delete-fn]
@@ -38,3 +45,15 @@
             (status 500))))
     {:status 204
      :body []}))
+
+(defn log-error
+  [error message]
+  (log/error message
+             ": "
+             (.getClass error)
+             " - "
+             (.getMessage error)
+             "\n  "
+             (->> (.getStackTrace error)
+                  (map str)
+                  (clojure.string/join "\n  "))))

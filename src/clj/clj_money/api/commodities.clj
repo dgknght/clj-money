@@ -4,18 +4,27 @@
             [clojure.tools.logging :as log]
             [environ.core :refer [env]]
             [ring.util.response :refer [status response header]]
+            [slingshot.slingshot :refer [try+]]
             [clj-money.api :refer [->response
                                    error->response
                                    delete-resource]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
+                                             apply-scope
                                              tag-resource]]
             [clj-money.models.commodities :as commodities]
             [clj-money.permissions.commodities]))
 
 (defn index
   [{{entity-id :entity-id} :params}]
-  (->response (commodities/search (env :db) {:entity-id entity-id})))
+  (try+ ; TODO this should be handled in the middleware
+    (->response (commodities/search
+                  (env :db)
+                  (apply-scope {:entity-id entity-id} :commodity)))
+    (catch [:type :clj-money.authorization/unauthorized] _
+      (-> []
+          response
+          (status 404)))))
 
 (defn get-commodity
   [{{id :id} :params}]

@@ -9,6 +9,7 @@
             [clj-money.validation :as validation]
             [clj-money.test-helpers :refer [reset-db
                                             with-authentication
+                                            find-user
                                             find-entity]]
             [clj-money.api.entities :as api]
             [clj-money.models.entities :as entities]))
@@ -22,6 +23,40 @@
            (factory :user {:email "jane@doe.com"})]
    :entities [{:user-id "john@doe.com"
                :name "Personal"}]})
+
+(deftest create-an-entity
+  (let [context (serialization/realize storage-spec entity-context)
+        user (find-user context "john@doe.com")
+        response (with-authentication user
+                   (api/create {:params {:name "Business"
+                                         :settings {:inventory-method "fifo"}}}))
+        retrieved (entities/select storage-spec (:id user))]
+    (is (= 201 (:status response)) "The response is a successful creation")
+    (is (= {:name "Business"
+            :settings {:inventory-method :fifo}}
+           (select-keys (:body response) [:name :settings]))
+        "The new entity is returned in the response")
+    (is (= #{"Personal" "Business"} (->> retrieved
+                                         (map :name)
+                                         (into #{})))
+        "The new entity can be retrieved.")))
+
+(def ^:private entities-context
+  (-> entity-context
+      (update-in [:entities] #(concat % [{:user-id "john@doe.com"
+                                          :name "Business"}
+                                         {:user-id "jane@doe.com"
+                                          :name "Other"}]))))
+
+(deftest get-a-list-of-entities
+  (let [context (serialization/realize storage-spec entities-context)
+        response (with-authentication (-> context :users first)
+                   (api/index {:params {}}))]
+    (is (= 200 (:status response)) "The response is successful")
+    (is (= #{"Business" "Personal"} (->> (:body response)
+                                         (map :name)
+                                         (into #{})))
+        "The correct entities are returned.")))
 
 (deftest update-an-entity
   (let [context (serialization/realize storage-spec entity-context)
@@ -37,3 +72,16 @@
         "The response includes the updated inventory-method value")
     (is (= :fifo (-> retrieved :settings :inventory-method))
         "The record is updated")))
+
+(deftest delete-an-entity
+  (let [context (serialization/realize storage-spec entities-context)
+        entity (find-entity context "Personal")
+        user (find-user context "john@doe.com")
+        response (with-authentication user
+                   (api/delete {:params {:entity-id (:id entity)}}))
+        retrieved (entities/select storage-spec (:id user))]
+    (is (= 202 (:status response)) "The response is successful and empty")
+    (is (= #{"Business"} (->> retrieved
+                              (map :name)
+                              (into #{})))
+        "The delete entity is no longer returned.")))
