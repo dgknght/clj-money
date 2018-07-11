@@ -1,6 +1,7 @@
 (ns clj-money.api
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [ring.util.response :refer [status response header]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
@@ -28,21 +29,21 @@
 
 (defn invalid->response
   [model]
-  (->response {:message (validation/error-messages model)}
-              422))
+  (->response {:message (validation/error-messages model)} 422))
 
 (defn delete-resource
   [id find-fn delete-fn]
-  (let [model (authorize (find-fn (env :db) id) :delete)]
+  (let [resource (find-fn (env :db) id) #_(authorize (find-fn (env :db) id) :delete)]
     (try
-      (delete-fn (env :db) (:id model))
+
+      (pprint {:delete resource})
+
+      (delete-fn (env :db) (:id resource))
       (catch Exception e
-        (-> (if (env :show-error-messages?)
-              (.getMessage e)
-              "Unable to delete the resource")
-            response
-            (header "Content-Type" "application/json")
-            (status 500))))
+
+        (pprint {:error e})
+
+        (error->response e "Unable to delete the resource.")))
     {:status 204
      :body []}))
 
