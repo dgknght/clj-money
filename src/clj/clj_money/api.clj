@@ -33,11 +33,8 @@
 
 (defn delete-resource
   [id find-fn delete-fn]
-  (let [resource (find-fn (env :db) id) #_(authorize (find-fn (env :db) id) :delete)]
+  (let [resource (authorize (find-fn (env :db) id) :delete)]
     (try
-
-      (pprint {:delete resource})
-
       (delete-fn (env :db) (:id resource))
       (catch Exception e
 

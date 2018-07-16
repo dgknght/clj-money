@@ -4,6 +4,7 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
+            [clj-money.api.test-helper :refer [deftest-delete]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -73,15 +74,12 @@
     (is (= :fifo (-> retrieved :settings :inventory-method))
         "The record is updated")))
 
-(deftest delete-an-entity
-  (let [context (serialization/realize storage-spec entities-context)
-        entity (find-entity context "Personal")
-        user (find-user context "john@doe.com")
-        response (with-authentication user
-                   (api/delete {:params {:id (:id entity)}}))
-        retrieved (entities/select storage-spec (:id user))]
-    (is (= 204 (:status response)) "The response is successful and empty")
-    (is (= #{"Business"} (->> retrieved
-                              (map :name)
-                              (into #{})))
-        "The delete entity is no longer returned.")))
+(deftest-delete delete-an-entity
+  entities-context
+  {:resource-name "entity"
+   :storage storage-spec
+   :find-resource-fn #(find-entity % "Personal")
+   :find-user-fn #(find-user % "john@doe.com")
+   :find-other-user-fn #(find-user % "jane@doe.com")
+   :delete-fn api/delete
+   :select-resources-fn #(entities/select storage-spec (:id (find-user % "john@doe.com")))})

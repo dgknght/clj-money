@@ -4,6 +4,7 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
+            [clj-money.api.test-helper :refer [deftest-delete]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -103,66 +104,14 @@
                                        (into #{})))
             "The commodity is updated in the data store.")))))
 
-(defmacro deftest-delete
-  [name context {:keys [find-resource-fn
-                        find-user-fn
-                        find-other-user-fn
-                        select-resources-fn
-                        delete-fn
-                        resource-name]
-                 :or {resource-name "resource"}}]
-  `(deftest ~name
-     (let [context# (serialization/realize storage-spec ~context)
-           resource# (~find-resource-fn context#)]
-       (testing (format "A user cannot delete a %s from someone else's entity" ~resource-name)
-         (with-authentication (~find-other-user-fn context#)
-           (~delete-fn {:params {:id (:id resource#)}}))
-         (let [resource-ids# (->> (~select-resources-fn context#)
-                                  (map :id)
-                                  (into #{}))]
-           (is (resource-ids# (:id resource#))
-               "The resource is still available after the attempt to delete.")))
-       #_(testing (format "A user can delete a %s from his own entity" ~resource-name)
-           (let [response# (with-authentication (~find-user-fn context#)
-                           (~delete-fn {:params {:id (:id resource#)}}))
-               resource-ids# (->> (~select-resources-fn context#)
-                                  (map :id)
-                                  (into #{}))]
-           (is (= 204 (:status response#))
-               "The response status is successful without content.")
-           (is (not (resource-ids# (:id resource#)))
-               "The resource is no longer available after delete."))))))
-
 (deftest-delete delete-a-commodity
   commodities-context
   {:resource-name "commodity"
+   :storage storage-spec
    :find-resource-fn #(find-commodity % "USD")
    :find-user-fn #(find-user % "john@doe.com")
+   :find-other-user-fn #(find-user % "jane@doe.com")
    :delete-fn api/delete
    :select-resources-fn #(commodities/search
                            storage-spec
                            {:entity-id (:id (find-entity % "Personal"))}) })
-
-#_(deftest delete-a-commodity
-  (let [context (serialization/realize storage-spec commodities-context)
-        entity (find-entity context "Personal")
-        commodity (find-commodity context "USD")]
-    (testing "A user cannot delete a commodity from another user's entity"
-      (let [_ (is (thrown? ExceptionInfo
-                   (with-authentication (find-user context "jane@doe.com")
-                     (api/delete {:params {:id (:id commodity)}}))))
-            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
-        (is (= #{"USD"} (->> commodities
-                             (map :symbol)
-                             (into #{})))
-            "The commodity is stil retrievable after attempt to delete")))
-    (testing "A user can delete a commodity from their entity"
-      (let [response (with-authentication (find-user context "john@doe.com")
-                       (api/delete {:params {:id (:id commodity)}}))
-            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
-        (is (= 204 (:status response)) "The response is successful and empty")
-        (is (not ((->> commodities
-                       (map :symbol)
-                       (into #{}))
-                  "USD"))
-            "The commodity is not retrieved after delete")))))
