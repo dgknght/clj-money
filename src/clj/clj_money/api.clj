@@ -31,6 +31,14 @@
   [model]
   (->response {:message (validation/error-messages model)} 422))
 
+(defn update-resource
+  [params find-fn update-fn]
+  (let [resource (authorize (find-fn (env :db) (:id params)) :update)
+        result (update-fn (env :db) (merge resource params))]
+    (if (validation/has-error? result)
+      (status (->response result) 422)
+      (status (->response result) 200))))
+
 (defn delete-resource
   [id find-fn delete-fn]
   (let [resource (authorize (find-fn (env :db) id) :delete)]

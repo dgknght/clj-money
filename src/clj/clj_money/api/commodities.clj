@@ -7,6 +7,7 @@
             [slingshot.slingshot :refer [try+]]
             [clj-money.api :refer [->response
                                    error->response
+                                   update-resource
                                    delete-resource]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
@@ -42,18 +43,14 @@
 
 (defn update
   [{params :params}]
-  (let [commodity (authorize (commodities/find-by-id (env :db) (:id params))
-                             :update)
-        updated (merge commodity (select-keys params [:id
-                                                      :entity-id
-                                                      :symbol
-                                                      :name
-                                                      :exchange
-                                                      :type]))
-        result (commodities/update (env :db) updated)]
-    (if (validation/has-error? result)
-      (status (->response result) 422)
-      (status (->response result) 200))))
+  (update-resource (select-keys params [:id
+                                        :entity-id
+                                        :symbol
+                                        :name
+                                        :exchange
+                                        :type])
+                   commodities/find-by-id
+                   commodities/update))
 
 (defn delete
   [{{id :id} :params}]
