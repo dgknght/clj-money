@@ -6,7 +6,8 @@
             [clj-factory.core :refer [factory]]
             [clj-money.api.test-helper :refer [deftest-create
                                                deftest-delete
-                                               deftest-update]]
+                                               deftest-update
+                                               deftest-list]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -34,23 +35,17 @@
                   :symbol "USD"
                   :type :currency}]})
 
-(deftest get-a-list-of-commodities
-  (let [context (serialization/realize storage-spec commodities-context)
-        entity (find-entity context "Personal")]
-    (testing "A user can list his own entities"
-      (let [user (find-user context "john@doe.com")
-            response (with-authentication user
-                   (api/index {:params {:entity-id (:id entity)}}))]
-        (is (= 200 (:status response)) "The response is successful")
-        (is (= #{"USD"} (->> (:body response)
-                             (map :symbol)
-                             (into #{})))
-            "The response contains the commodities.")))
-    (testing "A user cannot get a list of someone else's entities"
-      (let [user (find-user context "jane@doe.com")]
-        (is (thrown? ExceptionInfo
-                     (with-authentication user
-                       (api/index {:params {:entity-id (:id entity)}}))))))))
+(deftest-list get-a-list-of-commodities
+  commodities-context
+  {:resource-name "commodity"
+   :storage storage-spec
+   :find-user-fn #(find-user % "john@doe.com")
+   :find-other-user-fn #(find-user % "jane@doe.com")
+   :list-fn api/index
+   :params-fn #(hash-map :entity-id (:id (find-entity % "Personal")))
+   :expectation-fn #(= #{"USD"} (->> %
+                                     (map :symbol)
+                                     (into #{})))})
 
 (def ^:private commodity-attributes
   {:type "stock"

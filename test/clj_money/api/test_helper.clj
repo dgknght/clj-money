@@ -4,6 +4,33 @@
             [clojure.spec.alpha :as s]
             [clj-money.test-helpers :refer [with-authentication]]))
 
+(defmacro deftest-list
+  [name context {:keys [storage
+                        resource-name
+                        find-user-fn
+                        find-other-user-fn
+                        list-fn
+                        params-fn
+                        expectation-fn]
+                 :or {resource-name "resource"}}]
+  `(deftest ~name
+     (let [context# (serialization/realize ~storage ~context)
+           params# {:params (~params-fn context#)}
+           ]
+       (testing "A user can %s list from his own entity"
+         (let [response# (with-authentication (~find-user-fn context#)
+                           (~list-fn params#))]
+           (is (= 200 (:status response#)) "The response is successful")
+           (is (~expectation-fn (:body response#))
+               "The response contains expected resources.")))
+       (testing (format "A user cannot get a %s list from someone else's entities" ~resource-name)
+         (let [error# (try (with-authentication (~find-other-user-fn context#)
+                             (api/index params#))
+                           (catch Exception e#
+                             e#))]
+           (is (= clojure.lang.ExceptionInfo (type error#))
+               "An exception is thrown"))))))
+
 (defmacro deftest-create
   [name context {:keys [storage
                         resource-name
