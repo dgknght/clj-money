@@ -38,13 +38,6 @@
 (defn- select-resources [ctx]
   (commodities/search storage-spec {:entity-id (:id (find-entity ctx))}))
 
-(deftest-list get-a-list-of-commodities
-  {:list-fn api/index
-   :params-fn #(hash-map :entity-id (:id (find-entity %)))
-   :expectation-fn #(= #{"USD"} (->> %
-                                     (map :symbol)
-                                     (into #{})))})
-
 (def ^:private commodity-attributes
   {:resource-name "commodity"
    :type "stock"
