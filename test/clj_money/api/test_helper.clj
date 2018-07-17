@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
+            [environ.core :refer [env]]
             [clj-money.test-helpers :refer [with-authentication]]))
 
 (defmacro deftest-list
@@ -13,7 +14,11 @@
                 list-fn
                 params-fn
                 expectation-fn]
-         :or {resource-name "resource"}}]
+         :or {resource-name "resource"
+              context 'context
+              storage (env :db)
+              find-user-fn 'find-user
+              find-other-user-fn 'find-other-user}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            params# {:params (~params-fn context#)}
@@ -42,7 +47,12 @@
                 create-params-fn
                 select-resources-fn
                 compare-fn]
-         :or {resource-name "resource"}}]
+         :or {resource-name "resource"
+              context 'context
+              storage (env :db)
+              find-user-fn 'find-user
+              find-other-user-fn 'find-other-user
+              select-resources-fn 'select-resources}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            params# {:params (~create-params-fn context#)}]
@@ -74,7 +84,12 @@
                 update-params
                 comparison-fn
                 storage]
-         :or {resource-name "resource"}}]
+         :or {resource-name "resource"
+              context 'context
+              storage (env :db)
+              find-user-fn 'find-user
+              find-other-user-fn 'find-other-user
+              find-resource-fn 'find-resource }}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
           resource# (~find-resource-fn context#)
@@ -105,7 +120,13 @@
                 resource-name
                 storage]
          :as test-def
-         :or {resource-name "resource"}}]
+         :or {resource-name "resource"
+              context 'context
+              storage (env :db)
+              find-user-fn 'find-user
+              find-other-user-fn 'find-other-user
+              find-resource-fn 'find-resource
+              select-resources-fn 'select-resources}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            resource# (~find-resource-fn context#)]

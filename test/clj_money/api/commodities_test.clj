@@ -20,7 +20,7 @@
 
 (use-fixtures :each (partial h/reset-db storage-spec))
 
-(def ^:private commodities-context
+(def ^:private context
   {:users (->> ["john@doe.com" "jane@doe.com"]
                (mapv #(factory :user {:email %})))
    :entities [{:name "Personal"
@@ -31,50 +31,36 @@
                   :symbol "USD"
                   :type :currency}]})
 
-(defn- find-user          [ctx] (h/find-user ctx "john@doe.com"))
-(defn- find-other-user    [ctx] (h/find-user ctx "jane@doe.com"))
-(defn- find-entity        [ctx] (h/find-entity ctx "Personal"))
-(defn- find-commodity     [ctx] (h/find-commodity ctx "USD"))
-(defn- select-commodities [ctx]
+(defn- find-user        [ctx] (h/find-user ctx "john@doe.com"))
+(defn- find-other-user  [ctx] (h/find-user ctx "jane@doe.com"))
+(defn- find-entity      [ctx] (h/find-entity ctx "Personal"))
+(defn- find-resource    [ctx] (h/find-commodity ctx "USD"))
+(defn- select-resources [ctx]
   (commodities/search storage-spec {:entity-id (:id (find-entity ctx))}))
 
 (deftest-list get-a-list-of-commodities
-  {:context commodities-context
-   :resource-name "commodity"
-   :storage storage-spec
-   :find-user-fn find-user
-   :find-other-user-fn find-other-user
-   :list-fn api/index
+  {:list-fn api/index
    :params-fn #(hash-map :entity-id (:id (find-entity %)))
    :expectation-fn #(= #{"USD"} (->> %
                                      (map :symbol)
                                      (into #{})))})
 
 (def ^:private commodity-attributes
-  {:type "stock"
+  {:resource-name "commodity"
+   :type "stock"
    :name "Apple, Inc."
    :symbol "AAPL"
    :exchange "nasdaq"})
 
 (deftest-create create-a-commodity
-  {:context commodities-context
-   :resource-name "commodity"
-   :storage storage-spec
-   :find-user-fn find-user
-   :find-other-user-fn find-other-user
+  {:resource-name "commodity"
    :create-fn api/create
    :create-params-fn #(assoc commodity-attributes :entity-id (:id (find-entity %)))
-   :select-resources-fn select-commodities
    :compare-fn #(= (:symbol %) "AAPL")})
 
 (deftest-update update-a-commodity
-  {:context commodities-context
-   :resource-name "commodity"
-   :storage storage-spec
-   :find-resource-fn find-commodity
+  {:resource-name "commodity"
    :find-updated-resource-fn #(commodities/find-by-id storage-spec %)
-   :find-user-fn find-user
-   :find-other-user-fn find-other-user
    :update-fn api/update
    :comparison-fn #(= (:name %) "US Doll Hairs")
    :update-params {:name "US Doll Hairs"
@@ -82,11 +68,5 @@
                    :type "currency"}})
 
 (deftest-delete delete-a-commodity
-  {:context commodities-context
-   :resource-name "commodity"
-   :storage storage-spec
-   :find-resource-fn find-commodity
-   :find-user-fn find-user
-   :find-other-user-fn find-other-user
-   :delete-fn api/delete
-   :select-resources-fn select-commodities})
+  {:resource-name "commodity"
+   :delete-fn api/delete})
