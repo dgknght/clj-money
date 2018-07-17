@@ -4,7 +4,8 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
-            [clj-money.api.test-helper :refer [deftest-delete]]
+            [clj-money.api.test-helper :refer [deftest-delete
+                                               deftest-update]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -59,20 +60,18 @@
                                          (into #{})))
         "The correct entities are returned.")))
 
-(deftest update-an-entity
-  (let [context (serialization/realize storage-spec entity-context)
-        entity (find-entity context "Personal")
-        response (with-authentication (-> context :users first)
-                   (api/update {:params {:id (:id entity)
-                                         :name "My Stuff"
-                                         :settings {:inventory-method "fifo"}}}))
-        retrieved (entities/reload storage-spec entity)]
-    (is (= 200 (:status response))
-        "The request is successful")
-    (is (= "fifo" (-> response :body (json/parse-string true) :settings :inventory-method))
-        "The response includes the updated inventory-method value")
-    (is (= :fifo (-> retrieved :settings :inventory-method))
-        "The record is updated")))
+(deftest-update update-an-entity
+  entity-context
+  {:resource-name "entity"
+   :storage storage-spec
+   :find-resource-fn #(find-entity % "Personal")
+   :find-updated-resource-fn #(entities/find-by-id storage-spec %)
+   :find-user-fn #(find-user % "john@doe.com")
+   :find-other-user-fn #(find-user % "jane@doe.com")
+   :update-fn api/update
+   :comparison-fn #(= (:name %) "My Stuff")
+   :update-params {:name "My Stuff"
+                   :settings {:inventory-method "fifo"}}})
 
 (deftest-delete delete-an-entity
   entities-context

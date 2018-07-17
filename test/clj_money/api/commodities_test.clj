@@ -4,7 +4,8 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
-            [clj-money.api.test-helper :refer [deftest-delete]]
+            [clj-money.api.test-helper :refer [deftest-delete
+                                               deftest-update]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -80,29 +81,19 @@
         (is (-> response :body :id)
             "The response contains the new commodity id.")))))
 
-(deftest update-a-commodity
-  (let [context (serialization/realize storage-spec commodities-context)
-        commodity (find-commodity context "USD")]
-    (testing "A user cannot update a commodity for another user's entity"
-      (is (thrown? ExceptionInfo
-                   (with-authentication (find-user context "jane@doe.com")
-                     (api/update {:params {:id (:id commodity)
-                                           :name "US Doll Hairs"
-                                           :symbol "USD"
-                                           :type "currency"}})))))
-    (testing "A user can update a commodity in their entity"
-      (let [response (with-authentication (find-user context "john@doe.com")
-                     (api/update {:params {:id (:id commodity)
-                                           :name "US Doll Hairs"
-                                           :symbol "USD"
-                                           :type "currency"}}))
-            entity (find-entity context "Personal")
-            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
-        (is (= 200 (:status response)) "The response is successful")
-        (is (= #{"US Doll Hairs"} (->> commodities
-                                       (map :name)
-                                       (into #{})))
-            "The commodity is updated in the data store.")))))
+(deftest-update update-a-commodity
+  commodities-context
+  {:resource-name "commodity"
+   :storage storage-spec
+   :find-resource-fn #(find-commodity % "USD")
+   :find-updated-resource-fn #(commodities/find-by-id storage-spec %)
+   :find-user-fn #(find-user % "john@doe.com")
+   :find-other-user-fn #(find-user % "jane@doe.com")
+   :update-fn api/update
+   :comparison-fn #(= (:name %) "US Doll Hairs")
+   :update-params {:name "US Doll Hairs"
+                   :symbol "USD"
+                   :type "currency"}})
 
 (deftest-delete delete-a-commodity
   commodities-context

@@ -4,6 +4,38 @@
             [clojure.spec.alpha :as s]
             [clj-money.test-helpers :refer [with-authentication]]))
 
+(defmacro deftest-update
+  [name context {:keys [resource-name
+                        find-resource-fn
+                        find-updated-resource-fn
+                        find-user-fn
+                        find-other-user-fn
+                        update-fn
+                        update-params
+                        comparison-fn
+                        storage]
+                 :as options
+                 :or {resource-name "resource"}}]
+  `(deftest ~name
+    (let [context# (serialization/realize ~storage ~context)
+          resource# (~find-resource-fn context#)
+          update-params# {:params (assoc ~update-params
+                                         :id
+                                         (:id resource#))}]
+      (testing (format "A user cannot update a %s for another user's entity" ~resource-name)
+        (let [error# (try (with-authentication (~find-other-user-fn context#)
+                       (~update-fn update-params#))
+                          (catch Exception e#
+                            e#))]
+          (is (= clojure.lang.ExceptionInfo (type error#)))))
+      (testing (format "A user can update a %s in their entity" ~resource-name)
+        (let [response# (with-authentication (~find-user-fn context#)
+                         (api/update update-params#))
+              updated# (~find-updated-resource-fn (:id resource#))]
+          (is (= 200 (:status response#)) "The response is successful")
+          (is (~comparison-fn updated#)
+              (format "The %s is updated in the data store." ~resource-name)))))))
+
 (defmacro deftest-delete
   [name context {:keys [find-resource-fn
                         find-user-fn
