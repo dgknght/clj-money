@@ -46,7 +46,8 @@
                 create-fn
                 create-params-fn
                 select-resources-fn
-                compare-fn]
+                compare-fn
+                skip-auth-failure-test]
          :or {resource-name "resource"
               context 'context
               storage (env :db)
@@ -56,15 +57,16 @@
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            params# {:params (~create-params-fn context#)}]
-       (testing (format "A user cannot create a %s for someone else's entities" ~resource-name)
-         (let [error# (try (with-authentication (~find-other-user-fn context#)
-                             (~create-fn params#))
-                           (catch Exception e#
-                             e#)) 
-               resources# (~select-resources-fn context#)]
-           (is (= clojure.lang.ExceptionInfo (type error#)) "An exception is thrown")
-           (is (not-any? ~compare-fn resources#)
-               (format "The %s is not created." ~resource-name))))
+       (when-not ~skip-auth-failure-test
+         (testing (format "A user cannot create a %s for someone else's entities" ~resource-name)
+           (let [error# (try (with-authentication (~find-other-user-fn context#)
+                               (~create-fn params#))
+                             (catch Exception e#
+                               e#)) 
+                 resources# (~select-resources-fn context#)]
+             (is (= clojure.lang.ExceptionInfo (type error#)) "An exception is thrown")
+             (is (not-any? ~compare-fn resources#)
+                 (format "The %s is not created." ~resource-name)))))
        (testing (format "A user can create a %s for his own entity" ~resource-name)
          (let [response# (with-authentication (~find-user-fn context#)
                            (~create-fn params#))

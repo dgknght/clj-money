@@ -4,81 +4,50 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
-            [clj-money.api.test-helper :refer [deftest-delete
+            [clj-money.api.test-helper :refer [deftest-list
+                                               deftest-create
+                                               deftest-delete
                                                deftest-update]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
-            [clj-money.test-helpers :refer [reset-db
-                                            with-authentication
-                                            find-user
-                                            find-entity]]
+            [clj-money.test-helpers :as h]
             [clj-money.api.entities :as api]
             [clj-money.models.entities :as entities]))
 
 (def storage-spec (env :db))
 
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each (partial h/reset-db storage-spec))
 
-(def ^:private entity-context
+(defn- find-user        [ctx] (h/find-user ctx "john@doe.com"))
+(defn- find-other-user  [ctx] (h/find-user ctx "jane@doe.com"))
+(defn- find-entity      [ctx] (h/find-entity ctx "Personal"))
+(defn- find-resource    [ctx] (h/find-entity ctx "Personal"))
+(defn- select-resources [ctx] (entities/select storage-spec (:id (find-user ctx))))
+
+(def ^:private context
   {:users [(factory :user {:email "john@doe.com"})
            (factory :user {:email "jane@doe.com"})]
    :entities [{:user-id "john@doe.com"
                :name "Personal"}]})
 
-(deftest create-an-entity
-  (let [context (serialization/realize storage-spec entity-context)
-        user (find-user context "john@doe.com")
-        response (with-authentication user
-                   (api/create {:params {:name "Business"
-                                         :settings {:inventory-method "fifo"}}}))
-        retrieved (entities/select storage-spec (:id user))]
-    (is (= 201 (:status response)) "The response is a successful creation")
-    (is (= {:name "Business"
-            :settings {:inventory-method :fifo}}
-           (select-keys (:body response) [:name :settings]))
-        "The new entity is returned in the response")
-    (is (= #{"Personal" "Business"} (->> retrieved
-                                         (map :name)
-                                         (into #{})))
-        "The new entity can be retrieved.")))
-
-(def ^:private entities-context
-  (-> entity-context
-      (update-in [:entities] #(concat % [{:user-id "john@doe.com"
-                                          :name "Business"}
-                                         {:user-id "jane@doe.com"
-                                          :name "Other"}]))))
-
-(deftest get-a-list-of-entities
-  (let [context (serialization/realize storage-spec entities-context)
-        response (with-authentication (-> context :users first)
-                   (api/index {:params {}}))]
-    (is (= 200 (:status response)) "The response is successful")
-    (is (= #{"Business" "Personal"} (->> (:body response)
-                                         (map :name)
-                                         (into #{})))
-        "The correct entities are returned.")))
+(deftest-create create-an-entity
+  {:resource-name "entity"
+   :create-fn api/create
+   :create-params-fn (fn [_]
+                       {:name "Business"
+                        :settings {:inventory-method "fifo"}})
+   :compare-fn #(= (:name %) "Business")
+   :skip-auth-failure-test true})
 
 (deftest-update update-an-entity
-  {:context entity-context
-   :resource-name "entity"
-   :storage storage-spec
-   :find-resource-fn #(find-entity % "Personal")
+  {:resource-name "entity"
    :find-updated-resource-fn #(entities/find-by-id storage-spec %)
-   :find-user-fn #(find-user % "john@doe.com")
-   :find-other-user-fn #(find-user % "jane@doe.com")
    :update-fn api/update
    :comparison-fn #(= (:name %) "My Stuff")
    :update-params {:name "My Stuff"
                    :settings {:inventory-method "fifo"}}})
 
 (deftest-delete delete-an-entity
-  {:context entities-context
-   :resource-name "entity"
-   :storage storage-spec
-   :find-resource-fn #(find-entity % "Personal")
-   :find-user-fn #(find-user % "john@doe.com")
-   :find-other-user-fn #(find-user % "jane@doe.com")
-   :delete-fn api/delete
-   :select-resources-fn #(entities/select storage-spec (:id (find-user % "john@doe.com")))})
+  {:resource-name "entity"
+   :delete-fn api/delete })
