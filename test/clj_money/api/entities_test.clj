@@ -61,8 +61,8 @@
         "The correct entities are returned.")))
 
 (deftest-update update-an-entity
-  entity-context
-  {:resource-name "entity"
+  {:context entity-context
+   :resource-name "entity"
    :storage storage-spec
    :find-resource-fn #(find-entity % "Personal")
    :find-updated-resource-fn #(entities/find-by-id storage-spec %)
@@ -74,8 +74,8 @@
                    :settings {:inventory-method "fifo"}}})
 
 (deftest-delete delete-an-entity
-  entities-context
-  {:resource-name "entity"
+  {:context entities-context
+   :resource-name "entity"
    :storage storage-spec
    :find-resource-fn #(find-entity % "Personal")
    :find-user-fn #(find-user % "john@doe.com")

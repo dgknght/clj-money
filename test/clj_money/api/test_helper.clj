@@ -5,14 +5,15 @@
             [clj-money.test-helpers :refer [with-authentication]]))
 
 (defmacro deftest-list
-  [name context {:keys [storage
-                        resource-name
-                        find-user-fn
-                        find-other-user-fn
-                        list-fn
-                        params-fn
-                        expectation-fn]
-                 :or {resource-name "resource"}}]
+  [name {:keys [context
+                storage
+                resource-name
+                find-user-fn
+                find-other-user-fn
+                list-fn
+                params-fn
+                expectation-fn]
+         :or {resource-name "resource"}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            params# {:params (~params-fn context#)}
@@ -32,15 +33,16 @@
                "An exception is thrown"))))))
 
 (defmacro deftest-create
-  [name context {:keys [storage
-                        resource-name
-                        find-user-fn
-                        find-other-user-fn
-                        create-fn
-                        create-params-fn
-                        select-resources-fn
-                        compare-fn]
-                 :or {resource-name "resource"}}]
+  [name {:keys [context
+                storage
+                resource-name
+                find-user-fn
+                find-other-user-fn
+                create-fn
+                create-params-fn
+                select-resources-fn
+                compare-fn]
+         :or {resource-name "resource"}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            params# {:params (~create-params-fn context#)}]
@@ -62,18 +64,19 @@
                (format "The response contains the new %s" ~resource-name)))))))
 
 (defmacro deftest-update
-  [name context {:keys [resource-name
-                        find-resource-fn
-                        find-updated-resource-fn
-                        find-user-fn
-                        find-other-user-fn
-                        update-fn
-                        update-params
-                        comparison-fn
-                        storage]
-                 :or {resource-name "resource"}}]
+  [name {:keys [context
+                resource-name
+                find-resource-fn
+                find-updated-resource-fn
+                find-user-fn
+                find-other-user-fn
+                update-fn
+                update-params
+                comparison-fn
+                storage]
+         :or {resource-name "resource"}}]
   `(deftest ~name
-    (let [context# (serialization/realize ~storage ~context)
+     (let [context# (serialization/realize ~storage ~context)
           resource# (~find-resource-fn context#)
           update-params# {:params (assoc ~update-params
                                          :id
@@ -93,15 +96,16 @@
               (format "The %s is updated in the data store." ~resource-name)))))))
 
 (defmacro deftest-delete
-  [name context {:keys [find-resource-fn
-                        find-user-fn
-                        find-other-user-fn
-                        select-resources-fn
-                        delete-fn
-                        resource-name
-                        storage]
-                 :as test-def
-                 :or {resource-name "resource"}}]
+  [name {:keys [context
+                find-resource-fn
+                find-user-fn
+                find-other-user-fn
+                select-resources-fn
+                delete-fn
+                resource-name
+                storage]
+         :as test-def
+         :or {resource-name "resource"}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            resource# (~find-resource-fn context#)]

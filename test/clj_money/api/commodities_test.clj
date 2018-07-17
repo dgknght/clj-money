@@ -39,8 +39,8 @@
   (commodities/search storage-spec {:entity-id (:id (find-entity ctx))}))
 
 (deftest-list get-a-list-of-commodities
-  commodities-context
-  {:resource-name "commodity"
+  {:context commodities-context
+   :resource-name "commodity"
    :storage storage-spec
    :find-user-fn find-user
    :find-other-user-fn find-other-user
@@ -57,8 +57,8 @@
    :exchange "nasdaq"})
 
 (deftest-create create-a-commodity
-  commodities-context
-  {:resource-name "commodity"
+  {:context commodities-context
+   :resource-name "commodity"
    :storage storage-spec
    :find-user-fn find-user
    :find-other-user-fn find-other-user
@@ -68,8 +68,8 @@
    :compare-fn #(= (:symbol %) "AAPL")})
 
 (deftest-update update-a-commodity
-  commodities-context
-  {:resource-name "commodity"
+  {:context commodities-context
+   :resource-name "commodity"
    :storage storage-spec
    :find-resource-fn find-commodity
    :find-updated-resource-fn #(commodities/find-by-id storage-spec %)
@@ -82,8 +82,8 @@
                    :type "currency"}})
 
 (deftest-delete delete-a-commodity
-  commodities-context
-  {:resource-name "commodity"
+  {:context commodities-context
+   :resource-name "commodity"
    :storage storage-spec
    :find-resource-fn find-commodity
    :find-user-fn find-user
