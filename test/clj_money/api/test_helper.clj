@@ -4,6 +4,36 @@
             [clojure.spec.alpha :as s]
             [clj-money.test-helpers :refer [with-authentication]]))
 
+(defmacro deftest-create
+  [name context {:keys [storage
+                        resource-name
+                        find-user-fn
+                        find-other-user-fn
+                        create-fn
+                        create-params-fn
+                        select-resources-fn
+                        compare-fn]
+                 :or {resource-name "resource"}}]
+  `(deftest ~name
+     (let [context# (serialization/realize ~storage ~context)
+           params# {:params (~create-params-fn context#)}]
+       (testing (format "A user cannot create a %s for someone else's entities" ~resource-name)
+         (let [error# (try (with-authentication (~find-other-user-fn context#)
+                             (~create-fn params#))
+                           (catch Exception e#
+                             e#)) 
+               resources# (~select-resources-fn context#)]
+           (is (= clojure.lang.ExceptionInfo (type error#)) "An exception is thrown")
+           (is (not-any? ~compare-fn resources#)
+               (format "The %s is not created." ~resource-name))))
+       (testing (format "A user can create a %s for his own entity" ~resource-name)
+         (let [response# (with-authentication (~find-user-fn context#)
+                           (~create-fn params#))
+               resources# (~select-resources-fn context#)]
+           (is (= 201 (:status response#)) "The response is a successful creation")
+           (is (some ~compare-fn resources#)
+               (format "The response contains the new %s" ~resource-name)))))))
+
 (defmacro deftest-update
   [name context {:keys [resource-name
                         find-resource-fn
@@ -14,7 +44,6 @@
                         update-params
                         comparison-fn
                         storage]
-                 :as options
                  :or {resource-name "resource"}}]
   `(deftest ~name
     (let [context# (serialization/realize ~storage ~context)

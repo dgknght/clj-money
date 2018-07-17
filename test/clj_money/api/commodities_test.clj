@@ -4,7 +4,8 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
-            [clj-money.api.test-helper :refer [deftest-delete
+            [clj-money.api.test-helper :refer [deftest-create
+                                               deftest-delete
                                                deftest-update]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
@@ -51,35 +52,22 @@
                      (with-authentication user
                        (api/index {:params {:entity-id (:id entity)}}))))))))
 
-(defn- commodity-attributes
-  [entity-id]
-  {:entity-id entity-id
-   :type "stock"
+(def ^:private commodity-attributes
+  {:type "stock"
    :name "Apple, Inc."
    :symbol "AAPL"
    :exchange "nasdaq"})
 
-(deftest create-a-commodity
-  (let [context (serialization/realize storage-spec commodities-context)
-        entity (find-entity context "Personal")]
-    (testing "A user cannot create a commodity for someone else's entities"
-      (let [user (find-user context "jane@doe.com")
-            _ (is (thrown? ExceptionInfo
-                           (with-authentication user
-                             (api/create {:params (commodity-attributes (:id entity))})))) 
-            commodities (commodities/search storage-spec {:entity-id (:id entity)})]
-        (is (not ((->> commodities
-                      (map :symbol)
-                      (into #{}))
-                  "AAPL"))
-            "The commodity is not created.")))
-    (testing "A user can create a commodity for his own entity"
-      (let [user (find-user context "john@doe.com")
-            response (with-authentication user
-                       (api/create {:params (commodity-attributes (:id entity))}))]
-        (is (= 201 (:status response)) "The response is a successful creation")
-        (is (-> response :body :id)
-            "The response contains the new commodity id.")))))
+(deftest-create create-a-commodity
+  commodities-context
+  {:resource-name "commodity"
+   :storage storage-spec
+   :find-user-fn #(find-user % "john@doe.com")
+   :find-other-user-fn #(find-user % "jane@doe.com")
+   :create-fn api/create
+   :create-params-fn #(assoc commodity-attributes :entity-id (:id (find-entity % "Personal")))
+   :select-resources-fn #(commodities/search storage-spec {:entity-id (:id (find-entity % "Personal"))})
+   :compare-fn #(= (:symbol %) "AAPL")})
 
 (deftest-update update-a-commodity
   commodities-context
