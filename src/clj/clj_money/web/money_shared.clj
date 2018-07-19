@@ -18,6 +18,7 @@
                                              apply-scope]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [nest]]
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.entities]
             [clj-money.permissions.accounts]
@@ -45,7 +46,7 @@
   ([entity-id options]
    (let [optgroups (->> (apply-scope {:entity-id entity-id} :account)
                         (accounts/search (env :db))
-                        accounts/nest
+                        nest
                         (filter #(or (nil? (:types options))
                                      ((:types options) (:type %))))
                         (map #(opt-group-for-account-type % (:selected-id options))))]

@@ -8,6 +8,7 @@
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [nest]]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
@@ -138,7 +139,7 @@
   ([storage-spec entity-id start end]
    (->> {:entity-id entity-id}
         (accounts/search storage-spec)
-        (accounts/nest [:income :expense])
+        (nest [:income :expense])
         (into [])
         (set-balance-deltas-in-account-groups storage-spec start end)
         transform-income-statement
@@ -207,7 +208,7 @@
    (let [entity (entities/find-by-id storage-spec entity-id)]
      (->> {:entity-id entity-id}
           (accounts/search storage-spec)
-          accounts/nest
+          nest
           (set-balances-in-account-groups storage-spec entity as-of)
           (append-pseudo-accounts storage-spec entity-id as-of)
           transform-balance-sheet

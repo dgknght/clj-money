@@ -65,14 +65,14 @@
   :clean-targets ^{:protect false} [:target-path
                                     [:cljsbuild :builds :app :compiler :output-dir]
                                     [:cljsbuild :builds :app :compiler :output-to]]
-  :source-paths ["src/clj"]
+  :source-paths ["src/clj" "src/cljc"]
   :resource-paths ["resources" "target/cljsbuild"]
 
   :minify-assets {:assets
                   {"resources/public/css/clj-money.min.css" "resources/public/css/clj-money.css"}}
 
   :cljsbuild {:builds [{:id :production
-                        :source-paths ["src/cljs"]
+                        :source-paths ["src/cljs" "src/cljc"]
                         :compiler {:output-to  "target/cljsbuild/public/js/prod/app.js"
                                    :output-dir "target/cljsbuild/public/js/prod"
                                    :source-map "target/cljsbuild/public/js/prod/app.js.map"
@@ -80,7 +80,7 @@
                                    :pretty-print false}}
                        {:id :development
                         :figwheel true
-                        :source-paths ["src/cljs"]
+                        :source-paths ["src/cljs" "src/cljc"]
                         :compiler {:main "clj-money.core"
                                    :asset-path "/js/app"
                                    :output-to  "resources/public/js/app/main.js"

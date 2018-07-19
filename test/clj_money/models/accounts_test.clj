@@ -13,6 +13,7 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [nest]]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
                                             assert-validation-error
@@ -124,12 +125,13 @@
                :parent-id "Taxes"}
               ]})
 
+; TODO Probably this should be moved to mirror the ns where the nest fn is defined
 (deftest select-nested-accounts
   (let [context (serialization/realize storage-spec nested-context)
         entity-id (-> context :entities first :id)
         result (->> {:entity-id entity-id}
                     (accounts/search storage-spec)
-                    accounts/nest
+                    nest
                     simplify-account-groups) 
         expected [{:type :asset
                    :accounts [{:name "Checking"

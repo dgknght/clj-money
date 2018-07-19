@@ -23,6 +23,8 @@
                                     pprint-and-return]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [account-types
+                                                   nest]]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.lots :as lots]
@@ -135,7 +137,7 @@
       (let [groups (->> (apply-scope {:entity-id (:id entity)}
                                      :account)
                         (accounts/search (env :db))
-                        accounts/nest)]
+                        nest)]
         (map account-rows groups))]
      [:a.btn.btn-primary
       {:href (format "/entities/%s/accounts/new" (:id entity))
@@ -366,7 +368,7 @@
   (html
     (text-input-field account :name {:autofocus true})
     (select-field account :type (map #(vector :option {:value %} (humanize %))
-                                     accounts/account-types))
+                                     account-types))
     (select-field account
                   :parent-id
                   (grouped-options-for-accounts (:entity-id account)

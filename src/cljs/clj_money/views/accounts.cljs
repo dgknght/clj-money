@@ -3,6 +3,7 @@
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
             [clj-money.api.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [nest]]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -17,10 +18,11 @@
   (js/alert "not implemented."))
 
 (defn- account-row
-  [account accounts]
+  [account depth accounts]
   ^{:key (str "account-" (:id account))}
   [:tr
-   [:td (:name account)]
+   [:td [:span {:class (str "account-depth-" depth)}
+         (:name account)]]
    [:td
     [:div.btn-group
      (util/link-to nil
@@ -34,6 +36,24 @@
                    :class "btn btn-danger btn-xs"
                    :title "Click here to remove this account."})]]])
 
+(defn- account-and-child-rows
+  ([account accounts]
+   (account-and-child-rows account accounts 0 []))
+  ([account accounts depth result]
+   (-> []
+       (conj (account-row account depth accounts))
+       (concat (map #(account-and-child-rows % accounts (+ 1 depth) result)
+                    (:children account))))))
+
+(defn- account-type-rows
+  [{:keys [type accounts] :as group} all-accounts]
+  (-> '()
+      (conj ^{:key (str "account-type" type)}
+            [:tr.account-type {:id (str "account-type-" type)}
+             [:td type]
+             [:td (util/space)]])
+      (concat (mapcat #(account-and-child-rows % all-accounts) accounts))))
+
 (defn- account-list
   [accounts]
   [:table.table.table-striped.table-hover
@@ -41,8 +61,8 @@
     [:tr
      [:th "Name"]
      [:th (util/space)]]
-    (for [account @accounts]
-      (account-row account accounts))]])
+    (for [row (mapcat #(account-type-rows % accounts) (nest @accounts))]
+      row)]])
 
 (defn- accounts-page []
   (with-layout

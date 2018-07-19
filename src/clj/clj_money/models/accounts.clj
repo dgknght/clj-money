@@ -21,10 +21,6 @@
             [clj-money.models.commodities :as commodities])
   (:import java.math.BigDecimal))
 
-(def account-types
-  "The list of valid account types in standard presentation order"
-  [:asset :liability :equity :income :expense])
-
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
@@ -180,42 +176,6 @@
   "Returns a fresh copy of the specified account from the data store"
   [storage-spec {:keys [id]}]
   (find-by-id storage-spec id))
-
-(defn- append-path
-  [account parent]
-  (assoc account :path (str (:path parent) "/" (:name account))))
-
-(defn- append-children
-  [account all-accounts]
-  (let [children (->> all-accounts
-                      (filter #(= (:id account) (:parent-id %)))
-                      (map #(append-path % account))
-                      (map #(append-children % all-accounts))
-                      (sort-by :name)
-                      vec)]
-    (assoc account :children children
-                   :children-value (reduce #(+ %1 (:value %2) (:children-value %2))
-                                             0
-                                             children))))
-
-(defn nest
-  "Accepts a list of accounts and nests
-  children under parents"
-  ([accounts]
-   (nest account-types accounts))
-  ([types accounts]
-   (let [grouped (->> accounts
-                      (remove :parent-id)
-                      (map #(assoc % :path (:name %)))
-                      (map #(append-children % accounts))
-                      (group-by :type))]
-     (mapv #(hash-map :type % :accounts (or
-                                          (->> grouped
-                                               %
-                                               (sort-by :name)
-                                               vec)
-                                          []))
-           types))))
 
 (def update
   (update-fn {:before-save before-save
