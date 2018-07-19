@@ -6,6 +6,9 @@
             [ring.util.response :refer [status response header]]
             [clj-money.api :refer [->response
                                    error->response
+                                   index-resource
+                                   create-resource
+                                   update-resource
                                    delete-resource]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
@@ -14,9 +17,36 @@
             [clj-money.permissions.accounts]))
 
 (defn index
-  [{{entity-id :entity-id} :params}]
-  (->response (accounts/search (env :db) {:entity-id entity-id})))
+  [{params :params}]
+  (index-resource accounts/search
+                  (select-keys params [:entity-id])
+                  :account))
 
 (defn get-account
   [{{id :id} :params}]
+  ; TODO add authorization here
   (->response (accounts/find-by-id (env :db) id)))
+
+(def ^:private attribute-keys
+  [:id
+   :name
+   :entity-id
+   :type
+   :commodity-id
+   :parent-id])
+
+(defn create
+  [{params :params}]
+  (create-resource :account
+                   (select-keys params attribute-keys)
+                   accounts/create))
+
+(defn update
+  [{params :params}]
+  (update-resource (select-keys params attribute-keys)
+                   accounts/find-by-id
+                   accounts/update))
+
+(defn delete
+  [{{id :id} :params}]
+  (delete-resource id accounts/find-by-id accounts/delete))

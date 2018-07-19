@@ -6,7 +6,9 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-money.validation :as validation]
-            [clj-money.authorization :refer [authorize]]))
+            [clj-money.authorization :refer [authorize
+                                             tag-resource
+                                             apply-scope]]))
 
 (defn ->response
   ([value] (->response value 200))
@@ -30,6 +32,22 @@
 (defn invalid->response
   [model]
   (->response {:message (validation/error-messages model)} 422))
+
+(defn index-resource
+  [search-fn params resource-type]
+  (->response (search-fn
+                (env :db)
+                (apply-scope params resource-type))))
+
+(defn create-resource
+  [resource-type params create-fn]
+  (let [resource (-> params
+                     (tag-resource resource-type)
+                     (authorize :create))
+        result (create-fn (env :db) resource)]
+    (if (validation/has-error? result)
+      (status (->response result) 422)
+      (status (->response result) 201))))
 
 (defn update-resource
   [params find-fn update-fn]
