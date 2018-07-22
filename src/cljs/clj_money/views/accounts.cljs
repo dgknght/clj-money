@@ -13,6 +13,8 @@
                                      select-input
                                      required]]))
 
+(def ^:private accounts (r/atom []))
+
 (defn- delete
   [account accounts]
   (js/alert "not implemented."))
@@ -68,12 +70,28 @@
   (with-layout
     [:section
      [:h1 "Accounts"]
-     (let [accounts (r/atom [])]
-       (accounts/get-all (:id @state/current-entity)
-                         #(reset! accounts %)
-                         notify/danger)
-       [account-list accounts])
+     (accounts/get-all (:id @state/current-entity)
+                       #(reset! accounts %)
+                       notify/danger)
+     [account-list accounts]
      (util/add-button "/accounts/new")]))
+
+(def ^:private account-form
+  [:form
+   (text-input :name :required)
+   (select-input :parent-id (map ))
+   ])
+
+(defn- new-account []
+  (with-layout
+    [:div.row
+     [:div.col-md-6
+      [:h1 "New Account"]
+      (let [account (r/atom {})]
+        [bind-fields account-form account])]]))
+
+(secretary/defroute new-account-path "/accounts/new" []
+  (r/render [new-account] (app-element)))
 
 (secretary/defroute accounts-path "/accounts" []
   (r/render [accounts-page] (app-element)))
