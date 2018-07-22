@@ -56,6 +56,8 @@
                            wrap-models
                            wrap-integer-id-params)))
 
+(def ^:private id-pattern #"^[0-9]+$")
+
 (defroutes all-routes
   ; Entities
   (model-route GET "/entities" entities/index)
@@ -77,7 +79,7 @@
   (model-route GET "/entities/:entity-id/accounts" accounts/index)
   (model-route GET "/entities/:entity-id/accounts/new" accounts/new-account)
   (model-route POST "/entities/:entity-id/accounts" accounts/create)
-  (model-route GET "/accounts/:id" accounts/show)
+  (model-route GET ["/accounts/:id" :id id-pattern] accounts/show)
   (model-route GET "/accounts/:id/edit" accounts/edit)
   (model-route POST "/accounts/:id" accounts/update)
   (model-route POST "/accounts/:id/delete" accounts/delete)
