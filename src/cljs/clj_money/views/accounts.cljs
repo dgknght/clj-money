@@ -3,7 +3,8 @@
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
             [clj-money.api.accounts :as accounts]
-            [clj-money.x-platform.accounts :refer [nest]]
+            [clj-money.x-platform.accounts :refer [nest
+                                                   unnest]]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -16,7 +17,7 @@
 (def ^:private *accounts* (r/atom []))
 
 (defn- delete
-  [account accounts]
+  [account]
   (js/alert "not implemented."))
 
 (defn- account-row
@@ -33,7 +34,7 @@
                     :class "btn btn-info btn-xs"
                     :title "Click here to edit this account."})
      (util/button nil
-                  #(delete account *accounts*)
+                  #(delete account)
                   {:icon :remove
                    :class "btn btn-danger btn-xs"
                    :title "Click here to remove this account."})]]])
@@ -79,10 +80,10 @@
 (defn- accounts-source
   [text]
   (let [result (->> @*accounts*
-                    (filter #(not= -1 (-> (:name %)
+                    (filter #(not= -1 (-> (:path %)
                                           (.toLowerCase)
                                           (.indexOf text))))
-                    (mapv (juxt :name :id)))]
+                    (mapv (juxt :path :id)))]
     result))
 
 (def ^:private account-form
@@ -95,17 +96,18 @@
            :input-class "form-control"
            :list-class "typeahead-list"
            :item-class "typeahead-item"
+           :highlight-class "typeahead-highlight"
            :data-source accounts-source
            :in-fn (fn [id]
-                    ((juxt :name :id) (->> @*accounts*
+                    ((juxt :path :id) (->> @*accounts*
                                            (filter #(= id (:id %)))
                                            first)))
-           :out-fn (fn [[name id]] id)
-           :result-fn (fn [[name id]] name)}]]])
+           :out-fn (fn [[path id]] id)
+           :result-fn (fn [[path id]] path)}]]])
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
-                    #(reset! *accounts* %)
+                    #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
   (with-layout
     [:div.row

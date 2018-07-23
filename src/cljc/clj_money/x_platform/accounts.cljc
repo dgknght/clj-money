@@ -39,3 +39,19 @@
                                                vec)
                                           []))
            types))))
+
+(defn- unnest*
+  [accumulator accounts]
+  (reduce (fn [r account]
+            (unnest* (conj r (dissoc account :children))
+                     (:children account)))
+          accumulator
+          accounts))
+
+(defn unnest
+  "Accepts a nested set of accounts and flattens the heirarchy,
+  retaining the :path attribute"
+  [accounts]
+  (->> accounts
+       (mapcat :accounts)
+       (unnest* [])))

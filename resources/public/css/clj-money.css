@@ -58,6 +58,23 @@
   font-family: italic;
 }
 
+.typeahead-list {
+  border: 1px solid black;
+  background-color: #fff;
+  list-style-type: none;
+  margin: 0;
+  padding: 0;
+}
+
+.typeahead-item, .typeahead-highlight {
+  padding: .5em;
+}
+
+.typeahead-highlight {
+  background-color: #157BB1;
+  color: #fff;
+}
+
 /* This should be moved to a place where it can be packaged with budget-monitor.js */
 .paced-progress-bar {
   display: inline-block;
