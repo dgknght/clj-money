@@ -4,6 +4,7 @@
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
             [clj-money.state :as state]
+            [clj-money.notifications :as notify]
             [clj-money.views.entities]
             [clj-money.views.commodities]
             [clj-money.views.accounts]
@@ -34,6 +35,7 @@
   (entities/get-all (fn [entities]
                       (reset! state/entities entities)
                       (when (seq entities)
-                        (reset! state/current-entity (first entities))))))
+                        (reset! state/current-entity (first entities))))
+                    notify/danger))
 
 (init!)
