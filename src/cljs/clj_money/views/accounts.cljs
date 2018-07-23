@@ -3,7 +3,8 @@
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
             [clj-money.api.accounts :as accounts]
-            [clj-money.x-platform.accounts :refer [nest
+            [clj-money.x-platform.accounts :refer [account-types
+                                                   nest
                                                    unnest]]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
@@ -16,6 +17,7 @@
                                      required]]))
 
 (def ^:private *accounts* (r/atom []))
+(def ^:private *commodities* (r/atom []))
 
 (defn- delete
   [account]
@@ -89,7 +91,6 @@
 
 (def ^:private account-form
   [:form
-   (text-input :name :required)
    (typeahead-input
      :parent-id
      {:field :typeahead
@@ -99,12 +100,18 @@
                                       (filter #(= id (:id %)))
                                       first)))
       :out-fn (fn [[path id]] id)
-      :result-fn (fn [[path id]] path)})])
+      :result-fn (fn [[path id]] path)})
+   (select-input :type account-types {:visible? #(nil? (:parent-id %))})
+   (text-input :name :required)
+   (select-input :commodity-id (map #(vector (:name %) (:id %)) @*commodities*))])
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
                     #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
+  (commodities/get-all (:id @state/current-entity)
+                       #(reset! *commodities* %)
+                       notify/danger)
   (with-layout
     [:div.row
      [:div.col-md-6

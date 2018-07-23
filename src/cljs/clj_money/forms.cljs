@@ -16,8 +16,8 @@
 (defn select-input
   ([field html-options] (select-input field html-options {}))
   ([field html-options options]
-  [:div.form-group {:field :container
-                    :visible? (:visible? options)}
+   [:div.form-group (merge (select-keys options [:visible?])
+                           {:field :container})
    (label field)
    [:select.form-control {:field :list :id field}
     (for [option html-options]
