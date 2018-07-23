@@ -12,6 +12,7 @@
             [clj-money.util :as util]
             [clj-money.forms :refer [text-input
                                      select-input
+                                     typeahead-input
                                      required]]))
 
 (def ^:private *accounts* (r/atom []))
@@ -89,21 +90,16 @@
 (def ^:private account-form
   [:form
    (text-input :name :required)
-   [:div.form-group
-    [:label.control-label {:for :parent-id} "Parent"]
-    [:div {:field :typeahead
-           :id :parent-id
-           :input-class "form-control"
-           :list-class "typeahead-list"
-           :item-class "typeahead-item"
-           :highlight-class "typeahead-highlight"
-           :data-source accounts-source
-           :in-fn (fn [id]
-                    ((juxt :path :id) (->> @*accounts*
-                                           (filter #(= id (:id %)))
-                                           first)))
-           :out-fn (fn [[path id]] id)
-           :result-fn (fn [[path id]] path)}]]])
+   (typeahead-input
+     :parent-id
+     {:field :typeahead
+      :data-source accounts-source
+      :in-fn (fn [id]
+               ((juxt :path :id) (->> @*accounts*
+                                      (filter #(= id (:id %)))
+                                      first)))
+      :out-fn (fn [[path id]] id)
+      :result-fn (fn [[path id]] path)})])
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
