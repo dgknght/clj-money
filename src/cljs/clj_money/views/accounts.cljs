@@ -93,21 +93,37 @@
                     (mapv (juxt :path :id)))]
     result))
 
+(defn- commodities-source
+  [text]
+  (let [result (->> @*commodities*
+                    (filter #(not= -1 (-> (:name %)
+                                          (.toLowerCase)
+                                          (.indexOf text))))
+                    (mapv (juxt :name :id)))]
+    result))
+
 (def ^:private account-form
   [:form
    (typeahead-input
      :parent-id
-     {:field :typeahead
-      :data-source accounts-source
+     {:data-source accounts-source
       :in-fn (fn [id]
                ((juxt :path :id) (->> @*accounts*
                                       (filter #(= id (:id %)))
                                       first)))
-      :out-fn (fn [[path id]] id)
-      :result-fn (fn [[path id]] path)})
+      :out-fn (fn [[_ id]] id)
+      :result-fn (fn [[path _]] path)})
    (select-input :type account-types {:visible? #(nil? (:parent-id %))})
    (text-input :name :required)
-   (select-input :commodity-id (map #(vector (:name %) (:id %)) @*commodities*))])
+   (typeahead-input
+     :commodity-id
+     {:data-source commodities-source
+      :in-fn (fn [id]
+               ((juxt :name :id) (->> @*commodities*
+                                      (filter #(= id (:id %)))
+                                      first)))
+      :out-fn (fn [[_ id]] id)
+      :result-fn (fn [[path _]] path)})])
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
