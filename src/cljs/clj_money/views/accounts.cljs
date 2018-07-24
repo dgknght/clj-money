@@ -6,6 +6,7 @@
             [clj-money.x-platform.accounts :refer [account-types
                                                    nest
                                                    unnest]]
+            [clj-money.api.commodities :as commodities]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -74,6 +75,9 @@
   (accounts/get-all (:id @state/current-entity)
                     #(reset! *accounts* %)
                     notify/danger)
+  (commodities/get-all (:id @state/current-entity)
+                       #(reset! *commodities* %)
+                       notify/danger)
   (with-layout
     [:section
      [:h1 "Accounts"]
@@ -109,9 +113,6 @@
   (accounts/get-all (:id @state/current-entity)
                     #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
-  (commodities/get-all (:id @state/current-entity)
-                       #(reset! *commodities* %)
-                       notify/danger)
   (with-layout
     [:div.row
      [:div.col-md-6
