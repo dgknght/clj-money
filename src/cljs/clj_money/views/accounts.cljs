@@ -115,26 +115,33 @@
       :result-fn (fn [[path _]] path)})
    (select-input :type account-types {:visible? #(nil? (:parent-id %))})
    (text-input :name :required)
-   (typeahead-input
-     :commodity-id
-     {:data-source commodities-source
-      :in-fn (fn [id]
-               ((juxt :name :id) (->> @*commodities*
-                                      (filter #(= id (:id %)))
-                                      first)))
-      :out-fn (fn [[_ id]] id)
-      :result-fn (fn [[path _]] path)})])
+   [:div.form-group
+    [:label.control-label "Commodity"]
+    [:select.form-control {:field :list-fn
+                           :id :commodity-id
+                           :list-fn (fn [_]
+                                      (map (juxt :symbol :id) @*commodities*))}]]])
+
+(defn- create-account
+  [account]
+  (.log js/console (prn-str account)))
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
                     #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
-  (with-layout
-    [:div.row
-     [:div.col-md-6
-      [:h1 "New Account"]
-      (let [account (r/atom {})]
-        [bind-fields account-form account])]]))
+
+  (let [account (r/atom {})]
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [:h1 "New Account"]
+        [bind-fields account-form account]
+        (util/button "Save" #(create-account @account)  {:class "btn btn-primary"
+                                                         :icon :ok})
+        (util/space)
+        (util/link-to "Cancel" "/accounts" {:class "btn btn-danger"
+                                            :icon :ban-circle})]])))
 
 (secretary/defroute new-account-path "/accounts/new" []
   (r/render [new-account] (app-element)))

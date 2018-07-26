@@ -1,5 +1,7 @@
 (ns clj-money.forms
-  (:require [clj-money.inflection :as infl]))
+  (:require-macros [reagent-forms.macros :refer [render-element]])
+  (:require [reagent.core :as r]
+            [clj-money.inflection :as infl]))
 
 (defn- label
   [field]
@@ -53,10 +55,19 @@
                          :input-class "form-control"
                          :list-class "typeahead-list"
                          :item-class "typeahead-item"
-                         :highlight-class "typeahead-highlight"})]])
+                         :highlight-class "typeahead-highlight"
+                         :clear-on-focus? false})]])
 
 (defn required
   [field]
   ^{:key (str (name field) ".required")}
   [:span.help-block {:field :alert :id field :event empty?}
    (str (-> field name infl/last-segment infl/title-case) " is required.")])
+
+(defmethod reagent-forms.core/init-field :list-fn
+  [[tag {:keys [list-fn] :as attr}] {:keys [doc] :as context}]
+  (let [options (r/atom [])]
+    (render-element attr doc [tag {:on-focus (fn [_]
+                                               (reset! options (list-fn doc)))} 
+                              (for [[display id] @options]
+                                [:option {:value id} display])])))
