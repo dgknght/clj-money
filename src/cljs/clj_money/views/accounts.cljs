@@ -124,7 +124,11 @@
 
 (defn- create-account
   [account]
-  (.log js/console (prn-str account)))
+  (accounts/create (if (:parent-id account)
+                     (dissoc account :type)
+                     account)
+                   #(secretary/dispatch! "/accounts")
+                   notify/danger))
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
