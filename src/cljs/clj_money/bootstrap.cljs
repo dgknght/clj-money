@@ -67,15 +67,15 @@
            (nav-item item))]])]]])
 
 (defn- alert
-  [{:keys [id message severity]
-    :or {severity :info}}
+  [{:keys [message severity]
+    :or {severity :info}
+    :as alert}
    remove-fn]
-  ^{:key id}
   [:div {:class ["alert" (str "alert-" (name severity))]
          :role "alert"}
    [:button.close {:type :button
                    :aria-label "Close"
-                   :on-click remove-fn}
+                   :on-click (fn [_] (remove-fn alert))}
     [:span.glyphicon.glyphicon-remove {:aria-hidden "true"}]]
    message])
 
@@ -88,4 +88,4 @@
     [:div#notifications.row
      [:div.col-md-6.col-md-offset-3
       (for [a @alerts]
-        [alert a remove-fn])]]))
+        (with-meta [alert a remove-fn] {:key (:id a)}))]]))
