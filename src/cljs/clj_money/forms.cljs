@@ -72,7 +72,10 @@
                                (reset! options (list-fn doc)))
                    :on-change #(save! (:id attr) (value-of %))
                    :name (:id attr)}]
-    (render-element attr doc [tag elem-attr
-                              (for [[display id] @options]
-                                ^{:key (str "list-option-" (:id attr) "-" id)}
-                                [:option {:value id} display])])))
+    (render-element attr
+                    doc
+                    [tag
+                     elem-attr
+                     (for [[display id] @options]
+                       (with-meta [:option {:value id} display]
+                                  {:key (str "list-option-" (:id attr) "-" id)}))])))
