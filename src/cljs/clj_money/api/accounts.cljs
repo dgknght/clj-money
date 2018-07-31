@@ -13,8 +13,10 @@
                      error-fn))
 
 (defn get-one
-  [success-fn error-fn]
-  (success-fn {:name "No a real account" :type :asset}))
+  [id success-fn error-fn]
+  (api/get-resources (api/path :accounts id)
+                     #(success-fn (after-read %))
+                     error-fn))
 
 (defn create
   [account success-fn error-fn]

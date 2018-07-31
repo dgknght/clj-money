@@ -141,14 +141,49 @@
        [:div.col-md-6
         [:h1 "New Account"]
         [bind-fields account-form account]
-        (util/button "Save" #(create-account @account) {:class "btn btn-primary"
-                                                        :icon :ok})
+        (util/button "Save"
+                     #(create-account @account)
+                     {:class "btn btn-primary"
+                      :title "Click here to create the account."
+                      :icon :ok})
         (util/space)
-        (util/link-to "Cancel" "/accounts" {:class "btn btn-danger"
-                                            :icon :ban-circle})]])))
+        (util/link-to "Cancel"
+                      "/accounts"
+                      {:class "btn btn-danger"
+                       :title "Click here to return to the list of accounts."
+                       :icon :ban-circle})]])))
+
+(defn- update-account
+  [account]
+  (accounts/update account
+                   #(secretary/dispatch! "/accounts")
+                   notify/danger))
+
+(defn- edit-account [id]
+  (let [account (r/atom {:entity-id (:id @state/current-entity)})]
+    (accounts/get-one id #(reset! account %) notify/danger)
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [:h1 "Edit Account"]
+        [bind-fields account-form account]
+        (util/button "Save"
+                     #(update-account @account)
+                     {:class "btn btn-primary"
+                      :title "Click here to save the account."
+                      :icon :ok})
+        (util/space)
+        (util/link-to "Cancel"
+                      "/accounts"
+                      {:class "btn btn-danger"
+                       :title "Click here to return to the list of accounts."
+                       :icon :ban-circle})]])))
 
 (secretary/defroute new-account-path "/accounts/new" []
   (r/render [new-account] (app-element)))
+
+(secretary/defroute edit-account-path "/accounts/:id/edit" [id]
+  (r/render [edit-account id] (app-element)))
 
 (secretary/defroute accounts-path "/accounts" []
   (r/render [accounts-page] (app-element)))
