@@ -135,14 +135,14 @@
                     #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
 
-  (let [account (r/atom {})]
+  (let [account (r/atom {:entity-id (:id @state/current-entity)})]
     (with-layout
       [:div.row
        [:div.col-md-6
         [:h1 "New Account"]
         [bind-fields account-form account]
-        (util/button "Save" #(create-account @account)  {:class "btn btn-primary"
-                                                         :icon :ok})
+        (util/button "Save" #(create-account @account) {:class "btn btn-primary"
+                                                        :icon :ok})
         (util/space)
         (util/link-to "Cancel" "/accounts" {:class "btn btn-danger"
                                             :icon :ban-circle})]])))

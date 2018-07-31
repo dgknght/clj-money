@@ -18,12 +18,20 @@
 
 (defn create
   [account success-fn error-fn]
-  (error-fn "accounts api client is not implemented."))
+  (api/create-resource (api/path :entities (:entity-id account) :accounts)
+                       account
+                       success-fn
+                       error-fn))
 
 (defn update
   [account success-fn error-fn]
-  (error-fn "accounts api client is not implemented."))
+  (api/update-resource (api/path :accounts (:id account))
+                       account
+                       success-fn
+                       error-fn))
 
 (defn delete
   [account success-fn error-fn]
-  (error-fn "accounts api client is not implemented."))
+  (api/delete-resource (api/path :accounts (:id account))
+                       success-fn
+                       error-fn))

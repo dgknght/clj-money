@@ -183,9 +183,9 @@
 
   (model-route GET "/api/entities/:entity-id/accounts" accounts-api/index)
   (model-route GET "/api/accounts/:id" accounts-api/get-account)
-  #_(model-route POST "/api/entities/:entity-id/accounts" accounts-api/create)
-  #_(model-route PATCH "/api/accounts/:id" accounts-api/update)
-  #_(model-route DELETE "/api/accounts/:id" accounts-api/delete)
+  (model-route POST "/api/entities/:entity-id/accounts" accounts-api/create)
+  (model-route PATCH "/api/accounts/:id" accounts-api/update)
+  (model-route DELETE "/api/accounts/:id" accounts-api/delete)
 
   ; Imports
   (POST "/api/imports" req imports-api/create)
