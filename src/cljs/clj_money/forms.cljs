@@ -1,7 +1,8 @@
 (ns clj-money.forms
   (:require-macros [reagent-forms.macros :refer [render-element]])
   (:require [reagent.core :as r]
-            [reagent-forms.core :refer [value-of]]
+            [reagent-forms.core :refer [value-of
+                                        default-selection]]
             [clj-money.inflection :as infl]))
 
 (defn- label
@@ -66,16 +67,19 @@
    (str (-> field name infl/last-segment infl/title-case) " is required.")])
 
 (defmethod reagent-forms.core/init-field :list-fn
-  [[tag {:keys [list-fn] :as attr}] {:keys [doc save!] :as context}]
+  [[tag {:keys [list-fn id] :as attr}] {:keys [doc save! get] :as context}]
   (let [options (r/atom [])
+        selection (r/atom (or (get id)
+                              (get-in (first @options)  [1 :key])))
         elem-attr {:on-focus (fn [_]
                                (reset! options (list-fn doc)))
-                   :on-change #(save! (:id attr) (value-of %))
-                   :name (:id attr)}]
+                   :on-change #(save! id (value-of %))
+                   :name id
+                   :default-value (default-selection @options @selection)}]
     (render-element attr
                     doc
                     [tag
                      elem-attr
                      (for [[display id] @options]
                        (with-meta [:option {:value id} display]
-                                  {:key (str "list-option-" (:id attr) "-" id)}))])))
+                                  {:key (str "list-option-" id "-" id)}))])))
