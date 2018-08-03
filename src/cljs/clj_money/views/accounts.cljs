@@ -73,7 +73,7 @@
 
 (defn- accounts-page []
   (accounts/get-all (:id @state/current-entity)
-                    #(reset! *accounts* %)
+                    #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
   (commodities/get-all (:id @state/current-entity)
                        #(reset! *commodities* %)
@@ -107,12 +107,13 @@
    (typeahead-input
      :parent-id
      {:data-source accounts-source
+      :input-placeholder "Select an account"
       :in-fn (fn [id]
                ((juxt :path :id) (->> @*accounts*
                                       (filter #(= id (:id %)))
                                       first)))
-      :out-fn (fn [[_ id]] id)
-      :result-fn (fn [[path _]] path)})
+      :out-fn second
+      :result-fn first})
    (select-input :type account-types {:visible? #(nil? (:parent-id %))})
    (text-input :name :required)
    [:div.form-group
