@@ -122,13 +122,20 @@
                            :list-fn (fn [_]
                                       (map (juxt :symbol :id) @*commodities*))}]]])
 
+(defn- find-account
+  [id]
+  (->> @*accounts*
+       (filter #(= id (:id %)))
+       first))
+
 (defn- create-account
-  [account]
-  (accounts/create (if (:parent-id account)
-                     (dissoc account :type)
-                     account)
-                   #(secretary/dispatch! "/accounts")
-                   notify/danger))
+  [{:keys [parent-id] :as account}]
+  (let [parent (find-account parent-id)]
+    (accounts/create (if parent
+                       (assoc account :type (:type parent))
+                       account)
+                     #(secretary/dispatch! "/accounts")
+                     notify/danger)))
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
