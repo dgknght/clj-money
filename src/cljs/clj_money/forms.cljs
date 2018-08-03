@@ -73,7 +73,12 @@
                               (get-in (first @options)  [1 :key])))
         elem-attr {:on-focus (fn [_]
                                (reset! options (list-fn doc)))
-                   :on-change #(save! id (value-of %))
+                   :on-change (fn [selection]
+                                (let [option (->> @options
+                                                  (filter #(= (value-of selection)
+                                                             (-> % second str)))
+                                                  first)]
+                                  (save! id (second option))))
                    :name id
                    :default-value (default-selection @options @selection)}]
     (render-element attr
