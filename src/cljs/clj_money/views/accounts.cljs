@@ -86,21 +86,26 @@
 
 (defn- accounts-source
   [text]
-  (let [result (->> @*accounts*
-                    (filter #(not= -1 (-> (:path %)
-                                          (.toLowerCase)
-                                          (.indexOf text))))
-                    (mapv (juxt :path :id)))]
-    result))
+  (->> @*accounts*
+       (filter #(not= -1 (-> (:path %)
+                             (.toLowerCase)
+                             (.indexOf text))))
+       (mapv (juxt :path :id))))
 
 (defn- commodities-source
   [text]
-  (let [result (->> @*commodities*
-                    (filter #(not= -1 (-> (:name %)
-                                          (.toLowerCase)
-                                          (.indexOf text))))
-                    (mapv (juxt :name :id)))]
-    result))
+  (->> @*commodities*
+       (filter #(not= -1 (-> (:name %)
+                             (.toLowerCase)
+                             (.indexOf text))))
+       (mapv (juxt :name :id))))
+
+(defn- model-in-fn
+  [collection-atom display-field]
+  (fn [id]
+    ((juxt display-field :id) (->> @collection-atom
+                                   (filter #(= id (:id %)))
+                                   first))))
 
 (def ^:private account-form
   [:form
@@ -108,20 +113,18 @@
      :parent-id
      {:data-source accounts-source
       :input-placeholder "Select an account"
-      :in-fn (fn [id]
-               ((juxt :path :id) (->> @*accounts*
-                                      (filter #(= id (:id %)))
-                                      first)))
+      :in-fn (model-in-fn *accounts* :path)
       :out-fn second
       :result-fn first})
    (select-input :type account-types {:visible? #(nil? (:parent-id %))})
    (text-input :name :required)
-   [:div.form-group
-    [:label.control-label "Commodity"]
-    [:select.form-control {:field :list-fn
-                           :id :commodity-id
-                           :list-fn (fn [_]
-                                      (map (juxt :symbol :id) @*commodities*))}]]])
+   (typeahead-input
+     :commodity-id
+     {:data-source commodities-source
+      :input-placeholder "Select a commodity"
+      :in-fn (model-in-fn *commodities* :name)
+      :out-fn second
+      :result-fn first})])
 
 (defn- find-account
   [id]
