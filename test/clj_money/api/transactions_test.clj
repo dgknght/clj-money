@@ -34,17 +34,17 @@
                :type :asset}
               {:name "Salary"
                :type :income}]
-   :transaction [{:description "Paycheck"
-                  :transaction-date (t/local-date 2016 2 1)
-                  :memo "Pre-existing transaction"
-                  :items [{:account-id "Checking"
-                                 :action :debit
-                                 :quantity 1000M
-                                 :memo "checking item"}
-                                {:account-id "Salary"
-                                 :action :credit
-                                 :quantity 1000M
-                                 :memo "salary item"}]}]})
+   :transactions [{:description "Paycheck"
+                   :transaction-date (t/local-date 2016 2 1)
+                   :memo "Pre-existing transaction"
+                   :items [{:account-id "Checking"
+                            :action :debit
+                            :quantity 1000M
+                            :memo "checking item"}
+                           {:account-id "Salary"
+                            :action :credit
+                            :quantity 1000M
+                            :memo "salary item"}]}]})
 
 (defn- find-user        [ctx] (h/find-user ctx "john@doe.com"))
 (defn- find-other-user  [ctx] (h/find-user ctx "jane@doe.com"))
@@ -87,7 +87,6 @@
                                          {:action :credit
                                           :quantity 1000M
                                           :memo "salary item"}]}]
-                   (h/pprint-diff expected actual)
                    (= actual expected)))})
 
 ;(deftest-update update-a-transaction
@@ -100,4 +99,5 @@
 
 (deftest-delete delete-a-transaction
   {:resource-name "transaction"
-   :delete-fn api/delete})
+   :delete-fn api/delete
+   :delete-keys [:id :transaction-date]})

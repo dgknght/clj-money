@@ -113,6 +113,19 @@
           (is (~comparison-fn updated#)
               (format "The %s is updated in the data store." ~resource-name)))))))
 
+(defmulti ^:private resource-attr->param
+  type)
+
+(defmethod ^:private resource-attr->param :default
+  [attr]
+  (str attr))
+
+(defn resource->params
+  [resource key-list]
+  (->> (select-keys resource key-list)
+       (map #(vector (first %) (resource-attr->param (second %))))
+       (into {})))
+
 (defmacro deftest-delete
   [name {:keys [context
                 find-resource-fn
@@ -121,7 +134,8 @@
                 select-resources-fn
                 delete-fn
                 resource-name
-                storage]
+                storage
+                delete-keys]
          :as test-def
          :or {resource-name "resource"
               context 'context
@@ -129,14 +143,16 @@
               find-user-fn 'find-user
               find-other-user-fn 'find-other-user
               find-resource-fn 'find-resource
-              select-resources-fn 'select-resources}}]
+              select-resources-fn 'select-resources
+              delete-keys [:id]}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
-           resource# (~find-resource-fn context#)]
+           resource# (~find-resource-fn context#)
+           params# (resource->params resource# ~delete-keys)]
        (testing (format "A user cannot delete a %s from someone else's entity" ~resource-name)
          (let [error# (try
                         (with-authentication (~find-other-user-fn context#)
-                          (~delete-fn {:params {:id (:id resource#)}}))
+                          (~delete-fn {:params params#}))
                         (catch java.lang.Exception e#
                           e#))
                resource-ids# (->> (~select-resources-fn context#)
@@ -147,7 +163,7 @@
                "The resource is still available after the attempt to delete.")))
        (testing (format "A user can delete a %s from his own entity" ~resource-name)
            (let [response# (with-authentication (~find-user-fn context#)
-                           (~delete-fn {:params {:id (:id resource#)}}))
+                           (~delete-fn {:params params#}))
                resource-ids# (->> (~select-resources-fn context#)
                                   (map :id)
                                   (into #{}))]
