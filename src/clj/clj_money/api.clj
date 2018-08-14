@@ -63,9 +63,6 @@
     (try
       (delete-fn (env :db) (:id resource))
       (catch Exception e
-
-        (pprint {:error e})
-
         (error->response e "Unable to delete the resource.")))
     {:status 204
      :body []}))
