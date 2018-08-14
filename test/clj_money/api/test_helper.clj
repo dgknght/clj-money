@@ -21,8 +21,7 @@
               find-other-user-fn 'find-other-user}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
-           params# {:params (~params-fn context#)}
-           ]
+           params# {:params (~params-fn context#)}]
        (testing "A user can %s list from his own entity"
          (let [response# (with-authentication (~find-user-fn context#)
                            (~list-fn params#))]
@@ -71,6 +70,8 @@
          (let [response# (with-authentication (~find-user-fn context#)
                            (~create-fn params#))
                resources# (~select-resources-fn context#)]
+           (if-not (= 201 (:status response#))
+             (pprint {:invalid-resource (:body response#)}))
            (is (= 201 (:status response#)) "The response is a successful creation")
            (is (some ~compare-fn resources#)
                (format "The response contains the new %s" ~resource-name)))))))
