@@ -89,13 +89,13 @@
                                           :memo "salary item"}]}]
                    (= actual expected)))})
 
-;(deftest-update update-a-transaction
-;  {:resource-name "transaction"
-;   :find-updated-resource-fn #(transactions/find-by-id storage-spec %)
-;   :update-fn api/update
-;   :comparison-fn #(= (:name %) "Bag o' Money")
-;   :update-params {:name "Bag o' Money"
-;                   :type "asset"}})
+(deftest-update update-a-transaction
+  {:resource-name "transaction"
+   :find-updated-resource-fn #(transactions/find-by-id storage-spec (:id %) (:transaction-date %))
+   :update-fn api/update
+   :comparison-fn #(= (:name %) "Bag o' Money")
+   :update-params {:name "Bag o' Money"
+                   :type "asset"}})
 
 (deftest-delete delete-a-transaction
   {:resource-name "transaction"
