@@ -53,7 +53,7 @@
 
 (deftest-update update-a-commodity
   {:resource-name "commodity"
-   :find-updated-resource-fn #(commodities/find-by-id storage-spec %)
+   :find-updated-resource-fn #(commodities/find-by-id storage-spec (:id %))
    :update-fn api/update
    :comparison-fn #(= (:name %) "US Doll Hairs")
    :update-params {:name "US Doll Hairs"

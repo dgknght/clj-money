@@ -42,7 +42,7 @@
 
 (deftest-update update-an-entity
   {:resource-name "entity"
-   :find-updated-resource-fn #(entities/find-by-id storage-spec %)
+   :find-updated-resource-fn #(entities/find-by-id storage-spec (:id %))
    :update-fn api/update
    :comparison-fn #(= (:name %) "My Stuff")
    :update-params {:name "My Stuff"

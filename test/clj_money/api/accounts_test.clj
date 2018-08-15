@@ -49,7 +49,7 @@
 
 (deftest-update update-a-account
   {:resource-name "account"
-   :find-updated-resource-fn #(accounts/find-by-id storage-spec %)
+   :find-updated-resource-fn #(accounts/find-by-id storage-spec (:id %))
    :update-fn api/update
    :comparison-fn #(= (:name %) "Bag o' Money")
    :update-params {:name "Bag o' Money"

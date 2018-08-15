@@ -108,7 +108,7 @@
       (testing (format "A user can update a %s in their entity" ~resource-name)
         (let [response# (with-authentication (~find-user-fn context#)
                          (api/update update-params#))
-              updated# (~find-updated-resource-fn (:id resource#))]
+              updated# (~find-updated-resource-fn resource#)]
           (is (= 200 (:status response#)) "The response is successful")
           (is (~comparison-fn updated#)
               (format "The %s is updated in the data store." ~resource-name)))))))
