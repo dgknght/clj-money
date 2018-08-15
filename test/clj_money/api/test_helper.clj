@@ -113,19 +113,6 @@
           (is (~comparison-fn updated#)
               (format "The %s is updated in the data store." ~resource-name)))))))
 
-(defmulti ^:private resource-attr->param
-  type)
-
-(defmethod ^:private resource-attr->param :default
-  [attr]
-  (str attr))
-
-(defn resource->params
-  [resource key-list]
-  (->> (select-keys resource key-list)
-       (map #(vector (first %) (resource-attr->param (second %))))
-       (into {})))
-
 (defmacro deftest-delete
   [name {:keys [context
                 find-resource-fn
@@ -148,7 +135,7 @@
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            resource# (~find-resource-fn context#)
-           params# (resource->params resource# ~delete-keys)]
+           params# (select-keys resource# ~delete-keys)]
        (testing (format "A user cannot delete a %s from someone else's entity" ~resource-name)
          (let [error# (try
                         (with-authentication (~find-other-user-fn context#)

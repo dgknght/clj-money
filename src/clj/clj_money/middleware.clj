@@ -13,9 +13,11 @@
   (when params
     (->> params
          (map (fn [[k v]]
-                [k (if (re-matches #"^(.+-)?id$" (if (keyword? k)
-                                               (name k)
-                                               k))
+                [k (if (and (re-find #"id$"
+                                   (if (keyword? k)
+                                     (name k)
+                                     k))
+                            (re-find #"\d+" v))
                      (try
                        (Integer. v)
                        (catch NumberFormatException e
