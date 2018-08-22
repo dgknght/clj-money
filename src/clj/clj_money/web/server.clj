@@ -282,7 +282,6 @@
                [wrap-keyword-params                 "keyword params"]
                [wrap-json-params                    "json params"      api?]
                [wrap-json-response                  "json response"    api?]
-               [wrap-integer-id-params              "integer params"   api?]
                [wrap-params                         "params"]
                [wrap-exception-handling             "excpetion handling"]
                [#(friend/wrap-authorize % #{:user}) "authorization"    (complement open?)]

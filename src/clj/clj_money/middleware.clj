@@ -1,6 +1,7 @@
 (ns clj-money.middleware
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [ring.util.response :refer [response status header]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
@@ -8,21 +9,34 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]))
 
+(defn- param-name
+  [specified-name]
+  (if (keyword? specified-name)
+    (name specified-name)
+    name))
+
+(defmulti ^:private integerize-id-param
+  (fn [[k v]]
+    (if (re-find #"id$" (param-name k))
+      :default
+      (type v))))
+
+(defmethod ^:private integerize-id-param :default
+  [param]
+  param)
+
+(defmethod ^:private integerize-id-param java.lang.String
+  [[k v]]
+  [k (try
+       (Integer. v)
+       (catch NumberFormatException e
+         v))])
+
 (defn- integerize-id-params
   [params]
   (when params
     (->> params
-         (map (fn [[k v]]
-                [k (if (and (re-find #"id$"
-                                   (if (keyword? k)
-                                     (name k)
-                                     k))
-                            (re-find #"\d+" v))
-                     (try
-                       (Integer. v)
-                       (catch NumberFormatException e
-                         v))
-                     v)]))
+         (map integerize-id-param)
          (into {}))))
 
 (defn wrap-integer-id-params
