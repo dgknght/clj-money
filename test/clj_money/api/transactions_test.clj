@@ -93,9 +93,9 @@
   {:resource-name "transaction"
    :find-updated-resource-fn #(transactions/find-by-id storage-spec (:id %) (:transaction-date %))
    :update-fn api/update
-   :comparison-fn #(= (:name %) "Bag o' Money")
-   :update-params {:name "Bag o' Money"
-                   :type "asset"}})
+   :comparison-fn #(= (:memo %) "updated memo")
+   :update-params {:transaction-date (t/local-date 2016 2 1)
+                   :memo "updated memo"}})
 
 (deftest-delete delete-a-transaction
   {:resource-name "transaction"
