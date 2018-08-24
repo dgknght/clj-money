@@ -44,7 +44,7 @@
 (defn update
   [{params :params}]
   (update-resource (select-keys params attribute-keys)
-                   accounts/find-by-id
+                   #(accounts/find-by-id %1 (:id %2))
                    accounts/update))
 
 (defn delete

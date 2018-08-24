@@ -47,7 +47,7 @@
 (defn update
   [{params :params}]
   (update-resource (select-keys params attribute-keys)
-                   transactions/find-by-id
+                   #(transactions/find-by-id %1 (:id %2) (:transaction-date %2))
                    transactions/update))
 
 (s/def ::id uuid?)

@@ -40,7 +40,7 @@
 (defn update
   [{params :params}]
   (update-resource (select-keys params attribute-keys)
-                   commodities/find-by-id
+                   #(commodities/find-by-id %1 (:id %2))
                    commodities/update))
 
 (defn delete
