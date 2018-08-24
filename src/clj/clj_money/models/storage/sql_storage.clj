@@ -140,6 +140,9 @@
   (s/keys :req-un [::entity-id] :opt-un [::transaction-date]))
 (defmethod transaction-criteria :id [_]
   (s/keys :req-un [::id ::transaction-date]))
+(defmethod transaction-criteria :default [c]
+  (throw (RuntimeException. (str "The criteria must contain either :lot-id, :entity-id, or :id. " (prn-str c)))))
+
 (s/def
   ::transaction-criteria
   (s/multi-spec transaction-criteria transaction-criteria-key))
