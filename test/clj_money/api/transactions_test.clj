@@ -53,6 +53,25 @@
 (defn- select-resources [ctx]
   (transactions/search storage-spec {:entity-id (:id (find-entity ctx))} {:include-items? true}))
 
+(deftest-list list-transactions
+  {:resource-name "transaction"
+   :list-fn api/index
+   :params-fn (fn [ctx]
+                {:entity-id (-> ctx :entities first :id)
+                 :transaction-date [:between
+                                    (t/local-date 2016 1 1)
+                                    (t/local-date 2016 12 31)]})
+   :expectation-fn (fn [actual]
+                     (let [expected [{:transaction-date (t/local-date 2016 2 1)
+                                      :description "Paycheck"
+                                      :memo "Pre-existing transaction"
+                                      :value 1000M}]
+                           actual (map (fn [a]
+                                         (dissoc a :id :entity-id :created-at :updated-at))
+                                       actual)]
+                       (h/pprint-diff expected actual)
+                       (= expected actual)))})
+
 (deftest-create create-an-transaction
   {:resource-name "transaction"
    :create-fn api/create

@@ -22,7 +22,7 @@
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            params# {:params (~params-fn context#)}]
-       (testing "A user can %s list from his own entity"
+       (testing (format "A user can get a %s list from his own entity" ~resource-name)
          (let [response# (with-authentication (~find-user-fn context#)
                            (~list-fn params#))]
            (is (= 200 (:status response#)) "The response is successful")
