@@ -22,7 +22,7 @@
 (defn index
   [{params :params}]
   (index-resource transactions/search
-                  (select-keys params [:entity-id])
+                  (select-keys params [:entity-id :account-id])
                   :transaction))
 
 (defn get-transaction

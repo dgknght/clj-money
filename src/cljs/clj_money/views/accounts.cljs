@@ -33,6 +33,11 @@
    [:td
     [:div.btn-group
      (util/link-to nil
+                   (util/path :accounts (:id account) :transactions)
+                   {:icon :list-alt
+                    :class "btn btn-default btn-xs"
+                    :title "Click here to view transactions for this account."})
+     (util/link-to nil
                    (util/path :accounts (:id account) :edit)
                    {:icon :pencil
                     :class "btn btn-info btn-xs"
