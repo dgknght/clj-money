@@ -15,28 +15,29 @@
     (name specified-name)
     name))
 
-(defmulti ^:private integerize-id-param
-  (fn [[k v]]
-    (if (re-find #"id$" (param-name k))
-      :default
-      (type v))))
+(defmulti ^:private integerize type)
 
-(defmethod ^:private integerize-id-param :default
-  [param]
-  param)
+(defmethod ^:private integerize :default [v] v)
 
-(defmethod ^:private integerize-id-param java.lang.String
-  [[k v]]
-  [k (try
-       (Integer. v)
-       (catch NumberFormatException e
-         v))])
+(defmethod ^:private integerize java.lang.String
+  [value]
+  (try
+    (Integer. value)
+    (catch NumberFormatException e
+      value)))
+
+(defn- id-key?
+  [k]
+  (re-find #"id$" (param-name k)))
 
 (defn- integerize-id-params
   [params]
   (when params
     (->> params
-         (map integerize-id-param)
+         (map (fn [[k v]]
+                [k (if (id-key? k)
+                     (integerize v)
+                     v)]))
          (into {}))))
 
 (defn wrap-integer-id-params
