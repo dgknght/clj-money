@@ -21,6 +21,7 @@
 (defn- append-query-string
   [path criteria]
   (if (empty? criteria)
+    path
     (str path "?" (map->query-string criteria))))
 
 (defn get-resources
@@ -33,7 +34,11 @@
          (if (= 200 (:status response))
            (success-fn (:body response))
            (do
-             (.log js/console "Unable to get the resources from the service" (:body response))
+             (.log js/console
+                   "Unable to get the resource(s) at "
+                   path
+                   " from the service: "
+                   (:body response))
              (error-fn (-> response :body :message))))))))
 
 (defn create-resource
