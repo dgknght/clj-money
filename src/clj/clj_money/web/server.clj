@@ -80,7 +80,7 @@
   (model-route GET "/entities/:entity-id/accounts" accounts/index)
   (model-route GET "/entities/:entity-id/accounts/new" accounts/new-account)
   (model-route POST "/entities/:entity-id/accounts" accounts/create)
-  (model-route GET ["/accounts/:id" :id id-pattern] accounts/show)
+  (model-route GET "/accounts/:id" accounts/show)
   (model-route GET "/accounts/:id/edit" accounts/edit)
   (model-route POST "/accounts/:id" accounts/update)
   (model-route POST "/accounts/:id/delete" accounts/delete)
@@ -123,6 +123,7 @@
   (model-route POST "/prices/:id/delete" prices/delete)
 
   ; Transactions
+  ; use /accounts/:id instead of /accounts/:id/transactions
   (model-route GET "/entities/:entity-id/transactions" transactions/index)
   (model-route GET "/entities/:entity-id/transactions/new" transactions/new-transaction)
   (model-route POST "/entities/:entity-id/transactions" transactions/create)
@@ -190,7 +191,7 @@
 
   (model-route GET "/api/transactions" transactions-api/index)
   (model-route GET "/api/transactions/:id" transactions-api/get-transaction)
-  (model-route POST "/api/accounts/:account-id" transactions-api/create)
+  (model-route POST "/api/transactions" transactions-api/create)
   (model-route PATCH "/api/transactions/:id" transactions-api/update)
   (model-route DELETE "/api/transactions/:id" transactions-api/delete)
 
