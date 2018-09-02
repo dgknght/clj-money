@@ -21,13 +21,12 @@
     (accounts/get-one account-id
                       #(reset! account %)
                       notify/danger)
-    #_(transactions/search {:account-id account-id}
+    (transactions/search {:account-id account-id}
                          #(reset! transactions %)
                          notify/danger)
     (with-layout
       [:section
        [:h1 "Transactions for " (:name @account)]
-       [:pre (prn-str @account)]
        "Transactions will go here"])))
 
 (secretary/defroute accounts-path "/accounts/:account-id/transactions" [account-id]
