@@ -33,6 +33,7 @@
             [clj-money.api.commodities :as commodities-api]
             [clj-money.api.accounts :as accounts-api]
             [clj-money.api.transactions :as transactions-api]
+            [clj-money.api.transaction-items :as transaction-items-api]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
@@ -123,7 +124,7 @@
   (model-route POST "/prices/:id/delete" prices/delete)
 
   ; Transactions
-  ; use /accounts/:id instead of /accounts/:id/transactions
+  ; use /accounts/:id instead of /accounts/:id/transactions or /accounts/:id/transaction-items
   (model-route GET "/entities/:entity-id/transactions" transactions/index)
   (model-route GET "/entities/:entity-id/transactions/new" transactions/new-transaction)
   (model-route POST "/entities/:entity-id/transactions" transactions/create)
@@ -189,6 +190,7 @@
   (model-route PATCH "/api/accounts/:id" accounts-api/update)
   (model-route DELETE "/api/accounts/:id" accounts-api/delete)
 
+  (model-route GET "/api/accounts/:id/transaction-items" transaction-items-api/index)
   (model-route GET "/api/transactions" transactions-api/index)
   (model-route GET "/api/transactions/:id" transactions-api/get-transaction)
   (model-route POST "/api/transactions" transactions-api/create)

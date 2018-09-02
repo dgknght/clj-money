@@ -15,19 +15,14 @@
                                      required]]))
 
 (defn- transactions-page
-  [account-id]
-  (let [account (r/atom {})
-        transactions (r/atom [])]
-    (accounts/get-one account-id
-                      #(reset! account %)
-                      notify/danger)
-    (transactions/search {:account-id account-id}
-                         #(reset! transactions %)
+  []
+  (let [transactions (r/atom [])]
+    (transactions/search #(reset! transactions %)
                          notify/danger)
     (with-layout
       [:section
-       [:h1 "Transactions for " (:name @account)]
+       [:h1 "Transactions" ]
        "Transactions will go here"])))
 
-(secretary/defroute accounts-path "/accounts/:account-id/transactions" [account-id]
-  (r/render [transactions-page account-id] (app-element)))
+(secretary/defroute accounts-path "/transactions" []
+  (r/render [transactions-page] (app-element)))

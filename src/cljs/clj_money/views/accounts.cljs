@@ -2,11 +2,12 @@
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
+            [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
+            [clj-money.api.transaction-items :as transaction-items]
             [clj-money.x-platform.accounts :refer [account-types
                                                    nest
                                                    unnest]]
-            [clj-money.api.commodities :as commodities]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -33,7 +34,7 @@
    [:td
     [:div.btn-group
      (util/link-to nil
-                   (util/path :accounts (:id account) :transactions)
+                   (util/path :accounts (:id account))
                    {:icon :list-alt
                     :class "btn btn-default btn-xs"
                     :title "Click here to view transactions for this account."})
@@ -195,11 +196,44 @@
                        :title "Click here to return to the list of accounts."
                        :icon :ban-circle})]])))
 
+(defn- account-header
+  [account]
+  [:h1 (str "Account " (:name @account))])
+
+(defn- item-row
+  [item]
+  [:tr
+   [:td {:colspan 3} [:pre (prn-str item)]]])
+
+(defn- items-table
+  [items]
+  [:table
+   [:tbody
+    [:tr
+     [:th "Transaction Date"]
+     [:th "Description"]
+     [:th "Amount"]]
+    (map item-row @items)]])
+
+(defn- show-account [id]
+  (let [account (r/atom {})
+        transaction-items (r/atom [])]
+    (accounts/get-one id #(reset! account %) notify/danger)
+    (transaction-items/search id {} #(reset! transaction-items %) notify/danger)
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [account-header account]
+        [items-table transaction-items]]])))
+
 (secretary/defroute new-account-path "/accounts/new" []
   (r/render [new-account] (app-element)))
 
 (secretary/defroute edit-account-path "/accounts/:id/edit" [id]
   (r/render [edit-account id] (app-element)))
+
+(secretary/defroute show-account-path "/accounts/:id" [id]
+  (r/render [show-account id] (app-element)))
 
 (secretary/defroute accounts-path "/accounts" []
   (r/render [accounts-page] (app-element)))

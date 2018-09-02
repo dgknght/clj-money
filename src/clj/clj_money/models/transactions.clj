@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
             [clojure.set :refer [difference]]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-money.util :refer [pprint-and-return
                                     ensure-local-date]]
