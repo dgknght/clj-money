@@ -23,6 +23,7 @@
             [cemerick.friend.workflows :as workflows]
             [cemerick.friend.credentials :as creds]
             [cheshire.core :as json]
+            [clj-time.format :refer [unparse-local formatters]]
             [clj-money.core]
             [clj-money.json]
             [clj-money.middleware :refer [wrap-integer-id-params
@@ -51,6 +52,12 @@
             [clj-money.web.reports :as reports]
             [clj-money.web.users :as users]
             [clj-money.web.grants :as grants]))
+
+; make sure we can handle joda types in json serialization
+(cheshire.generate/add-encoder
+  org.joda.time.LocalDate
+  (fn [local-date gen]
+    (.writeString gen (unparse-local (formatters :date) local-date))))
 
 (defmacro model-route
   [method path handler]

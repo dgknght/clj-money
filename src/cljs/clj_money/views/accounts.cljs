@@ -1,6 +1,8 @@
 (ns clj-money.views.accounts
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
+            ; TODO Figure out why this isn't loading correctly
+            #_[reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
@@ -202,17 +204,20 @@
 
 (defn- item-row
   [item]
+  ^{:key (:id item)}
   [:tr
-   [:td {:colspan 3} [:pre (prn-str item)]]])
+   [:td.text-right (:transaction-date item)]
+   [:td (:description item)]
+   [:td.text-right #_(currency-format (:value item))]])
 
 (defn- items-table
   [items]
-  [:table
+  [:table.table.table-striped.table-hover
    [:tbody
     [:tr
-     [:th "Transaction Date"]
-     [:th "Description"]
-     [:th "Amount"]]
+     [:th.col-sm-2.text-right "Date"]
+     [:th.col-sm-8 "Description"]
+     [:th.col-sm-2.text-right "Amount"]]
     (map item-row @items)]])
 
 (defn- show-account [id]

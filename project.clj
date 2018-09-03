@@ -36,6 +36,7 @@
                  [reagent "0.8.0" :exclusions [com.google.code.findbugs/jsr305
                                                org.clojure/tools.reader]]
                  [reagent-forms "0.5.41"]
+                 [reagent-utils "0.3.1"]
                  [org.clojure/clojurescript "1.10.238" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "22.0" :exclusions [com.google.code.findbugs/jsr305
                                                              org.clojure/tools.reader]]
@@ -54,8 +55,7 @@
                  [clj-factory "0.2.1" :exclusions [org.clojure/tools.reader]]
                  [digest "1.4.8" :exclusions [org.clojure/tools.reader]]
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
-                 [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
-                 [com.fasterxml.jackson.datatype/jackson-datatype-joda "2.9.6" :exclusions [com.fasterxml.jackson.core/jackson-core]]]
+                 [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
