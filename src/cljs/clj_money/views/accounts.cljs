@@ -200,7 +200,7 @@
 
 (defn- account-header
   [account]
-  [:h1 (str "Account " (:name @account))])
+  [:h1 (:name @account)])
 
 (defn- item-row
   [item]
