@@ -22,9 +22,6 @@
 
 (defn index
   [{params :params}]
-
-  (log/debug "dbk api.transaction-items/index " (prn-str params))
-
   (index-resource transactions/search-items
                   (-> params
                       (rename-keys {:id :account-id})
