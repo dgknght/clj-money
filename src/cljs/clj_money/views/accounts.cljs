@@ -1,8 +1,7 @@
 (ns clj-money.views.accounts
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
-            ; TODO Figure out why this isn't loading correctly
-            #_[reagent.format :refer [currency-format]]
+            [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
             [cljs-time.format :as f]
             [clj-money.api.commodities :as commodities]
@@ -209,7 +208,7 @@
   [:tr
    [:td.text-right (f/unparse-local (f/formatter "M/d/yyyy") (:transaction-date item))]
    [:td (:description item)]
-   [:td.text-right #_(currency-format (:value item))]])
+   [:td.text-right (currency-format (:value item))]])
 
 (defn- items-table
   [items]
