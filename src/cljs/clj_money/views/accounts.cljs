@@ -4,6 +4,7 @@
             ; TODO Figure out why this isn't loading correctly
             #_[reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
+            [cljs-time.format :as f]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.transaction-items :as transaction-items]
@@ -206,7 +207,7 @@
   [item]
   ^{:key (:id item)}
   [:tr
-   [:td.text-right (:transaction-date item)]
+   [:td.text-right (f/unparse-local (f/formatter "M/d/yyyy") (:transaction-date item))]
    [:td (:description item)]
    [:td.text-right #_(currency-format (:value item))]])
 

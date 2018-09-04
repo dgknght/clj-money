@@ -55,7 +55,8 @@
                  [clj-factory "0.2.1" :exclusions [org.clojure/tools.reader]]
                  [digest "1.4.8" :exclusions [org.clojure/tools.reader]]
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
-                 [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]]
+                 [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
+                 [com.andrewmcveigh/cljs-time "0.5.2"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
