@@ -9,7 +9,8 @@
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.x-platform.accounts :refer [account-types
                                                    nest
-                                                   unnest]]
+                                                   unnest
+                                                   polarize-item]]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -208,7 +209,8 @@
   [:tr
    [:td.text-right (f/unparse-local (f/formatter "M/d/yyyy") (:transaction-date item))]
    [:td (:description item)]
-   [:td.text-right (currency-format (:value item))]])
+   [:td.text-right (currency-format (:polarized-value item))]
+   [:td.text-right (currency-format (:balance item))]])
 
 (defn- items-table
   [items]
@@ -216,15 +218,27 @@
    [:tbody
     [:tr
      [:th.col-sm-2.text-right "Date"]
-     [:th.col-sm-8 "Description"]
-     [:th.col-sm-2.text-right "Amount"]]
+     [:th.col-sm-6 "Description"]
+     [:th.col-sm-2.text-right "Amount"]
+     [:th.col-sm-2.text-right "Balance"]]
     (map item-row @items)]])
 
 (defn- show-account [id]
   (let [account (r/atom {})
         transaction-items (r/atom [])]
-    (accounts/get-one id #(reset! account %) notify/danger)
-    (transaction-items/search id {} #(reset! transaction-items %) notify/danger)
+    (accounts/get-one id
+                      (fn [a]
+                        (reset! account a)
+                        (transaction-items/search
+                          id
+                          {}
+                          (fn [items]
+                            (reset! transaction-items
+                                    (map #(polarize-item % a)
+                                         items)))
+                          notify/danger))
+                      notify/danger)
+
     (with-layout
       [:div.row
        [:div.col-md-6

@@ -13,7 +13,8 @@
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.x-platform.accounts :refer [nest]]
+            [clj-money.x-platform.accounts :refer [nest
+                                                   polarize-quantity]]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
                                             assert-validation-error
@@ -371,7 +372,7 @@
          item# {:account-id (:id account#)
                 :action ~action
                 :quantity ~quantity}
-         polarized# (accounts/polarize-quantity item# account#)]
+         polarized# (polarize-quantity item# account#)]
      (is (= ~expected polarized#) ~message)))
 
 (deftest polarize-a-quantity

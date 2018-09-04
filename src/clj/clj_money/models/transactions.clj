@@ -11,6 +11,7 @@
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
             [clj-money.models.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions
                                               create-transaction
@@ -474,7 +475,7 @@
   [{:keys [account storage last-index last-balance] :as context}
    item]
   (let [new-index (+ 1 last-index)
-        polarized-quantity (accounts/polarize-quantity item account)
+        polarized-quantity (polarize-quantity item account)
         new-balance (+ last-balance
                        polarized-quantity)
         changed (update-item-index-and-balance

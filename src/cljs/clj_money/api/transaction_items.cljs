@@ -5,7 +5,9 @@
 
 (defn- after-read
   [item]
-  (update-in item [:transaction-date] #(f/parse-local (f/formatters :date) %)))
+  (-> item
+      (update-in [:transaction-date] #(f/parse-local (f/formatters :date) %))
+      (update-in [:action] keyword)))
 
 (defn search
   [account-id criteria success-fn error-fn]

@@ -11,6 +11,7 @@
             [clj-money.authorization :refer [tag-resource
                                              authorize]]
             [clj-money.models.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.reconciliations :as reconciliations]
             [clj-money.permissions.reconciliations]))
@@ -21,7 +22,7 @@
    [:td.text-right (util/format-date (:transaction-date transaction-item))]
    [:td (:description transaction-item)]
    [:td.text-right (-> transaction-item
-                       (accounts/polarize-quantity account)
+                       (polarize-quantity account)
                        util/format-number)]
    [:td.text-center [:input {:type :checkbox
                              :name "item-refs"

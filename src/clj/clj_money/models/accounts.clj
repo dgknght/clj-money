@@ -191,16 +191,3 @@
   [storage-spec id]
   (with-storage [s storage-spec]
     (delete-account s id)))
-
-(defn left-side?
-  "Returns truthy if the specified account is asset or expense, falsey if anything else"
-  [account]
-  (#{:asset :expense} (:type account)))
-
-(defn polarize-quantity
-  "Adjusts the polarity of an amount as appropriate given
-  a transaction item action and the type of the associated account"
-  [transaction-item account]
-  (let [polarizer (* (if (left-side? account) 1 -1)
-                     (if (= :debit (:action transaction-item)) 1 -1))]
-    (* (:quantity transaction-item) polarizer)))

@@ -55,3 +55,27 @@
   (->> accounts
        (mapcat :accounts)
        (unnest* [])))
+
+(defn left-side?
+  "Returns truthy if the specified account is asset or expense, falsey if anything else"
+  [account]
+  (#{:asset :expense} (:type account)))
+
+(defn- polarizer
+  [transaction-item account]
+  (* (if (left-side? account) 1 -1)
+     (if (= :debit (:action transaction-item)) 1 -1)))
+
+(defn polarize-item
+  [transaction-item account]
+  (let [polarizer (polarizer transaction-item account)]
+    (assoc transaction-item
+           :polarized-quantity (* polarizer (:quantity transaction-item))
+           :polarized-value    (* polarizer (:value transaction-item)))))
+
+(defn polarize-quantity
+  "Adjusts the polarity of a quantity as appropriate given
+  a transaction item action and the type of the associated account"
+  [transaction-item account]
+  (* (:quantity transaction-item account)
+     (polarizer transaction-item account)))

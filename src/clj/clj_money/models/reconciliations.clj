@@ -10,6 +10,7 @@
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
             [clj-money.models.accounts :as accounts]
+            [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
@@ -142,7 +143,7 @@
             delta (->> reconciliation
                        (ensure-transaction-items storage)
                        ::items
-                       (map #(accounts/polarize-quantity % account))
+                       (map #(polarize-quantity % account))
                        (reduce +))]
         (= (:balance reconciliation)
            (+ starting-balance delta)))))
