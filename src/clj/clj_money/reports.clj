@@ -8,7 +8,8 @@
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.x-platform.accounts :refer [nest]]
+            [clj-money.x-platform.accounts :refer [nest
+                                                   left-side?]]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
@@ -225,7 +226,7 @@
         actual-amount (transactions/balance-delta storage (:id account)
                                                   (:start-date budget)
                                                   as-of)
-        difference (if (accounts/left-side? account)
+        difference (if (left-side? account)
                      (- budget-amount actual-amount)
                      (- actual-amount budget-amount))]
     (with-precision 10
