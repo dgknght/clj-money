@@ -201,7 +201,13 @@
 
 (defn- account-header
   [account]
-  [:h1 (:name @account)])
+  [:section
+   [:div.pull-right
+    [:a.btn.btn-info
+     {:href "/accounts"
+      :title "Click here to return to the account list."}
+     "Back"]]
+   [:h1 (:name @account)]])
 
 (defn- item-row
   [item]
@@ -221,11 +227,13 @@
      [:th.col-sm-6 "Description"]
      [:th.col-sm-2.text-right "Amount"]
      [:th.col-sm-2.text-right "Balance"]]
-    (map item-row @items)]])
+    (if @items
+      (map item-row @items)
+      [:tr [:td {:colspan 4} [:span.inline-status "Loading..."]]])]])
 
 (defn- show-account [id]
   (let [account (r/atom {})
-        transaction-items (r/atom [])]
+        transaction-items (r/atom nil)]
     (accounts/get-one id
                       (fn [a]
                         (reset! account a)

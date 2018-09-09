@@ -107,3 +107,9 @@ td.empty-table {
     display: none;
   }
 }
+
+.inline-status {
+  display: inline-block;
+  text-align: center;
+  padding: .5em;
+}
