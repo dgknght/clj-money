@@ -122,7 +122,37 @@
      [:div.col-md-6
       [:h1 "Entities"]
       [entity-table]
-      (util/add-button "/entities/new")]]))
+      (util/add-button "/entities/new")
+      (util/space)
+      [:a.btn.btn-default
+       {:href "/entities/import"
+        :title "Click here to import an entity from another accounting program."}
+       "Import"]]]))
+
+(defn- import-entity []
+  (let [files (r/atom [nil])]
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [:h1 "Import Entity"]
+        [:form
+         (text-input "entity-name")
+         (for [index (range (count @files)) file @files]
+           ^{:key (str "file-" index)}
+           [:div.form-group
+            [:label.control-label {:for (str "file-" index)} (str "File " (+ 1  index))]
+            [:input.form-control {:type :file
+                                  :name (str "file" index)
+                                  :id (str "file-" index)
+                                  :value file
+                                  :on-change #(swap! files (fn [v]
+                                                             (.log js/console "v")
+                                                             (.log js/console v)
+                                                             (.log js/console (prn-str v))
+                                                             (let [new-files (vec (assoc-in v [index] (.-value (.-target %))))]
+                                                               (.log js/console "new-files")
+                                                               (.log js/console (prn-str new-files))
+                                                               new-files)))}]])]]])))
 
 (secretary/defroute new-entity-path "/entities/new" []
   (r/render [new-entity] (app-element)))
@@ -132,3 +162,6 @@
 
 (secretary/defroute entities-path "/entities" []
   (r/render [entities-page] (app-element)))
+
+(secretary/defroute import-entity-path "/entities/import" []
+  (r/render [import-entity] (app-element)))
