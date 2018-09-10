@@ -137,22 +137,7 @@
         [:h1 "Import Entity"]
         [:form
          (text-input "entity-name")
-         (for [index (range (count @files)) file @files]
-           ^{:key (str "file-" index)}
-           [:div.form-group
-            [:label.control-label {:for (str "file-" index)} (str "File " (+ 1  index))]
-            [:input.form-control {:type :file
-                                  :name (str "file" index)
-                                  :id (str "file-" index)
-                                  :value file
-                                  :on-change #(swap! files (fn [v]
-                                                             (.log js/console "v")
-                                                             (.log js/console v)
-                                                             (.log js/console (prn-str v))
-                                                             (let [new-files (vec (assoc-in v [index] (.-value (.-target %))))]
-                                                               (.log js/console "new-files")
-                                                               (.log js/console (prn-str new-files))
-                                                               new-files)))}]])]]])))
+         [:div#import-source.drop-zone.bg-primary "Drop files here"]]]])))
 
 (secretary/defroute new-entity-path "/entities/new" []
   (r/render [new-entity] (app-element)))

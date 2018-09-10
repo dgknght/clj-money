@@ -102,14 +102,23 @@ td.empty-table {
   color: #666;
 }
 
-@media print {
-  #side-bar, .btn-group, .btn, .nav, #report-settings {
-    display: none;
-  }
-}
-
 .inline-status {
   display: inline-block;
   text-align: center;
   padding: .5em;
+}
+
+.drop-zone {
+  font-weight: bold;
+  font-size: 150%;
+  padding: 1em;
+  border-radius: .5em;
+  text-align: center;
+  cursor: copy;
+}
+
+@media print {
+  #side-bar, .btn-group, .btn, .nav, #report-settings {
+    display: none;
+  }
 }
