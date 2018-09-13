@@ -129,15 +129,38 @@
         :title "Click here to import an entity from another accounting program."}
        "Import"]]]))
 
+(defn- append-dropped-files
+  [event collection]
+  (let [file-list (-> event .-dataTransfer .-files)
+        file-count (.-length file-list)
+        files (mapv #(.item file-list %) (range file-count))]
+    (concat collection files)))
+
+(defn- file-list
+  [files]
+  [:ul
+   (for [file @files]
+     ^{:key (.-name file)}
+     [:li (.-name file)])])
+
 (defn- import-entity []
-  (let [files (r/atom [nil])]
+  (let [files (r/atom [])]
     (with-layout
       [:div.row
        [:div.col-md-6
         [:h1 "Import Entity"]
         [:form
          (text-input "entity-name")
-         [:div#import-source.drop-zone.bg-primary "Drop files here"]]]])))
+         [:div#import-source.drop-zone.bg-primary
+          {:on-drag-over #(.preventDefault %)
+           :on-drop (fn [e]
+                      (try
+                        (swap! files #(append-dropped-files e %))
+                        (catch js/Error err
+                          (.log js/console "Error: " (prn-str err))))
+                      (.preventDefault e))}
+          [:div "Drop files here"]]
+         [file-list files]]]])))
 
 (secretary/defroute new-entity-path "/entities/new" []
   (r/render [new-entity] (app-element)))

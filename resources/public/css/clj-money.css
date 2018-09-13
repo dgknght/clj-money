@@ -111,10 +111,16 @@ td.empty-table {
 .drop-zone {
   font-weight: bold;
   font-size: 150%;
-  padding: 1em;
+  padding: 0.5em;
   border-radius: .5em;
   text-align: center;
-  cursor: copy;
+}
+
+.drop-zone div {
+  background-color: transparent;
+  border: 3px dashed white;
+  padding: 3em 0.5em;
+  border-radius: .5em;
 }
 
 @media print {
