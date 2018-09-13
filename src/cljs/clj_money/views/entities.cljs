@@ -4,6 +4,7 @@
             [secretary.core :as secretary :include-macros true]
             [clj-money.util :as util]
             [clj-money.api.entities :as entities]
+            [clj-money.api.imports :as imports]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -130,24 +131,28 @@
        "Import"]]]))
 
 (defn- append-dropped-files
-  [event collection]
+  [event import-data]
   (let [file-list (-> event .-dataTransfer .-files)
         file-count (.-length file-list)
         files (mapv #(.item file-list %) (range file-count))]
-    (concat collection files)))
+    (update-in import-data [:files] #(concat % files))))
+
+(def ^:private import-form
+  [:form
+   (text-input :name :required)])
 
 (defn- file-list
-  [files]
-  (when (not (empty? @files))
+  [import-data]
+  (when (not (empty? (:files @import-data)))
     [:section
      [:h2 "Files"]
      [:ul.list-group
-      (for [file @files]
+      (for [file (:files @import-data)]
         ^{:key (.-name file)}
         [:li.list-group-item (.-name file)])]]))
 
 (defn- import-entity []
-  (let [files (r/atom [])]
+  (let [import-data (r/atom {})]
     (with-layout
       [:section
        [:div.row
@@ -155,21 +160,27 @@
          [:h1 "Import Entity"]]]
        [:div.row
         [:div.col-md-6
-         [:form
-          (text-input "entity-name")
-          [:div#import-source.drop-zone.bg-primary
-           {:on-drag-over #(.preventDefault %)
-            :on-drop (fn [e]
-                       (try
-                         (swap! files #(append-dropped-files e %))
-                         (catch js/Error err
-                           (.log js/console "Error: " (prn-str err))))
-                       (.preventDefault e))}
-           [:div "Drop files here"]]
-           (util/button "Import" #(.log js/console) {:class "btn btn-primary"
-                                                     :icon :ok})]]
+         [bind-fields import-form import-data]
+         [:div#import-source.drop-zone.bg-primary
+          {:on-drag-over #(.preventDefault %)
+           :on-drop (fn [e]
+                      (try
+                        (swap! import-data #(append-dropped-files e %))
+                        (catch js/Error err
+                          (.log js/console "Error: " (prn-str err))))
+                      (.preventDefault e))}
+          [:div "Drop files here"]]
+         (util/button "Import"
+                      (fn [e]
+                        (.log js/console "start the import")
+                        (imports/create @import-data
+                                        #(.log js/console "started " (prn-str %))
+                                        notify/danger)
+                        (.preventDefault e))
+                      {:class "btn btn-primary"
+                       :icon :ok})]
         [:div.col-md-6
-         [file-list files]]]])))
+         [file-list import-data]]]])))
 
 (secretary/defroute new-entity-path "/entities/new" []
   (r/render [new-entity] (app-element)))
