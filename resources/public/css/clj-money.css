@@ -114,6 +114,7 @@ td.empty-table {
   padding: 0.5em;
   border-radius: .5em;
   text-align: center;
+  margin-bottom: 1em;
 }
 
 .drop-zone div {

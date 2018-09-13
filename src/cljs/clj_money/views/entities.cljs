@@ -138,28 +138,37 @@
 
 (defn- file-list
   [files]
-  [:ul
-   (for [file @files]
-     ^{:key (.-name file)}
-     [:li (.-name file)])])
+  (when (not (empty? @files))
+    [:section
+     [:h2 "Files"]
+     [:ul.list-group
+      (for [file @files]
+        ^{:key (.-name file)}
+        [:li.list-group-item (.-name file)])]]))
 
 (defn- import-entity []
   (let [files (r/atom [])]
     (with-layout
-      [:div.row
-       [:div.col-md-6
-        [:h1 "Import Entity"]
-        [:form
-         (text-input "entity-name")
-         [:div#import-source.drop-zone.bg-primary
-          {:on-drag-over #(.preventDefault %)
-           :on-drop (fn [e]
-                      (try
-                        (swap! files #(append-dropped-files e %))
-                        (catch js/Error err
-                          (.log js/console "Error: " (prn-str err))))
-                      (.preventDefault e))}
-          [:div "Drop files here"]]
+      [:section
+       [:div.row
+        [:div.col-md-6
+         [:h1 "Import Entity"]]]
+       [:div.row
+        [:div.col-md-6
+         [:form
+          (text-input "entity-name")
+          [:div#import-source.drop-zone.bg-primary
+           {:on-drag-over #(.preventDefault %)
+            :on-drop (fn [e]
+                       (try
+                         (swap! files #(append-dropped-files e %))
+                         (catch js/Error err
+                           (.log js/console "Error: " (prn-str err))))
+                       (.preventDefault e))}
+           [:div "Drop files here"]]
+           (util/button "Import" #(.log js/console) {:class "btn btn-primary"
+                                                     :icon :ok})]]
+        [:div.col-md-6
          [file-list files]]]])))
 
 (secretary/defroute new-entity-path "/entities/new" []
