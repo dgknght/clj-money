@@ -86,16 +86,10 @@
           response
           (status 422)))))
 
-(defn- after-read
-  [imp]
-  (update-in imp [:progress] #(json/generate-string %)))
-
 (defn show
   [{{id :id} :params}]
   ; TODO This needs authorization
-  (-> (imports/find-by-id (env :db) id)
-      after-read
-      response))
+  (response (imports/find-by-id (env :db) id)))
 
 (defn index
   [_]

@@ -74,6 +74,16 @@
   [imp]
   [:h1 (str "Import " (:entity-name @imp))])
 
+(defn- progress-row
+  [[progress-type data]]
+  [:tr
+     [:td.col-sm-3 (name progress-type)]
+     [:td.col-sm-3.text-right (:total data)]
+     [:td.col-sm-3.text-right (:imported data)]
+     [:td.col-sm-3.text-center
+      [:div.progress-bar {:id (str "progress-" (name progress-type))
+                          :style {:width "100%"}}]]])
+
 (defn- progress-table
   [imp]
   [:table.table.table-striped
@@ -83,13 +93,7 @@
      [:th.col-sm-3.text-right "Total"]
      [:th.col-sm-3.text-right "Imported"]
      [:th.col-sm-3.text-center "Progress"]]
-    [:tr
-     [:td.col-sm-3 "Accounts"]
-     [:td.col-sm-3.text-right [:pre (prn-str (js-keys (:progress @imp)))]]
-     [:td.col-sm-3.text-right "imported"]
-     [:td.col-sm-3.text-center
-      "progress bar here"
-      [:div.progress-bar {:style {:width "100%"}}]]]]])
+    (map progress-row (:progress @imp))]])
 
 (defn- show-import
   [id]
