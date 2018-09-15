@@ -45,7 +45,9 @@
       [:div.row
        [:div.col-md-6
         [:h1 "Imports"]
-        [import-table imports]]])))
+        [import-table imports]
+        (util/link-to "Add" "/imports/new" {:class "btn btn-primary"
+                                            :title "Click here to import a new entity from another system."}) ]])))
 
 (defn- append-dropped-files
   [event import-data]
