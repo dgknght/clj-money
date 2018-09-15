@@ -1069,9 +1069,9 @@
   (select-imports
     [_ criteria]
     (query db-spec (-> (h/select :imports.*)
-                       (h/from :imports)
-                       (h/where (map->where criteria)
-                       (h/order-by :created_at)))))
+                   (h/from :imports)
+                   (h/where (map->where criteria))
+                   (h/order-by :created_at))))
 
   (create-import
     [_ import]

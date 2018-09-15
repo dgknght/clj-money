@@ -14,6 +14,7 @@
 
 (defn- import-row
   [imp]
+  ^{:key (str "import-row-" (:id imp))}
   [:tr
    [:td (:entity-name imp)]
    [:td (:created-at imp)]
@@ -26,12 +27,13 @@
    [:tr
     [:th "Entity Name"]
     [:th "Uploaded On"]
-    [:th (util/space)]
-    ]
+    [:th (util/space)]]
    (map import-row @imports)]])
 
 (defn- import-list []
   (let [imports (r/atom [])]
+    (imports/get-all #(reset! imports %)
+                     notify/danger)
     (with-layout
       [:div.row
        [:div.col-md-6

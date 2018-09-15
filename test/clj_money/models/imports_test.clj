@@ -8,7 +8,8 @@
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.validation :as validation]
             [clj-money.models.imports :as imports]))
 
@@ -17,10 +18,28 @@
 (use-fixtures :each (partial reset-db storage-spec))
 
 (def import-context
-  {:users [(factory :user)]
+  {:users [(factory :user {:email "john@doe.com"})]
    :images [{:original-filename "somefile.gnucash"
              :content-type "application/gnucash"
              :body "resources/fixtures/sample.gnucash"}]})
+
+(def existing-imports-context
+  (assoc import-context :imports [{:user-id "john@doe.com"
+                                   :entity-name "import entity"
+                                   :image-ids ["somefile.gnucash"]}]))
+
+(deftest get-a-list-of-imports
+  (let [context (serialization/realize storage-spec existing-imports-context)
+        user (-> context :users first)
+        actual (map #(dissoc % :id :created-at :updated-at)
+                    (imports/search storage-spec
+                                    {:user-id (:id user)}))
+        expected [{:entity-name "import entity"
+                   :user-id (:id user)
+                   :progress {}
+                   :image-ids (map :id (:images context))}]]
+    (pprint-diff expected actual)
+    (is (= expected actual))))
 
 (defn attributes
   [context]

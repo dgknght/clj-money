@@ -99,4 +99,4 @@
 
 (defn index
   [_]
-  (response (imports/search (env :db) (:id (current-authentication)))))
+  (response (imports/search (env :db) {:user-id (:id (friend/current-authentication))})))

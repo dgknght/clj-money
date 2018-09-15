@@ -10,7 +10,8 @@
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-import
+            [clj-money.models.storage :refer [select-imports
+                                              create-import
                                               update-import
                                               find-import-by-id]]))
 
@@ -52,4 +53,4 @@
 (defn search
   [storage-spec criteria]
   (with-storage [s storage-spec]
-    (map after-read (select-imports s criteria))))
+    (map #(after-read s %) (select-imports s criteria))))

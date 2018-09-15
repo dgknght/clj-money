@@ -26,12 +26,14 @@
               (.log js/console "Unable to create the import " (prn-str response))
               (error-fn (-> response :body :message))))))))
 
-(defn- after-read
-  [imp]
-  (update-in imp [:progress] #(.parse js/JSON %)))
-
 (defn get-one
   [id success-fn error-fn]
   (api/get-resources (api/path :imports id)
-                     #(success-fn (after-read %))
+                     success-fn
+                     error-fn))
+
+(defn get-all
+  [success-fn error-fn]
+  (api/get-resources (api/path :imports)
+                     success-fn
                      error-fn))
