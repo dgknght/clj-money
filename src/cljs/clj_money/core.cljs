@@ -6,6 +6,7 @@
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.views.entities]
+            [clj-money.views.imports]
             [clj-money.views.commodities]
             [clj-money.views.accounts]
             [clj-money.views.transactions]

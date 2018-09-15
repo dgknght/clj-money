@@ -21,7 +21,7 @@
 
 (def ^:private import-form
   [:form
-   (text-input :name :required)])
+   (text-input :entity-name :required)])
 
 (defn- file-list
   [import-data]
@@ -32,6 +32,40 @@
       (for [file (:files @import-data)]
         ^{:key (.-name file)}
         [:li.list-group-item (.-name file)])]]))
+
+(defn- import-title
+  [imp]
+  [:h1 (str "Import " (:entity-name @imp))])
+
+(defn- progress-table
+  [imp]
+  [:table.table.table-striped
+   [:tbody
+    [:tr
+     [:th.col-sm-3 "Record Type"]
+     [:th.col-sm-3.text-right "Total"]
+     [:th.col-sm-3.text-right "Imported"]
+     [:th.col-sm-3.text-center "Progress"]]
+    [:tr
+     [:td.col-sm-3 "Accounts"]
+     [:td.col-sm-3.text-right [:pre (prn-str (js-keys (:progress @imp)))]]
+     [:td.col-sm-3.text-right "imported"]
+     [:td.col-sm-3.text-center
+      "progress bar here"
+      [:div.progress-bar {:style {:width "100%"}}]]]]])
+
+(defn- show-import
+  [id]
+  (let [imp (r/atom {})]
+    (imports/get-one id
+                     #(reset! imp %)
+                     notify/danger)
+    (with-layout
+      [:section
+       [:div.row
+        [:div.col-md-6
+         [import-title imp]
+         [progress-table imp]]]])))
 
 (defn- new-import []
   (let [import-data (r/atom {})]
@@ -46,23 +80,25 @@
          [:div#import-source.drop-zone.bg-primary
           {:on-drag-over #(.preventDefault %)
            :on-drop (fn [e]
+                      (.preventDefault e)
                       (try
                         (swap! import-data #(append-dropped-files e %))
                         (catch js/Error err
-                          (.log js/console "Error: " (prn-str err))))
-                      (.preventDefault e))}
+                          (.log js/console "Error: " (prn-str err)))))}
           [:div "Drop files here"]]
          (util/button "Import"
                       (fn [e]
-                        (.log js/console "start the import")
+                        (.preventDefault e)
                         (imports/create @import-data
-                                        #(.log js/console "started " (prn-str %))
-                                        notify/danger)
-                        (.preventDefault e))
+                                        #(secretary/dispatch! (str "/imports/" (:id %)))
+                                        notify/danger))
                       {:class "btn btn-primary"
                        :icon :ok})]
         [:div.col-md-6
          [file-list import-data]]]])))
 
-(secretary/defroute new-import-path "/import/new" []
+(secretary/defroute new-import-path "/imports/new" []
   (r/render [new-import] (app-element)))
+
+(secretary/defroute import-path "/imports/:id" [id]
+  (r/render [show-import id] (app-element)))

@@ -4,7 +4,9 @@
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clojure.core.async :refer [go go-loop <! chan]]
-            [ring.util.response :refer [response]]
+            [cheshire.core :as json]
+            [ring.util.response :refer [response
+                                        status]]
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [clj-money.io :refer [read-bytes]]
@@ -58,28 +60,38 @@
   (let [user (friend/current-authentication)
         images (create-images params user)]
     (if (not-any? #(validation/error-messages %) images)
-      (let [import (imports/create (env :db) {:user-id (:id user)
-                                              :entity-name (:entity-name params)
-                                              :image-ids (map :id images)})]
-        (if (empty? (validation/error-messages import))
+      (let [imp (imports/create (env :db) {:user-id (:id user)
+                                           :entity-name (:entity-name params)
+                                           :image-ids (map :id images)})]
+        (if (empty? (validation/error-messages imp))
           (do
-            (launch-and-track-import import)
-            (response {:import import}))
-          (response {:error (format "Unable to save the import record. %s"
-                                    (->> import
-                                         validation/error-messages
-                                         vals
-                                         (mapcat identity)
-                                         (string/join ", ")))})))
-      (response {:error (format "Unable to save the source file(s). %s"
-                                (->> images
-                                     (map validation/error-messages)
-                                     (map vals)
-                                     flatten
-                                     (string/join ", ")))}))))
+            (launch-and-track-import imp)
+            (-> imp
+                response
+                (status 201)))
+          (-> {:error (format "Unable to save the imp record. %s"
+                              (->> imp
+                                   validation/error-messages
+                                   vals
+                                   (mapcat identity)
+                                   (string/join ", ")))}
+              response
+              (status 422))))
+      (-> {:error (format "Unable to save the source file(s). %s"
+                          (->> images
+                               (map validation/error-messages)
+                               (map vals)
+                               flatten
+                               (string/join ", ")))}
+          response
+          (status 422)))))
+
+(defn- after-read
+  [imp]
+  (update-in imp [:progress] #(json/generate-string %)))
 
 (defn show
   [{{id :id} :params}]
-  (->> (Integer. id)
-       (imports/find-by-id (env :db))
-       response))
+  (-> (imports/find-by-id (env :db) id)
+      after-read
+      response))
