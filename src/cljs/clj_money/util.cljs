@@ -1,6 +1,5 @@
 (ns clj-money.util
-  (:require [goog.string :as gstring]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [cljs-time.format :as f]))
 
 (defn parse-date [str-date]
