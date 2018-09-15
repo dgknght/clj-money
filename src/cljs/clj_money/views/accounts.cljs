@@ -213,7 +213,7 @@
   [item]
   ^{:key (:id item)}
   [:tr
-   [:td.text-right (f/unparse-local (f/formatter "M/d/yyyy") (:transaction-date item))]
+   [:td.text-right (util/format-date (:transaction-date item))]
    [:td (:description item)]
    [:td.text-right (currency-format (:polarized-value item))]
    [:td.text-right (currency-format (:balance item))]])

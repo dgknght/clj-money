@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [clj-money.api :as api]
+            [clj-money.util :as util]
             [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]))
 
@@ -26,14 +27,20 @@
               (.log js/console "Unable to create the import " (prn-str response))
               (error-fn (-> response :body :message))))))))
 
+(defn- after-read
+  [imp]
+  (-> imp
+      (update-in [:created-at] util/parse-date-time )
+      (update-in [:updated-at] util/parse-date-time)))
+
 (defn get-one
   [id success-fn error-fn]
   (api/get-resources (api/path :imports id)
-                     success-fn
+                     #(success-fn (after-read %))
                      error-fn))
 
 (defn get-all
   [success-fn error-fn]
   (api/get-resources (api/path :imports)
-                     success-fn
+                     #(success-fn (map after-read %))
                      error-fn))

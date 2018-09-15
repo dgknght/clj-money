@@ -17,8 +17,13 @@
   ^{:key (str "import-row-" (:id imp))}
   [:tr
    [:td (:entity-name imp)]
-   [:td (:created-at imp)]
-   [:td "buttons"]])
+   [:td (util/format-date-time (:created-at imp))]
+   [:td
+    (util/link-to nil
+                  (util/path :imports (:id imp))
+                  {:icon :eye-open
+                   :class "btn btn-info btn-xs"
+                   :title "Click here to view this import."})]])
 
 (defn- import-table
   [imports]
@@ -28,7 +33,9 @@
     [:th "Entity Name"]
     [:th "Uploaded On"]
     [:th (util/space)]]
-   (map import-row @imports)]])
+   (if (empty? @imports)
+     [:tr [:td {:colspan 3} "Loading..."]]
+     (map import-row @imports))]])
 
 (defn- import-list []
   (let [imports (r/atom [])]
@@ -93,7 +100,9 @@
        [:div.row
         [:div.col-md-6
          [import-title imp]
-         [progress-table imp]]]])))
+         [progress-table imp]
+         [:p
+          (util/link-to "Back" "/imports" {:class "btn btn-primary"})]]]])))
 
 (defn- new-import []
   (let [import-data (r/atom {})]

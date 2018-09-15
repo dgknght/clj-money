@@ -1,12 +1,12 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
   (:require [clj-money.api :as api]
-            [cljs-time.format :as f]))
+            [clj-money.util :refer [parse-date]]))
 
 (defn- after-read
   [item]
   (-> item
-      (update-in [:transaction-date] #(f/parse-local (f/formatters :date) %))
+      (update-in [:transaction-date] #(parse-date %))
       (update-in [:action] keyword)))
 
 (defn search

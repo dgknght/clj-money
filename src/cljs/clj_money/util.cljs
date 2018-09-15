@@ -1,6 +1,19 @@
 (ns clj-money.util
   (:require [goog.string :as gstring]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [cljs-time.format :as f]))
+
+(defn parse-date [str-date]
+  (f/parse-local (f/formatters :date) str-date))
+
+(defn parse-date-time [str-date-time]
+  (f/parse (f/formatters :date-time-no-ms) str-date-time))
+
+(defn format-date [date]
+  (f/unparse-local (f/formatter "M/d/yyyy") date))
+
+(defn format-date-time [date-time]
+  (f/unparse (f/formatter "M/d/yyyy h:mm") date-time))
 
 (defn space
   "Renders an HTML non-breakable space."
