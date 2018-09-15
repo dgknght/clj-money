@@ -39,7 +39,11 @@
                                            {:id "manage-entities"
                                             :url "/entities"
                                             :caption "Manage Entities"
-                                            :tool-tip "Click here to manage your entities."}])}]}))
+                                            :tool-tip "Click here to manage your entities."}
+                                           {:id "manage-imports"
+                                            :url "/imports"
+                                            :caption "Manage Imports"
+                                            :tool-tip "Click here to manage your imports."}])}]}))
 (defn with-layout
   [body]
   [:div

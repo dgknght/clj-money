@@ -12,6 +12,32 @@
                                      radio-buttons
                                      required]]))
 
+(defn- import-row
+  [imp]
+  [:tr
+   [:td (:entity-name imp)]
+   [:td (:created-at imp)]
+   [:td "buttons"]])
+
+(defn- import-table
+  [imports]
+  [:table.table.table-striped
+   [:tbody
+   [:tr
+    [:th "Entity Name"]
+    [:th "Uploaded On"]
+    [:th (util/space)]
+    ]
+   (map import-row @imports)]])
+
+(defn- import-list []
+  (let [imports (r/atom [])]
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [:h1 "Imports"]
+        [import-table imports]]])))
+
 (defn- append-dropped-files
   [event import-data]
   (let [file-list (-> event .-dataTransfer .-files)
@@ -96,6 +122,9 @@
                        :icon :ok})]
         [:div.col-md-6
          [file-list import-data]]]])))
+
+(secretary/defroute imports-path "/imports" []
+  (r/render [import-list] (app-element)))
 
 (secretary/defroute new-import-path "/imports/new" []
   (r/render [new-import] (app-element)))

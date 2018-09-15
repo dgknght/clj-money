@@ -1066,6 +1066,12 @@
     (jdbc/delete! db-spec :attachments ["id = ?" id]))
 
   ; Imports
+  (select-imports
+    [_ criteria]
+    (query db-spec (-> (h/select :imports.*)
+                       (h/from :imports)
+                       (h/where (map->where criteria)
+                       (h/order-by :created_at)))))
 
   (create-import
     [_ import]

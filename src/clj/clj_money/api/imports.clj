@@ -92,6 +92,11 @@
 
 (defn show
   [{{id :id} :params}]
+  ; TODO This needs authorization
   (-> (imports/find-by-id (env :db) id)
       after-read
       response))
+
+(defn index
+  [_]
+  (response (imports/search (env :db) (:id (current-authentication)))))

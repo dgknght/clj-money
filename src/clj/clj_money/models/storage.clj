@@ -268,6 +268,10 @@
     "Deletes the specified attachment record")
 
   ; Imports
+  (select-imports
+    [this criteria]
+    "Returns all import records matching the specified criteria")
+
   (create-import
     [this import]
     "Creates a new import record")

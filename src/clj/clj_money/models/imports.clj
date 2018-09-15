@@ -48,3 +48,8 @@
               :find find-by-id
               :before-save before-update
               :spec ::existing-import}))
+
+(defn search
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (map after-read (select-imports s criteria))))

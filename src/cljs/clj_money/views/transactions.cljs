@@ -17,7 +17,8 @@
 (defn- transactions-page
   []
   (let [transactions (r/atom [])]
-    (transactions/search #(reset! transactions %)
+    (transactions/search {}
+                         #(reset! transactions %)
                          notify/danger)
     (with-layout
       [:section
