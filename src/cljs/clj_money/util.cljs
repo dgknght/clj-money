@@ -1,5 +1,6 @@
 (ns clj-money.util
-  (:require [clojure.string :as string]
+  (:require [goog.string :as gstring]
+            [clojure.string :as string]
             [cljs-time.format :as f]))
 
 (defn parse-date [str-date]
@@ -13,6 +14,9 @@
 
 (defn format-date-time [date-time]
   (f/unparse (f/formatter "M/d/yyyy h:mm") date-time))
+
+(defn format-percent [value]
+  (str (gstring/format "%.1f" value) "%"))
 
 (defn space
   "Renders an HTML non-breakable space."

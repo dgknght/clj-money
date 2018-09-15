@@ -1,7 +1,10 @@
 (ns clj-money.views.imports
+  (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
+            [cljs.core.async :refer [timeout
+                                     <!]]
             [clj-money.util :as util]
             [clj-money.api.entities :as entities]
             [clj-money.api.imports :as imports]
@@ -75,13 +78,15 @@
   [:h1 (str "Import " (:entity-name @imp))])
 
 (defn- progress-row
-  [[progress-type data]]
+  [[progress-type {:keys [total imported]}]]
+  ^{:key (str "progress-" (name progress-type))}
   [:tr
      [:td.col-sm-3 (name progress-type)]
-     [:td.col-sm-3.text-right (:total data)]
-     [:td.col-sm-3.text-right (:imported data)]
-     [:td.col-sm-3.text-center
-      [:div.progress-bar {:id (str "progress-" (name progress-type))
+     [:td.col-sm-3.text-right total]
+     [:td.col-sm-3.text-right imported]
+     [:td.col-sm-3.text-right
+      (util/format-percent (* 100 (/ imported total)))
+      #_[:div.progress-bar {:id (str "progress-" (name progress-type))
                           :style {:width "100%"}}]]])
 
 (defn- progress-table
@@ -92,15 +97,30 @@
      [:th.col-sm-3 "Record Type"]
      [:th.col-sm-3.text-right "Total"]
      [:th.col-sm-3.text-right "Imported"]
-     [:th.col-sm-3.text-center "Progress"]]
+     [:th.col-sm-3.text-right "Progress"]]
     (map progress-row (:progress @imp))]])
+
+(def auto-refresh (atom false))
+
+(declare load-import)
+(defn- receive-import
+  [imp received]
+  (reset! imp received)
+  (when @auto-refresh
+    (go
+      (<! (timeout 1000))
+      (load-import (:id received) imp))))
+
+(defn- load-import
+  [id imp]
+  (imports/get-one id
+                   #(receive-import imp %)
+                   notify/danger))
 
 (defn- show-import
   [id]
   (let [imp (r/atom {})]
-    (imports/get-one id
-                     #(reset! imp %)
-                     notify/danger)
+    (load-import id imp)
     (with-layout
       [:section
        [:div.row
@@ -108,7 +128,10 @@
          [import-title imp]
          [progress-table imp]
          [:p
-          (util/link-to "Back" "/imports" {:class "btn btn-primary"})]]]])))
+          (util/link-to "Back" "/imports" {:class "btn btn-primary"})
+          (util/space)
+          (util/button nil #(swap! auto-refresh not) {:icon :refresh
+                                                      :class ["btn" (if @auto-refresh "btn-danger" "btn-success")]})]]]])))
 
 (defn- new-import []
   (let [import-data (r/atom {})]
