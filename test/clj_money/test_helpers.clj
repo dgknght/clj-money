@@ -112,6 +112,14 @@
   [context & entity-names]
   (map #(find-entity context %) entity-names))
 
+(defn find-import
+  [context entity-name]
+  (find-in-context context :imports :entity-name entity-name))
+
+(defn find-imports
+  [context & entity-names]
+  (map #(find-import context %) entity-names))
+
 (defn find-grant
   [context entity-id user-id]
   (->> context
