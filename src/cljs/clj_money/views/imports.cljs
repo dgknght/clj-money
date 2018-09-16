@@ -37,7 +37,7 @@
     [:th "Uploaded On"]
     [:th (util/space)]]
    (if (empty? @imports)
-     [:tr [:td {:colspan 3} "Loading..."]]
+     [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]]
      (map import-row @imports))]])
 
 (defn- import-list []
@@ -74,8 +74,8 @@
         [:li.list-group-item (.-name file)])]]))
 
 (defn- import-title
-  [imp]
-  [:h1 (str "Import " (:entity-name @imp))])
+  [import-ref]
+  [:h1 (str "Import " (:entity-name @import-ref))])
 
 (defn- progress-row
   [[progress-type {:keys [total imported]}]]
@@ -90,7 +90,7 @@
                           :style {:width "100%"}}]]])
 
 (defn- progress-table
-  [imp]
+  [import-ref]
   [:table.table.table-striped
    [:tbody
     [:tr
@@ -98,24 +98,34 @@
      [:th.col-sm-3.text-right "Total"]
      [:th.col-sm-3.text-right "Imported"]
      [:th.col-sm-3.text-right "Progress"]]
-    (map progress-row (:progress @imp))]])
+    (map progress-row (:progress @import-ref))]])
 
-(def auto-refresh (atom false))
+(def auto-refresh (r/atom false))
 
 (declare load-import)
 (defn- receive-import
-  [imp received]
-  (reset! imp received)
+  [import-ref received]
+  (reset! import-ref received)
   (when @auto-refresh
     (go
       (<! (timeout 1000))
-      (load-import (:id received) imp))))
+      (load-import (:id received) import-ref))))
 
 (defn- load-import
-  [id imp]
+  [id import-ref]
   (imports/get-one id
-                   #(receive-import imp %)
+                   #(receive-import import-ref %)
                    notify/danger))
+
+(defn- refresh-button
+  [id import-ref]
+  (util/button nil
+               (fn []
+                 (swap! auto-refresh not)
+                 (when @auto-refresh
+                   (load-import id import-ref)))
+               {:icon :refresh
+                :class ["btn" (if @auto-refresh "btn-danger" "btn-success")]}))
 
 (defn- show-import
   [id]
@@ -130,8 +140,7 @@
          [:p
           (util/link-to "Back" "/imports" {:class "btn btn-primary"})
           (util/space)
-          (util/button nil #(swap! auto-refresh not) {:icon :refresh
-                                                      :class ["btn" (if @auto-refresh "btn-danger" "btn-success")]})]]]])))
+          [refresh-button id imp]]]]])))
 
 (defn- new-import []
   (let [import-data (r/atom {})]

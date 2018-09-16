@@ -106,6 +106,12 @@ td.empty-table {
   display: inline-block;
   text-align: center;
   padding: .5em;
+  font-size: 130%;
+}
+
+td.status {
+  text-align: center;
+  padding: .5em;
 }
 
 .drop-zone {
