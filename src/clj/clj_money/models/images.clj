@@ -27,12 +27,19 @@
                                 ::body-hash
                                 ::body]))
 
+(defn search
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (select-images s criteria options))))
+
 (defn- find-by-hash
   [storage user-id hash]
-  (first (select-images storage
-                        {:user-id user-id
-                         :body-hash hash}
-                        {:limit 1})))
+  (first (search storage
+                 {:user-id user-id
+                  :body-hash hash}
+                 {:limit 1})))
 
 (defn- body-hash-is-unique?
   [storage {:keys [body-hash user-id]}]
