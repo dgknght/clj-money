@@ -205,8 +205,9 @@
   (model-route DELETE "/api/transactions/:id" transactions-api/delete)
 
   ; Imports
-  (GET "/api/imports" req imports-api/index)
-  (POST "/api/imports" req imports-api/create)
+  (model-route GET "/api/imports" imports-api/index)
+  (model-route POST "/api/imports" imports-api/create)
+  (model-route DELETE "/api/imports/:id" imports-api/delete)
   (model-route GET "/api/imports/:id" imports-api/show)
 
   (GET "/" req pages/home)

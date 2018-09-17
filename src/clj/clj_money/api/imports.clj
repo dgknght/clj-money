@@ -11,11 +11,13 @@
             [cemerick.friend :as friend]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
+            [clj-money.api :refer [delete-resource]]
             [clj-money.models.images :as images]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash]
             [clj-money.import.edn]
-            [clj-money.models.imports :as imports]))
+            [clj-money.models.imports :as imports]
+            [clj-money.permissions.imports]))
 
 (def ^:private expected-record-types
   [:budget :account :transaction :commodity :price])
@@ -94,3 +96,7 @@
 (defn index
   [_]
   (response (imports/search (env :db) {:user-id (:id (friend/current-authentication))})))
+
+(defn delete
+  [{{id :id} :params}]
+  (delete-resource id imports/find-by-id imports/delete))

@@ -15,6 +15,12 @@
                                      radio-buttons
                                      required]]))
 
+(defn- delete-import
+  [imp]
+  (imports/delete imp
+                  #(secretary/dispatch! "/imports")
+                  notify/danger))
+
 (defn- import-row
   [imp]
   ^{:key (str "import-row-" (:id imp))}
@@ -22,11 +28,18 @@
    [:td (:entity-name imp)]
    [:td (util/format-date-time (:created-at imp))]
    [:td
-    (util/link-to nil
-                  (util/path :imports (:id imp))
-                  {:icon :eye-open
-                   :class "btn btn-info btn-xs"
-                   :title "Click here to view this import."})]])
+    [:div.btn-group
+     (util/link-to nil
+                   (util/path :imports (:id imp))
+                   {:icon :eye-open
+                    :class "btn btn-info btn-xs"
+                    :title "Click here to view this import."})
+     (util/button nil
+                  #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
+                      (delete-import imp))
+                  {:icon :remove
+                   :class "btn btn-danger btn-xs"
+                   :title "Click here to remove this import."})]]])
 
 (defn- import-table
   [imports]

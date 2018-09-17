@@ -5,6 +5,7 @@
             [clojure.java.io :as io]
             [cheshire.core :as json]
             [clj-money.util :refer [rev-args]]
+            [clj-money.authorization :as authorization]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -35,12 +36,13 @@
   (update-in import [:progress] json/generate-string))
 
 (defn- after-read
-  [import & _]
-  (update-in import
-             [:progress]
-             #(-> %
-                  (json/parse-string true)
-                  (select-keys [:account :transaction :budget :commodity :price]))))
+  [imp & _]
+  (-> imp
+      (update-in [:progress]
+                 #(-> %
+                      (json/parse-string true)
+                      (select-keys [:account :transaction :budget :commodity :price])))
+      (authorization/tag-resource :import)))
 
 (defn find-by-id
   [storage-spec id]

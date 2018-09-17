@@ -44,3 +44,9 @@
   (api/get-resources (api/path :imports)
                      #(success-fn (map after-read %))
                      error-fn))
+
+(defn delete
+  [{id :id :as imp} success-fn error-fn]
+  (api/delete-resource (api/path :imports id)
+                       success-fn
+                       error-fn))
