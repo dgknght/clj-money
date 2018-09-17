@@ -8,11 +8,14 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
+                                              with-transacted-storage
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [select-imports
                                               create-import
                                               update-import
+                                              delete-import
+                                              delete-image
                                               find-import-by-id]]))
 
 (s/def ::id integer?)
@@ -54,3 +57,11 @@
   [storage-spec criteria]
   (with-storage [s storage-spec]
     (map #(after-read s %) (select-imports s criteria))))
+
+(defn delete
+  [storage-spec id]
+  (with-transacted-storage [s storage-spec]
+    (let [imp (find-by-id s id)]
+      (doseq [image-id (:image-ids imp)]
+        (delete-image s image-id))
+      (delete-import s id))))

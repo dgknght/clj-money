@@ -1091,6 +1091,10 @@
                               (h/where [:= :id (:id import)])))]
       (jdbc/execute! db-spec sql)))
 
+  (delete-import
+    [_ id]
+    (jdbc/delete! db-spec :imports ["id = ?" id]))
+
   ; Settings
   (put-setting
     [_ setting-name setting-value]

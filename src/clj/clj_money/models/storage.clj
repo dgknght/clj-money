@@ -284,6 +284,10 @@
     [this import]
     "Updates an existing import record")
 
+  (delete-import
+    [this id]
+    "Deletes the import record having the specified id")
+
   ; Settings
   (put-setting
     [this setting-name setting-value]

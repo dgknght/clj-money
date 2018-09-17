@@ -9,9 +9,12 @@
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+                                            pprint-diff
+                                            find-user
+                                            find-imports]]
             [clj-money.validation :as validation]
-            [clj-money.models.imports :as imports]))
+            [clj-money.models.imports :as imports]
+            [clj-money.models.images :as images]))
 
 (def storage-spec (env :db))
 
@@ -19,14 +22,14 @@
 
 (def import-context
   {:users [(factory :user {:email "john@doe.com"})]
-   :images [{:original-filename "somefile.gnucash"
+   :images [{:original-filename "sample.gnucash"
              :content-type "application/gnucash"
              :body "resources/fixtures/sample.gnucash"}]})
 
 (def existing-imports-context
   (assoc import-context :imports [{:user-id "john@doe.com"
                                    :entity-name "import entity"
-                                   :image-ids ["somefile.gnucash"]}]))
+                                   :image-ids ["sample.gnucash"]}]))
 
 (deftest get-a-list-of-imports
   (let [context (serialization/realize storage-spec existing-imports-context)
@@ -92,3 +95,39 @@
                       :processed 0}}
            (:progress retrieved))
         "The correct value is retrieved after update")))
+
+(def ^:private delete-context
+  (-> existing-imports-context
+      (update-in [:imports] #(concat % [{:user-id "john@doe.com"
+                                         :entity-name "other entity"
+                                         :image-ids ["sample_with_commodities.gnucash"]}
+                                        {:user-id "john@doe.com"
+                                         :entity-name "same entity"
+                                         :image-ids ["sample.gnucash"]}]))
+      (update-in [:images] #(conj % {:original-filename "sample_with_commodities.gnucash"
+                                     :content-type "application/gnucash"
+                                     :body "resources/fixtures/sample_with_commodities.gnucash"}))))
+
+(deftest delete-an-import
+  (let [context (serialization/realize storage-spec delete-context)
+        user (find-user context "john@doe.com")
+        [import-entity
+         same-entity] (find-imports context
+                                    "import entity"
+                                    "same entity")]
+    (testing "deleting an import deletes the associated files"
+      (imports/delete storage-spec (:id import-entity))
+      (is (empty? (imports/search storage-spec {:user-id (:id user)
+                                                :entity-name "import entity"}))
+          "The import record is removed")
+      (is (empty? (images/search storage-spec {:user-id (:id user)
+                                               :original-filename "sample.gnucash"}))
+          "The image record is removed also"))
+    (testing "deleting an import preserves associated files linked to other imports"
+      (imports/delete storage-spec (:id same-entity))
+      (is (empty? (imports/search storage-spec {:user-id (:id user)
+                                                :entity-name "same entity"}))
+          "The import record is removed")
+      (is (not (empty? (images/search storage-spec {:user-id (:id user)
+                                                    :original-filename "sample_with_commodities.gnucash"})))
+          "The image record is preserved"))))
