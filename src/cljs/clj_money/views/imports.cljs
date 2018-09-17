@@ -104,8 +104,13 @@
 
 (declare load-import)
 (defn- receive-import
-  [import-ref received]
+  [import-ref {{transaction :transaction} :progress :as received}]
   (reset! import-ref received)
+  (when (and (:total transaction)
+             (not= 0 (:total transaction))
+             (= (:total transaction)
+                (:imported transaction)))
+    (reset! auto-refresh false))
   (when @auto-refresh
     (go
       (<! (timeout 1000))
@@ -119,13 +124,19 @@
 
 (defn- refresh-button
   [id import-ref]
-  (util/button nil
-               (fn []
-                 (swap! auto-refresh not)
-                 (when @auto-refresh
-                   (load-import id import-ref)))
-               {:icon :refresh
-                :class ["btn" (if @auto-refresh "btn-danger" "btn-success")]}))
+  (let [options (if @auto-refresh
+                  {:icon :stop
+                  :class "btn btn-danger"
+                  :title "Click here to stop the auto-refresh."}
+                  {:icon :refresh
+                  :class "btn btn-success"
+                  :title "Click here to auto-refresh the page."})]
+    (util/button nil
+                 (fn []
+                   (swap! auto-refresh not)
+                   (when @auto-refresh
+                     (load-import id import-ref)))
+                 options)))
 
 (defn- show-import
   [id]
@@ -142,6 +153,23 @@
           (util/space)
           [refresh-button id imp]]]]])))
 
+(defn- import-click
+  [import-data event]
+  (.preventDefault event)
+  (imports/create @import-data
+                  (fn [i]
+                    (reset! auto-refresh true)
+                    (secretary/dispatch! (str "/imports/" (:id i))))
+                  notify/danger))
+
+(defn- file-drop
+  [import-data event]
+  (.preventDefault event)
+  (try
+    (swap! import-data #(append-dropped-files event %))
+    (catch js/Error err
+      (.log js/console "Error: " (prn-str err)))))
+
 (defn- new-import []
   (let [import-data (r/atom {})]
     (with-layout
@@ -154,19 +182,10 @@
          [bind-fields import-form import-data]
          [:div#import-source.drop-zone.bg-primary
           {:on-drag-over #(.preventDefault %)
-           :on-drop (fn [e]
-                      (.preventDefault e)
-                      (try
-                        (swap! import-data #(append-dropped-files e %))
-                        (catch js/Error err
-                          (.log js/console "Error: " (prn-str err)))))}
+           :on-drop #(file-drop import-data %)}
           [:div "Drop files here"]]
          (util/button "Import"
-                      (fn [e]
-                        (.preventDefault e)
-                        (imports/create @import-data
-                                        #(secretary/dispatch! (str "/imports/" (:id %)))
-                                        notify/danger))
+                      #(import-click import-data %)
                       {:class "btn btn-primary"
                        :icon :ok})]
         [:div.col-md-6
