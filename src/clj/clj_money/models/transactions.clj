@@ -164,11 +164,25 @@
    (coercion/rule :local-date [:transaction-date])
    (coercion/rule :local-date [:original-transaction-date])])
 
+(defn- expand-simplified-items
+  [{:keys [items quantity debit-account-id credit-account-id] :as transaction}]
+  (if (and (not items) quantity debit-account-id credit-account-id)
+    (-> transaction
+        (assoc :items [{:action :debit
+                        :quantity quantity
+                        :account-id debit-account-id}
+                       {:action :credit
+                        :quantity quantity
+                        :account-id credit-account-id}])
+        (dissoc :quantity :debit-account-id :credit-account-id))
+    transaction))
+
 (defn- before-validation
   "Performs operations required before validation"
   [transaction]
   (-> transaction
       (coercion/coerce coercion-rules)
+      expand-simplified-items
       (update-in [:items] (fn [items]
                             (->> items
                                  (map #(assoc % :transaction-date

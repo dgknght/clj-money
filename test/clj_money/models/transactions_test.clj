@@ -1193,3 +1193,24 @@
           "The account balance is not recalculated before the form exits"))
     (is (= 1900M (:quantity (accounts/reload storage-spec checking)))
         "The account balance is recalculated after the form exits")))
+
+(deftest use-simplified-items
+  (let [context (serialization/realize storage-spec base-context)
+        entity (find-entity context "Personal")
+        [checking salary] (find-accounts context "Checking" "Salary")
+        trx (transactions/create storage-spec {:entity-id (:id entity)
+                                               :transaction-date (t/local-date 2018 3 2)
+                                               :description "Paycheck"
+                                               :quantity 1000M
+                                               :debit-account-id (:id checking)
+                                               :credit-account-id (:id salary)})
+        actual-items (map #(select-keys % [:account-id :quantity :action]) (:items trx))
+        expected-items [{:account-id (:id checking)
+             :action :debit
+             :quantity 1000M}
+            {:account-id (:id salary)
+             :action :credit
+             :quantity 1000M}]]
+    (is (empty? (validation/error-messages trx)) "The transaction is created successfully")
+    (pprint-diff expected-items actual-items)
+    (is (= expected-items actual-items) "The items are created correctly")))

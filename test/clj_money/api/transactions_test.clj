@@ -72,7 +72,7 @@
                        (h/pprint-diff expected actual)
                        (= expected actual)))})
 
-(deftest-create create-an-transaction
+(deftest-create create-a-transaction
   {:resource-name "transaction"
    :create-fn api/create
    :create-params-fn (fn [ctx]
