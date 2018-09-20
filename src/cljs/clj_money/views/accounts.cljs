@@ -229,7 +229,7 @@
      [:th.col-sm-2.text-right "Balance"]]
     (if @items
       (map item-row @items)
-      [:tr [:td {:colspan 4} [:span.inline-status "Loading..."]]])]])
+      [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
 (defn- show-account [id]
   (let [account (r/atom {})
