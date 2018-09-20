@@ -49,12 +49,12 @@
     [:th "Entity Name"]
     [:th "Uploaded On"]
     [:th (util/space)]]
-   (if (empty? @imports)
-     [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]]
-     (map import-row @imports))]])
+   (if @imports
+     (map import-row @imports)
+     [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]])]])
 
 (defn- import-list []
-  (let [imports (r/atom [])]
+  (let [imports (r/atom nil)]
     (imports/get-all #(reset! imports %)
                      notify/danger)
     (with-layout
