@@ -575,7 +575,9 @@
                                       :entity-id
                                       :parent-id
                                       :quantity
-                                      :value))
+                                      :value
+                                      :earliest-transaction-date
+                                      :latest-transaction-date))
 
   (update-account
     [_ account]
@@ -585,7 +587,9 @@
                                         :commodity-id
                                         :parent-id
                                         :quantity,
-                                        :value)]
+                                        :value
+                                        :earliest-transaction-date
+                                        :latest-transaction-date)]
       (jdbc/update! db-spec :accounts updates ["id = ?" (:id account)])))
 
   (delete-account

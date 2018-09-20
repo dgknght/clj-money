@@ -512,6 +512,18 @@
   ; TODO look up the entity currency and convert if needed
   amount)
 
+(defn- earlier
+  [d1 d2]
+  (->> [d1 d2]
+       sort
+       first))
+
+(defn- later
+  [d1 d2]
+  (->> [d1 d2]
+       (sort #(compare %2 %1))
+       first))
+
 (defn recalculate-account-items
   "Accepts a tuple containing an account-id and a base item,
   selects all subsequent items and recalculates the items until
@@ -534,8 +546,16 @@
                         :last-balance balance}
                        (remove #(= id (:id %)) items))]
     (when-let [last-balance (:last-balance result)]
-      (accounts/update storage (assoc account :quantity last-balance
-                                              :value (to-entity-currency last-balance account))))))
+      (accounts/update storage
+                       (-> account
+                           (assoc :quantity last-balance
+                                  :value (to-entity-currency last-balance account))
+                           (update-in [:earliest-transaction-date]
+                                      (fnil earlier transaction-date)
+                                      transaction-date)
+                           (update-in [:latest-transaction-date]
+                                      (fnil later transaction-date)
+                                      transaction-date))))))
 
 (defn- link-lots
   [storage transaction]

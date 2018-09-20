@@ -1199,7 +1199,7 @@
         entity (find-entity context "Personal")
         [checking salary] (find-accounts context "Checking" "Salary")
         trx (transactions/create storage-spec {:entity-id (:id entity)
-                                               :transaction-date (t/local-date 2018 3 2)
+                                               :transaction-date (t/local-date 2017 3 2)
                                                :description "Paycheck"
                                                :quantity 1000M
                                                :debit-account-id (:id checking)
@@ -1214,3 +1214,38 @@
     (is (empty? (validation/error-messages trx)) "The transaction is created successfully")
     (pprint-diff expected-items actual-items)
     (is (= expected-items actual-items) "The items are created correctly")))
+
+(deftest set-account-boundaries
+  (let [context (serialization/realize storage-spec base-context)
+        entity (find-entity context "Personal")
+        [checking
+         salary
+         groceries] (find-accounts context "Checking" "Salary" "Groceries")
+        _ (->> [{:transaction-date (t/local-date 2017 2 27)
+                 :description "Paycheck"
+                 :quantity 1000M
+                 :debit-account-id (:id checking)
+                 :credit-account-id (:id salary)}
+                {:transaction-date (t/local-date 2017 3 2)
+                 :description "Kroger"
+                 :quantity 100M
+                 :debit-account-id (:id groceries)
+                 :credit-account-id (:id checking)}]
+               (map #(assoc % :entity-id (:id entity)))
+               (mapv #(transactions/create storage-spec %)))
+        [checking
+         salary
+         groceries] (map #(accounts/reload storage-spec %)
+                         [checking salary groceries])]
+    (is (= (t/local-date 2017 2 27) (:earliest-transaction-date checking))
+        "The checking account's earliest is the paycheck")
+    (is (= (t/local-date 2017 3 2) (:latest-transaction-date checking))
+        "The checking account's latest is the grocery purchase")
+    (is (= (t/local-date 2017 2 27) (:earliest-transaction-date salary))
+        "The salary account's earliest is the paycheck")
+    (is (= (t/local-date 2017 2 27) (:latest-transaction-date salary))
+        "The salary account's latest is the paycheck")
+    (is (= (t/local-date 2017 3 2) (:earliest-transaction-date groceries))
+        "The groceries account's earliest is the grocery purchase")
+    (is (= (t/local-date 2017 3 2) (:latest-transaction-date groceries))
+        "The groceries account's latest is the grocery purchase")))
