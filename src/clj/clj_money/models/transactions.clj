@@ -516,12 +516,14 @@
   [d1 d2]
   (->> [d1 d2]
        sort
+       (filter identity)
        first))
 
 (defn- later
   [d1 d2]
   (->> [d1 d2]
        (sort #(compare %2 %1))
+       (filter identity)
        first))
 
 (defn recalculate-account-items
@@ -551,11 +553,9 @@
                            (assoc :quantity last-balance
                                   :value (to-entity-currency last-balance account))
                            (update-in [:earliest-transaction-date]
-                                      (fnil earlier transaction-date)
-                                      transaction-date)
+                                      #(earlier % transaction-date))
                            (update-in [:latest-transaction-date]
-                                      (fnil later transaction-date)
-                                      transaction-date))))))
+                                      #(later % transaction-date)))))))
 
 (defn- link-lots
   [storage transaction]
