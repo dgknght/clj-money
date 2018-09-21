@@ -790,6 +790,21 @@
        (update-transaction storage))
   (assoc context :transaction (reload storage transaction)))
 
+; Processing a transaction
+; 1. Save the transaction and item records
+; 2. Identify starting items for account rebalancing
+;   a. Find the item immediately before (chronologically) this transaction in
+;      each account with a item in this transaction. If this is an update,
+;      this must be based on the earlier of the original transaction date
+;      and the current transaction date.
+;   b. Find the item immediately before (chronologically) this transaction in
+;      each account that has been dereferenced from this transaction. This is
+;      based only on the original transaction date (which will be stored in
+;      the dereferenced transaction item.) For new transactions this is always
+;      empty.
+;   c. Recalculate statistics for each of the items identified in identified in
+;      steps a and b.
+
 (defn update
   "Updates the specified transaction"
   [storage-spec transaction]
