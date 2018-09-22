@@ -280,15 +280,15 @@
                                     :transaction-date transaction-date}
                                    {:limit 1})))
 
-; TODO delete
 (defn- upsert-item
   "Updates the specified transaction item"
   [storage {:keys [id transaction-date] :as item}]
-  (if (:id item)
-    (do
-      (update-transaction-item storage item)
-      (find-item-by-id storage id transaction-date))
-    (create-transaction-item storage item)))
+  (let [to-save (before-save-item item)]
+    (if (:id to-save)
+      (do
+        (update-transaction-item storage to-save)
+        (find-item-by-id storage id transaction-date))
+      (create-transaction-item storage to-save))))
 
 (defn- update-item-index-and-balance
   "Updates only the index and balance attributes of an item, returning true if
@@ -489,6 +489,7 @@
   ([storage-spec criteria options]
    (first (search-items storage-spec criteria options))))
 
+; TODO delete
 (defn- recalculate-account-item
   "Accepts a processing context and an item, updates
   the items :index and :balance attributes, and returns
@@ -778,7 +779,6 @@
   (doseq [item (:items transaction)]
     (as-> item i
       (assoc i :transaction-id (:id transaction))
-      (before-save-item i)
       (upsert-item storage i))))
 
 (defn- find-base-item
@@ -796,6 +796,26 @@
                      [:index :desc]]
               :limit 1}))
 
+(defn- process-items
+  "Recalculates and updates statistics in the specifed items"
+  [storage account {:keys [index balance] :or {index -1 balance 0M}} items]
+  (loop [item (first items)
+         remaining (rest items)
+         last-index index
+         last-balance balance]
+    (let [new-index (+ last-index 1)
+          new-balance (+ last-balance (polarize-quantity item account))]
+      (upsert-item storage (assoc item
+                                  :balance new-balance
+                                  :index new-index))
+      ; TODO if the item does not require updating, exit the loop and return nil
+      (if (seq remaining)
+        (recur (first remaining)
+               (rest remaining)
+               new-index
+               new-balance)
+        [new-index new-balance]))))
+
 (defn- recalculate-account
   "Recalculates statistics for items in the the specified account
   as of the specified date"
@@ -803,10 +823,13 @@
   (let [base-item (find-base-item storage account-id as-of)
         items (search-items storage
                             {:account-id account-id
-                                     :transaction-date [:>= as-of]}
-                            {:sort [:transaction-date :index]})]
-    (pprint {:base-item base-item
-             :items items})))
+                             :transaction-date [:>= as-of]}
+                            {:sort [:transaction-date :index]})
+        account (accounts/find-by-id storage account-id)
+        [last-index
+         balance] (process-items storage account base-item items)]
+    ; TODO only update account if balance is not nil
+    (accounts/update storage (assoc account :quantity balance))))
 
 ; Processing a transaction
 ; 1. Save the transaction and item records
@@ -831,20 +854,28 @@
       (if (validation/has-error? validated)
         validated
         (do
-        (let [existing (find-existing-transaction storage transaction)
-              dereferenced-items (->> (:items existing)
-                                     (remove #(some (fn [i] (= (:id i)
-                                                               (:id %)))
-                                                    (:items validated))))
-              recalc-base-date (earlier (:transaction-date existing)
-                                        (:transaction-date validated))
-              recalc-account-ids (->> (:items validated)
-                                   (concat dereferenced-items)
-                                   (map :account-id)
-                                   (into #{}))]
-              (update-full-transaction storage validated)
-              (doseq [account-id recalc-account-ids]
-                (recalculate-account storage account-id recalc-base-date))))))))
+          (let [existing (find-existing-transaction storage transaction)
+                dereferenced-items (->> (:items existing)
+                                        (remove #(some (fn [i] (= (:id i)
+                                                                  (:id %)))
+                                                       (:items validated))))
+                dereferenced-account-ids (difference (->> (:items existing)
+                                                          (map :account-id)
+                                                          (into #{}))
+                                                     (->> (:items validated)
+                                                          (map :account-id)
+                                                          (into #{})))
+                recalc-base-date (earlier (:transaction-date existing)
+                                          (:transaction-date validated))
+                recalc-account-ids (->> (:items validated)
+                                        (map :account-id)
+                                        (concat dereferenced-account-ids)
+                                        (into #{}))]
+            (update-full-transaction storage validated)
+            (doseq [item dereferenced-items]
+              (delete-transaction-item storage (:id item) (:transaction-date existing)))
+            (doseq [account-id recalc-account-ids]
+              (recalculate-account storage account-id recalc-base-date))))))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
