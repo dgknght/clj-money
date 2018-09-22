@@ -280,7 +280,8 @@
                                     :transaction-date transaction-date}
                                    {:limit 1})))
 
-(defn- upsert-item
+; This is public to support the unit test
+(defn upsert-item
   "Updates the specified transaction item"
   [storage {:keys [id transaction-date] :as item}]
   (let [to-save (before-save-item item)]
@@ -805,16 +806,19 @@
          last-balance balance]
     (let [new-index (+ last-index 1)
           new-balance (+ last-balance (polarize-quantity item account))]
-      (upsert-item storage (assoc item
-                                  :balance new-balance
-                                  :index new-index))
-      ; TODO if the item does not require updating, exit the loop and return nil
-      (if (seq remaining)
-        (recur (first remaining)
-               (rest remaining)
-               new-index
-               new-balance)
-        [new-index new-balance]))))
+      (if (and (= new-index (:index item))
+               (= new-balance (:balance item)))
+        nil ; short-circuit updates if they aren't necessary
+        (do
+          (upsert-item storage (assoc item
+                                      :balance new-balance
+                                      :index new-index))
+          (if (seq remaining)
+            (recur (first remaining)
+                   (rest remaining)
+                   new-index
+                   new-balance)
+            [new-index new-balance]))))))
 
 (defn- recalculate-account
   "Recalculates statistics for items in the the specified account
@@ -827,9 +831,13 @@
                             {:sort [:transaction-date :index]})
         account (accounts/find-by-id storage account-id)
         [last-index
-         balance] (process-items storage account base-item items)]
-    ; TODO only update account if balance is not nil
-    (accounts/update storage (assoc account :quantity balance))))
+         balance] (if (seq items)
+                    (process-items storage account base-item items)
+                    (if base-item
+                      (juxt base-item [:index :quantity])
+                      [0 0M]))]
+    (when (not (nil? last-index))
+      (accounts/update storage (assoc account :quantity balance)))))
 
 ; Processing a transaction
 ; 1. Save the transaction and item records
@@ -875,7 +883,8 @@
             (doseq [item dereferenced-items]
               (delete-transaction-item storage (:id item) (:transaction-date existing)))
             (doseq [account-id recalc-account-ids]
-              (recalculate-account storage account-id recalc-base-date))))))))
+              (recalculate-account storage account-id recalc-base-date))
+            (reload storage validated)))))))
 
 (defn- get-preceding-items
   "Returns the items that precede each item in the
