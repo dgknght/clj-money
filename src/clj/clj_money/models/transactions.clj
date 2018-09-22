@@ -671,83 +671,6 @@
   [storage-spec {:keys [id transaction-date]}]
   (find-by-id storage-spec id transaction-date))
 
-(defn- process-removals
-  "Given a transaction being updated, deletes an transaction
-  items that are no longer present and returns a list of base
-  items to be used to propagate updates for accounts there were
-  referenced in the transaction but no longer are"
-  [storage transaction]
-  (let [existing-trans (reload storage transaction)
-        removed-item-ids (apply difference
-                                (map #(->> (:items %)
-                                           (map :id)
-                                           (into #{}))
-                                     [existing-trans transaction]))
-        dereferenced-account-ids (apply difference
-                                        (map #(->> (:items %)
-                                                   (map :account-id)
-                                                   (into #{}))
-                                             [existing-trans transaction]))]
-    (doseq [id removed-item-ids]
-      (delete-transaction-item storage id (:transaction-date transaction)))
-    (->> dereferenced-account-ids
-         ; fake out an item because that's what get-previous-item expects
-         (map #(hash-map :account-id %
-                         :id (UUID/fromString "00000000-0000-0000-0000-000000000000")
-                         :transaction-date (:transaction-date transaction)))
-         (map #(or (get-previous-item storage %)
-                   (assoc % :index -1 :balance (bigdec 0)))))))
-
-(defn process-dereferenced-items
-  "Removes transaction items that have been
-  removed from the transaction and returns
-  base items for the affected accounts"
-  [{:keys [storage transaction existing] :as context}]
-  (let [base-items (->> (:items existing)
-                        (remove (fn [{existing-item-id :id}]
-                                  (some #(= existing-item-id
-                                            (:id %))
-                                        (:items transaction))))
-                        (map (fn [item]
-                               (delete-transaction-item
-                                 storage
-                                 (:id item)
-                                 (:transaction-date item))
-                               item))
-                        (mapv #(get-previous-item storage %)))]
-    (update-in context [:base-items] #(concat % base-items))))
-
-(defn- process-dereferenced-accounts
-  "Find accounts IDs that are no longer referenced
-  by the transaction and looks up base items for
-  recalculating affected account items"
-  [{:keys [storage transaction existing] :as context}]
-  (let [dereferenced-account-ids (apply difference (->> [existing transaction]
-                                                        (map :items)
-                                                        (map #(map :account-id %))
-                                                        (map set)))
-        base-items (->> dereferenced-account-ids
-                        (map #(hash-map :account-id %
-                                        :transaction-date (:transaction-date transaction) ; TODO: get the earlier date
-                                        :index (Integer/MAX_VALUE)))
-                        (map #(get-previous-item storage %)))]
-    (update-in context [:base-items] #(concat % base-items))))
-
-(defn- older-item
-  "Given a transaction item and an existing transaction
-  (in the context of processing a transaction update),
-  returns the earlier of the specified item
-  or the corresponding item from the
-  existing transaction"
-  [existing-tx current-item]
-  (if-let [existing-item (some #(= (:id %) (:id current-item))
-                               (:items existing-tx))]
-    (if (> 0 (compare (:transaction-date current-item)
-                      (:transaction-date existing-tx)))
-      existing-item
-      current-item)
-    current-item))
-
 (defn- find-existing-transaction
   "Given a transaction that has been updated, find the existing
   transaction in storage. If none can be found, throw an exception."
@@ -760,12 +683,6 @@
                          search-date)
                  {:id id
                   :search-date search-date})))))
-
-(defn- recalculate-indexes-and-balances-for-update
-  [{:keys [storage base-items] :as context}]
-  (doseq [item base-items]
-    (recalculate-account-items storage item))
-  context)
 
 (defn- update-transaction*
   [storage transaction]
