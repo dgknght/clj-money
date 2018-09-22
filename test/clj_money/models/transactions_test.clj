@@ -623,6 +623,7 @@
       (pprint-diff expected-checking actual-checking)
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
+      (pprint-diff expected-groceries actual-groceries)
       (is (= expected-groceries actual-groceries)
           "Groceries items should have the correct values after update"))
     (assert-account-quantities checking 798.01M groceries 201.99M)))
