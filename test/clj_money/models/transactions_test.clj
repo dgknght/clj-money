@@ -788,18 +788,7 @@
              #((fnil conj #{}) % (select-keys item [:index
                                                    :quantity
                                                    :balance]))))
-
-(defn- fake-update-item-index-and-balance
-  [context update-calls storage-spec item]
-  (swap! update-calls (partial record-update-call item))
-  (let [existing-item (->> context
-                           :transactions
-                           (mapcat :items)
-                           (filter #(= (:id item) (:id %)))
-                           first)]
-    (not= (select-keys item [:index :balance])
-          (select-keys existing-item
-                       [:index :balance]))))
+(def ^:dynamic real-upsert-item nil)
 
 ; Trans. Date quantity  Debit     Credit
 ; 2016-03-02    1000  Checking  Salary
@@ -817,31 +806,30 @@
                     (rename-keys {:transaction-date :original-transaction-date})
                     (assoc :transaction-date (t/local-date 2016 3 8)))
         update-calls (atom {})]
-    (with-redefs [transactions/update-item-index-and-balance (partial fake-update-item-index-and-balance
-                                                                      context
-                                                                      update-calls)]
-      (let [result (transactions/update storage-spec updated)
-            expected #{{:index 1
-                        :quantity 102M
-                        :balance 898M}
-                       {:index 2
-                        :quantity 101M
-                        :balance 797M}
-                       {:index 3
-                        :quantity 103M
-                        :balance 694M}} ; The first update that doesn't change
-                                        ; a value stops the chain.
-                                        ; The 4th item should never be updated
-                                        ; because the 3rd one did not change a value.
-            actual (get @update-calls (:id checking))]
-        (is (empty? (validation/error-messages result))
-            "The transaction is saved successfully")
-        (testing "the expected transactions are updated"
-          (pprint-diff expected actual)
-          (is (= expected actual)
-              "Only items with changes are updated")
-          (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
-        (assert-account-quantities checking 590M)))))
+    (binding [real-upsert-item transactions/upsert-item]
+      (with-redefs [transactions/upsert-item (fn [storage item]
+                                               (swap! update-calls
+                                                      (partial record-update-call item))
+                                               (real-upsert-item storage item))]
+        (let [result (transactions/update storage-spec updated)
+              expected #{{:index 1
+                          :quantity 102M
+                          :balance 898M}
+                         {:index 2
+                          :quantity 101M
+                          :balance 797M}
+                         {:index 2 ; The item will be written once before item stats are recalculated
+                          :quantity 102M
+                          :balance 0M}}
+              actual (get @update-calls (:id checking))]
+          (is (empty? (validation/error-messages result))
+              "The transaction is saved successfully")
+          (testing "the expected transactions are updated"
+            (pprint-diff expected actual)
+            (is (= expected actual)
+                "Only items with changes are updated")
+            (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
+          (assert-account-quantities checking 590M))))))
 
 (def change-account-context
   (-> base-context
