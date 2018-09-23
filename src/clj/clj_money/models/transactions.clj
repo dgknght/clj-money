@@ -89,13 +89,19 @@
           model
           keys))
 
+(defn- to-entity-currency
+  [amount account]
+  ; TODO look up the entity currency and convert if needed
+  amount)
+
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
   (-> item
-    (update-in [:action] name)
-    (remove-empty-strings :memo)
-    (update-in [:negative] (fnil identity false))))
+      (assoc :value (:quantity item)) ; TODO need to calculate the correct value
+      (update-in [:action] name)
+      (remove-empty-strings :memo)
+      (update-in [:negative] (fnil identity false))))
 
 (defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return
@@ -204,7 +210,7 @@
       (dissoc :items)
       (assoc :value (->> (:items transaction)
                          (filter #(= :credit (:action %)))
-                         (map :value)
+                         (map :quantity) ; TODO need to calculate the value here instead
                          (reduce +)))
       (update-in [:lot-items] #(when %
                                  (map (fn [i]
@@ -437,34 +443,6 @@
                                              (:id result)))))
     result))
 
-(defn- create-transaction-without-balances
-  [storage {:keys [entity-id] :as transaction}]
-  (swap! ambient-settings
-         update-in
-         [entity-id :delayed-account-ids]
-         #(into % (map :account-id (:items transaction))))
-  (let [result (->> transaction
-                    before-save
-                    (create-transaction-and-lot-links storage)
-                    (after-read storage))]
-    (assoc result :items (mapv (fn [item]
-                                 (create-transaction-item
-                                   storage
-                                   (-> item
-                                       (assoc :transaction-id (:id result)
-                                              :balance 0M
-                                              :index 0)
-                                       before-save-item)))
-                               (:items transaction)))))
-
-(defn- create-transaction*
-  [storage transaction]
-  (assoc (->> transaction
-              before-save
-              (create-transaction storage))
-         :items (:items transaction)
-         :lot-items (:lot-items transaction)))
-
 (defn- create-transaction-item*
   [storage item]
   (->> item
@@ -490,38 +468,6 @@
   ([storage-spec criteria options]
    (first (search-items storage-spec criteria options))))
 
-; TODO delete
-(defn- recalculate-account-item
-  "Accepts a processing context and an item, updates
-  the items :index and :balance attributes, and returns
-  the context with the updated :last-index and :last-balance
-  values"
-  [{:keys [account storage last-index last-balance] :as context}
-   item]
-  (let [new-index (+ 1 last-index)
-        polarized-quantity (polarize-quantity item account)
-        new-balance (+ last-balance
-                       polarized-quantity)
-        changed (update-item-index-and-balance
-                  storage
-                  (assoc item
-                         :negative (< polarized-quantity 0M)
-                         :index new-index
-                         :balance new-balance))]
-    ; if the index and balance didn't change, we can short circuit the update
-    (if changed
-      (assoc context
-             :last-index new-index
-             :last-balance new-balance)
-      (-> context
-          (dissoc :last-balance)
-          reduced))))
-
-(defn- to-entity-currency
-  [amount account]
-  ; TODO look up the entity currency and convert if needed
-  amount)
-
 (defn- earlier
   [d1 d2]
   (->> [d1 d2]
@@ -536,37 +482,6 @@
        (filter identity)
        first))
 
-(defn recalculate-account-items
-  "Accepts a tuple containing an account-id and a base item,
-  selects all subsequent items and recalculates the items until
-  all item for the account have been recalculated or until
-  a balance is unchanged.
-  Returns the new balance of the account of the balance changed,
-  or nil if te balance didn't change."
-  [storage {:keys [account-id transaction-date index balance id] :as item}]
-  (let [account (accounts/find-by-id storage account-id)
-        items (search-items storage
-                            (cond-> {:account-id account-id
-                                     :index [:> index]}
-                              transaction-date
-                              (assoc :transaction-date [:>= transaction-date]))
-                            {:sort [:transaction-date :index]})
-        result (reduce recalculate-account-item
-                       {:account account
-                        :storage storage
-                        :last-index index
-                        :last-balance balance}
-                       (remove #(= id (:id %)) items))]
-    (when-let [last-balance (:last-balance result)]
-      (accounts/update storage
-                       (-> account
-                           (assoc :quantity last-balance
-                                  :value (to-entity-currency last-balance account))
-                           (update-in [:earliest-transaction-date]
-                                      #(earlier % transaction-date))
-                           (update-in [:latest-transaction-date]
-                                      #(later % transaction-date)))))))
-
 (defn- link-lots
   [storage transaction]
   (when-let [lot-items (:lot-items transaction)]
@@ -577,25 +492,63 @@
                                            (:id transaction)))))
   transaction)
 
-(defn- create-transaction-and-adjust-balances
-  [storage transaction]
-  (let [created (->> transaction
-                     (create-transaction* storage)
-                     (link-lots storage))]
-    (doall (->> (:items transaction)
+(defn- find-base-item
+  "Given an account ID and a date, finds the transaction item for that
+  account that immediately precents the given date"
+  [storage account-id as-of]
+  ; TODO If no item is found, we need to know if it's because
+  ; there is not item in this partition, or no item at all.
+  ; I'm not sure of the storage layer is already walking back,
+  ; but I'm guessing it is not.
+  (find-item storage
+             {:transaction-date [:< as-of]
+              :account-id account-id}
+             {:sort [[:transaction-date :desc]
+                     [:index :desc]]
+              :limit 1}))
 
-                ; create database records
-                (map #(assoc % :transaction-id (:id created)))
-                (map #(create-transaction-item* storage %))
+(defn- process-items
+  "Recalculates and updates statistics in the specifed items"
+  [storage account {:keys [index balance] :or {index -1 balance 0M}} items]
+  (loop [item (first items)
+         remaining (rest items)
+         last-index index
+         last-balance balance]
+    (let [new-index (+ last-index 1)
+          new-balance (+ last-balance (polarize-quantity item account))]
+      (if (and (= new-index (:index item))
+               (= new-balance (:balance item)))
+        nil ; short-circuit updates if they aren't necessary
+        (do
+          ; TODO extract update, this is always an update
+          (upsert-item storage (assoc item
+                                      :balance new-balance
+                                      :index new-index))
+          (if (seq remaining)
+            (recur (first remaining)
+                   (rest remaining)
+                   new-index
+                   new-balance)
+            [new-index new-balance]))))))
 
-                ; process indexes and balances, update affected accounts
-                (group-by :account-id)
-                (map second)
-                (map #(sort-by :index %))
-                (map first)
-                (map #(get-previous-item storage %))
-                (map #(recalculate-account-items storage %))))
-    (reload storage created)))
+(defn- recalculate-account
+  "Recalculates statistics for items in the the specified account
+  as of the specified date"
+  [storage account-id as-of]
+  (let [base-item (find-base-item storage account-id as-of)
+        items (search-items storage
+                            {:account-id account-id
+                             :transaction-date [:>= as-of]}
+                            {:sort [:transaction-date :index]})
+        account (accounts/find-by-id storage account-id)
+        [last-index
+         balance] (if (seq items)
+                    (process-items storage account base-item items)
+                    (if base-item
+                      (juxt base-item [:index :quantity])
+                      [0 0M]))]
+    (when (not (nil? last-index))
+      (accounts/update storage (assoc account :quantity balance)))))
 
 (defn create
   "Creates a new transaction"
@@ -604,9 +557,29 @@
     (let [validated (validate s ::new-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (if (delay-balances? (:entity-id transaction))
-          (create-transaction-without-balances s validated)
-          (create-transaction-and-adjust-balances s validated))))))
+        (let [created (->> transaction
+                           before-save
+                           (create-transaction s)
+                           (link-lots s))
+              account-ids (->> (:items validated)
+                              (map :account-id)
+                              (into #{}))]
+          (doall (->> (:items transaction)
+                      (map #(assoc %
+                                   :transaction-id (:id created)
+                                   :transaction-date (:transaction-date validated)
+                                   :index -1))
+                      (map before-save-item)
+                      (map #(create-transaction-item* s %))))
+          (if (delay-balances? (:entity-id validated))
+            (swap! ambient-settings
+                   update-in
+                   [(:entity-id validated) :delayed-account-ids]
+                   concat
+                   account-ids)
+            (doseq [account-id account-ids]
+              (recalculate-account s account-id (:transaction-date validated))))
+          (reload s created))))))
 
 (defn find-by-id
   "Returns the specified transaction"
@@ -699,63 +672,6 @@
       (assoc i :transaction-id (:id transaction))
       (upsert-item storage i))))
 
-(defn- find-base-item
-  "Given an account ID and a date, finds the transaction item for that
-  account that immediately precents the given date"
-  [storage account-id as-of]
-  ; TODO If no item is found, we need to know if it's because
-  ; there is not item in this partition, or no item at all.
-  ; I'm not sure of the storage layer is already walking back,
-  ; but I'm guessing it is not.
-  (find-item storage
-             {:transaction-date [:< as-of]
-              :account-id account-id}
-             {:sort [[:transaction-date :desc]
-                     [:index :desc]]
-              :limit 1}))
-
-(defn- process-items
-  "Recalculates and updates statistics in the specifed items"
-  [storage account {:keys [index balance] :or {index -1 balance 0M}} items]
-  (loop [item (first items)
-         remaining (rest items)
-         last-index index
-         last-balance balance]
-    (let [new-index (+ last-index 1)
-          new-balance (+ last-balance (polarize-quantity item account))]
-      (if (and (= new-index (:index item))
-               (= new-balance (:balance item)))
-        nil ; short-circuit updates if they aren't necessary
-        (do
-          (upsert-item storage (assoc item
-                                      :balance new-balance
-                                      :index new-index))
-          (if (seq remaining)
-            (recur (first remaining)
-                   (rest remaining)
-                   new-index
-                   new-balance)
-            [new-index new-balance]))))))
-
-(defn- recalculate-account
-  "Recalculates statistics for items in the the specified account
-  as of the specified date"
-  [storage account-id as-of]
-  (let [base-item (find-base-item storage account-id as-of)
-        items (search-items storage
-                            {:account-id account-id
-                             :transaction-date [:>= as-of]}
-                            {:sort [:transaction-date :index]})
-        account (accounts/find-by-id storage account-id)
-        [last-index
-         balance] (if (seq items)
-                    (process-items storage account base-item items)
-                    (if base-item
-                      (juxt base-item [:index :quantity])
-                      [0 0M]))]
-    (when (not (nil? last-index))
-      (accounts/update storage (assoc account :quantity balance)))))
-
 ; Processing a transaction
 ; 1. Save the transaction and item records
 ; 2. Identify starting items for account rebalancing
@@ -846,7 +762,8 @@
           preceding-items (get-preceding-items s transaction)]
       (delete-transaction-items-by-transaction-id s transaction-id transaction-date)
       (delete-transaction s transaction-id transaction-date)
-      (doseq [item preceding-items]
+      ; TODO use recalculate-account
+      #_(doseq [item preceding-items]
         (recalculate-account-items s item)))))
 
 (defn- find-last-item-before
@@ -908,7 +825,8 @@
      (let [result# (do ~@body)]
 
        ; Recalculate balances for affected accounts
-       (->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
+       ; TODO rework to use recalculate-account
+       #_(->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
             (map #(hash-map :account-id % :index -1 :balance 0M))
             (map #(recalculate-account-items ~storage-spec %))
             doall)
