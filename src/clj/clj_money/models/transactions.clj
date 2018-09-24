@@ -548,7 +548,10 @@
                       (juxt base-item [:index :quantity])
                       [0 0M]))]
     (when (not (nil? last-index))
-      (accounts/update storage (assoc account :quantity balance)))))
+      (accounts/update storage (-> account
+                                   (assoc :quantity balance)
+                                   (update-in [:earliest-transaction-date] #((fnil earlier as-of) % as-of))
+                                   (update-in [:latest-transaction-date] #((fnil later as-of) % as-of)))))))
 
 (defn- extract-account-ids
   [transaction]
