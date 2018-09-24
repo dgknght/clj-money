@@ -531,7 +531,7 @@
                    new-balance)
             [new-index new-balance]))))))
 
-(defn- recalculate-account
+(defn recalculate-account
   "Recalculates statistics for items in the the specified account
   as of the specified date"
   [storage account-id as-of]
@@ -556,6 +556,16 @@
        (map :account-id)
        (into #{})))
 
+(defn- save-delayed-info
+  [settings {:keys [entity-id transaction-date] :as transaction}]
+  (-> settings
+      (update-in [entity-id :delayed-account-ids]
+                 concat
+                 (extract-account-ids transaction))
+      (update-in [entity-id :earliest-date] #(if %
+                                               (earlier % transaction-date)
+                                               transaction-date))))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
@@ -576,11 +586,7 @@
                       (map before-save-item)
                       (map #(create-transaction-item* s %))))
           (if (delay-balances? (:entity-id validated))
-            (swap! ambient-settings
-                   update-in
-                   [(:entity-id validated) :delayed-account-ids]
-                   concat
-                   account-ids)
+            (swap! ambient-settings #(save-delayed-info % validated))
             (doseq [account-id account-ids]
               (recalculate-account s account-id (:transaction-date validated))))
           (reload s created))))))
@@ -828,11 +834,12 @@
      (let [result# (do ~@body)]
 
        ; Recalculate balances for affected accounts
-       ; TODO rework to use recalculate-account
-       #_(->> (get-in @ambient-settings [~entity-id :delayed-account-ids])
-            (map #(hash-map :account-id % :index -1 :balance 0M))
-            (map #(recalculate-account-items ~storage-spec %))
-            doall)
+       (let [{account-ids# :delayed-account-ids
+              as-of# :earliest-date} (get @ambient-settings ~entity-id)]
+
+         (with-transacted-storage [s# ~storage-spec]
+           (doseq [account-id# account-ids#]
+             (recalculate-account s# account-id# as-of#))))
 
        ; clean up the ambient settings as if we were never here
        (swap! ambient-settings dissoc ~entity-id)
