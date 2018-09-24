@@ -732,23 +732,6 @@
               (recalculate-account storage account-id recalc-base-date))
             (reload storage validated)))))))
 
-(defn- get-preceding-items
-  "Returns the items that precede each item in the
-  specified transaction.
-
-  If an item in the transaction is the first item for an account
-  a fake item is generate to seed the following items."
-  [storage transaction]
-  (->> (:items transaction)
-       (group-by :account-id)
-       (map second)
-       (map #(sort-by :index %))
-       (map first)
-       (map #(or (get-previous-item storage %)
-                 {:account-id (:account-id %)
-                  :index -1
-                  :balance 0}))))
-
 (defn can-delete?
   [transaction]
   (->> transaction
