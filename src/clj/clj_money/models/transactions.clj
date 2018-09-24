@@ -550,6 +550,12 @@
     (when (not (nil? last-index))
       (accounts/update storage (assoc account :quantity balance)))))
 
+(defn- extract-account-ids
+  [transaction]
+  (->> (:items transaction)
+       (map :account-id)
+       (into #{})))
+
 (defn create
   "Creates a new transaction"
   [storage-spec transaction]
@@ -561,9 +567,7 @@
                            before-save
                            (create-transaction s)
                            (link-lots s))
-              account-ids (->> (:items validated)
-                              (map :account-id)
-                              (into #{}))]
+              account-ids (extract-account-ids validated)]
           (doall (->> (:items validated)
                       (map #(assoc %
                                    :transaction-id (:id created)
@@ -759,12 +763,11 @@
   (with-storage [s storage-spec]
     (let [transaction (find-by-id s transaction-id transaction-date)
           _ (ensure-deletable transaction)
-          preceding-items (get-preceding-items s transaction)]
+          account-ids (extract-account-ids transaction)]
       (delete-transaction-items-by-transaction-id s transaction-id transaction-date)
       (delete-transaction s transaction-id transaction-date)
-      ; TODO use recalculate-account
-      #_(doseq [item preceding-items]
-        (recalculate-account-items s item)))))
+      (doseq [account-id (extract-account-ids transaction)]
+        (recalculate-account s account-id (:transaction-date transaction))))))
 
 (defn- find-last-item-before
   [storage-spec account-id date]
