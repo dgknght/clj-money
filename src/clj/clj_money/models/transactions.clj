@@ -557,14 +557,14 @@
     (let [validated (validate s ::new-transaction transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [created (->> transaction
+        (let [created (->> validated
                            before-save
                            (create-transaction s)
                            (link-lots s))
               account-ids (->> (:items validated)
                               (map :account-id)
                               (into #{}))]
-          (doall (->> (:items transaction)
+          (doall (->> (:items validated)
                       (map #(assoc %
                                    :transaction-id (:id created)
                                    :transaction-date (:transaction-date validated)
