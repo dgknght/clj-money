@@ -960,7 +960,7 @@
         result (trading/split storage-spec {:commodity-id (:id commodity)
                                             :account-id (:id ira)
                                             :shares-gained 100M
-                                            :split-date (t/local-date 2016 3 2)})
+                                            :split-date (t/local-date 2016 3 3)})
         lots (lots/search storage-spec {:commodity-id (:id commodity)})
         actual-lots (map #(dissoc % :id :created-at :updated-at :commodity-id) lots)
         expected-lots [{:purchase-date (t/local-date 2016 3 2)
@@ -969,7 +969,7 @@
                         :shares-purchased 200M
                         :shares-owned 200M}]
         expected-transaction {:entity-id (:entity-id commodity)
-                              :transaction-date (t/local-date 2016 3 2)
+                              :transaction-date (t/local-date 2016 3 3)
                               :description "Split shares of AAPL 2 for 1"
                               :value 0M
                               :items [{:action :debit
