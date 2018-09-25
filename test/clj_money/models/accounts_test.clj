@@ -58,10 +58,13 @@
         entity-id (-> context :entities first :id)
         actual (->> {:entity-id entity-id}
                     (accounts/search storage-spec)
-                    (map #(dissoc % :id
-                                    :updated-at
-                                    :created-at
-                                    :commodity-id)))
+                    (map #(select-keys % [:name
+                                          :type
+                                          :tags
+                                          :quantity
+                                          :value
+                                          :entity-id
+                                          :commodity])))
         expected [{:name "Checking"
                    :type :asset
                    :tags #{}
@@ -174,7 +177,14 @@
         usd (find-commodity context "USD")
         accounts (->> {:entity-id (:id entity)}
                       (accounts/search storage-spec)
-                      (map #(dissoc % :id :updated-at :created-at)))
+                      (map #(select-keys % [:name
+                                            :type
+                                            :entity-id
+                                            :tags
+                                            :commodity-id
+                                            :commodity
+                                            :quantity
+                                            :value])))
         expected [{:name "Checking"
                    :type :asset
                    :entity-id (:id entity)
