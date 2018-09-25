@@ -550,6 +550,7 @@
     (when (not (nil? last-index))
       (accounts/update storage (-> account
                                    (assoc :quantity balance)
+                                   (assoc :value balance) ; TODO need to calculate this for real
                                    (update-in [:earliest-transaction-date] #((fnil earlier as-of) % as-of))
                                    (update-in [:latest-transaction-date] #((fnil later as-of) % as-of)))))))
 

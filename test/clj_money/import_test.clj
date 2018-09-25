@@ -173,11 +173,12 @@
         entity (import-data storage-spec imp progress-chan)
         actual-accounts (->> {:entity-id (:id entity)}
                              (accounts/search storage-spec)
-                             (map #(dissoc % :created-at
-                                           :updated-at
-                                           :id
-                                           :entity-id
-                                           :commodity)))
+                             (map #(select-keys % [:name
+                                                   :type
+                                                   :commodity-id
+                                                   :quantity
+                                                   :value
+                                                   :tags])))
         expected-accounts (->> expected-accounts
                                (map #(assoc % :tags #{}))
                                (map #(update-in %
