@@ -23,16 +23,53 @@
 
 (def ^:private *accounts* (r/atom []))
 (def ^:private *commodities* (r/atom []))
+#_(def ^:private *expansion-state* (r/atom {}))
 
 (defn- delete
   [account]
   (js/alert "not implemented."))
 
+(defn- find-account
+  ([account-id]
+   (some #(= account-id (:id %)) @*accounts*)))
+
+(defn- account-expanded?
+  [account]
+  (::expanded? account))
+
+(defn- account-visible?
+  [account]
+  (or (not (:parent-id account))
+      (::visible? account)))
+
+(defn- toggle-account
+  [account]
+  (swap! *accounts* (fn [accounts]
+                      (map (fn [a]
+                             (cond
+                               (= (:id account) (:id a))
+                               (update-in a [::expanded?] not)
+
+                               (= (:id account) (:parent-id a))
+                               (update-in a [::visible?] not)
+
+                               :else
+                               a))
+                           accounts))))
+
 (defn- account-row
   [account depth]
   ^{:key (str "account-" (:id account))}
-  [:tr
+  [:tr {:class (if (account-visible? account) nil "hidden")}
    [:td [:span {:class (str "account-depth-" depth)}
+         [:span.toggle-ctl.glyphicon {:aria-hidden true
+                                      :on-click #(toggle-account account)
+                                      :class [(if (account-expanded? account)
+                                                "glyphicon-collapse-up"
+                                                "glyphicon-expand")
+                                              (if (seq (:children account))
+                                                nil
+                                                "invisible")]}]
          (:name account)]]
    [:td
     [:div.btn-group
@@ -58,16 +95,15 @@
   ([account depth result]
    (-> []
        (conj (account-row account depth))
-       (concat (map #(account-and-child-rows % (+ 1 depth) result)
-                    (:children account))))))
+       (concat (mapv #(account-and-child-rows % (+ 1 depth) result)
+                     (:children account))))))
 
 (defn- account-type-rows
   [{:keys [type accounts] :as group}]
   (-> '()
       (conj ^{:key (str "account-type" type)}
             [:tr.account-type {:id (str "account-type-" type)}
-             [:td type]
-             [:td (util/space)]])
+             [:td {:colSpan 2} type]])
       (concat (mapcat #(account-and-child-rows %) accounts))))
 
 (defn- account-list
@@ -77,8 +113,7 @@
     [:tr
      [:th "Name"]
      [:th (util/space)]]
-    (for [row (mapcat #(account-type-rows %) (nest @*accounts*))]
-      row)]])
+    (doall (mapcat #(account-type-rows %) (nest @*accounts*)))]])
 
 (defn- accounts-page []
   (accounts/get-all (:id @state/current-entity)
@@ -134,12 +169,6 @@
       :in-fn (model-in-fn *commodities* :name)
       :out-fn second
       :result-fn first})])
-
-(defn- find-account
-  [id]
-  (->> @*accounts*
-       (filter #(= id (:id %)))
-       first))
 
 (defn- create-account
   [{:keys [parent-id] :as account}]

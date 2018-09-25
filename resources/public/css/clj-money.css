@@ -130,6 +130,12 @@ td.status {
   border-radius: .5em;
 }
 
+.toggle-ctl {
+  display: inline-block;
+  padding-right: .5em;
+  cursor: pointer;
+}
+
 @media print {
   #side-bar, .btn-group, .btn, .nav, #report-settings {
     display: none;
