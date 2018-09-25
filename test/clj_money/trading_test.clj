@@ -155,11 +155,13 @@
                                     :quantity 100M
                                    ; :value 1000M TODO Restore this check
                                     }
-        actual-commodity-account (dissoc apple-account :id
-                                                       :created-at
-                                                       :updated-at
-                                                       :value
-                                                       :commodity)]
+        actual-commodity-account (select-keys apple-account [:name
+                                                             :commodity-id
+                                                             :entity-id
+                                                             :type
+                                                             :parent-id
+                                                             :tags
+                                                             :quantity])]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (pprint-diff expected-transaction actual-transaction)
@@ -949,20 +951,6 @@
     (is (= 0M (:quantity (accounts/reload storage-spec ira-2)))
         "The balance in the 'to' account is updated correclty")))
 
-(def ignorable-item-attributes
-  #{:id
-    :updated-at
-    :created-at
-    :index
-    :transaction-id
-    :negative
-    :polarized-amount
-    :transaction-date
-    :memo
-    :reconciliation-id
-    :reconciliation-status
-    :reconciled?})
-
 (deftest split-a-commodity
   (let [context (sell-context)
         ira (find-account context "IRA")
@@ -997,10 +985,13 @@
                                               :updated-at
                                               :created-at)
                                       [:items]
-                                      #(map (fn [item]
-                                              (apply dissoc
-                                                     item
-                                                     ignorable-item-attributes))
+                                      #(map (fn [i] (select-keys i [:action
+                                                                    :account-id
+                                                                    :quantity
+                                                                    :polarized-quantity
+                                                                    :balance
+                                                                    :value
+                                                                    :description]))
                                             %))]
     (is (empty? (validation/error-messages result))
         "The result has no validation errors")

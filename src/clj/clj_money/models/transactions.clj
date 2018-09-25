@@ -98,7 +98,7 @@
   "Makes pre-save adjustments for a transaction item"
   [item]
   (-> item
-      (assoc :value (:quantity item)) ; TODO need to calculate the correct value
+      (update-in [:value] (fnil identity (:quantity item))) ; TODO need to calculate the correct value
       (update-in [:action] name)
       (remove-empty-strings :memo)
       (update-in [:negative] (fnil identity false))))
@@ -210,7 +210,7 @@
       (dissoc :items)
       (assoc :value (->> (:items transaction)
                          (filter #(= :credit (:action %)))
-                         (map :quantity) ; TODO need to calculate the value here instead
+                         (map #(some (fn [k] (k %)) [:value :quantity])) ; TODO this should already be :value
                          (reduce +)))
       (update-in [:lot-items] #(when %
                                  (map (fn [i]
@@ -483,21 +483,20 @@
        first))
 
 (defn- link-lots
-  [storage transaction]
-  (when-let [lot-items (:lot-items transaction)]
-    (doseq [lot-item (:lot-items transaction)]
+  [storage transaction-id lot-items]
+  (when lot-items
+    (doseq [lot-item lot-items]
       (create-lot->transaction-link storage
                                     (assoc lot-item
                                            :transaction-id
-                                           (:id transaction)))))
-  transaction)
+                                           transaction-id)))))
 
 (defn- find-base-item
   "Given an account ID and a date, finds the transaction item for that
   account that immediately precents the given date"
   [storage account-id as-of]
   ; TODO If no item is found, we need to know if it's because
-  ; there is not item in this partition, or no item at all.
+  ; there is no item in this partition, or no item at all.
   ; I'm not sure of the storage layer is already walking back,
   ; but I'm guessing it is not.
   (find-item storage
@@ -545,7 +544,7 @@
          balance] (if (seq items)
                     (process-items storage account base-item items)
                     (if base-item
-                      (juxt base-item [:index :quantity])
+                      ((juxt :index :quantity) base-item )
                       [0 0M]))]
     (when (not (nil? last-index))
       (accounts/update storage (-> account
@@ -579,8 +578,8 @@
         validated
         (let [created (->> validated
                            before-save
-                           (create-transaction s)
-                           (link-lots s))
+                           (create-transaction s))
+              _  (link-lots s (:id created) (:lot-items validated))
               account-ids (extract-account-ids validated)]
           (doall (->> (:items validated)
                       (map #(assoc %
