@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
+            [clojure.string :as string]
             [ring.util.response :refer [status response header]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
@@ -39,6 +40,10 @@
                 (env :db)
                 (apply-scope params resource-type))))
 
+(defn- extract-validation-messages
+  [model]
+  {:message (str "The resource is not valid. " (validation/error-messages model))})
+
 (defn create-resource
   [resource-type params create-fn]
   (let [resource (-> params
@@ -46,7 +51,7 @@
                      (authorize :create))
         result (create-fn (env :db) resource)]
     (if (validation/has-error? result)
-      (status (->response result) 422)
+      (status (->response (extract-validation-messages result)) 422)
       (status (->response result) 201))))
 
 (defn update-resource
