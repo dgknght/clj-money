@@ -27,7 +27,10 @@
 
 (defn- delete
   [account]
-  (js/alert "not implemented."))
+  (when (js/confirm (str "Are you sure you want to delete the account " (:name account) "?"))
+    (accounts/delete account
+                     #(secretary/dispatch! "/accounts")
+                     notify/danger)))
 
 (defn- find-account
   ([account-id]
