@@ -3,12 +3,19 @@
             [clojure.pprint :refer [pprint]]
             [clj-money.util :refer [pprint-and-return]]))
 
-(defn- entry->key-value-pairs
-  ([entry] (entry->key-value-pairs entry []))
-  ([[k v] prefix-vec]
-   (if (map? v)
-     (mapcat #(entry->key-value-pairs % (conj prefix-vec k)) v)
-     [[(conj prefix-vec k) v]])))
+(defmulti ^:private entry->key-value-pairs
+  (fn [[_ v] _]
+    (if (map? v)
+      :map
+      :default)))
+
+(defmethod ^:private entry->key-value-pairs :map
+  [[k v] prefix-vec]
+  (mapcat #(entry->key-value-pairs % (conj prefix-vec k)) v))
+
+(defmethod ^:private entry->key-value-pairs :default
+  [[k v] prefix-vec]
+  [[(conj prefix-vec k) v]])
 
 (defn- prepare-key
   [key-or-vec]
@@ -21,7 +28,7 @@
 (defn map->query-string
   [m]
   (string/join "&" (->> m
-                        (mapcat entry->key-value-pairs)
+                        (mapcat #(entry->key-value-pairs % []))
                         (map #(update-in % [0] prepare-key))
                         (map #(string/join "=" %)))))
 
