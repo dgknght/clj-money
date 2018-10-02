@@ -5,13 +5,21 @@
 
 (defmulti ^:private entry->key-value-pairs
   (fn [[_ v] _]
-    (if (map? v)
-      :map
-      :default)))
+    (cond
+      (map? v) :map
+      (coll? v) :collection
+      :else :default)))
 
 (defmethod ^:private entry->key-value-pairs :map
   [[k v] prefix-vec]
   (mapcat #(entry->key-value-pairs % (conj prefix-vec k)) v))
+
+(defmethod ^:private entry->key-value-pairs :collection
+  [[k v] prefix-vec]
+  (map #(vector (conj prefix-vec
+                      (-> k name (str "[]") keyword))
+                %)
+       v))
 
 (defmethod ^:private entry->key-value-pairs :default
   [[k v] prefix-vec]
@@ -32,19 +40,49 @@
                         (map #(update-in % [0] prepare-key))
                         (map #(string/join "=" %)))))
 
+(defmulti ^:private parse-key-segment
+  (fn [_ segment]
+    (cond
+      (re-find #"\[.+\]" segment) :keyword
+      (re-find #"\[\]" segment) :index
+      :else :default)))
+
+(defmethod ^:private parse-key-segment :keyword
+  [context segment]
+  (update-in context [:result] conj
+             (-> segment
+                 (string/replace #"\[|\]" "")
+                 keyword)))
+
+(defmethod ^:private parse-key-segment :index
+  [context segment]
+  (let [new-ctx (update-in context [:indexes (:result context)] (fnil inc -1))]
+
+    (pprint {:context context
+             :segment segment
+             :new-ctx new-ctx})
+
+    (-> new-ctx
+        (update-in [:result] conj (get-in new-ctx [:indexes (:result context)])))))
+
+(defmethod ^:private parse-key-segment :default
+  [context segment]
+  (update-in context [:result] conj (keyword segment)))
+
 (defn- parse-key
   "Takes a query string key like user[first-name] and
-  returns a tuple containing the most specified key
-  in the first position and the prefix in the second
-  (like [:first-name [:user]])"
+  returns a sequence containing the keys in order, appropriate
+  for use with assoc-in
+  (like [:user :first-name])"
   [k]
   ; I couldn't make the lookbehind work, so we have to parse
   ; the square brackets out in a separate step
-  (->> (re-find #"([^\[\]]+)(\[[^\]]+\])*" k)
+  (->> (re-find #"([^\[\]]+)(\[[^\]]*\])*" k)
        rest              ; this first position holds the entire match
-       (filter identity) ; the last position seems always to be nil
-       (map #(string/replace % #"\[|\]" "") )
-       (map keyword)))
+       (filter identity)
+       (reduce parse-key-segment
+               {:result []})
+       :result))
 
 (defn- collapse-collections
   [key-value-pairs]

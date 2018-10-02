@@ -15,7 +15,8 @@
            (map->query-string {:user {:first-name "John"
                                       :last-name "Doe"}}))))
   (testing "a map with vector values"
-    (is false "need to write the test"))
+    (is (= "names[]=john&names[]=jane"
+           (map->query-string {:names ["john" "jane"]}))))
   (testing "a deep nested map"
     (is false "need to write the test")))
 
@@ -33,6 +34,7 @@
       (pprint-diff expected actual)
       (is (= expected actual))))
   (testing "a map with vector values"
-    (is false "need to write the test"))
+    (is (= {:names ["john" "jane"]}
+           (query-string->map "names[]=john&names[]=jane"))))
   (testing "a deep nested map"
     (is false "need to write the test")))
