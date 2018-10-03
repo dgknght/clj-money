@@ -41,33 +41,25 @@
                         (map #(string/join "=" %)))))
 
 (defmulti ^:private parse-key-segment
-  (fn [_ segment]
+  (fn [segment]
     (cond
       (re-find #"\[.+\]" segment) :keyword
       (re-find #"\[\]" segment) :index
       :else :default)))
 
 (defmethod ^:private parse-key-segment :keyword
-  [context segment]
-  (update-in context [:result] conj
-             (-> segment
-                 (string/replace #"\[|\]" "")
-                 keyword)))
+  [segment]
+  (-> segment
+      (string/replace #"\[|\]" "")
+      keyword))
 
 (defmethod ^:private parse-key-segment :index
-  [context segment]
-  (let [new-ctx (update-in context [:indexes (:result context)] (fnil inc -1))]
-
-    (pprint {:context context
-             :segment segment
-             :new-ctx new-ctx})
-
-    (-> new-ctx
-        (update-in [:result] conj (get-in new-ctx [:indexes (:result context)])))))
+  [segment]
+  ::index)
 
 (defmethod ^:private parse-key-segment :default
-  [context segment]
-  (update-in context [:result] conj (keyword segment)))
+  [segment]
+  (keyword segment))
 
 (defn- parse-key
   "Takes a query string key like user[first-name] and
@@ -80,15 +72,26 @@
   (->> (re-find #"([^\[\]]+)(\[[^\]]*\])*" k)
        rest              ; this first position holds the entire match
        (filter identity)
-       (reduce parse-key-segment
-               {:result []})
-       :result))
+       (map parse-key-segment)))
+
+(defn- assoc-in-x
+  "Like assoc-in except that it creates a vector (instead of a map) for a
+  non-existing container if the key is ::index"
+  [m [k & ks] v]
+  (let [target (or m (if (= k ::index)
+                       []
+                       {}))
+        wk (if (= k ::index)
+             (count target)
+             k)]
+    (if ks
+      (assoc target wk (assoc-in-x (get m k) ks v))
+      (assoc target wk v))))
 
 (defn- collapse-collections
   [key-value-pairs]
   (reduce (fn [result [k v]]
-            (let [k-vec (parse-key k)]
-              (assoc-in result k-vec v)))
+            (assoc-in-x result (parse-key k) v))
           {}
           key-value-pairs))
 
