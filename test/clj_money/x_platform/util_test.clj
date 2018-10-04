@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
+            [clj-time.core :as t]
             [clj-money.test-helpers :refer [pprint-diff]]
             [clj-money.x-platform.util :refer :all]))
 
@@ -18,7 +19,10 @@
     (is (= "names[]=john&names[]=jane"
            (map->query-string {:names ["john" "jane"]}))))
   (testing "a deep nested map"
-    (is false "need to write the test")))
+    (is (= "criteria[transaction-date][]=between&criteria[transaction-date][]=2018-02-27&criteria[transaction-date][]=2018-03-02&options[sort][]=transaction-date&options[sort][]=desc&options[limit]=50"
+           (map->query-string {:criteria {:transaction-date [:between (t/local-date 2018 2 27) (t/local-date 2018 3 2)]}
+                               :options {:sort [:transaction-date :desc]
+                                         :limit 50}})))))
 
 (deftest create-a-map-from-a-query-string
   (testing "a single-level map"
@@ -37,4 +41,7 @@
     (is (= {:names ["john" "jane"]}
            (query-string->map "names[]=john&names[]=jane"))))
   (testing "a deep nested map"
-    (is false "need to write the test")))
+    (is (= {:criteria {:transaction-date [:between (t/local-date 2018 2 27) (t/local-date 2018 3 2)]}
+            :options {:sort [:transaction-date :desc]
+                      :limit 50}}
+           (query-string->map "criteria[transaction-date][]=between&criteria[transaction-date][]=2018-02-27&criteria[transaction-date][]=2018-03-02&options[sort][]=transaction-date&options[sort][]=desc&options[limit]=50")))))
