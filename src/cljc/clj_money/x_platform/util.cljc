@@ -16,8 +16,7 @@
 
 (defmethod ^:private entry->key-value-pairs :collection
   [[k v] prefix-vec]
-  (map #(vector (conj prefix-vec
-                      (-> k name (str "[]") keyword))
+  (map #(vector (concat prefix-vec [k ::index])
                 %)
        v))
 
@@ -26,18 +25,26 @@
   [[(conj prefix-vec k) v]])
 
 (defn- prepare-key
-  [key-or-vec]
-  (let [s (map name key-or-vec)]
-    (str (first s)
-         (->> (rest s)
-              (map #(str "[" % "]"))
-              (string/join "")))))
+  [[primary & remaining]]
+  (str (name primary)
+       (->> remaining
+            (map #(if (= ::index %)
+                   "[]"
+                   (str "[" (name %) "]")))
+            (string/join ""))))
+
+(defn- prepare-value
+  [v]
+  (if (keyword? v)
+    (name v)
+    v))
 
 (defn map->query-string
   [m]
   (string/join "&" (->> m
                         (mapcat #(entry->key-value-pairs % []))
                         (map #(update-in % [0] prepare-key))
+                        (map #(update-in % [1] prepare-value))
                         (map #(string/join "=" %)))))
 
 (defmulti ^:private parse-key-segment
