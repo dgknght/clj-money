@@ -42,7 +42,9 @@
     (is (= {:names ["john" "jane"]}
            (query-string->map "names[]=john&names[]=jane"))))
   (testing "a deep nested map"
-    (is (= {:criteria {:transaction-date [:between (t/local-date 2018 2 27) (t/local-date 2018 3 2)]}
-            :options {:sort [:transaction-date :desc]
-                      :limit 50}}
-           (query-string->map "criteria[transaction-date][]=between&criteria[transaction-date][]=2018-02-27&criteria[transaction-date][]=2018-03-02&options[sort][]=transaction-date&options[sort][]=desc&options[limit]=50")))))
+    (let [expected {:criteria {:transaction-date ["between" "2018-02-27" "2018-03-02"]}
+                    :options {:sort ["transaction-date" "desc"]
+                              :limit "50"}}
+          actual (query-string->map "criteria[transaction-date][]=between&criteria[transaction-date][]=2018-02-27&criteria[transaction-date][]=2018-03-02&options[sort][]=transaction-date&options[sort][]=desc&options[limit]=50")]
+      (pprint-diff expected actual)
+      (is (= expected actual)))))
