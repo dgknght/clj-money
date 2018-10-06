@@ -20,10 +20,19 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.transactions]))
 
+(defn- prepare-criteria
+  [criteria]
+  criteria)
+
+(defn- prepare-options
+  [options]
+  options)
+
 (defn index
-  [{params :params}]
-  (index-resource transactions/search-items
-                  (-> params
-                      (rename-keys {:id :account-id})
-                      (select-keys [:account-id :transaction-date]))
-                  :transaction-item))
+  [{{:keys [criteria options] :as params} :params}]
+
+  (pprint {:params params})
+
+  (->response (transactions/search-items (env :db)
+                                         (prepare-criteria criteria)
+                                         (prepare-options options))))
