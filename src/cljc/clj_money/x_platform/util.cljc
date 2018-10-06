@@ -47,26 +47,17 @@
                         (map #(update-in % [1] prepare-value))
                         (map #(string/join "=" %)))))
 
-(defmulti ^:private parse-key-segment
-  (fn [segment]
-    (cond
-      (re-find #"\[.+\]" segment) :keyword
-      (re-find #"\[\]" segment) :index
-      :else :default)))
+(def ^:private key-pattern
+  #"(?:(^[^\[\]]+)|(?:^\[([^\]]+)\])|(^\[\]))(.*)")
 
-(defmethod ^:private parse-key-segment :keyword
-  [segment]
-  (-> segment
-      (string/replace #"\[|\]" "")
-      keyword))
-
-(defmethod ^:private parse-key-segment :index
-  [segment]
-  ::index)
-
-(defmethod ^:private parse-key-segment :default
-  [segment]
-  (keyword segment))
+(defn- key-segments
+  [k]
+  (let [[f r] (->> (re-find key-pattern k)
+                   rest
+                   (filter identity))]
+    (if r
+      (cons f (key-segments r))
+      f)))
 
 (defn- parse-key
   "Takes a query string key like user[first-name] and
@@ -74,12 +65,11 @@
   for use with assoc-in
   (like [:user :first-name])"
   [k]
-  ; I couldn't make the lookbehind work, so we have to parse
-  ; the square brackets out in a separate step
-  (->> (re-find #"([^\[\]]+)(\[[^\]]*\])*" k)
-       rest              ; this first position holds the entire match
-       (filter identity)
-       (map parse-key-segment)))
+  (->> (key-segments k)
+       (map keyword)
+       (map #(if (= % (keyword "[]"))
+               ::index
+               %))))
 
 (defn- assoc-in-x
   "Like assoc-in except that it creates a vector (instead of a map) for a
