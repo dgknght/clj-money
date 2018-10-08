@@ -28,7 +28,12 @@
   ([path success-fn error-fn]
    (get-resources path {} success-fn error-fn))
   ([path criteria success-fn error-fn]
-   (go (let [response (<! (http/get (append-query-string path criteria)
+   (get-resources path criteria {} success-fn error-fn))
+  ([path criteria options success-fn error-fn]
+   (go (let [params (cond-> {:criteria criteria}
+                      (seq options)
+                      (assoc :options options))
+             response (<! (http/get (append-query-string path params)
                                     {:headers {"Content-Type" "application/json"
                                                "Accept" "application/json"}}))]
          (if (= 200 (:status response))

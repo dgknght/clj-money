@@ -105,12 +105,12 @@
         checking (find-account context "Checking")
         user (find-user context "john@doe.com")
         response (with-authentication user
-                   (api/index {:criteria {"account-id" (str (:id checking))
-                                          "transaction-date" ["between"
-                                                              "2018-01-01"
-                                                              "2018-01-31"]}
-                               :options {"limit" "5"
-                                         "sort" "desc"}}))
+                   (api/index {:params {:criteria {"account-id" (str (:id checking))
+                                                   "transaction-date" ["between"
+                                                                       "2018-01-01"
+                                                                       "2018-01-31"]}
+                                        :options {"limit" "5"
+                                                  "sort" "desc"}}}))
         actual (:body response)
         expected [{:transaction-date (t/local-date 2017 1 29)
                    :description "Kroger"

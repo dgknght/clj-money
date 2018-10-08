@@ -1,7 +1,5 @@
 (ns clj-money.x-platform.util
-  (:require [clojure.string :as string]
-            [clojure.pprint :refer [pprint]]
-            [clj-money.util :refer [pprint-and-return]]))
+  (:require [clojure.string :as string]))
 
 (defmulti ^:private entry->key-value-pairs
   (fn [[_ v] _]

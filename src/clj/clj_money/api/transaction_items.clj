@@ -20,8 +20,14 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.transactions]))
 
+(def ^:private criteria-coercion-rules
+  [(coercion/rule :integer [:account-id])])
+
 (defn- prepare-criteria
   [criteria]
+  #_(-> criteria
+      (update-in [:])
+      )
   criteria)
 
 (defn- prepare-options
@@ -30,9 +36,6 @@
 
 (defn index
   [{{:keys [criteria options] :as params} :params}]
-
-  (pprint {:params params})
-
   (->response (transactions/search-items (env :db)
                                          (prepare-criteria criteria)
                                          (prepare-options options))))

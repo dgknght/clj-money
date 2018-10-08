@@ -197,12 +197,13 @@
   (model-route PATCH "/api/accounts/:id" accounts-api/update)
   (model-route DELETE "/api/accounts/:id" accounts-api/delete)
 
-  (model-route GET "/api/accounts/:id/transaction-items" transaction-items-api/index)
   (model-route GET "/api/transactions" transactions-api/index)
   (model-route GET "/api/transactions/:id" transactions-api/get-transaction)
   (model-route POST "/api/transactions" transactions-api/create)
   (model-route PATCH "/api/transactions/:id" transactions-api/update)
   (model-route DELETE "/api/transactions/:id" transactions-api/delete)
+
+  (model-route GET "/api/transaction-items" transaction-items-api/index)
 
   ; Imports
   (model-route GET "/api/imports" imports-api/index)
