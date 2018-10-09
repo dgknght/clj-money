@@ -116,7 +116,10 @@
     [:tr
      [:th "Name"]
      [:th (util/space)]]
-    (doall (mapcat #(account-type-rows %) (nest @*accounts*)))]])
+    (if (seq @*accounts*)
+      (doall (mapcat #(account-type-rows %) (nest @*accounts*)))
+      [:tr
+       [:td {:colSpan 2} [:span.inline-status "Loading..."]]])]])
 
 (defn- accounts-page []
   (accounts/get-all (:id @state/current-entity)
