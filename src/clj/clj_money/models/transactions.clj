@@ -455,10 +455,6 @@
   ([storage-spec criteria]
    (search-items storage-spec criteria {}))
   ([storage-spec criteria options]
-
-   (pprint {:search-items criteria
-            :options options})
-
    (with-storage [s storage-spec]
      (map after-item-read
           (select-transaction-items s
