@@ -25,17 +25,22 @@
 
 (defn- prepare-criteria
   [criteria]
-  #_(-> criteria
-      (update-in [:])
-      )
-  criteria)
+  (coercion/coerce criteria-coercion-rules criteria))
+
+(coercion/register-coerce-fn :sort (fn [s]
+                                     (when (and (s (seq s)))
+                                       (map keyword s))))
+
+(def ^:private options-coercion-rules
+  [(coercion/rule :keyword [:sort 0])
+   (coercion/rule :keyword [:sort 1])])
 
 (defn- prepare-options
   [options]
-  options)
+  (coercion/coerce options-coercion-rules options))
 
 (defn index
-  [{{:keys [criteria options] :as params} :params}]
+  [{{:keys [criteria options] :as params} :params :as req}]
   (->response (transactions/search-items (env :db)
                                          (prepare-criteria criteria)
                                          (prepare-options options))))
