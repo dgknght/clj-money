@@ -5,24 +5,19 @@
             [cljs-http.client :as http]
             [clojure.walk :refer [keywordize-keys]]
             [cognitect.transit :as transit]
+            [clj-money.x-platform.util :refer [map->query-string]]
             [clj-money.util :as util]))
 
 (defn path
   [& segments]
   (apply util/path (concat [:api] segments)))
 
-(defn- map->query-string
-  [m]
-  (->> m
-       (map #(update-in % [0] name))
-       (map #(string/join "=" %))
-       (string/join "&")))
-
 (defn- append-query-string
   [path criteria]
   (if (empty? criteria)
     path
-    (str path "?" (map->query-string criteria))))
+    (let [query-string (map->query-string criteria)]
+      (str path "?" query-string))))
 
 (defn get-resources
   ([path success-fn error-fn]
