@@ -270,7 +270,7 @@
   "Updates the specified budget item"
   [storage-spec item]
   (with-storage [s storage-spec]
-    (let [item (coercion/coerce item-coercion-rules item)
+    (let [item (coercion/coerce item item-coercion-rules)
           budget (->> item
                       :id
                       (find-item-by-id s)

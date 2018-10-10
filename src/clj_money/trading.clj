@@ -247,8 +247,7 @@
 
 (defn- validate-purchase
   [storage purchase]
-  (->> purchase
-       (coercion/coerce purchase-coercion-rules)
+  (->> (coercion/coerce purchase purchase-coercion-rules)
        (validation/validate ::purchase)))
 
 ; expect
@@ -363,8 +362,7 @@
 
 (defn- validate-sale
   [storage sale]
-  (->> sale
-       (coercion/coerce sale-coercion-rules)
+  (->> (coercion/coerce sale sale-coercion-rules)
        (validation/validate ::sale)))
 
 (defn- update-entity-settings
@@ -413,8 +411,7 @@
 
 (defn- validate-transfer
   [transfer]
-  (->> transfer
-       (coercion/coerce transfer-coercion-rules)
+  (->> (coercion/coerce transfer transfer-coercion-rules)
        (validation/validate ::transfer)))
 
 (defn- append-commodity

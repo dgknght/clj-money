@@ -69,8 +69,7 @@
                               (fn [_ m] (identity m)))
         coercion-rules (or (:coercion-rules options)
                            [])]
-    (->> model
-         (coercion/coerce coercion-rules)
+    (->> (coercion/coerce model coercion-rules)
          (before-validation s)
          (validation/validate (:spec options) rules))))
 

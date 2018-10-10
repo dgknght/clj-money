@@ -59,7 +59,8 @@
   ([reconciliation]
    (before-validation nil reconciliation))
   ([_ reconciliation]
-   (-> (coercion/coerce coercion-rules reconciliation)
+   (-> reconciliation
+       (coercion/coerce coercion-rules)
        (update-in [:status] (fnil identity :new)))))
 
 (defn- before-save
