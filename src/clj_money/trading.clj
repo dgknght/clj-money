@@ -246,9 +246,10 @@
    (coercion/rule :decimal [:value])])
 
 (defn- validate-purchase
-  [storage purchase]
-  (->> (coercion/coerce purchase purchase-coercion-rules)
-       (validation/validate ::purchase)))
+  [purchase]
+  (-> purchase
+      (coercion/coerce purchase-coercion-rules)
+      (validation/validate ::purchase)))
 
 ; expect
 ; :commodity-id
@@ -259,7 +260,7 @@
 (defn buy
   [storage-spec purchase]
   (with-transacted-storage [s storage-spec]
-    (let [validated (validate-purchase s purchase)]
+    (let [validated (validate-purchase purchase)]
       (if (validation/valid? validated)
         (->> (assoc validated :storage s)
              acquire-commodity
@@ -362,8 +363,9 @@
 
 (defn- validate-sale
   [storage sale]
-  (->> (coercion/coerce sale sale-coercion-rules)
-       (validation/validate ::sale)))
+  (-> sale
+      (coercion/coerce sale-coercion-rules)
+      (validation/validate ::sale)))
 
 (defn- update-entity-settings
   [{:keys [entity storage] :as context}]
@@ -411,8 +413,9 @@
 
 (defn- validate-transfer
   [transfer]
-  (->> (coercion/coerce transfer transfer-coercion-rules)
-       (validation/validate ::transfer)))
+  (-> transfer
+      (coercion/coerce transfer-coercion-rules)
+      (validation/validate ::transfer)))
 
 (defn- append-commodity
   [{:keys [storage commodity-id] :as context}]
@@ -556,9 +559,7 @@
 
 (defn- validate-split
   [split]
-  (->> split
-       #_(coercion/coerce split-coercion-rules)
-       (validation/validate ::split)))
+  (validation/validate split ::split))
 
 (defn split
   [storage-spec split]

@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
-            [clj-money.util :refer [safe-invoke]]
+            [clj-money.util :refer [safe-invoke
+                                    rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -41,19 +42,18 @@
 (s/def ::existing-commodity (s/keys :req-un [::type ::entity-id ::name ::symbol] :opt-un [::id]))
 
 (defn- before-save
-  [_ commodity]
+  [commodity & _]
   (-> commodity
       (update-in [:exchange] #(safe-invoke name %))
       (update-in [:type] name)))
 
 (defn- after-read
-  ([commodity] (after-read nil commodity))
-  ([_ commodity]
-   (when commodity
-     (-> commodity
-         (authorization/tag-resource :commodity)
-         (update-in [:exchange] #(safe-invoke keyword %))
-         (update-in [:type] keyword)))))
+  [commodity & _]
+  (when commodity
+    (-> commodity
+        (authorization/tag-resource :commodity)
+        (update-in [:exchange] #(safe-invoke keyword %))
+        (update-in [:type] keyword))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:entity-id])
@@ -97,7 +97,7 @@
               :rules-fn validation-rules
               :coercion-rules coercion-rules
               :spec ::new-commodity
-              :create create-commodity
+              :create (rev-args create-commodity)
               :after-read after-read}))
 
 (defn search
@@ -120,7 +120,7 @@
 
 (def update
   (update-fn {:spec ::existing-commodity
-              :update update-commodity
+              :update (rev-args update-commodity)
               :find find-by-id
               :before-save before-save
               :after-read after-read

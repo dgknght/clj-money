@@ -85,7 +85,7 @@
    (coercion/rule :integer [:account-id])])
 
 (defn- before-validation
-  [_ budget]
+  [budget & _]
   (dissoc budget :items))
 
 (def period-map
@@ -231,15 +231,9 @@
                            [:periods]
                            "Number of periods must match the budget \"Period count\" value")])
 
-(defn- before-item-validation
-  [item]
-  item)
-
 (defn- validate-item
-  [storage spec budget item]
-  (->> item
-       before-item-validation
-       (validation/validate spec (item-validation-rules storage budget))))
+  [item storage spec budget]
+  (validation/validate item spec (item-validation-rules storage budget)))
 
 (defn- before-save-item
   [item]
@@ -250,7 +244,7 @@
   [storage-spec item]
   (with-storage [s storage-spec]
     (let [budget (when (:budget-id item) (find-by-id s (:budget-id item)))
-          validated (validate-item s ::new-budget-item budget item)]
+          validated (validate-item item s ::new-budget-item budget)]
       (if (validation/has-error? validated)
         validated
         (->> validated
@@ -276,12 +270,13 @@
                       (find-item-by-id s)
                       :budget-id
                       (find-by-id s))
-          validated (validate-item s
-                                   ::existing-budget-item
-                                   budget
-                                   (select-keys item [:id
-                                                      :account-id
-                                                      :periods]))]
+          validated (-> item
+                        (select-keys [:id
+                                      :account-id
+                                      :periods])
+                        (validate-item s
+                                       ::existing-budget-item
+                                       budget)) ]
       (if (validation/valid? validated)
         (do
           (->> validated

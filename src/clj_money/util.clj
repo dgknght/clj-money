@@ -129,3 +129,10 @@
   (->> (split (file-name path) #"\.")
        rest
        (clojure.string/join ".")))
+
+(defn rev-args
+  "Given a fn, returns a fn that performs the same action
+  but with the order of arguments reversed"
+  [f]
+  (fn [& args]
+    (apply f (reverse args))))

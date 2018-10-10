@@ -22,10 +22,8 @@
 
 (defn before-save
   "Prepares a user record to be saved in the database"
-  ([user]
-   (update-in user [:password] hash-bcrypt))
-  ([_ user]
-   (before-save user)))
+  [user & _]
+  (update-in user [:password] hash-bcrypt))
 
 (s/def ::first-name validation/non-empty-string?)
 (s/def ::last-name validation/non-empty-string?)
@@ -60,7 +58,7 @@
 (def create
   (create-fn {:spec ::new-user
               :rules-fn validation-rules
-              :create create-user
+              :create (fn [user s] (create-user s user))
               :before-save before-save}))
 
 (defn select
@@ -101,7 +99,7 @@
   (format "%s %s" (:first-name user) (:last-name user)))
 
 (def update
-  (update-fn {:update update-user
+  (update-fn {:update (fn [user s] (update-user s user))
               :find find-by-id
               :spec ::existing-user}))
 

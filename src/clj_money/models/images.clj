@@ -44,7 +44,7 @@
                            "The image content must be unique")])
 
 (defn- before-validation
-  [storage image]
+  [image & _]
   (assoc image :body-hash (sha-1 (:body image))))
 
 (def create

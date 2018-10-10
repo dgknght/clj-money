@@ -65,7 +65,7 @@
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 
 (defn- before-validation
-  [storage lot]
+  [lot storage]
   (assoc lot :account (accounts/find-by-id storage (:account-id lot))))
 
 (defn- account-is-an-asset?

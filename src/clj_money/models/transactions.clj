@@ -315,10 +315,10 @@
 
 (defn- validate
   [storage spec transaction]
-  (->> transaction
-       before-validation
-       (validation/validate spec (validation-rules storage))
-       after-validation))
+  (-> transaction
+      before-validation
+      (validation/validate spec (validation-rules storage))
+      after-validation))
 
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)

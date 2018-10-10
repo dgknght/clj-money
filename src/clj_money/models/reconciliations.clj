@@ -56,12 +56,10 @@
    (coercion/rule :transaction-item-refs [:item-refs])])
 
 (defn- before-validation
-  ([reconciliation]
-   (before-validation nil reconciliation))
-  ([_ reconciliation]
-   (-> reconciliation
-       (coercion/coerce coercion-rules)
-       (update-in [:status] (fnil identity :new)))))
+  [reconciliation & _]
+  (-> reconciliation
+      (coercion/coerce coercion-rules)
+      (update-in [:status] (fnil identity :new))))
 
 (defn- before-save
   ([reconciliation]
@@ -226,9 +224,9 @@
 
 (defn- validate
   [spec rules reconciliation]
-  (->> reconciliation
-       before-validation
-       (validation/validate spec rules)))
+  (-> reconciliation
+      before-validation
+      (validation/validate spec rules)))
 
 (defn- item-refs->date-range
   [item-refs]

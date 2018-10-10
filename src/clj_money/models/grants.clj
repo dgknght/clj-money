@@ -6,6 +6,7 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
+            [clj-money.util :refer [rev-args]]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -42,16 +43,15 @@
        (merge (reduce #(assoc %1 %2 actions) {} resource-types))))
 
 (defn- before-save
-  [_ grant]
+  [grant & _]
   (update-in grant [:permissions] prn-str))
 
 (defn- after-read
-  ([_ grant] (after-read grant))
-  ([grant]
-   (when grant
-     (-> grant
-         (update-in [:permissions] read-string)
-         (authorization/tag-resource :grant)))))
+  [grant & _]
+  (when grant
+    (-> grant
+        (update-in [:permissions] read-string)
+        (authorization/tag-resource :grant))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -59,7 +59,7 @@
    (coercion/rule :integer [:user-id])])
 
 (def create
-  (create-fn {:create create-grant
+  (create-fn {:create (rev-args create-grant)
               :spec ::new-grant
               :coercion-rules coercion-rules
               :before-save before-save
@@ -77,7 +77,7 @@
   (first (search storage-spec {:id id} {:limit 1})))
 
 (def update
-  (update-fn {:update update-grant
+  (update-fn {:update (rev-args update-grant)
               :spec ::existing-grant
               :coercion-rules coercion-rules
               :before-save before-save
