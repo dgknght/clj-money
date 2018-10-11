@@ -25,7 +25,7 @@
 
 (defn- prepare-criteria
   [criteria]
-  (coercion/coerce criteria-coercion-rules criteria))
+  (coercion/coerce criteria criteria-coercion-rules))
 
 (coercion/register-coerce-fn :sort (fn [s]
                                      (when (and (s (seq s)))
@@ -37,7 +37,7 @@
 
 (defn- prepare-options
   [options]
-  (coercion/coerce options-coercion-rules options))
+  (coercion/coerce options options-coercion-rules))
 
 (defn index
   [{{:keys [criteria options] :as params} :params :as req}]

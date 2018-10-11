@@ -58,7 +58,7 @@
 (defn search
   [storage-spec criteria]
   (with-storage [s storage-spec]
-    (map #(after-read s %) (select-imports s criteria))))
+    (map #(after-read % s) (select-imports s criteria))))
 
 (defn delete
   [storage-spec id]

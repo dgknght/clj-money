@@ -96,7 +96,7 @@
   "After a commodity is saved, checks to see if it is
   the only commodity. If so, update the entity to indicate
   this is the default."
-  [storage commodity]
+  [commodity storage]
   (let [other-commodities (select-commodities storage {:entity-id (:entity-id commodity)
                                                        :id [:!= (:id commodity)]})]
     (when (empty? other-commodities)

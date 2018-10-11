@@ -60,13 +60,13 @@
 
 (defn- before-validation
   [params]
-  (coercion/coerce delete-coercion-rules params))
+  (coercion/coerce params delete-coercion-rules))
 
 (defn- validate-delete-params
   [params]
-  (->> params
-       before-validation
-       (validation/validate ::delete-params)))
+  (-> params
+      before-validation
+      (validation/validate ::delete-params)))
 
 (defn delete
   [{params :params}]
