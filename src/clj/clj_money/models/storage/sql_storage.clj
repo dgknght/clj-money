@@ -896,7 +896,7 @@
                          (append-sort (if (:count options)
                                            options
                                            (merge
-                                             {:sort [:i.transaction_date :i.index]}
+                                             {:sort [[:i.index :desc]]}
                                              options)))
                          (append-limit options)))]
         (if (:count options)
