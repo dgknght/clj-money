@@ -4,7 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [clj-time.coerce :refer [to-long
                                      to-local-date]]
-            [clj-money.util :refer [parse-local-date]]
+            [clj-money.util :refer [parse-local-date
+                                    rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -62,10 +63,8 @@
       (update-in [:status] (fnil identity :new))))
 
 (defn- before-save
-  ([reconciliation]
-   (before-save nil reconciliation))
-  ([_ reconciliation]
-   (update-in reconciliation [:status] name)))
+  [reconciliation & _]
+  (update-in reconciliation [:status] name))
 
 (defn- append-transaction-item-refs
   [reconciliation storage]
@@ -78,21 +77,19 @@
                        reconciliation)))))
 
 (defn- after-read
-  ([reconciliation]
-   (after-read nil reconciliation))
-  ([storage reconciliation]
-   (when reconciliation
-     (-> reconciliation
-         (update-in [:status] keyword)
-         (authorization/tag-resource :reconciliation)
-         (append-transaction-item-refs storage)))))
+  [reconciliation storage]
+  (when reconciliation
+    (-> reconciliation
+        (update-in [:status] keyword)
+        (authorization/tag-resource :reconciliation)
+        (append-transaction-item-refs storage))))
 
 (defn search
   ([storage-spec criteria]
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (map #(after-read s %) (select-reconciliations s criteria options)))))
+     (map #(after-read % s) (select-reconciliations s criteria options)))))
 
 (defn find
   ([storage-spec criteria]
@@ -236,7 +233,7 @@
                             sort))))
 
 (defn- after-save
-  [storage {:keys [id item-refs] :as reconciliation}]
+  [{:keys [id item-refs] :as reconciliation} storage]
   ; Set reconciled flag on specified transaction items
   (let [date-range (item-refs->date-range item-refs)]
     (when date-range
@@ -260,7 +257,7 @@
 (def create
   (create-fn {:spec ::new-reconciliation
               :before-validation before-validation
-              :create create*
+              :create (rev-args create*)
               :before-save before-save
               :after-save after-save
               :rules-fn validation-rules
@@ -284,7 +281,7 @@
 (def update
   (update-fn {:spec ::existing-reconciliation
               :before-validation before-validation
-              :update update-reconciliation
+              :update (rev-args update-reconciliation)
               :before-save before-save
               :after-save after-save
               :rules-fn validation-rules

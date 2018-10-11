@@ -7,7 +7,8 @@
             [clj-time.coerce :refer [to-local-date
                                      to-date-time]]
             [clj-time.periodic :refer [periodic-seq]]
-            [clj-money.util :refer [to-sql-date]]
+            [clj-money.util :refer [to-sql-date
+                                    rev-args]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
@@ -63,7 +64,7 @@
        (select-budget-items-by-budget-id storage budget-id)))
 
 (defn- after-read
-  [storage budget]
+  [budget storage]
   (when budget
     (-> budget
         (authorization/tag-resource :budget)
@@ -118,7 +119,7 @@
       to-local-date))
 
 (defn- before-save
-  [_ budget]
+  [budget & _]
   (-> budget
       (assoc :end-date (to-sql-date (end-date budget)))
       (update-in [:start-date] to-sql-date)
@@ -134,7 +135,7 @@
 
 (def create
   (create-fn {:before-save before-save
-              :create create-budget
+              :create (rev-args create-budget)
               :spec ::new-budget
               :before-validation before-validation
               :coercion-rules coercion-rules
@@ -147,55 +148,44 @@
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
      (->> (select-budgets s criteria options)
-          (map #(after-read s %))))))
+          (map #(after-read % s))))))
 
 (defn find-by-id
   "Returns the specified budget"
   [storage-spec id]
-  (with-storage [s storage-spec]
-    (->> (select-budgets s {:id id} {:limit 1})
-         first
-         (after-read s))))
+  (first (search storage-spec {:id id} {:limit 1})))
 
 (defn find-by-date
   "Returns the budget containing the specified date"
   [storage-spec entity-id date]
   (with-storage [s storage-spec]
-    (->> (find-budget-by-date s entity-id (to-sql-date date))
-         (after-read s))))
+    (after-read (find-budget-by-date s entity-id (to-sql-date date)) s)))
 
 (defn reload
   "Returns the lastest version of the specified budget from the data store"
   [storage-spec budget]
-  (with-storage [s storage-spec]
-    (->> budget
-         :id
-         (find-by-id s)
-         (after-read s))))
+  (find-by-id storage-spec (:id budget)))
 
 (def update
   (update-fn {:spec ::existing-budget
               :before-validation before-validation
               :before-save before-save
               :coercion-rules coercion-rules
-              :update update-budget
+              :update (rev-args update-budget)
               :find find-by-id}))
 
 (defn find-item-by-id
   "Returns the budget item with the specified id"
   [storage-spec item-id]
   (with-storage [s storage-spec]
-    (->> item-id
-         (find-budget-item-by-id s)
-         after-item-read)))
+    (after-item-read (find-budget-item-by-id s item-id))))
 
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"
   [budget account-or-id]
   (let [account-id (or (:id account-or-id)
                        account-or-id)]
-    (->> budget
-         :items
+    (->> (:items budget)
          (filter #(= account-id (:account-id %)))
          first)))
 

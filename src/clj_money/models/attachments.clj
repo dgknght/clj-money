@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.spec.alpha :as s]
+            [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
@@ -28,14 +29,12 @@
                                          ::image-id]))
 
 (defn- after-read
-  ([attachment]
-   (after-read nil attachment))
-  ([_ attachment]
-   (when attachment
-     (authorization/tag-resource attachment :attachment))))
+  [attachment & _]
+  (when attachment
+    (authorization/tag-resource attachment :attachment)))
 
 (def create
-  (create-fn {:create create-attachment
+  (create-fn {:create (rev-args create-attachment)
               :after-read after-read
               :spec ::new-attachment}))
 
