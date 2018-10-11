@@ -4,6 +4,7 @@
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [digest :refer [sha-1]]
+            [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -44,11 +45,11 @@
                            "The image content must be unique")])
 
 (defn- before-validation
-  [storage image]
+  [image & _]
   (assoc image :body-hash (sha-1 (:body image))))
 
 (def create
-  (create-fn {:create create-image
+  (create-fn {:create (rev-args create-image)
               :spec ::image
               :before-validation before-validation
               :rules-fn validation-rules}))

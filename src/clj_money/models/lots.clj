@@ -4,7 +4,8 @@
             [clojure.spec.alpha :as s]
             [clj-time.coerce :refer [to-local-date]]
             [clj-money.util :refer [pprint-and-return
-                                    to-sql-date]]
+                                    to-sql-date
+                                    rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -37,9 +38,8 @@
                                        ::shares-owned]))
 
 (defn- after-read
-  ([lot] (after-read nil lot))
-  ([_ lot]
-   (update-in lot [:purchase-date] to-local-date)))
+  [lot & _]
+  (update-in lot [:purchase-date] to-local-date))
 
 (defn search
   ([storage-spec criteria]
@@ -59,13 +59,13 @@
   (find-by storage-spec {:id id}))
 
 (defn- before-save
-  [_ lot]
+  [lot & _]
   (-> lot
       (update-in [:purchase-date] to-sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 
 (defn- before-validation
-  [storage lot]
+  [lot storage]
   (assoc lot :account (accounts/find-by-id storage (:account-id lot))))
 
 (defn- account-is-an-asset?
@@ -88,7 +88,7 @@
   (create-fn {:before-save before-save
               :before-validation before-validation
               :rules-fn validation-rules
-              :create create-lot
+              :create (rev-args create-lot)
               :after-read after-read
               :spec ::new-lot
               :coercion-rules coercion-rules}))
@@ -103,7 +103,7 @@
   (update-fn {:before-save before-save
               :before-validation before-validation
               :rules-fn validation-rules
-              :update update-lot
+              :update (rev-args update-lot)
               :after-read after-read
               :spec ::existing-lot
               :coercion-rules coercion-rules

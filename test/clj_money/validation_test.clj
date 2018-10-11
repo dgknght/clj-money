@@ -9,13 +9,13 @@
 (deftest is-a-model-valid
   (is (nil? (validation/valid? {:first-name "John" :last-name "Doe"}))
       "A map that hasn't been validated cannot be evaluated")
-  (is (validation/valid? (validation/validate ::person {:first-name "John" :last-name "Doe"}))
+  (is (validation/valid? (validation/validate {:first-name "John" :last-name "Doe"} ::person))
       "A map that has been validated successfully yields true")
-  (is (not (validation/valid? (validation/validate ::person {:first-name "John"})))
+  (is (not (validation/valid? (validation/validate {:first-name "John"} ::person)))
       "A map that failed validation yields false"))
 
 (deftest get-errors-from-an-invalid-model
-  (let [validated (validation/validate ::person {:age 23})]
+  (let [validated (validation/validate {:age 23} ::person)]
     (testing "for a specific attribute"
       (is (= ["First name is required"] (validation/error-messages validated :first-name))
           "error-messages returns the errors for the specified attribute"))

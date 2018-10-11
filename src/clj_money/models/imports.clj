@@ -4,6 +4,7 @@
             [clojure.spec.alpha :as s]
             [clojure.java.io :as io]
             [cheshire.core :as json]
+            [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
@@ -22,26 +23,28 @@
 (s/def ::existing-import (s/keys :req-un [::id ::progress]))
 
 (def create
-  (create-fn {:create create-import
+  (create-fn {:create (rev-args create-import)
               :spec ::new-import}))
 
 (defn- before-update
-  [_ import]
+  [import & _]
   (update-in import [:progress] json/generate-string))
 
 (defn- after-read
-  [_ import]
-  (update-in import [:progress] #(-> %
-                                     (json/parse-string true)
-                                     (select-keys [:account :transaction :budget :commodity :price]))))
+  [import & _]
+  (update-in import
+             [:progress]
+             #(-> %
+                  (json/parse-string true)
+                  (select-keys [:account :transaction :budget :commodity :price]))))
 
 (defn find-by-id
   [storage-spec id]
   (with-storage [s storage-spec]
-    (after-read s (find-import-by-id s id))))
+    (after-read (find-import-by-id s id) s)))
 
 (def update
-  (update-fn {:update update-import
+  (update-fn {:update (rev-args update-import)
               :find find-by-id
               :before-save before-update
               :spec ::existing-import}))

@@ -165,7 +165,8 @@
 (defn- before-validation
   "Performs operations required before validation"
   [transaction]
-  (-> (coercion/coerce coercion-rules transaction)
+  (-> transaction
+      (coercion/coerce coercion-rules)
       (update-in [:items] (fn [items]
                             (->> items
                                  (map #(assoc % :transaction-date
@@ -314,10 +315,10 @@
 
 (defn- validate
   [storage spec transaction]
-  (->> transaction
-       before-validation
-       (validation/validate spec (validation-rules storage))
-       after-validation))
+  (-> transaction
+      before-validation
+      (validation/validate spec (validation-rules storage))
+      after-validation))
 
 (s/def ::page validation/positive-integer?)
 (s/def ::per-page validation/positive-integer?)
@@ -376,9 +377,9 @@
   ([storage-spec criteria]
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
-   (let [coerced-options (coercion/coerce [(coercion/rule :integer [:page])
-                                           (coercion/rule :integer [:per-page])]
-                                          options )
+   (let [coerced-options (coercion/coerce options
+                                          [(coercion/rule :integer [:page])
+                                           (coercion/rule :integer [:per-page])])
          parsed-options (if (s/valid? ::select-options coerced-options)
                           coerced-options
                           {:page 1

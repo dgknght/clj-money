@@ -5,7 +5,8 @@
             [clojure.string :as string]
             [clojure.set :refer [rename-keys]]
             [clj-money.util :refer [pprint-and-return
-                                    safe-read-string]]
+                                    safe-read-string
+                                    rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -57,7 +58,7 @@
 (declare find-by-id)
 (defn- before-validation
   "Adjust account data for validation"
-  [storage account]
+  [account storage]
   (cond-> account
     ; If no entity is specified, try to look it up
     (and (:id account)
@@ -75,7 +76,7 @@
 
 (defn- before-save
   "Adjusts account data for saving in the database"
-  [storage account]
+  [account & _]
   (-> account
       (update-in [:quantity] (fnil identity 0M))
       (update-in [:value] (fnil identity 0M))
@@ -87,32 +88,31 @@
 
 (defn- after-read
   "Adjusts account data read from the database for use"
-  ([account] (after-read nil account))
-  ([_ account]
-   (-> account
-       (update-in [:type] keyword)
-       (update-in [:tags] #(->> %
-                                (map keyword)
-                                set))
-       (assoc :commodity {:name (:commodity-name account)
-                          :symbol (:commodity-symbol account)
-                          :type (keyword (:commodity-type account))
-                          :default (= (:commodity-id account) (-> account
-                                                                  :entity-settings
-                                                                  safe-read-string
-                                                                  :default-commodity-id))
-                          #_:exchange #_(:commodity-exchange account)})
-       (dissoc :commodity-name
-               :commodity-symbol
-               :commodity-type
-               :commodity-exchange
-               :entity-settings)
-       (authorization/tag-resource :account)
-       (cond->
-         (and ; Remove :parent-id if it's nil
-           (contains? account :parent-id)
-           (nil? (:parent-id account)))
-         (dissoc :parent-id)))))
+  [account & _]
+  (-> account
+      (update-in [:type] keyword)
+      (update-in [:tags] #(->> %
+                               (map keyword)
+                               set))
+      (assoc :commodity {:name (:commodity-name account)
+                         :symbol (:commodity-symbol account)
+                         :type (keyword (:commodity-type account))
+                         :default (= (:commodity-id account) (-> account
+                                                                 :entity-settings
+                                                                 safe-read-string
+                                                                 :default-commodity-id))
+                         #_:exchange #_(:commodity-exchange account)})
+      (dissoc :commodity-name
+              :commodity-symbol
+              :commodity-type
+              :commodity-exchange
+              :entity-settings)
+      (authorization/tag-resource :account)
+      (cond->
+        (and ; Remove :parent-id if it's nil
+             (contains? account :parent-id)
+             (nil? (:parent-id account)))
+        (dissoc :parent-id))))
 
 (defn search
   ([storage-spec criteria]
@@ -171,7 +171,7 @@
 (def create
   (create-fn {:before-save before-save
               :after-read after-read
-              :create create-account
+              :create (rev-args create-account)
               :before-validation before-validation
               :rules-fn validation-rules
               :coercion-rules coercion-rules
@@ -220,7 +220,7 @@
 (def update
   (update-fn {:before-save before-save
               :after-read after-read
-              :update update-account
+              :update (rev-args update-account)
               :find find-by-id
               :spec ::existing-account
               :coercion-rules coercion-rules

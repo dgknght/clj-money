@@ -60,19 +60,19 @@
      (with-transaction s# f#)))
 
 (defn- validate
-  [options s model]
+  [model options s]
   (let [rules (or (:rules options)
                   (when-let [rules-fn (:rules-fn options)]
                     ((:rules-fn options) s))
                   [])
         before-validation (or (:before-validation options)
-                              (fn [_ m] (identity m)))
+                              (fn [m & _] (identity m)))
         coercion-rules (or (:coercion-rules options)
                            [])]
-    (->> model
-         (coercion/coerce coercion-rules)
-         (before-validation s)
-         (validation/validate (:spec options) rules))))
+    (-> model
+        (coercion/coerce coercion-rules)
+        (before-validation s)
+        (validation/validate (:spec options) rules))))
 
 (defn- process-options
   [options storage model & fn-keys]
@@ -80,14 +80,14 @@
        (map #(% options))
        (keep identity)
        (reduce (fn [model f]
-                 (f storage model))
+                 (f model storage))
                model)))
 
 (defn create-fn
   [options]
   (fn [storage-spec model]
     (with-storage [s storage-spec]
-      (let [validated (validate options s model)]
+      (let [validated (validate model options s)]
         (if (validation/valid? validated)
           (process-options options s validated :before-save :create :after-save :after-read)
           validated)))))
@@ -96,7 +96,7 @@
   [options]
   (fn [storage-spec model]
     (with-storage [s storage-spec]
-      (let [validated (validate options s model)]
+      (let [validated (validate model options s)]
         (if (validation/valid? validated)
           (do
             (process-options options s validated :before-save :update)

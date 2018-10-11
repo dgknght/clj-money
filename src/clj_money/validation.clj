@@ -167,8 +167,8 @@
 
 (defn validate
   "Validates the specified model using the specified spec"
-  ([spec model] (validate spec [] model))
-  ([spec rules model]
+  ([model spec] (validate model spec []))
+  ([model spec rules]
    (if-let [explanation (s/explain-data spec model)]
      (assoc model ::errors (interpret-problems explanation)
             ::valid? false)

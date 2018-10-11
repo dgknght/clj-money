@@ -4,7 +4,8 @@
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [clj-time.core :as t]
-            [clj-money.util :refer [pprint-and-return]]
+            [clj-money.util :refer [pprint-and-return
+                                    rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
@@ -27,11 +28,9 @@
 (s/def ::existing-price (s/keys :req-un [::id ::trade-date ::price] :opt-un [::commodity-id]))
 
 (defn- after-read
-  ([_ price]
-   (after-read price))
-  ([price]
-   (when price
-     (authorization/tag-resource price :price))))
+  [price & _]
+  (when price
+    (authorization/tag-resource price :price)))
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])
@@ -63,7 +62,7 @@
        (validation/validate spec (validation-rules storage))))
 
 (def create
-  (create-fn {:create create-price
+  (create-fn {:create (rev-args create-price)
               :after-read after-read
               :spec ::new-price
               :rules-fn validation-rules
@@ -89,7 +88,7 @@
   (find-by-id storage-spec (:id price) (:trade-date price)))
 
 (def update
-  (update-fn {:update update-price
+  (update-fn {:update (rev-args update-price)
               :rules-fn validation-rules
               :reload reload
               :spec ::existing-price

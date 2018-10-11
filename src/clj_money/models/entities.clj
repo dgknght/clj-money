@@ -36,26 +36,24 @@
        empty?))
 
 (defn- before-validation
-  [_ entity]
+  [entity & _]
   (update-in entity [:settings] (fnil identity {})))
 
 (defn- before-save
-  ([entity] (before-save nil entity))
-  ([_ entity]
+  [entity & _]
    (cond-> entity
      (contains? entity :settings)
-     (update-in [:settings] pr-str))))
+     (update-in [:settings] pr-str)))
 
 (defn- after-read
-  ([entity] (after-read nil entity))
-  ([_ entity]
-   (when entity
-     (cond-> entity
-       true
-       (authorization/tag-resource :entity)
+  [entity & _]
+  (when entity
+    (cond-> entity
+      true
+      (authorization/tag-resource :entity)
 
-       (:settings entity)
-       (update-in [:settings] read-string)))))
+      (:settings entity)
+      (update-in [:settings] read-string))))
 
 (defn- validation-rules
   [storage]
@@ -70,7 +68,7 @@
   (create-fn {:before-validation before-validation
               :before-save before-save
               :after-read after-read
-              :create create-entity
+              :create (fn [entity s] (create-entity s entity))
               :spec ::new-entity
               :rules-fn validation-rules
               :coercion-rules coercion-rules}))
@@ -108,7 +106,7 @@
                           :name entity-name})))
 
 (def update
-  (update-fn {:update update-entity
+  (update-fn {:update (fn [entity s] (update-entity s entity))
               :spec ::existing-entity
               :coercion-rules coercion-rules
               :rule-fn validation-rules
