@@ -274,7 +274,7 @@
                         (reset! account a)
                         (transaction-items/search
                           {:account-id (:id a)}
-                          {:sort [[:transaction-date :desc]]}
+                          {:sort {:0 {:field :transaction-date :direction :desc}}}
                           (fn [items]
                             (reset! transaction-items
                                     (map #(polarize-item % a)
