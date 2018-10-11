@@ -35,20 +35,9 @@
   [(coercion/rule :keyword [:sort 0])
    (coercion/rule :keyword [:sort 1])])
 
-(defn- normalize-sort
-  [sort-map]
-  (reduce (fn [result index]
-            (if-let [{:keys [field direction]} (get sort-map (str index))]
-              (conj result [field direction])
-              (reduced result)))
-          []
-          (range)))
-
 (defn- prepare-options
   [options]
-  (-> options
-      (update-in [:sort] normalize-sort)
-      (coercion/coerce options-coercion-rules)))
+  (coercion/coerce options options-coercion-rules))
 
 (defn index
   [{{:keys [criteria options] :as params} :params :as req}]
