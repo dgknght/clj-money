@@ -10,10 +10,12 @@
       (update-in [:action] keyword)))
 
 (defn search
-  [criteria options success-fn error-fn]
-  (api/get-resources (api/path :transaction-items)
-                     criteria
-                     options
-                     (fn [items]
-                       (success-fn (map after-read items)))
-                     error-fn))
+  ([criteria success-fn error-fn]
+   (search criteria {} success-fn error-fn))
+  ([criteria options success-fn error-fn]
+   (api/get-resources (api/path :transaction-items)
+                      criteria
+                      options
+                      (fn [items]
+                        (success-fn (map after-read items)))
+                      error-fn)))
