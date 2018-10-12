@@ -9,8 +9,8 @@
             [environ.core :refer [env]]
             [selmer.parser :refer [render]]
             [clj-money.util :refer [to-sql-date
-                                    pprint-and-return
-                                    descending-periodic-seq]]))
+                                    pprint-and-return]]
+            [clj-money.x-platform.util :refer [desc-periodic-seq]]))
 
 (defn partition-period
   [& _]
@@ -46,7 +46,7 @@
 (defmethod partition-dates :month
   [start-date end-date options]
   (let [seq-fn (if (:descending? options)
-                 descending-periodic-seq
+                 desc-periodic-seq
                  periodic-seq)]
     (seq-fn (t/first-day-of-the-month start-date)
             (t/last-day-of-the-month end-date)
@@ -55,7 +55,7 @@
 (defmethod partition-dates :year
   [start-date end-date options]
   (let [seq-fn (if (:descending? options)
-                 descending-periodic-seq
+                 desc-periodic-seq
                  periodic-seq)]
     (seq-fn (t/local-date (t/year start-date) 1 1)
             (t/local-date (t/year end-date) 12 31)

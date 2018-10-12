@@ -3,6 +3,7 @@
             [reagent-forms.core :refer [bind-fields]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
+            [cljs-time.core :as t]
             [cljs-time.format :as f]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
@@ -10,7 +11,8 @@
             [clj-money.x-platform.accounts :refer [account-types
                                                    nest
                                                    unnest
-                                                   polarize-item]]
+                                                   polarize-item
+                                                   desc-periodic-seq]]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -266,9 +268,21 @@
       (map item-row @items)
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
+(defn- query-ranges []
+  (map #(vector % (t/last-day-of-month %))
+       (desc-periodic-seq (t/first-date-of-month (t/today))
+                          (t/months 1))))
+
+(defn- query-items
+  [account-id items]
+  (->> (query-ranges)
+       (map #(.log js/console %))
+       (take 4)))
+
 (defn- show-account [id]
   (let [account (r/atom {})
         transaction-items (r/atom nil)]
+    (query-items)
     (accounts/get-one id
                       (fn [a]
                         (reset! account a)

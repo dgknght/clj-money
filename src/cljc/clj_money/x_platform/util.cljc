@@ -1,5 +1,7 @@
 (ns clj-money.x-platform.util
-  (:require [clojure.string :as string]))
+  (:require [clojure.string :as string]
+            #?(:clj [clj-time.core :as t]
+               :cljs [cljs-time.core :as t])))
 
 (defmulti ^:private entry->key-value-pairs
   (fn [[_ v] _]
@@ -94,3 +96,11 @@
   [query-string]
   (collapse-collections (->> (string/split query-string #"&")
                              (map #(string/split % #"=")))))
+
+(defn desc-periodic-seq
+  ([end period-like]
+   (lazy-seq (cons end (desc-periodic-seq (t/minus end period-like) period-like))))
+  ([start end period-like]
+   (let [period (.toPeriod period-like)]
+     (take-while #(t/after? % start)
+                 (desc-periodic-seq end period-like)))))
