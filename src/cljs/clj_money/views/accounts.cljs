@@ -282,7 +282,6 @@
 (defn- show-account [id]
   (let [account (r/atom {})
         transaction-items (r/atom nil)]
-    (query-items)
     (accounts/get-one id
                       (fn [a]
                         (reset! account a)
