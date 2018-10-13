@@ -99,8 +99,9 @@
 
 (defn desc-periodic-seq
   ([end period-like]
-   (lazy-seq (cons end (desc-periodic-seq (t/minus end period-like) period-like))))
+   (lazy-seq (cons end
+                   (desc-periodic-seq (t/minus end period-like)
+                                      period-like))))
   ([start end period-like]
-   (let [period (.toPeriod period-like)]
-     (take-while #(t/after? % start)
-                 (desc-periodic-seq end period-like)))))
+   (take-while #(t/after? % start)
+                 (desc-periodic-seq end period-like))))
