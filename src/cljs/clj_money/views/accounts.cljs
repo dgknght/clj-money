@@ -274,10 +274,10 @@
   [account]
   (map #(vector % (t/last-day-of-the-month %))
        (desc-periodic-seq (or (:earliest-transaction-date account)
-                              (t/local-date 2000 1 1))
+                              (t/local-date 2015 1 1)); TODO supply a better default (depends on earliest partition in the database)
                           (or (:latest-transaction-date account)
                               (t/first-day-of-the-month (t/today)))
-                          (t/months 1))))
+                          (t/months 3))))
 
 (defn- get-items
   [account items]
@@ -295,9 +295,8 @@
 
     (go-loop [item (<! result-chan)]
              (when item
-               (do
-                 (swap! items (fnil conj []) item)
-                 (recur (<! result-chan)))))))
+               (swap! items (fnil conj []) item)
+               (recur (<! result-chan))))))
 
 (defn- show-account [id]
   (let [account (r/atom {})
