@@ -1,6 +1,6 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require [cljs.core.async :refer [chan pipeline]]
+  (:require [cljs.core.async :refer [chan pipe]]
             [clj-money.api :as api]
             [clj-money.util :refer [parse-date]]))
 
@@ -23,14 +23,11 @@
 
 (defn search-a
   [criteria options result-chan error-chan]
-  (let [c (chan)]
+  (let [c (chan 100 (map after-read))]
     (api/get-resources-a (api/path :transaction-items)
                          criteria
                          options
                          c
                          error-chan)
     ; TODO move pipeline logic to api/get-resources-a so we can simply pass in a transducer
-    (pipeline 1
-              result-chan
-              (map after-read)
-              c)))
+    (pipe c result-chan)))
