@@ -1,7 +1,7 @@
 (ns clj-money.api
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [clojure.string :as string]
-            [cljs.core.async :refer [<!]]
+            [cljs.core.async :refer [<! onto-chan]]
             [cljs-http.client :as http]
             [clojure.walk :refer [keywordize-keys]]
             [cognitect.transit :as transit]
@@ -40,6 +40,24 @@
                    " from the service: "
                    (:body response))
              (error-fn (-> response :body :message))))))))
+
+(defn get-resources-a
+  ([path result-chan error-chan]
+   (get-resources-a path {} result-chan error-chan))
+  ([path criteria result-chan error-chan]
+   (get-resources-a path criteria {} result-chan error-chan))
+  ([path criteria options result-chan error-chan]
+   (go (let [params (cond-> {:criteria criteria}
+                      (seq options)
+                      (assoc :options options))
+             response (<! (http/get (append-query-string path params)
+                                    {:headers {"Content-Type" "application/json"
+                                               "Accept" "application/json"}}))]
+         (if (= 200 (:status response))
+           (onto-chan result-chan (:body response))
+           (let [message (or (-> response :body :message)
+                             (:body response))]
+             (>! error-chan message)))))))
 
 (defn create-resource
   [path model success-fn error-fn]

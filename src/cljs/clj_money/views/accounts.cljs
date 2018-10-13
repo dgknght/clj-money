@@ -1,5 +1,7 @@
 (ns clj-money.views.accounts
-  (:require [reagent.core :as r]
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
+  (:require [cljs.core.async :refer [<! >! chan]]
+            [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
@@ -268,16 +270,34 @@
       (map item-row @items)
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
-(defn- query-ranges []
+(defn- query-ranges
+  [account]
   (map #(vector % (t/last-day-of-the-month %))
-       (desc-periodic-seq (t/first-day-of-the-month (t/today))
+       (desc-periodic-seq (or (:earliest-transaction-date account)
+                              (t/local-date 2000 1 1))
+                          (or (:latest-transaction-date account)
+                              (t/first-day-of-the-month (t/today)))
                           (t/months 1))))
 
-(defn- query-items
-  [account-id items]
-  (->> (query-ranges)
-       (map #(.log js/console %))
-       (take 4)))
+(defn- get-items
+  [account items]
+  (let [result-chan (chan)
+        err-chan (chan)]
+    (go
+      (transaction-items/search-a
+        {:account-id (:id account)}
+        {}
+        result-chan
+        err-chan))
+
+    (go (let [error (<! err-chan)]
+          (notify/danger error)))
+
+    (go-loop [item (<! result-chan)]
+             (when item
+               (do
+                 (swap! items (fnil conj []) item)
+                 (recur (<! result-chan)))))))
 
 (defn- show-account [id]
   (let [account (r/atom {})
@@ -285,16 +305,7 @@
     (accounts/get-one id
                       (fn [a]
                         (reset! account a)
-                        (transaction-items/search
-                          {:account-id (:id a)
-                           :transaction-date [:between
-                                              (t/local-date 2018 9 1) #_(t/first-day-of-the-month (t/today))
-                                              (t/last-day-of-the-month (t/today))]}
-                          (fn [items]
-                            (reset! transaction-items
-                                    (map #(polarize-item % a)
-                                         items)))
-                          notify/danger))
+                        (get-items a transaction-items))
                       notify/danger)
 
     (with-layout
