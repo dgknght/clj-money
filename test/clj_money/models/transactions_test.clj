@@ -522,32 +522,32 @@
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 160101M
-                     :debit-account "Checking"
-                     :credit-account "Salary"}
+                     :debit-account-id "Checking"
+                     :credit-account-id "Salary"}
                     {:transaction-date "2016-06-01"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 160601M
-                     :debit-account "Checking"
-                     :credit-account "Salary"}
+                     :debit-account-id "Checking"
+                     :credit-account-id "Salary"}
                     {:transaction-date "2017-01-01"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 170101M
-                     :debit-account "Checking"
-                     :credit-account "Salary"}
+                     :debit-account-id "Checking"
+                     :credit-account-id "Salary"}
                     {:transaction-date "2017-06-01"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 170601M
-                     :debit-account "Checking"
-                     :credit-account "Salary"}
+                     :debit-account-id "Checking"
+                     :credit-account-id "Salary"}
                     {:transaction-date "2017-06-15"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 170615
-                     :debit-account "Checking"
-                     :credit-account "Salary"}]}))
+                     :debit-account-id "Checking"
+                     :credit-account-id "Salary"}]}))
 
 (deftest search-by-year
   (let [context (serialization/realize storage-spec search-context)
