@@ -6,6 +6,8 @@
             [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
             [ring.util.response :refer [status response header]]
+            [clj-time.format :as f]
+            [clj-time.coerce :refer [to-sql-date]]
             [clj-money.api :refer [->response
                                    invalid->response
                                    error->response
@@ -23,9 +25,22 @@
 (def ^:private criteria-coercion-rules
   [(coercion/rule :integer [:account-id])])
 
+(defn- coerce-transaction-date
+  [criteria]
+  (if-let [transaction-date (:transaction-date criteria)]
+    (update-in criteria
+               [:transaction-date]
+               (fn [[operator start end]]
+                 [(keyword operator)
+                  (to-sql-date (f/parse-local (f/formatters :basic-date) start))
+                  (to-sql-date (f/parse-local (f/formatters :basic-date) end))]))
+    criteria))
+
 (defn- prepare-criteria
   [criteria]
-  (coercion/coerce criteria criteria-coercion-rules))
+  (-> criteria
+      (coercion/coerce criteria-coercion-rules)
+      coerce-transaction-date))
 
 (coercion/register-coerce-fn :sort (fn [s]
                                      (when (and (s (seq s)))

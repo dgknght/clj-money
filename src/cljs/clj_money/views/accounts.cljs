@@ -286,7 +286,10 @@
                       (fn [a]
                         (reset! account a)
                         (transaction-items/search
-                          {:account-id (:id a)}
+                          {:account-id (:id a)
+                           :transaction-date [:between
+                                              (t/local-date 2018 9 1) #_(t/first-day-of-the-month (t/today))
+                                              (t/last-day-of-the-month (t/today))]}
                           (fn [items]
                             (reset! transaction-items
                                     (map #(polarize-item % a)
