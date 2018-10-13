@@ -28,6 +28,9 @@
 (def ^:private transaction-items-context
   {:users [(factory :user {:email "john@doe.com"})]
    :entities [{:name "Personal"}]
+   :commodities [{:name "US Dollar"
+                  :symbol "USD"
+                  :type :currency}]
    :accounts [{:name "Checking"
                :type :asset}
               {:name "Salary"
@@ -105,8 +108,10 @@
         checking (find-account context "Checking")
         user (find-user context "john@doe.com")
         response (with-authentication user
-                   (api/index {:params {:criteria {:account-id (str (:id checking))}}}))
-        actual (:body response)
+                   (api/index {:params {:criteria {:account-id (str (:id checking))}
+                                        :options {:limit 5}}}))
+        actual (->> (:body response)
+                    (map #(select-keys % [:transaction-date :description :quantity :action])))
         expected [{:transaction-date (t/local-date 2017 1 29)
                    :description "Kroger"
                    :quantity 100M

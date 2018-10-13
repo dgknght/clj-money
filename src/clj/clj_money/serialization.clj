@@ -170,11 +170,11 @@
     (-> transaction
         (assoc :items [{:action :debit
                         :quantity (:quantity transaction)
-                        :account-id (:debit-account transaction)}
+                        :account-id (:debit-account-id transaction)}
                        {:action :credit
                         :quantity (:quantity transaction)
-                        :account-id (:credit-account transaction)}])
-        (dissoc :quantity :debit-account :credit-account))))
+                        :account-id (:credit-account-id transaction)}])
+        (dissoc :quantity :debit-account-id :credit-account-id))))
 
 (defn- create-transactions
   [storage context transactions]
