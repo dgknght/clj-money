@@ -15,8 +15,7 @@
                                              tag-resource
                                              apply-scope]]
             [clj-money.util :refer [format-number
-                                    ensure-local-date
-                                    descending-periodic-seq]]
+                                    ensure-local-date]]
             [clj-money.url :refer :all]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]

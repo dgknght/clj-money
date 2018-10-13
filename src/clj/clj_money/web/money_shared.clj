@@ -10,8 +10,8 @@
             [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [ring.util.response :refer :all]
-            [clj-money.util :refer [format-number
-                                    descending-periodic-seq]]
+            [clj-money.x-platform.util :refer [desc-periodic-seq]]
+            [clj-money.util :refer [format-number]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.authorization :refer [authorize
                                              allowed?
@@ -122,4 +122,4 @@
              [:option {:value formatted
                        :selected (= formatted selected)}
               formatted]))
-         (descending-periodic-seq start end (t/months 1)))))
+         (desc-periodic-seq start end (t/months 1)))))

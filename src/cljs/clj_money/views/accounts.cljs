@@ -11,12 +11,12 @@
             [clj-money.x-platform.accounts :refer [account-types
                                                    nest
                                                    unnest
-                                                   polarize-item
-                                                   desc-periodic-seq]]
+                                                   polarize-item]]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
             [clj-money.layout :refer [with-layout]]
+            [clj-money.x-platform.util :refer [desc-periodic-seq]]
             [clj-money.util :as util]
             [clj-money.forms :refer [text-input
                                      select-input
@@ -269,8 +269,8 @@
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
 (defn- query-ranges []
-  (map #(vector % (t/last-day-of-month %))
-       (desc-periodic-seq (t/first-date-of-month (t/today))
+  (map #(vector % (t/last-day-of-the-month %))
+       (desc-periodic-seq (t/first-day-of-the-month (t/today))
                           (t/months 1))))
 
 (defn- query-items
