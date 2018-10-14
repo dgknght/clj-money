@@ -270,33 +270,34 @@
       (map item-row @items)
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
-(defn- query-ranges
-  [account]
-  (map #(vector % (t/last-day-of-the-month %))
-       (desc-periodic-seq (or (:earliest-transaction-date account)
-                              (t/local-date 2015 1 1)); TODO supply a better default (depends on earliest partition in the database)
-                          (or (:latest-transaction-date account)
-                              (t/first-day-of-the-month (t/today)))
-                          (t/months 3))))
+(defn- query-again?
+  [items]
+  (and (< (count items) 50)
+       (not= 0 (-> items last :index))))
+
+(defn- next-query-range
+  [[prev-start] {:keys [latest-transaction-date]}]
+  (let [start (if prev-start
+                (t/minus prev-start (t/months 3))
+                (t/first-day-of-the-month (or latest-transaction-date
+                                              (t/today))))]
+    [start (-> start (t/plus (t/months 2)) t/last-day-of-the-month)]))
 
 (defn- get-items
-  [account items]
-  (let [result-chan (chan)
-        err-chan (chan)]
-    (go
-      (transaction-items/search-a
-        {:account-id (:id account)}
-        {}
-        result-chan
-        err-chan))
-
-    (go (let [error (<! err-chan)]
-          (notify/danger error)))
-
-    (go-loop [item (<! result-chan)]
-             (when item
-               (swap! items (fnil conj []) item)
-               (recur (<! result-chan))))))
+  ([account items]
+   (get-items account items nil))
+  ([account items prev-date-range]
+   (let [[start end :as date-range] (next-query-range prev-date-range account)]
+     (transaction-items/search
+       {:account-id (:id account)
+        :transaction-date [:between start end]}
+       (fn [result]
+         (swap! items
+                (fnil concat [])
+                (map #(polarize-item % account) result))
+         (when (query-again? @items)
+           (get-items account items date-range)))
+       notify/danger))))
 
 (defn- show-account [id]
   (let [account (r/atom {})
