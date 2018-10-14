@@ -19,14 +19,3 @@
                       options
                       #(success-fn (map after-read %))
                       error-fn)))
-
-(defn search-a
-  [criteria options result-chan error-chan]
-  (let [c (chan 100 (map after-read))]
-    (api/get-resources-a (api/path :transaction-items)
-                         criteria
-                         options
-                         c
-                         error-chan)
-    ; TODO move pipeline logic to api/get-resources-a so we can simply pass in a transducer
-    (pipe c result-chan)))

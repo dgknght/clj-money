@@ -41,24 +41,6 @@
                    (:body response))
              (error-fn (-> response :body :message))))))))
 
-(defn get-resources-a
-  ([path result-chan error-chan]
-   (get-resources-a path {} result-chan error-chan))
-  ([path criteria result-chan error-chan]
-   (get-resources-a path criteria {} result-chan error-chan))
-  ([path criteria options result-chan error-chan]
-   (go (let [params (cond-> {:criteria criteria}
-                      (seq options)
-                      (assoc :options options))
-             response (<! (http/get (append-query-string path params)
-                                    {:headers {"Content-Type" "application/json"
-                                               "Accept" "application/json"}}))]
-         (if (= 200 (:status response))
-           (onto-chan result-chan (:body response))
-           (let [message (or (-> response :body :message)
-                             (:body response))]
-             (>! error-chan message)))))))
-
 (defn create-resource
   [path model success-fn error-fn]
   (go (let [response (<! (http/post path {:json-params model
