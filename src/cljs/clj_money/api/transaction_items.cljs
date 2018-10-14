@@ -17,8 +17,7 @@
    (api/get-resources (api/path :transaction-items)
                       criteria
                       options
-                      (fn [items]
-                        (success-fn (map after-read items)))
+                      #(success-fn (map after-read %))
                       error-fn)))
 
 (defn search-a
