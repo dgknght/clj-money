@@ -28,7 +28,7 @@
 (defn- parse-decimal
   [string-decimal]
   (when-let [match (re-find #"(\d+)\/(\d+)" string-decimal)]
-    (with-precision 4
+    (with-precision 12
       (apply / (->> match
                     rest
                     (map bigdec))))))
