@@ -97,6 +97,8 @@
             "partition"             ["run" "-m" "clj-money.db/create-partitions"]
             "chunk-file"            ["run" "-m" "clj-money.import.gnucash/chunk-file"]
             "seed"                  ["run" "-m" "clj-money.seed/seed"]
-            "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]}
+            "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]
+            "recalc"                ["run" "-m" "clj-money.tasks/recalc"]}
+
   :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:production {:env {:production true}}})
