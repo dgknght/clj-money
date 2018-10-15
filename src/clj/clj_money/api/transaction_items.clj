@@ -25,15 +25,19 @@
 (def ^:private criteria-coercion-rules
   [(coercion/rule :integer [:account-id])])
 
+(defn- parse-date
+  [string-date]
+  (to-sql-date (f/parse-local (:date f/formatters) string-date)))
+
 (defn- coerce-transaction-date
   [criteria]
-  (if-let [transaction-date (:transaction-date criteria)]
+  (if (:transaction-date criteria)
     (update-in criteria
                [:transaction-date]
                (fn [[operator start end]]
                  [(keyword operator)
-                  (to-sql-date (f/parse-local (f/formatters :basic-date) start))
-                  (to-sql-date (f/parse-local (f/formatters :basic-date) end))]))
+                  (parse-date start)
+                  (parse-date end)]))
     criteria))
 
 (defn- prepare-criteria

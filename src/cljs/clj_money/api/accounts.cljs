@@ -1,10 +1,19 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
-  (:require [clj-money.api :as api]))
+  (:require [cljs-time.format :as f]
+            [clj-money.api :as api]))
+
+(defn- parse-local-date
+  [string-date]
+  (when string-date
+    (f/parse-local (:date f/formatters) string-date)))
 
 (defn- after-read
   [account]
-  (update-in account [:type] keyword))
+  (-> account
+      (update-in [:type] keyword)
+      (update-in [:earliest-transaction-date] parse-local-date)
+      (update-in [:latest-transaction-date] parse-local-date)))
 
 (defn get-all
   [entity-id success-fn error-fn]
