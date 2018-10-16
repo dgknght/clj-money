@@ -489,14 +489,20 @@
 
 (defn- process-items
   "Recalculates and updates statistics in the specifed items"
-  [storage account {:keys [index balance] :or {index -1 balance 0M}} items]
+  [storage
+   account
+   {:keys [index balance]
+    :or {index -1 balance 0M}}
+   items
+   {:keys [force]}]
   (loop [item (first items)
          remaining (rest items)
          last-index index
          last-balance balance]
     (let [new-index (+ last-index 1)
           new-balance (+ last-balance (polarize-quantity item account))]
-      (if (and (= new-index (:index item))
+      (if (and (not force)
+               (= new-index (:index item))
                (= new-balance (:balance item)))
         nil ; short-circuit updates if they aren't necessary
         (do
@@ -509,30 +515,33 @@
                    (rest remaining)
                    new-index
                    new-balance)
-            [new-index new-balance]))))))
+            [new-index new-balance (:transaction-date item)]))))))
 
 (defn recalculate-account
   "Recalculates statistics for items in the the specified account
   as of the specified date"
-  [storage account-id as-of]
-  (let [base-item (find-base-item storage account-id as-of)
-        items (search-items storage
-                            {:account-id account-id
-                             :transaction-date [:>= as-of]}
-                            {:sort [:transaction-date :index]})
-        account (accounts/find-by-id storage account-id)
-        [last-index
-         balance] (if (seq items)
-                    (process-items storage account base-item items)
-                    (if base-item
-                      ((juxt :index :quantity) base-item )
-                      [0 0M]))]
-    (when (not (nil? last-index))
-      (accounts/update storage (-> account
-                                   (assoc :quantity balance)
-                                   (assoc :value balance) ; TODO need to calculate this for real
-                                   (update-in [:earliest-transaction-date] #((fnil earlier as-of) % as-of))
-                                   (update-in [:latest-transaction-date] #((fnil later as-of) % as-of)))))))
+  ([storage account-id as-of]
+   (recalculate-account storage account-id as-of {}))
+  ([storage account-id as-of options]
+   (let [base-item (find-base-item storage account-id as-of)
+         items (search-items storage
+                             {:account-id account-id
+                              :transaction-date [:>= as-of]}
+                             {:sort [:transaction-date :index]})
+         account (accounts/find-by-id storage account-id)
+         [last-index
+          balance
+          last-date] (if (seq items)
+                       (process-items storage account base-item items options)
+                       (if base-item
+                         ((juxt :index :quantity) base-item )
+                         [0 0M]))]
+     (when (not (nil? last-index))
+       (accounts/update storage (-> account
+                                    (assoc :quantity balance)
+                                    (assoc :value balance) ; TODO need to calculate this for real
+                                    (update-in [:earliest-transaction-date] #((fnil earlier as-of) % as-of))
+                                    (update-in [:latest-transaction-date] #((fnil later last-date) % last-date))))))))
 
 (defn- extract-account-ids
   [transaction]
