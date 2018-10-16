@@ -1,6 +1,6 @@
 (ns clj-money.views.accounts
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [cljs.core.async :refer [<! >! chan]]
+  (:require-macros [cljs.core.async.macros :refer [go]])
+  (:require [cljs.core.async :refer [timeout]]
             [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [reagent.format :refer [currency-format]]
@@ -21,13 +21,14 @@
             [clj-money.x-platform.util :refer [desc-periodic-seq]]
             [clj-money.util :as util]
             [clj-money.forms :refer [text-input
+                                     number-input
                                      select-input
                                      typeahead-input
                                      required]]))
 
 (def ^:private *accounts* (r/atom []))
 (def ^:private *commodities* (r/atom []))
-#_(def ^:private *expansion-state* (r/atom {}))
+(def ^:private working-transaction (r/atom nil))
 
 (defn- delete
   [account]
@@ -116,10 +117,11 @@
 (defn- account-list
   []
   [:table.table.table-striped.table-hover
-   [:tbody
+   [:thead
     [:tr
      [:th "Name"]
-     [:th (util/space)]]
+     [:th (util/space)]]]
+   [:tbody
     (if (seq @*accounts*)
       (doall (mapcat #(account-type-rows %) (nest @*accounts*)))
       [:tr
@@ -242,6 +244,17 @@
   [account]
   [:section
    [:div.pull-right
+    (util/button "New"
+                 (fn []
+                   (reset! working-transaction {:account-id (:id account)
+                                                :transaction-date (f/unparse (f/formatter "M/d/yyyy") (t/today))})
+                   (go
+                     (timeout 500)
+                     (.focus (.getElementById js/document "transaction-date"))))
+                 {:icon :plus
+                  :class "btn btn-primary"
+                  :title "Click here to create a new transaction for this account."})
+    (util/space)
     [:a.btn.btn-info
      {:href "/accounts"
       :title "Click here to return to the account list."}
@@ -260,12 +273,13 @@
 (defn- items-table
   [items]
   [:table.table.table-striped.table-hover
-   [:tbody
+   [:thead
     [:tr
      [:th.col-sm-2.text-right "Date"]
      [:th.col-sm-6 "Description"]
      [:th.col-sm-2.text-right "Amount"]
-     [:th.col-sm-2.text-right "Balance"]]
+     [:th.col-sm-2.text-right "Balance"]]]
+   [:tbody
     (if @items
       (map item-row @items)
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
@@ -299,6 +313,28 @@
            (get-items account items date-range)))
        notify/danger))))
 
+(def ^:private trx-form
+  [:form
+   (text-input :transaction-date :required)
+   (text-input :description :required)
+   (number-input :quantity :required)
+   (typeahead-input
+     :other-account-id
+     {:data-source accounts-source
+      :input-placeholder "Select the other account"
+      :in-fn (model-in-fn *accounts* :path)
+      :out-fn second
+      :result-fn first})])
+
+(defn- transaction-form []
+  (when @working-transaction
+    [:div.panel.panel-primary
+     [:div.panel-heading
+      [:h2.panel-title (if (:id @working-transaction)
+                         "Edit Transaction"
+                         "New Transaction")]]]
+    [bind-fields trx-form working-transaction]))
+
 (defn- show-account [id]
   (let [account (r/atom {})
         transaction-items (r/atom nil)]
@@ -309,10 +345,19 @@
                       notify/danger)
 
     (with-layout
-      [:div.row
-       [:div.col-md-6
-        [account-header account]
-        [items-table transaction-items]]])))
+      [:section
+       [:div.row
+        [:div.col-md-12
+         [account-header account]]]
+       [:div.row
+        [:div.col-md-6
+         [transaction-form]]
+        [:div.col-md-6
+         [:div.panel.panel-default
+          [:div.panel-heading
+           [:h2.panel-title "Transaction Items"]]
+          [:div.panel-body {:style {:height "40em" :overflow "auto"}}
+           [items-table transaction-items]]]]]])))
 
 (secretary/defroute new-account-path "/accounts/new" []
   (r/render [new-account] (app-element)))
