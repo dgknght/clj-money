@@ -17,6 +17,14 @@
    (for [validation validations]
        (validation field))])
 
+(defn number-input
+  [field & validations]
+  [:div.form-group
+   [label field]
+   [:input.form-control {:field :numeric :id field}]
+   (for [validation validations]
+       (validation field))])
+
 (defn select-input
   ([field html-options] (select-input field html-options {}))
   ([field html-options options]
