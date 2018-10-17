@@ -12,7 +12,7 @@
 
 (defn- format-date
   [date]
-  (f/unparse-local (:date f/formatters) date))
+  (f/unparse (:date f/formatters) date))
 
 (defn- prepare-criteria
   [criteria]
