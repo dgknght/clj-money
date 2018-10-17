@@ -336,6 +336,9 @@
     [bind-fields trx-form working-transaction]))
 
 (defn- show-account [id]
+  (accounts/get-all (:id @state/current-entity)
+                    #(reset! *accounts* (-> % nest unnest))
+                    notify/danger)
   (let [account (r/atom {})
         transaction-items (r/atom nil)]
     (accounts/get-one id
