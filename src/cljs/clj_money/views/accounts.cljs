@@ -1,7 +1,6 @@
 (ns clj-money.views.accounts
-  (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [cljs.core.async :refer [timeout]]
-            [reagent.core :as r]
+  (:require-macros [clj-money.macros :refer [with-retry]])
+  (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
@@ -248,8 +247,7 @@
                  (fn []
                    (reset! working-transaction {:account-id (:id account)
                                                 :transaction-date (f/unparse (f/formatter "M/d/yyyy") (t/today))})
-                   (go
-                     (timeout 500)
+                   (with-retry
                      (.focus (.getElementById js/document "transaction-date"))))
                  {:icon :plus
                   :class "btn btn-primary"
