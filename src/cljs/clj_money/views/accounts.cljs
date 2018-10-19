@@ -245,7 +245,7 @@
    [:div.pull-right
     (util/button "New"
                  (fn []
-                   (reset! working-transaction {:account-id (:id account)
+                   (reset! working-transaction {:account-id (:id @account)
                                                 :transaction-date (f/unparse (f/formatter "M/d/yyyy") (t/today))})
                    (with-retry
                      (.focus (.getElementById js/document "transaction-date"))))
