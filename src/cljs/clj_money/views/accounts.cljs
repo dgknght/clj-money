@@ -157,10 +157,12 @@
 
 (defn- model-in-fn
   [collection-atom display-field]
-  (fn [id]
-    ((juxt display-field :id) (->> @collection-atom
-                                   (filter #(= id (:id %)))
-                                   first))))
+  (fn [display-value]
+    (if-let [model (->> @collection-atom
+                        (filter #(= display-value (get % display-field)))
+                        first)]
+      ((juxt display-field :id) model)
+      [display-value nil])))
 
 (def ^:private account-form
   [:form
@@ -169,7 +171,7 @@
      {:data-source accounts-source
       :input-placeholder "Select an account"
       :in-fn (model-in-fn *accounts* :path)
-      :out-fn second
+      :out-fn (fn [v] (if (iterable? v) (first v) v))
       :result-fn first})
    (select-input :type account-types {:visible? #(nil? (:parent-id %))})
    (text-input :name :required)
@@ -178,7 +180,7 @@
      {:data-source commodities-source
       :input-placeholder "Select a commodity"
       :in-fn (model-in-fn *commodities* :name)
-      :out-fn second
+      :out-fn (fn [v] (if (iterable? v) (first v) v))
       :result-fn first})])
 
 (defn- create-account
@@ -321,8 +323,8 @@
      {:data-source accounts-source
       :input-placeholder "Select the other account"
       :in-fn (model-in-fn *accounts* :path)
-      :out-fn second
-      :result-fn first})])
+      :out-fn (fn [v] (if (iterable? v) (first v) v))
+      :result-fn (fn [[path id]] path)})])
 
 (defn- transaction-form []
   (when @working-transaction
