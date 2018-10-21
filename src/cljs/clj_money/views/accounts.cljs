@@ -1,11 +1,11 @@
 (ns clj-money.views.accounts
-  (:require-macros [clj-money.macros :refer [with-retry]])
   (:require [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
             [cljs-time.core :as t]
             [cljs-time.format :as f]
+            [clj-money.macros :refer-macros [with-retry]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.transaction-items :as transaction-items]
