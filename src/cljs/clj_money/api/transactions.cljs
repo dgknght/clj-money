@@ -8,3 +8,14 @@
                      criteria
                      success-fn
                      error-fn))
+
+(defn create
+  [transaction success-fn error-fn]
+
+  (.log js/console "create " (prn-str transaction))
+  
+  #_(api/create-resource (api/path :entities
+                                 (:entity-id transaction)
+                                 :transactions)
+                       success-fn
+                       error-fn))

@@ -1,5 +1,6 @@
 (ns clj-money.views.accounts
-  (:require [reagent.core :as r]
+  (:require [clojure.set :refer [rename-keys]]
+            [reagent.core :as r]
             [reagent-forms.core :refer [bind-fields]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
@@ -9,6 +10,7 @@
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.transaction-items :as transaction-items]
+            [clj-money.api.transactions :as transactions]
             [clj-money.x-platform.accounts :refer [account-types
                                                    nest
                                                    unnest
@@ -255,10 +257,11 @@
                   :class "btn btn-primary"
                   :title "Click here to create a new transaction for this account."})
     (util/space)
-    [:a.btn.btn-info
-     {:href "/accounts"
-      :title "Click here to return to the account list."}
-     "Back"]]
+    (util/link-to "Back"
+                  "/accounts"
+                  {:icon :hand-left
+                   :class "btn btn-info"
+                   :title "Click here to return to the account list."})]
    [:h1 (:name @account)]])
 
 (defn- item-row
@@ -326,14 +329,62 @@
       :out-fn (fn [v] (if (iterable? v) (first v) v))
       :result-fn (fn [[path id]] path)})])
 
+; left-side?
+;   q > 0
+;     :debit
+;   else
+;     :credit
+; else
+;   q > 0
+;     :debit
+;   else
+;     :credit
+
+(defn- transform-transaction
+  [{:keys [quantity
+           account-id
+           other-account-id]
+    :as quick-entry-trx}]
+  (let [account (->> @*accounts*
+                     (filter #(= (:id %) account-id))
+                     first)
+        rename-map (if (< quantity 0M)
+                     {:account-id :debit-account-id
+                      :other-account-id :credit-account-id}
+                     {:account-id :credit-account-id
+                      :other-account-id :debit-account-id})]
+    (-> quick-entry-trx
+        (update-in [:other-account-id] #(->> @*accounts*
+                                             (filter (fn [{path :path}] (= %)))
+                                             first
+                                             :id))
+        (update-in [:quantity] Math/abs)
+        (update-in [:transaction-date] (fn [d]
+                                         (.log js/console "need to convert the date")
+                                         d))
+        (rename-keys rename-map))))
+
+(defn- save-transaction []
+  (-> @working-transaction
+      transform-transaction
+      (transactions/create #(.log js/console "created transaction " (prn-str %))
+                           notify/danger)))
+
 (defn- transaction-form []
   (when @working-transaction
     [:div.panel.panel-primary
      [:div.panel-heading
       [:h2.panel-title (if (:id @working-transaction)
                          "Edit Transaction"
-                         "New Transaction")]]]
-    [bind-fields trx-form working-transaction]))
+                         "New Transaction")]]
+
+     [:div.panel-body
+      [bind-fields trx-form working-transaction]
+      (util/button "Save"
+                   #(save-transaction)
+                   {:class "btn btn-primary"
+                    :icon :ok
+                    :title "Click here to save the transaction"})]]))
 
 (defn- show-account [id]
   (accounts/get-all (:id @state/current-entity)
