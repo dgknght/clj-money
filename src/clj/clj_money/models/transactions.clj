@@ -166,6 +166,7 @@
 (def ^:private coercion-rules
   [(coercion/rule :uuid [:id])
    (coercion/rule :integer [:entity-id])
+   (coercion/rule :decimal [:items :quantity])
    (coercion/rule :local-date [:transaction-date])
    (coercion/rule :local-date [:original-transaction-date])])
 

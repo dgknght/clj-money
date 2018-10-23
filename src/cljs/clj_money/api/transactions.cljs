@@ -11,11 +11,9 @@
 
 (defn create
   [transaction success-fn error-fn]
-
-  (.log js/console "create " (prn-str transaction))
-  
-  #_(api/create-resource (api/path :entities
+  (api/create-resource (api/path :entities
                                  (:entity-id transaction)
                                  :transactions)
+                       transaction
                        success-fn
                        error-fn))

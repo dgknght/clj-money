@@ -12,6 +12,7 @@
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.x-platform.accounts :refer [account-types
+                                                   left-side?
                                                    nest
                                                    unnest
                                                    polarize-item]]
@@ -250,6 +251,7 @@
     (util/button "New"
                  (fn []
                    (reset! working-transaction {:account-id (:id @account)
+                                                :entity-id (:id @state/current-entity)
                                                 :transaction-date (f/unparse (f/formatter "M/d/yyyy") (t/today))})
                    (with-retry
                      (.focus (.getElementById js/document "transaction-date"))))
@@ -329,16 +331,18 @@
       :out-fn (fn [v] (if (iterable? v) (first v) v))
       :result-fn (fn [[path id]] path)})])
 
-; left-side?
-;   q > 0
-;     :debit
-;   else
-;     :credit
-; else
-;   q > 0
-;     :debit
-;   else
-;     :credit
+(defn- reformat-date
+  [date-str]
+  (->> date-str
+       (f/parse (f/formatter "M/d/yyyy"))
+       (f/unparse (:date f/formatters))))
+
+(defn- find-account-by-path
+  [path]
+  (->> @*accounts*
+       (filter #(= (:path %) path))
+       first
+       :id))
 
 (defn- transform-transaction
   [{:keys [quantity
@@ -348,26 +352,28 @@
   (let [account (->> @*accounts*
                      (filter #(= (:id %) account-id))
                      first)
-        rename-map (if (< quantity 0M)
+        rename-map (if (or (and (> quantity 0M)
+                                (left-side? account))
+                           (and (< quantity 0M)
+                                (not (left-side? account))))
                      {:account-id :debit-account-id
                       :other-account-id :credit-account-id}
                      {:account-id :credit-account-id
                       :other-account-id :debit-account-id})]
     (-> quick-entry-trx
-        (update-in [:other-account-id] #(->> @*accounts*
-                                             (filter (fn [{path :path}] (= %)))
-                                             first
-                                             :id))
+        (update-in [:other-account-id] find-account-by-path)
         (update-in [:quantity] Math/abs)
-        (update-in [:transaction-date] (fn [d]
-                                         (.log js/console "need to convert the date")
-                                         d))
+        (update-in [:transaction-date] reformat-date)
         (rename-keys rename-map))))
+
+(defn- handle-saved-transaction
+  [transaction]
+  (.log js/console "created transaction " (prn-str transaction)))
 
 (defn- save-transaction []
   (-> @working-transaction
       transform-transaction
-      (transactions/create #(.log js/console "created transaction " (prn-str %))
+      (transactions/create handle-saved-transaction
                            notify/danger)))
 
 (defn- transaction-form []
