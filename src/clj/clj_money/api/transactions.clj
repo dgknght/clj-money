@@ -36,7 +36,10 @@
    :entity-id
    :transaction-date
    :memo
-   :items])
+   :items
+   :debit-account-id
+   :credit-account-id
+   :quantity])
 
 (defn create
   [{params :params}]
