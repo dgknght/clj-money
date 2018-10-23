@@ -199,7 +199,7 @@
 
   (model-route GET "/api/transactions" transactions-api/index)
   (model-route GET "/api/transactions/:id" transactions-api/get-transaction)
-  (model-route POST "/api/transactions" transactions-api/create)
+  (model-route POST "/api/entities/:entity-id/transactions" transactions-api/create)
   (model-route PATCH "/api/transactions/:id" transactions-api/update)
   (model-route DELETE "/api/transactions/:id" transactions-api/delete)
 
