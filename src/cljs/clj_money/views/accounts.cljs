@@ -31,6 +31,8 @@
 (def ^:private *accounts* (r/atom []))
 (def ^:private *commodities* (r/atom []))
 (def ^:private working-transaction (r/atom nil))
+(def ^:private account (r/atom nil))
+(def ^:private transaction-items (r/atom nil))
 
 (defn- delete
   [account]
@@ -244,8 +246,7 @@
                        :title "Click here to return to the list of accounts."
                        :icon :ban-circle})]])))
 
-(defn- account-header
-  [account]
+(defn- account-header []
   [:section
    [:div.pull-right
     (util/button "New"
@@ -275,8 +276,7 @@
    [:td.text-right (currency-format (:polarized-value item))]
    [:td.text-right (currency-format (:balance item))]])
 
-(defn- items-table
-  [items]
+(defn- items-table []
   [:table.table.table-striped.table-hover
    [:thead
     [:tr
@@ -285,8 +285,8 @@
      [:th.col-sm-2.text-right "Amount"]
      [:th.col-sm-2.text-right "Balance"]]]
    [:tbody
-    (if @items
-      (map item-row @items)
+    (if-let [items @transaction-items]
+      (map item-row items)
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
 (defn- query-again?
@@ -295,27 +295,27 @@
        (not= 0 (-> items last :index))))
 
 (defn- next-query-range
-  [[prev-start] {:keys [latest-transaction-date]}]
-  (let [start (if prev-start
+  [[prev-start]]
+  (let [latest (:latest-transaction-date account)
+        start (if prev-start
                 (t/minus prev-start (t/months 3))
-                (t/first-day-of-the-month (or latest-transaction-date
+                (t/first-day-of-the-month (or latest
                                               (t/today))))]
     [start (-> start (t/plus (t/months 2)) t/last-day-of-the-month)]))
 
 (defn- get-items
-  ([account items]
-   (get-items account items nil))
-  ([account items prev-date-range]
-   (let [[start end :as date-range] (next-query-range prev-date-range account)]
+  ([] (get-items nil))
+  ([prev-date-range]
+   (let [[start end :as date-range] (next-query-range prev-date-range)]
      (transaction-items/search
-       {:account-id (:id account)
+       {:account-id (:id @account)
         :transaction-date [:between start end]}
        (fn [result]
-         (swap! items
+         (swap! transaction-items
                 (fnil concat [])
-                (map #(polarize-item % account) result))
-         (when (query-again? @items)
-           (get-items account items date-range)))
+                (map #(polarize-item % @account) result))
+         (when (query-again? @transaction-items)
+           (get-items date-range)))
        notify/danger))))
 
 (def ^:private trx-form
@@ -349,10 +349,7 @@
            account-id
            other-account-id]
     :as quick-entry-trx}]
-  (let [account (->> @*accounts*
-                     (filter #(= (:id %) account-id))
-                     first)
-        rename-map (if (or (and (> quantity 0M)
+  (let [rename-map (if (or (and (> quantity 0M)
                                 (left-side? account))
                            (and (< quantity 0M)
                                 (not (left-side? account))))
@@ -368,7 +365,9 @@
 
 (defn- handle-saved-transaction
   [transaction]
-  (.log js/console "created transaction " (prn-str transaction)))
+  (reset! working-transaction nil)
+  (reset! transaction-items nil)
+  (get-items))
 
 (defn- save-transaction []
   (-> @working-transaction
@@ -396,28 +395,25 @@
   (accounts/get-all (:id @state/current-entity)
                     #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
-  (let [account (r/atom {})
-        transaction-items (r/atom nil)]
-    (accounts/get-one id
-                      (fn [a]
-                        (reset! account a)
-                        (get-items a transaction-items))
-                      notify/danger)
-
-    (with-layout
-      [:section
-       [:div.row
-        [:div.col-md-12
-         [account-header account]]]
-       [:div.row
-        [:div.col-md-6
-         [transaction-form]]
-        [:div.col-md-6
-         [:div.panel.panel-default
-          [:div.panel-heading
-           [:h2.panel-title "Transaction Items"]]
-          [:div.panel-body {:style {:height "40em" :overflow "auto"}}
-           [items-table transaction-items]]]]]])))
+  (accounts/get-one id
+                    (fn [a]
+                      (reset! account a)
+                      (get-items))
+                    notify/danger)
+  (with-layout
+    [:section
+     [:div.row
+      [:div.col-md-12
+       [account-header]]]
+     [:div.row
+      [:div.col-md-6
+       [transaction-form]]
+      [:div.col-md-6
+       [:div.panel.panel-default
+        [:div.panel-heading
+         [:h2.panel-title "Transaction Items"]]
+        [:div.panel-body {:style {:height "40em" :overflow "auto"}}
+         [items-table transaction-items]]]]]]))
 
 (secretary/defroute new-account-path "/accounts/new" []
   (r/render [new-account] (app-element)))
