@@ -167,9 +167,11 @@
 (def ^:private coercion-rules
   [(coercion/rule :uuid [:id])
    (coercion/rule :integer [:entity-id])
-   (coercion/rule :decimal [:items :quantity])
    (coercion/rule :local-date [:transaction-date])
    (coercion/rule :local-date [:original-transaction-date])])
+
+(def ^:private item-coercion-rules
+  [(coercion/rule :decimal [:quantity])])
 
 (defn- expand-simplified-items
   [{:keys [items quantity debit-account-id credit-account-id] :as transaction}]
@@ -192,6 +194,7 @@
       (coercion/coerce coercion-rules)
       (update-in [:items] (fn [items]
                             (->> items
+                                 (map #(coercion/coerce % item-coercion-rules))
                                  (map #(merge % (select-keys
                                                   transaction
                                                   [:transaction-date
