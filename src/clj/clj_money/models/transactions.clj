@@ -6,6 +6,7 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-money.util :refer [pprint-and-return
+                                    pprint-and-return-l
                                     ensure-local-date]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -187,14 +188,14 @@
   "Performs operations required before validation"
   [transaction]
   (-> transaction
-      (coercion/coerce coercion-rules)
       expand-simplified-items
+      (coercion/coerce coercion-rules)
       (update-in [:items] (fn [items]
                             (->> items
-                                 (map #(assoc % :transaction-date
-                                                (:transaction-date transaction)
-                                                :original-transaction-date
-                                                (:original-transaction-date transaction)))
+                                 (map #(merge % (select-keys
+                                                  transaction
+                                                  [:transaction-date
+                                                   :origin-transaction-date])))
                                  (map before-item-validation))))))
 
 (defn- after-validation
