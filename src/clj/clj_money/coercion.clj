@@ -53,14 +53,25 @@
             %))
        value))
 
+(defn- parse-decimal
+  [v]
+  (try
+    (bigdec v)
+    (catch NumberFormatException e
+      nil)))
+
+(defn- coerce-decimal
+  [v]
+  (let [result (if (decimal? v)
+                 v
+                 (or (parse-decimal v) v))]
+    result))
+
 (register-coerce-fn :integer    #(if (integer? %)
                                    %
                                    (when (re-matches #"\A\d+\z" %)
                                      (Integer. %))))
-(register-coerce-fn :decimal    #(if (decimal? %) % (try
-                                                      (bigdec %)
-                                                      (catch NumberFormatException e
-                                                        %))))
+(register-coerce-fn :decimal coerce-decimal)
 (register-coerce-fn :keyword    #(if (keyword? %) % (keyword %)))
 (register-coerce-fn :local-date #(if (string? %) (or (parse-local-date %) %) %))
 (register-coerce-fn :integer-collection parse-integer-collection)
@@ -73,6 +84,7 @@
   (when-not (sequential? coercions)
     (throw (ex-info "The coercions must be a sequence" {:coercisons coercions})))
   (reduce (fn [result {:keys [path coerce-fn]}]
+            ; TODO write update-in-if so that nil values are not added
             (if (nil? (get-in result path))
               result
               (update-in result path coerce-fn)))
