@@ -269,7 +269,7 @@
 
 (defn- item-row
   [item]
-  ^{:key (:id item)}
+  ^{:key (str "item-row-" (:id item))}
   [:tr
    [:td.text-right (util/format-date (:transaction-date item))]
    [:td (:description item)]
@@ -391,7 +391,9 @@
                     :icon :ok
                     :title "Click here to save the transaction"})]]))
 
-(defn- show-account [id]
+(defn- show-account
+  [id]
+  (reset! transaction-items nil)
   (accounts/get-all (:id @state/current-entity)
                     #(reset! *accounts* (-> % nest unnest))
                     notify/danger)
