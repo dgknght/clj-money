@@ -346,13 +346,12 @@
 
 (defn- transform-transaction
   [{:keys [quantity
-           account-id
            other-account-id]
     :as quick-entry-trx}]
-  (let [rename-map (if (or (and (> quantity 0M)
-                                (left-side? account))
-                           (and (< quantity 0M)
-                                (not (left-side? account))))
+  (let [rename-map (if (or (and (> quantity 0)
+                                (left-side? @account))
+                           (and (< quantity 0)
+                                (not (left-side? @account))))
                      {:account-id :debit-account-id
                       :other-account-id :credit-account-id}
                      {:account-id :credit-account-id
