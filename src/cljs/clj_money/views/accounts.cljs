@@ -30,9 +30,6 @@
 
 (def ^:private *accounts* (r/atom []))
 (def ^:private *commodities* (r/atom []))
-(def ^:private working-transaction (r/atom nil))
-(def ^:private account (r/atom nil))
-(def ^:private transaction-items (r/atom nil))
 
 (defn- delete
   [account]
@@ -246,12 +243,13 @@
                        :title "Click here to return to the list of accounts."
                        :icon :ban-circle})]])))
 
-(defn- account-header []
+(defn- account-header
+  [{:keys [transaction account]}]
   [:section
    [:div.pull-right
     (util/button "New"
                  (fn []
-                   (reset! working-transaction {:account-id (:id @account)
+                   (reset! transaction {:account-id (:id @account)
                                                 :entity-id (:id @state/current-entity)
                                                 :transaction-date (f/unparse (f/formatter "M/d/yyyy") (t/today))})
                    (with-retry
@@ -276,7 +274,8 @@
    [:td.text-right (currency-format (:polarized-value item))]
    [:td.text-right (currency-format (:balance item))]])
 
-(defn- items-table []
+(defn- items-table
+  [{:keys [items]}]
   [:table.table.table-striped.table-hover
    [:thead
     [:tr
@@ -285,7 +284,7 @@
      [:th.col-sm-2.text-right "Amount"]
      [:th.col-sm-2.text-right "Balance"]]]
    [:tbody
-    (if-let [items @transaction-items]
+    (if-let [items @items]
       (map item-row items)
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
@@ -295,7 +294,7 @@
        (not= 0 (-> items last :index))))
 
 (defn- next-query-range
-  [[prev-start]]
+  [{:keys [account]} [prev-start]]
   (let [latest (:latest-transaction-date account)
         start (if prev-start
                 (t/minus prev-start (t/months 3))
@@ -304,18 +303,18 @@
     [start (-> start (t/plus (t/months 2)) t/last-day-of-the-month)]))
 
 (defn- get-items
-  ([] (get-items nil))
-  ([prev-date-range]
-   (let [[start end :as date-range] (next-query-range prev-date-range)]
+  ([context] (get-items context nil))
+  ([{:keys [account items] :as context} prev-date-range]
+   (let [[start end :as date-range] (next-query-range context prev-date-range)]
      (transaction-items/search
        {:account-id (:id @account)
         :transaction-date [:between start end]}
        (fn [result]
-         (swap! transaction-items
+         (swap! items
                 (fnil concat [])
                 (map #(polarize-item % @account) result))
-         (when (query-again? @transaction-items)
-           (get-items date-range)))
+         (when (query-again? @items)
+           (get-items context date-range)))
        notify/danger))))
 
 (def ^:private trx-form
@@ -347,11 +346,13 @@
 (defn- transform-transaction
   [{:keys [quantity
            other-account-id]
-    :as quick-entry-trx}]
-  (let [rename-map (if (or (and (> quantity 0)
-                                (left-side? @account))
+    :as quick-entry-trx}
+   context]
+  (let [account @(:account context)
+        rename-map (if (or (and (> quantity 0)
+                                (left-side? account))
                            (and (< quantity 0)
-                                (not (left-side? @account))))
+                                (not (left-side? account))))
                      {:account-id :debit-account-id
                       :other-account-id :credit-account-id}
                      {:account-id :credit-account-id
@@ -363,58 +364,62 @@
         (rename-keys rename-map))))
 
 (defn- handle-saved-transaction
-  [transaction]
-  (reset! working-transaction nil)
-  (reset! transaction-items nil)
-  (get-items))
+  [_ {:keys [transaction items] :as context}]
+  (reset! transaction nil)
+  (reset! items nil)
+  (get-items context))
 
-(defn- save-transaction []
-  (-> @working-transaction
-      transform-transaction
-      (transactions/create handle-saved-transaction
+(defn- save-transaction
+  [{:keys [transaction] :as context}]
+  (-> @transaction
+      (transform-transaction context)
+      (transactions/create #(handle-saved-transaction % context)
                            notify/danger)))
 
-(defn- transaction-form []
-  (when @working-transaction
+(defn- transaction-form
+  [{:keys [transaction] :as context}]
+  (when @transaction
     [:div.panel.panel-primary
      [:div.panel-heading
-      [:h2.panel-title (if (:id @working-transaction)
+      [:h2.panel-title (if (:id @transaction)
                          "Edit Transaction"
                          "New Transaction")]]
 
      [:div.panel-body
-      [bind-fields trx-form working-transaction]
+      [bind-fields trx-form transaction]
       (util/button "Save"
-                   #(save-transaction)
+                   #(save-transaction context)
                    {:class "btn btn-primary"
                     :icon :ok
                     :title "Click here to save the transaction"})]]))
 
 (defn- show-account
   [id]
-  (reset! transaction-items nil)
-  (accounts/get-all (:id @state/current-entity)
-                    #(reset! *accounts* (-> % nest unnest))
-                    notify/danger)
-  (accounts/get-one id
-                    (fn [a]
-                      (reset! account a)
-                      (get-items))
-                    notify/danger)
-  (with-layout
-    [:section
-     [:div.row
-      [:div.col-md-12
-       [account-header]]]
-     [:div.row
-      [:div.col-md-6
-       [transaction-form]]
-      [:div.col-md-6
-       [:div.panel.panel-default
-        [:div.panel-heading
-         [:h2.panel-title "Transaction Items"]]
-        [:div.panel-body {:style {:height "40em" :overflow "auto"}}
-         [items-table transaction-items]]]]]]))
+  (let [context {:account (r/atom nil)
+                 :transaction (r/atom nil)
+                 :items (r/atom nil)}]
+    (accounts/get-all (:id @state/current-entity)
+                      #(reset! *accounts* (-> % nest unnest))
+                      notify/danger)
+    (accounts/get-one id
+                      (fn [a]
+                        (update-in context [:account] #(reset! % a))
+                        (get-items context))
+                      notify/danger)
+    (with-layout
+      [:section
+       [:div.row
+        [:div.col-md-12
+         [account-header context]]]
+       [:div.row
+        [:div.col-md-6
+         [transaction-form context]]
+        [:div.col-md-6
+         [:div.panel.panel-default
+          [:div.panel-heading
+           [:h2.panel-title "Transaction Items"]]
+          [:div.panel-body {:style {:height "40em" :overflow "auto"}}
+           [items-table context]]]]]])))
 
 (secretary/defroute new-account-path "/accounts/new" []
   (r/render [new-account] (app-element)))
