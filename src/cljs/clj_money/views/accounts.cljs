@@ -28,8 +28,8 @@
                                      typeahead-input
                                      required]]))
 
-(def ^:private *accounts* (r/atom []))
-(def ^:private *commodities* (r/atom []))
+(def ^:private accounts (r/atom []))
+(def ^:private commodities (r/atom []))
 
 (defn- delete
   [account]
@@ -40,7 +40,7 @@
 
 (defn- find-account
   ([account-id]
-   (some #(= account-id (:id %)) @*accounts*)))
+   (some #(= account-id (:id %)) @accounts)))
 
 (defn- account-expanded?
   [account]
@@ -53,7 +53,7 @@
 
 (defn- toggle-account
   [account]
-  (swap! *accounts* (fn [accounts]
+  (swap! accounts (fn [accounts]
                       (map (fn [a]
                              (cond
                                (= (:id account) (:id a))
@@ -123,17 +123,17 @@
      [:th "Name"]
      [:th (util/space)]]]
    [:tbody
-    (if (seq @*accounts*)
-      (doall (mapcat #(account-type-rows %) (nest @*accounts*)))
+    (if (seq @accounts)
+      (doall (mapcat #(account-type-rows %) (nest @accounts)))
       [:tr
        [:td {:colSpan 2} [:span.inline-status "Loading..."]]])]])
 
 (defn- accounts-page []
   (accounts/get-all (:id @state/current-entity)
-                    #(reset! *accounts* (-> % nest unnest))
+                    #(reset! accounts (-> % nest unnest))
                     notify/danger)
   (commodities/get-all (:id @state/current-entity)
-                       #(reset! *commodities* %)
+                       #(reset! commodities %)
                        notify/danger)
   (with-layout
     [:section
@@ -143,7 +143,7 @@
 
 (defn- accounts-source
   [text]
-  (->> @*accounts*
+  (->> @accounts
        (filter #(not= -1 (-> (:path %)
                              (.toLowerCase)
                              (.indexOf text))))
@@ -151,7 +151,7 @@
 
 (defn- commodities-source
   [text]
-  (->> @*commodities*
+  (->> @commodities
        (filter #(not= -1 (-> (:name %)
                              (.toLowerCase)
                              (.indexOf text))))
@@ -172,7 +172,7 @@
      :parent-id
      {:data-source accounts-source
       :input-placeholder "Select an account"
-      :in-fn (model-in-fn *accounts* :path)
+      :in-fn (model-in-fn accounts :path)
       :out-fn (fn [v] (if (iterable? v) (first v) v))
       :result-fn first})
    (select-input :type account-types {:visible? #(nil? (:parent-id %))})
@@ -181,7 +181,7 @@
      :commodity-id
      {:data-source commodities-source
       :input-placeholder "Select a commodity"
-      :in-fn (model-in-fn *commodities* :name)
+      :in-fn (model-in-fn commodities :name)
       :out-fn (fn [v] (if (iterable? v) (first v) v))
       :result-fn first})])
 
@@ -196,7 +196,7 @@
 
 (defn- new-account []
   (accounts/get-all (:id @state/current-entity)
-                    #(reset! *accounts* (-> % nest unnest))
+                    #(reset! accounts (-> % nest unnest))
                     notify/danger)
 
   (let [account (r/atom {:entity-id (:id @state/current-entity)})]
@@ -326,7 +326,7 @@
      :other-account-id
      {:data-source accounts-source
       :input-placeholder "Select the other account"
-      :in-fn (model-in-fn *accounts* :path)
+      :in-fn (model-in-fn accounts :path)
       :out-fn (fn [v] (if (iterable? v) (first v) v))
       :result-fn (fn [[path id]] path)})])
 
@@ -338,7 +338,7 @@
 
 (defn- find-account-by-path
   [path]
-  (->> @*accounts*
+  (->> @accounts
        (filter #(= (:path %) path))
        first
        :id))
@@ -399,7 +399,7 @@
                  :transaction (r/atom nil)
                  :items (r/atom nil)}]
     (accounts/get-all (:id @state/current-entity)
-                      #(reset! *accounts* (-> % nest unnest))
+                      #(reset! accounts (-> % nest unnest))
                       notify/danger)
     (accounts/get-one id
                       (fn [a]
