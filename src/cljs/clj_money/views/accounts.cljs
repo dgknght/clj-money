@@ -29,7 +29,18 @@
                                      required]]))
 
 (def ^:private accounts (r/atom []))
+
+(defn- load-accounts []
+  (accounts/get-all (:id @state/current-entity)
+                    #(reset! accounts (-> % nest unnest))
+                    notify/danger))
+
 (def ^:private commodities (r/atom []))
+
+(defn- load-commodities []
+  (commodities/get-all (:id @state/current-entity)
+                       #(reset! commodities %)
+                       notify/danger))
 
 (defn- delete
   [account]
@@ -129,12 +140,8 @@
        [:td {:colSpan 2} [:span.inline-status "Loading..."]]])]])
 
 (defn- accounts-page []
-  (accounts/get-all (:id @state/current-entity)
-                    #(reset! accounts (-> % nest unnest))
-                    notify/danger)
-  (commodities/get-all (:id @state/current-entity)
-                       #(reset! commodities %)
-                       notify/danger)
+  (load-accounts)
+  (load-commodities)
   (with-layout
     [:section
      [:h1 "Accounts"]
@@ -195,10 +202,7 @@
                      notify/danger)))
 
 (defn- new-account []
-  (accounts/get-all (:id @state/current-entity)
-                    #(reset! accounts (-> % nest unnest))
-                    notify/danger)
-
+  (load-accounts)
   (let [account (r/atom {:entity-id (:id @state/current-entity)})]
     (with-layout
       [:div.row
@@ -398,9 +402,7 @@
   (let [context {:account (r/atom nil)
                  :transaction (r/atom nil)
                  :items (r/atom nil)}]
-    (accounts/get-all (:id @state/current-entity)
-                      #(reset! accounts (-> % nest unnest))
-                      notify/danger)
+    (load-accounts)
     (accounts/get-one id
                       (fn [a]
                         (update-in context [:account] #(reset! % a))
