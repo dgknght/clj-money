@@ -321,19 +321,6 @@
            (get-items context date-range)))
        notify/danger))))
 
-(def ^:private trx-form
-  [:form
-   (text-input :transaction-date :required)
-   (text-input :description :required)
-   (number-input :quantity :required)
-   (typeahead-input
-     :other-account-id
-     {:data-source accounts-source
-      :input-placeholder "Select the other account"
-      :in-fn (model-in-fn accounts :path)
-      :out-fn (fn [v] (if (iterable? v) (first v) v))
-      :result-fn (fn [[path id]] path)})])
-
 (defn- reformat-date
   [date-str]
   (->> date-str
@@ -383,19 +370,29 @@
 (defn- transaction-form
   [{:keys [transaction] :as context}]
   (when @transaction
-    [:div.panel.panel-primary
-     [:div.panel-heading
-      [:h2.panel-title (if (:id @transaction)
-                         "Edit Transaction"
-                         "New Transaction")]]
-
-     [:div.panel-body
-      [bind-fields trx-form transaction]
-      (util/button "Save"
-                   #(save-transaction context)
-                   {:class "btn btn-primary"
-                    :icon :ok
-                    :title "Click here to save the transaction"})]]))
+    (let [form [:form
+                (text-input :transaction-date :required)
+                (text-input :description :required)
+                (number-input :quantity :required)
+                (typeahead-input
+                  :other-account-id
+                  {:data-source accounts-source
+                   :input-placeholder "Select the other account"
+                   :in-fn (model-in-fn accounts :path)
+                   :out-fn (fn [v] (if (iterable? v) (first v) v))
+                   :result-fn (fn [[path id]] path)})]]
+      [:div.panel.panel-primary
+       [:div.panel-heading
+        [:h2.panel-title (if (:id @transaction)
+                           "Edit Transaction"
+                           "New Transaction")]]
+       [:div.panel-body
+        [bind-fields form transaction]
+        (util/button "Save"
+                     #(save-transaction context)
+                     {:class "btn btn-primary"
+                      :icon :ok
+                      :title "Click here to save the transaction"})]])))
 
 (defn- show-account
   [id]
