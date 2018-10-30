@@ -253,9 +253,21 @@
    [:div.pull-right
     (util/button "New"
                  (fn []
-                   (reset! transaction {:account-id (:id @account)
-                                                :entity-id (:id @state/current-entity)
-                                                :transaction-date (f/unparse (f/formatter "M/d/yyyy") (t/today))})
+                   (reset! transaction
+
+                           ; The simplified form
+                           #_{:account-id (:id @account)
+                                        :entity-id (:id @state/current-entity)
+                                        :transaction-date (f/unparse (f/formatter "M/d/yyyy")
+                                                                     (t/today))}
+
+                           ; The full form
+                           {:entity-id (:id @state/current-entity)
+                            :transaction-date (f/unparse (f/formatter "M/d/yyyy")
+                                                                     (t/today))
+                            :items [{:account-id (:id @account)
+                                     :debit-quantity nil
+                                     :credit-quantity nil}]})
                    (with-retry
                      (.focus (.getElementById js/document "transaction-date"))))
                  {:icon :plus
@@ -367,14 +379,47 @@
       (transactions/create #(handle-saved-transaction % context)
                            notify/danger)))
 
+(defn- item-input-row
+  [index item]
+  ^{:key (str "item-form-" index)}
+  [:tr
+   [:td "account control goes here"]
+   [:td [:input.form-control {:field :numeric
+                              :id [:items index :credit-quantity]}]]
+   [:td [:input.form-control {:field :numeric
+                              :id [:items index :debit-quantity]}]]])
+
+(defn- items-input
+  [transaction]
+  [:table.table
+   [:thead
+    [:tr
+     [:td "Account"]
+     [:td "Credit Amount"]
+     [:td "Debit Amount"]]]
+   [:tbody
+    (doall
+      (map-indexed item-input-row
+                   (:items @transaction)))]])
+
+(defn- all-items-present?
+  [transaction]
+  (every? #(some % [:credit-quantity :debit-quantity])
+          (:items transaction)))
+
 (defn- transaction-form
   [{:keys [transaction] :as context}]
   (when @transaction
     (let [form [:form
                 (text-input :transaction-date :required)
                 (text-input :description :required)
-                (number-input :quantity :required)
-                (typeahead-input
+
+                ; full
+                (items-input transaction)
+
+                ; simplified
+                #_(number-input :quantity :required)
+                #_(typeahead-input
                   :other-account-id
                   {:data-source accounts-source
                    :input-placeholder "Select the other account"
@@ -387,7 +432,20 @@
                            "Edit Transaction"
                            "New Transaction")]]
        [:div.panel-body
-        [bind-fields form transaction]
+        [bind-fields form transaction (fn [path value doc]
+
+                                        (.log js/console "doc " (prn-str doc))
+
+                                        (when (all-items-present? doc)
+                                          (swap! transaction
+                                                 update-in
+                                                 [:items]
+                                                 conj
+                                                 {:account-id nil
+                                                  :credit-quantity nil
+                                                  :debit-quantity nil})
+                                          
+                                          (.log js/console "after add " (prn-str @transaction))))]
         (util/button "Save"
                      #(save-transaction context)
                      {:class "btn btn-primary"
