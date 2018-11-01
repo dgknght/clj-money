@@ -380,72 +380,70 @@
                            notify/danger)))
 
 (defn- item-input-row
-  [index item]
+  [index form-state]
   ^{:key (str "item-form-" index)}
-  [:tr
+  [:tr {:class (when (>= index (:visible-row-count @form-state))  "hidden")}
    [:td "account control goes here"]
    [:td [:input.form-control {:field :numeric
                               :id [:items index :credit-quantity]}]]
    [:td [:input.form-control {:field :numeric
                               :id [:items index :debit-quantity]}]]])
 
-(defn- items-input
-  [transaction]
-  [:table.table
-   [:thead
-    [:tr
-     [:td "Account"]
-     [:td "Credit Amount"]
-     [:td "Debit Amount"]]]
-   [:tbody
-    (doall
-      (map-indexed item-input-row
-                   (:items @transaction)))]])
+(defn- trx-form
+  [form-state]
+  [:form
+   (text-input :transaction-date :required)
+   (text-input :description :required)
 
-(defn- all-items-present?
-  [transaction]
-  (every? #(some % [:credit-quantity :debit-quantity])
-          (:items transaction)))
+   (.log js/console "trx-form " (prn-str @form-state))
+
+   ; full
+   [:table.table
+    [:thead
+     [:tr
+      [:td "Account"]
+      [:td "Credit Amount"]
+      [:td "Debit Amount"]]]
+    [:tbody
+     (->> (range 10)
+          (map #(item-input-row % form-state))
+          doall)]]
+
+   ; simplified
+   #_(number-input :quantity :required)
+   #_(typeahead-input
+       :other-account-id
+       {:data-source accounts-source
+        :input-placeholder "Select the other account"
+        :in-fn (model-in-fn accounts :path)
+        :out-fn (fn [v] (if (iterable? v) (first v) v))
+        :result-fn (fn [[path id]] path)})])
 
 (defn- transaction-form
   [{:keys [transaction] :as context}]
   (when @transaction
-    (let [form [:form
-                (text-input :transaction-date :required)
-                (text-input :description :required)
-
-                ; full
-                (items-input transaction)
-
-                ; simplified
-                #_(number-input :quantity :required)
-                #_(typeahead-input
-                  :other-account-id
-                  {:data-source accounts-source
-                   :input-placeholder "Select the other account"
-                   :in-fn (model-in-fn accounts :path)
-                   :out-fn (fn [v] (if (iterable? v) (first v) v))
-                   :result-fn (fn [[path id]] path)})]]
+    (let [form-state (r/atom {:visible-row-count 1})]
       [:div.panel.panel-primary
        [:div.panel-heading
         [:h2.panel-title (if (:id @transaction)
                            "Edit Transaction"
                            "New Transaction")]]
        [:div.panel-body
-        [bind-fields form transaction (fn [path value doc]
+        [bind-fields
+         (trx-form form-state)
+         transaction
+         (fn [path value {:keys [items] :as doc}]
 
-                                        (.log js/console "doc " (prn-str doc))
+           (swap! form-state assoc :last-update (t/now))
+           (.log js/console "updated form state " (prn-str @form-state))
 
-                                        (when (all-items-present? doc)
-                                          (swap! transaction
-                                                 update-in
-                                                 [:items]
-                                                 conj
-                                                 {:account-id nil
-                                                  :credit-quantity nil
-                                                  :debit-quantity nil})
-                                          
-                                          (.log js/console "after add " (prn-str @transaction))))]
+           (let [filled (->> items
+                             (filter #(some % [:debit-quantity :credit-quantity]))
+                             count)
+                 visible (:visible-row-count @form-state)]
+             (when (>= filled visible)
+               (swap! form-state update-in [:visible-row-count] inc))
+             nil))]
         (util/button "Save"
                      #(save-transaction context)
                      {:class "btn btn-primary"
