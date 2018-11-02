@@ -247,32 +247,47 @@
                        :title "Click here to return to the list of accounts."
                        :icon :ban-circle})]])))
 
+(defn- new-transaction
+  [{:keys [transaction account]} trx-type]
+  (reset! transaction
+          (cond-> {:entity-id (:id @state/current-entity)
+                   :transaction-date (f/unparse (f/formatter "M/d/yyyy")
+                                                (t/today))}
+            (= :full trx-type)
+            (assoc :items [{:account-id (:id @account)
+                            :debit-quantity nil
+                            :credit-quantity nil}])
+
+            (= :simple trx-type)
+            (assoc :account-id (:id @account)
+                   :entity-id (:id @state/current-entity)
+                   :transaction-date (f/unparse (f/formatter "M/d/yyyy")
+                                                (t/today)))))
+  (with-retry
+    (.focus (.getElementById js/document "transaction-date"))))
+
 (defn- account-header
-  [{:keys [transaction account]}]
+  [{:keys [account transaction] :as context}]
   [:section
    [:div.pull-right
-    (util/button "New"
-                 (fn []
-                   (reset! transaction
-
-                           ; The simplified form
-                           #_{:account-id (:id @account)
-                                        :entity-id (:id @state/current-entity)
-                                        :transaction-date (f/unparse (f/formatter "M/d/yyyy")
-                                                                     (t/today))}
-
-                           ; The full form
-                           {:entity-id (:id @state/current-entity)
-                            :transaction-date (f/unparse (f/formatter "M/d/yyyy")
-                                                                     (t/today))
-                            :items [{:account-id (:id @account)
-                                     :debit-quantity nil
-                                     :credit-quantity nil}]})
-                   (with-retry
-                     (.focus (.getElementById js/document "transaction-date"))))
-                 {:icon :plus
-                  :class "btn btn-primary"
-                  :title "Click here to create a new transaction for this account."})
+    [:button.btn.btn-primary {:type :button
+                              :data-toggle :dropdown
+                              :aria-haspopup true
+                              :aria-expanded false
+                              :disabled (not (nil? @transaction))}
+     [:span.glyphicon.glyphicon-plus]
+     (util/space)
+     "New"
+     (util/space)
+     [:span.caret]]
+    [:ui.dropdown-menu
+     [:li
+      [:a {:href "#"
+           :on-click #(new-transaction context :simple)}
+       "Simple Entry"]
+      [:a {:href "#"
+           :on-click #(new-transaction context :full)}
+       "Full Entry"]]]
     (util/space)
     (util/link-to "Back"
                   "/accounts"
@@ -366,38 +381,89 @@
         (update-in [:transaction-date] reformat-date)
         (rename-keys rename-map))))
 
+(defn- refine-item
+  [item]
+  (-> item
+      (update-in [:account-id] find-account-by-path)
+      (assoc :quantity (some item [:debit-quantity :credit-quantity]))
+      (assoc :action (if (:debit-quantity item)
+                       :debit
+                       :credit))
+      (dissoc :debit-quantity :credit-quantity)))
+
+(defn- refine-full-transaction
+  [transaction]
+  (-> transaction
+      (update-in [:transaction-date] reformat-date)
+      (update-in [:items] (fn [items]
+                            (filter #(some % [:debit-quantity
+                                              :credit-quantity]))))
+      (update-in [:items] #(map refine-item %))))
+
 (defn- handle-saved-transaction
   [_ {:keys [transaction items] :as context}]
   (reset! transaction nil)
   (reset! items nil)
   (get-items context))
 
-(defn- save-transaction
+(defmulti ^:private save-transaction
+  (fn [{:keys [transaction]}]
+    (if (:items @transaction)
+      :full
+      :simple)))
+
+(defmethod ^:private save-transaction :simple
   [{:keys [transaction] :as context}]
   (-> @transaction
       (transform-transaction context)
       (transactions/create #(handle-saved-transaction % context)
                            notify/danger)))
 
+(defmethod ^:private save-transaction :full
+  [{:keys [transaction] :as context}]
+  (-> @transaction
+      refine-full-transaction
+      (transactions/create #(handle-saved-transaction % context)
+                           notify/danger)))
+
 (defn- item-input-row
-  [index form-state]
+  [index]
   ^{:key (str "item-form-" index)}
-  [:tr {:class (when (>= index (:visible-row-count @form-state))  "hidden")}
-   [:td "account control goes here"]
+  [:tr
+   [:td [:div {:field :typeahead
+               :id [:item index :account-id]
+               :input-class "form-control"
+               :list-class "typeahead-list"
+               :item-class "typeahead-item"
+               :highlight-class "typeahead-highlight"
+               :clear-on-focus? false
+               :data-source accounts-source
+               :input-placeholder "Select the account"
+               :in-fn (model-in-fn accounts :path)
+               :out-fn (fn [v] (if (iterable? v) (first v) v))
+               :result-fn (fn [[path id]] path)}]]
    [:td [:input.form-control {:field :numeric
                               :id [:items index :credit-quantity]}]]
    [:td [:input.form-control {:field :numeric
                               :id [:items index :debit-quantity]}]]])
 
-(defn- trx-form
-  [form-state]
+(def ^:private simple-transaction-form
   [:form
    (text-input :transaction-date :required)
    (text-input :description :required)
+   (number-input :quantity :required)
+   (typeahead-input
+     :other-account-id
+     {:data-source accounts-source
+      :input-placeholder "Select the other account"
+      :in-fn (model-in-fn accounts :path)
+      :out-fn (fn [v] (if (iterable? v) (first v) v))
+      :result-fn (fn [[path id]] path)})])
 
-   (.log js/console "trx-form " (prn-str @form-state))
-
-   ; full
+(def ^:private full-transaction-form
+  [:form
+   (text-input :transaction-date :required)
+   (text-input :description :required)
    [:table.table
     [:thead
      [:tr
@@ -405,50 +471,35 @@
       [:td "Credit Amount"]
       [:td "Debit Amount"]]]
     [:tbody
-     (->> (range 10)
-          (map #(item-input-row % form-state))
-          doall)]]
-
-   ; simplified
-   #_(number-input :quantity :required)
-   #_(typeahead-input
-       :other-account-id
-       {:data-source accounts-source
-        :input-placeholder "Select the other account"
-        :in-fn (model-in-fn accounts :path)
-        :out-fn (fn [v] (if (iterable? v) (first v) v))
-        :result-fn (fn [[path id]] path)})])
+     (->> (range 4)
+          (map item-input-row)
+          doall)]]])
 
 (defn- transaction-form
   [{:keys [transaction] :as context}]
   (when @transaction
-    (let [form-state (r/atom {:visible-row-count 1})]
-      [:div.panel.panel-primary
-       [:div.panel-heading
-        [:h2.panel-title (if (:id @transaction)
-                           "Edit Transaction"
-                           "New Transaction")]]
-       [:div.panel-body
-        [bind-fields
-         (trx-form form-state)
-         transaction
-         (fn [path value {:keys [items] :as doc}]
-
-           (swap! form-state assoc :last-update (t/now))
-           (.log js/console "updated form state " (prn-str @form-state))
-
-           (let [filled (->> items
-                             (filter #(some % [:debit-quantity :credit-quantity]))
-                             count)
-                 visible (:visible-row-count @form-state)]
-             (when (>= filled visible)
-               (swap! form-state update-in [:visible-row-count] inc))
-             nil))]
-        (util/button "Save"
-                     #(save-transaction context)
-                     {:class "btn btn-primary"
-                      :icon :ok
-                      :title "Click here to save the transaction"})]])))
+    [:div.panel.panel-primary
+     [:div.panel-heading
+      [:h2.panel-title (if (:id @transaction)
+                         "Edit Transaction"
+                         "New Transaction")]]
+     [:div.panel-body
+      [bind-fields
+       (if (:items @transaction)
+         full-transaction-form
+         simple-transaction-form)
+       transaction]
+      (util/button "Save"
+                   #(save-transaction context)
+                   {:class "btn btn-primary"
+                    :icon :ok
+                    :title "Click here to save the transaction"})
+      (util/space)
+      (util/button "Cancel"
+                   #(reset! transaction nil)
+                   {:class "btn btn-danger"
+                    :icon :remove
+                    :title "Click here to cancel this transaction"})]]))
 
 (defn- show-account
   [id]
