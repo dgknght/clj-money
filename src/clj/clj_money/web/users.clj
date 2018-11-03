@@ -1,4 +1,5 @@
 (ns clj-money.web.users
+  (:refer-clojure :exclude [update find])
   (:require [hiccup.core :refer :all]
             [hiccup.page :refer :all]
             [clojure.tools.logging :as log]
