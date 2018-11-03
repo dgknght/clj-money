@@ -74,3 +74,18 @@
     (when (:icon options)
       (space))
     caption]))
+
+(defn log->
+  "Writes the specified information to the log and returns
+  the information as is. Intended for use with left-threading
+  functions"
+  [info message]
+  (.log js/console message (prn-str info))
+  info)
+
+(defn log->>
+  "Writes the specified information to the log and returns
+  the information as is. Intended for use with right-threading
+  functions"
+  [message info]
+  (log-> info message))
