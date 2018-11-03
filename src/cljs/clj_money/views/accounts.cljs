@@ -398,9 +398,11 @@
   (-> transaction
       (update-in [:transaction-date] reformat-date)
       (update-in [:items] (fn [items]
-                            (filter #(some % [:debit-quantity
-                                              :credit-quantity]))))
-      (update-in [:items] #(map refine-item %))))
+                            (->> items
+                                 (filter #(some % [:debit-quantity
+                                                   :credit-quantity]))
+                                 (map refine-item)
+                                 (into []))))))
 
 (defn- handle-saved-transaction
   [_ {:keys [transaction items] :as context}]
@@ -433,7 +435,7 @@
   ^{:key (str "item-form-" index)}
   [:tr
    [:td [:div {:field :typeahead
-               :id [:item index :account-id]
+               :id [:items index :account-id]
                :input-class "form-control"
                :list-class "typeahead-list"
                :item-class "typeahead-item"
