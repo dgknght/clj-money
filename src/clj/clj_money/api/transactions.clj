@@ -57,7 +57,7 @@
 (s/def ::transaction-date validation/local-date?)
 (s/def ::delete-params (s/keys :req-un [::id ::transaction-date]))
 
-(def ^:prtivate delete-coercion-rules
+(def ^:private delete-coercion-rules
   [(coercion/rule :uuid [:id])
    (coercion/rule :local-date [:transaction-date])])
 
