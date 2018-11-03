@@ -171,7 +171,8 @@
    (coercion/rule :local-date [:original-transaction-date])])
 
 (def ^:private item-coercion-rules
-  [(coercion/rule :decimal [:quantity])])
+  [(coercion/rule :decimal [:quantity])
+   (coercion/rule :keyword [:action])])
 
 (defn- expand-simplified-items
   [{:keys [items quantity debit-account-id credit-account-id] :as transaction}]
