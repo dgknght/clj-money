@@ -280,7 +280,7 @@
      "New"
      (util/space)
      [:span.caret]]
-    [:ui.dropdown-menu
+    [:ul.dropdown-menu
      [:li
       [:a {:href "#"
            :on-click #(new-transaction context :simple)}
