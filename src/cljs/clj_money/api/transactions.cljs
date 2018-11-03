@@ -1,6 +1,7 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require [clj-money.api :as api]))
+  (:require [cljs-time.format :as f]
+            [clj-money.api :as api]))
 
 (defn search
   [criteria success-fn error-fn]
@@ -17,3 +18,10 @@
                        transaction
                        success-fn
                        error-fn))
+(defn get-one
+  [id transaction-date success-fn error-fn]
+  (api/get-resources (api/path :transactions
+                               (f/unparse (:date f/formatters) transaction-date)
+                               id)
+                     success-fn
+                     error-fn))

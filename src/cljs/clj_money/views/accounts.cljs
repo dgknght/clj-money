@@ -298,27 +298,42 @@
                   :class "btn btn-info"
                   :title "Click here to return to the account list."})])
 
+(defn- edit-transaction
+  [{:keys [transaction-id transaction-date]} {:keys [transaction]}]
+  (transactions/get-one transaction-id
+                        transaction-date
+                        #(reset! transaction %)
+                        notify/danger))
+
 (defn- item-row
-  [item]
+  [item context]
   ^{:key (str "item-row-" (:id item))}
   [:tr
    [:td.text-right (util/format-date (:transaction-date item))]
    [:td (:description item)]
    [:td.text-right (currency-format (:polarized-value item))]
-   [:td.text-right (currency-format (:balance item))]])
+   [:td.text-right (currency-format (:balance item))]
+   [:td
+    [:div.btn-group
+     (util/button nil
+                  #(edit-transaction item context)
+                  {:icon :pencil
+                   :class "btn btn-info btn-xs"
+                   :title "Click here to edit this transaction."})]]])
 
 (defn- items-table
-  [{:keys [items]}]
+  [{:keys [items] :as context}]
   [:table.table.table-striped.table-hover
    [:thead
     [:tr
      [:th.col-sm-2.text-right "Date"]
-     [:th.col-sm-6 "Description"]
+     [:th.col-sm-5 "Description"]
      [:th.col-sm-2.text-right "Amount"]
-     [:th.col-sm-2.text-right "Balance"]]]
+     [:th.col-sm-2.text-right "Balance"]
+     [:th.col-sm-1 (util/space)]]]
    [:tbody
-    (if-let [items @items]
-      (map item-row items)
+    (if @items
+      (map #(item-row % context) @items)
       [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
 (defn- query-again?
