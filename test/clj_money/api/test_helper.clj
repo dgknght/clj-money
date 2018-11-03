@@ -30,11 +30,43 @@
                "The response contains expected resources.")))
        (testing (format "A user cannot get a %s list from someone else's entities" ~resource-name)
          (let [error# (try (with-authentication (~find-other-user-fn context#)
-                             (api/index params#))
+                             (~list-fn params#))
                            (catch Exception e#
                              e#))]
            (is (= clojure.lang.ExceptionInfo (type error#))
                "An exception is thrown"))))))
+
+(defmacro deftest-get-one
+  [name {:keys [context
+                storage
+                resource-name
+                find-user-fn
+                find-other-user-fn
+                get-one-fn
+                params-fn
+                expectation-fn]
+         :or {resource-name "resource"
+              context 'context
+              storage (env :db)
+              find-user-fn 'find-user
+              find-other-user-fn 'find-other-user}}]
+  `(deftest ~name
+     (let [context# (serialization/realize ~storage ~context)
+           params# {:params (~params-fn context#)}]
+       (testing (format "A user can get a %s from his own entity" ~resource-name)
+         (let [response# (with-authentication (~find-user-fn context#)
+                           (~get-one-fn params#))]
+           (is (= 200 (:status response#)) "The response is successful")
+           (is (~expectation-fn (:body response#))
+               "The response contains expected resource.")))
+       (testing (format "A user cannot get a %s from someone else's entities" ~resource-name)
+         (let [error# (try (with-authentication (~find-other-user-fn context#)
+                             (~get-one-fn params#))
+                           (catch Exception e#
+                             e#))]
+           (is (= clojure.lang.ExceptionInfo (type error#))
+               "An exception is thrown"))))))
+
 
 (defmacro deftest-create
   [name {:keys [context

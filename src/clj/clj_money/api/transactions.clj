@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
+            [clj-time.format :as f]
             [environ.core :refer [env]]
             [ring.util.response :refer [status response header]]
             [clj-money.api :refer [->response
@@ -25,10 +26,13 @@
                   (select-keys params [:entity-id :account-id])
                   :transaction))
 
-(defn get-transaction
-  [{{id :id} :params}]
-  ; TODO add authorization here
-  (->response (transactions/find-by-id (env :db) id)))
+(defn get-one
+  [{{:keys [id transaction-date] :as params} :params}]
+  (->response (authorize (transactions/find-by-id (env :db)
+                                       id
+                                       (f/parse-local-date (:date f/formatters)
+                                                           transaction-date))
+                         :show)))
 
 (def ^:private attribute-keys
   [:id

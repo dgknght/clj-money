@@ -4,11 +4,13 @@
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
+            [clj-time.format :as f]
             [clj-factory.core :refer [factory]]
             [clj-money.api.test-helper :refer [deftest-create
                                                deftest-delete
                                                deftest-update
-                                               deftest-list]]
+                                               deftest-list
+                                               deftest-get-one]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -71,6 +73,20 @@
                                        actual)]
                        (h/pprint-diff expected actual)
                        (= expected actual)))})
+
+(deftest-get-one get-a-transaction
+  {:resource-name "transaction"
+   :get-one-fn api/get-one
+   :params-fn (fn [ctx]
+                (-> ctx
+                    :transactions
+                    first
+                    (update-in [:transaction-date]
+                               #(f/unparse-local (:date f/formatters) %))
+                    (select-keys [:id :transaction-date])))
+   :expectation-fn (fn [actual]
+                     (let [expected (-> context :transactions first)]
+                       (= "Paycheck" (:description actual))))})
 
 (deftest-create create-a-transaction
   {:resource-name "transaction"
