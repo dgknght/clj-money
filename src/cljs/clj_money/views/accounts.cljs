@@ -266,15 +266,18 @@
   (with-retry
     (.focus (.getElementById js/document "transaction-date"))))
 
-(defn- account-header
-  [{:keys [account transaction] :as context}]
-  [:section
-   [:div.pull-right
-    [:button.btn.btn-primary {:type :button
-                              :data-toggle :dropdown
-                              :aria-haspopup true
-                              :aria-expanded false
-                              :disabled (not (nil? @transaction))}
+(defn- account-buttons
+  [{:keys [transaction] :as context}]
+  [:div
+   [:div.btn-group.dropup
+    [:button {:type :button
+              :class ["btn"
+                      "btn-primary"
+                      "dropdown-toggle"]
+              :data-toggle :dropdown
+              :aria-haspopup true
+              :aria-expanded false
+              :disabled (not (nil? @transaction))}
      [:span.glyphicon.glyphicon-plus]
      (util/space)
      "New"
@@ -287,14 +290,13 @@
        "Simple Entry"]
       [:a {:href "#"
            :on-click #(new-transaction context :full)}
-       "Full Entry"]]]
-    (util/space)
-    (util/link-to "Back"
-                  "/accounts"
-                  {:icon :hand-left
-                   :class "btn btn-info"
-                   :title "Click here to return to the account list."})]
-   [:h1 (:name @account)]])
+       "Full Entry"]]]]
+   (util/space)
+   (util/link-to "Back"
+                 "/accounts"
+                 {:icon :hand-left
+                  :class "btn btn-info"
+                  :title "Click here to return to the account list."})])
 
 (defn- item-row
   [item]
@@ -501,11 +503,15 @@
                     :icon :remove
                     :title "Click here to cancel this transaction"})]]))
 
+(defn- account-header
+  [{:keys [account]}]
+  [:h1 (:name @account)])
+
 (defn- show-account
   [id]
-  (let [context {:account (r/atom nil)
-                 :transaction (r/atom nil)
-                 :items (r/atom nil)}]
+  (let [{:keys [account] :as context} {:account (r/atom nil)
+                                       :transaction (r/atom nil)
+                                       :items (r/atom nil)}]
     (load-accounts)
     (accounts/get-one id
                       (fn [a]
@@ -519,13 +525,14 @@
          [account-header context]]]
        [:div.row
         [:div.col-md-6
-         [transaction-form context]]
-        [:div.col-md-6
          [:div.panel.panel-default
           [:div.panel-heading
            [:h2.panel-title "Transaction Items"]]
           [:div.panel-body {:style {:height "40em" :overflow "auto"}}
-           [items-table context]]]]]])))
+           [items-table context]]]
+         [account-buttons context]]
+        [:div.col-md-6
+         [transaction-form context]]]])))
 
 (secretary/defroute new-account-path "/accounts/new" []
   (r/render [new-account] (app-element)))
