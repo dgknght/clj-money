@@ -298,11 +298,57 @@
                   :class "btn btn-info"
                   :title "Click here to return to the account list."})])
 
+(defn- find-account-by-id
+  [id]
+  (->> @accounts
+       (filter #(= (:id %) id))
+       first
+       :path))
+
+(defn- find-account-by-path
+  [path]
+  (->> @accounts
+       (filter #(= (:path %) path))
+       first
+       :id))
+
+(defn- prepare-transaction-item-for-edit
+  [item]
+  (-> item
+      (assoc :debit-quantity (when (= :debit (:action item))
+                               (:quantity item))
+             :credit-quantity (when (= :credit (:action item))
+                                (:quantity item)))
+      (update-in [:account-id] find-account-by-id)
+      (select-keys [:id :account-id :debit-quantity :credit-quantity])))
+
+(defn- prepare-transaction-items-for-edit
+  [items]
+  (->> items
+       (map prepare-transaction-item-for-edit)
+       (into [])))
+
+(defn- prepare-transaction-for-edit
+  [transaction]
+  (-> transaction
+      (update-in [:transaction-date]
+                 #(f/unparse-local-date
+                    (f/formatter "M/d/yyyy")
+                    (f/parse-local-date (:date f/formatters) %)))
+      (update-in [:items] prepare-transaction-items-for-edit)))
+
 (defn- edit-transaction
   [{:keys [transaction-id transaction-date]} {:keys [transaction]}]
   (transactions/get-one transaction-id
                         transaction-date
-                        #(reset! transaction %)
+                        (fn [result]
+                          (let [prepared (prepare-transaction-for-edit result)]
+
+                            (.log js/console "prepared " (prn-str prepared))
+
+                            (reset! transaction prepared)))
+
+                        #_(reset! transaction (prepare-transaction-for-edit %))
                         notify/danger))
 
 (defn- item-row
@@ -371,33 +417,6 @@
        (f/parse (f/formatter "M/d/yyyy"))
        (f/unparse (:date f/formatters))))
 
-(defn- find-account-by-path
-  [path]
-  (->> @accounts
-       (filter #(= (:path %) path))
-       first
-       :id))
-
-(defn- transform-transaction
-  [{:keys [quantity
-           other-account-id]
-    :as quick-entry-trx}
-   context]
-  (let [account @(:account context)
-        rename-map (if (or (and (> quantity 0)
-                                (left-side? account))
-                           (and (< quantity 0)
-                                (not (left-side? account))))
-                     {:account-id :debit-account-id
-                      :other-account-id :credit-account-id}
-                     {:account-id :credit-account-id
-                      :other-account-id :debit-account-id})]
-    (-> quick-entry-trx
-        (update-in [:other-account-id] find-account-by-path)
-        (update-in [:quantity] Math/abs)
-        (update-in [:transaction-date] reformat-date)
-        (rename-keys rename-map))))
-
 (defn- refine-item
   [item]
   (-> item
@@ -408,8 +427,36 @@
                        :credit))
       (dissoc :debit-quantity :credit-quantity)))
 
-(defn- refine-full-transaction
-  [transaction]
+(defn- handle-saved-transaction
+  [_ {:keys [transaction items] :as context}]
+  (reset! transaction nil)
+  (reset! items nil)
+  (get-items context))
+
+(defmulti ^:private prepare-transaction-for-save
+  (fn [transaction _]
+    (if (:items transaction)
+      :full
+      :simple)))
+
+(defmethod ^:private prepare-transaction-for-save :simple
+  [{:keys [quantity] :as transaction} account]
+  (let [rename-map (if (or (and (> quantity 0)
+                                (left-side? account))
+                           (and (< quantity 0)
+                                (not (left-side? account))))
+                     {:account-id :debit-account-id
+                      :other-account-id :credit-account-id}
+                     {:account-id :credit-account-id
+                      :other-account-id :debit-account-id})]
+    (-> transaction
+        (update-in [:other-account-id] find-account-by-path)
+        (update-in [:quantity] Math/abs)
+        (update-in [:transaction-date] reformat-date)
+        (rename-keys rename-map))))
+
+(defmethod ^:private prepare-transaction-for-save :full
+  [transaction _]
   (-> transaction
       (update-in [:transaction-date] reformat-date)
       (update-in [:items] (fn [items]
@@ -419,31 +466,15 @@
                                  (map refine-item)
                                  (into []))))))
 
-(defn- handle-saved-transaction
-  [_ {:keys [transaction items] :as context}]
-  (reset! transaction nil)
-  (reset! items nil)
-  (get-items context))
-
-(defmulti ^:private save-transaction
-  (fn [{:keys [transaction]}]
-    (if (:items @transaction)
-      :full
-      :simple)))
-
-(defmethod ^:private save-transaction :simple
-  [{:keys [transaction] :as context}]
-  (-> @transaction
-      (transform-transaction context)
-      (transactions/create #(handle-saved-transaction % context)
-                           notify/danger)))
-
-(defmethod ^:private save-transaction :full
-  [{:keys [transaction] :as context}]
-  (-> @transaction
-      refine-full-transaction
-      (transactions/create #(handle-saved-transaction % context)
-                           notify/danger)))
+(defn- save-transaction
+  [{:keys [transaction account] :as context}]
+  (let [save-fn (if (:id @transaction)
+                  transactions/update
+                  transactions/create)]
+    (-> @transaction
+        (prepare-transaction-for-save @account)
+        (save-fn #(handle-saved-transaction % context)
+                 notify/danger))))
 
 (defn- item-input-row
   [index]

@@ -18,10 +18,26 @@
                        transaction
                        success-fn
                        error-fn))
+
+(defn update
+  [transaction success-fn error-fn]
+  (api/update-resource (api/path :transactions (:id transaction))
+                       transaction
+                       success-fn
+                       error-fn))
+
+(defn- after-item-read
+  [item]
+  (update-in item [:action] keyword))
+
+(defn- after-read
+  [transaction]
+  (update-in transaction [:items] #(map after-item-read %)))
+
 (defn get-one
   [id transaction-date success-fn error-fn]
   (api/get-resources (api/path :transactions
                                (f/unparse (:date f/formatters) transaction-date)
                                id)
-                     success-fn
+                     #(success-fn (after-read %))
                      error-fn))
