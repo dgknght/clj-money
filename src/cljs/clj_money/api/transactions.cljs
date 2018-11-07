@@ -1,7 +1,28 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require [cljs-time.format :as f]
+  (:require [cljs-time.core :as t]
+            [cljs-time.format :as f]
             [clj-money.api :as api]))
+
+(defmulti ^:private serialize-date
+  (fn [d]
+    (cond
+      (string? d) :string
+      (t/date? d) :date)))
+
+(defmethod ^:private serialize-date :date
+  [d]
+  (f/unparse (:date f/formatters) d))
+
+(defmethod ^:private serialize-date :string
+  [d]
+  d)
+
+(defn- transaction-path
+  [{:keys [id transaction-date]}]
+  (api/path :transactions
+            (serialize-date  transaction-date)
+            id))
 
 (defn search
   [criteria success-fn error-fn]
@@ -21,7 +42,7 @@
 
 (defn update
   [transaction success-fn error-fn]
-  (api/update-resource (api/path :transactions (:id transaction))
+  (api/update-resource (transaction-path transaction)
                        transaction
                        success-fn
                        error-fn))
@@ -35,9 +56,13 @@
   (update-in transaction [:items] #(map after-item-read %)))
 
 (defn get-one
-  [id transaction-date success-fn error-fn]
-  (api/get-resources (api/path :transactions
-                               (f/unparse (:date f/formatters) transaction-date)
-                               id)
+  [tkey success-fn error-fn]
+  (api/get-resources (transaction-path tkey)
                      #(success-fn (after-read %))
                      error-fn))
+
+(defn delete
+  [transaction success-fn error-fn]
+  (api/delete-resource (transaction-path transaction)
+                       success-fn
+                       error-fn))

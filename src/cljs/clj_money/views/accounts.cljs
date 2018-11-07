@@ -337,10 +337,15 @@
                     (f/parse-local-date (:date f/formatters) %)))
       (update-in [:items] prepare-transaction-items-for-edit)))
 
+(defn- item->tkey
+  [item]
+  (-> item
+      (select-keys [:transaction-id :transaction-date])
+      (rename-keys {:transaction-id :id})))
+
 (defn- edit-transaction
-  [{:keys [transaction-id transaction-date]} {:keys [transaction]}]
-  (transactions/get-one transaction-id
-                        transaction-date
+  [item {:keys [transaction]}]
+  (transactions/get-one (item->tkey item)
                         (fn [result]
                           (let [prepared (prepare-transaction-for-edit result)]
 
@@ -350,37 +355,6 @@
 
                         #_(reset! transaction (prepare-transaction-for-edit %))
                         notify/danger))
-
-(defn- item-row
-  [item context]
-  ^{:key (str "item-row-" (:id item))}
-  [:tr
-   [:td.text-right (util/format-date (:transaction-date item))]
-   [:td (:description item)]
-   [:td.text-right (currency-format (:polarized-value item))]
-   [:td.text-right (currency-format (:balance item))]
-   [:td
-    [:div.btn-group
-     (util/button nil
-                  #(edit-transaction item context)
-                  {:icon :pencil
-                   :class "btn btn-info btn-xs"
-                   :title "Click here to edit this transaction."})]]])
-
-(defn- items-table
-  [{:keys [items] :as context}]
-  [:table.table.table-striped.table-hover
-   [:thead
-    [:tr
-     [:th.col-sm-2.text-right "Date"]
-     [:th.col-sm-5 "Description"]
-     [:th.col-sm-2.text-right "Amount"]
-     [:th.col-sm-2.text-right "Balance"]
-     [:th.col-sm-1 (util/space)]]]
-   [:tbody
-    (if @items
-      (map #(item-row % context) @items)
-      [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
 (defn- query-again?
   [items]
@@ -410,6 +384,51 @@
          (when (query-again? @items)
            (get-items context date-range)))
        notify/danger))))
+
+(defn- delete-transaction
+  [item context]
+   (transactions/delete (item->tkey item)
+                        (fn [& _]
+                          (reset! (:items context) nil)
+                          (get-items context nil))
+                        notify/danger))
+
+(defn- item-row
+  [item context]
+  ^{:key (str "item-row-" (:id item))}
+  [:tr
+   [:td.text-right (util/format-date (:transaction-date item))]
+   [:td (:description item)]
+   [:td.text-right (currency-format (:polarized-value item))]
+   [:td.text-right (currency-format (:balance item))]
+   [:td
+    [:div.btn-group
+     (util/button nil
+                  #(edit-transaction item context)
+                  {:icon :pencil
+                   :class "btn btn-info btn-xs"
+                   :title "Click here to edit this transaction."})
+     (util/button nil
+                  #(when (js/confirm "Are you sure you want to delete this transaction?")
+                     (delete-transaction item context))
+                  {:icon :remove
+                   :class "btn btn-danger btn-xs"
+                   :title "Click here to remove this transaction."})]]])
+
+(defn- items-table
+  [{:keys [items] :as context}]
+  [:table.table.table-striped.table-hover
+   [:thead
+    [:tr
+     [:th.col-sm-2.text-right "Date"]
+     [:th.col-sm-3 "Description"]
+     [:th.col-sm-2.text-right "Amount"]
+     [:th.col-sm-2.text-right "Balance"]
+     [:th.col-sm-2 (util/space)]]]
+   [:tbody
+    (if @items
+      (map #(item-row % context) @items)
+      [:tr [:td {:colSpan 4} [:span.inline-status "Loading..."]]])]])
 
 (defn- reformat-date
   [date-str]
