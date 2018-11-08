@@ -39,6 +39,7 @@
    :description
    :entity-id
    :transaction-date
+   :original-transaction-date
    :memo
    :items
    :debit-account-id
@@ -54,7 +55,8 @@
 (defn update
   [{params :params}]
   (update-resource (select-keys params attribute-keys)
-                   #(transactions/find-by-id %1 (:id %2) (:transaction-date %2))
+                   (fn [s {:keys [id original-transaction-date]}]
+                     (transactions/find-by-id s id original-transaction-date))
                    transactions/update))
 
 (s/def ::id uuid?)

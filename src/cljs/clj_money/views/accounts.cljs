@@ -348,12 +348,9 @@
   (transactions/get-one (item->tkey item)
                         (fn [result]
                           (let [prepared (prepare-transaction-for-edit result)]
-
-                            (.log js/console "prepared " (prn-str prepared))
-
-                            (reset! transaction prepared)))
-
-                        #_(reset! transaction (prepare-transaction-for-edit %))
+                            (reset! transaction prepared))
+                          (with-retry
+                            (.focus (.getElementById js/document "transaction-date"))))
                         notify/danger))
 
 (defn- query-again?

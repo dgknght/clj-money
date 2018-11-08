@@ -53,7 +53,9 @@
 
 (defn- after-read
   [transaction]
-  (update-in transaction [:items] #(map after-item-read %)))
+  (-> transaction
+      (assoc :original-transaction-date (:transaction-date transaction))
+      (update-in [:items] #(map after-item-read %))))
 
 (defn get-one
   [tkey success-fn error-fn]

@@ -64,11 +64,12 @@
   This function returns the resource so that it can be threaded together
   with other left-threadable operations"
   [resource action]
-  (if (allowed? (current-authentication) action resource)
-    resource
-    (throw+ {:type ::unauthorized
-             :action action
-             :resource (get-resource-tag resource)})))
+  (when resource
+    (if (allowed? (current-authentication) action resource)
+      resource
+      (throw+ {:type ::unauthorized
+               :action action
+               :resource (get-resource-tag resource)}))))
 
 (defn allow
   "Registers a rule that will be used to determine if the
