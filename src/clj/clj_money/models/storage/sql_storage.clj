@@ -828,6 +828,7 @@
                          (h/sset (->update-set transaction-item
                                                :transaction-date
                                                :quantity
+                                               :value
                                                :negative
                                                :memo
                                                :action
