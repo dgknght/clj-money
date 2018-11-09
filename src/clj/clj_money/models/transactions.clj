@@ -494,7 +494,21 @@
               :limit 1}))
 
 (defn- process-items
-  "Recalculates and updates statistics in the specifed items"
+  "Recalculates and updates statistics in the specifed items.
+  
+  This function is designedto short-circuit the process if it finds
+  that the newly calculated index and balance values are the same
+  as the values that are already stored for any particular item.
+  
+  There are two considerations that will prevent the short-circuit
+  from happening:
+    - The force option is passed in
+    - The transaction date is the first date for which items are
+      being processed. This is based on the assumption that the
+      listing of items being processed start on a particular day
+      and that the item that has been changed may not be the first
+      item that day (based on index)."
+
   [storage
    account
    {:keys [index balance]
@@ -504,13 +518,15 @@
   (loop [item (first items)
          remaining (rest items)
          last-index index
-         last-balance balance]
+         last-balance balance
+         first-date (:transaction-date item)]
     (let [new-index (+ last-index 1)
           new-balance (+ last-balance (polarize-quantity item account))]
-      (if (and (not force)
+      (if (and (not= first-date (:transaction-date item))
+               (not force)
                (= new-index (:index item))
                (= new-balance (:balance item)))
-        nil ; short-circuit updates if they aren't necessary
+        nil
         (do
           ; TODO extract update, this is always an update
           (upsert-item storage (assoc item
@@ -520,7 +536,8 @@
             (recur (first remaining)
                    (rest remaining)
                    new-index
-                   new-balance)
+                   new-balance
+                   first-date)
             [new-index new-balance (:transaction-date item)]))))))
 
 (defn recalculate-account
