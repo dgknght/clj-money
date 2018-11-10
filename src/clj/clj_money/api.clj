@@ -57,9 +57,10 @@
 (defn update-resource
   [params find-fn update-fn]
   (if-let [resource (find-fn (env :db) params)]
-    (let [result (update-fn (env :db)
-                            (merge (authorize resource :update)
-                                   params))]
+    (let [to-update (-> resource
+                        (authorize :update)
+                        (merge params))
+          result (update-fn (env :db) to-update)]
       (if (validation/has-error? result)
         (status (->response result) 422)
         (status (->response result) 200)))

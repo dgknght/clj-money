@@ -2,6 +2,7 @@
   (:require [clojure.test :refer :all]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
+            [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.format :as f]
@@ -126,16 +127,13 @@
 
 (deftest-update update-a-transaction
   {:resource-name "transaction"
-   :find-updated-resource-fn (fn [trx]
-                               (transactions/find-by-id storage-spec (:id trx) (:transaction-date trx)))
+   :find-updated-resource-fn #(transactions/find-by-id storage-spec (:id %) (:transaction-date %))
    :update-fn api/update
-   :comparison-fn (fn [trx]
-                    (pprint {:compare (select-keys trx [:id :transaction-date :memo])})
-                    (= "updated memo" (:mem trx)))
+   :comparison-fn #(= "updated memo" (:memo %))
    :prepare-update-fn #(-> %
-                           assoc :memo "updated memo"
-                           (select-keys [:id :memo :transaction-date]))
-   :update-params {:memo "updated memo"}})
+                           (assoc :memo "updated memo")
+                           (select-keys [:id :memo :transaction-date])
+                           (rename-keys {:transaction-date :original-transaction-date}))})
 
 (deftest-delete delete-a-transaction
   {:resource-name "transaction"
