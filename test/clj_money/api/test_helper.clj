@@ -117,6 +117,7 @@
                 find-other-user-fn
                 update-fn
                 update-params
+                prepare-update-fn
                 comparison-fn
                 storage]
          :or {resource-name "resource"
@@ -128,18 +129,20 @@
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
           resource# (~find-resource-fn context#)
-          update-params# {:params (assoc ~update-params
-                                         :id
-                                         (:id resource#))}]
+          to-save# {:params (if ~update-params
+                              (assoc ~update-params
+                                     :id
+                                     (:id resource#))
+                              (~prepare-update-fn resource#))}]
       (testing (format "A user cannot update a %s for another user's entity" ~resource-name)
         (let [error# (try (with-authentication (~find-other-user-fn context#)
-                       (~update-fn update-params#))
+                       (~update-fn to-save#))
                           (catch Exception e#
                             e#))]
           (is (= clojure.lang.ExceptionInfo (type error#)))))
       (testing (format "A user can update a %s in their entity" ~resource-name)
         (let [response# (with-authentication (~find-user-fn context#)
-                         (api/update update-params#))
+                         (api/update to-save#))
               updated# (~find-updated-resource-fn resource#)]
           (is (= 200 (:status response#)) "The response is successful")
           (is (~comparison-fn updated#)

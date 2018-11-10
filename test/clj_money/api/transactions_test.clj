@@ -126,11 +126,16 @@
 
 (deftest-update update-a-transaction
   {:resource-name "transaction"
-   :find-updated-resource-fn #(transactions/find-by-id storage-spec (:id %) (:transaction-date %))
+   :find-updated-resource-fn (fn [trx]
+                               (transactions/find-by-id storage-spec (:id trx) (:transaction-date trx)))
    :update-fn api/update
-   :comparison-fn #(= (:memo %) "updated memo")
-   :update-params {:transaction-date (t/local-date 2016 2 1)
-                   :memo "updated memo"}})
+   :comparison-fn (fn [trx]
+                    (pprint {:compare (select-keys trx [:id :transaction-date :memo])})
+                    (= "updated memo" (:mem trx)))
+   :prepare-update-fn #(-> %
+                           assoc :memo "updated memo"
+                           (select-keys [:id :memo :transaction-date]))
+   :update-params {:memo "updated memo"}})
 
 (deftest-delete delete-a-transaction
   {:resource-name "transaction"
