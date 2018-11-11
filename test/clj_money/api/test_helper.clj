@@ -125,15 +125,13 @@
               storage (env :db)
               find-user-fn 'find-user
               find-other-user-fn 'find-other-user
-              find-resource-fn 'find-resource }}]
+              find-resource-fn 'find-resource
+              prepare-update-fn (fn [& _ ] nil)}}]
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
           resource# (~find-resource-fn context#)
-          to-save# {:params (if ~update-params
-                              (assoc ~update-params
-                                     :id
-                                     (:id resource#))
-                              (~prepare-update-fn resource#))}]
+          to-save# {:params (or (~prepare-update-fn resource#)
+                                (assoc ~update-params :id (:id resource#)))}]
       (testing (format "A user cannot update a %s for another user's entity" ~resource-name)
         (let [error# (try (with-authentication (~find-other-user-fn context#)
                        (~update-fn to-save#))
