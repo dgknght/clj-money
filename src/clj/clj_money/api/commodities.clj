@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [environ.core :refer [env]]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.api :refer [->response
                                    error->response
                                    index-resource
@@ -18,10 +19,9 @@
                   (select-keys params [:entity-id])
                   :commodity))
 
-(defn get-commodity
+(defn get-one
   [{{id :id} :params}]
-  ; TODO Add authorization here
-  (->response (commodities/find-by-id (env :db) id)))
+  (->response (authorize (commodities/find-by-id (env :db) id) :show)))
 
 (def ^:private attribute-keys
   [:id

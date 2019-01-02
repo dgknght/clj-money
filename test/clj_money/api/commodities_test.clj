@@ -7,7 +7,8 @@
             [clj-money.api.test-helper :refer [deftest-create
                                                deftest-delete
                                                deftest-update
-                                               deftest-list]]
+                                               deftest-list
+                                               deftest-get-one]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -29,7 +30,11 @@
                :user-id "jane@doe.com"}]
    :commodities [{:name "US Dollar"
                   :symbol "USD"
-                  :type :currency}]})
+                  :type :currency}
+                 {:name "Microsoft, Inc"
+                  :symbol "MSFT"
+                  :type :stock
+                  :exchange :nasdaq}]})
 
 (defn- find-user        [ctx] (h/find-user ctx "john@doe.com"))
 (defn- find-other-user  [ctx] (h/find-user ctx "jane@doe.com"))
@@ -44,6 +49,12 @@
    :name "Apple, Inc."
    :symbol "AAPL"
    :exchange "nasdaq"})
+
+(deftest-get-one get-a-commodity
+  {:resource-name "commodity"
+   :get-one-fn api/get-one
+   :params-fn #(select-keys (h/find-commodity % "MSFT") [:id])
+   :expectation-fn #(= "Microsoft, Inc" (:name %))})
 
 (deftest-create create-a-commodity
   {:resource-name "commodity"
