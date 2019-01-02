@@ -6,7 +6,8 @@
             [clj-money.api.test-helper :refer [deftest-create
                                                deftest-delete
                                                deftest-update
-                                               deftest-list]]
+                                               deftest-list
+                                               deftest-get-one]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
@@ -37,6 +38,12 @@
 (defn- find-resource    [ctx] (h/find-account ctx "Checking"))
 (defn- select-resources [ctx]
   (accounts/search storage-spec {:entity-id (:id (find-entity ctx))}))
+
+(deftest-get-one get-an-account
+  {:resource-name "account"
+   :get-one-fn api/get-one
+   :params-fn #(select-keys (h/find-account % "Checking") [:id])
+   :expectation-fn #(= "Checking" (:name %))})
 
 (deftest-create create-an-account
   {:resource-name "account"

@@ -22,10 +22,10 @@
                   (select-keys params [:entity-id])
                   :account))
 
-(defn get-account
+(defn get-one
   [{{id :id} :params}]
-  ; TODO add authorization here
-  (->response (accounts/find-by-id (env :db) id)))
+  (let [account (authorize (accounts/find-by-id (env :db) id) :show)]
+    (->response account)))
 
 (def ^:private attribute-keys
   [:id

@@ -192,7 +192,7 @@
   (model-route DELETE "/api/commodities/:id" commodities-api/delete)
 
   (model-route GET "/api/entities/:entity-id/accounts" accounts-api/index)
-  (model-route GET "/api/accounts/:id" accounts-api/get-account)
+  (model-route GET "/api/accounts/:id" accounts-api/get-one)
   (model-route POST "/api/entities/:entity-id/accounts" accounts-api/create)
   (model-route PATCH "/api/accounts/:id" accounts-api/update)
   (model-route DELETE "/api/accounts/:id" accounts-api/delete)

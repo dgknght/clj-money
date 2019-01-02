@@ -45,11 +45,14 @@
                 get-one-fn
                 params-fn
                 expectation-fn]
+         :as params
          :or {resource-name "resource"
               context 'context
               storage (env :db)
               find-user-fn 'find-user
               find-other-user-fn 'find-other-user}}]
+  (if-not expectation-fn
+    (throw (ex-info "expectation-fn must be supplied", params)))
   `(deftest ~name
      (let [context# (serialization/realize ~storage ~context)
            params# {:params (~params-fn context#)}]
