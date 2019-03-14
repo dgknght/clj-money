@@ -17,7 +17,8 @@
                                               update-import
                                               delete-import
                                               delete-image
-                                              find-import-by-id]]))
+                                              find-import-by-id]]
+            [clj-money.models.entities :as entities]))
 
 (s/def ::id integer?)
 (s/def ::entity-name string?)
@@ -36,12 +37,15 @@
   (update-in import [:progress] json/generate-string))
 
 (defn- after-read
-  [imp & _]
+  [imp storage]
   (-> imp
       (update-in [:progress]
                  #(-> %
                       (json/parse-string true)
                       (select-keys [:account :transaction :budget :commodity :price])))
+      (assoc :entity-exists? (not (nil? (entities/find-by-name storage
+                                                               (:user-id imp)
+                                                               (:entity-name imp)))))
       (authorization/tag-resource :import)))
 
 (defn find-by-id

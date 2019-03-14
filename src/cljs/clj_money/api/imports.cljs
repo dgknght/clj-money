@@ -50,3 +50,14 @@
   (api/delete-resource (api/path :imports id)
                        success-fn
                        error-fn))
+
+(defn start
+  [{id :id} success-fn error-fn]
+  (go (let [path (str "/api/imports/" id "/start")
+            response (<! (http/put path {:headers {"Content-Type" "application/json"
+                                                   "Accept" "application/json"}}))]
+        (if (= 200 (:status response))
+          (success-fn)
+          (do
+            (.log js/console "Unable to start import " id ": " (prn-str response))
+            (error-fn (-> response :body :message)))))))

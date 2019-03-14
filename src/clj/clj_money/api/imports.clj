@@ -23,15 +23,15 @@
   [:budget :account :transaction :commodity :price])
 
 (defn- launch-and-track-import
-  [import]
+  [imp]
   (let [progress-chan (chan)]
     (go-loop [continue true]
              (when continue
                (let [progress (<! progress-chan)]
                  (imports/update (env :db)
-                                 (assoc import :progress progress))
+                                 (assoc imp :progress progress))
                  (recur (not (:finished progress))))))
-    (go (import-data (env :db) import progress-chan))))
+    (go (import-data (env :db) imp progress-chan))))
 
 (defn- infer-content-type
   [source-file]
@@ -71,7 +71,7 @@
             (-> imp
                 response
                 (status 201)))
-          (-> {:error (format "Unable to save the imp record. %s"
+          (-> {:error (format "Unable to save the impport record. %s"
                               (->> imp
                                    validation/error-messages
                                    vals
@@ -100,3 +100,9 @@
 (defn delete
   [{{id :id} :params}]
   (delete-resource id imports/find-by-id imports/delete))
+
+(defn start
+  [{{id :id} :params}]
+  (let [imp (imports/find-by-id (env :db) id)]
+    (launch-and-track-import imp)
+    (-> imp response (status 200))))

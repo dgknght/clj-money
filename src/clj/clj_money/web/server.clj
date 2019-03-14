@@ -210,6 +210,7 @@
   (model-route POST "/api/imports" imports-api/create)
   (model-route DELETE "/api/imports/:id" imports-api/delete)
   (model-route GET "/api/imports/:id" imports-api/show)
+  (model-route PUT "/api/imports/:id/start" imports-api/start)
 
   (GET "/" req pages/home)
   (GET "/login" req pages/login)

@@ -21,50 +21,6 @@
                   #(secretary/dispatch! "/imports")
                   notify/danger))
 
-(defn- import-row
-  [imp]
-  ^{:key (str "import-row-" (:id imp))}
-  [:tr
-   [:td (:entity-name imp)]
-   [:td (util/format-date-time (:created-at imp))]
-   [:td
-    [:div.btn-group
-     (util/link-to nil
-                   (util/path :imports (:id imp))
-                   {:icon :eye-open
-                    :class "btn btn-info btn-xs"
-                    :title "Click here to view this import."})
-     (util/button nil
-                  #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
-                      (delete-import imp))
-                  {:icon :remove
-                   :class "btn btn-danger btn-xs"
-                   :title "Click here to remove this import."})]]])
-
-(defn- import-table
-  [imports]
-  [:table.table.table-striped
-   [:tbody
-   [:tr
-    [:th "Entity Name"]
-    [:th "Uploaded On"]
-    [:th (util/space)]]
-   (if @imports
-     (map import-row @imports)
-     [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]])]])
-
-(defn- import-list []
-  (let [imports (r/atom nil)]
-    (imports/get-all #(reset! imports %)
-                     notify/danger)
-    (with-layout
-      [:div.row
-       [:div.col-md-6
-        [:h1 "Imports"]
-        [import-table imports]
-        (util/link-to "Add" "/imports/new" {:class "btn btn-primary"
-                                            :title "Click here to import a new entity from another system."}) ]])))
-
 (defn- append-dropped-files
   [event import-data]
   (let [file-list (-> event .-dataTransfer .-files)
@@ -114,6 +70,64 @@
     (map progress-row (:progress @import-ref))]])
 
 (def auto-refresh (r/atom false))
+
+(defn- start-import
+  [{id :id :as imp}]
+  (imports/start imp
+                 (fn [i]
+                   (reset! auto-refresh true)
+                   (secretary/dispatch! (str "/imports/" (:id i))))
+                 notify/danger))
+
+(defn- import-row
+  [imp]
+  ^{:key (str "import-row-" (:id imp))}
+  [:tr
+   [:td (:entity-name imp)]
+   [:td (util/format-date-time (:created-at imp))]
+   [:td
+    [:div.btn-group
+     (util/button nil
+                  #(start-import imp)
+                  {:icon :play
+                   :disabled (:entity-exists? imp)
+                   :class "btn btn-success btn-xs"
+                   :title "Click here to start the import."})
+     (util/link-to nil
+                   (util/path :imports (:id imp))
+                   {:icon :eye-open
+                    :class "btn btn-info btn-xs"
+                    :title "Click here to view this import."})
+     (util/button nil
+                  #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
+                      (delete-import imp))
+                  {:icon :remove
+                   :class "btn btn-danger btn-xs"
+                   :title "Click here to remove this import."})]]])
+
+(defn- import-table
+  [imports]
+  [:table.table.table-striped
+   [:tbody
+   [:tr
+    [:th "Entity Name"]
+    [:th "Uploaded On"]
+    [:th (util/space)]]
+   (if @imports
+     (map import-row @imports)
+     [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]])]])
+
+(defn- import-list []
+  (let [imports (r/atom nil)]
+    (imports/get-all #(reset! imports %)
+                     notify/danger)
+    (with-layout
+      [:div.row
+       [:div.col-md-6
+        [:h1 "Imports"]
+        [import-table imports]
+        (util/link-to "Add" "/imports/new" {:class "btn btn-primary"
+                                            :title "Click here to import a new entity from another system."}) ]])))
 
 (declare load-import)
 (defn- receive-import
