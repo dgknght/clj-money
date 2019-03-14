@@ -98,9 +98,11 @@
   "Finds the entity having the specified name
   for the specified user"
   [storage-spec user entity-name]
-  (->> (select storage-spec (:id user))
-       (filter #(= entity-name (:name %)))
-       first))
+
+  (let [user-id (or (:id user) user)]
+    (->> (select storage-spec user-id)
+         (filter #(= entity-name (:name %)))
+         first)))
 
 (defn find-or-create
   "Finds the entity with the specified name for the
