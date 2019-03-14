@@ -538,6 +538,8 @@
                :in-fn (model-in-fn accounts :path)
                :out-fn (fn [v] (if (iterable? v) (first v) v))
                :result-fn (fn [[path id]] path)}]]
+   [:td [:input.form-control {:field :text
+                              :id [:items index :memo]}]]
    [:td [:input.form-control {:field :numeric
                               :id [:items index :credit-quantity]}]]
    [:td [:input.form-control {:field :numeric
@@ -564,6 +566,7 @@
     [:thead
      [:tr
       [:td "Account"]
+      [:td "Memo"]
       [:td "Credit Amount"]
       [:td "Debit Amount"]]]
     [:tbody
