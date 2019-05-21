@@ -26,5 +26,15 @@ To start again
 (.start server)
 ```
 
+## Running on Heroku
+```
+heroku create my-app-name
+heroku addons:create heroku-postgres:hobby-dev
+heroku config:set DB=<value of DATABASE_URL> PARTITION_PERIOD=year
+git push heroku master
+heroku run lein migrate
+heroku run lein partition <start-date> <end-date>
+heroku open
+
 ## License
 Distributed under the Eclipse Public License, the same as Clojure.
