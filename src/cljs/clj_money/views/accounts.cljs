@@ -4,9 +4,11 @@
             [reagent-forms.core :refer [bind-fields]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
+            [cljs.core.async :refer [chan <! >! go-loop go]]
             [cljs-time.core :as t]
             [cljs-time.format :as f]
             [clj-money.macros :refer-macros [with-retry]]
+            [clj-money.components :refer [load-on-scroll]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.transaction-items :as transaction-items]
@@ -367,27 +369,57 @@
                                               (t/today))))]
     [start (-> start (t/plus (t/months 2)) t/last-day-of-the-month)]))
 
-(defn- get-items
-  ([context] (get-items context nil))
-  ([{:keys [account items] :as context} prev-date-range]
-   (let [[start end :as date-range] (next-query-range context prev-date-range)]
-     (transaction-items/search
-       {:account-id (:id @account)
-        :transaction-date [:between start end]}
-       (fn [result]
-         (swap! items
-                (fnil concat [])
-                (map #(polarize-item % @account) result))
-         (when (query-again? @items)
-           (get-items context date-range)))
-       notify/danger))))
+(defn- init-item-loading
+  [{:keys [account ctl-chan items] :as context}]
+  (let [end (-> @account :latest-transaction-date t/first-day-of-the-month)
+        start (-> @account :earliest-transaction-date t/first-day-of-the-month)
+        items-chan (chan)]
+
+    ; handle items received on the items channel
+    (go-loop [call-count 0]
+             (when-let [received (<! items-chan)]
+               (swap! items #((fnil concat []) % received))
+               (recur (inc call-count))))
+
+    ; response to requests for more items by querying
+    ; the service and putting the retrieved items
+    ; on the items channel
+    (go-loop [date-ranges (->> (desc-periodic-seq start end (t/months 1))
+                               (map #(vector :between % (t/last-day-of-the-month %))))]
+             (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause
+                   count-needed (if (number? action)
+                                  action
+                                  50)]
+               (when (not= :quit action)
+                 (transaction-items/search
+                   {:account-id (:id @account)
+                    :transaction-date (first date-ranges)}
+                   #(go
+                      (>! items-chan %)
+                      (when (< (count %)
+                               count-needed)
+                        (>! ctl-chan (- count-needed (count %)))))
+                   notify/danger))
+               (if (and (not= :quit action)
+                        (seq (rest date-ranges)))
+                 (recur (rest date-ranges))
+                 (reset! (:more-items? context) false))))
+
+    ; Get the first batch
+    (go (>! ctl-chan :fetch))))
+
+(defn- reset-item-loading
+  [context]
+  (reset! (:items context) nil)
+  (reset! (:transaction context) nil)
+  (go (>! (:ctl-chan context) :quit))
+  (init-item-loading context))
 
 (defn- delete-transaction
   [item context]
    (transactions/delete (item->tkey item)
                         (fn [& _]
-                          (reset! (:items context) nil)
-                          (get-items context nil))
+                          (reset-item-loading context))
                         notify/danger))
 
 (defn- item-row
@@ -444,10 +476,8 @@
       (dissoc :debit-quantity :credit-quantity)))
 
 (defn- handle-saved-transaction
-  [_ {:keys [transaction items] :as context}]
-  (reset! transaction nil)
-  (reset! items nil)
-  (get-items context))
+  [_  context]
+  (reset-item-loading context))
 
 (defmulti ^:private prepare-transaction-for-save
   (fn [transaction _]
@@ -573,14 +603,19 @@
 
 (defn- show-account
   [id]
-  (let [{:keys [account] :as context} {:account (r/atom nil)
-                                       :transaction (r/atom nil)
-                                       :items (r/atom nil)}]
+  (let [{:keys [items
+                more-items?
+                ctl-chan]
+         :as context} {:account (r/atom nil)
+                       :transaction (r/atom nil)
+                       :ctl-chan (chan)
+                       :more-items? (atom true)
+                       :items (r/atom nil)}]
     (load-accounts)
     (accounts/get-one id
                       (fn [a]
-                        (update-in context [:account] #(reset! % a))
-                        (get-items context))
+                        (update-in context [:account] reset! a)
+                        (init-item-loading context))
                       notify/danger)
     (with-layout
       [:section
@@ -592,8 +627,12 @@
          [:div.panel.panel-default
           [:div.panel-heading
            [:h2.panel-title "Transaction Items"]]
-          [:div.panel-body {:style {:height "40em" :overflow "auto"}}
-           [items-table context]]]
+          [:div#items-container.panel-body {:style {:height "40em" :overflow "auto"}}
+           [items-table context]]
+          [:div.panel-footer
+           [load-on-scroll {:target "items-container"
+                            :can-load-more? (fn [] @more-items?)
+                            :load-fn #(go (>! ctl-chan :fetch))}]]]
          [account-buttons context]]
         [:div.col-md-6
          [transaction-form context]]]])))
