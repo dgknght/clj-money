@@ -1,5 +1,6 @@
 (ns clj-money.components
-  (:require [reagent.core :as r]))
+  (:require [cljs.core.async :refer [go]]
+            [reagent.core :as r]))
 
 (defn- debounce
   [timeout f]
@@ -12,8 +13,18 @@
                                timeout)))))
 
 (defn load-on-scroll
-  [{:keys [target] :as props}]
-  (let [message (r/atom "")
+  "Adds load-on-scroll behavior to a component.
+  
+  props has the following attributes
+    :load-fn                  - the function that loads for items on queue
+    :can-load-more?           - a function that returns true if more items are available
+    :partially-loaded-content - content to be rendered when the items are partially loaded
+    :fully-loaded-content     - content to be displayed when the items are fully loaded
+    :loading-content          - content to be dislpayed when the items are actively loading"
+  [{:keys [target partially-loaded-content]
+    :or {partially-loaded-content "partially loaded"}
+    :as props}]
+  (let [message (r/atom partially-loaded-content)
         should-load-more? (fn [e]
                             (let [target (.-target e)
                                   scroll-top (.-scrollTop target)
@@ -23,13 +34,19 @@
                                   threshold 200]
                               (< remaining threshold)))
         scroll-listener (fn [this e]
-                          (let [{:keys [load-fn can-load-more?]} (r/props this)]
+                          (let [{:keys [load-fn
+                                        can-load-more?
+                                        fully-loaded-content
+                                        loading-content]
+                                 :or {fully-loaded-content "All items loaded."
+                                      loading-content "loading..."}}
+                                (r/props this)]
                             (if (can-load-more?)
                               (when (should-load-more? e)
-                                (reset! message "loading...") ; this never shows because load-fn is asynchronous and returns immediately
+                                (reset! message loading-content)
                                 (load-fn)
-                                (reset! message "Items partially loaded."))
-                              (reset! message "All items loaded."))))
+                                (js/setTimeout #(reset! message partially-loaded-content) 250)) ; a callback would be nice, but complicated. Let's just show a brief message
+                              (reset! message fully-loaded-content))))
         debounced-scroll-listener (debounce 200 scroll-listener)
         attach-scroll-listener (fn [this]
                                  (let [targetElem (if target
