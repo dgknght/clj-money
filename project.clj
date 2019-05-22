@@ -101,4 +101,5 @@
             "recalc"                ["run" "-m" "clj-money.tasks/recalc"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
-  :profiles {:production {:env {:production true}}})
+  :profiles {:production {:env {:production true}}
+             :uberjar {:prep-tasks ["compile" ["cljsbuild" "once"]]}})
