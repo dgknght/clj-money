@@ -40,7 +40,8 @@
         expected [{:entity-name "import entity"
                    :user-id (:id user)
                    :progress {}
-                   :image-ids (map :id (:images context))}]]
+                   :image-ids (map :id (:images context))
+                   :entity-exists? false}]]
     (pprint-diff expected actual)
     (is (= expected actual))))
 
