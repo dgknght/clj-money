@@ -345,8 +345,7 @@
 
 (defn- process-output
   "Writes the records to the next output file and resets the record buffer"
-  [{:keys [verbose
-           records
+  [{:keys [records
            output-folder
            file-name
            output-paths
@@ -357,19 +356,19 @@
                               output-folder
                               file-name
                               (count output-paths))]
+      (>!! progress-chan [:message "compressing and writing records..."])
       (binding [*print-meta* true]
         (with-open [writer (io/writer (GZIPOutputStream. (FileOutputStream. output-path)))]
           (with-precision 4
             (.write writer (prn-str records)))))
-      (>!! progress-chan [:output-path output-path])
+      (>!! progress-chan [:message output-path])
       (-> context
           (assoc :records [])
           (update-in [:output-paths] #(conj % output-path))))
     context))
 
 (def ^:private chunk-file-options
-  [["-v" "--verbose" "Print a lot of details about what's going on"]
-   ["-m" "--maximum MAXIMUM" "The maximum number of records to include in each output file"
+  [["-m" "--maximum MAXIMUM" "The maximum number of records to include in each output file"
     :parse-fn #(Integer/parseInt %)
     :default 1000]])
 
@@ -409,7 +408,7 @@
       true)))
 
 (defn- filter-record
-  ([xf]
+  ([progress-chan xf]
    (let [filter-state (atom {})]
      (fn
        ([] (xf))
@@ -417,7 +416,9 @@
        ([result record]
         (if (keep-record? record filter-state)
           (xf result record)
-          result))))))
+          (do
+            (>!! progress-chan [:dot])
+            result)))))))
 
 (defn- evaluate-output
   "Evaluates the output for the chunking process
@@ -462,12 +463,11 @@
                    (try
                      (->> (read-source :gnucash input-stream)
                           (transduce
-                            (comp filter-record
+                            (comp (partial filter-record progress-chan)
                                   append-record
                                   (partial notify-record progress-chan))
                             evaluate-output
                             {:output-paths []
-                             :verbose (-> opts :options :verbose)
                              :records []
                              :max-record-count (-> opts :options :maximum)
                              :file-name (second (re-matches #"^(.+)(\..+)$" file-name))
@@ -480,11 +480,12 @@
     (go-loop [value (<! progress-chan)]
              (case (first value)
                :record
-               (when (not (:verbose opts))
-                 (print (-> value second meta :record-type name first))
-                 (flush))
-               :output-path
+               (print (-> value second meta :record-type name first))
+               :dot
+               (print ".")
+               :message
                (println "\n" (second value)))
+             (flush)
              (recur (<! progress-chan)))
     (println "reading the source file...")
     (<!! result)
