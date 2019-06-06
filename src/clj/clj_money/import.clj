@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [>!!]]
+            [clojure.core.async :refer [<!! >!! chan] :as async]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -19,8 +19,12 @@
             [clj-money.models.imports :as imports]
             [clj-money.models.helpers :refer [with-transacted-storage]]))
 
+(defn- ignore?
+  [record]
+  (-> record meta :ignore?))
+
 (defmulti read-source
-  (fn [source-type _]
+  (fn [source-type & _]
     source-type))
 
 (defn- import-price
@@ -126,18 +130,37 @@
   context)
 
 (defmethod ^:private import-transaction :buy
-  [context transaction]
+  [{:keys [accounts storage] :as context} transaction]
   (let [purchase {:commodity-id (->> context
                                      :commodities
                                      (filter #(and (= (:symbol %) (:symbol transaction))
                                                    (= (:exchange %) (:exchange transaction))))
                                      first
                                      :id)
-                  :account-id ((:accounts context) (:account-id transaction))
+                  :commodity-account-id (accounts (:commodity-account-id transaction))
+                  :account-id (accounts (:account-id transaction))
                   :trade-date (:transaction-date transaction)
                   :shares (:shares transaction)
-                  :value (:quantity (first (:items transaction)))}]
-    (trading/buy (:storage context) purchase))
+                  :value (or (:value transaction)
+                             (:quantity (first (:items transaction))))}]
+    (trading/buy storage purchase))
+  context)
+
+(defmethod ^:private import-transaction :sell
+  [{:keys [accounts storage] :as context} transaction]
+  (let [sale {:commodity-id (->> context
+                                 :commodities
+                                 (filter #(and (= (:symbol %) (:symbol transaction))
+                                               (= (:exchange %) (:exchange transaction))))
+                                 first
+                                 :id)
+              :commodity-account-id (accounts (:commodity-account-id transaction))
+              :account-id (accounts (:account-id transaction))
+              :trade-date (:transaction-date transaction)
+              :shares (:shares transaction)
+              :value (or (:value transaction)
+                         (:quantity (first (:items transaction))))}]
+    (trading/sell storage sale))
   context)
 
 (defmethod ^:private import-transaction :transfer
@@ -191,17 +214,26 @@
     [(map #(io/input-stream (byte-array (:body %))) images)
      source-type]))
 
+(def ^:private reportable-record-types
+  #{:commodity :price :account :transaction :budget})
+
+(defn- report-progress?
+  [record]
+  (reportable-record-types (-> record meta :record-type)))
+
 (defn- inc-progress
   [xf]
   (fn
     ([context] (xf context))
     ([context record]
-     (xf
-       (update-in context [:progress
-                           (-> record meta :record-type)
-                           :imported]
-                  (fnil inc 0))
-       record))))
+     (if (report-progress? record)
+       (xf
+         (update-in context [:progress
+                             (-> record meta :record-type)
+                             :imported]
+                    (fnil inc 0))
+         record)
+       (xf context record)))))
 
 (defmulti import-record*
   (fn [_ record]
@@ -239,14 +271,9 @@
     ([] (xf))
     ([context] (xf context))
     ([context record]
-     (xf (import-record* context record) record))))
-
-(def ^:private reportable-record-types
-  #{:commodity :price :account :transaction :budget})
-
-(defn- report-progress?
-  [record]
-  (reportable-record-types (-> record meta :record-type)))
+     (if (ignore? record)
+       (xf context record)
+       (xf (import-record* context record) record)))))
 
 (defn- notify-progress
   ([progress-chan context] context)
@@ -266,20 +293,19 @@
           entity (entities/find-or-create s
                                           user
                                           (:entity-name import-spec))
-          result (transactions/with-delayed-balancing s (:id entity)
-                   (->> inputs
-                        (mapcat #(read-source source-type %))
-                        (transduce (comp (remove #(-> % meta :ignore?))
-                                         import-record
-                                         (filter #(report-progress? %))
-                                         inc-progress)
-                                   (partial notify-progress progress-chan)
-                                   {:storage s
-                                    :import import-spec
-                                    :progress {}
-                                    :accounts {}
-                                    :entity entity})))]
-      (>!! progress-chan (-> result
-                             :progress
-                             (assoc :finished true)))
+          out-chan (chan)
+          result-chan (async/transduce (comp import-record
+                                             inc-progress)
+                                       (partial notify-progress progress-chan)
+                                       {:storage s
+                                        :import import-spec
+                                        :progress {}
+                                        :accounts {}
+                                        :entity entity}
+                                       out-chan)]
+      (transactions/with-delayed-balancing s (:id entity)
+        (read-source source-type inputs out-chan)
+        (>!! progress-chan (-> (<!! result-chan)
+                               :progress
+                               (assoc :finished true))))
       entity)))

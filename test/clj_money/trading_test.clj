@@ -219,28 +219,6 @@
     (is (= 5M (:quantity (accounts/reload storage-spec inv-exp)))
         "The investment expense account reflects the fee")))
 
-(deftest purchase-requires-a-commodity-id
-  (let [context (serialization/realize storage-spec purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        result (trading/buy storage-spec (-> context
-                                             (purchase-attributes)
-                                             (dissoc :commodity-id)))]
-    (is (= ["Commodity id is required"]
-           (validation/error-messages result :commodity-id))
-        "The validation message indicates the error")))
-
-(deftest purchase-requires-an-account-id
-  (let [context (serialization/realize storage-spec purchase-context)
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        result (trading/buy storage-spec (-> context
-                                             (purchase-attributes)
-                                             (dissoc :account-id)))]
-    (is (= ["Account id is required"]
-           (validation/error-messages result :account-id))
-        "The validation message indicates the error")))
-
 (deftest purchase-requires-a-trade-date
   (let [context (serialization/realize storage-spec purchase-context)
         ira (find-account context "IRA")
@@ -504,24 +482,6 @@
     (is (= 5M (:quantity (accounts/reload storage-spec inv-exp)))
         "The investment fee account balance reflects the fee")))
 
-(deftest sales-requires-an-account-id
-  (let [context (serialization/realize storage-spec (sell-context))
-        result (trading/sell storage-spec (-> context
-                                              sale-attributes
-                                              (dissoc :account-id)))]
-    (is (= ["Account id is required"]
-           (validation/error-messages result :account-id))
-        "The correct validation error is present")))
-
-(deftest sales-requires-a-commodity-id
-  (let [context (serialization/realize storage-spec (sell-context))
-        result (trading/sell storage-spec (-> context
-                                              sale-attributes
-                                              (dissoc :commodity-id)))]
-    (is (= ["Commodity id is required"]
-           (validation/error-messages result :commodity-id))
-        "The correct validation error is present")))
-
 (deftest sales-requires-a-trade-date
   (let [context (serialization/realize storage-spec (sell-context))
         result (trading/sell storage-spec (-> context
@@ -555,42 +515,6 @@
                                               (dissoc :value)))]
     (is (= ["Value is required"]
            (validation/error-messages result :value))
-        "The correct validation error is present")))
-
-(deftest sales-requires-a-long-term-capital-gains-account-id
-  (let [context (serialization/realize storage-spec (sell-context))
-        result (trading/sell storage-spec (-> context
-                                              sale-attributes
-                                              (dissoc :lt-capital-gains-account-id)))]
-    (is (= ["Lt capital gains account id is required"]
-           (validation/error-messages result :lt-capital-gains-account-id))
-        "The correct validation error is present")))
-
-(deftest sales-requires-a-long-term-capital-loss-account-id
-  (let [context (serialization/realize storage-spec (sell-context))
-        result (trading/sell storage-spec (-> context
-                                              sale-attributes
-                                              (dissoc :lt-capital-loss-account-id)))]
-    (is (= ["Lt capital loss account id is required"]
-           (validation/error-messages result :lt-capital-loss-account-id))
-        "The correct validation error is present")))
-
-(deftest sales-requires-a-short-term-capital-gains-account-id
-  (let [context (serialization/realize storage-spec (sell-context))
-        result (trading/sell storage-spec (-> context
-                                              sale-attributes
-                                              (dissoc :st-capital-gains-account-id)))]
-    (is (= ["St capital gains account id is required"]
-           (validation/error-messages result :st-capital-gains-account-id))
-        "The correct validation error is present")))
-
-(deftest sales-requires-a-short-term-capital-loss-account-id
-  (let [context (serialization/realize storage-spec (sell-context))
-        result (trading/sell storage-spec (-> context
-                                              sale-attributes
-                                              (dissoc :st-capital-loss-account-id)))]
-    (is (= ["St capital loss account id is required"]
-           (validation/error-messages result :st-capital-loss-account-id))
         "The correct validation error is present")))
 
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account

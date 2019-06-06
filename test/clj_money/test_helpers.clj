@@ -194,7 +194,9 @@
 
 (defn pprint-diff
   [expected actual]
-  (when (not= expected actual)
-    (pprint {:expected expected
-             :actual actual
-             :diff (diff expected actual)})))
+  (let [d (diff expected actual)]
+    (when (or (first d)
+              (second d))
+      (pprint {:expected expected
+               :actual actual
+               :diff d}))))

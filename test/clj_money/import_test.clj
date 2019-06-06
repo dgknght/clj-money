@@ -64,30 +64,40 @@
               :image-ids (map :original-filename (source-type images))}]})
 
 (def expected-updates
-  (concat [{:commodity {:total 2
+  (concat [{:commodity   {:total 2}} ; declare commodities
+           {:commodity   {:total 2}
+            :account     {:total 9}} ; declare accounts
+           {:commodity   {:total 2}
+            :account     {:total 9}
+            :transaction {:total 6}} ; declare transactions
+           {:commodity {:total 2
                         :imported 1}
             :account {:total 9}
+            :transaction {:total 6}} ; import a commodity
+           {:commodity {:total 2
+                        :imported 2} ; import a commodity
+            :account {:total 9}
             :transaction {:total 6}}]
-          (map (fn [i] {:commodity {:total 2
-                                    :imported 1}
+          (map (fn [i] {:commodity {:total 2         ; import accounts
+                                    :imported 2}
                         :account {:total 9
                                   :imported (+ 1 i)}
                         :transaction {:total 6}})
-               (range 4))
-          (map (fn [i] {:commodity {:total 2
-                                    :imported 1}
+               (range 9))
+          (map (fn [i] {:commodity {:total 2         ; import transactions
+                                    :imported 2}
                         :account {:total 9
-                                  :imported 4}
+                                  :imported 9}
                         :transaction {:total 6
                                       :imported (+ 1 i)}})
                (range 6))
           [{:commodity {:total 2
-                        :imported 1}
+                        :imported 2}
             :account {:total 9
-                      :imported 4}
+                      :imported 9}
             :transaction {:total 6
                           :imported 6}
-            :finished true}]))
+            :finished true}]))                        ; indicate we're finished
 
 (def ^:private expected-inc-stmt
   [{:caption "Income"
@@ -173,6 +183,7 @@
         entity (import-data storage-spec imp progress-chan)
         actual-accounts (->> {:entity-id (:id entity)}
                              (accounts/search storage-spec)
+                             (sort-by :name)
                              (map #(select-keys % [:name
                                                    :type
                                                    :commodity-id
@@ -372,7 +383,7 @@
             lots (lots/search storage-spec {:commodity-id (:id aapl)})
             expected-lots [{:purchase-date (t/local-date 2015 1 17)
                             :shares-purchased 200M
-                            :shares-owned 200M
+                            :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
                             :purchase-price 5M ; originally purchased 100 shares at $10/share
                             :commodity-id (:id aapl)
                             :account-id (:id ira)}]
@@ -405,7 +416,15 @@
                                  :account-id (:id ira-aapl)
                                  :quantity 100M
                                  :balance 200M
-                                 :value 0M}]
+                                 :value 0M}
+                                {:description "Sell 100 shares of AAPL at 6.000"
+                                 :index 2
+                                 :value 500M ; this is reflecting the original value, not the sale value...is that right?
+                                 :account-id (:id ira-aapl)
+                                 :balance 100M
+                                 :transaction-date (t/local-date 2015 5 1)
+                                 :action :credit
+                                 :quantity 100M}]
             actual-ira-items (->> {:account-id (:id ira-aapl)}
                                   (transactions/search-items storage-spec)
                                   (map #(dissoc % :created-at

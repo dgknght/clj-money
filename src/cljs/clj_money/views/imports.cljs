@@ -51,12 +51,25 @@
   ^{:key (str "progress-" (name progress-type))}
   [:tr
      [:td.col-sm-3 (name progress-type)]
-     [:td.col-sm-3.text-right total]
-     [:td.col-sm-3.text-right imported]
-     [:td.col-sm-3.text-right
-      (util/format-percent (* 100 (/ imported total)))
-      #_[:div.progress-bar {:id (str "progress-" (name progress-type))
-                          :style {:width "100%"}}]]])
+     [:td.col-sm-9.text-center
+      [:div.progress
+       (let [perc (* 100 (/ imported total))]
+         [:div.progress-bar.text-center {:aria-valuenow imported
+                                         :aria-valuemax total
+                                         :aria-valuemin 0
+                                         :role "progressbar"
+                                         :class (cond
+                                                  (> perc 100)
+                                                  "progress-bar-danger progress-bar-striped active"
+                                                  (= perc 100)
+                                                  "progress-bar-info"
+                                                  :else
+                                                  "progress-bar-info progress-bar-striped active")
+                                         :style {"width" (str (if (> perc 100)
+                                                                100
+                                                                perc)
+                                                              "%")}}
+          (util/format-percent perc)])]]])
 
 (defn- progress-table
   [import-ref]
@@ -64,9 +77,7 @@
    [:tbody
     [:tr
      [:th.col-sm-3 "Record Type"]
-     [:th.col-sm-3.text-right "Total"]
-     [:th.col-sm-3.text-right "Imported"]
-     [:th.col-sm-3.text-right "Progress"]]
+     [:th.col-sm-9.text-center "Progress"]]
     (map progress-row (:progress @import-ref))]])
 
 (def auto-refresh (r/atom false))

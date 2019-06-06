@@ -103,5 +103,6 @@
                    (desc-periodic-seq (t/minus end period-like)
                                       period-like))))
   ([start end period-like]
-   (take-while #(t/after? % start)
+   (take-while #(or (t/after? % start)
+                    (t/equal? % start))
                  (desc-periodic-seq end period-like))))

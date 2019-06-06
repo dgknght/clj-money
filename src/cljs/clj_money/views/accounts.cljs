@@ -428,7 +428,7 @@
   [:tr
    [:td.text-right (util/format-date (:transaction-date item))]
    [:td (:description item)]
-   [:td.text-right (currency-format (:polarized-value item))]
+   [:td.text-right (currency-format (:polarized-quantity item))]
    [:td.text-right (currency-format (:balance item))]
    [:td
     [:div.btn-group

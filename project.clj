@@ -10,6 +10,7 @@
                                                                 org.clojure/tools.reader]]
                  [org.clojure/tools.cli "0.3.7" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.reader "1.1.0"]
+                 [org.clojure/data.xml "0.2.0-alpha6"]
                  [slingshot "0.12.2" :exclusions [org.clojure/tools.reader]]
                  [clj-http "3.9.0" :exclusions [org.clojure/tools.reader]]
                  [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]

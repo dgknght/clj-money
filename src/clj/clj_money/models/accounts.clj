@@ -172,6 +172,7 @@
               :rules-fn validation-rules
               :coercion-rules coercion-rules
               :spec ::new-account}))
+
 (defn reload
   "Returns a fresh copy of the specified account from the data store"
   [storage-spec {:keys [id]}]

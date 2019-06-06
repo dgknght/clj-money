@@ -4,6 +4,7 @@
             [clojure.java.io :as io]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
+            [clojure.core.async :refer [chan <!! <! go-loop] :as async]
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
@@ -16,8 +17,8 @@
             [clj-money.import :refer [read-source]]
             [clj-money.import.gnucash :as gnucash]))
 
-(def ^:private input
-  (io/input-stream "resources/fixtures/budget_sample.gnucash"))
+(defn- input []
+  [(io/input-stream "resources/fixtures/budget_sample.gnucash")])
 
 (def ids
   {:checking    "ed92489659ab879fb9354a3a050fb65d"
@@ -72,60 +73,72 @@
     :items [{:action :debit
              :account-id (:checking ids)
              :quantity 1000M
+             :value 1000M
              :reconciled false}
             {:action :credit
              :account-id (:salary ids)
              :quantity 1000M
+             :value 1000M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 4)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:groceries ids)
              :quantity 100M
+             :value 100M
              :reconciled false}
             {:action :credit
              :account-id (:checking ids)
              :quantity 100M
+             :value 100M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 11)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:groceries ids)
              :quantity 100M
+             :value 100M
              :reconciled false}
             {:action :credit
              :account-id (:checking ids)
              :quantity 100M
+             :value 100M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 12)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:checking ids)
              :quantity 10M
+             :value 10M
              :reconciled false}
             {:action :credit
              :account-id (:groceries ids)
              :quantity 10M
+             :value 10M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 15)
     :description "Paycheck"
     :items [{:action :debit
              :account-id (:checking ids)
              :quantity 1000M
+             :value 1000M
              :reconciled false}
             {:action :credit
              :account-id (:salary ids)
              :quantity 1000M
+             :value 1000M
              :reconciled false}]}
    {:transaction-date (t/local-date 2015 1 18)
     :description "Kroger"
     :items [{:action :debit
              :account-id (:groceries ids)
              :quantity 100M
+             :value 100M
              :reconciled false}
             {:action :credit
              :account-id (:credit-card ids)
              :quantity 100M
+             :value 100M
              :reconciled false}]}])
 
 (def ^:private budgets
@@ -194,18 +207,31 @@
                  [record-type]
                  #((fnil conj []) % record)))))
 
-(deftest read-gnucash-source
-  (let [found (reduce track-record {} (read-source :gnucash input))]
-    (is (= declarations (:declaration found)) "The correct declarations are found")
-    (pprint-diff accounts (:account found))
-    (is (= accounts (:account found)) "The correct accounts are found")
-    (pprint-diff budgets (:budget found))
-    (is (= budgets (:budget found)) "The current budgets are found")
-    (pprint-diff transactions (:transaction found))
-    (is (= transactions (:transaction found)) "The correct transactions are found")))
+(defn- execute-import
+  [input-fn]
+  (let [records-chan (chan)
+        result (async/reduce
+                 track-record
+                 {}
+                 records-chan)]
+    (read-source :gnucash (input-fn) records-chan)
+    (<!! result)))
 
-(def ^:private commodities-input
-  (io/input-stream "resources/fixtures/sample_with_commodities.gnucash"))
+(defn- test-result
+  [found]
+  (is (= declarations (:declaration found)) "The correct declarations are found")
+  (pprint-diff accounts (:account found))
+  (is (= accounts (:account found)) "The correct accounts are found")
+  (pprint-diff budgets (:budget found))
+  (is (= budgets (:budget found)) "The current budgets are found")
+  (pprint-diff transactions (:transaction found))
+  (is (= transactions (:transaction found)) "The correct transactions are found"))
+
+(deftest read-gnucash-source
+  (test-result (execute-import input)))
+
+(defn-  commodities-input []
+  [(io/input-stream "resources/fixtures/sample_with_commodities.gnucash")])
 
 (def ^:private commodities
   [{:name "USD"
@@ -252,94 +278,126 @@
                             :symbol "AAPL"}}])
       set))
 
+(defn- test-commodity-results
+  [found]
+  (pprint-diff commodities (:commodity found))
+  (is (= commodities (:commodity found)) "The correct commodities are found")
+  (pprint-diff prices (:price found))
+  (is (= prices (:price found)) "The correct prices are found")
+  (pprint-diff commodity-declarations (set (:declaration found)))
+  (is (= commodity-declarations (set (:declaration found)))
+      "The correct declarations are found")
+  (pprint-diff accounts-with-commodities (set (:account found)))
+  (is (= accounts-with-commodities
+         (set (:account found)))
+      "The correct accounts are found"))
+
 (deftest read-gnucash-source-with-commodities
-  (let [found (reduce track-record {} (read-source :gnucash commodities-input))]
-    (pprint-diff commodities (:commodity found))
-    (is (= commodities (:commodity found)) "The correct commodities are found")
-    (pprint-diff prices (:price found))
-    (is (= prices (:price found)) "The correct prices are found")
-    (pprint-diff commodity-declarations (set (:declaration found)))
-    (is (= commodity-declarations (set (:declaration found)))
-        "The correct declarations are found")
-    (pprint-diff accounts-with-commodities (set (:account found)))
-    (is (= accounts-with-commodities
-           (set (:account found)))
-        "The correct accounts are found")))
+  (test-commodity-results (execute-import commodities-input)))
 
-(def ^:private extended-commodities-input
-  (io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash"))
+(defn- extended-commodities-input []
+  [(io/input-stream "resources/fixtures/sample_with_commodities_ext.gnucash")])
 
-(deftest read-gnucash-source-with-trading-actions
-  (let [found (reduce track-record {} (read-source
-                                        :gnucash
-                                        extended-commodities-input))
-        expected-transactions [{:transaction-date (t/local-date 2015 1 16)
-                                :description "Retirement"
-                                :items [{:action :debit
-                                         :account-id (:401k ids)
-                                         :quantity 1000M
-                                         :reconciled false}
-                                        {:action :credit
-                                         :account-id (:checking ids)
-                                         :quantity 1000M
-                                         :reconciled false}]}
-                               {:transaction-date (t/local-date 2015 1 17)
-                                :description "Purchase shares AAPL"
-                                :action :buy
-                                :symbol "AAPL"
-                                :exchange :nasdaq
-                                :shares 100M
-                                :account-id (:401k ids)
-                                :commodity-account-id (:apple-401k ids)
-                                :items [{:action :debit
-                                         :account-id (:apple-401k ids)
-                                         :quantity 1000M
-                                         :reconciled false}
-                                        {:action :credit
-                                         :account-id (:401k ids)
-                                         :quantity 1000M
-                                         :reconciled false}]}
-                               {:transaction-date (t/local-date 2015 3 2)
-                                :description "Transfer shares of AAPL"
-                                :action :transfer
-                                :shares 100M
-                                :value 1000M
-                                :from-account-id (:apple-401k ids)
-                                :to-account-id (:apple-ira ids)
-                                :items [{:action :debit
-                                         :account-id (:apple-ira ids)
-                                         :quantity 1000M
-                                         :reconciled false}
-                                        {:action :credit
-                                         :account-id (:apple-401k ids)
-                                         :quantity 1000M
-                                         :reconciled false}]}
-                               {:transaction-date (t/local-date 2015 4 1)
-                                :description "Stock Split"
-                                :action :split
-                                :split-date (t/local-date 2015 4 1)
-                                :shares-gained 100M
-                                :commodity-account-id (:apple-ira ids)
-                                :items [{:action :debit
-                                         :account-id (:apple-ira ids)
-                                         ; TODO add some shares here
-                                         :quantity 0M
-                                         :reconciled false}
-                                        {:action :debit
-                                         :account-id (:ira ids)
-                                         :quantity 1M
-                                         :reconciled false}
-                                        {:action :credit
-                                         :account-id (:other-inc ids)
-                                         :quantity 1M
-                                         :reconciled false}]}]
-        inv-account-ids (->> [:ira :apple-ira :401k :apple-401k]
+(def ^:private transactions-ext
+  [{:transaction-date (t/local-date 2015 1 16)
+    :description "Retirement"
+    :items [{:action :debit
+             :account-id (:401k ids)
+             :quantity 1000M
+             :value 1000M
+             :reconciled false}
+            {:action :credit
+             :account-id (:checking ids)
+             :quantity 1000M
+             :value 1000M
+             :reconciled false}]}
+   {:transaction-date (t/local-date 2015 1 17)
+    :description "Purchase shares AAPL"
+    :action :buy
+    ;:symbol "AAPL"
+    ;:exchange :nasdaq
+    :shares 100M
+    :value 1000M
+    ;:account-id (:401k ids)
+    :commodity-account-id (:apple-401k ids)
+    :items [{:action :debit
+             :account-id (:apple-401k ids)
+             :quantity 100M
+             :value 1000M
+             :reconciled false}
+            {:action :credit
+             :account-id (:401k ids)
+             :quantity 1000M
+             :value 1000M
+             :reconciled false}]}
+   {:transaction-date (t/local-date 2015 3 2)
+    :description "Transfer shares of AAPL"
+    :action :transfer
+    :shares 100M
+    :value 1000M
+    :from-account-id (:apple-401k ids)
+    :to-account-id (:apple-ira ids)
+    :items [{:action :debit
+             :account-id (:apple-ira ids)
+             :quantity 100M
+             :value 1000M
+             :reconciled false}
+            {:action :credit
+             :account-id (:apple-401k ids)
+             :quantity 100M
+             :value 1000M
+             :reconciled false}]}
+   {:transaction-date (t/local-date 2015 4 1)
+    :description "Stock Split"
+    :action :split
+    :split-date (t/local-date 2015 4 1)
+    :shares-gained 100M
+    :commodity-account-id (:apple-ira ids)
+    :items [{:action :debit
+             :account-id (:apple-ira ids)
+             ; TODO add some shares here
+             :value 0M
+             :quantity 100M
+             :reconciled false}
+            {:action :debit
+             :account-id (:ira ids)
+             :quantity 1M
+             :value 1M
+             :reconciled false}
+            {:action :credit
+             :account-id (:other-inc ids)
+             :quantity 1M
+             :value 1M
+             :reconciled false}]}
+   {:transaction-date (t/local-date 2015 5 1)
+    :description "Sell shares of AAPL"
+    :action :sell
+    :trade-date (t/local-date 2015 5 1)
+    :shares 100M
+    :commodity-account-id (:apple-ira ids)
+    :items [{:action :debit
+             :account-id (:ira ids)
+             :quantity 600M
+             :value 600M
+             :reconciled false}
+            {:action :credit
+             :account-id (:apple-ira ids)
+             :value 600M
+             :quantity 100M
+             :reconciled false}]}])
+
+(defn- test-trading-actions-result
+  [found]
+  (let [inv-account-ids (->> [:ira :apple-ira :401k :apple-401k]
                              (map #(% ids))
                              set)
         actual-transactions (filter (fn [transaction]
                                       (some #(inv-account-ids (:account-id %))
                                             (:items transaction)))
                                     (:transaction found))]
-    (pprint-diff expected-transactions actual-transactions)
-    (is (= expected-transactions actual-transactions)
+    (pprint-diff transactions-ext actual-transactions)
+    (is (= transactions-ext actual-transactions)
         "The correct transactions are found")))
+
+(deftest read-gnucash-source-with-trading-actions
+  (test-trading-actions-result (execute-import extended-commodities-input)))
