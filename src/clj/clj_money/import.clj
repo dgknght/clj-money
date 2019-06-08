@@ -17,7 +17,8 @@
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.imports :as imports]
-            [clj-money.models.helpers :refer [with-transacted-storage]]))
+            [clj-money.models.helpers :refer [with-storage
+                                              with-transacted-storage]]))
 
 (defn- ignore?
   [record]
@@ -287,7 +288,7 @@
   with the specified name is found, it is used, otherwise it
   is created"
   [storage-spec import-spec progress-chan]
-  (with-transacted-storage [s storage-spec]
+  (with-storage [s storage-spec]
     (let [user (users/find-by-id s (:user-id import-spec))
           [inputs source-type] (prepare-input s (:image-ids import-spec))
           entity (entities/find-or-create s

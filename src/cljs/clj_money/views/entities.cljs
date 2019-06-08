@@ -63,7 +63,7 @@
   [entity]
   (swap! state/entities
          #(map (fn [e]
-                 (if (= (:id e)  (:id entity))
+                 (if (= (:id e) (:id entity))
                    entity
                    e))
                %)))

@@ -6,6 +6,7 @@
             [cljs.core.async :refer [timeout
                                      <!]]
             [clj-money.util :as util]
+            [clj-money.state :as state]
             [clj-money.api.entities :as entities]
             [clj-money.api.imports :as imports]
             [clj-money.notifications :as notify]
@@ -195,9 +196,10 @@
   [import-data event]
   (.preventDefault event)
   (imports/create @import-data
-                  (fn [i]
+                  (fn [result]
                     (reset! auto-refresh true)
-                    (secretary/dispatch! (str "/imports/" (:id i))))
+                    (swap! state/entities conj (:entity result))
+                    (secretary/dispatch! (str "/imports/" (-> result :import :id))))
                   notify/danger))
 
 (defn- file-drop
