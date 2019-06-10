@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [<!! >!! chan] :as async]
+            [clojure.core.async :refer [<!! >!! chan go] :as async]
             [clj-money.util :refer [pprint-and-return
                                     pprint-and-return-l]]
             [clj-money.validation :as validation]
@@ -294,6 +294,7 @@
           entity (entities/find-or-create s
                                           user
                                           (:entity-name import-spec))
+          wait-promise (promise)
           out-chan (chan)
           result-chan (async/transduce (comp import-record
                                              inc-progress)
@@ -304,9 +305,12 @@
                                         :accounts {}
                                         :entity entity}
                                        out-chan)]
-      (transactions/with-delayed-balancing s (:id entity)
-        (read-source source-type inputs out-chan)
-        (>!! progress-chan (-> (<!! result-chan)
-                               :progress
-                               (assoc :finished true))))
-      entity)))
+      (go
+        (transactions/with-delayed-balancing s (:id entity)
+          (read-source source-type inputs out-chan)
+          (>!! progress-chan (-> (<!! result-chan)
+                                 :progress
+                                 (assoc :finished true))))
+        (deliver wait-promise true))
+      {:entity entity
+       :wait wait-promise})))

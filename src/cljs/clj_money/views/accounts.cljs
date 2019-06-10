@@ -371,8 +371,10 @@
 
 (defn- init-item-loading
   [{:keys [account ctl-chan items] :as context}]
-  (let [end (-> @account :latest-transaction-date t/first-day-of-the-month)
-        start (-> @account :earliest-transaction-date t/first-day-of-the-month)
+  (let [end (t/first-day-of-the-month (or (:latest-transaction-date @account)
+                                          (t/today))) ; This is probably only nil for newly imported entities
+        start (t/first-day-of-the-month (or (:earliest-transaction-date @account)
+                                            (t/minus- end (t/months 6))))
         items-chan (chan)]
 
     ; handle items received on the items channel

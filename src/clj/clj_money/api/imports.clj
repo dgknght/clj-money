@@ -31,7 +31,7 @@
                  (imports/update (env :db)
                                  (assoc imp :progress progress))
                  (recur (not (:finished progress))))))
-    (go (import-data (env :db) imp progress-chan))))
+    (import-data (env :db) imp progress-chan)))
 
 (defn- infer-content-type
   [source-file]
@@ -66,9 +66,9 @@
                                            :entity-name (:entity-name params)
                                            :image-ids (map :id images)})]
         (if (empty? (validation/error-messages imp))
-          (do
-            (launch-and-track-import imp)
-            (-> imp
+          (let [{:keys [entity]} (launch-and-track-import imp)]
+            (-> {:entity entity
+                 :import imp}
                 response
                 (status 201)))
           (-> {:error (format "Unable to save the impport record. %s"

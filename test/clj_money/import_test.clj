@@ -180,7 +180,8 @@
         _ (go-loop [p (<! progress-chan)]
                    (swap! updates #(conj % p))
                    (recur (<! progress-chan)))
-        entity (import-data storage-spec imp progress-chan)
+        {:keys [entity wait]} (import-data storage-spec imp progress-chan)
+        _ @wait
         actual-accounts (->> {:entity-id (:id entity)}
                              (accounts/search storage-spec)
                              (sort-by :name)
@@ -204,7 +205,6 @@
                                                   (:id entity))
         actual-bal-sheet (reports/balance-sheet storage-spec
                                                 (:id entity))]
-    (is entity "It returns a value")
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (pprint-diff expected-accounts actual-accounts)
     (is (= expected-accounts actual-accounts)
