@@ -196,10 +196,9 @@
   [import-data event]
   (.preventDefault event)
   (imports/create @import-data
-                  (fn [result]
+                  (fn [imp]
                     (reset! auto-refresh true)
-                    (swap! state/entities conj (:entity result))
-                    (secretary/dispatch! (str "/imports/" (-> result :import :id))))
+                    (secretary/dispatch! (str "/imports/" (:id imp))))
                   notify/danger))
 
 (defn- file-drop

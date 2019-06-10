@@ -16,12 +16,7 @@
   [entity]
   (when (js/confirm "Are you sure you want to delete this entity?")
     (entities/delete entity
-                     (fn []
-                       (swap! state/entities (fn [old-list]
-                                               (remove
-                                                 #(= (:id %)
-                                                     (:id entity))
-                                                 old-list))))
+                     #(state/remove-entity entity)
                      notify/danger)))
 
 (def ^:private entity-form
@@ -33,7 +28,7 @@
   [entity]
   (entities/create entity
                    (fn [created]
-                     (swap! state/entities #(conj % created))
+                     (state/add-entity created)
                      (secretary/dispatch! "/entities"))
                    #(notify/danger %)))
 
