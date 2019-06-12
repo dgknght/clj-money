@@ -295,21 +295,41 @@
         (update-in [:child-content] push-child-content child-content))))
 
 (defn- dispatch-record-type
-  [record]
+  [record & _]
   (-> record meta :record-type))
 
 (defmulti ^:private emit-record? dispatch-record-type)
 
 (defmethod ^:private emit-record? :default
-  [_]
+  [& _]
   true)
 
 (defmethod ^:private emit-record? :declaration
-  [record]
+  [record _]
   (not= :book (:record-type record)))
 
-(def ^:private filter-records
-  (filter emit-record?))
+(defmethod ^:private emit-record? :price
+  [record filter-state]
+  (let [trade-date (-> record :time :date parse-date)
+        trade-date-key ((juxt :space :id) (:commodity record))
+        last-trade-date (get-in @filter-state
+                                [:trade-dates trade-date-key]
+                                (t/local-date 1900 1 1))
+        cut-off (t/plus last-trade-date (t/months 1))]
+    (when (t/after? trade-date cut-off)
+      (swap! filter-state #(assoc-in % [:trade-dates trade-date-key] trade-date))
+      true)))
+
+(defn- filter-records
+  [xf]
+  (let [state (atom {})]
+    (fn
+      ([] (xf))
+      ([acc] (xf acc))
+      ([acc record]
+       (if (emit-record? record state)
+         (xf acc record)
+         acc)))))
 
 (defmulti ^:private process-record dispatch-record-type)
 
@@ -566,26 +586,6 @@
      :input-file input-file
      :file-name file-name
      :output-folder output-folder}))
-
-(defmulti ^:private keep-record?
-  (fn [record _]
-    (-> record meta :record-type)))
-
-(defmethod ^:private keep-record? :default
-  [_ _]
-  true)
-
-(defmethod ^:private keep-record? :price
-  [{:keys [trade-date] :as record} filter-state]
-  (let [key-fn (juxt :exchange :symbol)
-        trade-date-key (key-fn record)
-        last-trade-date (get-in @filter-state
-                                [:trade-dates trade-date-key]
-                                (t/local-date 1900 1 1))
-        cut-off (t/plus last-trade-date (t/months 1))]
-    (when (< 0 (compare trade-date cut-off))
-      (swap! filter-state #(assoc-in % [:trade-dates trade-date-key] trade-date))
-      true)))
 
 (defn- evaluate-output
   "Evaluates the output for the chunking process
