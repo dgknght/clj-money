@@ -42,7 +42,7 @@
       (update-in [:progress]
                  #(-> %
                       (json/parse-string true)
-                      (select-keys [:account :transaction :budget :commodity :price])))
+                      (select-keys [:account :transaction :budget :commodity :price :finished :error])))
       (assoc :entity-exists? (not (nil? (entities/find-by-name storage
                                                                (:user-id imp)
                                                                (:entity-name imp)))))

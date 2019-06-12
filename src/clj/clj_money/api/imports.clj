@@ -25,12 +25,11 @@
 (defn- launch-and-track-import
   [imp]
   (let [progress-chan (chan)]
-    (go-loop [continue true]
-             (when continue
-               (let [progress (<! progress-chan)]
-                 (imports/update (env :db)
-                                 (assoc imp :progress progress))
-                 (recur (not (:finished progress))))))
+    (go-loop [progress (<! progress-chan)]
+             (when progress
+               (imports/update (env :db)
+                               (assoc imp :progress progress))
+               (recur (<! progress-chan))))
     (import-data (env :db) imp progress-chan)))
 
 (defn- infer-content-type
@@ -91,7 +90,8 @@
 (defn show
   [{{id :id} :params}]
   ; TODO This needs authorization
-  (response (imports/find-by-id (env :db) id)))
+  (let [imp (imports/find-by-id (env :db) id)]
+    (response imp)))
 
 (defn index
   [_]

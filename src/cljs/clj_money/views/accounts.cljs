@@ -7,7 +7,6 @@
             [cljs.core.async :refer [chan <! >! go-loop go]]
             [cljs-time.core :as t]
             [cljs-time.format :as f]
-            [clj-money.macros :refer-macros [with-retry]]
             [clj-money.components :refer [load-on-scroll]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
@@ -265,8 +264,7 @@
                    :entity-id (:id @state/current-entity)
                    :transaction-date (f/unparse (f/formatter "M/d/yyyy")
                                                 (t/today)))))
-  (with-retry
-    (.focus (.getElementById js/document "transaction-date"))))
+  (util/set-focus "transaction-date"))
 
 (defn- account-buttons
   [{:keys [transaction] :as context}]
@@ -351,8 +349,7 @@
                         (fn [result]
                           (let [prepared (prepare-transaction-for-edit result)]
                             (reset! transaction prepared))
-                          (with-retry
-                            (.focus (.getElementById js/document "transaction-date"))))
+                          (util/set-focus "transaction-date"))
                         notify/danger))
 
 (defn- query-again?

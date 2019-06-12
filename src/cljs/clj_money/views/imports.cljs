@@ -86,9 +86,9 @@
 (defn- start-import
   [{id :id :as imp}]
   (imports/start imp
-                 (fn [i]
+                 (fn []
                    (reset! auto-refresh true)
-                   (secretary/dispatch! (str "/imports/" (:id i))))
+                   (secretary/dispatch! (str "/imports/" id)))
                  notify/danger))
 
 (defn- import-row
@@ -143,12 +143,17 @@
 
 (declare load-import)
 (defn- receive-import
-  [import-ref {{transaction :transaction} :progress :as received}]
+  [import-ref {{:keys [transaction error finished]} :progress :as received}]
   (reset! import-ref received)
-  (when (and (:total transaction)
-             (not= 0 (:total transaction))
-             (= (:total transaction)
-                (:imported transaction)))
+  (when error
+    (notify/danger (:message error))
+    (.log js/console "error" (prn-str error)))
+  (when (or finished
+            error
+            (and (:total transaction)
+                 (not= 0 (:total transaction))
+                 (= (:total transaction)
+                    (:imported transaction))))
     (reset! auto-refresh false))
   (when @auto-refresh
     (go
@@ -212,6 +217,7 @@
 
 (defn- new-import []
   (let [import-data (r/atom {})]
+    (util/set-focus "entity-name")
     (with-layout
       [:section
        [:div.row

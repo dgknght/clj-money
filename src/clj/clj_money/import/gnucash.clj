@@ -65,7 +65,8 @@
    "LIABILITY"  :liability
    "EQUITY"     :equity
    "CREDIT"     :liability
-   "STOCK"      :asset})
+   "STOCK"      :asset
+   "MUTUAL"     :asset})
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 

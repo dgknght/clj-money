@@ -1,7 +1,8 @@
 (ns clj-money.util
   (:require [goog.string :as gstring]
             [clojure.string :as string]
-            [cljs-time.format :as f]))
+            [cljs-time.format :as f]
+            [clj-money.macros :refer-macros [with-retry]]))
 
 (defn parse-date [str-date]
   (f/parse-local (f/formatters :date) str-date))
@@ -89,3 +90,8 @@
   functions"
   [message info]
   (log-> info message))
+
+(defn set-focus
+  [id]
+  (with-retry
+    (.focus (.getElementById js/document id))))

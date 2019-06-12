@@ -274,13 +274,19 @@
     ([context record]
      (if (ignore? record)
        (xf context record)
-       (xf (import-record* context record) record)))))
+       (xf (try (import-record* context record)
+                (catch clojure.lang.ExceptionInfo e
+                  (assoc-in context [:progress :error] {:message (.getMessage e)
+                                                        :data (ex-data e)})))
+           record)))))
 
 (defn- notify-progress
   ([progress-chan context] context)
-  ([progress-chan context _]
-   (>!! progress-chan (:progress context))
-   context))
+  ([progress-chan {:keys [progress] :as context} _]
+   (>!! progress-chan progress)
+   (if (:error progress)
+     (reduced context)
+     context)))
 
 (defn- import-data*
   [s import-spec progress-chan]
