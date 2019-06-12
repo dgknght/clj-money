@@ -282,35 +282,46 @@
    (>!! progress-chan (:progress context))
    context))
 
+(defn- import-data*
+  [s import-spec progress-chan]
+  (let [user (users/find-by-id s (:user-id import-spec))
+        [inputs source-type] (prepare-input s (:image-ids import-spec))
+        entity (entities/find-or-create s
+                                        user
+                                        (:entity-name import-spec))
+        wait-promise (promise)
+        out-chan (chan)
+        result-chan (async/transduce (comp import-record
+                                           inc-progress)
+                                     (partial notify-progress progress-chan)
+                                     {:storage s
+                                      :import import-spec
+                                      :progress {}
+                                      :accounts {}
+                                      :entity entity}
+                                     out-chan)]
+    (go
+      (transactions/with-delayed-balancing s (:id entity)
+        (read-source source-type inputs out-chan)
+        (>!! progress-chan (-> (<!! result-chan)
+                               :progress
+                               (assoc :finished true))))
+      (deliver wait-promise true))
+    {:entity entity
+     :wait wait-promise}))
+
 (defn import-data
   "Reads the contents from the specified input and saves
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  [storage-spec import-spec progress-chan]
-  (with-storage [s storage-spec]
-    (let [user (users/find-by-id s (:user-id import-spec))
-          [inputs source-type] (prepare-input s (:image-ids import-spec))
-          entity (entities/find-or-create s
-                                          user
-                                          (:entity-name import-spec))
-          wait-promise (promise)
-          out-chan (chan)
-          result-chan (async/transduce (comp import-record
-                                             inc-progress)
-                                       (partial notify-progress progress-chan)
-                                       {:storage s
-                                        :import import-spec
-                                        :progress {}
-                                        :accounts {}
-                                        :entity entity}
-                                       out-chan)]
-      (go
-        (transactions/with-delayed-balancing s (:id entity)
-          (read-source source-type inputs out-chan)
-          (>!! progress-chan (-> (<!! result-chan)
-                                 :progress
-                                 (assoc :finished true))))
-        (deliver wait-promise true))
-      {:entity entity
-       :wait wait-promise})))
+  ([storage-spec import-spec progress-chan]
+   (import-data storage-spec import-spec progress-chan {}))
+  ([storage-spec import-spec progress-chan options]
+   (if (:atomic? options)
+     (with-transacted-storage [s storage-spec]
+       (let [result (import-data* s import-spec progress-chan)]
+         (-> result :wait deref)
+         result))
+     (with-storage [s storage-spec]
+       (import-data* s import-spec progress-chan)))))

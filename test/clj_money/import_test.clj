@@ -180,7 +180,7 @@
         _ (go-loop [p (<! progress-chan)]
                    (swap! updates #(conj % p))
                    (recur (<! progress-chan)))
-        {:keys [entity wait]} (import-data storage-spec imp progress-chan)
+        {:keys [entity wait]} (import-data storage-spec imp progress-chan {:atomic? true})
         _ @wait
         actual-accounts (->> {:entity-id (:id entity)}
                              (accounts/search storage-spec)
@@ -254,7 +254,7 @@
     (go-loop [p (<! channel)]
              (swap! updates #(conj % p))
              (recur (<! channel)))
-    (import-data storage-spec imp channel)
+    (import-data storage-spec imp channel {:atomic? true})
     (pprint-diff (set expected-updates) (set @updates))
     (is (= (set expected-updates) (set @updates))
         "The import record is updated at each insert")
@@ -265,7 +265,7 @@
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
-        result (import-data storage-spec imp (nil-chan))
+        result (import-data storage-spec imp (nil-chan) {:atomic? true})
         entity (first (entities/select storage-spec (:id user)))
         [salary groceries] (->> {:entity-id (:id entity)}
                                 (accounts/search storage-spec)
@@ -324,7 +324,7 @@
         user (-> context :users first)
         image (-> context :images first)
         imp (-> context :imports first)
-        entity (import-data storage-spec imp (nil-chan))
+        {:keys [entity]} (import-data storage-spec imp (nil-chan) {:atomic? true})
         account (->> {:entity-id (:id entity)}
                      (accounts/search storage-spec)
                      (filter #(= "401k" (:name %)))
@@ -368,9 +368,10 @@
 
 (deftest import-commodities-with-extended-actions
   (let [context (serialization/realize storage-spec ext-commodities-context)
-        entity (import-data storage-spec
-                            (-> context :imports first)
-                            (nil-chan))
+        {:keys [entity]} (import-data storage-spec
+                                      (-> context :imports first)
+                                      (nil-chan)
+                                      {:atomic? true})
         [ira four-o-one-k] (map #(accounts/find-by storage-spec
                                                    {:name %
                                                     :entity-id (:id entity)})
