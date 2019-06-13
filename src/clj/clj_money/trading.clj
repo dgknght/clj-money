@@ -59,9 +59,9 @@
 
 (defn- create-price
   "Given a context, calculates and appends the share price"
-  [{:keys [storage shares value commodity-id trade-date] :as context}]
+  [{:keys [storage shares value commodity trade-date] :as context}]
   (assoc context :price (prices/create storage
-                                       {:commodity-id commodity-id
+                                       {:commodity-id (:id commodity)
                                         :trade-date trade-date
                                         :price (with-precision 4 (/ value shares))})))
 
