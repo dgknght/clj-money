@@ -313,11 +313,12 @@
   [record filter-state]
   (let [trade-date (-> record :time :date parse-date)
         trade-date-key ((juxt :space :id) (:commodity record))
+        interval (t/weeks 1)
         last-trade-date (get-in @filter-state
                                 [:trade-dates trade-date-key]
-                                (t/local-date 1900 1 1))
-        cut-off (t/plus last-trade-date (t/months 1))]
-    (when (t/after? trade-date cut-off)
+                                (t/plus (t/today) interval))
+        cut-off (t/minus last-trade-date interval)]
+    (when (t/before? trade-date cut-off)
       (swap! filter-state #(assoc-in % [:trade-dates trade-date-key] trade-date))
       true)))
 
