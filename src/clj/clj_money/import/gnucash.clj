@@ -66,7 +66,9 @@
    "EQUITY"     :equity
    "CREDIT"     :liability
    "STOCK"      :asset
-   "MUTUAL"     :asset})
+   "MUTUAL"     :asset
+   "CASH"       :asset
+   "ROOT"       :root})
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
@@ -362,18 +364,22 @@
 
 (defmethod ^:private process-record :account
   [{:keys [commodity] :as account} _]
-  (-> account
-      (rename-keys {:parent :parent-id})
-      (update-in [:type] account-types-map)
-      (update-in [:commodity] #(-> %
-                                   (rename-keys {:space :exchange
-                                                 :id :symbol})
-                                   (update-in [:exchange] (fn [e]
-                                                            (when e
-                                                              (-> e
-                                                                  s/lower-case
-                                                                  keyword))))))
-      (vary-meta assoc :ignore? (contains? ignored-accounts (:name account)))))
+  (let [account-type (account-types-map (:type account))]
+    (when-not account-type
+      (throw (ex-info (format "Unrecognized account type \"%s\"" (:type account))
+                      {:account account})))
+    (-> account
+        (rename-keys {:parent :parent-id})
+        (update-in [:type] account-types-map)
+        (update-in [:commodity] #(-> %
+                                     (rename-keys {:space :exchange
+                                                   :id :symbol})
+                                     (update-in [:exchange] (fn [e]
+                                                              (when e
+                                                                (-> e
+                                                                    s/lower-case
+                                                                    keyword))))))
+        (vary-meta assoc :ignore? (contains? ignored-accounts (:name account))))))
 
 (defmulti ^:private refine-trading-transaction
   (fn [transaction]
