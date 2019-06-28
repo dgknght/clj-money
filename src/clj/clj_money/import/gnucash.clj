@@ -306,41 +306,20 @@
   true)
 
 (defmethod ^:private emit-record? :declaration
-  [record _]
+  [record]
   (not= :book (:record-type record)))
 
-(defmethod ^:private emit-record? :price
-  [record filter-state]
-  (let [trade-date (-> record :time :date parse-date)
-        trade-date-key ((juxt :space :id) (:commodity record))
-        interval (t/weeks 1)
-        last-trade-date (get-in @filter-state
-                                [:trade-dates trade-date-key]
-                                (t/plus (t/today) interval))
-        cut-off (t/minus last-trade-date interval)]
-    (when (t/before? trade-date cut-off)
-      (swap! filter-state #(assoc-in % [:trade-dates trade-date-key] trade-date))
-      true)))
-
-(defn- filter-records
-  [xf]
-  (let [state (atom {})]
-    (fn
-      ([] (xf))
-      ([acc] (xf acc))
-      ([acc record]
-       (if (emit-record? record state)
-         (xf acc record)
-         acc)))))
+(def ^:private filter-records
+  (filter emit-record?))
 
 (defmulti ^:private process-record dispatch-record-type)
 
 (defmethod ^:private process-record :default
-  [record]
+  [record _]
   record)
 
 (defmethod ^:private process-record :commodity
-  [commodity]
+  [commodity _]
   (let [c (-> commodity
               (rename-keys {:id :symbol
                             :space :exchange
@@ -361,16 +340,28 @@
       (vary-meta assoc :ignore? true))))
 
 (defmethod ^:private process-record :price
-  [price]
-  (-> price
-      (assoc :trade-date (-> price :time :date parse-date)
-             :price (-> price :value parse-decimal)
-             :exchange (-> price :commodity :space s/lower-case keyword)
-             :symbol (-> price :commodity :id))
-      (dissoc :time :value :commodity :currency)))
+  [price state]
+  (let [trade-date (-> price :time :date parse-date)
+        exchange (-> price :commodity :space s/lower-case keyword)
+        symbol (-> price :commodity :id)
+        k [:prices exchange symbol]
+        interval (t/weeks 1)
+        last-trade-date (get-in @state [k])
+        ignore? (when last-trade-date
+                 (t/before? trade-date
+                            (t/minus last-trade-date interval)))]
+    (when-not ignore?
+      (swap! state assoc-in [k] trade-date))
+    (-> price
+        (assoc :trade-date trade-date
+               :price (-> price :value parse-decimal)
+               :exchange exchange
+               :symbol symbol)
+        (dissoc :time :value :commodity :currency)
+        (vary-meta assoc :ignore? ignore?))))
 
 (defmethod ^:private process-record :account
-  [{:keys [commodity] :as account}]
+  [{:keys [commodity] :as account} _]
   (-> account
       (rename-keys {:parent :parent-id})
       (update-in [:type] account-types-map)
@@ -493,7 +484,7 @@
       (update-in [:reconciled] #(= "y" %))))
 
 (defmethod ^:private process-record :transaction
-  [transaction]
+  [transaction _]
   (-> transaction
       (assoc :transaction-date (-> transaction :date-posted :date parse-date))
       (dissoc :date-posted)
@@ -518,7 +509,7 @@
                                   set))))
 
 (defmethod ^:private process-record :budget
-  [record]
+  [record _]
   (-> record
       (rename-keys {:num-periods :period-count})
       (update-in [:period-count] parse-integer)
@@ -527,8 +518,14 @@
       (update-in [:items] #(map process-budget-item %))
       (dissoc :recurrence)))
 
-(def ^:private process-records
-  (map process-record))
+(defn- process-records
+  [xf]
+  (let [state (atom {})]
+    (fn
+      ([] (xf))
+      ([acc] (xf acc))
+      ([acc record]
+       (xf acc (process-record record state))))))
 
 (defmethod read-source :gnucash
   [_ inputs out-chan]

@@ -247,7 +247,7 @@
     :price 12.00M
     :exchange :nasdaq
     :symbol "AAPL"}
-   {:trade-date (t/local-date 2015 1 17)
+   #_{:trade-date (t/local-date 2015 1 17) ; ignored because it's too close
     :price 10.00M
     :exchange :nasdaq
     :symbol "AAPL"}])
