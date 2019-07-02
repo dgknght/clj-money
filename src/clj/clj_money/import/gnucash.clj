@@ -347,20 +347,21 @@
         exchange (-> price :commodity :space s/lower-case keyword)
         symbol (-> price :commodity :id)
         k [:prices exchange symbol]
-        interval (t/weeks 1)
+        interval (t/months 1)
         last-trade-date (get-in @state [k])
         ignore? (when last-trade-date
                  (t/before? trade-date
                             (t/minus last-trade-date interval)))]
-    (when-not ignore?
-      (swap! state assoc-in [k] trade-date))
-    (-> price
-        (assoc :trade-date trade-date
-               :price (-> price :value parse-decimal)
-               :exchange exchange
-               :symbol symbol)
-        (dissoc :time :value :commodity :currency)
-        (vary-meta assoc :ignore? ignore?))))
+    (if ignore?
+      (with-meta {} (merge (meta price) {:ignore? true}))
+      (do
+        (swap! state assoc-in [k] trade-date)
+        (-> price
+            (assoc :trade-date trade-date
+                   :price (-> price :value parse-decimal)
+                   :exchange exchange
+                   :symbol symbol)
+            (dissoc :time :value :commodity :currency))))))
 
 (defmethod ^:private process-record :account
   [{:keys [commodity] :as account} _]
@@ -396,11 +397,6 @@
 
 (defmethod ^:private refine-trading-transaction :default
   [transaction]
-  (println "*** unknown trading transaction type ***")
-  (println (->> (:items transaction)
-                (map :action)
-                set))
-  (println "*** unknown trading transaction type ***")
   transaction)
 
 (defmethod ^:private refine-trading-transaction :none [t] t)
