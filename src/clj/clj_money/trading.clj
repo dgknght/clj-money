@@ -379,7 +379,7 @@
           adj-context
           (recur adj-context shares-to-be-sold)))
       (throw (ex-info "Unable to find a lot to sell the shares"
-                      {:context context})))))
+                      {:context (dissoc context :storage)})))))
 
 (def ^:private sale-coercion-rules
   (concat purchase-coercion-rules
