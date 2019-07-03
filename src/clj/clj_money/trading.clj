@@ -192,7 +192,7 @@
               :items items
               :lot-items [{:lot-id (:id lot)
                            :lot-action :buy
-                           :price (/ value shares)
+                           :price (with-precision 4 (/ value shares))
                            :shares shares}]}))))
 
 (defn- create-capital-gains-items
@@ -567,7 +567,7 @@
   (let [updated (-> lot
                     (update-in [:shares-purchased] #(* % ratio))
                     (update-in [:shares-owned] #(* % ratio))
-                    (update-in [:purchase-price] #(/ % ratio)))]
+                    (update-in [:purchase-price] #(with-precision 4 (/ % ratio))))]
     (lots/update storage updated)))
 
 (defn- apply-split-to-item
@@ -588,8 +588,9 @@
     (let [shares-owned (->> lots
                             (map :shares-owned)
                             (reduce + 0M))]
-      (assoc context :ratio (/ (+ shares-owned shares-gained)
-                               shares-owned)))))
+      (assoc context :ratio (with-precision 4
+                              (/ (+ shares-owned shares-gained)
+                                 shares-owned))))))
 
 (defn- process-split-lots
   [{:keys [storage lots ratio] :as context}]
