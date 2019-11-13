@@ -323,7 +323,7 @@
                          :name "None of your business")
         result (commodities/create storage-spec commodity)
         commodities (commodities/search storage-spec {:entity-id entity-id})]
-    (is (= ["Exchange must be one of: nasdaq, nyse"]
+    (is (= ["Exchange must be one of: amex, nasdaq, nyse"]
            (validation/error-messages result :exchange))
         "The result has an error messages")))
 

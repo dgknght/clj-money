@@ -1,5 +1,5 @@
 (ns clj-money.models.auth-helpers
-  (:require [clojure.pprint :refer [pprint]]
+  (:require
             [environ.core :refer [env]]
             [clj-money.authorization :as authorization]
             [clj-money.models.entities :as entities]
@@ -76,8 +76,7 @@
 
 (defn find-grant
   [user resource {storage-spec :storage-spec :as context}]
-  (let [resource-type (authorization/get-resource-tag resource)
-        entity-id (lookup-entity-id context resource)]
+  (let [entity-id (lookup-entity-id context resource)]
     (-> (grants/search storage-spec
                        {:user-id (:id user)
                         :entity-id entity-id}
@@ -85,7 +84,7 @@
         first)))
 
 (defn user-granted-access?
-  [user resource action {storage-spec :storage-spec :as context}]
+  [user resource action context]
   (grants/has-permission? (find-grant user resource context)
                           (authorization/get-resource-tag resource)
                           action))

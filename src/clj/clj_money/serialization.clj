@@ -1,7 +1,5 @@
 (ns clj-money.serialization
-  (:require [clojure.pprint :refer [pprint]]
-            [clj-money.util :refer [pprint-and-return]]
-            [clj-money.io :refer [read-bytes]]
+  (:require [clj-money.io :refer [read-bytes]]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]

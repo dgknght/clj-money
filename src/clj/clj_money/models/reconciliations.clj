@@ -1,9 +1,6 @@
 (ns clj-money.models.reconciliations
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [clojure.pprint :refer [pprint]]
-            [clj-time.coerce :refer [to-long
-                                     to-local-date]]
             [clj-money.util :refer [parse-local-date
                                     rev-args]]
             [clj-money.validation :as validation]
@@ -170,7 +167,7 @@
         (= reconciliation-ids #{id}))))
 
 (defn- can-be-updated?
-  [storage {:keys [status id]}]
+  [storage {:keys [id]}]
   (or (nil? id)
       (= :new (:status (find-by-id storage id)))))
 
@@ -190,7 +187,7 @@
          :account-id account-id}))
 
 (defn- working-reconciliation-exists?
-  [storage {:keys [account-id id] :as rec}]
+  [storage {:keys [account-id id]}]
   (when account-id
     (when-let [existing (find-working storage account-id)]
       (or (nil? id) (not= id (:id existing))))))
@@ -219,12 +216,6 @@
    (validation/create-rule (partial no-working-reconciliation-exists? storage)
                            [:account-id]
                            "A new reconciliation cannot be created while a working reconciliation already exists")])
-
-(defn- validate
-  [spec rules reconciliation]
-  (-> reconciliation
-      before-validation
-      (validation/validate spec rules)))
 
 (defn- item-refs->date-range
   [item-refs]
@@ -274,10 +265,6 @@
   [storage reconciliation]
   (let [existing (find-by-id storage (Integer. (:id reconciliation)))]
     (assoc reconciliation :account-id (:account-id existing))))
-
-(defn- update*
-  [storage reconciliation]
-  )
 
 (def update
   (update-fn {:spec ::existing-reconciliation

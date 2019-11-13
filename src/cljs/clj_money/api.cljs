@@ -1,10 +1,7 @@
 (ns clj-money.api
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [clojure.string :as string]
-            [cljs.core.async :refer [<! onto-chan]]
+  (:require [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]
-            [clojure.walk :refer [keywordize-keys]]
-            [cognitect.transit :as transit]
             [clj-money.x-platform.util :refer [map->query-string]]
             [clj-money.util :as util]))
 

@@ -1,20 +1,19 @@
 (ns clj-money.web.entities
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.java.io :as io]
-            [clojure.tools.logging :as log]
-            [environ.core :refer [env]]
-            [ring.util.response :refer :all]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
+  (:require [environ.core :refer [env]]
+            [ring.util.response :refer [redirect]]
+            [hiccup.core :refer [html]]
             [cemerick.friend :as friend]
             [clj-money.authorization :refer [authorize
                                              tag-resource]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
-  (:use clj-money.web.shared))
+            [clj-money.web.money-shared :refer [grouped-options-for-accounts]]
+            [clj-money.web.shared :refer [form
+                                          glyph-button
+                                          text-input-field
+                                          with-layout]]))
 
 (defn- entity-row
   "Renders a table row for an entity"

@@ -1,10 +1,8 @@
 (ns clj-money.models.prices.api-client
   (:refer-clojure :exclude [update])
   (:require [clj-http.client :as client]
-            [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.string :refer [blank?]]
-            [cheshire.core :refer :all]
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]))
 

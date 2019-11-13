@@ -1,11 +1,9 @@
 (ns clj-money.api
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
             [ring.util.response :refer [status response header]]
             [environ.core :refer [env]]
-            [cheshire.core :as json]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
                                              tag-resource

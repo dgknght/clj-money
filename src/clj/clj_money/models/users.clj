@@ -1,12 +1,8 @@
 (ns clj-money.models.users
   (:refer-clojure :exclude [find update])
-  (:require [clojure.tools.logging :as log]
-            [clojure.spec.alpha :as s]
-            [clojure.set :refer [rename-keys]]
+  (:require [clojure.spec.alpha :as s]
             [clojure.string :as string]
-            [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-local-date]]
             [clj-money.util :refer [to-sql-date]]
             [cemerick.friend.credentials :refer [hash-bcrypt
                                                  bcrypt-verify]]

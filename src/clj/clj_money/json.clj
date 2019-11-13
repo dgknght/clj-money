@@ -1,7 +1,6 @@
 (ns clj-money.json
   (:refer-clojure :exclude [update])
-  (:require [cheshire.core :as json]
-            [cheshire.generate :refer [add-encoder encode-date]]
+  (:require [cheshire.generate :refer [add-encoder]]
             [clj-time.format :as tf]))
 
 (add-encoder org.joda.time.DateTime

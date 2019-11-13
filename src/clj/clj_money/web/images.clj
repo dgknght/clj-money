@@ -1,13 +1,8 @@
 (ns clj-money.web.images
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
-            [clojure.java.io :as io]
+  (:require [clojure.java.io :as io]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
-            [ring.util.codec :refer [url-encode]]
+            [ring.util.response :refer [response content-type]]
             [clj-money.models.images :as images]
             [clj-money.permissions.images]
             [clj-money.authorization :refer [authorize]]))

@@ -1,10 +1,9 @@
 (ns clj-money.trading
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
+  (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
             [clj-time.core :as t]
-            [clj-money.util :refer [format-number
-                                    pprint-and-return]]
+            [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-transacted-storage]]
@@ -88,11 +87,12 @@
 
 (defn- ensure-tag
   "Appends the :trading tag to the account if it isn't there already"
-  [storage tag account]
-  (if ((:tags account) tag)
+  [storage tag {:keys [tags] :as account}]
+  (if  (and tags
+            (tags account) tag)
     account
     (accounts/update storage
-                     (update-in account [:tags] #(conj % tag)))))
+                     (update-in account [:tags] conj tag))))
 
 (defn- find-commodity-account
   [storage parent commodity]
@@ -130,6 +130,7 @@
                               (find-or-create-commodity-account storage
                                                                 account
                                                                 commodity))]
+    (assert account (str "Unable to resolve the account " (prn-str (select-keys context [:account :account-id]))))
     (assoc context
            :account account
            :commodity-account commodity-account)))
@@ -171,7 +172,7 @@
   (let [fee (or (:fee context) 0M)
         currency-amount (+ value fee)
         items (cond-> [{:action :credit
-                        :account-id (:account-id context)
+                        :account-id (-> context :account :id)
                         :quantity currency-amount
                         :value currency-amount}
                        {:action :debit
@@ -243,7 +244,9 @@
                        :items items
                        :lot-items (:lot-items context)})]
     (if (validation/has-error? transaction)
-      (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction}))
+      (do
+        (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
+        (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
       (assoc context :transaction transaction))))
 
 (defn- create-lot
@@ -318,7 +321,7 @@
 (defn- find-lot
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage inventory-method commodity account] :as context}]
+  [{:keys [storage inventory-method commodity account]}]
   (lots/find-by storage
                 {:commodity-id (:id commodity)
                  :account-id (:id account)
@@ -378,8 +381,10 @@
         (if (= 0 shares-to-be-sold)
           adj-context
           (recur adj-context shares-to-be-sold)))
-      (throw (ex-info "Unable to find a lot to sell the shares"
-                      {:context (dissoc context :storage)})))))
+      (do
+        (log/error "Unable to find a lot to sell shares " (prn-str (dissoc context :storage)))
+        (throw (ex-info "Unable to find a lot to sell the shares"
+                        {:context (dissoc context :storage)}))))))
 
 (def ^:private sale-coercion-rules
   (concat purchase-coercion-rules
@@ -390,7 +395,7 @@
            (coercion/rule :keyword [:inventory-method])]))
 
 (defn- validate-sale
-  [storage sale]
+  [_ sale]
   (-> sale
       (coercion/coerce sale-coercion-rules)
       (validation/validate ::sale)))
@@ -508,12 +513,14 @@
 
 (defn- process-transfer-lots
   [{:keys [storage commodity from-account to-account] :as context}]
-  (assoc context :lots (mapv #(lots/update
-                                storage
-                                (assoc % :account-id (:id to-account)))
-                             (lots/search storage {:commodity-id (:id commodity)
-                                                   :account-id (:id from-account)
-                                                   :shares-owned [:> 0M]}))))
+  (let [to-move (lots/search storage {:commodity-id (:id commodity)
+                                      :account-id (:id from-account)
+                                      :shares-owned [:> 0M]})]
+    (log/warnf "No lots found to transfer %s" (prn-str context))
+    (assoc context :lots (mapv #(lots/update
+                                  storage
+                                  (assoc % :account-id (:id to-account)))
+                               to-move))))
 
 (defn- create-transfer-transaction
   [{:keys [commodity
@@ -570,10 +577,6 @@
                     (update-in [:purchase-price] #(with-precision 4 (/ % ratio))))]
     (lots/update storage updated)))
 
-(defn- apply-split-to-item
-  [storage ratio item]
-  item)
-
 (defn- append-split-lots
   [{:keys [storage commodity-id account-id] :as context}]
   (assoc context :lots (lots/search storage {:commodity-id commodity-id
@@ -610,8 +613,7 @@
            split-date
            ratio
            commodity-account
-           shares-gained
-           account-id] :as context}]
+           shares-gained] :as context}]
   (assoc context
          :transaction
          (transactions/create storage

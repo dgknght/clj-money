@@ -1,6 +1,5 @@
 (ns clj-money.models.storage.sql-storage
-  (:require [clojure.tools.logging :as log]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
@@ -11,7 +10,6 @@
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-postgresql.types]
-            [clj-money.util :refer [pprint-and-return]]
             [clj-money.partitioning :refer [table-name
                                             tables-for-range]]
             [clj-money.models.storage :refer [Storage]])
@@ -116,20 +114,6 @@
 (defmethod attachment-criteria false [_]
   (s/keys :req-un [::transaction-id]))
 (s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
-
-; TODO: Can this be combined with trade-date?
-(defmulti trade-date #(if (vector? %)
-                        (if (= :between (first %))
-                          :ternary
-                          :binary)
-                        :unary))
-(defmethod trade-date :ternary [_]
-  (s/tuple keyword? ::date ::date))
-(defmethod trade-date :binary [_]
-  (s/tuple keyword? ::date))
-(defmethod trade-date :unary [_]
-  ::date)
-(s/def ::trade-date (s/multi-spec trade-date vector?))
 
 (def ^:private transaction-criteria-key
   (partial first-key-present :lot-id :entity-id :id))
@@ -885,24 +869,24 @@
   (select-transaction-items
     [this criteria options]
     (validate-criteria criteria ::transaction-item-criteria)
-    (let [d-range (date-range this (:transaction-date criteria))]
-      (let [result (with-partitioning (partial query db-spec) [:transaction_items :transactions] d-range options [tables]
-                     (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
-                         (h/from [(first tables) :i])
-                         (h/join [(second tables) :t]
-                                 [:= :t.id :i.transaction_id])
-                         (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
-                         (adjust-select options)
-                         (h/where (map->where criteria {:prefix "i"}))
-                         (append-sort (if (:count options)
-                                           options
-                                           (merge
-                                             {:sort [[:i.index :desc]]}
-                                             options)))
-                         (append-limit options)))]
-        (if (:count options)
-          (-> result first vals first)
-          result))))
+    (let [d-range (date-range this (:transaction-date criteria))
+          result (with-partitioning (partial query db-spec) [:transaction_items :transactions] d-range options [tables]
+                  (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
+                      (h/from [(first tables) :i])
+                      (h/join [(second tables) :t]
+                              [:= :t.id :i.transaction_id])
+                      (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
+                      (adjust-select options)
+                      (h/where (map->where criteria {:prefix "i"}))
+                      (append-sort (if (:count options)
+                                      options
+                                      (merge
+                                        {:sort [[:i.index :desc]]}
+                                        options)))
+                      (append-limit options)))]
+      (if (:count options)
+        (-> result first vals first)
+        result)))
 
   ; Reconciliations
   (create-reconciliation

@@ -1,16 +1,11 @@
 (ns clj-money.web.budgets
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint cl-format]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.format :as tf]
-            [clj-time.coerce :as tc]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
-            [ring.util.codec :refer [url-encode]]
-            [clj-money.url :refer :all]
+            [ring.util.response :refer [redirect]]
+            [hiccup.core :refer [html]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.util :refer [format-number format-date]]
             [clj-money.validation :as validation]
@@ -21,8 +16,14 @@
             [clj-money.permissions.budgets]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.budgets :as budgets]
-            [clj-money.web.money-shared :refer [grouped-options-for-accounts]])
-  (:use [clj-money.web.shared :refer :all])
+            [clj-money.web.money-shared :refer [grouped-options-for-accounts]]
+            [clj-money.web.shared :refer [date-input-field
+                                          form
+                                          glyph-button
+                                          number-input-field
+                                          select-field
+                                          text-input-field
+                                          with-layout]])
   (:import org.joda.time.Months
            org.joda.time.Weeks
            org.joda.time.format.DateTimeFormat))
@@ -317,12 +318,12 @@
   on success or the edit page on failure"
   [{params :params}]
   (let [budget (authorize (budgets/find-by-id (env :db) (:id params)) :update)
-        updated (merge budget (select-keys params [
-                                                   :name
-                                                   :period
-                                                   :period-count
-                                                   :start-date]))
-        result (budgets/update (env :db) updated)]
+        updated (budgets/update (env :db)
+                                (merge budget
+                                       (select-keys params [:name
+                                                            :period
+                                                            :period-count
+                                                            :start-date])))]
     (if (validation/has-error? updated)
       (edit {:params (select-keys updated [:id])
              :budget updated})

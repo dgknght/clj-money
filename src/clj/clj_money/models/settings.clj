@@ -1,7 +1,6 @@
 (ns clj-money.models.settings
   (:refer-clojure :exclude [get])
-  (:require [clojure.pprint :refer [pprint]]
-            [clj-money.models.helpers :refer [with-storage]]
+  (:require [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.storage :refer [put-setting
                                               get-setting]]))
 

@@ -1,10 +1,6 @@
 (ns clj-money.authorization
-  (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
-            [slingshot.slingshot :refer [throw+]]
-            [environ.core :refer [env]]
-            [cemerick.friend :refer [current-authentication]]
-            [clj-money.util :refer [pprint-and-return]]))
+  (:require [slingshot.slingshot :refer [throw+]]
+            [cemerick.friend :refer [current-authentication]]))
 
 (defn get-resource-tag
   "Returns a keyword identifying the type of the resource"

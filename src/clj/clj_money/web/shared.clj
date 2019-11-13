@@ -1,20 +1,17 @@
 (ns clj-money.web.shared
-  (:require [clojure.tools.logging :as log]
-            [clojure.set :as set]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
+            [hiccup.core :refer [html]]
+            [hiccup.page :refer [html5]]
             [ring.util.anti-forgery :refer [anti-forgery-field]]
             [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
-            [clojure.string :as s]
             [cemerick.friend :as friend]
             [clj-money.util :refer [format-number
                                     format-date]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
-            [clj-money.models.entities :as entities])
-  (:use clj-money.inflection))
+            [clj-money.models.entities :as entities]
+            [clj-money.inflection :refer [humanize]]))
 
 (defn append-anti-forgery-link-attributes
   [attributes]
@@ -49,7 +46,7 @@
   [glyph url options]
   (glyph-link glyph url (-> options
                             (assoc :class
-                                   (s/join " " (glyph-button-css options)))
+                                   (string/join " " (glyph-button-css options)))
                             (dissoc :size :level))))
 
 (defn- authenticated-user-nav

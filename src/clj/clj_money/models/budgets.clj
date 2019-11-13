@@ -1,8 +1,6 @@
 (ns clj-money.models.budgets
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
-            [clojure.tools.logging :as log]
+  (:require [clojure.spec.alpha :as s]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-local-date
                                      to-date-time]]
@@ -12,10 +10,8 @@
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
-            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage
                                               create-fn
                                               update-fn]]
             [clj-money.models.storage :refer [create-budget

@@ -28,8 +28,7 @@
 
 (defmethod ^:private nav-item :default
   [{:keys [id caption url tool-tip active? on-click]
-    :or {url "#"}
-    :as item}]
+    :or {url "#"}}]
   ^{:key (str "menu-item-" id)}
   [:li
    [:a {:href url

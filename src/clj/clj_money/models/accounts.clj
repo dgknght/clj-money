@@ -1,11 +1,7 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
-            [clojure.string :as string]
-            [clojure.set :refer [rename-keys]]
-            [clj-money.util :refer [pprint-and-return
-                                    safe-read-string
+  (:require [clojure.spec.alpha :as s]
+            [clj-money.util :refer [safe-read-string
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
@@ -146,7 +142,7 @@
 (defn- parent-has-same-type?
   "Validation rule that ensure an account
   has the same type as its parent"
-  [storage {:keys [parent-id type] :as model}]
+  [storage {:keys [parent-id type]}]
   (or (nil? parent-id)
       (= type
          (:type (find-by-id storage parent-id)))))

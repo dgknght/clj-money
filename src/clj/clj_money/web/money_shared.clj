@@ -1,20 +1,14 @@
 (ns clj-money.web.money-shared
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
-            [clj-time.core :as t]
+  (:require [clj-time.core :as t]
             [clj-time.format :refer [unparse-local-date
                                      formatters]]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
+            [hiccup.core :refer [html]]
             [clj-money.x-platform.util :refer [desc-periodic-seq]]
             [clj-money.util :refer [format-number]]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.authorization :refer [authorize
-                                             allowed?
+            [clj-money.authorization :refer [allowed?
                                              apply-scope]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -22,8 +16,8 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.entities]
             [clj-money.permissions.accounts]
-            [clj-money.reports :as reports])
-  (:use [clj-money.web.shared :refer :all]))
+            [clj-money.reports :as reports]
+            [clj-money.web.shared :refer [form]]))
 
 (defn- account-and-children-options
   [account selected-id]

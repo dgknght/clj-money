@@ -1,7 +1,6 @@
 (ns clj-money.io
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.java.io :as io])
+  (:require [clojure.java.io :as io])
   (:import [java.io ByteArrayOutputStream]))
 
 (defn read-bytes

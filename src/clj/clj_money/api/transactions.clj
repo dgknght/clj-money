@@ -1,22 +1,18 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
+  (:require
             [clojure.spec.alpha :as s]
             [clj-time.format :as f]
             [environ.core :refer [env]]
-            [ring.util.response :refer [status response header]]
             [clj-money.api :refer [->response
                                    invalid->response
                                    error->response
                                    index-resource
                                    create-resource
-                                   update-resource
-                                   delete-resource]]
+                                   update-resource]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
-            [clj-money.authorization :refer [authorize
-                                             tag-resource]]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.transactions]))
 
@@ -27,7 +23,7 @@
                   :transaction))
 
 (defn get-one
-  [{{:keys [id transaction-date] :as params} :params}]
+  [{{:keys [id transaction-date]} :params}]
   (->response (authorize (transactions/find-by-id (env :db)
                                        id
                                        (f/parse-local-date (:date f/formatters)

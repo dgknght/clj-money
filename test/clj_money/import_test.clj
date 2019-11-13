@@ -402,6 +402,8 @@
     (testing "transactions are created correctly"
       (let [ira-aapl (accounts/find-by storage-spec {:parent-id (:id ira)
                                                      :commodity-id (:id aapl)})
+            inv-exp (accounts/find-by storage-spec {:name "Investment Expenses"
+                                                    :entity-id (:id entity)})
             expected-ira-items [{:transaction-date (t/local-date 2015 3 2)
                                  :description "Transfer 100 shares of AAPL"
                                  :index 0
@@ -437,7 +439,31 @@
                                                   :polarized-quantity
                                                   :reconciliation-status
                                                   :reconciliation-id
-                                                  :reconciled?)))]
+                                                  :reconciled?)))
+            expected-fee-items [{:transaction-date (t/local-date 2015 5 1)
+                                 :description "Sell 100 shares of AAPL at 6.000"
+                                 :value 10M
+                                 :quantity 10M
+                                 :account-id (:id inv-exp)
+                                 :balance 10M
+                                 :action :debit
+                                 :index 0}]
+            actual-fee-items (->> {:account-id (:id inv-exp)}
+                                  (transactions/search-items storage-spec)
+                                  (map #(dissoc %
+                                                :created-at
+                                                :updated-at
+                                                :id
+                                                :memo
+                                                :transaction-id
+                                                :negative
+                                                :polarized-quantity
+                                                :reconciliation-status
+                                                :reconciliation-id
+                                                :reconciled?)))]
+        (pprint-diff expected-fee-items actual-fee-items)
+        (is (= expected-fee-items actual-fee-items)
+            "The Investment Expenses account has the correct items")
         (pprint-diff expected-ira-items actual-ira-items)
         (is (= expected-ira-items actual-ira-items)
             "The IRA account has the correct items")))

@@ -1,11 +1,8 @@
 (ns clj-money.import
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
+  (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<!! >!! chan go] :as async]
-            [clj-money.util :refer [pprint-and-return
-                                    pprint-and-return-l]]
             [clj-money.validation :as validation]
             [clj-money.trading :as trading]
             [clj-money.models.users :as users]
@@ -16,7 +13,6 @@
             [clj-money.models.images :as images]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
-            [clj-money.models.imports :as imports]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage]]))
 
@@ -41,13 +37,11 @@
   context)
 
 (defn- find-commodity
-  [context {:keys [exchange symbol]}]
-  (->> context
-       :commodities
-       (filter #(and (= (:symbol %) symbol)
-                     (or (= :iso4217 exchange)
-                         (= (:exchange %) exchange))))
-       first))
+  [{:keys [commodities-by-symbol
+           commodities-by-exchange-and-symbol]}
+   {:keys [exchange symbol]}]
+  (or (get commodities-by-exchange-and-symbol [exchange symbol])
+      (get commodities-by-symbol symbol)))
 
 (defn- import-account
   [context account]
@@ -95,8 +89,18 @@
 (defn- import-commodity
   [{:keys [entity storage] :as context} commodity]
   (let [to-create (assoc commodity :entity-id (:id entity))
-        created (commodities/create storage to-create)]
-    (update-in context [:commodities] #((fnil conj []) % created))))
+        {:keys [exchange symbol] :as created} (commodities/create storage to-create)]
+    (if (validation/has-error? created)
+      (throw (ex-info (format "Unable to create commodity %s (%s): %s"
+                              (:name created)
+                              (:symbol created)
+                              (validation/error-messages created))
+                      created))
+    (log/infof "imported commodity %s (%s)" (:name created)  (:symbol created)))
+    (-> context
+        (update-in [:commodities] #((fnil conj []) % created))
+        (update-in [:commodities-by-symbol] #((fnil assoc {}) % symbol created))
+        (update-in [:commodities-by-exchange-and-symbol] #((fnil assoc {}) % [exchange symbol] created)))))
 
 (defn- resolve-account-references
   [context items]
@@ -114,25 +118,51 @@
   (fn [_ transaction]
     (:action transaction)))
 
+(defn- log-transaction
+  [transaction transaction-type]
+  (if (validation/has-error? transaction)
+    (log/errorf "error importing %s transaction %s"
+                transaction-type
+                transaction)
+    (log/infof "imported %s transaction on %s: %s"
+               transaction-type
+               (:transaction-date transaction)
+               (:description transaction))))
+
 (defmethod ^:private import-transaction :default
   [context transaction]
   (let [result (->> transaction
                     (prepare-transaction context)
                     (transactions/create (:storage context)))]
-    (log/info (format "imported transaction on %s at %s for %s"
-                      (:transaction-date result)
-                      (:description result)
-                      (reduce + (->> (:items result)
-                                     (filter #(= :debit (:action %)))
-                                     (map :quantity))))))
-  ; Update anything in the context?
-  ; don't want to include all transactions,
-  ; as that can be many
+    (log-transaction result "standard"))
   context)
+
+(defn- inv-transaction-fee-info
+  [{:keys [accounts storage]} transaction trans-type]
+  (when-not (= 2 (count (:items transaction)))
+    (let [non-commodity-items (filter #(= (if (= :buy trans-type)
+                                            :credit
+                                            :debit)
+                                          (:action %))
+                                      (:items transaction))
+          account-ids (map #(get-in accounts [(:account-id %)])
+                           non-commodity-items)
+          accounts-map (->> (accounts/search storage {:id account-ids})
+                        (map (juxt :id identity))
+                        (into {}))
+          fee-items (filter #(= :expense (get-in accounts-map [(accounts (:account-id %)) :type]))
+                            non-commodity-items)]
+      (when (seq fee-items)
+        [(->> fee-items
+              (map :quantity)
+              (reduce +))
+         (accounts (:account-id (first fee-items)))]))))
 
 (defmethod ^:private import-transaction :buy
   [{:keys [accounts storage] :as context} transaction]
-  (let [purchase {:commodity-id (->> context
+  (log/debug "import buy transaction " (prn-str transaction))
+  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
+        purchase {:commodity-id (->> context
                                      :commodities
                                      (filter #(and (= (:symbol %) (:symbol transaction))
                                                    (= (:exchange %) (:exchange transaction))))
@@ -140,49 +170,61 @@
                                      :id)
                   :commodity-account-id (accounts (:commodity-account-id transaction))
                   :account-id (accounts (:account-id transaction))
+                  :fee fee
+                  :fee-account-id fee-account-id
                   :trade-date (:transaction-date transaction)
                   :shares (:shares transaction)
-                  :value (or (:value transaction)
-                             (:quantity (first (:items transaction))))}]
-    (trading/buy storage purchase))
+                  :value (:value (->> (:items transaction)
+                                      (filter #(= :debit (:action %)))
+                                      first))}
+        {result :transaction} (trading/buy storage purchase)]
+    (log-transaction result "commodity purchase"))
   context)
 
 (defmethod ^:private import-transaction :sell
   [{:keys [accounts storage] :as context} transaction]
-  (let [sale {:commodity-id (->> context
+  (log/debug "import sell transaction " (prn-str transaction))
+  (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
+        sale {:commodity-id (->> context
                                  :commodities
                                  (filter #(and (= (:symbol %) (:symbol transaction))
                                                (= (:exchange %) (:exchange transaction))))
                                  first
                                  :id)
+              :fee fee
+              :fee-account-id fee-account-id
               :commodity-account-id (accounts (:commodity-account-id transaction))
               :account-id (accounts (:account-id transaction))
               :trade-date (:transaction-date transaction)
               :shares (:shares transaction)
-              :value (or (:value transaction)
-                         (:quantity (first (:items transaction))))}]
-    (trading/sell storage sale))
+              :value (:value (->> (:items transaction)
+                                  (filter #(= :credit (:action %)))
+                                  first))}
+        {result :transaction} (trading/sell storage sale)]
+    (log-transaction result "commodity sale"))
   context)
 
 (defmethod ^:private import-transaction :transfer
   [{:keys [storage accounts] :as context}
    {:keys [from-account-id to-account-id] :as transaction}]
+  (log/debug "import transfer transaction " (prn-str transaction))
   (let [from-commodity-account (accounts/find-by-id storage (accounts from-account-id))
         from-account (accounts/find-by-id storage (:parent-id from-commodity-account))
-        to-commodity-account (accounts/find-by-id storage (accounts to-account-id))]
-    (trading/transfer (:storage context)
-                      (assoc transaction
-                             :transfer-date (:transaction-date transaction)
-                             :commodity-id (:commodity-id from-commodity-account)
-                             :from-account-id (:id from-account)
-                             :to-account-id (:parent-id to-commodity-account))))
+        to-commodity-account (accounts/find-by-id storage (accounts to-account-id))
+        {result :transaction} (trading/transfer (:storage context)
+                                                (assoc transaction
+                                                       :transfer-date (:transaction-date transaction)
+                                                       :commodity-id (:commodity-id from-commodity-account)
+                                                       :from-account-id (:id from-account)
+                                                       :to-account-id (:parent-id to-commodity-account)))]
+    (log-transaction result "commodity transfer"))
   context)
 
 ; This is maybe too specific to GnuCash. It would be better if the
 ; gnucash namespace did these lookups
 (defn- ensure-split-ids
   [{:keys [commodity-account-id commodity-id account-id] :as transaction}
-   {:keys [accounts storage] :as context}]
+   {:keys [accounts storage]}]
   (if (and account-id commodity-id)
     transaction
     (let  [commodity-account (accounts/find-by-id
@@ -195,8 +237,9 @@
   [context transaction]
   (let  [split (-> transaction
                    (ensure-split-ids context)
-                   (dissoc :items))]
-    (trading/split (:storage context) split))
+                   (dissoc :items))
+         {result :transaction} (trading/split (:storage context) split)]
+    (log-transaction result "commodity split"))
   context)
 
 (defn- get-source-type
@@ -281,7 +324,8 @@
            record)))))
 
 (defn- notify-progress
-  ([progress-chan context] context)
+  ([_ context]
+   context)
   ([progress-chan {:keys [progress] :as context} _]
    (>!! progress-chan progress)
    (if (:error progress)

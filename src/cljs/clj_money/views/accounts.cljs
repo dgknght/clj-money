@@ -15,8 +15,7 @@
             [clj-money.x-platform.accounts :refer [account-types
                                                    left-side?
                                                    nest
-                                                   unnest
-                                                   polarize-item]]
+                                                   unnest]]
             [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
@@ -26,8 +25,7 @@
             [clj-money.forms :refer [text-input
                                      number-input
                                      select-input
-                                     typeahead-input
-                                     required]]))
+                                     typeahead-input]]))
 
 (def ^:private accounts (r/atom []))
 
@@ -92,7 +90,9 @@
                                                 nil
                                                 "invisible")]}]
          (:name account)]]
-   [:td
+   [:td.text-right (currency-format (+ (:children-value account)
+                                       (:value account)))]
+   [:td.text-center
     [:div.btn-group
      (util/link-to nil
                    (util/path :accounts (:id account))
@@ -120,11 +120,11 @@
                      (:children account))))))
 
 (defn- account-type-rows
-  [{:keys [type accounts] :as group}]
+  [{:keys [type accounts]}]
   (-> '()
       (conj ^{:key (str "account-type" type)}
             [:tr.account-type {:id (str "account-type-" type)}
-             [:td {:colSpan 2} type]])
+             [:td {:colSpan 3} type]])
       (concat (mapcat #(account-and-child-rows %) accounts))))
 
 (defn- account-list
@@ -132,13 +132,14 @@
   [:table.table.table-striped.table-hover
    [:thead
     [:tr
-     [:th "Name"]
-     [:th (util/space)]]]
+     [:th.col-md-7 "Name"]
+     [:th.col-md-3.text-right "Value"]
+     [:th.col-md-2 (util/space)]]]
    [:tbody
     (if (seq @accounts)
       (doall (mapcat #(account-type-rows %) (nest @accounts)))
       [:tr
-       [:td {:colSpan 2} [:span.inline-status "Loading..."]]])]])
+       [:td {:colSpan 3} [:span.inline-status "Loading..."]]])]])
 
 (defn- accounts-page []
   (load-accounts)
@@ -536,7 +537,7 @@
                :input-placeholder "Select the account"
                :in-fn (model-in-fn accounts :path)
                :out-fn (fn [v] (if (iterable? v) (first v) v))
-               :result-fn (fn [[path id]] path)}]]
+               :result-fn first}]]
    [:td [:input.form-control {:field :text
                               :id [:items index :memo]}]]
    [:td [:input.form-control {:field :numeric
@@ -555,7 +556,7 @@
       :input-placeholder "Select the other account"
       :in-fn (model-in-fn accounts :path)
       :out-fn (fn [v] (if (iterable? v) (first v) v))
-      :result-fn (fn [[path id]] path)})])
+      :result-fn first})])
 
 (def ^:private full-transaction-form
   [:form
@@ -605,8 +606,7 @@
 
 (defn- show-account
   [id]
-  (let [{:keys [items
-                more-items?
+  (let [{:keys [more-items?
                 ctl-chan]
          :as context} {:account (r/atom nil)
                        :transaction (r/atom nil)

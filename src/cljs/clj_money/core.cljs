@@ -1,5 +1,4 @@
 (ns clj-money.core
-  (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]

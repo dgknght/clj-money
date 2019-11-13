@@ -1,24 +1,11 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [clojure.spec.alpha :as s]
-            [clojure.set :refer [rename-keys]]
+  (:require
             [environ.core :refer [env]]
-            [ring.util.response :refer [status response header]]
             [clj-time.format :as f]
             [clj-time.coerce :refer [to-sql-date]]
-            [clj-money.api :refer [->response
-                                   invalid->response
-                                   error->response
-                                   index-resource
-                                   create-resource
-                                   update-resource
-                                   delete-resource]]
-            [clj-money.validation :as validation]
+            [clj-money.api :refer [->response]]
             [clj-money.coercion :as coercion]
-            [clj-money.authorization :refer [authorize
-                                             tag-resource]]
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.transactions]))
 
@@ -59,7 +46,7 @@
   (coercion/coerce options options-coercion-rules))
 
 (defn index
-  [{{:keys [criteria options] :as params} :params :as req}]
+  [{{:keys [criteria options]} :params}]
   (->response (transactions/search-items (env :db)
                                          (prepare-criteria criteria)
                                          (prepare-options options))))

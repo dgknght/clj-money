@@ -1,7 +1,6 @@
 (ns clj-money.models.commodities
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [clj-money.util :refer [safe-invoke
                                     rev-args]]
             [clj-money.validation :as validation]
@@ -22,7 +21,7 @@
 (s/def ::entity-id integer?)
 (s/def ::name validation/non-empty-string?)
 (s/def ::symbol validation/non-empty-string?)
-(s/def ::exchange #{:nyse :nasdaq})
+(s/def ::exchange #{:nyse :nasdaq :amex})
 (s/def ::type #{:currency :stock :fund})
 
 (def exchanges #{:nyse :nasdaq})
@@ -62,7 +61,7 @@
    (coercion/rule :keyword [:type])])
 
 (defn- name-is-in-use?
-  [storage {:keys [id entity-id exchange] commodity-name :name :as commodity}]
+  [storage {:keys [id entity-id exchange] commodity-name :name}]
   (when (and commodity-name entity-id exchange)
     (->> (select-commodities
            storage
@@ -94,17 +93,18 @@
 
 (defn- set-implicit-default
   "After a commodity is saved, checks to see if it is
-  the only commodity. If so, update the entity to indicate
+  the only currency commodity. If so, update the entity to indicate
   this is the default."
   [commodity storage]
-  (let [other-commodities (select-commodities storage {:entity-id (:entity-id commodity)
-                                                       :id [:!= (:id commodity)]})]
-    (when (empty? other-commodities)
-      (let [entity (entities/find-by-id storage (:entity-id commodity))]
-        (entities/update storage (assoc-in entity
-                                           [:settings :default-commodity-id]
-                                           (:id commodity)))))
-    commodity))
+  (when (#{:currency "currency"} (:type commodity))
+    (let [other-commodities (select-commodities storage {:entity-id (:entity-id commodity)
+                                                         :id [:!= (:id commodity)]})]
+      (when (empty? other-commodities)
+        (let [entity (entities/find-by-id storage (:entity-id commodity))]
+          (entities/update storage (assoc-in entity
+                                             [:settings :default-commodity-id]
+                                             (:id commodity)))))))
+  commodity)
 
 (def create
   (create-fn {:before-save before-save

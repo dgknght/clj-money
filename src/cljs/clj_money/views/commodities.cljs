@@ -9,8 +9,7 @@
             [clj-money.layout :refer [with-layout]]
             [clj-money.util :as util]
             [clj-money.forms :refer [text-input
-                                     select-input
-                                     required]]))
+                                     select-input]]))
 
 (defn- delete
   [commodity collection]
@@ -47,7 +46,7 @@
 (defn- commodity-list []
   (let [commodities (r/atom [])]
     (commodities/get-all (:id @state/current-entity)
-                         #(reset! commodities %)
+                         #(reset! commodities (sort-by :name %))
                          notify/danger)
     (fn []
       [:table.table.table-striped.table-hover

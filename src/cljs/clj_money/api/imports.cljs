@@ -46,7 +46,7 @@
                      error-fn))
 
 (defn delete
-  [{id :id :as imp} success-fn error-fn]
+  [{id :id} success-fn error-fn]
   (api/delete-resource (api/path :imports id)
                        success-fn
                        error-fn))

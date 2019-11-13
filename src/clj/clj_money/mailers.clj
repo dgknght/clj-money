@@ -1,8 +1,6 @@
 (ns clj-money.mailers
-  (:require [clojure.pprint :refer [pprint]]
-            [postal.core :refer [send-message]]
+  (:require [postal.core :refer [send-message]]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
             [selmer.parser :refer [render]]
             [clj-money.models.users :as users]))
 

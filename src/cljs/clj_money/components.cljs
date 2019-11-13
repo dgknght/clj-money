@@ -1,6 +1,5 @@
 (ns clj-money.components
-  (:require [cljs.core.async :refer [go]]
-            [reagent.core :as r]))
+  (:require [reagent.core :as r]))
 
 (defn- debounce
   [timeout f]
@@ -22,8 +21,7 @@
     :fully-loaded-content     - content to be displayed when the items are fully loaded
     :loading-content          - content to be dislpayed when the items are actively loading"
   [{:keys [target partially-loaded-content]
-    :or {partially-loaded-content "partially loaded"}
-    :as props}]
+    :or {partially-loaded-content "partially loaded"}}]
   (let [message (r/atom partially-loaded-content)
         should-load-more? (fn [e]
                             (let [target (.-target e)
@@ -53,7 +51,7 @@
                                                     (.getElementById js/document target)
                                                     js/window)]
                                    (.addEventListener targetElem "scroll" (partial debounced-scroll-listener this))))
-        detach-scroll-listener (fn [this])]
+        detach-scroll-listener identity]
     (r/create-class
       {:component-did-mount (fn [this]
                               (attach-scroll-listener this))
@@ -61,5 +59,5 @@
                                (attach-scroll-listener this))
        :component-will-unmount (fn [this]
                                  (detach-scroll-listener this))
-       :reagent-render (fn [props]
+       :reagent-render (fn [_]
                          [:span @message])})))

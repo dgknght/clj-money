@@ -22,7 +22,7 @@
    (when value
      (.format (number-formats (or (:format options) :standard))
               value))
-   (catch Exception e
+   (catch Exception _
      (log/warn "Unable to format number \"" value "\"")))))
 
 (def DateFormat (DateTimeFormat/forPattern "M/d/y"))
@@ -32,7 +32,7 @@
   [value]
   (try
     (.print DateFormat value)
-    (catch Exception e
+    (catch Exception _
       (log/warn "Unable to format date value \"" value "\""))))
 
 (def date-patterns

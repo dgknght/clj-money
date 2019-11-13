@@ -1,11 +1,13 @@
 (ns clj-money.web.prices
   (:refer-clojure :exclude [update])
   (:require [environ.core :refer [env]]
-            [clojure.pprint :refer [pprint]]
-            [ring.util.response :refer :all]
-            [hiccup.core :refer :all]
+            [ring.util.response :refer [redirect]]
             [clj-money.util :refer [format-date format-number]]
-            [clj-money.web.shared :refer :all]
+            [clj-money.web.shared :refer [date-input-field
+                                          form
+                                          glyph-button
+                                          number-input-field
+                                          with-layout]]
             [clj-money.validation :as validation]
             [clj-money.authorization :refer [authorize
                                              allowed?
@@ -33,7 +35,7 @@
                       :data-confirm "Are you sure you want to remove this price?"}))]]])
 
 (defn index
-  [{{commodity-id :commodity-id :as params} :params}]
+  [{{commodity-id :commodity-id} :params}]
   (let [commodity (commodities/find-by-id (env :db) commodity-id)
         criteria (apply-scope {:commodity-id commodity-id} :price)
         prices (prices/search (env :db) criteria {:limit 100
@@ -93,8 +95,10 @@
       (redirect (format "/commodities/%s/prices" (:commodity-id result))))))
 
 (defn delete
-  [{params :params}]
-  (let [price (authorize (prices/find-by-id (env :db) (Integer. (:id params)))
+  [{{:keys [id trade-date]}:params}]
+  (let [price (authorize (prices/find-by-id (env :db)
+                                            (Integer. id)
+                                            trade-date)
                          :delete)]
     (prices/delete (env :db) (:id price))
     (redirect (format "/commodities/%s/prices" (:commodity-id price)))))

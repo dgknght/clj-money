@@ -1,6 +1,5 @@
 (ns clj-money.url
-  (:require [clojure.string :as string]
-            [clojure.pprint :refer [pprint]]))
+  (:require [clojure.string :as string]))
 
 (defn- extract-map
   [args]

@@ -1,13 +1,9 @@
 (ns clj-money.models.imports
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
-            [clojure.java.io :as io]
+  (:require [clojure.spec.alpha :as s]
             [cheshire.core :as json]
             [clj-money.util :refer [rev-args]]
             [clj-money.authorization :as authorization]
-            [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
                                               create-fn

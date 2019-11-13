@@ -1,15 +1,10 @@
 (ns clj-money.web.imports
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [environ.core :refer [env]]
-            [ring.util.response :refer :all]
-            [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [clj-money.web.shared :refer :all]))
+  (:require [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
+            [clj-money.web.shared :refer [with-layout]]))
 
 (defn new-import
-  [req]
+  [_]
   (with-layout "Import entity" {}
     [:script {:src "/js/angular.min.js"}]
     [:script {:src "/js/underscore-min.js"}]

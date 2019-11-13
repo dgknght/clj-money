@@ -29,7 +29,8 @@
    :apple-401k  "77bfb9a7eb53ebfd5dd13b22476f58dd"
    :ira         "294fd407b010e07e8fb54a4cab3fbd8c"
    :apple-ira   "d65092fee5cfdacab77e7b37942675bb"
-   :other-inc   "8c62d43a4feee76da698912d7ff3a6ca"})
+   :other-inc   "8c62d43a4feee76da698912d7ff3a6ca"
+   :inv-exp     "2b8b986602a346dc833125c86ef89f72"})
 
 (def ^:private declarations
   [{:record-type :commodity
@@ -377,8 +378,13 @@
     :commodity-account-id (:apple-ira ids)
     :items [{:action :debit
              :account-id (:ira ids)
-             :quantity 600M
-             :value 600M
+             :quantity 590M
+             :value 590M
+             :reconciled false}
+            {:action :debit
+             :account-id (:inv-exp ids)
+             :quantity 10M
+             :value 10M
              :reconciled false}
             {:action :credit
              :account-id (:apple-ira ids)

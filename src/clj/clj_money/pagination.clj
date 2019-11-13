@@ -1,7 +1,5 @@
 (ns clj-money.pagination
   (:require [clojure.spec.alpha :as s]
-            [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
             [clj-money.url :as url]
             [clj-money.coercion :as coercion]))
 
@@ -32,7 +30,7 @@
   :url       - the base url for the navigation links"
   [options]
   [:nav {:aria-label "Page navigation"}
-   (let [{:keys [url total per-page max-pages page]} (validate-options options)
+   (let [{:keys [url total per-page page]} (validate-options options)
          page-count (int (Math/ceil (/ total per-page)))]
      [:nav {:aria-label "Page navigation"}
       [:div.row

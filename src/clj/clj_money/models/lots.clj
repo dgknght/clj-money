@@ -1,10 +1,8 @@
 (ns clj-money.models.lots
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [clj-time.coerce :refer [to-local-date]]
-            [clj-money.util :refer [pprint-and-return
-                                    to-sql-date
+            [clj-money.util :refer [to-sql-date
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
@@ -110,9 +108,9 @@
               :find find-by-id}))
 
 (defn- lot-unrealized-gains
-  [storage price-fn as-of {:keys [purchase-price
-                                  commodity-id
-                                  shares-owned] :as lot}]
+  [price-fn {:keys [purchase-price
+                        commodity-id
+                        shares-owned]}]
   (let [cost (* purchase-price shares-owned)
         value (* (price-fn commodity-id) shares-owned)]
     (- value cost)))
@@ -129,7 +127,7 @@
                                 (into {}))
           price-fn #(commodity-prices %)]
       (->> lots
-           (map #(lot-unrealized-gains s price-fn as-of %))
+           (map #(lot-unrealized-gains price-fn %))
            (reduce + 0M)))))
 
 (defn delete

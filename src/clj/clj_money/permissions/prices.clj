@@ -4,7 +4,6 @@
             [clj-money.models.auth-helpers :refer [user-owns-entity?
                                                    user-granted-access?
                                                    all-user-entity-ids]]
-            [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]))
 
 (authorization/allow :price user-owns-entity?)

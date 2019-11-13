@@ -1,7 +1,6 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [ring.util.response :refer [status response header]]
+  (:require [ring.util.response :refer [status response header]]
             [cemerick.friend :refer [current-authentication]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
@@ -17,11 +16,11 @@
             [clj-money.permissions.entities]))
 
 (defn index
-  [req]
+  [_]
   (response (entities/select (env :db) (:id (current-authentication)))))
 
 (defn create
-  [{:keys [params] :as req}]
+  [{:keys [params]}]
   (let [entity (-> params
                    (select-keys [:name :settings])
                    (assoc :user-id (:id (current-authentication)))
@@ -36,7 +35,7 @@
         (error->response e "Unable to create the entity.")))))
 
 (defn update
-  [{:keys [params] :as req}]
+  [{:keys [params]}]
   (let [entity (authorize (entities/find-by-id (env :db) (:id params)) :update)
         updated (merge entity (select-keys params [:name :settings]))]
     (try

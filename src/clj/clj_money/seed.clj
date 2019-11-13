@@ -6,8 +6,7 @@
             [clj-time.format :refer [parse-local-date]]
             [clj-money.inflection :refer [keywordize]]
             [clj-money.serialization :refer [realize]]
-            [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage]]
+            [clj-money.models.helpers :refer [with-transacted-storage]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]

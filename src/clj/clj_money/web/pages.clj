@@ -1,8 +1,8 @@
 (ns clj-money.web.pages
-  (:require [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all])
-  (:use [clj-money.web.shared :refer :all]))
+  (:require [clj-money.web.shared :refer [with-layout
+                                          form
+                                          text-input-field
+                                          password-input-field]]))
 
 (defn home
   "Renders the home page"

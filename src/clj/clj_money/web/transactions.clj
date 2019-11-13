@@ -1,33 +1,36 @@
 (ns clj-money.web.transactions
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
-            [clj-time.core :as t]
-            [clj-time.format :refer [parse-local-date unparse-local-date formatters]]
+  (:require [clj-time.core :as t]
+            [clj-time.format :refer [unparse-local-date formatters]]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
+            [hiccup.core :refer [html]]
+            [ring.util.response :refer [redirect]]
             [ring.util.codec :refer [url-encode]]
-            [clj-time.core :as t]
             [clj-money.authorization :refer [authorize
                                              allowed?
                                              tag-resource
                                              apply-scope]]
             [clj-money.util :refer [format-number
+                                    format-date
                                     ensure-local-date]]
-            [clj-money.url :refer :all]
-            [clj-money.coercion :as coercion]
+            [clj-money.url :refer [format-url
+                                   path
+                                   query]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
-            [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.transactions]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors
                                                 available-month-options]]
-            [clj-money.util :refer [format-date]])
-  (:use [clj-money.web.shared :refer :all]))
+            [clj-money.web.shared :refer [date-input-field
+                                          form
+                                          glyph-button
+                                          hidden-input-element
+                                          select-element
+                                          text-input-element
+                                          text-input-field
+                                          with-layout]]))
 
 (defmacro with-transactions-layout
   [page-title entity-or-id options & content]
@@ -227,7 +230,7 @@
            (form-fields transaction (redirect-url (:entity-id transaction) params))))))
 
 (defn- valid-item?
-  [{account-id :account-id :as item}]
+  [{account-id :account-id}]
   (or (integer? account-id)
       (and (string? account-id)
            (seq account-id))))
@@ -301,8 +304,11 @@
       (redirect redirect-url))))
 
 (defn delete
-  [{{id :id :as params} :params}]
-  (let [transaction (authorize (transactions/find-by-id (env :db) id) :delete)
+  [{{:keys [id transaction-date] :as params} :params}]
+  (let [transaction (authorize (transactions/find-by-id (env :db)
+                                                        id
+                                                        transaction-date)
+                               :delete)
         redirect-url (redirect-url (:entity-id transaction) params)]
-    (transactions/delete (env :db) id)
+    (transactions/delete (env :db) id transaction-date)
     (redirect redirect-url)))

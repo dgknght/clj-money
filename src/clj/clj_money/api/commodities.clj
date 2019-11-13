@@ -1,11 +1,8 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [environ.core :refer [env]]
+  (:require [environ.core :refer [env]]
             [clj-money.authorization :refer [authorize]]
             [clj-money.api :refer [->response
-                                   error->response
                                    index-resource
                                    create-resource
                                    update-resource

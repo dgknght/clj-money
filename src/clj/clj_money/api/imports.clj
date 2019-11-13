@@ -1,10 +1,7 @@
 (ns clj-money.api.imports
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [clojure.string :as string]
-            [clojure.core.async :refer [go go-loop <! chan]]
-            [cheshire.core :as json]
+  (:require [clojure.string :as string]
+            [clojure.core.async :refer [go-loop <! chan]]
             [ring.util.response :refer [response
                                         status]]
             [environ.core :refer [env]]

@@ -1,16 +1,12 @@
 (ns clj-money.models.images
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [digest :refer [sha-1]]
             [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
             [clj-money.models.helpers :refer [with-storage
-                                              create-fn
-                                              update-fn]]
+                                              create-fn]]
             [clj-money.models.storage :refer [create-image
                                               select-images
                                               find-image-by-id

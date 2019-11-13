@@ -1,8 +1,6 @@
 (ns clj-money.middleware
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [ring.util.response :refer [response status header]]
+  (:require [ring.util.response :refer [response status header]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [slingshot.slingshot :refer [try+]]
@@ -23,7 +21,7 @@
   [value]
   (try
     (Integer. value)
-    (catch NumberFormatException e
+    (catch NumberFormatException _
       value)))
 
 (defn- id-key?
@@ -61,7 +59,7 @@
        (map (fn [{:keys [key lookup-fn target-key]}]
               (when-let [id (key params)]
                 [target-key (lookup-fn id)])))
-       (filter (fn [[k v]] v))
+       (filter second)
        (into {})))
 
 (defn wrap-models

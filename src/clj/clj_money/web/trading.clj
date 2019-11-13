@@ -1,20 +1,20 @@
 (ns clj-money.web.trading
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
-            [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
+  (:require [environ.core :refer [env]]
+            [hiccup.core :refer [html]]
+            [ring.util.response :refer [redirect]]
             [clj-time.core :as t]
-            [clj-money.web.shared :refer :all]
+            [clj-money.web.shared :refer [date-input-field
+                                          form
+                                          number-input-field
+                                          select-field
+                                          with-layout]]
             [clj-money.web.money-shared :refer [budget-monitors
                                                 inventory-method-options
                                                 grouped-options-for-accounts]]
-            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]
             [clj-money.trading :as trading]))
 
@@ -143,7 +143,7 @@
 
 (defn unbuy
   [{{transaction-id :transaction-id} :params}]
-  (->> (trading/unbuy (env :db))
+  (->> (trading/unbuy (env :db) transaction-id)
        :lot
        :account-id
        (format "/accounts/%s")

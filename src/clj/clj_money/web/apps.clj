@@ -1,8 +1,7 @@
 (ns clj-money.web.apps
   (:refer-clojure :exclude [update])
-  (:require [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
+  (:require [ring.util.response :refer [redirect]]
+            [hiccup.page :refer [html5 include-js]]
             [clj-money.web.shared :refer [head]]))
 
 (defn index
@@ -10,7 +9,7 @@
   (redirect "/apps/default"))
 
 (defn show
-  [{params :params}]
+  [_]
   (html5
     [:html {:lang "en"}
      (head "clj-money" {})

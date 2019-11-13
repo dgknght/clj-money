@@ -1,10 +1,9 @@
 (ns clj-money.forms
   (:require-macros [reagent-forms.macros :refer [render-element]])
-  (:require [clojure.string :refer [trim]]
+  (:require
             [reagent.core :as r]
             [reagent-forms.core :refer [value-of
-                                        default-selection
-                                        init-field]]
+                                        default-selection]]
             [clj-money.inflection :as infl]))
 
 (defn- label
@@ -77,7 +76,7 @@
    (str (-> field name infl/last-segment infl/title-case) " is required.")])
 
 (defmethod reagent-forms.core/init-field :list-fn
-  [[tag {:keys [list-fn id] :as attr}] {:keys [doc save! get] :as context}]
+  [[tag {:keys [list-fn id] :as attr}] {:keys [doc save! get]}]
   (let [options (r/atom [])
         selection (r/atom (or (get id)
                               (get-in (first @options)  [1 :key])))

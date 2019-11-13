@@ -1,16 +1,15 @@
 (ns clj-money.web.reports
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
-            [clojure.string :as string]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.string :as string]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
+            [hiccup.core :refer [html]]
             [clj-time.core :as t]
             [clj-money.util :refer [format-number
                                     format-date
                                     parse-local-date]]
-            [clj-money.web.shared :refer :all]
+            [clj-money.web.shared :refer [date-input-field
+                                          tabbed-nav
+                                          with-layout]]
             [clj-money.authorization :refer [authorize
                                              allowed?
                                              tag-resource]]
@@ -88,7 +87,7 @@
    [:td.text-right (-> record :actual-per-period format-number)]])
 
 (defmethod render-report :budget
-  [{:keys [entity-id budget-id as-of] :as params}]
+  [{:keys [entity-id budget-id as-of]}]
   (if-let [budget (if budget-id
                     (budgets/find-by-id (env :db) budget-id)
                     (budgets/find-by-date (env :db) entity-id as-of))]

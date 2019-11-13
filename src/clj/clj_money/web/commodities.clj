@@ -1,11 +1,16 @@
 (ns clj-money.web.commodities
   (:refer-clojure :exclude [update])
   (:require [environ.core :refer [env]]
-            [ring.util.response :refer :all]
-            [hiccup.core :refer :all]
-            [clojure.tools.logging :as log]
+            [hiccup.core :refer [html]]
+            [ring.util.response :refer [redirect]]
             [clj-money.util :refer [format-number]]
-            [clj-money.web.shared :refer :all]
+            [clj-money.web.shared :refer [append-anti-forgery-link-attributes
+                                          form
+                                          glyph-button
+                                          options-for-select
+                                          select-field
+                                          text-input-field
+                                          with-layout]]
             [clj-money.authorization :refer [apply-scope
                                              allowed?
                                              authorize
@@ -60,7 +65,7 @@
   [{params :params}]
   (let [entity (:entity params)
         criteria (apply-scope {:entity-id (:id entity)} :commodity)
-        commodities (commodities/search (env :db) criteria)]
+        commodities (sort-by :symbol (commodities/search (env :db) criteria))]
     (with-layout "Commodities" {:entity entity}
       [:div.row
        [:div.col-md-6

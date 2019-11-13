@@ -1,19 +1,13 @@
 (ns clj-money.models.prices
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [clojure.spec.alpha :as s]
-            [clj-time.core :as t]
-            [clj-money.util :refer [pprint-and-return
-                                    rev-args]]
+  (:require [clojure.spec.alpha :as s]
+            [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.commodities :as commodities]
             [clj-money.models.storage :refer [create-price
                                               update-price
                                               select-prices

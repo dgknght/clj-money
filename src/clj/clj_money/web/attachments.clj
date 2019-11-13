@@ -1,26 +1,22 @@
 (ns clj-money.web.attachments
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
-            [clojure.string :refer [blank?]]
+  (:require [clojure.string :refer [blank?]]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
-            [ring.util.codec :refer [url-encode]]
             [cemerick.friend :as friend]
+            [ring.util.response :refer [redirect]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
-            [clj-money.authorization :refer [apply-scope
-                                             authorize
+            [clj-money.authorization :refer [authorize
                                              allowed?
                                              tag-resource]]
             [clj-money.permissions.attachments]
             [clj-money.models.images :as images] 
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.attachments :as attachments])
-  (:use [clj-money.web.shared :refer :all]))
+            [clj-money.models.attachments :as attachments]
+            [clj-money.web.shared :refer [file-input-field
+                                          form
+                                          text-input-field
+                                          with-layout]]))
 
 (defn- attachment-row
   [attachment]
@@ -42,9 +38,12 @@
         [:span.glyphicon.glyphicon-remove {:aria-hidden true}]])]]])
 
 (defn index
-  [{{transaction-id :transaction-id} :params}]
+  [{{:keys [transaction-id transaction-date]} :params}]
   ; TODO once the scope bit is figured out, we won't need to authorize the transaction
-  (let [transaction (authorize (transactions/find-by-id (env :db) transaction-id) :show)
+  (let [transaction (authorize (transactions/find-by-id (env :db)
+                                                        transaction-id
+                                                        transaction-date)
+                               :show)
         attachments (attachments/search
                       (env :db)
                       {:transaction-id (:id transaction)}
@@ -127,11 +126,11 @@
                         (:transaction-id params))))))
 
 (defn edit
-  [req]
+  [_]
   "edit")
 
 (defn update
-  [req]
+  [_]
   "update")
 
 (defn delete

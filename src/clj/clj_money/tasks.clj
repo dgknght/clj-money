@@ -1,6 +1,5 @@
 (ns clj-money.tasks
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.cli :refer [parse-opts]]
+  (:require [clojure.tools.cli :refer [parse-opts]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.models.helpers :refer [with-transacted-storage]]
@@ -41,7 +40,7 @@
               s
               (:id account)
               (or (:earliest-transaction-date account)
-                  (t/local-date 2015 1 1))
+                  (t/local-date 2006 1 1))
               {:force true})
             (println ""))
           (println "Done."))))))

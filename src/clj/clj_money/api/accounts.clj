@@ -1,18 +1,12 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [environ.core :refer [env]]
-            [ring.util.response :refer [status response header]]
+  (:require [environ.core :refer [env]]
             [clj-money.api :refer [->response
-                                   error->response
                                    index-resource
                                    create-resource
                                    update-resource
                                    delete-resource]]
-            [clj-money.validation :as validation]
-            [clj-money.authorization :refer [authorize
-                                             tag-resource]]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.models.accounts :as accounts]
             [clj-money.permissions.accounts]))
 

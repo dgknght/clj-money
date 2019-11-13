@@ -1,7 +1,6 @@
 (ns clj-money.db
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.cli :refer [parse-opts]]
+  (:require[clojure.tools.cli :refer [parse-opts]]
             [clj-time.core :as t]
             [clojure.java.jdbc :as jdbc]
             [honeysql.core :as sql]

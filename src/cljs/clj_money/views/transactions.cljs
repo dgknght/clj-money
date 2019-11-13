@@ -1,18 +1,10 @@
 (ns clj-money.views.transactions
   (:require [reagent.core :as r]
-            [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
-            [clj-money.api.accounts :as accounts]
             [clj-money.api.transactions :as transactions]
-            [clj-money.state :as state]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
-            [clj-money.layout :refer [with-layout]]
-            [clj-money.util :as util]
-            [clj-money.forms :refer [text-input
-                                     select-input
-                                     typeahead-input
-                                     required]]))
+            [clj-money.layout :refer [with-layout]]))
 
 (defn- transactions-page
   []

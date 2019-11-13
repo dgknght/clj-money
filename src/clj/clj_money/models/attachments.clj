@@ -1,22 +1,16 @@
 (ns clj-money.models.attachments
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
+  (:require
             [clojure.spec.alpha :as s]
             [clj-money.util :refer [rev-args]]
-            [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
-            [clj-money.coercion :as coercion]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
-                                              create-fn
-                                              update-fn]]
+                                              create-fn]]
             [clj-money.models.storage :refer [create-attachment
                                               select-attachments
                                               delete-attachment]]
-            [clj-money.models.images :as images]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.auth-helpers :refer [user-owns-entity?
-                                                   user-entity-ids]])
+            [clj-money.models.images :as images])
   (:import org.joda.time.LocalDate))
 
 (s/def ::transaction-id uuid?)
@@ -41,7 +35,7 @@
 (defn search
   ([storage-spec criteria]
    (search storage-spec criteria {}))
-  ([storage-spec criteria options]
+  ([storage-spec criteria _options]
    (with-storage [s storage-spec]
      (->> criteria
           (select-attachments s )

@@ -788,7 +788,7 @@
              #((fnil conj #{}) % (select-keys item [:index
                                                    :quantity
                                                    :balance]))))
-(def ^:dynamic real-upsert-item nil)
+(def ^:dynamic update-item nil)
 
 ; Trans. Date quantity  Debit     Credit
 ; 2016-03-02    1000  Checking  Salary
@@ -806,21 +806,18 @@
                     (rename-keys {:transaction-date :original-transaction-date})
                     (assoc :transaction-date (t/local-date 2016 3 8)))
         update-calls (atom {})]
-    (binding [real-upsert-item transactions/upsert-item]
-      (with-redefs [transactions/upsert-item (fn [storage item]
-                                               (swap! update-calls
-                                                      (partial record-update-call item))
-                                               (real-upsert-item storage item))]
+    (binding [update-item transactions/update-item-index-and-balance]
+      (with-redefs [transactions/update-item-index-and-balance (fn [storage item]
+                                                                 (swap! update-calls
+                                                                        (partial record-update-call item))
+                                                                 (update-item storage item))]
         (let [result (transactions/update storage-spec updated)
               expected #{{:index 1
                           :quantity 102M
                           :balance 898M}
                          {:index 2
                           :quantity 101M
-                          :balance 797M}
-                         {:index 2 ; The item will be written once before item stats are recalculated
-                          :quantity 102M
-                          :balance 0M}}
+                          :balance 797M}}
               actual (get @update-calls (:id checking))]
           (is (empty? (validation/error-messages result))
               "The transaction is saved successfully")

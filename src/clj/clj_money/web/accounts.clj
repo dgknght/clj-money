@@ -1,14 +1,12 @@
 (ns clj-money.web.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
             [clj-time.format :refer [unparse-local-date
                                      formatters]]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
+            [hiccup.core :refer [html]]
+            [ring.util.response :refer [redirect]]
             [ring.util.codec :refer [url-encode]]
             [clj-money.authorization :refer [authorize
                                              allowed?
@@ -17,23 +15,23 @@
             [clj-money.permissions.accounts]
             [clj-money.permissions.transactions]
             [clj-money.permissions.reconciliations]
-            [clj-money.url :refer :all]
+            [clj-money.url :refer [path query format-url]]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.util :refer [format-number
-                                    pprint-and-return]]
+            [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.x-platform.accounts :refer [account-types
                                                    nest]]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.commodities :as commodities]
-            [clj-money.models.lots :as lots]
-            [clj-money.models.prices :as prices]
             [clj-money.web.money-shared :refer [grouped-options-for-accounts
                                                 budget-monitors
                                                 available-month-options]]
-            [clj-money.reports :as reports])
-  (:use [clj-money.web.shared :refer :all]))
+            [clj-money.reports :as reports]
+            [clj-money.web.shared :refer [form
+                                          glyph-button
+                                          select-field
+                                          text-input-field
+                                          with-layout]]))
 
 (defmacro with-accounts-layout
   [page-title entity-or-id options & content]
@@ -42,8 +40,8 @@
      ~@content))
 
 (defn- can-add-child?
-  [account]
-  true)
+  [_account]
+  true) ; TODO: disallow on certain account types
 
 (defn- account-row
   "Renders a single account row"
@@ -93,8 +91,8 @@
                       :disabled (seq (:children account))}))]]])
 
 (defn- render-child-rows?
-  [account]
-  true)
+  [_account]
+  true) ; TODO: decline child rows on certain account types
 
 (defn- account-and-children-rows
   "Renders an individual account row and any child rows"
@@ -127,7 +125,7 @@
 (defn index
   "Renders the list of accounts"
   ([req] (index req {}))
-  ([{{entity :entity :as params} :params} options]
+  ([{{entity :entity} :params} options]
    (with-accounts-layout "Accounts" entity (merge options {:entity entity})
      [:table.table.table-striped
       [:tr
@@ -150,11 +148,10 @@
            reconciled?
            account-id
            balance]
-    {:keys [id transaction-date] :as transaction} :transaction
-    :as item}]
+    {:keys [id transaction-date] :as transaction} :transaction}]
   [:tr
    [:td.text-right (:transaction-date transaction)]
-   [:td (:description transaction)]
+   [:td description]
    [:td.text-right (format-number polarized-quantity)]
    [:td.text-right (format-number balance)]
    [:td.text-center [:span.glyphicon
@@ -206,7 +203,7 @@
       "Search"]]]])
 
 (defmulti ^:private show-account
-  (fn [account params]
+  (fn [account _]
     (cond
       (contains? (:tags account) :trading)
       :trading-account
@@ -271,7 +268,6 @@
            caption
            shares
            price
-           cost
            gain
            value
            commodity-id]}
@@ -315,7 +311,7 @@
                       :title "Click here to sell shares of this commodity."})])]])
 
 (defmethod show-account :trading-account
-  [account params]
+  [account _params]
   (html
     (let [summary (reports/commodities-account-summary (env :db) (:id account))]
       [:div.row
@@ -345,7 +341,7 @@
      "Back"]))
 
 (defmethod show-account :trading-detail
-  [account params]
+  [account _params]
   (html
     [:p
      "Information page for commodity accounts is not ready yet."]
@@ -437,21 +433,21 @@
   success or rerenders the edit from on error"
   [{params :params}]
   (let [account (authorize (accounts/find-by-id (env :db) (:id params))
-                           :update)]
-    (let [updated (merge account
-                         (select-keys params [:id
-                                              :name
-                                              :type
-                                              :entity-id
-                                              :parent-id]))
-          result (accounts/update (env :db) updated)]
-      (if (validation/has-error? result)
-        (edit {:account result})
-        (redirect (format "/entities/%s/accounts" (:entity-id result)))))))
+                           :update)
+        updated (merge account
+                       (select-keys params [:id
+                                            :name
+                                            :type
+                                            :entity-id
+                                            :parent-id]))
+        result (accounts/update (env :db) updated)]
+    (if (validation/has-error? result)
+      (edit {:account result})
+      (redirect (format "/entities/%s/accounts" (:entity-id result))))))
 
 (defn delete
   "Deletes the specified account"
-  [{{id :id :as params} :params}]
+  [{{id :id} :params}]
   (let [account (authorize (accounts/find-by-id (env :db) id) :delete)]
     (try
       (accounts/delete (env :db) (:id account))

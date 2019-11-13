@@ -3,8 +3,7 @@
   (:require [clj-money.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [all-user-entity-ids
                                                    user-granted-access?
-                                                   user-owns-entity?]]
-            [clj-money.models.budgets :as budgets]))
+                                                   user-owns-entity?]]))
 
 (authorization/set-scope
   :budget

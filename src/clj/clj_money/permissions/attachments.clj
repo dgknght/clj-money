@@ -2,9 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clj-money.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [user-owns-entity?
-                                                   user-granted-access?
-                                                   user-entity-ids]]
-            [clj-money.models.transactions :as transactions]))
+                                                   user-granted-access?]]))
 
 (authorization/allow :attachment user-owns-entity?)
 (authorization/allow :attachment user-granted-access?)

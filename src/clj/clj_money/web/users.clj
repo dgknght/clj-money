@@ -1,14 +1,14 @@
 (ns clj-money.web.users
   (:refer-clojure :exclude [update find])
-  (:require [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [clojure.tools.logging :as log]
-            [ring.util.response :refer :all]
+  (:require [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
-            [clj-money.models.helpers :refer [throw-if-nil]])
-  (:use [clj-money.web.shared]
-        [clj-money.models.users :as users]
-        [clj-money.validation :as validation]))
+            [clj-money.models.helpers :refer [throw-if-nil]]
+            [clj-money.web.shared :refer [form
+                                          password-input-field
+                                          text-input-field
+                                          with-layout]]
+            [clj-money.models.users :as users]
+            [clj-money.validation :as validation]))
 
 (defn new-user
   "Renders the sign up form"

@@ -1,25 +1,21 @@
 (ns clj-money.web.grants
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
+  (:require [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
+            [ring.util.response :refer [redirect]]
+            [hiccup.core :refer [html]]
             [cemerick.friend :refer [current-authentication]]
             [clj-money.authorization :refer [authorize
                                              apply-scope
                                              tag-resource]]
-            [clj-money.pagination :as pagination]
             [clj-money.validation :as validation]
             [clj-money.inflection :refer [humanize]]
             [clj-money.mailers :as mailers]
             [clj-money.models.entities :as entities]
             [clj-money.models.users :as users]
             [clj-money.models.grants :as grants]
-            [clj-money.permissions.grants])
-  (:use [clj-money.web.shared :refer :all]))
+            [clj-money.permissions.grants]
+            [clj-money.web.shared :refer [email-input-field form glyph-button with-layout]]))
 
 (defn- grant-row
   [grant]
@@ -150,7 +146,8 @@
         url (format "%s://%s/password/%s")]
     (mailers/invite-user {:url url
                           :from-user current-authentication
-                          :to-user user})))
+                          :to-user user
+                          :token token})))
 
 (defn- find-or-create-user
   [user]

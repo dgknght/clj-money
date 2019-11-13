@@ -1,15 +1,9 @@
 (ns clj-money.validation
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
+  (:require [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [clojure.tools.logging :as log]
-            [clj-time.core :as t]
-            [clj-time.coerce :as tc]
-            [clj-money.util :refer [pprint-and-return]]
-            [clj-money.inflection :refer [singular
-                                          humanize
-                                          ordinal]])
+            [clj-money.inflection :refer [humanize]])
   (:import org.joda.time.LocalDate
            java.util.Date))
 
@@ -55,7 +49,7 @@
    'clojure.core/decimal? "%s must be a decimal"})
 
 (defn- interpret-simple-pred-failure
-  [{:keys [path pred] :as problem}]
+  [{:keys [path pred]}]
   (when (symbol? pred)
     (when-let [fmt (simple-pred-map pred)]
       [path (format fmt (-> path last humanize))])))
@@ -67,7 +61,7 @@
     [path (format "%s is not valid" (humanize (last path)))]))
 
 (defn- interpret-required-failure
-  [{:keys [pred in] :as problem}]
+  [{:keys [pred in]}]
   (when (and (coll? pred)
              (not (set? pred))
              (coll? (last pred))
@@ -76,7 +70,7 @@
       [(concat in [k]) (format "%s is required" (humanize k))])))
 
 (defn- interpret-set-inclusion-failure
-  [{:keys [pred path] :as problem}]
+  [{:keys [pred path]}]
   (when (set? pred)
     [path
      (format "%s must be one of: %s"
@@ -94,7 +88,7 @@
      (format "Count must be greater than or equal to %s" (second pred))]))
 
 (defn- interpret-unknown-failure
-  [{:keys [pred path] :as problem}]
+  [{:keys [path] :as problem}]
 
   (log/debug "interpret-unknown-failure " problem)
 

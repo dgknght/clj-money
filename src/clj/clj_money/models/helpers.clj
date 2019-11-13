@@ -1,8 +1,6 @@
 (ns clj-money.models.helpers
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
+  (:require
             [slingshot.slingshot :refer [throw+]]
-            [clj-money.util :refer [pprint-and-return]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.storage :refer [with-transaction]]
@@ -63,7 +61,7 @@
   [model options s]
   (let [rules (or (:rules options)
                   (when-let [rules-fn (:rules-fn options)]
-                    ((:rules-fn options) s))
+                    (rules-fn s))
                   [])
         before-validation (or (:before-validation options)
                               (fn [m & _] (identity m)))

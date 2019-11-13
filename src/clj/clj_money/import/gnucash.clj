@@ -1,29 +1,20 @@
 (ns clj-money.import.gnucash
   (:refer-clojure :exclude [update])
-  (:require [clojure.java.io :as io]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.tools.logging :as log]
+            [clojure.java.io :as io]
             [clojure.set :refer [rename-keys]]
             [clojure.string :as s]
-            [clojure.tools.logging :as log]
             [clojure.tools.cli :refer [parse-opts]]
             [clojure.core.async
              :refer [pipe
-                     sliding-buffer
                      chan
-                     go
-                     go-loop
                      close!
-                     <!
                      <!!
-                     >!!
-                     >!]
+                     >!!]
              :as async]
             [clojure.data.xml :as xml]
             [clj-time.core :as t]
-            [clj-xpath.core :refer :all]
             [clj-money.core]
-            [clj-money.util :refer [pprint-and-return
-                                    pprint-and-return-l]]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream
                           GZIPOutputStream]
@@ -131,8 +122,8 @@
       :else                             tag)))
 
 (defmethod ^:private process-elem :default
-  [state elem]
-  #_(pprint {:process-elem-default (:tag elem)})
+  [_ elem]
+  (log/debug "Encountered unhandled element " (prn-str (:tag elem)))
   nil)
 
 (defn- tag->keyword
@@ -143,7 +134,7 @@
 ; containing elemen, return a name/value pair that will
 ; later be turned into a map representing the record
 (defmethod ^:private process-elem :attribute
-  [{:keys [content] :as state} {tag :tag}]
+  [{:keys [content]} {tag :tag}]
   [[(tag->keyword tag)
     (agg-text-content (peek content))]])
 
@@ -153,7 +144,7 @@
     (into {} (peek child-content))]])
 
 (defmethod ^:private process-elem ::gnc/count-data
-  [{:keys [out-chan content] :as state} {:keys [attrs]}]
+  [{:keys [out-chan content]} {:keys [attrs]}]
   (let [record-type (keyword (::cd/type attrs))
         record-count (parse-integer (agg-text-content (peek content)))
         record (-> {:record-type record-type
@@ -164,29 +155,29 @@
     nil))
 
 (defmethod ^:private process-elem ::gnc/commodity
-  [{:keys [out-chan child-content] :as state} _]
+  [{:keys [out-chan child-content]} _]
   (>!! out-chan (with-meta (into {} (peek child-content))
                            {:record-type :commodity}))
   nil)
 
 (defmethod ^:private process-elem :price
-  [{:keys [out-chan child-content] :as state} _]
+  [{:keys [out-chan child-content]} _]
   (>!! out-chan (with-meta (into {} (peek child-content))
                            {:record-type :price}))
   nil)
 
 (defmethod ^:private process-elem ::gnc/account
-  [{:keys [out-chan child-content] :as state} _]
+  [{:keys [out-chan child-content]} _]
   (>!! out-chan (with-meta (into {} (peek child-content))
                            {:record-type :account}))
   nil)
 
 (defmethod ^:private process-elem ::act/commodity
-  [{:keys [child-content]} elem]
+  [{:keys [child-content]} _]
   [[:commodity (into {} (peek child-content))]])
 
 (defmethod ^:private process-elem ::gnc/budget
-  [{:keys [out-chan child-content] :as state} _]
+  [{:keys [out-chan child-content]} _]
   (>!! out-chan (with-meta (reduce (fn [r [k v]]
                                      (if (= :item k)
                                        (update-in r [:items] conj v)
@@ -213,7 +204,7 @@
 ; in the gnucash XML. It's necessary to inspect the parent
 ; chain in order to know how to handle the content
 (defmethod ^:private process-elem :slot
-  [{:keys [elems child-content content]} elem]
+  [{:keys [elems child-content]} _]
   (let [tag-stack (map :tag elems)]
     (cond
       (= (take-last 3 tag-stack) ; budget period
@@ -229,7 +220,7 @@
           :slot]) [(into {} (peek child-content))])))
 
 (defmethod ^:private process-elem ::gnc/transaction
-  [{:keys [out-chan child-content elems]} elem]
+  [{:keys [out-chan child-content]} _]
   (>!! out-chan (with-meta (reduce (fn [r [k v]]
                                      (if (= :split k)
                                        (update-in r [:splits] conj v)
@@ -242,11 +233,11 @@
   nil)
 
 (defmethod ^:private process-elem ::trn/splits
-  [{:keys [child-content]} elem]
+  [{:keys [child-content]} _]
   (peek child-content))
 
 (defmethod ^:private process-elem ::trn/split
-  [{:keys [child-content]} elem]
+  [{:keys [child-content]} _]
   [[:split (into {} (peek child-content))]])
 
 (defmulti ^:private process-event
@@ -255,7 +246,7 @@
 
 (defmethod ^:private process-event :default
   [_ event]
-  #_(pprint {:event (type event)}))
+  (log/warn "Unhandled event type " (type event)))
 
 (defmethod ^:private process-event StartElementEvent
   [state event]
@@ -287,7 +278,7 @@
     (tag-set ::gnc/template-transactions)))
 
 (defmethod ^:private process-event EndElementEvent
-  [{:keys [elems content out-chan] :as state} event]
+  [{:keys [elems] :as state} _]
   (let [child-content (if (template? elems)
                         nil ; don't process templates
                         (process-elem state (peek elems)))]
@@ -321,25 +312,20 @@
   record)
 
 (defmethod ^:private process-record :commodity
-  [commodity _]
-  (let [c (-> commodity
-              (rename-keys {:id :symbol
-                            :space :exchange
-                            :quote_source :type})
-              (update-in [:type] keyword)
-              (update-in [:exchange] (comp keyword s/lower-case)))]
-    (cond-> c
-      (nil? (:type c))
-      (assoc :type :stock)
-
-      (nil? (:name c))
-      (assoc :name (:symbol c))
-
-      (nil? (#{:nasdaq :nyse} (:exchange c)))
-      (dissoc :exchange)
-
-      (= "template" (:symbol c))
-      (vary-meta assoc :ignore? true))))
+  [{:keys [id name space quote_source] :as commodity} _]
+  (let [result (-> commodity
+                   (assoc :name (or name id)
+                          :type (if (= "currency" quote_source)
+                                  :currency
+                                  (or (#{:fund :currency} (-> space s/lower-case keyword))
+                                      :stock))
+                          :symbol id)
+                   (select-keys [:name :symbol :type :exchange])
+                   (vary-meta assoc :ignore? (= "template" id)))
+        exchange (#{:nasdaq :nyse :amex} (-> space s/lower-case keyword))]
+    (if exchange
+      (assoc result :exchange exchange)
+      result)))
 
 (defmethod ^:private process-record :price
   [price state]
@@ -364,7 +350,7 @@
             (dissoc :time :value :commodity :currency))))))
 
 (defmethod ^:private process-record :account
-  [{:keys [commodity] :as account} _]
+  [account _]
   (let [account-type (account-types-map (:type account))]
     (when-not account-type
       (throw (ex-info (format "Unrecognized account type \"%s\"" (:type account))
@@ -401,14 +387,15 @@
 
 (defmethod ^:private refine-trading-transaction :none [t] t)
 
+(def ^:private trade-actions-map
+  {:buy :debit
+   :sell :credit
+   :split :debit})
+
 (defn- adjust-trade-actions
   [items]
   (map (fn [item]
-         (update-in item [:action] #(case %
-                                      :buy :debit
-                                      :sell :credit
-                                      :split :debit
-                                      %)))
+         (update-in item [:action] #(get-in trade-actions-map [%] %)))
        items))
 
 (defmethod ^:private refine-trading-transaction :purchase
@@ -416,9 +403,6 @@
   (let [commodity-item (->> (:items transaction)
                             (filter #(= :buy (:action %)))
                             first)]
-    ; TODO: import is expecting :account-id, :symbol, and :exchange, all
-    ;       of which can be looked up from the :commodity-account-id
-
     (-> transaction
         (assoc
           :action :buy
@@ -432,9 +416,6 @@
   (let [commodity-item (->> (:items transaction)
                             (filter #(= :sell (:action %)))
                             first)]
-    ; TODO: import is expecting :account-id, :symbol, and :exchange, all
-    ;       of which can be looked up from the :commodity-account-id
-
     (-> transaction
         (assoc
           :trade-date (:transaction-date transaction)
@@ -449,8 +430,8 @@
                   (filter #(= :sell (:action %)))
                   first)
         to (->> (:items transaction)
-                  (filter #(= :buy (:action %)))
-                  first)]
+                (filter #(= :buy (:action %)))
+                first)]
     (-> transaction
         (assoc :action :transfer
                :shares (:quantity to)
@@ -476,7 +457,8 @@
   (-> item
       (rename-keys {:account :account-id
                     :reconciled-state :reconciled})
-      (update-in [:action] #(if %
+      (update-in [:action] #(if (and %
+                                     (#{"Debit" "Credit" "Buy" "Sell" "Split"} %))
                               (-> % s/lower-case keyword)
                               (if (= \- (first (:quantity item)))
                                 :credit
@@ -488,9 +470,12 @@
 (defmethod ^:private process-record :transaction
   [transaction _]
   (-> transaction
-      (assoc :transaction-date (-> transaction :date-posted :date parse-date))
-      (dissoc :date-posted)
-      (rename-keys {:splits :items})
+      (rename-keys {:splits :items
+                    :date-posted :transaction-date})
+      (update-in [:description] #(if ((some-fn nil? empty?) %)
+                                   "*unspecified*"
+                                   %))
+      (update-in [:transaction-date] #(-> % :date parse-date))
       (update-in [:items] #(map process-transaction-item %))
       refine-trading-transaction))
 
@@ -533,7 +518,7 @@
   [_ inputs out-chan]
   (let [records-chan (chan 1000 (comp filter-records
                                       process-records))
-        out-pipe (pipe records-chan out-chan)]
+        _ (pipe records-chan out-chan)]
     (->> inputs
          (map #(GZIPInputStream. %))
          (map io/reader)
@@ -597,16 +582,6 @@
    (if (>= (count records) max-record-count)
      (process-output context)
      context)))
-
-(defn- append-record
-  [xf]
-  (fn
-    ([] (xf))
-    ([context] (xf context))
-    ([context record]
-     (xf
-       (update-in context [:records] #(conj % record))
-       record))))
 
 (defn- chunk-file-state
   [args]

@@ -9,8 +9,7 @@
             [clj-money.dom :refer [app-element]]
             [clj-money.layout :refer [with-layout]]
             [clj-money.forms :refer [text-input
-                                     radio-buttons
-                                     required]]))
+                                     radio-buttons]]))
 
 (defn- delete
   [entity]

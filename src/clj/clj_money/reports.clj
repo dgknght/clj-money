@@ -1,9 +1,8 @@
 (ns clj-money.reports
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [rename-keys]]
+  (:require [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [pprint-and-return format-date]]
+            [clj-money.util :refer [format-date]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.models.entities :as entities]
@@ -134,8 +133,7 @@
 (defn income-statement
   "Returns the data used to populate an income statement report"
   ([storage-spec entity-id]
-   (let [base (t/today)
-         [start end] (transactions/available-date-range storage-spec)]
+   (let [[start end] (transactions/available-date-range storage-spec)]
      (income-statement storage-spec entity-id start end)))
   ([storage-spec entity-id start end]
    (->> {:entity-id entity-id}
@@ -152,7 +150,6 @@
   (let [summary (->> groups
                      (map (juxt :type :value))
                      (into {}))
-        retained (- (:income summary) (:expense summary))
         records (->> groups
                      (remove #(#{:income :expense} (:type %)))
                      (mapcat transform-account-group))]
@@ -202,8 +199,7 @@
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
   ([storage-spec entity-id]
-   (let [base (t/today)
-         [_ end] (transactions/available-date-range storage-spec)]
+   (let [[_ end] (transactions/available-date-range storage-spec)]
      (balance-sheet storage-spec entity-id end)))
   ([storage-spec entity-id as-of]
    (let [entity (entities/find-by-id storage-spec entity-id)]
@@ -437,7 +433,7 @@
                                               {:include-lot-items? true}))))
 
 (defn- append-lot-calculated-values
-  [storage-spec lot]
+  [lot]
   (let [cost (* (:shares-owned lot) (:purchase-price lot))
         value (* (:shares-owned lot) (:current-price lot))
         gain (- value cost)]
@@ -458,6 +454,6 @@
                    (append-commodity-caption storage-spec)
                    (append-current-price storage-spec)
                    (append-lot-transactions storage-spec)
-                   (append-lot-calculated-values storage-spec)))
+                   append-lot-calculated-values))
         (sort-by :caption)
         (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))

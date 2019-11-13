@@ -1,18 +1,13 @@
 (ns clj-money.web.lots
   (:refer-clojure :exclude [update])
-  (:require [clojure.tools.logging :as log]
+  (:require [hiccup.core :refer [html]]
             [environ.core :refer [env]]
-            [hiccup.core :refer :all]
-            [hiccup.page :refer :all]
-            [ring.util.response :refer :all]
             [clj-money.util :refer [format-date
                                     format-number]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
-            [clj-money.models.prices :as prices]
-            [clj-money.models.lots :as lots]
             [clj-money.reports :as reports]
-            [clj-money.web.shared :refer :all]
+            [clj-money.web.shared :refer [glyph-button with-layout]]
             [clj-money.web.money-shared :refer [budget-monitors]]))
 
 (defmacro with-lots-layout

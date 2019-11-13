@@ -1,19 +1,17 @@
 (ns clj-money.web.server
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [clojure.pprint :refer [pprint]]
-            [compojure.core :refer [defroutes routes GET PUT PATCH POST DELETE ANY]]
+            [clojure.string :as string]
+            [compojure.core :refer [defroutes GET PUT PATCH POST DELETE ANY]]
             [compojure.handler :refer [site]]
             [compojure.route :as route]
             [clojure.java.io :as io]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.session :refer [wrap-session]]
             [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [ring.middleware.json :refer [wrap-json-body
-                                          wrap-json-params
+            [ring.middleware.json :refer [wrap-json-params
                                           wrap-json-response]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]
@@ -21,7 +19,6 @@
             [environ.core :refer [env]]
             [cemerick.friend :as friend]
             [cemerick.friend.workflows :as workflows]
-            [cemerick.friend.credentials :as creds]
             [cheshire.core :as json]
             [clj-time.format :refer [unparse-local formatters]]
             [clj-money.core]
@@ -228,13 +225,13 @@
       (get accept-map accept :html))))
 
 (defmethod render-404 :json
-  [req]
+  [_]
   {:status 404
    :headers {"Content-Type" "application/json"}
    :body (json/generate-string {:message "not found"})})
 
 (defmethod render-404 :html
-  [req]
+  [_]
   (route/not-found (slurp (io/resource "404.html"))))
 
 (defn wrap-authenticate
@@ -287,7 +284,13 @@
   (fn [{:keys [request-method uri] :as request}]
     (let [response (handler request)]
       (log/debug "response to " request-method uri)
-      (log/spy response)
+      (log/debug (prn-str
+                   (update-in response [:body] (fn [body]
+                                                 (if (= java.lang.String (type body))
+                                                   (if (< 100 (count body))
+                                                     (str (string/join "" (take 100 body)) "...")
+                                                     body)
+                                                   body)))))
       response)))
 
 (defn-  wrap-routes

@@ -1,13 +1,13 @@
 (ns clj-money.web.reconciliations
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
+  (:require [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
-            [clj-time.core :as t]
-            [hiccup.core :refer :all]
-            [ring.util.response :refer :all]
             [clj-money.validation :as validation]
             [clj-money.util :as util]
-            [clj-money.web.shared :refer :all]
+            [clj-money.web.shared :refer [date-input-field
+                                          form
+                                          number-input-field
+                                          with-layout]]
             [clj-money.authorization :refer [tag-resource
                                              authorize]]
             [clj-money.models.accounts :as accounts]
@@ -30,7 +30,7 @@
                              :value (:id transaction-item)}]]])
 
 (defn- reconciled-item-total
-  [account reconciliation]
+  [reconciliation]
   (if (:id reconciliation)
     (reduce +
             0M
@@ -44,7 +44,7 @@
   (let [account (accounts/find-by-id (env :db) (:account-id reconciliation))
         last-completed (reconciliations/find-last-completed (env :db) (:id account))
         previous-balance (or (:balance last-completed) 0M)
-        reconciled-item-total (reconciled-item-total account reconciliation)]
+        reconciled-item-total (reconciled-item-total reconciliation)]
     (with-layout (format "Reconcile account: %s" (:name account)) {}
       (form (if (:id reconciliation)
               (format "/reconciliations/%s" (:id reconciliation))
@@ -118,7 +118,7 @@
       (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn show
-  [params]
+  [_]
   "show")
 
 (defn edit
@@ -138,5 +138,5 @@
       (redirect (format "/accounts/%s" (:account-id result))))))
 
 (defn delete
-  [params]
+  [_]
   "delete")

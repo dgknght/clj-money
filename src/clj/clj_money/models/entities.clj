@@ -1,10 +1,6 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
-            [clojure.tools.logging :as log]
-            [clojure.set :refer [rename-keys]]
-            [clojure.reflect :refer :all]
+  (:require [clojure.spec.alpha :as s]
             [clj-money.authorization :as authorization]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]

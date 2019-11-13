@@ -1,8 +1,7 @@
 (ns clj-money.import.edn
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.java.io :refer [reader]]
-            [clojure.core.async :refer [onto-chan close! <!!]]
+  (:require [clojure.java.io :refer [reader]]
+            [clojure.core.async :refer [onto-chan <!!]]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream]))
 

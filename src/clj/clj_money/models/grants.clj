@@ -1,9 +1,6 @@
 (ns clj-money.models.grants
   (:refer-clojure :exclude [update])
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
-            [clojure.string :as string]
-            [clj-money.validation :as validation]
+  (:require [clojure.spec.alpha :as s]
             [clj-money.coercion :as coercion]
             [clj-money.authorization :as authorization]
             [clj-money.util :refer [rev-args]]
@@ -13,8 +10,7 @@
             [clj-money.models.storage :refer [create-grant
                                               select-grants
                                               update-grant
-                                              delete-grant]]
-            [clj-money.models.entities :as entities]))
+                                              delete-grant]]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)

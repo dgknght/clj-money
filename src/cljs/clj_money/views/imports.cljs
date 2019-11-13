@@ -7,14 +7,11 @@
                                      <!]]
             [clj-money.util :as util]
             [clj-money.state :as state]
-            [clj-money.api.entities :as entities]
             [clj-money.api.imports :as imports]
             [clj-money.notifications :as notify]
             [clj-money.dom :refer [app-element]]
             [clj-money.layout :refer [with-layout]]
-            [clj-money.forms :refer [text-input
-                                     radio-buttons
-                                     required]]))
+            [clj-money.forms :refer [text-input]]))
 
 (defn- delete-import
   [imp]
@@ -35,7 +32,7 @@
 
 (defn- file-list
   [import-data]
-  (when (not (empty? (:files @import-data)))
+  (when (seq (:files @import-data))
     [:section
      [:h2 "Files"]
      [:ul.list-group
@@ -79,7 +76,9 @@
     [:tr
      [:th.col-sm-3 "Record Type"]
      [:th.col-sm-9.text-center "Progress"]]
-    (map progress-row (:progress @import-ref))]])
+    (->> (:progress @import-ref)
+         (filter #(map? (second %)))
+         (map progress-row))]])
 
 (def auto-refresh (r/atom false))
 
@@ -149,11 +148,7 @@
     (notify/danger (:message error))
     (.log js/console "error" (prn-str error)))
   (when (or finished
-            error
-            (and (:total transaction)
-                 (not= 0 (:total transaction))
-                 (= (:total transaction)
-                    (:imported transaction))))
+            error)
     (reset! auto-refresh false))
   (when @auto-refresh
     (go

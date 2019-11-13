@@ -1,7 +1,5 @@
 (ns clj-money.coercion
-  (:require [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
-            [clj-money.util :refer [parse-local-date]])
+  (:require [clj-money.util :refer [parse-local-date]])
   (:import java.util.UUID))
 
 (def ^:private fns (atom {}))
@@ -38,7 +36,7 @@
   [value]
   [(try
      (Integer. value)
-     (catch NumberFormatException e
+     (catch NumberFormatException _
        value))])
 
 (defmethod parse-integer-collection :integer-collection
@@ -49,7 +47,7 @@
   [value]
   (map #(try
           (Integer. %)
-          (catch NumberFormatException e
+          (catch NumberFormatException _
             %))
        value))
 
@@ -57,7 +55,7 @@
   [v]
   (try
     (bigdec v)
-    (catch NumberFormatException e
+    (catch NumberFormatException _
       nil)))
 
 (defn- coerce-decimal
