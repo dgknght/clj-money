@@ -27,17 +27,26 @@
    :entity-id
    :type
    :commodity-id
+   :tags
    :parent-id])
+
+(defn- before-save
+  [account]
+  (-> account
+      (update-in [:tags] #(if (:trading account)
+                            (conj (or % #{}) :trading)
+                            %))
+      (select-keys attribute-keys)))
 
 (defn create
   [{params :params}]
   (create-resource :account
-                   (select-keys params attribute-keys)
+                   (before-save params)
                    accounts/create))
 
 (defn update
   [{params :params}]
-  (update-resource (select-keys params attribute-keys)
+  (update-resource (before-save params)
                    #(accounts/find-by-id %1 (:id %2))
                    accounts/update))
 

@@ -1,6 +1,5 @@
 (ns clj-money.inflection
-  (:require [clojure.string :as string])
-  )
+  (:require [clojure.string :as string]))
 
 (def ^:private title-case-ignore-patterns
   [#"^\s+$"
@@ -25,6 +24,14 @@
            (string/split #"\b"))
        (map title-case-word)
        (string/join "")))
+
+(defn humanize
+  "Accepts a value in kabob case and returns the value in human friendly form"
+  [value]
+  (-> value
+      name
+      (string/replace #"[_-]" " ")
+      string/capitalize))
 
 (defn last-segment
   [value]

@@ -199,11 +199,13 @@
 (defn- create-capital-gains-items
   [{gains :gains :as context}]
   (mapv (fn [{:keys [quantity description long-term?]}]
-          (let [account-key (keyword
+          (let [[action effect] (if (< quantity 0)
+                                  [:debit "loss"]
+                                  [:credit "gains"])
+                account-key (keyword
                               (format "%s-capital-%s-account-id"
                                       (if long-term? "lt" "st")
-                                      (if (< quantity 0) "loss" "gains")))
-                action (if (< quantity 0) :debit :credit)
+                                      effect))
                 account-id (account-key context)]
             {:action action
              :account-id account-id

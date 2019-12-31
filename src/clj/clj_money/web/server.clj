@@ -29,9 +29,12 @@
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
             [clj-money.api.commodities :as commodities-api]
+            [clj-money.api.prices :as prices-api]
             [clj-money.api.accounts :as accounts-api]
+            [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
+            [clj-money.api.lots :as lots-api]
             [clj-money.web.pages :as pages]
             [clj-money.web.entities :as entities]
             [clj-money.web.images :as images]
@@ -188,11 +191,16 @@
   (model-route PATCH "/api/commodities/:id" commodities-api/update)
   (model-route DELETE "/api/commodities/:id" commodities-api/delete)
 
+  (model-route GET "/api/commodities/:commodity-id/prices" prices-api/index)
+  (model-route GET "/api/commodities/:entity-id/prices" prices-api/index)
+
   (model-route GET "/api/entities/:entity-id/accounts" accounts-api/index)
   (model-route GET "/api/accounts/:id" accounts-api/get-one)
   (model-route POST "/api/entities/:entity-id/accounts" accounts-api/create)
   (model-route PATCH "/api/accounts/:id" accounts-api/update)
   (model-route DELETE "/api/accounts/:id" accounts-api/delete)
+
+  (model-route POST "/api/entities/:entity-id/trades" trading-api/create)
 
   (model-route GET "/api/transactions/:entity-id" transactions-api/index)
   (model-route GET "/api/transactions/:transaction-date/:id" transactions-api/get-one)
@@ -201,6 +209,8 @@
   (model-route DELETE "/api/transactions/:transaction-date/:id" transactions-api/delete)
 
   (model-route GET "/api/transaction-items" transaction-items-api/index)
+
+  (model-route GET "/api/accounts/:account-id/lots" lots-api/index)
 
   ; Imports
   (model-route GET "/api/imports" imports-api/index)

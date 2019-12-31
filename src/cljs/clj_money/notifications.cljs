@@ -1,5 +1,6 @@
 (ns clj-money.notifications
-  (:require [reagent.core :as r]))
+  (:require [reagent.core :as r]
+            [goog.string :as gstr]))
 
 (defonce notifications (r/atom []))
 
@@ -16,6 +17,11 @@
 (defn warning [message] (notify message :warning))
 (defn warn    [message] (notify message :warning))
 (defn danger  [message] (notify message :danger))
+
+(defn danger-fn
+  [msg-format]
+  (fn [msg]
+    (danger (gstr/format msg-format msg))))
 
 (defn- remove-at
   [coll index]

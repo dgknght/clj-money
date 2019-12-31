@@ -14,20 +14,21 @@
             [clj-money.models.attachments :as attachments]
             [clj-money.models.reconciliations :as reconciliations]
             [clj-money.models.images :as images]
-            [clj-money.models.imports :as imports]))
+            [clj-money.models.imports :as imports]
+            [clj-money.trading :as trading]))
 
 (defn- throw-on-invalid
   [model]
   (if (validation/has-error? model)
     (throw (ex-info (format "Unable to create the model. %s"
-                            (prn-str (validation/error-messages model)))
+                            (prn-str model))
                     model))
     model))
 
 (defn- create-users
   [storage users]
   (mapv (fn [attributes]
-         (users/create storage attributes))
+         (throw-on-invalid (users/create storage attributes)))
        users))
 
 (defn- realize-users
@@ -51,7 +52,9 @@
   (mapv (fn [attributes]
           (if (:id attributes)
             attributes
-            (entities/create storage (resolve-user attributes context))))
+            (throw-on-invalid
+              (entities/create storage
+                               (resolve-user attributes context)))))
         entities))
 
 (defn- realize-entities
@@ -91,17 +94,17 @@
     account))
 
 (defn- find-commodity
-  [context ticker-symbol]
+  [context symbol]
   (->> context
        :commodities
-       (filter #(= (:symbol %) ticker-symbol))
+       (filter #(= (:symbol %) symbol))
        first))
 
 (defn- resolve-commodity
   [model context]
-  (update-in model [:commodity-id] (fn [ticker-symbol]
-                                     (if ticker-symbol
-                                       (:id (find-commodity context ticker-symbol))
+  (update-in model [:commodity-id] (fn [symbol]
+                                     (if symbol
+                                       (:id (find-commodity context symbol))
                                        (->> (:commodities context)
                                             (filter #(= :currecy (:type %)))
                                             first)))))
@@ -274,7 +277,8 @@
   (mapv (fn [attributes]
           (-> attributes
               (resolve-entity context)
-              (create-commodity storage)))
+              (create-commodity storage)
+              throw-on-invalid))
         commodities))
 
 (defn- realize-commodities
@@ -420,6 +424,25 @@
        (filter #(= symbol (:symbol %)))
        first))
 
+(defn- execute-trade
+  [trade storage context]
+  (let [f (case (:type trade)
+            :purchase (partial trading/buy storage)
+            :sale     (partial trading/sell storage))]
+    (-> trade
+        (resolve-entity context)
+        (resolve-account context)
+        (resolve-commodity context)
+        f)))
+
+(defn- execute-trades
+  [trades storage context]
+  (mapv #(execute-trade % storage context) trades))
+
+(defn- realize-trades
+  [context storage]
+  (update-in context [:trades] execute-trades storage context))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
@@ -436,5 +459,6 @@
         (realize-lots s)
         (realize-budgets s)
         (realize-transactions s)
+        (realize-trades s)
         (realize-attachments s)
         (realize-reconciliations s))))

@@ -1,5 +1,5 @@
 (ns clj-money.models.accounts-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
@@ -10,11 +10,10 @@
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
             [clj-money.tagging :as tagging]
-            [clj-money.models.users :as users]
-            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.x-platform.accounts :refer [nest
-                                                   polarize-quantity]]
+                                                   polarize-quantity
+                                                   derive-action]]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
                                             assert-validation-error
@@ -126,8 +125,7 @@
                :parent-id "Taxes"}
               {:name "Social Security"
                :type :expense
-               :parent-id "Taxes"}
-              ]})
+               :parent-id "Taxes"}]})
 
 ; TODO Probably this should be moved to mirror the ns where the nest fn is defined
 (deftest select-nested-accounts
@@ -400,3 +398,15 @@
     (test-polarization context :liability :credit 100M  100M "A credit in an liability account increases the balance")
     (test-polarization context :equity    :credit 100M  100M "A credit in an equity account increases the balance")
     (test-polarization context :income    :credit 100M  100M "A credit in an income account increases the balance")))
+
+(deftest derive-action-from-quantity-and-account
+  (is (= :debit (derive-action 1 {:type :asset})))
+  (is (= :credit (derive-action -1 {:type :asset})))
+  (is (= :debit (derive-action 1 {:type :expense})))
+  (is (= :credit (derive-action -1 {:type :expense})))
+  (is (= :credit (derive-action 1 {:type :income})))
+  (is (= :debit (derive-action -1 {:type :income})))
+  (is (= :credit (derive-action 1 {:type :equity})))
+  (is (= :debit (derive-action -1 {:type :equity})))
+  (is (= :credit (derive-action 1 {:type :liability})))
+  (is (= :debit (derive-action -1 {:type :liability}))))

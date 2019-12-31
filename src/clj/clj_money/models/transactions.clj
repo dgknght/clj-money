@@ -9,6 +9,7 @@
             [clj-money.validation :as validation]
             [clj-money.authorization :as authorization]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.prices :as prices]
             [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
             [clj-money.models.storage :refer [select-transactions
@@ -535,6 +536,30 @@
                    first-date)
             [new-index new-balance (:transaction-date item)]))))))
 
+(defmulti ^:private account-value
+  (fn [_storage _balance {:keys [tags]}]
+    (tags :tradable)))
+
+(defmethod ^:private account-value :default
+  [_storage balance _account]
+  balance)
+
+(defmethod ^:private account-value :tradable
+  [storage balance {:keys [commodity-id
+                           earliest-transaction-date
+                           latest-transaction-date]}]
+  (let [[earliest latest] (prices/available-date-range storage)]
+    (if-let [price (first (prices/search storage
+                                         {:commodity-id commodity-id
+                                          :trade-date [:between
+                                                       (or earliest-transaction-date earliest)
+                                                       (or latest-transaction-date latest)]}
+                                         {:sort [[:trade-date :desc]]
+                                          :limit 1}))]
+      (* (:price price) balance)
+      0M)))
+
+
 (defn recalculate-account
   "Recalculates statistics for items in the the specified account
   as of the specified date"
@@ -555,17 +580,18 @@
                          ((juxt :index :quantity) base-item )
                          [0 0M]))]
      (when (not (nil? last-index))
-       (log/debugf "update account summary data for \"%s\": quantity=%s, value=%s, earliest-transaction-date=%s, latest-transaction-date=%s"
-                   (:name account)
-                   balance
-                   balance
-                   (earlier (:earliest-transaction-date account) as-of)
-                   (later (:latest-transaction-date account) last-date))
-       (accounts/update storage (-> account
-                                    (assoc :quantity balance)
-                                    (assoc :value balance) ; TODO need to calculate this for real
-                                    (update-in [:earliest-transaction-date] earlier as-of)
-                                    (update-in [:latest-transaction-date] later last-date)))))))
+       (let [value (account-value storage balance account)]
+         (log/debugf "update account summary data for \"%s\": quantity=%s, value=%s, earliest-transaction-date=%s, latest-transaction-date=%s"
+                     (:name account)
+                     balance
+                     value
+                     (earlier (:earliest-transaction-date account) as-of)
+                     (later (:latest-transaction-date account) last-date))
+         (accounts/update storage (-> account
+                                      (assoc :quantity balance)
+                                      (assoc :value value)
+                                      (update-in [:earliest-transaction-date] earlier as-of)
+                                      (update-in [:latest-transaction-date] later last-date))))))))
 
 (defn- extract-account-ids
   [transaction]

@@ -1,7 +1,9 @@
 (ns clj-money.x-platform.util
   (:require [clojure.string :as string]
             #?(:clj [clj-time.core :as t]
-               :cljs [cljs-time.core :as t])))
+               :cljs [cljs-time.core :as t])
+            #?(:clj [clj-time.format :as f]
+               :cljs [cljs-time.format :as f])))
 
 (defmulti ^:private entry->key-value-pairs
   (fn [[_ v] _]
@@ -106,3 +108,39 @@
    (take-while #(or (t/after? % start)
                     (t/equal? % start))
                  (desc-periodic-seq end period-like))))
+
+(defn serialize-date [d]
+  (when d
+    (f/unparse-local-date (f/formatters :date) d)))
+
+(defn unserialize-date [s]
+  (when (and s (not (empty? s)))
+    (f/parse-local-date (f/formatters :date) s)))
+
+(defmulti update-in-criteria
+  (fn [criteria attr _f]
+    (when-let [value (get-in criteria [attr])]
+      (if (sequential? value)
+        :compound
+        :simple))))
+
+(defn ensure-keyword
+  "Given a String or a keyword, returns a keyword"
+  [value]
+  (if (keyword? value)
+    value
+    (keyword value)))
+
+(defmethod update-in-criteria :default
+  [criteria _attr _f]
+  criteria)
+
+(defmethod update-in-criteria :simple
+  [criteria attr f]
+  (update-in criteria [attr] f))
+
+(defmethod update-in-criteria :compound
+  [criteria attr f]
+  (update-in criteria [attr] (fn [value]
+                               (vec (cons (-> value first ensure-keyword)
+                                          (map f (rest value)))))))

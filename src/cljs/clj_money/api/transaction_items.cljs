@@ -7,7 +7,7 @@
 (defn- after-read
   [item]
   (-> item
-      (update-in [:transaction-date] #(parse-date %))
+      (update-in [:transaction-date] parse-date)
       (update-in [:action] keyword)))
 
 (defn- format-date

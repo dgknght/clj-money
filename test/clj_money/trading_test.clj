@@ -1,7 +1,5 @@
 (ns clj-money.trading-test
-  (:require [clojure.test :refer :all]
-            [clojure.data :refer [diff]]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.test :refer [use-fixtures deftest is testing]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
@@ -12,7 +10,6 @@
                                             find-account
                                             find-accounts
                                             find-commodity
-                                            find-transaction
                                             pprint-diff]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
@@ -466,7 +463,7 @@
             "The entity settings are updated with default account ids")))))
 
 (deftest sell-a-commodity-with-a-fee
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         ira (find-account context "IRA")
         inv-exp (->> context
                      :accounts
@@ -483,7 +480,7 @@
         "The investment fee account balance reflects the fee")))
 
 (deftest sales-requires-a-trade-date
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :trade-date)))]
@@ -492,7 +489,7 @@
         "The correct validation error is present")))
 
 (deftest sale-trade-date-can-be-a-date-string
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (assoc :trade-date "3/2/2017")))]
@@ -500,7 +497,7 @@
         "The transaction is value")))
 
 (deftest sales-requires-a-number-of-shares
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :shares)))]
@@ -509,7 +506,7 @@
         "The correct validation error is present")))
 
 (deftest sales-requires-a-value
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         result (trading/sell storage-spec (-> context
                                               sale-attributes
                                               (dissoc :value)))]
@@ -533,7 +530,7 @@
     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 
 (deftest selling-a-commodity-updates-a-lot-record
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/sell storage-spec (-> context
@@ -551,7 +548,7 @@
     (is (= expected lots) "The lot is updated to reflect the sale")))
 
 (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         ira (find-account context "IRA")
         lt-capital-gains (find-account context "Long-term Capital Gains")
         commodity (find-commodity context "AAPL")
@@ -574,7 +571,7 @@
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
-  (let [context (serialization/realize storage-spec (sell-context))
+  (let [context (sell-context)
         ira (find-account context "IRA")
         st-capital-gains (find-account context "Short-term Capital Gains")
         commodity (find-commodity context "AAPL")

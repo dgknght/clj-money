@@ -13,7 +13,6 @@
   ([value] (->response value 200))
   ([value status-code]
    (-> value
-       #_json/generate-string ; TODO decide if this should be handled here or in middleware
        response
        (header "Content-Type" "application/json")
        (status status-code))))

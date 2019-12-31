@@ -11,13 +11,21 @@
   (f/parse (f/formatters :date-time-no-ms) str-date-time))
 
 (defn format-date [date]
-  (f/unparse-local (f/formatter "M/d/yyyy") date))
+  (f/unparse-local-date (f/formatter "M/d/yyyy") date))
 
 (defn format-date-time [date-time]
   (f/unparse (f/formatter "M/d/yyyy h:mm") date-time))
 
-(defn format-percent [value]
-  (str (gstring/format "%.1f" value) "%"))
+(defn format-percent
+  ([value]
+   (format-percent value 1))
+  ([value places]
+   (str (gstring/format (str "%." places "f") value) "%")))
+
+(defn format-decimal
+  ([value] (format-decimal value 2))
+  ([value places]
+   (gstring/format (str "%." places "f") value)))
 
 (defn space
   "Renders an HTML non-breakable space."

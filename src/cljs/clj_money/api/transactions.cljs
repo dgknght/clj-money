@@ -1,27 +1,13 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require [cljs-time.core :as t]
-            [cljs-time.format :as f]
+  (:require [clj-money.x-platform.util :refer [serialize-date
+                                               unserialize-date]]
             [clj-money.api :as api]))
-
-(defmulti ^:private serialize-date
-  (fn [d]
-    (cond
-      (string? d) :string
-      (t/date? d) :date)))
-
-(defmethod ^:private serialize-date :date
-  [d]
-  (f/unparse (:date f/formatters) d))
-
-(defmethod ^:private serialize-date :string
-  [d]
-  d)
 
 (defn- transaction-path
   [{:keys [id transaction-date]}]
   (api/path :transactions
-            (serialize-date  transaction-date)
+            (serialize-date transaction-date)
             id))
 
 (defn search
@@ -31,36 +17,48 @@
                      success-fn
                      error-fn))
 
+(defn- serialize
+  [transaction]
+  (update-in transaction [:transaction-date] serialize-date))
+
 (defn create
   [transaction success-fn error-fn]
   (api/create-resource (api/path :entities
                                  (:entity-id transaction)
                                  :transactions)
-                       transaction
+                       (serialize transaction)
                        success-fn
                        error-fn))
 
 (defn update
   [transaction success-fn error-fn]
   (api/update-resource (transaction-path transaction)
-                       transaction
+                       (serialize transaction)
                        success-fn
                        error-fn))
+
+(defn save
+  [transaction success-fn error-fn]
+  (if (:id transaction)
+    (update transaction success-fn error-fn)
+    (create transaction success-fn error-fn)))
 
 (defn- after-item-read
   [item]
   (update-in item [:action] keyword))
 
 (defn- after-read
-  [transaction]
-  (-> transaction
-      (assoc :original-transaction-date (:transaction-date transaction))
-      (update-in [:items] #(map after-item-read %))))
+  [{:keys [transaction-date] :as transaction}]
+  (let [transaction-date (unserialize-date transaction-date)]
+    (-> transaction
+        (assoc :original-transaction-date transaction-date
+               :transaction-date transaction-date)
+        (update-in [:items] #(map after-item-read %)))))
 
 (defn get-one
   [tkey success-fn error-fn]
   (api/get-resources (transaction-path tkey)
-                     #(success-fn (after-read %))
+                     (comp success-fn after-read)
                      error-fn))
 
 (defn delete

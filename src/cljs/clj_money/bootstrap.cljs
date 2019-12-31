@@ -88,3 +88,22 @@
      [:div.col-md-6.col-md-offset-3
       (for [a @alerts]
         (with-meta [alert a remove-fn] {:key (:id a)}))]]))
+
+(defn nav-tabs
+  [items]
+  [:ul.nav.nav-tabs
+   (doall (for [{:keys [active?
+                        disabled?
+                        hidden?
+                        on-click
+                        caption
+                        elem-key]} items]
+            ^{:key elem-key}
+            [:li {:role "presentation"
+                  :class (cond-> []
+                           active? (conj "active")
+                           disabled? (conj "disabled")
+                           hidden? (conj "hidden"))}
+             [:a {:href "#"
+                  :on-click on-click}
+              caption]]))])

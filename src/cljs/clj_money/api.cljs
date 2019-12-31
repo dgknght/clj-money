@@ -38,6 +38,12 @@
                    (:body response))
              (error-fn (-> response :body :message))))))))
 
+(defn- extract-error
+  [response]
+  (some #(% response)
+        [(comp :message :body)
+         :error-text]))
+
 (defn create-resource
   [path model success-fn error-fn]
   (go (let [response (<! (http/post path {:json-params model
@@ -47,7 +53,10 @@
           (success-fn (:body response))
           (do
             (.log js/console "Unable to create the model " (prn-str model) ": " (prn-str response))
-            (error-fn (-> response :body :message)))))))
+            (.log js/console "Unable to create the model")
+            (.log js/console (prn-str model))
+            (.log js/console (prn-str response))
+            (error-fn (extract-error response)))))))
 
 (defn update-resource
   [path model success-fn error-fn]
@@ -58,7 +67,7 @@
           (success-fn (:body response))
           (do
             (.log js/console "Unable to update the model " (prn-str model) ": " (prn-str response))
-            (error-fn (-> response :body :message)))))))
+            (error-fn (extract-error response)))))))
 
 (defn delete-resource
   [path success-fn error-fn]

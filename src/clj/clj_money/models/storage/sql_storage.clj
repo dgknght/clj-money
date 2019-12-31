@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
@@ -283,6 +284,7 @@
                   (keyword %)))
           (reduce (fn [records# table#]
                     (let [sql# (sql-fn# table#)
+                          _logresult# (log/debugf "partitioned select from %s: %s" ~table-name (prn-str sql#))
                           found-records# (~exec-fn sql#)
                           updated-records# (concat records# found-records#)]
                       (if (limit-reached? updated-records# ~options)
@@ -660,8 +662,7 @@
             (h/from [table :p])
             (append-where criteria {:prefix "p"})
             (append-sort options)
-            (append-limit options)
-            #_(append-paging options))))) ; paging will have to be reworked
+            (append-limit options)))))
 
   (update-price
     [_ price]

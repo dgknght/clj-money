@@ -6,7 +6,9 @@
 
 (defn- append-path
   [account parent]
-  (assoc account :path (str (:path parent) "/" (:name account))))
+  (assoc account
+         :path (str (:path parent) "/" (:name account))
+         :parents ((fnil conj []) (:parents parent) (:id parent))))
 
 (defn- append-children
   [account all-accounts]
@@ -43,7 +45,10 @@
 (defn- unnest*
   [accumulator accounts]
   (reduce (fn [r account]
-            (unnest* (conj r (dissoc account :children))
+            (unnest* (conj r (-> account
+                                 (assoc :has-children?
+                                        (boolean (seq (:children account))))
+                                 (dissoc account :children)))
                      (:children account)))
           accumulator
           accounts))
@@ -60,6 +65,8 @@
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
   [account]
   (#{:asset :expense} (:type account)))
+
+(def right-side? (comp left-side?))
 
 (defn- polarizer
   [transaction-item account]
@@ -79,3 +86,28 @@
   [transaction-item account]
   (* (:quantity transaction-item account)
      (polarizer transaction-item account)))
+
+(defn derive-action
+  "Given a quantity (either positve or negative) and an
+  account, returns the appropriate action (debit or credit)"
+  [quantity account]
+  (if (< quantity 0)
+    (if (left-side? account)
+      :credit
+      :debit)
+    (if (left-side? account)
+      :debit
+      :credit)))
+
+(defn- abs
+  [value]
+  #?(:clj (.abs value) ; we're assuming BigDecimal here
+     :cljs (Math/abs value)))
+
+(defn derive-item
+  "Given a quantity and an account, returns a transaction item
+  with appropriate attributes"
+  [quantity account]
+  {:quantity (abs quantity)
+   :account-id (:id account)
+   :action (derive-action quantity account)})

@@ -10,6 +10,11 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.x-platform.transactions :refer [simplify
+                                                       can-simplify?
+                                                       fullify
+                                                       entryfy
+                                                       unentryfy]]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.serialization :as serialization]
@@ -1235,3 +1240,127 @@
         "The groceries account's earliest is the grocery purchase")
     (is (= (t/local-date 2017 3 2) (:latest-transaction-date groceries))
         "The groceries account's latest is the grocery purchase")))
+
+(deftest simplify-a-transaction
+  (let [ctx (serialization/realize (env :db) base-context)
+        checking (find-account ctx "Checking")
+        groceries (find-account ctx "Groceries")
+        transaction {:transaction-date (t/local-date 2016 3 2)
+                     :description "ACME Store"
+                     :memo "transaction memo"
+                     :items [{:account-id (:id checking)
+                              :memo "checking memo" ; NOTE: these memos are lost
+                              :action :credit
+                              :quantity 10M}
+                             {:account-id (:id groceries)
+                              :memo "groceries memo"
+                              :action :debit
+                              :quantity 10M}]}
+        expected {:transaction-date (t/local-date 2016 3 2)
+                  :description "ACME Store"
+                  :memo "transaction memo"
+                  :account-id (:id checking)
+                  :other-account-id (:id groceries)
+                  :quantity -10M}
+        actual (simplify transaction checking)]
+    (pprint-diff expected actual)
+    (is (= expected actual))))
+
+(deftest fullify-a-transaction
+  (let [ctx (serialization/realize (env :db) base-context)
+        checking (find-account ctx "Checking")
+        groceries (find-account ctx "Groceries")
+        expected {:transaction-date (t/local-date 2016 3 2)
+                  :description "ACME Store"
+                  :memo "transaction memo"
+                  :items [{:account-id (:id checking)
+                           :action :credit
+                           :quantity 10M}
+                          {:account-id (:id groceries)
+                           :action :debit
+                           :quantity 10M}]}
+        simple {:transaction-date (t/local-date 2016 3 2)
+                :description "ACME Store"
+                :memo "transaction memo"
+                :account-id (:id checking)
+                :other-account-id (:id groceries)
+                :quantity -10M}
+        actual (fullify simple (fn [id]
+                                 (->> (:accounts ctx)
+                                      (filter #(= (:id %) id))
+                                      first)))]
+    (pprint-diff expected actual)
+    (is (= expected actual))))
+
+(deftest entryfy-a-transaction
+  (let [transaction {:transaction-date (t/local-date 2016 3 2)
+                     :description "ACME Store"
+                     :memo "transaction memo"
+                     :items [{:account-id 1
+                              :memo "checking memo"
+                              :action :credit
+                              :quantity 10M}
+                             {:account-id 2
+                              :memo "groceries memo"
+                              :action :debit
+                              :quantity 10M}]}
+        expected {:transaction-date (t/local-date 2016 3 2)
+                  :description "ACME Store"
+                  :memo "transaction memo"
+                  :items [{:account-id 1
+                           :memo "checking memo"
+                           :credit-quantity 10M
+                           :debit-quantity nil}
+                          {:account-id 2
+                           :memo "groceries memo"
+                           :credit-quantity nil
+                           :debit-quantity 10M}]}
+        actual (entryfy transaction)]
+    (pprint-diff expected actual)
+    (is (= expected actual))))
+
+(deftest unentryfy-a-transaction
+  (let [expected {:transaction-date (t/local-date 2016 3 2)
+                     :description "ACME Store"
+                     :memo "transaction memo"
+                     :items [{:account-id 1
+                              :memo "checking memo"
+                              :action :credit
+                              :quantity 10M}
+                             {:account-id 2
+                              :memo "groceries memo"
+                              :action :debit
+                              :quantity 10M}]}
+        transaction {:transaction-date (t/local-date 2016 3 2)
+                  :description "ACME Store"
+                  :memo "transaction memo"
+                  :items [{:account-id 1
+                           :memo "checking memo"
+                           :credit-quantity 10M
+                           :debit-quantity nil}
+                          {:account-id 2
+                           :memo "groceries memo"
+                           :credit-quantity nil
+                           :debit-quantity 10M}]}
+        actual (unentryfy transaction)]
+    (pprint-diff expected actual)
+    (is (= expected actual))))
+
+(deftest simplifiability
+  (testing "A two-item transaction can be simplified"
+    (is (can-simplify? {:items [{:action :debit
+                                 :account-id 1
+                                 :quantity 10M}
+                                {:action :credit
+                                 :account-id 2
+                                 :quantity 10M}]})))
+  (testing "A transaction with more than two items cannot be simplified"
+    (is (not (can-simplify? {:items [{:action :debit
+                                      :account-id 1
+                                      :quantity 10M}
+                                     {:action :credit
+                                      :account-id 2
+                                      :quantity 6M}
+                                     {:action :credit
+                                      :account-id 3
+                                      :quantity 4M}]})))))

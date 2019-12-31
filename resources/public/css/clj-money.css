@@ -141,3 +141,15 @@ td.status {
     display: none;
   }
 }
+
+.accounts-header {
+  display: flex;
+}
+
+.transaction-form-container {
+  margin-top: 1em;
+}
+
+table tfoot td {
+  font-weight: bold;
+}

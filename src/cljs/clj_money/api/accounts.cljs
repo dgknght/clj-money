@@ -1,19 +1,23 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
-  (:require [cljs-time.format :as f]
+  (:require [clj-money.x-platform.util :refer [unserialize-date]]
             [clj-money.api :as api]))
 
-(defn- parse-local-date
-  [string-date]
-  (when string-date
-    (f/parse-local (:date f/formatters) string-date)))
+(defn- set-flags ; TODO: maybe the checkbox form fn should be able to handle keywords in a set?
+  [{:keys [tags] :as account}]
+  (reduce #(assoc %1 %2 (boolean (tags %2)))
+          account
+          tags))
 
 (defn- after-read
   [account]
   (-> account
       (update-in [:type] keyword)
-      (update-in [:earliest-transaction-date] parse-local-date)
-      (update-in [:latest-transaction-date] parse-local-date)))
+      (update-in [:tags] (comp set #(map keyword %)))
+      set-flags
+      (update-in [:commodity :type] keyword)
+      (update-in [:earliest-transaction-date] unserialize-date)
+      (update-in [:latest-transaction-date] unserialize-date)))
 
 (defn get-all
   [entity-id success-fn error-fn]
@@ -27,19 +31,34 @@
                      #(success-fn (after-read %))
                      error-fn))
 
+(def ^:private attribute-keys
+  [:id
+   :name
+   :entity-id
+   :type
+   :commodity-id
+   :parent-id
+   :trading])
+
 (defn create
   [account success-fn error-fn]
   (api/create-resource (api/path :entities (:entity-id account) :accounts)
-                       account
+                       (select-keys account attribute-keys)
                        success-fn
                        error-fn))
 
 (defn update
   [account success-fn error-fn]
   (api/update-resource (api/path :accounts (:id account))
-                       account
+                       (select-keys account attribute-keys)
                        success-fn
                        error-fn))
+
+(defn save
+  [account success-fn error-fn]
+  (if (:id account)
+    (update account success-fn error-fn)
+    (create account success-fn error-fn)))
 
 (defn delete
   [account success-fn error-fn]
