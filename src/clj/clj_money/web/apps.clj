@@ -1,18 +1,43 @@
 (ns clj-money.web.apps
   (:refer-clojure :exclude [update])
-  (:require [ring.util.response :refer [redirect]]
-            [hiccup.page :refer [html5 include-js]]
-            [clj-money.web.shared :refer [head]]))
+  (:require [compojure.core :refer [defroutes
+                                    GET]]
+            [hiccup.page :refer [html5 include-js]]))
 
-(defn index
-  [_]
-  (redirect "/apps/default"))
+(defn- head []
+  [:head
+   [:meta  {:charset "utf-8"}]
+   [:meta  {:http-equiv "X-UA-Compatible" :content "IE=edge"}]
+   [:meta  {:name "viewport" :content "width=device-width, initial-scale=1"}]
+   "<!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->"
 
-(defn show
-  [_]
+   [:meta  {:name "description" :content "Double-entry account system"}]
+   [:meta  {:name "author" :content "Doug Knight"}]
+   [:link  {:rel "icon" :href "../../favicon.ico"}]
+   [:title "clj-money"]
+
+   "<!-- jQuery -->"
+   [:script {:src "/js/jquery-3.1.0.min.js"}]
+   [:script {:src "/js/jquery-ui.min.js"}]
+   [:script {:src "/js/jquery-startup.js"}]
+   [:script {:src "/js/bootstrap.min.js"}]
+   [:script {:src "/js/paced-progress-bar.js"}]
+
+   "<!-- Bootstrap core CSS -->"
+   [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/jquery-ui.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/jquery-ui.structure.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/clj-money.css"}]])
+
+(defn- index []
   (html5
     [:html {:lang "en"}
-     (head "clj-money" {})
+     (head)
      [:body
       [:div#app]
       (include-js "/js/app/main.js")]]))
+
+(defroutes routes
+  (GET "/" [] (index)))

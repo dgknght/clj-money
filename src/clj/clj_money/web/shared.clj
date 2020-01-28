@@ -5,7 +5,6 @@
             [hiccup.page :refer [html5]]
             [ring.util.anti-forgery :refer [anti-forgery-field]]
             [ring.middleware.anti-forgery :refer [*anti-forgery-token*]]
-            [cemerick.friend :as friend]
             [clj-money.util :refer [format-number
                                     format-date]]
             [clj-money.validation :as validation]
@@ -127,8 +126,8 @@
 
 (defn primary-nav
   "Renders the site primary navigation"
-  [entity]
-  (if-let [user (friend/current-authentication)]
+  [_entity]
+  #_(if-let [user (friend/current-authentication)]
     (if-let [entity (or entity (first (entities/select (env :db) (:id user))))]
       (let [items (mapv (fn [item]
                           (update-in item

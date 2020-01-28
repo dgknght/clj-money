@@ -1,6 +1,5 @@
 (ns clj-money.authorization
-  (:require [slingshot.slingshot :refer [throw+]]
-            [cemerick.friend :refer [current-authentication]]))
+  (:require [slingshot.slingshot :refer [throw+]]))
 
 (defn get-resource-tag
   "Returns a keyword identifying the type of the resource"
@@ -32,14 +31,8 @@
   "Returns a truthy or falsey value indicating whether or not the
   authenticated user is allowed to perform the specified
   action on the specified resource"
-  [& args]
-  (let [[user
-         action
-         resource] (case (count args)
-                   3 args
-                   2 (concat [(current-authentication)] args)
-                   :else (throw (ex-info "Wrong number of arguments. Expected 2 or 3." {:args args})))
-        tag (get-resource-tag resource)
+  [user action resource]
+  (let [tag (get-resource-tag resource)
         auth-fns (@auth-fns tag)]
     (if auth-fns
       (some
@@ -59,9 +52,9 @@
 
   This function returns the resource so that it can be threaded together
   with other left-threadable operations"
-  [resource action]
+  [resource action user]
   (when resource
-    (if (allowed? (current-authentication) action resource)
+    (if (allowed? user action resource)
       resource
       (throw+ {:type ::unauthorized
                :action action
@@ -98,13 +91,12 @@
   "Applies the registered scope function map to the specified
   criteria in order to ensure the query does not extend
   beyond the scope the user is authorized to access."
-  [criteria resource-type]
-  (let [user (current-authentication)]
-    (->> (resource-type @scope-maps)
-         (map (fn [[attribute scope-fn]]
-                [attribute (scope-fn user @auth-context)]))
-         (into {})
-         (merge-with (fn [requested allowed]
-                       (or (allowed requested)
-                           (throw+ {:type ::unauthorized :resource resource-type})))
-                     criteria))))
+  [criteria resource-type user]
+  (->> (resource-type @scope-maps)
+       (map (fn [[attribute scope-fn]]
+              [attribute (scope-fn user @auth-context)]))
+       (into {})
+       (merge-with (fn [requested allowed]
+                     (or (allowed requested)
+                         (throw+ {:type ::unauthorized :resource resource-type})))
+                   criteria)))

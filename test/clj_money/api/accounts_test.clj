@@ -1,23 +1,27 @@
 (ns clj-money.api.accounts-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [environ.core :refer [env]]
+            [ring.mock.request :as req]
+            [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
-            [clj-money.api.test-helper :refer [deftest-create
-                                               deftest-delete
-                                               deftest-update
-                                               deftest-list
-                                               deftest-get-one]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
-            [clj-money.validation :as validation]
-            [clj-money.test-helpers :as h]
-            [clj-money.api.accounts :as api]
+            [clj-money.test-helpers :refer [reset-db
+                                            selective=
+                                            find-user
+                                            find-entity
+                                            find-commodity
+                                            find-account]]
+            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.web.test-helpers :refer [assert-successful
+                                                assert-not-found]]
+            [clj-money.x-platform.util :refer [path]]
+            [clj-money.web.server :refer [app]]
             [clj-money.models.accounts :as accounts]))
 
 (def storage-spec (env :db))
 
-(use-fixtures :each (partial h/reset-db storage-spec))
+(use-fixtures :each (partial reset-db storage-spec))
 
 (def ^:private context
   {:users (->> ["john@doe.com" "jane@doe.com"]
@@ -32,36 +36,173 @@
    :accounts [{:name "Checking"
                :type :asset}]})
 
-(defn- find-user        [ctx] (h/find-user ctx "john@doe.com"))
-(defn- find-other-user  [ctx] (h/find-user ctx "jane@doe.com"))
-(defn- find-entity      [ctx] (h/find-entity ctx "Personal"))
-(defn- find-resource    [ctx] (h/find-account ctx "Checking"))
-(defn- select-resources [ctx]
-  (accounts/search storage-spec {:entity-id (:id (find-entity ctx))}))
+(defn- create-an-account
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        usd (find-commodity ctx "USD")
+        response (app (-> (req/request :post (path :api
+                                                   :entities
+                                                   (:id entity)
+                                                   :accounts))
+                          (req/json-body {:name "Savings"
+                                          :type "asset"
+                                          :commodity-id (:id usd)})
+                          (add-auth user)))
+        body (json/parse-string (:body response) true)
+        retrieved (accounts/search (env :db) {:entity-id (:id entity)})]
+    [response body retrieved]))
 
-(deftest-get-one get-an-account
-  {:resource-name "account"
-   :get-one-fn api/get-one
-   :params-fn #(select-keys (h/find-account % "Checking") [:id])
-   :expectation-fn #(= "Checking" (:name %))})
+(defn- assert-successful-create
+  [[response body retrieved]]
+  (assert-successful response)
+  (is (selective= {:name "Savings"
+                   :type "asset"}
+                  body)
+      "The created account is returned in the response")
+  (is (some #(= "Savings" (:name %)) retrieved)
+      "The created account can be retrieved from the data store"))
 
-(deftest-create create-an-account
-  {:resource-name "account"
-   :create-fn api/create
-   :create-params-fn (fn [ctx]
-                       {:entity-id (:id (find-entity ctx))
-                        :name "Savings"
-                        :type "asset"})
-   :compare-fn #(= (:name %) "Savings")})
+(defn- assert-blocked-create
+  [[response _ retrieved]]
+  (assert-not-found response)
+  (is (not-any? #(= "Savings" (:name %)) retrieved)
+      "The account is not created"))
 
-(deftest-update update-a-account
-  {:resource-name "account"
-   :find-updated-resource-fn #(accounts/find-by-id storage-spec (:id %))
-   :update-fn api/update
-   :comparison-fn #(= (:name %) "Bag o' Money")
-   :update-params {:name "Bag o' Money"
-                   :type "asset"}})
+(deftest a-user-can-create-an-account-in-his-entity
+  (assert-successful-create (create-an-account "john@doe.com")))
 
-(deftest-delete delete-a-account
-  {:resource-name "account"
-   :delete-fn api/delete})
+(deftest a-user-cannot-create-an-account-in-anothers-entity
+  (assert-blocked-create (create-an-account "jane@doe.com")))
+
+(defn- get-a-list
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        entity (find-entity ctx "Personal")
+        user (find-user ctx email)
+        response (app (-> (req/request :get (path :api
+                                                  :entities
+                                                  (:id entity)
+                                                  :accounts))
+                          (add-auth user)))
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-list
+  [[response body]]
+  (assert-successful response)
+  (is (= #{"Checking"}
+         (->> body
+              (map :name)
+              set))
+      "The accounts are returned in the response"))
+
+(defn- assert-blocked-list
+  [[response _]]
+  (assert-not-found response))
+
+(deftest a-user-can-get-a-list-of-accounts-in-his-entity
+  (assert-successful-list (get-a-list "john@doe.com")))
+
+(deftest a-user-cannot-get-a-list-of-accounts-in-anothers-entity
+  (assert-blocked-list (get-a-list "jane@doe.com")))
+
+(defn- get-an-account
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        checking (find-account ctx "Checking")
+        user (find-user ctx email)
+        response (app (-> (req/request :get (path :api
+                                                  :accounts
+                                                  (:id checking)))
+                          (add-auth user)))
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-get
+  [[response body]]
+  (assert-successful response)
+  (is (selective= {:name "Checking"
+                   :type "asset"}
+                  body)
+      "The accounts are returned in the response"))
+
+(defn- assert-blocked-get
+  [[response _]]
+  (assert-not-found response))
+
+(deftest a-user-can-get-an-account-in-his-entity
+  (assert-successful-get (get-an-account "john@doe.com")))
+
+(deftest a-user-cannot-get-an-account-in-anothers-entity
+  (assert-blocked-get (get-an-account "jane@doe.com")))
+
+(defn- update-an-account
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        account (find-account ctx "Checking")
+        user (find-user ctx email)
+        response (app (-> (req/request :patch (path :api
+                                                    :accounts
+                                                    (:id account)))
+                          (req/json-body (-> account
+                                             (assoc :name "New Name")
+                                             (select-keys [:name :type :commodity-id :parent-id])))
+                          (add-auth user)))
+        body (json/parse-string (:body response) true)
+        retrieved (accounts/find-by-id (env :db)  (:id account))]
+    [response body retrieved]))
+
+(defn- assert-successful-update
+  [[response body retrieved]]
+  (assert-successful response)
+  (is (selective= {:name "New Name"}
+                  body)
+      "The updated account is returned in the response")
+  (is (selective= {:name "New Name"}
+                  retrieved)
+      "The retrieved value has the updated attributes"))
+
+(defn- assert-blocked-update
+  [[response _ retrieved]]
+  (assert-not-found response)
+  (is (selective= {:name "Checking"}
+                  retrieved)
+      "The retrieved value has not been updated."))
+
+(deftest a-user-can-update-an-account-in-his-entity
+  (assert-successful-update (update-an-account "john@doe.com")))
+
+(deftest a-user-cannot-update-an-account-in-anothers-entity
+  (assert-blocked-update (update-an-account "jane@doe.com")))
+
+(defn- delete-an-account
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        account (find-account ctx "Checking")
+        user (find-user ctx email)
+        response (app (-> (req/request :delete (path :api
+                                                    :accounts
+                                                    (:id account)))
+                          (add-auth user)))
+        retrieved (accounts/find-by-id (env :db)  (:id account))]
+    [response retrieved]))
+
+(defn- assert-successful-delete
+  [[response retrieved]]
+  (assert-successful response)
+  (is (nil? retrieved)
+      "The record cannot be retrieved after delete"))
+
+(defn- assert-blocked-delete
+  [[response retrieved]]
+  (assert-not-found response)
+  (is retrieved
+      "The record can be retrieved after a failed delete"))
+
+(deftest a-user-can-delete-an-account-in-his-entity
+  (assert-successful-delete (delete-an-account "john@doe.com")))
+
+(deftest a-user-cannot-delete-an-account-in-anothers-entity
+  (assert-blocked-delete (delete-an-account "jane@doe.com")))

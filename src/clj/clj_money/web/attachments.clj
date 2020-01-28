@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.string :refer [blank?]]
             [environ.core :refer [env]]
-            [cemerick.friend :as friend]
             [ring.util.response :refer [redirect]]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
@@ -92,9 +91,8 @@
               "Submit"])]])))
 
 (defn- prepare-file-data
-  [{source-file :source-file :as params}]
-  (let [user (friend/current-authentication)
-        image (images/find-or-create (env :db)
+  [{source-file :source-file :as params} user]
+  (let [image (images/find-or-create (env :db)
                                      {:user-id (:id user)
                                       :original-filename (:filename source-file)
                                       :content-type (:content-type source-file)
@@ -114,11 +112,11 @@
       (assoc :caption (:filename source-file)))))
 
 (defn create
-  [{params :params}]
+  [{:keys [params authenticated]}]
   (let [attachment (->> (-> params
                             (tag-resource :attachment)
                             (authorize :create))
-                        prepare-file-data
+                        (prepare-file-data authenticated)
                         (attachments/create (env :db)))]
     (if (seq (validation/error-messages attachment))
       (new-attachment nil attachment)

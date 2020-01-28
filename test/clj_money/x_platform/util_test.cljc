@@ -1,13 +1,15 @@
 (ns clj-money.x-platform.util-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest testing is]]
             #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])
             #?(:clj [clj-time.format :as f]
                :cljs [cljs-time.format :as f])
             [clj-money.test-helpers :refer [pprint-diff]]
-            [clj-money.x-platform.util :refer :all]))
+            [clj-money.x-platform.util
+             :as util
+             :refer [map->query-string
+                     query-string->map
+                     desc-periodic-seq]]))
 
 (deftest create-a-query-string-from-a-map
   (testing "a single-level map"
@@ -69,3 +71,7 @@
                                    (t/local-date 2018 3 2)
                                    (t/months 2))
                 (map #(f/unparse-local (:date f/formatters) %)))))))
+
+(deftest build-a-path
+  (is (= "/api/users/me"
+         (util/path :api :users :me))))

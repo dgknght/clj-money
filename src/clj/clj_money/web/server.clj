@@ -1,31 +1,33 @@
 (ns clj-money.web.server
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [clojure.string :as string]
-            [compojure.core :refer [defroutes GET PUT PATCH POST DELETE ANY]]
+            [compojure.core :refer [defroutes
+                                    wrap-routes
+                                    routes
+                                    ANY]]
             [compojure.handler :refer [site]]
-            [compojure.route :as route]
             [clojure.java.io :as io]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.anti-forgery :refer [wrap-anti-forgery]]
             [ring.middleware.params :refer [wrap-params]]
             [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
-            [ring.middleware.json :refer [wrap-json-params
+            [ring.middleware.json :refer [wrap-json-body
                                           wrap-json-response]]
             [ring.middleware.resource :refer [wrap-resource]]
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.util.response :refer [redirect]]
             [environ.core :refer [env]]
-            [cemerick.friend :as friend]
-            [cemerick.friend.workflows :as workflows]
             [cheshire.core :as json]
             [clj-time.format :refer [unparse-local formatters]]
             [clj-money.core]
             [clj-money.json]
+            [clj-money.web.auth :as web-auth]
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-models
-                                          wrap-exception-handling]]
+                                          wrap-exceptions]]
+            [clj-money.api :refer [wrap-authentication]]
+            [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
             [clj-money.api.commodities :as commodities-api]
@@ -67,7 +69,7 @@
 
 (def ^:private id-pattern #"^[0-9]+$")
 
-(defroutes all-routes
+#_(defroutes all-routes
   ; Entities
   (model-route GET "/entities" entities/index)
   (model-route GET "/entities/new" entities/new-entity)
@@ -226,111 +228,44 @@
   (GET "/users/:token/password" req users/new-password)
   (POST "/users/:token/password" req users/set-password))
 
-(def ^:private accept-map
-  {"application/json" :json})
-
-(defmulti render-404
-  (fn [req]
-    (let [accept (get (:headers req) "accept")]
-      (get accept-map accept :html))))
-
-(defmethod render-404 :json
-  [_]
-  {:status 404
-   :headers {"Content-Type" "application/json"}
-   :body (json/generate-string {:message "not found"})})
-
-(defmethod render-404 :html
-  [_]
-  (route/not-found (slurp (io/resource "404.html"))))
-
-(defn wrap-authenticate
-  [handler]
-  (friend/authenticate
-    handler
-    {:workflows [(workflows/interactive-form)]
-     :credential-fn (partial clj-money.models.users/authenticate (env :db))
-     :redirect-on-auth? "/apps"
-     :default-landing-uri "/apps"}))
-
-(defn- api?
-  [{uri :uri}]
-  (when uri
-    (re-find #"^/api" uri)))
-
-(def ^:private open-route-rules
-  ["/"
-   [:get "/login"]
-   [:get "/signup"]
-   [:post "/users"]
-   [:get "/users/:token/password"]
-   [:post "/users/:token/password"]])
-
-(defn- open?
-  [{uri :uri method :request-method}]
-  (some (fn [rule]
-          (if (coll? rule)
-            (and (= uri (second rule))
-                 (= method (first rule)))
-            (= uri rule)))
-        open-route-rules))
-
-(defn- apply-wrapper
-  [handler wrapper]
-  (let [[wrapper-fn
-         description
-         test-fn] (if (= 2 (count wrapper))
-                    (conj wrapper (constantly true))
-                    wrapper)]
-    (fn [{:keys [request-method uri] :as request}]
-      (if (test-fn request)
-        (do
-          (log/trace "apply middleware" description "to" request-method uri)
-          ((wrapper-fn handler) request))
-        (handler request)))))
-
-(defn- wrap-response-spy
-  [handler]
-  (fn [{:keys [request-method uri] :as request}]
-    (let [response (handler request)]
-      (log/debug "response to " request-method uri)
-      (log/debug (prn-str
-                   (update-in response [:body] (fn [body]
-                                                 (if (= java.lang.String (type body))
-                                                   (if (< 100 (count body))
-                                                     (str (string/join "" (take 100 body)) "...")
-                                                     body)
-                                                   body)))))
-      response)))
-
-(defn-  wrap-routes
-  [handler & wrappers]
-  (reduce apply-wrapper
-          handler
-          wrappers))
-
-(def wrapped-routes
-  (wrap-routes all-routes
-               [wrap-anti-forgery                   "anti-forgery"     (complement api?)]
-               [wrap-multipart-params               "multipart params" (complement api?)]
-               [wrap-keyword-params                 "keyword params"]
-               [wrap-json-params                    "json params"      api?]
-               [wrap-json-response                  "json response"    api?]
-               [wrap-params                         "params"]
-               [wrap-exception-handling             "excpetion handling"]
-               [#(friend/wrap-authorize % #{:user}) "authorization"    (complement open?)]
-               [wrap-authenticate                   "authentication"   (complement open?)]
-               [#(wrap-resource % "public")         "public resources"]
-               [wrap-content-type                   "content-type"]
-               [wrap-response-spy                   "response spy"]))
+(defroutes api-routes
+  (-> (routes users-api/routes
+              imports-api/routes
+              entities-api/routes
+              accounts-api/routes
+              transactions-api/routes
+              transaction-items-api/routes
+              commodities-api/routes
+              lots-api/routes
+              prices-api/routes
+              trading-api/routes
+              (ANY "/api/*" req
+                   (do
+                     (log/debugf "unable to match API route for \"%s\"." (:uri req))
+                     {:status 404
+                      :body {:message "not found"}
+                      :headers {"Content-Type" "application/json"}})))
+      (wrap-routes wrap-integer-id-params)
+      (wrap-json-body {:keywords? true :bigdecimals? true})
+      wrap-authentication
+      wrap-exceptions
+      wrap-json-response))
 
 (defroutes app
-  wrapped-routes
-  (friend/logout (POST "/logout" [] (redirect "/")))
-  (ANY "*" req
-       (do
-         (log/debug "unable to match route for " (:uri req))
-         (render-404 req))))
+  (-> (routes apps/routes
+              web-auth/routes
+              api-routes
+              (ANY "*" req
+                   (do
+                     (log/debugf "unable to match route for \"%s\"." (:uri req))
+                     {:status 404
+                      :body (slurp "resources/404.html")
+                      :headers {"Content-Type" "text/html"}})))
+      (wrap-resource "public")
+      wrap-keyword-params
+      wrap-multipart-params
+      wrap-content-type
+      wrap-params))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 5000))]

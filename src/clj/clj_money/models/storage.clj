@@ -16,6 +16,14 @@
     [this user]
     "Updates a new user record")
 
+  ; Identities
+  (create-identity
+    [this ident]
+    "Creates a new user identity record")
+  (select-identities
+    [this criteria options]
+    "Returns all of the users and identities in the system matching the specified criteria")
+
   ; Entities
   (create-entity
     [this entity]

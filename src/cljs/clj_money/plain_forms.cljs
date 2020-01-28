@@ -19,11 +19,12 @@
   ([model field]
    (checkbox-field model field {}))
   ([model field options]
-  [:div.checkbox
-   [:label
-    [checkbox-input model field options]
-    (or (:caption options)
-        (humanize field))]]))
+   (fn []
+     [:div.checkbox
+      [:label
+       [checkbox-input model field options]
+       (or (:caption options)
+           (humanize field))]])))
 
 (defn text-input
   [model field {input-type :type

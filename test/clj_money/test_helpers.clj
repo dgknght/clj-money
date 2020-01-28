@@ -1,12 +1,11 @@
 (ns clj-money.test-helpers
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [is]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
-            [clojure.tools.logging :as log]
             [clj-time.core :as t]
-            [cemerick.friend :refer [current-authentication]]
-            [clj-money.validation :as validation]))
+            [clj-money.validation :as validation])
+  (:import org.joda.time.LocalDate))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
@@ -166,6 +165,8 @@
 
 (defn find-transaction
   [context transaction-date description]
+  {:pre [(string? description) (instance? LocalDate transaction-date)]}
+
   (->> context
        :transactions
        (filter #(and (= transaction-date (:transaction-date %))
@@ -183,9 +184,8 @@
           context))
 
 (defmacro with-authentication
-  [user & body]
-  `(with-redefs [current-authentication (fn [] ~user)]
-     ~@body))
+  [_user & body]
+  `(do ~@body))
 
 (defmacro with-time
   [at-time & body]
@@ -200,3 +200,12 @@
       (pprint {:expected expected
                :actual actual
                :diff d}))))
+
+(defn selective=
+  [expected actual & attributes]
+  (let [attr (if (seq attributes)
+               attributes
+               (keys expected))
+        e (select-keys expected attr)
+        a (select-keys actual attr)]
+    (= e a)))

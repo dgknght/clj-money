@@ -1,34 +1,28 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require
-            [clojure.spec.alpha :as s]
-            [clj-time.format :as f]
+  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [environ.core :refer [env]]
-            [clj-money.api :refer [->response
-                                   invalid->response
-                                   error->response
-                                   index-resource
-                                   create-resource
-                                   update-resource]]
-            [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
-            [clj-money.authorization :refer [authorize]]
-            [clj-money.models.transactions :as transactions]
+            [clj-money.x-platform.util :refer [unserialize-date]]
+            [clj-money.api :refer [->response]]
+            [clj-money.authorization :refer [authorize
+                                             tag-resource
+                                             apply-scope]]
+            [clj-money.models.transactions :as trans]
             [clj-money.permissions.transactions]))
 
-(defn index
-  [{params :params}]
-  (index-resource transactions/search
-                  (select-keys params [:entity-id :account-id])
-                  :transaction))
+(defn- index
+  [{:keys [params authenticated]}]
+  (->response (trans/search (env :db) (-> params
+                                          (select-keys [:entity-id :account-id])                        
+                                          (apply-scope :transaction authenticated)))))
 
-(defn get-one
-  [{{:keys [id transaction-date]} :params}]
-  (->response (authorize (transactions/find-by-id (env :db)
+(defn- show
+  [{{:keys [id transaction-date]} :params authenticated :authenticated}]
+  (->response (authorize (trans/find-by-id (env :db)
                                        id
-                                       (f/parse-local-date (:date f/formatters)
-                                                           transaction-date))
-                         :show)))
+                                       (unserialize-date transaction-date))
+                         :show
+                         authenticated)))
 
 (def ^:private attribute-keys
   [:id
@@ -42,51 +36,54 @@
    :credit-account-id
    :quantity])
 
-(defn create
-  [{params :params}]
-  (create-resource :transaction
-                   (select-keys params attribute-keys)
-                   transactions/create))
+(defn- create
+  [{:keys [params body authenticated]}]
+  (->response (trans/create (env :db) (-> body
+                                          (select-keys attribute-keys)
+                                          (assoc :entity-id (:entity-id params))
+                                          (tag-resource :transaction)
+                                          (authorize :create authenticated)))))
 
-(defn update
-  [{params :params}]
-  (update-resource (select-keys params attribute-keys)
-                   (fn [s {:keys [id transaction-date original-transaction-date]}]
-                     (transactions/find-by-id s id (or original-transaction-date
-                                                       transaction-date)))
-                   transactions/update))
+(defn- apply-to-existing
+  [updated-item items]
+  (if-let [existing (->> items
+                         (filter #(= (:id %) (:id updated-item)))
+                         first)]
+    (merge existing updated-item)
+    updated-item))
 
-(s/def ::id uuid?)
-(s/def ::transaction-date validation/local-date?)
-(s/def ::delete-params (s/keys :req-un [::id ::transaction-date]))
+(defn- apply-item-updates
+  [items updates]
+  (map #(apply-to-existing % items) updates))
 
-(def ^:private delete-coercion-rules
-  [(coercion/rule :uuid [:id])
-   (coercion/rule :local-date [:transaction-date])])
+(defn- apply-update
+  [transaction body]
+  (-> transaction
+      (merge body)
+      (select-keys attribute-keys)
+      (update-in [:items] apply-item-updates (:items body))))
 
-(defn- before-validation
-  [params]
-  (coercion/coerce params delete-coercion-rules))
+(defn- update
+  [{:keys [params body authenticated]}]
+  (let [trans-date (some #(params %) [:original-transaction-date :transaction-date])
+        transaction (authorize (trans/find-by-id (env :db) (:id params) trans-date)
+                               :update
+                               authenticated)]
+    (->response (trans/update (env :db) (apply-update transaction body)))))
 
-(defn- validate-delete-params
-  [params]
-  (-> params
-      before-validation
-      (validation/validate ::delete-params)))
+(defn- delete
+  [{:keys [params authenticated]}]
+  (let [transaction (authorize (trans/find-by-id (env :db)
+                                                 (:id params)
+                                                 (:transaction-date params))
+                               :delete
+                               authenticated)]
+    (trans/delete (env :db) (:id transaction)  (:transaction-date transaction))
+    (->response)))
 
-(defn delete
-  [{params :params}]
-  (let [{:keys [id transaction-date]
-         :as validated} (validate-delete-params params)]
-    (if (validation/has-error? validated)
-      (invalid->response validated)
-      (let [transaction (authorize (transactions/find-by-id (env :db)
-                                                            id
-                                                            transaction-date)
-                                   :delete)]
-        (try
-          (transactions/delete (env :db) (:id transaction) transaction-date)
-          (catch Exception e
-            (error->response e "Unable to delete the transaction.")))
-        {:status 204
-         :body []}))))
+(defroutes routes
+  (GET "/api/entities/:entity-id/transactions" req (index req))
+  (POST "/api/entities/:entity-id/transactions" req (create req))
+  (GET "/api/transactions/:transaction-date/:id" req (show req))
+  (PATCH "/api/transactions/:transaction-date/:id" req (update req))
+  (DELETE "/api/transactions/:transaction-date/:id" req (delete req)))

@@ -1,27 +1,27 @@
 (ns clj-money.api.transactions-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
-            [clojure.set :refer [rename-keys]]
+  (:require [clojure.test :refer [use-fixtures deftest is]]
             [environ.core :refer [env]]
+            [cheshire.core :as json]
+            [ring.mock.request :as req]
             [clj-time.core :as t]
-            [clj-time.format :as f]
             [clj-factory.core :refer [factory]]
-            [clj-money.api.test-helper :refer [deftest-create
-                                               deftest-delete
-                                               deftest-update
-                                               deftest-list
-                                               deftest-get-one]]
+            [clj-money.x-platform.util :refer [path
+                                               serialize-date]]
+            [clj-money.web.test-helpers :refer [assert-successful
+                                                assert-not-found]]
+            [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
-            [clj-money.validation :as validation]
-            [clj-money.test-helpers :as h]
-            [clj-money.api.transactions :as api]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.test-helpers :refer [reset-db
+                                            selective=
+                                            find-user
+                                            find-entity
+                                            find-account
+                                            find-transaction]]
+            [clj-money.models.transactions :as trans]
+            [clj-money.web.server :refer [app]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial h/reset-db storage-spec))
+(use-fixtures :each (partial reset-db (env :db)))
 
 (def ^:private context
   {:users (->> ["john@doe.com" "jane@doe.com"]
@@ -49,93 +49,219 @@
                             :quantity 1000M
                             :memo "salary item"}]}]})
 
-(defn- find-user        [ctx] (h/find-user ctx "john@doe.com"))
-(defn- find-other-user  [ctx] (h/find-user ctx "jane@doe.com"))
-(defn- find-entity      [ctx] (h/find-entity ctx "Personal"))
-(defn- find-resource    [ctx] (h/find-transaction ctx (t/local-date 2016 2 1) "Paycheck"))
-(defn- select-resources [ctx]
-  (transactions/search storage-spec {:entity-id (:id (find-entity ctx))} {:include-items? true}))
+(defn- get-a-list
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        response (-> (req/request :get (path :api
+                                             :entities
+                                             (:id entity)
+                                             :transactions))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
 
-(deftest-list list-transactions
-  {:resource-name "transaction"
-   :list-fn api/index
-   :params-fn (fn [ctx]
-                {:entity-id (-> ctx :entities first :id)
-                 :transaction-date [:between
-                                    (t/local-date 2016 1 1)
-                                    (t/local-date 2016 12 31)]})
-   :expectation-fn (fn [actual]
-                     (let [expected [{:transaction-date (t/local-date 2016 2 1)
-                                      :description "Paycheck"
-                                      :memo "Pre-existing transaction"
-                                      :value 1000M}]
-                           actual (map (fn [a]
-                                         (dissoc a :id :entity-id :created-at :updated-at))
-                                       actual)]
-                       (h/pprint-diff expected actual)
-                       (= expected actual)))})
+(defn- assert-successful-list
+  [[response body]]
+  (assert-successful response)
+  (is (= [{:transaction-date "2016-02-01"
+           :description "Paycheck"
+           :memo "Pre-existing transaction"
+           :value 1000.0}]
+         (map #(select-keys % [:transaction-date
+                               :description
+                               :memo
+                               :value])
+              body))
+      "The correct transactions are returned in the response"))
 
-(deftest-get-one get-a-transaction
-  {:resource-name "transaction"
-   :get-one-fn api/get-one
-   :params-fn (fn [ctx]
-                (-> ctx
-                    :transactions
-                    first
-                    (update-in [:transaction-date]
-                               #(f/unparse-local (:date f/formatters) %))
-                    (select-keys [:id :transaction-date])))
-   :expectation-fn (fn [actual]
-                     (let [expected (-> context :transactions first)]
-                       (= "Paycheck" (:description actual))))})
+(defn- assert-blocked-list
+  [[response]]
+  (assert-not-found response))
 
-(deftest-create create-a-transaction
-  {:resource-name "transaction"
-   :create-fn api/create
-   :create-params-fn (fn [ctx]
-                       {:entity-id (:id (find-entity ctx))
-                        :description "Paycheck"
-                        :transaction-date (t/local-date 2016 3 2)
-                        :memo "Seems like there should be more"
-                        :items [{:account-id (:id (h/find-account ctx "Checking"))
-                                 :action :debit
-                                 :quantity 1000M
-                                 :memo "checking item"}
-                                {:account-id (:id (h/find-account ctx "Salary"))
-                                 :action :credit
-                                 :quantity 1000M
-                                 :memo "salary item"}]})
-   :compare-fn (fn [trx]
-                 (let [actual (-> trx
-                                  (select-keys [:description
-                                                :transaction-date
-                                                :memo
-                                                :items])
-                                  (update-in [:items] (fn [items]
-                                                        (map #(select-keys % [:action :quantity :memo])
-                                                             items))))
-                       expected {:description "Paycheck"
-                                 :transaction-date (t/local-date 2016 3 2)
-                                 :memo "Seems like there should be more"
-                                 :items [{:action :debit
-                                          :quantity 1000M
-                                          :memo "checking item"}
-                                         {:action :credit
-                                          :quantity 1000M
-                                          :memo "salary item"}]}]
-                   (= actual expected)))})
+(deftest a-user-can-get-transactions-in-his-entity
+  (assert-successful-list (get-a-list "john@doe.com")))
 
-(deftest-update update-a-transaction
-  {:resource-name "transaction"
-   :find-updated-resource-fn #(transactions/find-by-id storage-spec (:id %) (:transaction-date %))
-   :update-fn api/update
-   :comparison-fn #(= "updated memo" (:memo %))
-   :prepare-update-fn #(-> %
-                           (assoc :memo "updated memo")
-                           (select-keys [:id :memo :transaction-date])
-                           (rename-keys {:transaction-date :original-transaction-date}))})
+(deftest a-user-cannot-get-transactions-in-anothers-entity
+  (assert-blocked-list (get-a-list "jane@doe.com")))
 
-(deftest-delete delete-a-transaction
-  {:resource-name "transaction"
-   :delete-fn api/delete
-   :delete-keys [:id :transaction-date]})
+(defn- get-a-transaction
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
+        response (-> (req/request :get (path :api
+                                             :transactions
+                                             (serialize-date (t/local-date 2016 2 1))
+                                             (:id transaction)))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-get
+  [[response body]]
+  (assert-successful response)
+  (is (selective= {:transaction-date "2016-02-01"
+                   :description "Paycheck"
+                   :memo "Pre-existing transaction"
+                   :value 1000.0}
+                  body)
+      "The correct transaction is returned in the response"))
+
+(defn- assert-blocked-get
+  [[response]]
+  (assert-not-found response))
+
+(deftest a-user-can-get-a-transaction-from-his-entity
+  (assert-successful-get (get-a-transaction "john@doe.com")))
+
+(deftest a-user-cannot-get-a-transaction-from-anothers-entity
+  (assert-blocked-get (get-a-transaction "jane@doe.com")))
+
+(defn- create-a-transaction
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        checking (find-account ctx "Checking")
+        salary (find-account ctx "Salary")
+        response (-> (req/request :post (path :api
+                                              :entities
+                                              (:id entity)
+                                              :transactions))
+                     (req/json-body {:description "Paycheck"
+                                     :transaction-date "2016-03-02"
+                                     :memo "Seems like there should be more"
+                                     :items [{:account-id (:id checking)
+                                              :action :debit
+                                              :quantity 1000.0
+                                              :memo "checking item"}
+                                             {:account-id (:id salary)
+                                              :action :credit
+                                              :quantity 1000.0
+                                              :memo "salary item"}]})
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)
+        retrieved (trans/search (env :db) {:entity-id (:id entity)
+                                           :transaction-date (t/local-date 2016 3 2)})]
+    [response body retrieved]))
+
+(defn- assert-successful-create
+  [[response body retrieved]]
+  (assert-successful response)
+  (is (selective= {:description "Paycheck"
+                   :transaction-date "2016-03-02"
+                   :memo "Seems like there should be more"}
+                  body)
+      "The created transaction is returned in the response")
+  (is (some #(selective= {:description "Paycheck"
+                          :transaction-date (t/local-date 2016 3 2)
+                          :memo "Seems like there should be more"}
+                         %)
+            retrieved)
+      "The created transaction can be retrieved from the database"))
+
+(defn- assert-blocked-create
+  [[response _ retrieved]]
+  (assert-not-found response)
+  (is (not-any? #(selective= {:description "Paycheck"
+                              :transaction-date (t/local-date 2016 3 2)
+                              :memo "Seems like there should be more"}
+                             %)
+                retrieved)
+      "The transaction is not created"))
+
+(deftest a-user-can-create-a-transaction-in-his-entity
+  (assert-successful-create (create-a-transaction "john@doe.com")))
+
+(deftest a-user-cannot-create-a-transaction-in-aothers-entity
+  (assert-blocked-create (create-a-transaction "jane@doe.com")))
+
+(defn- update-items
+  [items]
+  (->> items
+       (map #(select-keys % [:quantity :account-id :action :memo]))))
+
+(defn- update-a-transaction
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
+        response (-> (req/request :patch (path :api
+                                               :transactions
+                                               (serialize-date (:transaction-date transaction))
+                                               (:id transaction)))
+                     (req/json-body (-> transaction
+                                        (assoc :description "Just got paid today")
+                                        (update-in [:transaction-date] serialize-date)
+                                        (update-in [:items] update-items)))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)
+        retrieved (trans/find-by-id (env :db) (:id transaction) (:transaction-date transaction))]
+    [response body retrieved]))
+
+(defn- assert-successful-update
+  [[response body retrieved]]
+  (assert-successful response)
+  (is (selective= {:description "Just got paid today"
+                   :transaction-date "2016-02-01"
+                   :memo "Pre-existing transaction"}
+                  body)
+      "The updated transaction is returned in the response")
+  (is (selective= {:description "Just got paid today"
+                   :transaction-date (t/local-date 2016 2 1)
+                   :memo "Pre-existing transaction"}
+                  retrieved)
+      "The transaction is updated in the database"))
+
+(defn- assert-blocked-update
+  [[response _ retrieved]]
+  (assert-not-found response)
+  (is (selective= {:description "Paycheck"
+                   :transaction-date (t/local-date 2016 2 1)
+                   :memo "Pre-existing transaction"}
+                  retrieved)
+      "The transaction is not updated"))
+
+(deftest a-user-can-update-a-transaction-in-his-entity
+  (assert-successful-update (update-a-transaction "john@doe.com")))
+
+(deftest a-user-cannot-update-a-transaction-in-aothers-entity
+  (assert-blocked-update (update-a-transaction "jane@doe.com")))
+
+(defn- delete-a-transaction
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
+        response (-> (req/request :delete (path :api
+                                                :transactions
+                                                "2016-02-01"
+                                                (:id transaction)))
+                     (add-auth user)
+                     app)
+        retrieved (trans/find-by-id (env :db) (:id transaction) (:transaction-date transaction))]
+    [response retrieved]))
+
+(defn- assert-successful-delete
+  [[response retrieved]]
+  (assert-successful response)
+  (is (nil? retrieved)
+      "The record cannot be retrieved after delete"))
+
+(defn- assert-blocked-delete
+  [[response retrieved]]
+  (assert-not-found response)
+  (is retrieved
+      "The record can be retrieved after a blocked delete"))
+
+(deftest a-user-can-delete-a-transaction-in-his-entity
+  (assert-successful-delete (delete-a-transaction "john@doe.com")))
+
+(deftest a-user-cannot-delete-a-transaction-in-anothers-entity
+  (assert-blocked-delete (delete-a-transaction "jane@doe.com")))

@@ -5,9 +5,7 @@
             :url "http://www.eclipse.org/legal/epl-v10.html"}
   :dependencies [[org.clojure/clojure "1.9.0" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.logging "0.4.0" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/core.async "0.4.474" :exclusions [org.clojure/data.priority-map
-                                                                org.clojure/core.cache
-                                                                org.clojure/tools.reader]]
+                 [org.clojure/core.async "0.4.474" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.cli "0.3.7" :exclusions [org.clojure/tools.reader]]
                  [org.clojure/tools.reader "1.1.0"]
                  [org.clojure/data.xml "0.2.0-alpha6"]
@@ -24,13 +22,13 @@
                  [honeysql "0.9.2" :exclusions [org.clojure/tools.reader]]
                  [clj-time "0.14.3" :exclusions [org.clojure/tools.reader]]
                  [compojure "1.6.1" :exclusions [org.clojure/tools.reader]]
+                 [ring/ring-core "1.8.0"]
                  [ring/ring-jetty-adapter "1.6.3" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-anti-forgery "1.2.0" :exclusions [org.clojure/tools.reader]]
                  [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
-                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader
-                                                  org.clojure/core.cache]]
+                 [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader]]
                  [selmer "1.11.7" :exclusions [joda-time
                                                com.google.javascript/closure-compiler
                                                org.clojure/tools.reader]]
@@ -51,13 +49,15 @@
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
                  [environ "1.1.0" :exclusions [org.clojure/tools.reader]]
-                 [com.cemerick/friend "0.2.3" :exclusions [org.clojure/tools.reader]]
                  [ragtime "0.7.2" :exclusions [org.clojure/tools.reader]]
                  [clj-factory "0.2.1" :exclusions [org.clojure/tools.reader]]
                  [digest "1.4.8" :exclusions [org.clojure/tools.reader]]
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
                  [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
-                 [com.andrewmcveigh/cljs-time "0.5.2"]]
+                 [com.andrewmcveigh/cljs-time "0.5.2"]
+                 [buddy/buddy-sign "3.1.0"]
+                 [buddy/buddy-hashers "1.4.0"]
+                 [org.mindrot/jbcrypt "0.3m"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
@@ -103,4 +103,27 @@
 
   :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:production {:env {:production true}}
-             :uberjar {:prep-tasks ["compile" ["cljsbuild" "once"]]}})
+            :dev [:project/dev :profiles/dev]
+            :test [:project/test :profiles/test]
+            :profiles/dev {}
+            :profiles/test {}
+            :project/dev {:env
+                          {:db "postgresql://app_user:please01@localhost/money_development"
+                            :partition-period "year"
+                            :show-error-messages? "true"
+                            :site-protocol "http"
+                            :site-host "lvh.me:5000"}}
+            :project/test {:dependencies [[ring/ring-mock "0.4.0"]
+                                          [peridot "0.5.2"]]
+                           :env
+                            {:db "postgresql://app_user:please01@localhost/money_test" 
+                            :partition-period "month"
+                            :mailer-host "testmailer.com"
+                            :mailer-from "no-reply@clj-money.com"
+                            :application-name "clj-money"
+                            :show-error-messages? "true"
+                            :google-client-id "google-id"
+                            :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
+                            :site-protocol "https"
+                            :site-host "www.mymoney.com"}}
+            :uberjar {:prep-tasks ["compile" ["cljsbuild" "once"]]}})

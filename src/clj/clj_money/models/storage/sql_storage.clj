@@ -147,16 +147,6 @@
   (s/keys :req-un [::entity-id]))
 (s/def ::grant-criteria (s/multi-spec grant-criteria #(contains? % :id)))
 
-(defn- exists?
-  [db-spec table where]
-  (let [sql (sql/format (-> (h/select [:%count.id :record_count])
-                              (h/from table)
-                              (h/where where)))]
-      (= 1 (->> sql
-           (jdbc/query db-spec)
-           first
-           :record_count))))
-
 (defn- update-keys
   [model f]
   (when model
@@ -259,9 +249,11 @@
   "Returns a boolean value indicating whether or not
   the first segment of the sort expression specified
   descending order"
-  [[sort-exp]]
-  (when (and sort-exp (sequential? sort-exp))
-    (= :desc (second sort-exp))))
+  [sort-exp]
+  (when (and sort-exp
+             (sequential? sort-exp)
+             (sequential? (first sort-exp)))
+    (= :desc (-> sort-exp first second))))
 
 
 (defn- limit-reached?
@@ -284,7 +276,7 @@
                   (keyword %)))
           (reduce (fn [records# table#]
                     (let [sql# (sql-fn# table#)
-                          _logresult# (log/debugf "partitioned select from %s: %s" ~table-name (prn-str sql#))
+                          _logresult# (log/debugf "partitioned select from %s: %s" ~table-name (prn-str (sql/format sql#)))
                           found-records# (~exec-fn sql#)
                           updated-records# (concat records# found-records#)]
                       (if (limit-reached? updated-records# ~options)
@@ -341,8 +333,8 @@
   (let [without-lot (dissoc criteria :lot-id)]
     (cond-> sql
 
-      (not (empty? without-lot))
-      (h/where (map->where without-lot))
+      (not (seq without-lot))
+      (h/merge-where (map->where without-lot))
 
       (contains? criteria :lot-id)
       (-> (h/join [:lots_transactions :lt]
@@ -356,16 +348,6 @@
   (->> (sql/format sql-map)
        (jdbc/query db-spec)
        (map ->clojure-keys)))
-
-(defn- query-scalar
-  "Executes the SQL query and returns the first column of
-  the first record of the result"
-  [db-spec sql-map]
-  (->> (sql/format sql-map)
-       (jdbc/query db-spec)
-       first
-       vals
-       first))
 
 (defn- execute
   [db-spec sql-map]
@@ -486,6 +468,27 @@
                                                     :token-expires-at))
                               (h/where [:= :id (:id user)])))]
       (jdbc/execute! db-spec sql)))
+
+  ; Identities
+  (create-identity
+    [_ ident]
+    (insert db-spec :identities ident
+            :user-id
+            :provider
+            :provider-id))
+
+  (select-identities
+    [_ criteria options]
+    (let [sql (-> (h/select :i.*
+                            [:u.first_name :user_first_name]
+                            [:u.last_name :user_last_name]
+                            [:u.email :user_email])
+                  (h/from [:identities :i])
+                  (h/join [:users :u] [:= :u.id :i.user_id])
+                  (h/where (map->where criteria {:prefix "i"}))
+                  (append-limit options))]
+      (log/debugf "select-identities %s - %s" (prn-str criteria) (prn-str (sql/format sql)))
+      (query db-spec sql)))
 
   ; Entities
   (create-entity
@@ -707,15 +710,20 @@
 
   (select-lots
     [_ criteria options]
-    (validate-criteria criteria ::lot-criteria)
-    (let [entity-id (:entity-id criteria)
-          filtered-criteria (dissoc criteria :entity-id)]
-      (query db-spec (-> (h/select :*)
-                         (h/from :lots)
-                         (h/where (map->where filtered-criteria))
-                         (append-entity-id-to-lot-query entity-id)
-                         (append-limit options)
-                         (append-sort options)))))
+    (if (and (contains? criteria :entity-id) ; TODO: remove this hack after reworking scoping logic
+             (set? (:entity-id criteria))
+             (empty? (:entity-id criteria)))
+      []
+      (do
+        (validate-criteria criteria ::lot-criteria)
+        (let [entity-id (:entity-id criteria)
+              filtered-criteria (dissoc criteria :entity-id)]
+          (query db-spec (-> (h/select :*)
+                             (h/from :lots)
+                             (h/where (map->where filtered-criteria))
+                             (append-entity-id-to-lot-query entity-id)
+                             (append-limit options)
+                             (append-sort options)))))))
 
   (delete-lot
     [_ id]
@@ -755,6 +763,7 @@
                 (adjust-select options)
                 (append-sort options)
                 #_(append-paging options)
+                (append-where criteria)
                 (append-transaction-lot-filter criteria)))]
       (if (:count options) ; TODO remove this duplication with select-transaction-items
         (-> result first vals first)
@@ -868,26 +877,36 @@
     (.select-transaction-items this criteria {}))
 
   (select-transaction-items
-    [this criteria options]
-    (validate-criteria criteria ::transaction-item-criteria)
-    (let [d-range (date-range this (:transaction-date criteria))
-          result (with-partitioning (partial query db-spec) [:transaction_items :transactions] d-range options [tables]
-                  (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
-                      (h/from [(first tables) :i])
-                      (h/join [(second tables) :t]
-                              [:= :t.id :i.transaction_id])
-                      (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
-                      (adjust-select options)
-                      (h/where (map->where criteria {:prefix "i"}))
-                      (append-sort (if (:count options)
-                                      options
-                                      (merge
-                                        {:sort [[:i.index :desc]]}
-                                        options)))
-                      (append-limit options)))]
-      (if (:count options)
-        (-> result first vals first)
-        result)))
+    [this {:keys [entity-id] :as criteria} options]
+    (if (and entity-id (empty? entity-id))
+      []
+      (do
+        (validate-criteria criteria ::transaction-item-criteria)
+        (let [d-range (date-range this (:transaction-date criteria))
+              opts (if (:count options)
+                     options
+                     (merge
+                       {:sort [[:i.index :desc]]}
+                       options))
+              result (with-partitioning
+                       (partial query db-spec)
+                       [:transaction_items :transactions]
+                       d-range
+                       opts
+                       [tables]
+                       (cond-> (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
+                                   (h/from [(first tables) :i])
+                                   (h/join [(second tables) :t]
+                                           [:= :t.id :i.transaction_id])
+                                   (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
+                                   (adjust-select opts)
+                                   (h/where (map->where (dissoc criteria :entity-id) {:prefix "i"}))
+                                   (append-sort opts)
+                                   (append-limit opts))
+                         entity-id (h/merge-where [:in :t.entity_id entity-id])))]
+          (if (:count opts)
+            (-> result first vals first)
+            result)))))
 
   ; Reconciliations
   (create-reconciliation

@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [ring.util.response :refer [response status header]]
             [environ.core :refer [env]]
-            [cheshire.core :as json]
             [slingshot.slingshot :refer [try+]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]))
@@ -11,7 +10,7 @@
   [specified-name]
   (if (keyword? specified-name)
     (name specified-name)
-    name))
+    specified-name))
 
 (defmulti ^:private integerize type)
 
@@ -26,7 +25,7 @@
 
 (defn- id-key?
   [k]
-  (re-find #"id$" (param-name k)))
+  (boolean (re-find #"id$" (param-name k))))
 
 (defn- integerize-id-params
   [params]
@@ -68,28 +67,23 @@
   (fn [request]
     (handler (update-in request [:params] #(merge % (lookup-models %))))))
 
-(defn wrap-exception-handling
+(defn wrap-exceptions
   [handler]
   (fn [request]
     (try+
       (handler request)
       (catch [:type :clj-money.models/not-found] error-data
-        (-> (json/generate-string {:message "not found"})
+        (-> {:message "not found"}
             response
             (status 404)
-            (header "Content-Type" "application/json"))) ; TODO respond with content type according to accept header
+            (header "Content-Type" "application/json")))
       (catch [:type :clj-money.authorization/no-rules] error-data
-        (-> (json/generate-string {:message "no authorization rules"})
+        (-> {:message "no authorization rules"}
             response
             (status 500)
             (header "Content-Type" "application/json")))
       (catch [:type :clj-money.authorization/unauthorized] error-data
-        (if (env :show-error-messages?)
-          (-> (json/generate-string {:message "unauthorized"})
-              response
-              (status 403)
-              (header "Content-Type" "application/json"))
-          (-> (json/generate-string {:message "not found"})
-              response
-              (status 404)
-              (header "Content-Type" "application/json"))))))) ; TODO create a full not-found page
+        (-> {:message "not found"}
+            response
+            (status 404)
+            (header "Content-Type" "application/json"))))))

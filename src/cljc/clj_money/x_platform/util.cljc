@@ -144,3 +144,21 @@
   (update-in criteria [attr] (fn [value]
                                (vec (cons (-> value first ensure-keyword)
                                           (map f (rest value)))))))
+
+(defn- ensure-string
+  [value]
+  (if (keyword? value)
+    (name value)
+    (str value)))
+
+(defn path
+  [& segments]
+  (str "/" (->> segments
+                (map ensure-string)
+                (string/join "/"))))
+
+(defn parse-int
+  [value]
+  (when value
+    #?(:clj (Integer/parseInt value)
+       :cljs (parseInt value))))

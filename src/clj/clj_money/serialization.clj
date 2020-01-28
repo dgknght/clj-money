@@ -15,6 +15,7 @@
             [clj-money.models.reconciliations :as reconciliations]
             [clj-money.models.images :as images]
             [clj-money.models.imports :as imports]
+            [clj-money.models.identities :as idents]
             [clj-money.trading :as trading]))
 
 (defn- throw-on-invalid
@@ -177,15 +178,16 @@
                         :account-id (:credit-account-id transaction)}])
         (dissoc :quantity :debit-account-id :credit-account-id))))
 
+(defn- create-transaction
+  [transaction storage context]
+  (transactions/create storage (-> transaction
+                                   (resolve-entity context)
+                                   expand-items
+                                   (prepare-items context))))
+
 (defn- create-transactions
   [storage context transactions]
-  []
-  (mapv (fn [attributes]
-          (transactions/create storage (-> attributes
-                                           (resolve-entity context)
-                                           expand-items
-                                           (prepare-items context))))
-        transactions))
+  (mapv #(create-transaction % storage context) transactions))
 
 (defn- realize-transactions
   [context storage]
@@ -417,13 +419,6 @@
   [context storage]
   (update-in context [:imports] #(create-imports storage context %)))
 
-(defn- get-commodity
-  [context symbol]
-  (->> context
-       :commodities
-       (filter #(= symbol (:symbol %)))
-       first))
-
 (defn- execute-trade
   [trade storage context]
   (let [f (case (:type trade)
@@ -443,6 +438,17 @@
   [context storage]
   (update-in context [:trades] execute-trades storage context))
 
+(defn- create-identities
+  [idents storage context]
+  {:pre [(sequential? idents)]}
+
+  (mapv #(idents/create storage (resolve-user % context))
+        idents))
+
+(defn- realize-identities
+  [context storage]
+  (update-in context [:identities] (fnil create-identities []) storage context))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
@@ -461,4 +467,5 @@
         (realize-transactions s)
         (realize-trades s)
         (realize-attachments s)
-        (realize-reconciliations s))))
+        (realize-reconciliations s)
+        (realize-identities s))))

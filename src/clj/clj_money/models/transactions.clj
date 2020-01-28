@@ -403,7 +403,7 @@
   ([storage-spec criteria]
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
-   (let [coerced-options (coercion/coerce options
+   (let [coerced-options (coercion/coerce options ; TODO: Don't coerce these here, expect them in the correct format
                                           [(coercion/rule :integer [:page])
                                            (coercion/rule :integer [:per-page])])
          parsed-options (if (s/valid? ::select-options coerced-options)

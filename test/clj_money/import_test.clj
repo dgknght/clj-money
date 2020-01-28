@@ -428,18 +428,19 @@
                                  :transaction-date (t/local-date 2015 5 1)
                                  :action :credit
                                  :quantity 100M}]
-            actual-ira-items (->> {:account-id (:id ira-aapl)}
-                                  (transactions/search-items storage-spec)
-                                  (map #(dissoc % :created-at
-                                                  :updated-at
-                                                  :id
-                                                  :memo
-                                                  :transaction-id
-                                                  :negative
-                                                  :polarized-quantity
-                                                  :reconciliation-status
-                                                  :reconciliation-id
-                                                  :reconciled?)))
+            actual-ira-items (map #(dissoc % :created-at
+                                           :updated-at
+                                           :id
+                                           :memo
+                                           :transaction-id
+                                           :negative
+                                           :polarized-quantity
+                                           :reconciliation-status
+                                           :reconciliation-id
+                                           :reconciled?)
+                                  (transactions/search-items storage-spec
+                                                             {:account-id (:id ira-aapl)}
+                                                             {:sort [:index]}))
             expected-fee-items [{:transaction-date (t/local-date 2015 5 1)
                                  :description "Sell 100 shares of AAPL at 6.000"
                                  :value 10M

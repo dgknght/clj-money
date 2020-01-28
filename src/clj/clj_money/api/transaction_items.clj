@@ -1,52 +1,43 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require
+  (:require [compojure.core :refer [defroutes GET]]
             [environ.core :refer [env]]
-            [clj-time.format :as f]
-            [clj-time.coerce :refer [to-sql-date]]
+            [clj-money.authorization :refer [apply-scope]]
+            [clj-money.x-platform.util :refer [update-in-criteria
+                                               parse-int
+                                               unserialize-date]]
             [clj-money.api :refer [->response]]
-            [clj-money.coercion :as coercion]
             [clj-money.models.transactions :as transactions]
             [clj-money.permissions.transactions]))
 
-(def ^:private criteria-coercion-rules
-  [(coercion/rule :integer [:account-id])])
-
-(defn- parse-date
-  [string-date]
-  (to-sql-date (f/parse-local (:date f/formatters) string-date)))
-
-(defn- coerce-transaction-date
-  [criteria]
-  (if (:transaction-date criteria)
-    (update-in criteria
-               [:transaction-date]
-               (fn [[operator start end]]
-                 [(keyword operator)
-                  (parse-date start)
-                  (parse-date end)]))
-    criteria))
-
 (defn- prepare-criteria
-  [criteria]
-  (-> criteria
-      (coercion/coerce criteria-coercion-rules)
-      coerce-transaction-date))
-
-(coercion/register-coerce-fn :sort (fn [s]
-                                     (when (and (s (seq s)))
-                                       (map keyword s))))
-
-(def ^:private options-coercion-rules
-  [(coercion/rule :keyword [:sort 0])
-   (coercion/rule :keyword [:sort 1])])
+  [params]
+  (let [start-date (:start-date params)
+        end-date (:end-date params) ]
+    (cond-> (select-keys params [:account-id :entity-id])
+      (and start-date end-date) (assoc :transaction-date [:between
+                                                          (unserialize-date start-date)
+                                                          (unserialize-date end-date)])
+      start-date (assoc :transaction-date [:>= (unserialize-date start-date)])
+      end-date (assoc :transaction-date [:<= (unserialize-date end-date)]))))
 
 (defn- prepare-options
-  [options]
-  (coercion/coerce options options-coercion-rules))
+  [params]
+  (-> params
+      (select-keys [:limit :skip])
+      (update-in-criteria :limit parse-int)
+      (update-in-criteria :skip parse-int)))
 
 (defn index
-  [{{:keys [criteria options]} :params}]
+  [{:keys [params authenticated]}]
+  {:pre [(or (:transaction-date params)
+             (and (:start-date params)
+                  (:end-date params)))]}
   (->response (transactions/search-items (env :db)
-                                         (prepare-criteria criteria)
-                                         (prepare-options options))))
+                                         (apply-scope (prepare-criteria params)
+                                                      :transaction-item
+                                                      authenticated)
+                                         (prepare-options params))))
+
+(defroutes routes
+  (GET "/api/accounts/:account-id/transaction-items" req (index req)))

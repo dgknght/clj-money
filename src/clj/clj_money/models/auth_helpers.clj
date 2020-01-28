@@ -85,8 +85,9 @@
 
 (defn user-granted-access?
   [user resource action context]
-  (grants/has-permission? (find-grant user resource context)
-                          (authorization/get-resource-tag resource)
-                          action))
+  (when-let [g (find-grant user resource context)]
+    (grants/has-permission? g
+                            (authorization/get-resource-tag resource)
+                            action)))
 
 (authorization/->context :storage-spec (env :db))

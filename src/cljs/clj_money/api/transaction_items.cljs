@@ -1,31 +1,33 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require [cljs-time.format :as f]
-            [clj-money.api :as api]
-            [clj-money.util :refer [parse-date]]))
+  (:require [clj-money.api :as api]
+            [clj-money.x-platform.util :refer [serialize-date unserialize-date]]))
 
 (defn- after-read
   [item]
   (-> item
-      (update-in [:transaction-date] parse-date)
+      (update-in [:transaction-date] unserialize-date)
       (update-in [:action] keyword)))
 
-(defn- format-date
-  [date]
-  (f/unparse (:date f/formatters) date))
-
 (defn- prepare-criteria
-  [criteria]
+  [{:keys [transaction-date] :as criteria}]
   (-> criteria
-      (update-in [:transaction-date 1] format-date)
-      (update-in [:transaction-date 2] format-date)))
+      (assoc :start-date (serialize-date (nth transaction-date 1))
+             :end-date (serialize-date (nth transaction-date 2)))
+      (dissoc :transaction-date)))
 
 (defn search
   ([criteria success-fn error-fn]
    (search criteria {} success-fn error-fn))
   ([criteria options success-fn error-fn]
-   (api/get-resources (api/path :transaction-items)
-                      (prepare-criteria criteria)
+   {:pre [(every? #(contains? criteria %) [:account-id :transaction-date])]}
+
+   (api/get-resources (api/path :accounts
+                                (:account-id criteria)
+                                :transaction-items)
+                      (-> criteria
+                          (dissoc :account-id)
+                          prepare-criteria)
                       options
                       #(success-fn (map after-read %))
                       error-fn)))

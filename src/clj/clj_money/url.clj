@@ -1,5 +1,6 @@
 (ns clj-money.url
-  (:require [clojure.string :as string]))
+  (:require [clojure.string :as string]
+            [ring.util.codec :as r-util]))
 
 (defn- extract-map
   [args]
@@ -18,7 +19,10 @@
 (defhelper path
   "Appends segments to the path in the URL"
   [m segments]
-  (update-in m [:segments] (fnil concat []) segments))
+  (update-in m [:segments] (fnil concat []) (map #(if (keyword? %)
+                                                    (name %)
+                                                    (str %))
+                                                 segments)))
 
 (defhelper host
   "Specifies the host for the URL"
@@ -35,10 +39,16 @@
   [m more]
   (update-in m [:query] (fnil merge {}) (first more)))
 
+(defn- url-encode
+  [value]
+  (if value
+    (r-util/url-encode value)
+    ""))
+
 (defn- map->query-string
   [m]
   (->> m
-       (map (fn [[k v]] (str (name k) "=" v)))
+       (map (fn [[k v]] (str (name k) "=" (url-encode v))))
        (string/join "&")))
 
 (defn format-url

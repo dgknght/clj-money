@@ -1,25 +1,31 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
   (:require [environ.core :refer [env]]
+            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-money.api :refer [->response
-                                   index-resource
-                                   create-resource
-                                   update-resource
-                                   delete-resource]]
-            [clj-money.authorization :refer [authorize]]
+                                   not-found]]
+            [clj-money.authorization :refer [authorize
+                                             apply-scope
+                                             tag-resource]]
             [clj-money.models.accounts :as accounts]
             [clj-money.permissions.accounts]))
 
-(defn index
-  [{params :params}]
-  (index-resource accounts/search
-                  (select-keys params [:entity-id])
-                  :account))
+(defn- index
+  [{:keys [params authenticated]}]
+  (->response (accounts/search (env :db) (-> params
+                                             (select-keys [:entity-id])
+                                             (apply-scope :account authenticated)))))
 
-(defn get-one
-  [{{id :id} :params}]
-  (let [account (authorize (accounts/find-by-id (env :db) id) :show)]
-    (->response account)))
+(defn- find-and-auth
+  [{:keys [params authenticated]} action]
+  (authorize (accounts/find-by-id (env :db)
+                                  (:id params))
+             action
+             authenticated))
+
+(defn- show
+  [req]
+  (->response (find-and-auth req :show)))
 
 (def ^:private attribute-keys
   [:id
@@ -36,20 +42,37 @@
       (update-in [:tags] #(if (:trading account)
                             (conj (or % #{}) :trading)
                             %))
-      (select-keys attribute-keys)))
+      (select-keys attribute-keys)
+      (tag-resource :account)))
 
-(defn create
-  [{params :params}]
-  (create-resource :account
-                   (before-save params)
-                   accounts/create))
+(defn- create
+  [{:keys [params body authenticated]}]
+  (let [account (-> body
+                    (assoc :entity-id (:entity-id params))
+                    before-save
+                    (authorize :create authenticated))]
+    (->response (accounts/create (env :db) account)
+                201)))
 
-(defn update
-  [{params :params}]
-  (update-resource (before-save params)
-                   #(accounts/find-by-id %1 (:id %2))
-                   accounts/update))
+(defn- update
+  [{:keys [body] :as req}]
+  (if-let [account (find-and-auth req :update)]
+    (->response (accounts/update (env :db)
+                                 (merge account
+                                        (select-keys body attribute-keys))))
+    (not-found)))
 
-(defn delete
-  [{{id :id} :params}]
-  (delete-resource id accounts/find-by-id accounts/delete))
+(defn- delete
+  [req]
+  (if-let [account (find-and-auth req :delete)]
+    (do
+      (accounts/delete (env :db) (:id account))
+      (->response))
+    (not-found)))
+
+(defroutes routes
+  (GET "/api/entities/:entity-id/accounts" req (index req))
+  (POST "/api/entities/:entity-id/accounts" req (create req))
+  (GET "/api/accounts/:id" req (show req))
+  (PATCH "/api/accounts/:id" req (update req))
+  (DELETE "/api/accounts/:id" req (delete req)))

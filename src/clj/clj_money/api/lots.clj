@@ -1,25 +1,17 @@
 (ns clj-money.api.lots
-  (:require [clj-money.api :refer [index-resource]]
-            [clj-money.x-platform.util :refer [update-in-criteria]]
+  (:require [compojure.core :refer [defroutes GET]]
+            [environ.core :refer [env]]
+            [clj-money.api :refer [->response]]
+            [clj-money.authorization :refer [apply-scope]]
             [clj-money.models.lots :as lots]
             [clj-money.permissions.lots]))
 
-(defn- parse-int
-  [s]
-  (cond
-    (and s (string? s) (re-find #"^\d+$" s))
-    (Integer/parseInt s)
-
-    (integer? s) s
-
-    :else nil))
-
 (defn index
-  [{:keys [params]}]
-  (let [criteria (-> (:criteria params)
-                     (merge (dissoc params :criteria))
-                     (select-keys [:account-id :commodity-id :shares-owned])
-                     (update-in-criteria :account-id parse-int)
-                     (update-in-criteria :commodity-id parse-int)
-                     (update-in-criteria :shares-owned parse-int))]
-    (index-resource lots/search criteria :lot)))
+  [{:keys [params authenticated]}]
+  (->response (lots/search (env :db) (-> (:criteria params)
+                                         (merge (dissoc params :criteria))
+                                         (select-keys [:account-id :commodity-id :shares-owned])
+                                         (apply-scope :lot authenticated)))))
+
+(defroutes routes
+  (GET "/api/accounts/:account-id/lots" req (index req)))

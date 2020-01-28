@@ -1,9 +1,10 @@
 (ns clj-money.api.test-helper
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [clojure.pprint :refer [pprint]]
-            [clojure.spec.alpha :as s]
             [environ.core :refer [env]]
-            [clj-money.test-helpers :refer [with-authentication]]))
+            [ring.mock.request :as req]
+            [clj-money.test-helpers :refer [with-authentication]]
+            [clj-money.web.auth :as auth]))
 
 (defmacro deftest-list
   [name {:keys [context
@@ -194,3 +195,8 @@
                "The response status is successful without content.")
            (is (not (resource-ids# (:id resource#)))
                "The resource is no longer available after delete."))))))
+
+(defn add-auth
+  [req user]
+  {:pre [user]}
+  (req/header req "Authorization" (str "Bearer " (auth/make-token user))))

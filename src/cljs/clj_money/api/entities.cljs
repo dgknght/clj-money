@@ -11,8 +11,14 @@
   (api/create-resource (api/path :entities) entity success-fn error-fn))
 
 (defn update
-  ([entity success-fn error-fn]
-   (api/update-resource (api/path :entities (:id entity)) entity success-fn error-fn)))
+  [entity success-fn error-fn]
+  (api/update-resource (api/path :entities (:id entity)) entity success-fn error-fn))
+
+(defn save
+  [entity success-fn error-fn]
+  (if (:id entity)
+    (update entity success-fn error-fn)
+    (create entity success-fn error-fn)))
 
 (defn delete
   [entity success-fn error-fn]

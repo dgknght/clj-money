@@ -1,7 +1,7 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
   (:require [ring.util.response :refer [status response header]]
-            [cemerick.friend :refer [current-authentication]]
+            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [clj-money.api :refer [->response
@@ -15,15 +15,15 @@
             [clj-money.models.entities :as entities]
             [clj-money.permissions.entities]))
 
-(defn index
-  [_]
-  (response (entities/select (env :db) (:id (current-authentication)))))
+(defn- index
+  [{:keys [authenticated]}]
+  (->response (entities/select (env :db) (:id authenticated))))
 
-(defn create
-  [{:keys [params]}]
-  (let [entity (-> params
+(defn- create
+  [{:keys [body authenticated]}]
+  (let [entity (-> body
                    (select-keys [:name :settings])
-                   (assoc :user-id (:id (current-authentication)))
+                   (assoc :user-id (:id authenticated))
                    (tag-resource :entity))]
     (try
       (let [result (entities/create (env :db) entity)]
@@ -34,10 +34,12 @@
         (log-error e "Unable to create the entity.")
         (error->response e "Unable to create the entity.")))))
 
-(defn update
-  [{:keys [params]}]
-  (let [entity (authorize (entities/find-by-id (env :db) (:id params)) :update)
-        updated (merge entity (select-keys params [:name :settings]))]
+(defn- update
+  [{:keys [params body authenticated]}]
+  (let [entity (authorize (entities/find-by-id (env :db) (:id params))
+                          :update
+                          authenticated)
+        updated (merge entity (select-keys body [:name :settings]))]
     (try
       (let [result (entities/update (env :db) updated)]
         (if (validation/has-error? result)
@@ -59,6 +61,15 @@
             (header "Content-Type" "application/json")
             (status 500))))))
 
-(defn delete
-  [{{id :id} :params}]
-  (delete-resource id entities/find-by-id entities/delete))
+(defn- delete
+  [{:keys [params authenticated]}]
+  (delete-resource (:id params)
+                   authenticated
+                   entities/find-by-id
+                   entities/delete))
+
+(defroutes routes
+  (GET "/api/entities" req (index req))
+  (PATCH "/api/entities/:id" req (update req))
+  (DELETE "/api/entities/:id" req (delete req))
+  (POST "/api/entities" req (create req)))

@@ -1,12 +1,13 @@
 (ns clj-money.models.users-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
-            [clj-money.validation :as validation]
             [clj-money.models.users :as users]
-            [clj-money.test-helpers :refer :all]))
+            [clj-money.test-helpers :refer [reset-db
+                                            assert-validation-error
+                                            selective=]]))
 
 (def storage-spec (env :db))
 
@@ -76,7 +77,7 @@
       (users/create storage-spec (assoc attributes :last-name "")))))
 
 (deftest authenticate-a-user
-  (let [user (users/create storage-spec attributes)
+  #_(let [user (users/create storage-spec attributes)
         actual (dissoc (users/authenticate storage-spec
                                            {:username "john@doe.com"
                                             :password "please01"})
@@ -87,7 +88,6 @@
                   :email "john@doe.com"
                   :first-name "John"
                   :last-name "Doe"
-                  :type :cemerick.friend/auth
                   :roles #{:user}}]
     (if-not (= expected actual)
       (pprint {:expected expected
@@ -106,9 +106,9 @@
 
 (deftest cannot-retrieve-a-user-with-an-expired-token
   (let [user (users/create storage-spec attributes)
-        token (with-time (t/date-time 2017 3 2 12 0 0)
+        token (t/do-at (t/date-time 2017 3 2 12 0 0)
                 (users/create-password-reset-token storage-spec user))
-        retrieved (with-time (t/date-time 2017 3 3 12 0 0)
+        retrieved (t/do-at (t/date-time 2017 3 3 12 0 0)
                     (users/find-by-token storage-spec token))]
     (is (nil? retrieved)
         "The user is not returned if the token has expired")))
@@ -125,3 +125,19 @@
     (is new-auth "The user can be authenticated with the new password")
     (is (nil? old-auth) "The user cannot be authenticated with the old password")
     (is (nil? retrieved) "The user cannot be retrieved with a token that has been used")))
+
+(def ^:private profile
+  {:given_name "John"
+   :email "john@doe.com"
+   :id "123"
+   :name "John Doe"
+   :family_name "Doe"})
+
+(deftest find-or-create-a-user-by-oauth-profile
+  (testing "an existing user without identity"
+    (let [user (users/create storage-spec attributes)
+          result (users/find-or-create-from-profile storage-spec profile)]
+      ; TODO: assert that the identity record is created
+
+      (is (selective= user result :first-name :last-name :email :id)
+          "The existing user is returned"))))

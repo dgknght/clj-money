@@ -4,7 +4,6 @@
             [environ.core :refer [env]]
             [ring.util.response :refer [redirect]]
             [hiccup.core :refer [html]]
-            [cemerick.friend :refer [current-authentication]]
             [clj-money.authorization :refer [authorize
                                              apply-scope
                                              tag-resource]]
@@ -140,8 +139,8 @@
                {})))
 
 (defn- create-and-invite-new-user
-  [user-attr]
-  (let [user (users/create (env :db) user-attr)
+  [_user-attr]
+  #_(let [user (users/create (env :db) user-attr)
         token (users/create-password-reset-token (env :db) user)
         url (format "%s://%s/password/%s")]
     (mailers/invite-user {:url url

@@ -1,24 +1,25 @@
 (ns clj-money.api.lots-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [environ.core :refer [env]]
+            [cheshire.core :as json]
+            [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-time.core :as t]
-            [clj-money.api.test-helper :refer [deftest-create
-                                               deftest-delete
-                                               deftest-update
-                                               deftest-list
-                                               deftest-get-one]]
+            [clj-money.x-platform.util :refer [path
+                                               map->query-string]]
+            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.web.test-helpers :refer [assert-successful
+                                                assert-not-found]]
             [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :as h]
-            [clj-money.api.lots :as api]))
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff
+                                            find-user
+                                            find-account
+                                            find-commodity]]
+            [clj-money.web.server :refer [app]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial h/reset-db storage-spec))
-
-(defn- find-user       [ctx] (h/find-user ctx "john@doe.com"))
-(defn- find-other-user [ctx] (h/find-user ctx "jane@doe.com"))
+(use-fixtures :each (partial reset-db (env :db)))
 
 (def ^:private list-context
   {:users [(factory :user {:email "john@doe.com"})
@@ -69,26 +70,49 @@
              :shares 5M
              :value 35M}]})
 
-(deftest-list list-lots
-  {:resource-name "lot"
-   :context list-context
-   :list-fn api/index
-   :params-fn (fn [ctx]
-                {:account-id (str (:id (h/find-account ctx "IRA")))
-                 :commodity-id (str (:id (h/find-commodity ctx "FND")))})
-   :expectation-fn (fn [actual]
-                     (let [expected [{:purchase-date (t/local-date 2016 2 1)
-                                      :shares-purchased 10M
-                                      :purchase-price 5M
-                                      :shares-owned 5M}
-                                     {:purchase-date (t/local-date 2016 3 1)
-                                      :shares-purchased 10M
-                                      :purchase-price 6M
-                                      :shares-owned 10M}]
-                           actual (map #(select-keys % [:purchase-date
-                                                        :shares-purchased
-                                                        :shares-owned
-                                                        :purchase-price])
-                                       actual)]
-                       (h/pprint-diff expected actual)
-                       (= expected actual)))})
+(defn- get-a-list-of-lots
+  [email]
+  (let [ctx (serialization/realize (env :db) list-context)
+        account (find-account ctx "IRA")
+        commodity (find-commodity ctx "FND")
+        user (find-user ctx email)
+        response (-> (req/request :get (str (path :api
+                                                  :accounts
+                                                  (:id account)
+                                                  :lots)
+                                            "?"
+                                            (map->query-string {:commodity-id (:id commodity)})))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-get
+  [[response body]]
+  (assert-successful response)
+  (let [expected [{:purchase-date "2016-02-01"
+                   :shares-purchased 10.0
+                   :purchase-price 5.0
+                   :shares-owned 5.0}
+                  {:purchase-date "2016-03-01"
+                   :shares-purchased 10.0
+                   :purchase-price 6.0
+                   :shares-owned 10.0}]
+        actual (mapv #(select-keys % [:purchase-date
+                                      :shares-purchased
+                                      :shares-owned
+                                      :purchase-price])
+                     body)]
+    (pprint-diff expected actual)
+    (is (= expected actual))))
+
+(defn- assert-blocked-get
+  [[response body]]
+  (assert-successful response)
+  (is (empty? body) "The body is empty"))
+
+(deftest a-user-can-get-lots-from-his-own-entity
+  (assert-successful-get (get-a-list-of-lots "john@doe.com")))
+
+(deftest a-user-cannot-get-lots-from-anothers-entity
+  (assert-blocked-get (get-a-list-of-lots "jane@doe.com")))

@@ -3,7 +3,6 @@
   (:require [environ.core :refer [env]]
             [ring.util.response :refer [redirect]]
             [hiccup.core :refer [html]]
-            [cemerick.friend :as friend]
             [clj-money.authorization :refer [authorize
                                              tag-resource]]
             [clj-money.validation :as validation]
@@ -47,7 +46,7 @@
    [:tr
     [:th "Name"]
     [:th "&nbsp;"]]
-   (let [user (friend/current-authentication)
+   #_(let [user (friend/current-authentication)
          entities (entities/select (env :db) (:id user))]
      (map entity-row entities))])
 
@@ -83,11 +82,10 @@
 (defn create-entity
   "Creates the entity and redirects to the index on success, 
   or displays the entity from on failuer"
-  [{params :params}]
-  (let [user (friend/current-authentication)
-        entity (-> params
+  [{:keys [params authenticated]}]
+  (let [entity (-> params
                    (select-keys [:name]) ; TODO move allowed attributes to authorization layer
-                   (assoc :user-id (:id user))
+                   (assoc :user-id (:id authenticated))
                    (tag-resource :entity)
                    (authorize :create))
         result (entities/create (env :db) entity)]

@@ -37,7 +37,7 @@
         :on-click on-click}
     caption]])
 
-(defn nav-bar
+(defn navbar
   "Renders a bootstrap nav bar"
   [{:keys [title title-url items secondary-items] :or {title-url "/"}}]
   [:nav.navbar.navbar-inverse

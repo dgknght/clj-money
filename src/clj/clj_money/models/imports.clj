@@ -34,15 +34,16 @@
 
 (defn- after-read
   [imp storage]
-  (-> imp
-      (update-in [:progress]
-                 #(-> %
-                      (json/parse-string true)
-                      (select-keys [:account :transaction :budget :commodity :price :finished :error])))
-      (assoc :entity-exists? (not (nil? (entities/find-by-name storage
-                                                               (:user-id imp)
-                                                               (:entity-name imp)))))
-      (authorization/tag-resource :import)))
+  (when imp
+    (-> imp
+        (update-in [:progress]
+                   #(-> %
+                        (json/parse-string true)
+                        (select-keys [:account :transaction :budget :commodity :price :finished :error])))
+        (assoc :entity-exists? (not (nil? (entities/find-by-name storage
+                                                                 (:user-id imp)
+                                                                 (:entity-name imp)))))
+        (authorization/tag-resource :import))))
 
 (defn find-by-id
   [storage-spec id]

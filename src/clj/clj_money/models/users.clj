@@ -4,8 +4,7 @@
             [clojure.string :as string]
             [clj-time.core :as t]
             [clj-money.util :refer [to-sql-date]]
-            [cemerick.friend.credentials :refer [hash-bcrypt
-                                                 bcrypt-verify]]
+            [buddy.hashers :as hashers]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn
@@ -19,7 +18,7 @@
 (defn before-save
   "Prepares a user record to be saved in the database"
   [user & _]
-  (update-in user [:password] hash-bcrypt))
+  (update-in user [:password] hashers/derive))
 
 (s/def ::first-name validation/non-empty-string?)
 (s/def ::last-name validation/non-empty-string?)
@@ -32,6 +31,7 @@
   ([storage-spec criteria]
    (find storage-spec criteria {}))
   ([storage-spec criteria options]
+   {:pre [(map? criteria) (map? options)]}
    (with-storage [s storage-spec]
      (->> (select-users s criteria (merge options {:limit 1}))
           first))))
@@ -82,7 +82,7 @@
   [storage-spec {:keys [username password]}]
   (with-storage [s storage-spec]
     (let [user (find s {:email username} {:include-password? true})]
-      (when (and user (bcrypt-verify password (:password user)))
+      (when (and user (hashers/check password (:password user)))
         (-> user
             (dissoc :password)
             (assoc :type :cemerick.friend/auth
@@ -120,3 +120,8 @@
                           :token-expires-at nil)
                    before-save)]
       (update-user s user))))
+
+(defn find-or-create-from-profile
+  [storage-spec profile]
+  (let [user (find storage-spec (select-keys profile [:email]))]
+    user))

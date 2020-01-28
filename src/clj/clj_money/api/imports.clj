@@ -4,8 +4,8 @@
             [clojure.core.async :refer [go-loop <! chan]]
             [ring.util.response :refer [response
                                         status]]
+            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [environ.core :refer [env]]
-            [cemerick.friend :as friend]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
             [clj-money.api :refer [delete-resource]]
@@ -14,6 +14,7 @@
             [clj-money.import.gnucash]
             [clj-money.import.edn]
             [clj-money.models.imports :as imports]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.permissions.imports]))
 
 (def ^:private expected-record-types
@@ -31,6 +32,8 @@
 
 (defn- infer-content-type
   [source-file]
+  {:pre [source-file]}
+
   (let [filename (:filename source-file)
         stripped-filename (string/replace filename #"\.gz$" "")
         ext (second (re-matches #".*\.(.*)?$" stripped-filename))]
@@ -53,12 +56,11 @@
                                                  :content-type content-type
                                                  :original-filename (:filename %)
                                                  :body (read-bytes (:tempfile %))})))))
-(defn create
-  [{params :params}]
-  (let [user (friend/current-authentication)
-        images (create-images params user)]
+(defn- create
+  [{:keys [params authenticated]}]
+  (let [images (create-images params authenticated)]
     (if (not-any? #(validation/error-messages %) images)
-      (let [imp (imports/create (env :db) {:user-id (:id user)
+      (let [imp (imports/create (env :db) {:user-id (:id authenticated)
                                            :entity-name (:entity-name params)
                                            :image-ids (map :id images)})]
         (if (empty? (validation/error-messages imp))
@@ -71,7 +73,7 @@
                               (->> imp
                                    validation/error-messages
                                    vals
-                                   (mapcat identity)
+                                   flatten
                                    (string/join ", ")))}
               response
               (status 422))))
@@ -84,22 +86,32 @@
           response
           (status 422)))))
 
-(defn show
-  [{{id :id} :params}]
-  ; TODO This needs authorization
-  (let [imp (imports/find-by-id (env :db) id)]
+(defn- show
+  [{:keys [params authenticated]}]
+  (let [imp (authorize (imports/find-by-id (env :db) (:id params))
+                       :show
+                       authenticated)]
     (response imp)))
 
-(defn index
-  [_]
-  (response (imports/search (env :db) {:user-id (:id (friend/current-authentication))})))
+(defn- index
+  [{:keys [authenticated]}]
+  (response (imports/search (env :db) {:user-id (:id authenticated)})))
 
-(defn delete
-  [{{id :id} :params}]
-  (delete-resource id imports/find-by-id imports/delete))
+(defn- delete
+  [{:keys [params authenticated]}]
+  (delete-resource (:id params) authenticated imports/find-by-id imports/delete))
 
-(defn start
-  [{{id :id} :params}]
-  (let [imp (imports/find-by-id (env :db) id)]
+(defn- start
+  [{:keys [params authenticated]}]
+  (let [imp (authorize (imports/find-by-id (env :db) (:id params))
+                       :update
+                       authenticated)]
     (launch-and-track-import imp)
     (-> imp response (status 200))))
+
+(defroutes routes
+  (GET "/api/imports" req (index req))
+  (POST "/api/imports" req (create req))
+  (GET "/api/imports/:id" req (show req))
+  (PATCH "/api/imports/:id" req (start req))
+  (DELETE "/api/imports/:id" req (delete req)))

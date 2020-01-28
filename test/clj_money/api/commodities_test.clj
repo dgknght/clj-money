@@ -1,25 +1,26 @@
 (ns clj-money.api.commodities-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [environ.core :refer [env]]
+            [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
-            [clj-money.api.test-helper :refer [deftest-create
-                                               deftest-delete
-                                               deftest-update
-                                               deftest-list
-                                               deftest-get-one]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
-            [clj-money.validation :as validation]
-            [clj-money.test-helpers :as h]
-            [clj-money.api.commodities :as api]
-            [clj-money.models.commodities :as commodities])
-  (:import clojure.lang.ExceptionInfo))
+            [clj-money.test-helpers :refer [reset-db
+                                            selective=
+                                            find-user
+                                            find-entity
+                                            find-commodity]]
+            [clj-money.web.test-helpers :refer [assert-successful
+                                                assert-not-found]]
+            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.x-platform.util :refer [path]]
+            [clj-money.models.commodities :as coms]
+            [clj-money.web.server :refer [app]]))
 
 (def storage-spec (env :db))
 
-(use-fixtures :each (partial h/reset-db storage-spec))
+(use-fixtures :each (partial reset-db (env :db)))
 
 (def ^:private context
   {:users (->> ["john@doe.com" "jane@doe.com"]
@@ -30,47 +31,163 @@
                :user-id "jane@doe.com"}]
    :commodities [{:name "US Dollar"
                   :symbol "USD"
-                  :type :currency}
+                  :type :currency
+                  :entity-id "Personal"}
                  {:name "Microsoft, Inc"
                   :symbol "MSFT"
                   :type :stock
-                  :exchange :nasdaq}]})
+                  :exchange :nasdaq
+                  :entity-id "Personal"}]})
 
-(defn- find-user        [ctx] (h/find-user ctx "john@doe.com"))
-(defn- find-other-user  [ctx] (h/find-user ctx "jane@doe.com"))
-(defn- find-entity      [ctx] (h/find-entity ctx "Personal"))
-(defn- find-resource    [ctx] (h/find-commodity ctx "USD"))
-(defn- select-resources [ctx]
-  (commodities/search storage-spec {:entity-id (:id (find-entity ctx))}))
+(defn- get-a-commodity
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        msft (find-commodity ctx "MSFT")
+        response (-> (req/request :get (path :api
+                                             :commodities
+                                             (:id msft)))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-get
+  [[response body]]
+  (assert-successful response)
+  (is (selective= {:name "Microsoft, Inc"
+                   :symbol "MSFT"
+                   :type "stock"
+                   :exchange "nasdaq"}
+                  body)
+      "The specified commodity is returned in the response"))
+
+(defn- assert-blocked-get
+  [[response]]
+  (assert-not-found response))
+
+(deftest a-user-can-get-a-commodity-in-his-entity
+  (assert-successful-get (get-a-commodity "john@doe.com")))
+
+(deftest a-user-cannot-get-a-commodity-in-aothers-entity
+  (assert-blocked-get (get-a-commodity "jane@doe.com")))
 
 (def ^:private commodity-attributes
-  {:resource-name "commodity"
-   :type "stock"
+  {:type "stock"
    :name "Apple, Inc."
    :symbol "AAPL"
    :exchange "nasdaq"})
 
-(deftest-get-one get-a-commodity
-  {:resource-name "commodity"
-   :get-one-fn api/get-one
-   :params-fn #(select-keys (h/find-commodity % "MSFT") [:id])
-   :expectation-fn #(= "Microsoft, Inc" (:name %))})
+(defn- create-a-commodity
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        response (-> (req/request :post (path :api
+                                              :entities
+                                              (:id entity)
+                                              :commodities))
+                     (req/json-body commodity-attributes)
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)
+        retrieved (coms/search (env :db) {:entity-id (:id entity)})]
+    [response body retrieved]))
 
-(deftest-create create-a-commodity
-  {:resource-name "commodity"
-   :create-fn api/create
-   :create-params-fn #(assoc commodity-attributes :entity-id (:id (find-entity %)))
-   :compare-fn #(= (:symbol %) "AAPL")})
+(defn- assert-successful-create
+  [[response body retrieved]]
+  (assert-successful response)
+  (is (selective= commodity-attributes
+                  body)
+      "The newly created commodity is returned in the response")
+  (is (some #(selective= (-> commodity-attributes
+                             (update-in [:type] keyword)
+                             (update-in [:exchange] keyword))
+                         %)
+            retrieved)
+      "The new commodity can be retrieved from the database"))
 
-(deftest-update update-a-commodity
-  {:resource-name "commodity"
-   :find-updated-resource-fn #(commodities/find-by-id storage-spec (:id %))
-   :update-fn api/update
-   :comparison-fn #(= (:name %) "US Doll Hairs")
-   :update-params {:name "US Doll Hairs"
-                   :symbol "USD"
-                   :type "currency"}})
+(defn- assert-blocked-create
+  [[response _ retrieved]]
+  (assert-not-found response)
+  (is (not-any? #(selective= (-> commodity-attributes
+                             (update-in [:type] keyword)
+                             (update-in [:exchange] keyword))
+                         %)
+                retrieved)
+      "The commodity is not created"))
 
-(deftest-delete delete-a-commodity
-  {:resource-name "commodity"
-   :delete-fn api/delete})
+(deftest a-user-can-create-a-commodity-in-his-entity
+  (assert-successful-create (create-a-commodity "john@doe.com")))
+
+(deftest a-user-cannot-create-an-commodity-in-anothers-entity
+  (assert-blocked-create (create-a-commodity "jane@doe.com")))
+
+(defn- update-a-commodity
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        msft (find-commodity ctx "MSFT")
+        response (-> (req/request :patch (path :api
+                                              :commodities
+                                              (:id msft)))
+                     (req/json-body (assoc msft :name "Microsoft, Ltd."))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)
+        retrieved (coms/find-by-id (env :db) (:id msft))]
+    [response body retrieved]))
+
+(defn- assert-successful-update
+  [[response body retrieved]]
+  (assert-successful response)
+  (is (selective= {:name "Microsoft, Ltd."}
+                  body)
+      "The updated commodity is returned in the body")
+  (is (selective= {:name "Microsoft, Ltd."}
+                 retrieved)
+      "The record is updated in the database"))
+
+(defn- assert-blocked-update
+  [[response _ retrieved]]
+  (assert-not-found response)
+  (is (selective= {:name "Microsoft, Inc"}
+                  retrieved)
+      "The record is not updated in the database"))
+
+(deftest a-user-can-update-a-commodity-in-his-entity
+  (assert-successful-update (update-a-commodity "john@doe.com")))
+
+(deftest a-user-cannot-update-a-commodity-in-anothers-entity
+  (assert-blocked-update (update-a-commodity "jane@doe.com")))
+
+(defn- delete-a-commodity
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        msft (find-commodity ctx "MSFT")
+        response (-> (req/request :delete (path :api
+                                                :commodities
+                                                (:id msft)))
+                     (add-auth user)
+                     app)
+        retrieved (coms/find-by-id (env :db) (:id msft))]
+    [response retrieved]))
+
+(defn- assert-successful-delete
+  [[response retrieved]]
+  (assert-successful response)
+  (is (nil? retrieved)
+      "The commodity cannot be retrieved after delete"))
+
+(defn- assert-blocked-delete
+  [[response retrieved]]
+  (assert-not-found response)
+  (is retrieved
+      "The commodity can be retrieved after failed delete"))
+
+(deftest a-user-can-delete-a-commodity-in-his-entity
+  (assert-successful-delete (delete-a-commodity "john@doe.com")))
+
+(deftest a-user-cannot-delete-a-commodity-in-anothers-entity
+  (assert-blocked-delete (delete-a-commodity "jane@doe.com")))

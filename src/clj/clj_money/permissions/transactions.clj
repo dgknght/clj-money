@@ -9,3 +9,4 @@
 (authorization/allow :transaction user-granted-access?)
 
 (authorization/set-scope :transaction {:entity-id all-user-entity-ids})
+(authorization/set-scope :transaction-item {:entity-id all-user-entity-ids})

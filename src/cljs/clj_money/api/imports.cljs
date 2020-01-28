@@ -15,23 +15,24 @@
           (dissoc import-data :files)
           (map-indexed (fn [idx f] [idx f]) (:files import-data))))
 
-(defn create
-  [import-data success-fn error-fn]
-  (let [params (->multipart-params import-data)]
-    (go (let [response (<! (http/post "/api/imports"
-                                      {:headers {"Accept" "application/json"}
-                                       :multipart-params params}))]
-          (if (= 201 (:status response))
-            (success-fn (:body response))
-            (do
-              (.log js/console "Unable to create the import " (prn-str response))
-              (error-fn (-> response :body :message))))))))
-
 (defn- after-read
   [imp]
   (-> imp
       (update-in [:created-at] util/parse-date-time )
       (update-in [:updated-at] util/parse-date-time)))
+
+(defn create
+  [import-data success-fn error-fn]
+  (let [params (->multipart-params import-data)]
+    (go (let [response (<! (http/post "/api/imports"
+                                      (-> {}
+                                          (api/multipart-params params)
+                                          api/append-auth)))]
+          (if (= 201 (:status response))
+            (success-fn (update-in (:body response) [:import] after-read))
+            (do
+              (.log js/console "Unable to create the import " (prn-str response))
+              (error-fn (-> response :body :message))))))))
 
 (defn get-one
   [id success-fn error-fn]

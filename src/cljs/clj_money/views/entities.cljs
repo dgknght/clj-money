@@ -1,15 +1,11 @@
 (ns clj-money.views.entities
   (:require [reagent.core :as r]
-            [reagent-forms.core :refer [bind-fields]]
             [secretary.core :as secretary :include-macros true]
             [clj-money.util :as util]
             [clj-money.api.entities :as entities]
-            [clj-money.state :as state]
             [clj-money.notifications :as notify]
-            [clj-money.dom :refer [app-element]]
-            [clj-money.layout :refer [with-layout]]
-            [clj-money.forms :refer [text-input
-                                     radio-buttons]]))
+            [clj-money.state :as state :refer [app-state]]
+            [clj-money.plain-forms :refer [text-field]]))
 
 (defn- delete
   [entity]
@@ -18,36 +14,9 @@
                      #(state/remove-entity entity)
                      notify/danger)))
 
-(def ^:private entity-form
-  [:form
-   (text-input :name :required)
-   (radio-buttons :settings.inventory-method ["fifo" "lifo"])])
-
-(defn- create-entity
-  [entity]
-  (entities/create entity
-                   (fn [created]
-                     (state/add-entity created)
-                     (secretary/dispatch! "/entities"))
-                   #(notify/danger %)))
-
-(defn- new-entity []
-  (let [entity (r/atom {})]
-    (with-layout
-      [:div.row
-       [:div.col-md-6
-        [:h1 "New Entity"]
-        [bind-fields entity-form entity]
-        (util/button "Save" #(create-entity @entity) {:class "btn btn-primary"
-                                                      :icon :ok})
-        (util/space)
-        [:a.btn.btn-danger {:href "/entities"}
-         [:span.glyphicon.glyphicon-ban-circle {:aria-hidden "true"}]
-         (util/space) "Cancel"]]])))
-
 (defn find-entity
   [id]
-  (->> @state/entities
+  (->> (:entities @state/app-state)
        (filter #(= id (:id %)))
        first))
 
@@ -55,7 +24,7 @@
   "Accepts an entity and replaces the corresponding enty
   in state/entities"
   [entity]
-  (swap! state/entities
+  (swap! app-state update-in [:entities]
          #(map (fn [e]
                  (if (= (:id e) (:id entity))
                    entity
@@ -63,71 +32,88 @@
                %)))
 
 (defn- save-entity
-  [entity]
-  (entities/update entity
-                   (fn [entity]
-                     (relay-updated-entity entity)
-                     (secretary/dispatch! "/entities"))
-                   #(notify/danger %)))
+  [page-state]
+  (let [entity (get-in @page-state [:selected])]
+    (entities/save entity
+                   (fn [result]
+                     (if (:id entity)
+                       (relay-updated-entity result)
+                       (state/add-entity result))
+                     (swap! page-state dissoc :selected))
+                   (notify/danger-fn "Unable to save the entity: %s"))))
 
-(defn edit-entity
-  [id]
-  (let [entity (r/atom (-> id js/parseInt find-entity))]
-    (with-layout
+(defn- entity-form
+  [page-state]
+  (let [entity (r/cursor page-state [:selected])]
+    (fn []
       [:div.row
        [:div.col-md-6
         [:h1 "Edit Entity"]
-        [bind-fields entity-form entity]
-        (util/button "Save" #(save-entity @entity) {:class "btn btn-primary"
-                                                    :icon :ok})
+        [:form
+         [text-field entity :name {:validate [:required]}]
+         #_(radio-buttons :settings.inventory-method ["fifo" "lifo"])]
+        [:button.btn.btn-primary {:on-click #(save-entity page-state)}
+         "Save"]
         (util/space)
-        (util/link-to "Cancel" "/entities" {:class "btn btn-danger"
-                                            :icon :ban-circle})]])))
+        (util/button "Cancel"
+                     #(swap! page-state dissoc :selected)
+                     {:class "btn btn-danger"
+                      :icon :ban-circle})]])))
 
 (defn- entity-row
-  [entity]
+  [entity page-state]
   ^{:key entity}
   [:tr
    [:td
     (:name entity)]
    [:td
     [:div.btn-group
-     [:a.btn.btn-xs.btn-info {:href (util/path :entities (:id entity) :edit)
-                              :title "Click here to edit this entity."}
+     [:button.btn.btn-xs.btn-info {:on-click (fn []
+                                               (swap! page-state assoc :selected entity)
+                                               (util/set-focus "name"))
+                                   :title "Click here to edit this entity."}
       [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]]
-     [:a.btn.btn-xs.btn-danger {:on-click #(delete entity)
-                                :title "Click here to remove this entity."}
+     [:button.btn.btn-xs.btn-danger {:on-click #(delete entity)
+                                     :title "Click here to remove this entity."}
       [:span.glyphicon.glyphicon-remove {:aria-hidden true}]]]]])
 
 (defn- entity-table
-  []
-  [:section
-  [:table.table.table-striped.table-hover
-   [:tbody
-    [:tr
-     [:th.col-sm-10 "Name"]
-     [:th.col-sm-2 " "]]
-    (for [entity @state/entities]
-      (entity-row entity))]]])
+  [page-state]
+  (let [entities (r/cursor state/app-state [:entities])]
+    (fn []
+      [:section
+       [:table.table.table-striped.table-hover
+        [:tbody
+         [:tr
+          [:th.col-sm-10 "Name"]
+          [:th.col-sm-2 " "]]
+         (for [entity @entities]
+           (entity-row entity page-state))]]])))
 
-(defn entities-page []
-  (with-layout
-    [:div.row
-     [:div.col-md-6
-      [:h1 "Entities"]
-      [entity-table]
-      (util/add-button "/entities/new")
-      (util/space)
-      [:a.btn.btn-default
-       {:href "/imports/new"
-        :title "Click here to import an entity from another accounting program."}
-       "Import"]]]))
+(defn- entities-page []
+  (let [page-state (r/atom {})
+        current-entity (r/cursor app-state [:current-entity])
+        selected (r/cursor page-state [:selected])]
+    (fn []
+      [:div.row
+       [:div.col-md-6
+        [:h1 "Entities"]
+        [entity-table page-state]
+        [:button.btn.btn-primary {:on-click (fn []
+                                              (swap! page-state
+                                                     assoc
+                                                     :selected
+                                                     {:entity-id (:id @current-entity)})
+                                              (util/set-focus "name"))
+                                  :title "Click here to create a new entity."}
+         "Add"]
+        (util/space)
+        [:button.btn.btn-default {:on-click #(secretary/dispatch! "/imports")
+                                  :title "Click here to import an entity from another accounting system"}
+         "Import"]]
+       (when @selected
+         [:div.col-md-6
+          [entity-form page-state]])])))
 
-(secretary/defroute new-entity-path "/entities/new" []
-  (r/render [new-entity] (app-element)))
-
-(secretary/defroute entity-path "/entities/:id/edit" {id :id}
-  (r/render [edit-entity id] (app-element)))
-
-(secretary/defroute entities-path "/entities" []
-  (r/render [entities-page] (app-element)))
+(secretary/defroute "/entities" []
+  (swap! app-state assoc :page #'entities-page))

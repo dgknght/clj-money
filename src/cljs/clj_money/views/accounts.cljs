@@ -28,10 +28,8 @@
                                                    polarize-quantity
                                                    nest
                                                    unnest]]
-            [clj-money.state :as state]
+            [clj-money.state :refer [app-state]]
             [clj-money.notifications :as notify]
-            [clj-money.dom :refer [app-element]]
-            [clj-money.layout :refer [with-layout]]
             [clj-money.x-platform.util :refer [desc-periodic-seq
                                                serialize-date]]
             [clj-money.util :as util]))
@@ -39,7 +37,7 @@
 (defn- load-accounts
   ([page-state] (load-accounts page-state identity))
   ([page-state callback]
-   (accounts/get-all (:id @state/current-entity)
+   (accounts/get-all (get-in @app-state [:current-entity :id])
                      (fn [result]
                        (swap! page-state assoc
                               :accounts (-> result nest unnest)
@@ -182,7 +180,8 @@
 
 (defn- account-list
   [page-state]
-  (let [accounts (r/cursor page-state [:accounts])]
+  (let [accounts (r/cursor page-state [:accounts])
+        current-entity (r/cursor app-state [:current-entity])]
     (fn []
       [:div
        [:div.accounts-options
@@ -203,7 +202,7 @@
             [:td {:col-span 3} [:span.inline-status "Loading..."]]]])]
        (util/button "Add"
                     (fn []
-                      (swap! page-state assoc :selected {:entity-id (:id @state/current-entity)
+                      (swap! page-state assoc :selected {:entity-id (:id @current-entity)
                                                          :type :asset})
                       (util/set-focus "parent-id"))
                     {:class "btn btn-primary"
@@ -377,9 +376,9 @@
   [page-state]
   (let [account-id (get-in @page-state [:view-account :id])]
     (swap! page-state assoc
-           :transaction {:entity-id (:id @state/current-entity)
-                                          :transaction-date (t/today)
-                                          :account-id account-id}
+           :transaction {:entity-id (get-in @app-state [:current-entity :id])
+                         :transaction-date (t/today)
+                         :account-id account-id}
            :transaction-entry-mode :simple
            :unprep-fn #(fullify % (find-account-fn page-state))))
   (util/set-focus "transaction-date"))
@@ -820,7 +819,7 @@
 
 (defn- load-commodities
   [page-state]
-  (commodities/get-all (:id @state/current-entity)
+  (commodities/get-all (get-in @app-state [:current-entity :id])
                        #(swap! page-state assoc :commodities %)
                        notify/danger))
 
@@ -834,16 +833,15 @@
     (load-accounts page-state)
     (load-commodities page-state)
     (fn []
-      (with-layout
-        [:section
-         [:div.accounts-header
-          [:h1.accounts-title "Accounts"]]
-         (when-not (or @selected @view-account)
-           [account-list page-state])
-         (when @selected
-           [account-form page-state])
-         (when @view-account
-           [account-details page-state])]))))
+      [:section
+       [:div.accounts-header
+        [:h1.accounts-title "Accounts"]]
+       (when-not (or @selected @view-account)
+         [account-list page-state])
+       (when @selected
+         [account-form page-state])
+       (when @view-account
+         [account-details page-state])])))
 
 (secretary/defroute "/accounts" []
-  (r/render [accounts-page] (app-element)))
+  (swap! app-state assoc :page #'accounts-page))

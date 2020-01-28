@@ -393,15 +393,14 @@
 
 (deftest create-a-transaction-with-multiple-items-for-one-account
   (let [context (serialization/realize storage-spec multi-context)
-        [checking-items
-         salary-items
-         groceries-items] (map #(items-by-account (:id %))
-                               (:accounts context))
-        expected-checking-items [{:index 2 :quantity  100M :balance 1000M}
-                                 {:index 1 :quantity 1000M :balance 1100M}
-                                 {:index 0 :quantity  100M :balance  100M}]
-        actual-checking-items (map #(select-keys % [:index :quantity :balance])
-                                   checking-items)]
+        checking (find-account context "Checking")
+        checking-items (items-by-account (:id checking))
+        expected-checking-items #{{:transaction-date (t/local-date 2016 3 10) :quantity  100M}
+                                  {:transaction-date (t/local-date 2016 3 2) :quantity 1000M}
+                                  {:transaction-date (t/local-date 2016 3 2) :quantity  100M}}
+        actual-checking-items (->> checking-items
+                                   (map #(select-keys % [:transaction-date :quantity]))
+                                   set)]
     (pprint-diff expected-checking-items actual-checking-items)
     (is (= expected-checking-items
            actual-checking-items)
@@ -946,13 +945,11 @@
 
 (deftest update-a-transaction-change-action
   (let [context (serialization/realize storage-spec change-action-context)
-        [checking
-         salary
-         groceries] (:accounts context)
-        [t1 t2 t3 t4] (:transactions context)
-        updated (transactions/update storage-spec (-> t3
-                                                      (assoc-in [:items 0 :action] :credit)
-                                                      (assoc-in [:items 1 :action] :debit)))
+        [checking _ groceries] (:accounts context)
+        transaction (find-transaction context (t/local-date 2016 3 16) "Kroger")
+        result (transactions/update storage-spec (-> transaction
+                                                (assoc-in [:items 0 :action] :credit)
+                                                (assoc-in [:items 1 :action] :debit)))
         expected-items [{:index 2
                          :quantity 101M
                          :balance 192M}
@@ -964,7 +961,9 @@
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id groceries)))]
+    (is (empty? (validation/error-messages result)) "There are no validation errors")
     (testing "items are updated correctly"
+      (pprint-diff expected-items actual-items)
       (is (= expected-items actual-items)
           "Groceries should have the correct items after update"))
     (assert-account-quantities groceries 192M checking 808M)))
