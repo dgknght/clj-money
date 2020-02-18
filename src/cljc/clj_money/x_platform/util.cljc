@@ -114,8 +114,12 @@
     (f/unparse-local-date (f/formatters :date) d)))
 
 (defn unserialize-date [s]
-  (when (and s (not (empty? s)))
+  (when (seq s)
     (f/parse-local-date (f/formatters :date) s)))
+
+(defn format-date [d]
+  (when d
+    (f/unparse-local-date (f/formatter "M/d/yyyy") d)))
 
 (defmulti update-in-criteria
   (fn [criteria attr _f]
@@ -161,4 +165,9 @@
   [value]
   (when value
     #?(:clj (Integer/parseInt value)
-       :cljs (parseInt value))))
+       :cljs (js/parseInt value))))
+
+(defn model->id
+  [value]
+  (or (:id value)
+      value))

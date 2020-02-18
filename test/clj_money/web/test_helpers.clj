@@ -17,6 +17,12 @@
              (> 300 s))
         (str "Expected successful response, but got " s))))
 
+(defn assert-created
+  [res]
+  {:pre [(valid-response? res)]}
+
+  (is (= 201 (:status res)) "The response has a 201 status"))
+
 (defn assert-redirects-to
   [res url]
   {:pre [(valid-response? res)]}
@@ -24,6 +30,12 @@
   (is (= 302 (:status res)) "The response is a redirect")
   (is (= url (get-in res [:headers "Location"]))
       (format "The response redirects to %s" url)))
+
+(defn assert-bad-request
+  [res]
+  {:pre [(valid-response? res)]}
+
+  (is (= 400 (:status res)) "The response has the correct status"))
 
 (defn assert-unauthorized
   [res]

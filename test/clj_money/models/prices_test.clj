@@ -1,5 +1,5 @@
 (ns clj-money.models.prices-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
@@ -11,7 +11,6 @@
             [clj-money.validation :as validation]
             [clj-money.test-helpers :refer [reset-db
                                             find-commodity]]
-            [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
 (def storage-spec (env :db))

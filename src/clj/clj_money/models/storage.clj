@@ -79,6 +79,10 @@
     [this commodity]
     "Updates the specified commodity")
 
+  (count-commodities
+    [this criteria]
+    "Returns a count of commodities matching the specified criteria")
+
   (select-commodities
     [this criteria]
     [this criteria options]

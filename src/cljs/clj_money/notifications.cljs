@@ -23,11 +23,6 @@
   (fn [msg]
     (danger (gstr/format msg-format msg))))
 
-(defn- remove-at
-  [coll index]
-  (vec (concat (subvec coll 0 index)
-               (subvec coll (inc index)))))
-
 (defn unnotify
   [notification]
   (swap! notifications (fn [notifications]

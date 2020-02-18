@@ -1,5 +1,8 @@
 (ns clj-money.components
-  (:require [reagent.core :as r]))
+  (:require [reagent.core :as r]
+            [cljs-time.core :as t]
+            [cljs.core.async :refer [chan <! >! go-loop go]]
+            [clj-money.x-platform.util :refer [desc-periodic-seq]]))
 
 (defn- debounce
   [timeout f]
@@ -61,3 +64,49 @@
                                  (detach-scroll-listener this))
        :reagent-render (fn [_]
                          [:span @message])})))
+
+(defn load-in-chunks
+  "Loads data in a series of queries based on a range of dates. This works along-side load-on-scroll
+  to provide a stream of items from a large data set.
+
+  :start      - the start of the time period for which data is to be loaded
+  :end        - the end of the time period for which data is to be loaded
+  :ctl-chan   - an async channel used to trigger the loading of more items
+  :fetch-fn   - a fn that will fetch more items based on a date range
+  :receive-fn - a fn that will handle the items that were fetched
+  :finish-fn  - a fn that will receive notification that no more items are available to be queries"
+  [{:keys [start end ctl-chan fetch-fn receive-fn finish-fn interval]
+    :or {interval (t/months 1)}}]
+  (let [items-chan (chan)]
+
+    ; handle items received on the items channel
+    (go-loop [call-count 0]
+             (when-let [received (<! items-chan)]
+               (receive-fn received)
+               (recur (inc call-count))))
+
+    ; respond to requests for more items by querying
+    ; the service and putting the retrieved items
+    ; on the items channel
+    (go-loop [date-ranges (->> (desc-periodic-seq start end interval)
+                               (partition 2 1)
+                               (map (fn [[end start]]
+                                      [:between start (t/minus- end (t/days 1))])))]
+             (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause
+                   count-needed (if (number? action)
+                                  action
+                                  50)]
+               (when (not= :quit action)
+                 (fetch-fn (first date-ranges)
+                           #(go
+                              (>! items-chan %)
+                              (when (< (count %)
+                                       count-needed)
+                                (>! ctl-chan (- count-needed (count %)))))))
+               (if (and (not= :quit action)
+                        (seq (rest date-ranges)))
+                 (recur (rest date-ranges))
+                 (finish-fn))))
+
+    ; Get the first batch
+    (go (>! ctl-chan :fetch))))

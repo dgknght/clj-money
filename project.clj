@@ -57,7 +57,8 @@
                  [com.andrewmcveigh/cljs-time "0.5.2"]
                  [buddy/buddy-sign "3.1.0"]
                  [buddy/buddy-hashers "1.4.0"]
-                 [org.mindrot/jbcrypt "0.3m"]]
+                 [org.mindrot/jbcrypt "0.3m"]
+                 [co.deps/ring-etag-middleware "0.2.1"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]

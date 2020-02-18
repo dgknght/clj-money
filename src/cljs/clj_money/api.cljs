@@ -1,4 +1,5 @@
 (ns clj-money.api
+  (:refer-clojure :exclude [get])
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]
@@ -48,16 +49,28 @@
       (content-type "application/json")
       (accept "application/json")))
 
+(defn- extract-error
+  [{:keys [body]}]
+  (or (some #(% body) [:error :message])
+      body))
+
+(defn get
+  [path success-fn error-fn]
+  (go (let [response (<! (http/get path
+                                   (append-auth (request))))]
+         (if (= 200 (:status response))
+           (success-fn (:body response))
+           (do
+             (.log js/console
+                   (str "Unable to get from " path)
+                   (prn-str (:body response)))
+             (error-fn (extract-error response)))))))
+
 (defn get-resources
   ([path success-fn error-fn]
    (get-resources path {} success-fn error-fn))
   ([path criteria success-fn error-fn]
-   (get-resources path criteria {} success-fn error-fn))
-  ([path criteria options success-fn error-fn]
-   (go (let [params (cond-> {:criteria criteria}
-                      (seq options)
-                      (assoc :options options))
-             response (<! (http/get (append-query-string path params)
+   (go (let [response (<! (http/get (append-query-string path criteria)
                                     (append-auth (request))))]
          (if (= 200 (:status response))
            (success-fn (:body response))
@@ -67,7 +80,7 @@
                    path
                    " from the service: "
                    (prn-str (:body response)))
-             (error-fn (-> response :body :message))))))))
+             (error-fn (extract-error response))))))))
 
 (defn get-resource
   ([path success-fn error-fn]
@@ -77,23 +90,15 @@
   ([path criteria options success-fn error-fn]
    (get-resources path criteria options (comp success-fn first) error-fn)))
 
-(defn- extract-error
-  [response]
-  (some #(% response)
-        [(comp :message :body)
-         :error-text]))
-
 (defn create-resource
   [path model success-fn error-fn]
   (go (let [response (<! (http/post path (-> (request)
                                              (json-params model)
                                              append-auth)))]
-        (if (= 201 (:status response))
-          (success-fn (:body response))
-          (do
-            (.log js/console (prn-str {:unable-to-create model
-                                       :response response}))
-            (error-fn (extract-error response)))))))
+        (case (:status response)
+          201 (success-fn (:body response))
+          400 (error-fn (get-in response [:body :clj-money.validation/errors]))
+          (error-fn (extract-error response))))))
 
 (defn update-resource
   [path model success-fn error-fn]

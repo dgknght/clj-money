@@ -17,17 +17,15 @@
       (dissoc :transaction-date)))
 
 (defn search
-  ([criteria success-fn error-fn]
-   (search criteria {} success-fn error-fn))
-  ([criteria options success-fn error-fn]
-   {:pre [(every? #(contains? criteria %) [:account-id :transaction-date])]}
+  [criteria success-fn error-fn]
+  {:pre [(every? #(contains? criteria %) [:account-id :transaction-date])]}
 
-   (api/get-resources (api/path :accounts
-                                (:account-id criteria)
-                                :transaction-items)
-                      (-> criteria
-                          (dissoc :account-id)
-                          prepare-criteria)
-                      options
-                      #(success-fn (map after-read %))
-                      error-fn)))
+  (api/get-resources (api/path :accounts
+                               (:account-id criteria)
+                               :transaction-items)
+                     (-> criteria
+                         (dissoc :account-id)
+                         prepare-criteria)
+                     (comp success-fn
+                           #(map after-read %))
+                     error-fn))

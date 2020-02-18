@@ -12,14 +12,19 @@
 
 (defn- prepare-criteria
   [params]
-  (let [start-date (:start-date params)
-        end-date (:end-date params) ]
-    (cond-> (select-keys params [:account-id :entity-id])
-      (and start-date end-date) (assoc :transaction-date [:between
-                                                          (unserialize-date start-date)
-                                                          (unserialize-date end-date)])
-      start-date (assoc :transaction-date [:>= (unserialize-date start-date)])
-      end-date (assoc :transaction-date [:<= (unserialize-date end-date)]))))
+  (let [[start-date end-date]  (->> [:start-date :end-date]
+                                    (map #(get-in params [%]))
+                                    (map unserialize-date))
+        result (select-keys params [:account-id :entity-id])]
+    (cond
+      (and start-date end-date)
+      (assoc result :transaction-date [:between start-date end-date])
+
+      start-date
+      (assoc result :transaction-date [:>= start-date])
+
+      end-date
+      (assoc result :transaction-date [:<= end-date]))))
 
 (defn- prepare-options
   [params]

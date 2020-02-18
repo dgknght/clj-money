@@ -625,6 +625,13 @@
                               (h/where [:= :id (:id commodity)])))]
       (jdbc/execute! db-spec sql)))
 
+  (count-commodities
+    [_ criteria]
+    (validate-criteria criteria ::commodity-criteria)
+    (query db-spec (-> (h/select :%count.1)
+                       (h/from :commodities)
+                       (h/where (map->where criteria)))))
+
   (select-commodities
     [this criteria]
     (.select-commodities this criteria {}))
@@ -658,8 +665,13 @@
 
   (select-prices
     [this criteria options]
-    (validate-criteria criteria ::price-criteria)
-    (let [d-range (date-range this (:trade-date criteria))]
+    {:pre [(or (:commodity-id criteria)
+               (:id criteria))
+           (:trade-date criteria)]}
+    (let [d-range (date-range this (:trade-date criteria))
+          options (if (:sort options)
+                    options
+                    (assoc options :sort [[:trade-date :desc]]))]
       (with-partitioning (partial query db-spec) :prices d-range options [table]
         (-> (h/select :p.*)
             (h/from [table :p])

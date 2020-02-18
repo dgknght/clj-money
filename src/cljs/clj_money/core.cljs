@@ -95,12 +95,20 @@
            :items items
            :secondary-items secondary-items})))))
 
+(defn- alerts []
+  (fn []
+    (when (seq @notify/notifications)
+      [:div#alerts
+       (doall (for [n @notify/notifications]
+                (bootstrap/alert n #(notify/unnotify n))))])))
+
 (defn- current-page []
   (let [page (r/cursor app-state [:page])]
     (fn []
       [:div
        [nav]
        [:div.container
+        [alerts]
         [@page]]])))
 
 (defn mount-root []

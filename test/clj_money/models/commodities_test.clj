@@ -8,7 +8,8 @@
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            find-entity]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
@@ -373,3 +374,29 @@
         "The commodity prices exist before delete")
     (is (empty? prices-after)
         "The commodity prices are absent after delete")))
+
+(def ^:private count-context
+  (assoc commodity-context :commodities [{:name "Microsoft, Inc."
+                                          :entity-id "Personal"
+                                          :symbol "MSFT"
+                                          :type :stock
+                                          :exchange :nasdaq}
+                                         {:name "Apple, Inc."
+                                          :entity-id "Personal"
+                                          :symbol "AAPL"
+                                          :type :stock
+                                          :exchange :nasdaq}
+                                         {:name "United States Dollar"
+                                          :entity-id "Personal"
+                                          :symbol "USD"
+                                          :type :currency}
+                                         {:name "British Pound"
+                                          :entity-id "Business"
+                                          :symbol "GBP"
+                                          :type :currency}]))
+
+(deftest get-a-count-of-commodities
+  (let [ctx (serialization/realize storage-spec count-context)
+        entity (find-entity ctx "Personal")
+        result (commodities/count storage-spec {:entity-id (:id entity)})]
+    (is  (= 3 result))))

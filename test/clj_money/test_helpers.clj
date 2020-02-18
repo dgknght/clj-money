@@ -156,12 +156,13 @@
   (find-in-context context :budgets :name budget-name))
 
 (defn find-price
-  [context price trade-date]
-  (->> context
-       :prices
-       (filter #(and (= price (:price %))
-                     (= trade-date (:trade-date %))))
-       first))
+  [context sym trade-date]
+  (let [commodity (find-commodity context sym)]
+    (->> context
+         :prices
+         (filter #(and (= (:id commodity) (:commodity-id %))
+                       (= trade-date (:trade-date %))))
+         first)))
 
 (defn find-transaction
   [context transaction-date description]

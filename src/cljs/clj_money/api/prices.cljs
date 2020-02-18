@@ -1,31 +1,23 @@
 (ns clj-money.api.prices
+  (:refer-clojure :exclude [update])
   (:require [clj-money.api :as api]
             [clj-money.x-platform.util :refer [unserialize-date
-                                               serialize-date]]))
+                                               serialize-date
+                                               model->id]]))
 
 (defn- after-read
   [price]
-  (update-in price [:trade-date] unserialize-date))
+  (let [trade-date (unserialize-date (:trade-date price))]
+    (assoc price
+           :trade-date trade-date
+           :original-trade-date trade-date)))
 
-(defmulti ^:private serialize-trade-date
-  (fn [{:keys [trade-date]}]
-    (when trade-date
-      (if (sequential? trade-date)
-        :compound
-        :simple))))
-
-(defmethod ^:private serialize-trade-date :default
-  [criteria]
-  criteria)
-
-(defmethod ^:private serialize-trade-date :simple
-  [criteria]
-  (update-in criteria [:trade-date] serialize-date))
-
-(defmethod ^:private serialize-trade-date :compound
+(defn- adjust-trade-date
   [{:keys [trade-date] :as criteria}]
-  (assoc criteria :trade-date (cons (first trade-date)
-                                    (map serialize-date (rest trade-date)))))
+  (-> criteria
+      (assoc :start-date (serialize-date (nth trade-date 1))
+             :end-date (serialize-date (nth trade-date 2)))
+      (dissoc :trade-date)))
 
 (defn search
   [criteria success-fn error-fn]
@@ -41,7 +33,42 @@
     (api/get-resources path
                        (-> criteria
                            (dissoc :entity-id :commodity-id)
-                           serialize-trade-date)
+                           adjust-trade-date)
                        (comp success-fn
                              #(map after-read %))
                        error-fn)))
+
+(defn create
+  [price success-fn error-fn]
+  (api/create-resource (api/path :commodities
+                                 (:commodity-id price)
+                                 :prices)
+                       (-> price
+                           (select-keys [:price :trade-date])
+                           (update-in [:trade-date] serialize-date))
+                       success-fn
+                       error-fn))
+
+(defn update
+  [price success-fn error-fn]
+  (api/update-resource (api/path :prices
+                                 (serialize-date (:original-trade-date price))
+                                 (:id price))
+                       (-> price
+                           (select-keys [:price :commodity-id :trade-date])
+                           (update-in [:trade-date] serialize-date))
+                       success-fn
+                       error-fn))
+
+(defn save
+  [price success-fn error-fn]
+  (let [f (if (:id price) update create)]
+    (f price (comp success-fn after-read) error-fn)))
+
+(defn delete
+  [price success-fn error-fn]
+  (api/delete-resource (api/path :prices
+                                 (serialize-date (:trade-date price))
+                                 (model->id price))
+                       success-fn
+                       error-fn))

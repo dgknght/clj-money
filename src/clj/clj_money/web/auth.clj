@@ -22,6 +22,7 @@
       format-url))
 
 (defn- redirect-url []
+  (assert (env :google-client-id) "The google client has not been configured correctly")
   (-> (protocol "https")
       (host "accounts.google.com")
       (path :o :oauth2 :v2 :auth)

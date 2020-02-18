@@ -1,4 +1,5 @@
-(ns clj-money.bootstrap)
+(ns clj-money.bootstrap
+  (:require [reagent.core :as r]))
 
 (defmulti ^:private nav-item :role)
 
@@ -65,11 +66,12 @@
          (for [item secondary-items]
            (nav-item item))]])]]])
 
-(defn- alert
+(defn alert
   [{:keys [message severity]
     :or {severity :info}
     :as alert}
    remove-fn]
+  ^{:key (str "alert-" (:id alert))}
   [:div {:class ["alert" (str "alert-" (name severity))]
          :role "alert"}
    [:button.close {:type :button
@@ -77,17 +79,6 @@
                    :on-click (fn [_] (remove-fn alert))}
     [:span.glyphicon.glyphicon-remove {:aria-hidden "true"}]]
    message])
-
-(defn alerts
-  "Renders alerts. The argument should be a sequence of maps containing:
-    :message The text to be displayed
-    :severity One of success, info, warning, or danger (optional, defaults to info)"
-  [alerts remove-fn]
-  (when (seq @alerts)
-    [:div#notifications.row
-     [:div.col-md-6.col-md-offset-3
-      (for [a @alerts]
-        (with-meta [alert a remove-fn] {:key (:id a)}))]]))
 
 (defn nav-tabs
   [items]
@@ -107,3 +98,27 @@
              [:a {:href "#"
                   :on-click on-click}
               caption]]))])
+
+(defn- page-item
+  [index state]
+  ^{:key (str "page-item-" index)}
+  [:li {:class (when (= index (get-in @state [:page-index]))
+                 "active")}
+   [:a {:href "#"
+        :on-click #(swap! state assoc :page-index index)}
+    (inc index)]])
+
+(defn pagination
+  "Creates navigation for paged data. Expects an derefable map with the following:
+     :total      - the total number of items in the data set
+     :page-index - the current page index (0-based)
+     :page-size  - the number of items per page"
+  [state]
+  (let [total (r/cursor state [:total])
+        page-size (r/cursor state [:page-size])]
+    (fn []
+      [:nav {:aria-label "Pagination"}
+       [:ul.pagination
+        (->> (range (Math/ceil (/ @total @page-size)))
+             (map #(page-item % state))
+             doall)]])))

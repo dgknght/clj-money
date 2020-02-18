@@ -12,10 +12,13 @@
                                             find-entity
                                             find-commodity]]
             [clj-money.web.test-helpers :refer [assert-successful
+                                                assert-created
+                                                assert-bad-request
                                                 assert-not-found]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.x-platform.util :refer [path]]
             [clj-money.models.commodities :as coms]
+            [clj-money.validation :as v]
             [clj-money.web.server :refer [app]]))
 
 (def storage-spec (env :db))
@@ -38,6 +41,44 @@
                   :type :stock
                   :exchange :nasdaq
                   :entity-id "Personal"}]})
+
+(defn- get-a-count-of-commodities
+  [email]
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        response (-> (req/request :get (path :api
+                                             :entities
+                                             (:id entity)
+                                             :commodities
+                                             :count))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-count
+  [[response body]]
+  (assert-successful response)
+  (is (= {:count 2} body) "The body contains the count"))
+
+(defn- assert-blocked-count
+  [[response]]
+  (assert-not-found response))
+
+(defn- assert-successful-list
+  [[response body]]
+  (assert-successful response)
+  (is (= [{:symbol "MSFT"}
+          {:symbol "USD"}]
+         (map #(select-keys % [:symbol]) body))
+      "The correct entities are returned"))
+
+(deftest a-user-can-get-a-count-of-commodities-in-his-entity
+  (assert-successful-count (get-a-count-of-commodities "john@doe.com")))
+
+(deftest a-user-cannot-get-a-count-of-commodities-in-anothers-entity
+  (assert-blocked-count (get-a-count-of-commodities "jane@doe.com")))
 
 (defn- get-a-commodity
   [email]
@@ -96,7 +137,7 @@
 
 (defn- assert-successful-create
   [[response body retrieved]]
-  (assert-successful response)
+  (assert-created response)
   (is (selective= commodity-attributes
                   body)
       "The newly created commodity is returned in the response")
@@ -122,6 +163,25 @@
 
 (deftest a-user-cannot-create-an-commodity-in-anothers-entity
   (assert-blocked-create (create-a-commodity "jane@doe.com")))
+
+(deftest attempt-to-create-an-invalid-commodity
+  (let [ctx (serialization/realize (env :db) context)
+        user (find-user ctx "john@doe.com")
+        entity (find-entity ctx "Personal")
+        response (-> (req/request :post (path :api
+                                              :entities
+                                              (:id entity)
+                                              :commodities))
+                     (req/json-body (assoc commodity-attributes :exchange "notvalid"))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)
+        retrieved (coms/search (env :db) {:entity-id (:id entity)})]
+    (assert-bad-request response)
+    (is (= ["Exchange must be one of: amex, nasdaq, nyse"]
+           (get-in body [::v/errors :exchange]))
+        "The validation error is present")
+    (is (not-any? #(= "AAPL" (:symbol %)) retrieved) "The record is not created")))
 
 (defn- update-a-commodity
   [email]

@@ -1,5 +1,5 @@
 (ns clj-money.models.commodities
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update count])
   (:require [clojure.spec.alpha :as s]
             [clj-money.util :refer [safe-invoke
                                     rev-args]]
@@ -13,6 +13,7 @@
                                               update-fn]]
             [clj-money.models.storage :refer [create-commodity
                                               update-commodity
+                                              count-commodities
                                               select-commodities
                                               delete-prices-by-commodity-id
                                               delete-commodity]]))
@@ -114,6 +115,14 @@
               :spec ::new-commodity
               :create (rev-args create-commodity)
               :after-read after-read}))
+
+(defn count
+  "Returns the number of commodities matching the specified criteria"
+  [storage-spec criteria]
+  (with-storage [s storage-spec]
+    (->> (count-commodities s criteria)
+         (map vals)
+         ffirst)))
 
 (defn search
   "Returns commodities matching the specified criteria"

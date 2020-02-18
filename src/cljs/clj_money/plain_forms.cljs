@@ -10,10 +10,7 @@
       [:input {:type :checkbox
                :checked @checked
                :on-change (fn [e]
-                            (swap! model
-                                   assoc
-                                   field
-                                   (.-checked (.-target e))))}])))
+                            (reset! checked (.-checked (.-target e))))}])))
 
 (defn checkbox-field
   ([model field]
@@ -131,22 +128,30 @@
   [:option {:value value} caption])
 
 (defn select-elem
-  [model field items options]
-  [:select.form-control {:id field
-                         :name field
-                         :on-change (fn [e]
-                                      (let [value (.-value (.-target e))]
-                                        (swap! model assoc field (if (empty? value)
-                                                                   nil
-                                                                   value))))}
-   (doall (map #(select-option % field) items))])
+  [model field items _options]
+  (fn []
+    [:select.form-control {:id field
+                           :name field
+                           :value (get-in @model [field])
+                           :on-change (fn [e]
+                                        (let [value (.-value (.-target e))]
+                                          (swap! model assoc field (if (empty? value)
+                                                                     nil
+                                                                     value))))}
+     (->> items
+          (map (comp #(if (= (get-in % [1 :value]) (get-in @model [field]))
+                        (update-in % [1] assoc :selected true)
+                        %)
+                 #(select-option % field)))
+          doall)]))
 
 (defn select-field
-  [model field items options]
-  [:div.form-group (select-keys options [:class])
-   [:label {:for field} (or (:caption options)
-                            (humanize field))]
-   [select-elem model field items options]])
+  ([model field items] (select-field model field items {}))
+  ([model field items options]
+   [:div.form-group (select-keys options [:class])
+    [:label {:for field} (or (:caption options)
+                             (humanize field))]
+    [select-elem model field items options]]))
 
 (defn typeahead-input
   [model field {:keys [search-fn

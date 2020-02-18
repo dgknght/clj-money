@@ -37,13 +37,14 @@
 (defn get-one
   [id success-fn error-fn]
   (api/get-resources (api/path :imports id)
-                     #(success-fn (after-read %))
+                     (comp success-fn after-read)
                      error-fn))
 
 (defn get-all
   [success-fn error-fn]
   (api/get-resources (api/path :imports)
-                     #(success-fn (map after-read %))
+                     (comp success-fn
+                           #(map after-read %))
                      error-fn))
 
 (defn delete

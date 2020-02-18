@@ -3,6 +3,7 @@
 
 (defonce app-state (r/atom {:mounted? false}))
 (def current-user (r/cursor app-state [:current-user]))
+(def current-entity (r/cursor app-state [:current-entity]))
 
 (defn- remove-entity-from-list
   [state entity]

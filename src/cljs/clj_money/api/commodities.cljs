@@ -1,12 +1,21 @@
 (ns clj-money.api.commodities
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update count])
   (:require [clj-money.api :as api]))
 
-(defn get-all
+(defn count
   [entity-id success-fn error-fn]
-  (api/get-resources (api/path :entities entity-id :commodities)
-                     success-fn
-                     error-fn))
+  (api/get (api/path :entities entity-id :commodities :count)
+           success-fn
+           error-fn))
+
+(defn get-all
+  ([entity-id success-fn error-fn]
+   (get-all entity-id {} success-fn error-fn))
+  ([entity-id criteria success-fn error-fn]
+   (api/get-resources (api/path :entities entity-id :commodities)
+                      criteria
+                      success-fn
+                      error-fn)))
 
 (defn get-one
   [id success-fn error-fn]
@@ -25,6 +34,12 @@
                        commodity
                        success-fn
                        error-fn))
+
+(defn save
+  [commodity success-fn error-fn]
+  (if (:id commodity)
+    (update commodity success-fn error-fn)
+    (create commodity success-fn error-fn)))
 
 (defn delete
   [commodity success-fn error-fn]

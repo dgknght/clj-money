@@ -6,11 +6,12 @@
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
-            [cljs.core.async :refer [chan <! >! go-loop go]]
+            [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
             [clj-money.inflection :refer [humanize]]
             [clj-money.plain-forms :as forms]
-            [clj-money.components :refer [load-on-scroll]]
+            [clj-money.components :refer [load-on-scroll
+                                          load-in-chunks]]
             [clj-money.bootstrap :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
@@ -30,8 +31,7 @@
                                                    unnest]]
             [clj-money.state :refer [app-state]]
             [clj-money.notifications :as notify]
-            [clj-money.x-platform.util :refer [desc-periodic-seq
-                                               serialize-date]]
+            [clj-money.x-platform.util :refer [serialize-date]]
             [clj-money.util :as util]))
 
 (defn- load-accounts
@@ -68,45 +68,21 @@
 (defn- init-item-loading
   [page-state]
   (let [account (:view-account @page-state)
-        end (t/first-day-of-the-month (or (:latest-transaction-date account)
-                                          (t/today))) ; This is probably only nil for newly imported entities
-        start (t/first-day-of-the-month (or (:earliest-transaction-date account)
+        end (t/last-day-of-the-month (or (:latest-transaction-date account)
+                                          (t/today)))] ; This is probably only nil for newly imported entities
+    (load-in-chunks
+      {:start (t/first-day-of-the-month (or (:earliest-transaction-date account)
                                             (t/minus- end (t/months 6))))
-        items-chan (chan)
-        ctl-chan (:ctl-chan @page-state)]
-
-    ; handle items received on the items channel
-    (go-loop [call-count 0]
-             (when-let [received (<! items-chan)]
-               (swap! page-state update-in [:items] #((fnil concat []) % received))
-               (recur (inc call-count))))
-
-    ; response to requests for more items by querying
-    ; the service and putting the retrieved items
-    ; od the items channel
-    (go-loop [date-ranges (->> (desc-periodic-seq start end (t/months 1))
-                               (map #(vector :between % (t/last-day-of-the-month %))))]
-             (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause
-                   count-needed (if (number? action)
-                                  action
-                                  50)]
-               (when (not= :quit action)
-                 (transaction-items/search
-                   {:account-id (:id account)
-                    :transaction-date (first date-ranges)}
-                   #(go
-                      (>! items-chan %)
-                      (when (< (count %)
-                               count-needed)
-                        (>! ctl-chan (- count-needed (count %)))))
-                   notify/danger))
-               (if (and (not= :quit action)
-                        (seq (rest date-ranges)))
-                 (recur (rest date-ranges))
-                 (swap! page-state assoc :more-items? false))))
-
-    ; Get the first batch
-    (go (>! ctl-chan :fetch))))
+       :end end
+       :ctl-chan (:ctl-chan @page-state)
+       :fetch-fn (fn [date-range callback-fn]
+                            (transaction-items/search
+                              {:account-id (:id account)
+                               :transaction-date date-range}
+                              callback-fn
+                              (notify/danger-fn "Unable to fetch transaction items: %s")))
+       :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
+       :finish-fn #(swap! page-state assoc :more-items? false)})))
 
 (defn- account-hidden?
   [{:keys [parents] :as account} expanded hide-zero-balances?]
@@ -832,6 +808,11 @@
         view-account (r/cursor page-state [:view-account])]
     (load-accounts page-state)
     (load-commodities page-state)
+    (add-watch app-state :current-entity (fn [field _sender _before after]
+                                           (swap! page-state assoc :accounts [] :commodities [])
+                                           (when (get-in after [field])
+                                             (load-accounts page-state)
+                                             (load-commodities page-state))))
     (fn []
       [:section
        [:div.accounts-header

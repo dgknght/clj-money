@@ -90,9 +90,9 @@
               :coercion-rules coercion-rules}))
 
 (defn delete
-  [storage-spec id]
+  [storage-spec price]
   (with-storage [s storage-spec]
-    (delete-price s id)))
+    (delete-price s price)))
 
 (defn available-date-range
   [storage-spec]

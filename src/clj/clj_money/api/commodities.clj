@@ -1,13 +1,20 @@
 (ns clj-money.api.commodities
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update count])
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-money.api :refer [->response]]
             [clj-money.authorization :refer [authorize
                                              tag-resource
                                              apply-scope]]
+            [clj-money.validation :as v]
             [clj-money.models.commodities :as coms]
             [clj-money.permissions.commodities]))
+
+(defn- count
+  [{:keys [params authenticated]}]
+  (->response {:count (coms/count (env :db) (-> params
+                                                (select-keys [:entity-id])
+                                                (apply-scope :commodity authenticated)))}))
 
 (defn- index
   [{:keys [params authenticated]}]
@@ -48,8 +55,12 @@
                       (select-keys attribute-keys)
                       (ensure-keyword :exchange :type)
                       (tag-resource :commodity)
-                      (authorize :create authenticated))]
-    (->response (coms/create (env :db) commodity))))
+                      (authorize :create authenticated))
+        result (coms/create (env :db) commodity)]
+    (->response result
+                (if (v/has-error? result)
+                  400
+                  201))))
 
 (defn- update
   [{:keys [body] :as req}]
@@ -65,6 +76,7 @@
     (->response)))
 
 (defroutes routes
+  (GET "/api/entities/:entity-id/commodities/count" req (count req))
   (GET "/api/entities/:entity-id/commodities" req (index req))
   (POST "/api/entities/:entity-id/commodities" req (create req))
   (GET "/api/commodities/:id" req (show req))
