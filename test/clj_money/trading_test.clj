@@ -926,3 +926,34 @@
         "The lots are adjusted correctly")
     #_(is (= 200M (:quantity (accounts/reload storage-spec ira)))
         "The account has the correct balance after the transfer.")))
+
+(def ^:private rev-split-context
+  (assoc purchase-context :trades [{:type :purchase
+                                    :trade-date (t/local-date 2016 3 2)
+                                    :entity-id "Personal"
+                                    :account-id "IRA"
+                                    :commodity-id "AAPL"
+                                    :shares 1500M
+                                    :value 30000M}]))
+
+(deftest reverse-split-a-commodity
+  (let  [ctx (serialization/realize (env :db) rev-split-context)
+         account (find-account ctx "IRA")
+         commodity (find-commodity ctx "AAPL")
+         result (trading/split (env :db) {:split-date (t/local-date 2016 4 1)
+                                          :account-id (:id account)
+                                          :commodity-id (:id commodity)
+                                          :shares-gained -1350M})
+         lots (lots/search (env :db)  {:account-id (:id account)
+                                       :commodity-id (:id commodity)})]
+    (is  (= "Split shares of AAPL 1 to 10"
+            (get-in result [:transaction :description]))
+        "The transaction has the correct description")
+    (is (= [{:purchase-date (t/local-date 2016 3 2)
+             :shares-owned 150M
+             :purchase-price 200M}]
+           (map #(select-keys % [:purchase-date
+                                 :shares-owned
+                                 :purchase-price])
+                lots))
+        "The lot is updated correctly.")))

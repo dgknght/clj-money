@@ -197,7 +197,7 @@
                            :shares shares}]}))))
 
 (defn- create-capital-gains-items
-  [{gains :gains :as context}]
+  [{:keys [gains] :as context}]
   (mapv (fn [{:keys [quantity description long-term?]}]
           (let [[action effect] (if (< quantity 0)
                                   [:debit "loss"]
@@ -249,7 +249,10 @@
       (do
         (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
         (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
-      (assoc context :transaction transaction))))
+      (do
+        (when (< 5 (count items))
+          (clojure.pprint/pprint {::create-sale-transaction transaction}))
+        (assoc context :transaction transaction)))))
 
 (defn- create-lot
   "Given a purchase context, creates and appends the commodity lot"
@@ -320,17 +323,19 @@
        :lot lot
        :commodity commodity})))
 
-(defn- find-lot
+(defn- acquire-lots
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage inventory-method commodity account]}]
-  (lots/find-by storage
-                {:commodity-id (:id commodity)
-                 :account-id (:id account)
-                 :shares-owned [:!= 0M]}
-                {:sort [[:purchase-date (if (= :lifo inventory-method)
-                                          :desc
-                                          :asc)]]}))
+  [{:keys [storage inventory-method commodity account] :as context}]
+  (assoc context
+         :lots (lots/search storage
+                            {:commodity-id (:id commodity)
+                             :account-id (:id account)
+                             :shares-owned [:!= 0M]}
+                            {:sort [[:purchase-date
+                                     (if (= :lifo inventory-method)
+                                       :desc
+                                       :asc)]]})))
 
 (defn- process-lot-sale
   [context lot shares-to-sell]
@@ -358,7 +363,7 @@
                                            :lot-action :sell
                                            :shares shares-sold
                                            :price sale-price}))
-         (update-in [:lots] #(conj % adj-lot))
+         (update-in [:updated-lots] #(conj % adj-lot))
          (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
                                                             shares-sold
                                                             (-> context :commodity :symbol)
@@ -370,19 +375,21 @@
 (defn- process-lot-sales
   "Given a sell context, processes the lot changes and appends
   the new lot transactions and the affected lots"
-  [context]
+  [{:keys [lots] :as context}]
   (loop [context (assoc context :lots []
                                 :gains []
                                 :lot-items [])
-         shares-remaining (:shares context)]
-    (if-let [lot (find-lot context)]
+         shares-remaining (:shares context)
+         lot (first lots)
+         remaining-lots (rest lots)]
+    (if lot
       (let [[adj-context
              shares-to-be-sold] (process-lot-sale context
                                                   lot
                                                   shares-remaining)]
         (if (= 0 shares-to-be-sold)
           adj-context
-          (recur adj-context shares-to-be-sold)))
+          (recur adj-context shares-to-be-sold (first remaining-lots)  (rest remaining-lots))))
       (do
         (log/error "Unable to find a lot to sell shares " (prn-str (dissoc context :storage)))
         (throw (ex-info "Unable to find a lot to sell the shares"
@@ -463,6 +470,7 @@
              acquire-commodity
              acquire-accounts
              acquire-entity
+             acquire-lots
              ensure-gains-accounts
              update-entity-settings
              create-price
@@ -634,6 +642,13 @@
   (validation/validate split ::split))
 
 (defn split
+  "Records a stock split
+
+  :commodity-id  - identifies the commodity being split
+  :split-date    - the date the split is effective
+  :shares-gained - the difference in the number of shares held before and after the split
+  :account-id    - the trading account through which the commodity was purchased"
+
   [storage-spec split]
   (let [validated (validate-split split)]
     (if (validation/valid? validated)
