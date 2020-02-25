@@ -55,9 +55,9 @@
 
 (defn start
   [{id :id} success-fn error-fn]
-  (go (let [path (str "/api/imports/" id "/start")
-            response (<! (http/put path {:headers {"Content-Type" "application/json"
-                                                   "Accept" "application/json"}}))]
+  (go (let [path (api/path :imports id)
+            response (<! (http/patch path
+                                     (api/append-auth (api/request))))]
         (if (= 200 (:status response))
           (success-fn)
           (do

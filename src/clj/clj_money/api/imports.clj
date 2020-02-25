@@ -17,9 +17,6 @@
             [clj-money.authorization :refer [authorize]]
             [clj-money.permissions.imports]))
 
-(def ^:private expected-record-types
-  [:budget :account :transaction :commodity :price])
-
 (defn- launch-and-track-import
   [imp]
   (let [progress-chan (chan)]
