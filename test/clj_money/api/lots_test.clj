@@ -9,8 +9,7 @@
             [clj-money.x-platform.util :refer [path
                                                map->query-string]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
+            [clj-money.web.test-helpers :refer [assert-successful]]
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
