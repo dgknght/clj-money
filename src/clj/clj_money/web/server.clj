@@ -57,7 +57,7 @@
               trading-api/routes
               (ANY "/api/*" req
                    (do
-                     (log/debugf "unable to match API route for \"%s\"." (:uri req))
+                     (log/debugf "unable to match API route for %s \"%s\"." (:request-method req) (:uri req))
                      (api/not-found))))
       (wrap-routes wrap-integer-id-params)
       (wrap-json-body {:keywords? true :bigdecimals? true})
