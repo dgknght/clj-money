@@ -42,7 +42,7 @@
 
 (defn- parse-decimal
   [string-decimal]
-  (when-let [match (re-find #"(\d+)\/(\d+)" string-decimal)]
+  (when-let [match (re-find #"(-?\d+)\/(\d+)" string-decimal)]
     (with-precision 12
       (apply / (->> match
                     rest
@@ -381,11 +381,27 @@
         (:buy actions)                :purchase
         (:split actions)              :split))))
 
+(defn- abs
+  [^BigDecimal value]
+  (.abs value))
+
+(defn- abs-items
+  ([transaction]
+   (abs-items transaction (constantly true)))
+  ([transaction pred]
+   (update-in transaction
+              [:items]
+              (fn [items]
+                (map #(if (pred %)
+                        (-> %
+                            (update-in [:quantity] abs)
+                            (update-in [:value] abs))
+                        %)
+                     items)))))
+
 (defmethod ^:private refine-trading-transaction :default
   [transaction]
-  transaction)
-
-(defmethod ^:private refine-trading-transaction :none [t] t)
+  (abs-items transaction))
 
 (def ^:private trade-actions-map
   {:buy :debit
@@ -404,6 +420,7 @@
                             (filter #(= :buy (:action %)))
                             first)]
     (-> transaction
+        abs-items
         (assoc
           :action :buy
           :shares (:quantity commodity-item)
@@ -417,10 +434,11 @@
                             (filter #(= :sell (:action %)))
                             first)]
     (-> transaction
+        abs-items
         (assoc
           :trade-date (:transaction-date transaction)
           :action :sell
-          :shares (:quantity commodity-item)
+          :shares (.abs (:quantity commodity-item))
           :commodity-account-id (:account-id commodity-item))
         (update-in [:items] adjust-trade-actions))))
 
@@ -433,6 +451,7 @@
                 (filter #(= :buy (:action %)))
                 first)]
     (-> transaction
+        abs-items
         (assoc :action :transfer
                :shares (:quantity to)
                :value (:value to)
@@ -450,7 +469,8 @@
                :split-date (:transaction-date transaction)
                :shares-gained (:quantity split-item)
                :commodity-account-id (:account-id split-item))
-        (update-in [:items] adjust-trade-actions))))
+        (update-in [:items] adjust-trade-actions)
+        (abs-items #(not= :split (:action %))))))
 
 (defn- process-transaction-item
   [item]
