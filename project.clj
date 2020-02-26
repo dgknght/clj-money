@@ -110,19 +110,20 @@
             :profiles/test {}
             :project/dev {:env
                           {:db "postgresql://app_user:please01@localhost/money_development"
-                            :partition-period "year"
-                            :show-error-messages? "true"
-                            :site-protocol "http"
-                            :site-host "lvh.me:5000"}}
+                           :partition-period "year"
+                           :show-error-messages? "true"
+                           :site-protocol "http"
+                           :site-host "lvh.me:5000"}}
             :project/test {:dependencies [[ring/ring-mock "0.4.0"]
                                           [peridot "0.5.2"]]
                            :env
-                            {:db "postgresql://app_user:please01@localhost/money_test" 
+                           {:db "postgresql://app_user:please01@localhost/money_test" 
                             :partition-period "month"
                             :mailer-host "testmailer.com"
                             :mailer-from "no-reply@clj-money.com"
                             :application-name "clj-money"
                             :show-error-messages? "true"
+                            :detailed-import-logging? "true"
                             :google-client-id "google-id"
                             :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
                             :site-protocol "https"

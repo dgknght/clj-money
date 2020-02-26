@@ -13,6 +13,7 @@
                      >!!]
              :as async]
             [clojure.data.xml :as xml]
+            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
@@ -123,7 +124,8 @@
 
 (defmethod ^:private process-elem :default
   [_ elem]
-  (log/debug "Encountered unhandled element " (prn-str (:tag elem)))
+  (when (env :detailed-import-logging?)
+    (log/debug "Encountered unhandled element " (prn-str (:tag elem))))
   nil)
 
 (defn- tag->keyword
