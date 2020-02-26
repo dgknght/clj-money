@@ -946,9 +946,11 @@
                                           :shares-gained -1350M})
          lots (lots/search (env :db)  {:account-id (:id account)
                                        :commodity-id (:id commodity)})]
-    (is  (= "Split shares of AAPL 1 to 10"
+    (is (= "Split shares of AAPL 1 for 10"
             (get-in result [:transaction :description]))
         "The transaction has the correct description")
+    (is (= :credit (get-in result [:transaction :items 0 :action]))
+        "The transaction item has the correct action")
     (is (= [{:purchase-date (t/local-date 2016 3 2)
              :shares-owned 150M
              :purchase-price 200M}]

@@ -249,10 +249,7 @@
       (do
         (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
         (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
-      (do
-        (when (< 5 (count items))
-          (clojure.pprint/pprint {::create-sale-transaction transaction}))
-        (assoc context :transaction transaction)))))
+      (assoc context :transaction transaction))))
 
 (defn- create-lot
   "Given a purchase context, creates and appends the commodity lot"
@@ -615,7 +612,11 @@
   [ratio]
   ; We'll need to expand this at some point to handle
   ; reverse splits and stranger splits, like 3:2
-  (format "%s for 1" ratio))
+  (let [[n d] (cond->> [ratio 1]
+                (< ratio 1)
+                (map (comp int
+                           #(/ % ratio))))]
+    (format "%s for %s" n d)))
 
 (defn- create-split-transaction
   [{:keys [storage
@@ -632,9 +633,11 @@
                                :description (format "Split shares of %s %s"
                                                     (:symbol commodity)
                                                     (ratio->words ratio))
-                               :items [{:action :debit
+                               :items [{:action (if (< 0 shares-gained)
+                                                  :debit
+                                                  :credit)
                                         :account-id (:id commodity-account)
-                                        :quantity shares-gained
+                                        :quantity (.abs shares-gained)
                                         :value 0M}]})))
 
 (defn- validate-split
