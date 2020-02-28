@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
+            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]
@@ -196,23 +197,25 @@
                            :price (with-precision 4 (/ value shares))
                            :shares shares}]}))))
 
+(defn- create-capital-gains-item
+  [{:keys [quantity description long-term?]} context]
+  (let [[action effect] (if (< quantity 0)
+                          [:debit "loss"]
+                          [:credit "gains"])
+        account-key (keyword
+                      (format "%s-capital-%s-account-id"
+                              (if long-term? "lt" "st")
+                              effect))
+        account-id (account-key context)]
+    {:action action
+     :account-id account-id
+     :quantity (.abs quantity)
+     :value (.abs quantity)
+     :memo description}))
+
 (defn- create-capital-gains-items
   [{:keys [gains] :as context}]
-  (mapv (fn [{:keys [quantity description long-term?]}]
-          (let [[action effect] (if (< quantity 0)
-                                  [:debit "loss"]
-                                  [:credit "gains"])
-                account-key (keyword
-                              (format "%s-capital-%s-account-id"
-                                      (if long-term? "lt" "st")
-                                      effect))
-                account-id (account-key context)]
-            {:action action
-             :account-id account-id
-             :quantity (.abs quantity)
-             :value (.abs quantity)
-             :memo description}))
-        gains))
+  (mapv #(create-capital-gains-item % context) gains))
 
 (defn- create-sale-transaction-items
   [{:keys [shares value] :as context}]
@@ -429,7 +432,7 @@
   (let [k (keyword (str term "-capital-" result "-account-id"))
         n (str (if (= "lt" term) "Long-term" "Short-term")
                " Capital "
-               (if (= "gain" result) "Gains" "Losses"))]
+               (if (= "gains" result) "Gains" "Losses"))]
     (cond
       (k context)
       context
@@ -441,7 +444,7 @@
       (let [account (find-or-create-account
                       storage
                       {:entity-id (:id entity)
-                       :type (if (= "gain" result)
+                       :type (if (= "gains" result)
                                :income
                                :expense)
                        :name n})]

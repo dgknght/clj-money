@@ -3,9 +3,11 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
+            [clj-money.x-platform.util :refer [model->id]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
+                                            find-entity
                                             find-account
                                             find-accounts
                                             find-commodity
@@ -39,6 +41,15 @@
          [(t/local-date 2015 1 1)
           (t/local-date 2017 12 31)])))
 
+(defn item-by-account
+  [acc-or-id transaction]
+  {:pre [acc-or-id transaction]}
+
+  (let [id (model->id acc-or-id)]
+    (->> (:items transaction)
+         (filter #(= id (:account-id %)))
+         first)))
+
 (def ^:private purchase-context
   {:users [(factory :user)]
    :entities [{:name "Personal"}]
@@ -48,11 +59,11 @@
                :type :income}
               {:name "Long-term Capital Gains"
                :type :income}
-              {:name "Long-term Capital Loss"
+              {:name "Long-term Capital Losses"
                :type :expense}
               {:name "Short-term Capital Gains"
                :type :income}
-              {:name "Short-term Capital Loss"
+              {:name "Short-term Capital Losses"
                :type :expense}
               {:name "Investment Expenses"
                :type :expense}
@@ -307,8 +318,8 @@
                                  "IRA"
                                  "Long-term Capital Gains"
                                  "Short-term Capital Gains"
-                                 "Long-term Capital Loss"
-                                 "Short-term Capital Loss")]
+                                 "Long-term Capital Losses"
+                                 "Short-term Capital Losses")]
     {:commodity-id (:id (find-commodity context "AAPL"))
      :account-id (:id ira)
      :lt-capital-gains-account-id (:id lt-gains)
@@ -395,48 +406,53 @@
 
 (deftest sell-a-commodity-for-a-gain
   (let [context (serialization/realize (env :db) sale-context)
-        commodity (find-commodity context "AAPL")
-        result (trading/sell (env :db) (sale-attributes context))
-        actual-transaction (-> result
-                               :transaction
-                               (update-in [:items] #(map (fn [i]
-                                                           (dissoc i
-                                                                   :id
-                                                                   :transaction-id
-                                                                   :created-at
-                                                                   :updated-at))
-                                                         %))
-                               (dissoc :id :created-at :updated-at))
+        entity (find-entity context "Personal")
+        aapl (find-commodity context "AAPL")
+        {:keys [transaction
+                price
+                lots]
+         :as result} (trading/sell (env :db) (sale-attributes context))
         ira (find-account context "IRA")
-        lot (lots/find-by (env :db) {:commodity-id (:id commodity)
+        ltcg (find-account context "Long-term Capital Gains")
+        aapl-acc (accounts/find-by (env :db) {:entity-id (:id entity)
+                                              :commodity-id (:id aapl)})
+        lot (lots/find-by (env :db) {:commodity-id (:id aapl)
                                      :account-id (:id ira)
-                                     :purchase-date (t/local-date 2016 3 2)})
-        expected-transaction (sale-exp-trans context)]
-    (is (:price result)
-        "The result contains a price")
-    (is (empty? (-> result :price validation/error-messages))
+                                     :purchase-date (t/local-date 2016 3 2)})]
+    (is price "The result contains a price")
+    (is (empty? (validation/error-messages price ))
         "The price is valid")
-    (is (:lots result)
-        "The result contains the lots affected")
-    (doseq [lot (:lots result)]
+    (is lots "The result contains the lots affected")
+    (doseq [lot lots]
       (is (empty? (validation/error-messages lot))
           "Each lot is valid"))
     (is (= 75M (:shares-owned lot))
         "The shares-owned value of the original lot is updated")
-    (is (:transaction result)
-        "The result contains the transaction record")
-    (pprint-diff expected-transaction actual-transaction)
-    (is (= expected-transaction actual-transaction)
-        "The transaction contains the correct attributes")
-    (is (empty? (-> result :transaction validation/error-messages))
+    (is transaction "The result contains the transaction record")
+    (is (empty? (validation/error-messages transaction ))
         "The transaction is valid")
+    (is (selective= {:action :debit
+                     :value 375M
+                     :quantity 375M}
+                    (item-by-account ira transaction))
+        "The trading account is debited the total proceeds from the purchase")
+    (is (selective= {:action :credit
+                     :value 125M
+                     :quantity 125M}
+                    (item-by-account ltcg transaction))
+        "The capital gains account is credited the amount received above the original cost of the shares.")
+    (is (selective= {:action :credit
+                     :value 250M
+                     :quantity 25M}
+                    (item-by-account aapl-acc transaction))
+        "The commodity account is credited the number of shares and purchase value of the shares.")
     (testing "entity settings"
       (let [expected (select-keys result [:lt-capital-gains-account-id
                                           :st-capital-gains-account-id
                                           :lt-capital-loss-account-id
                                           :st-capital-loss-account-id
                                           :inventory-method])
-            actual (-> (entities/find-by-id (env :db) (:entity-id commodity))
+            actual (-> (entities/find-by-id (env :db) (:id entity))
                        :settings
                        (select-keys [:lt-capital-gains-account-id
                                      :st-capital-gains-account-id
@@ -449,11 +465,15 @@
 
 (deftest sell-a-commodity-for-a-loss
   (let [context (serialization/realize (env :db) sale-context)
-        commodity (find-commodity context "AAPL")
+        entity (find-entity context "Personal")
+        aapl (find-commodity context "AAPL")
         attr (assoc (sale-attributes context) :value 200M) ; 25 shares, $50 loss
         {:keys [lots transaction price]} (trading/sell (env :db) attr)
         ira (find-account context "IRA")
-        lot (lots/find-by (env :db) {:commodity-id (:id commodity)
+        ltcl (find-account context "Long-term Capital Losses")
+        aapl-acc (accounts/find-by (env :db) {:entity-id (:id entity)
+                                              :commodity-id (:id aapl)})
+        lot (lots/find-by (env :db) {:commodity-id (:id aapl)
                                      :account-id (:id ira)
                                      :purchase-date (t/local-date 2016 3 2)})]
     (is (= 8M (:price price))
@@ -469,15 +489,63 @@
     (is transaction "The result contains the transaction record")
     (is (empty? (validation/error-messages transaction))
         "The transaction is valid")
-    (if-let [item (->> (:items transaction)
-                (filter #(= (:lt-capital-loss-account-id attr)
-                           (:account-id %)))
-                first)]
-      (is (selective= {:action :debit
-                       :quantity 50M}
-                      item)
-          "The correct capital loss is recored")
-      (is false "A capital loss item is created"))))
+    (is (selective= {:action :debit
+                     :value 200M
+                     :quantity 200M}
+                    (item-by-account ira transaction))
+        "The trading account is debited the total proceeds from the purchase")
+    (is (selective= {:action :debit
+                     :value 50M
+                     :quantity 50M}
+                    (item-by-account ltcl transaction))
+        "The capital loss account is debited the cost the shares less the sale proceeds")
+    (is (selective= {:action :credit
+                     :value 250M
+                     :quantity 25M}
+                    (item-by-account aapl-acc transaction))
+        "The commodity account is credited the number of shares and purchase value of the shares.")))
+
+(def ^:private auto-create-context
+  (update-in sale-context [:accounts] (fn [accounts]
+                                        (remove #(re-find #"Capital" (:name %)) accounts))))
+
+(deftest auto-create-gains-accounts
+  (let [context (serialization/realize (env :db) auto-create-context)
+        _ (trading/sell (env :db)
+                        (sale-attributes context))
+        entity (entities/find-by-id (env :db) (:id  (find-entity context "Personal")))
+        ltcg (accounts/find-by (env :db) {:entity-id (:id entity)
+                                          :name "Long-term Capital Gains"})
+        stcg (accounts/find-by (env :db) {:entity-id (:id entity)
+                                          :name "Short-term Capital Gains"})
+        ltcl (accounts/find-by (env :db) {:entity-id (:id entity)
+                                          :name "Long-term Capital Losses"})
+        stcl (accounts/find-by (env :db) {:entity-id (:id entity)
+                                          :name "Short-term Capital Losses"})]
+    (is (selective= {:type :income}
+                    ltcg)
+        "The long-term capital gains account is an income account")
+    (is (= (get-in entity [:settings :lt-capital-gains-account-id])
+           (:id ltcg))
+        "The Long-term Capital Gains account id is placed in the entity settings")
+    (is (selective= {:type :income}
+                    stcg)
+        "The short-term capital gains account is an income account")
+    (is (= (get-in entity [:settings :st-capital-gains-account-id])
+           (:id stcg))
+        "The Short-term Capital Gains account id is placed in the entity settings")
+    (is (selective= {:type :expense}
+                    ltcl)
+        "The long-term capital losses account is an expense account")
+    (is (= (get-in entity [:settings :lt-capital-loss-account-id])
+           (:id ltcl))
+        "The Long-term Capital Losses account id is placed in the entity settings")
+    (is (selective= {:type :expense}
+                    stcl)
+        "The short-term capital losses account is an expense account")
+    (is (= (get-in entity [:settings :st-capital-loss-account-id])
+           (:id stcl))
+        "The Short-term Capital Losses account id is placed in the entity settings")))
 
 (deftest sell-a-commodity-with-a-fee
   (let [context (serialization/realize (env :db) sale-context)
@@ -608,27 +676,6 @@
     (pprint-diff expected gains-items)
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
-(deftest selling-a-commodity-for-a-loss-debits-capital-loss
-  (let [context (serialization/realize (env :db) sale-context)
-        capital-loss (find-account context "Long-term Capital Loss")
-        _ (trading/sell (env :db) (-> context
-                                         sale-attributes
-                                         (assoc :shares 100M :value 850M)))
-        gains-items (items-by-account (:id capital-loss))
-        expected [{:transaction-date (t/local-date 2017 3 2)
-                   :description "Sell 100 shares of AAPL at 8.500"
-                   :action :debit
-                   :account-id (:id capital-loss)
-                   :quantity 150M
-                   :polarized-quantity 150M
-                   :negative false
-                   :value 150M
-                   :memo "Sell 100 shares of AAPL at 8.500"
-                   :balance 150M
-                   :index 0}]]
-    (pprint-diff expected gains-items)
-    (is (= expected gains-items) "The capital loss account is credited the correct amount")))
-
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 
 (defn- map-accounts
@@ -651,8 +698,8 @@
                                 "IRA"
                                 "Long-term Capital Gains"
                                 "Short-term Capital Gains"
-                                "Long-term Capital Loss"
-                                "Short-term Capital Loss")
+                                "Long-term Capital Losses"
+                                "Short-term Capital Losses")
         _ (trading/buy (env :db) {:trade-date (t/local-date 2015 3 2)
                                           :account-id (:id ira)
                                           :commodity-id (:id commodity)
