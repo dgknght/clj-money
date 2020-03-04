@@ -1,7 +1,5 @@
 (ns clj-money.models.prices.api-client-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest is]]
             [clj-time.core :as t]
             [clj-http.client :as client]
             [clj-money.models.prices.api-client :as prices-client]))
@@ -59,7 +57,7 @@
  :trace-redirects []})
 
 (deftest fetch-latest-price
-  (with-redefs [client/get (fn [url options]
+  (with-redefs [client/get (fn [& _]
                              raw-response)]
   (let [expected {:price 123.45M
                   :trade-date (t/local-date 2017 3 2)}

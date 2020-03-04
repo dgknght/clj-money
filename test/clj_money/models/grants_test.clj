@@ -1,5 +1,5 @@
 (ns clj-money.models.grants-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
@@ -7,8 +7,6 @@
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
-            [clj-money.tagging :as tagging]
-            [clj-money.models.entities :as entities]
             [clj-money.models.grants :as grants]
             [clj-money.test-helpers :refer [reset-db
                                             find-entity

@@ -1,8 +1,7 @@
 (ns clj-money.mailers-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [clojure.string :refer [trim]]
             [postal.core :refer [send-message]]
             [clj-money.mailers :as mailers]))
 
@@ -30,7 +29,7 @@
         invitee {:first-name "Jane"
                  :last-nmae "Doe"
                  :email "jane@doe.com"}]
-    (with-redefs [send-message (fn [host message]
+    (with-redefs [send-message (fn [_ message]
                                  (swap! messages conj message))]
      (mailers/invite-user {:from-user inviter
                            :to-user invitee

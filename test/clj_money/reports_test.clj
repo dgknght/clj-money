@@ -1,5 +1,5 @@
 (ns clj-money.reports-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is use-fixtures]]
             [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
@@ -14,9 +14,7 @@
                                             find-account
                                             find-accounts
                                             find-commodity
-                                            find-commodities
-                                            context-errors
-                                            simplify-account-groups]]))
+                                            find-commodities]]))
 
 (def storage-spec (env :db))
 
@@ -328,7 +326,7 @@
   (let [context (serialization/realize storage-spec commodities-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
-        purchase (trading/buy storage-spec {:account-id (:id ira)
+        _ (trading/buy storage-spec {:account-id (:id ira)
                                             :commodity-id (:id commodity)
                                             :shares 100M
                                             :value 500M
@@ -770,7 +768,6 @@
 
 (deftest get-a-lot-report
   (let [context (serialization/realize storage-spec commodities-context)
-        entity (-> context :entities first)
         [ira
          lt-gains
          st-gains
@@ -861,7 +858,7 @@
                                    :lot-action :buy
                                    :shares 10M
                                    :price 10M}]}]]
-    (if (not= expected actual)
+    (when (not= expected actual)
       (pprint {:expected expected
                :actual actual
                :diff (diff expected actual)}))

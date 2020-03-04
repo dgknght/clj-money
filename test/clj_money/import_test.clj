@@ -1,10 +1,8 @@
 (ns clj-money.import-test
   (:refer-clojure :exclude [update])
-  (:require [clojure.test :refer :all]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.java.io :as io]
-            [clojure.pprint :refer [pprint]]
-            [clojure.core.async :refer [go-loop <! <!! chan]]
+            [clojure.core.async :refer [go-loop <! chan]]
             [clojure.string :as s]
             [clj-time.core :as t]
             [environ.core :refer [env]]
@@ -15,14 +13,12 @@
             [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
-                                            find-accounts]]
+                                            pprint-diff]]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
-            [clj-money.models.imports :as imports]
             [clj-money.models.lots :as lots]
             [clj-money.models.prices :as prices]
             [clj-money.reports :as reports]
@@ -36,7 +32,7 @@
 
 (defn- nil-chan []
   (let [c (chan)]
-    (go-loop [v (<! c)]
+    (go-loop [_ (<! c)]
              (recur (<! c)))
     c))
 
@@ -172,9 +168,7 @@
 
 (defn- test-import
   [context]
-  (let [user (-> context :users first)
-        image (-> context :images first)
-        imp (-> context :imports first)
+  (let [imp (-> context :imports first)
         updates (atom [])
         progress-chan (chan)
         _ (go-loop [p (<! progress-chan)]
@@ -246,8 +240,6 @@
   (let [context (serialization/realize
                   storage-spec
                   (import-context :gnucash))
-        user (-> context :users first)
-        image (-> context :images first)
         imp (-> context :imports first)
         channel (chan)
         updates (atom [])]
@@ -263,9 +255,8 @@
 (deftest import-a-budget
   (let [context (serialization/realize storage-spec import-budget-context)
         user (-> context :users first)
-        image (-> context :images first)
         imp (-> context :imports first)
-        result (import-data storage-spec imp (nil-chan) {:atomic? true})
+        _ (import-data storage-spec imp (nil-chan) {:atomic? true})
         entity (first (entities/select storage-spec (:id user)))
         [salary groceries] (->> {:entity-id (:id entity)}
                                 (accounts/search storage-spec)
@@ -321,8 +312,6 @@
 
 (deftest import-commodities
   (let [context (serialization/realize storage-spec commodities-context)
-        user (-> context :users first)
-        image (-> context :images first)
         imp (-> context :imports first)
         {:keys [entity]} (import-data storage-spec imp (nil-chan) {:atomic? true})
         account (->> {:entity-id (:id entity)}

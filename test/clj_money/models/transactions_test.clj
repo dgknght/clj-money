@@ -1,13 +1,10 @@
 (ns clj-money.models.transactions-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest use-fixtures testing is]]
             [clojure.set :refer [rename-keys]]
             [environ.core :refer [env]]
-            [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.validation :as validation]
-            [clj-money.models.users :as users]
-            [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.x-platform.transactions :refer [simplify
@@ -65,8 +62,7 @@
 (defn attributes
   [context]
   (let [[checking
-         salary
-         groceries] (:accounts context)]
+         salary] (:accounts context)]
     {:transaction-date (t/local-date 2016 3 2)
      :description "Paycheck"
      :memo "final, partial"
@@ -140,12 +136,11 @@
                                                       (update-in item [:action] name))))]
       (let [context (serialization/realize storage-spec base-context)
             [checking
-             salary
-             groceries] (:accounts context)
-            transaction (try
-                          (transactions/create storage-spec (attributes context))
-                          (catch RuntimeException e
-                            nil))]
+             salary] (:accounts context)
+            _ (try
+                (transactions/create storage-spec (attributes context))
+                (catch RuntimeException _
+                  nil))]
         (testing "records are not created"
           (is (= 0 (count (transactions/search
                             storage-spec
@@ -341,10 +336,8 @@
 
 (deftest insert-transaction-before-the-end
   (let [context (serialization/realize storage-spec insert-context)
-        [checking-items
-         salary-items
-         groceries-items] (map #(items-by-account (:id %))
-                               (:accounts context))]
+        [checking-items] (map #(items-by-account (:id %))
+                              (:accounts context))]
     (is (= [{:index 2
              :quantity 100M
              :balance 801M}
@@ -439,7 +432,7 @@
 (deftest delete-a-transaction
   (let [context (serialization/realize storage-spec delete-context)
         [checking
-         salary
+         _
          groceries] (:accounts context)
         checking-items-before (items-by-account (:id checking))
         trans (-> context
@@ -604,9 +597,9 @@
 (deftest update-a-transaction-change-quantity
   (let [context (serialization/realize storage-spec update-context)
         [checking
-         salary
+         _
          groceries] (:accounts context)
-        [t1 t2 t3] (:transactions context)
+        [_ t2] (:transactions context)
         ; Change the 2nd transaction quantity for 101 to 99.99
         updated (-> t2
                     (assoc-in [:items 0 :quantity] 99.99M)
@@ -637,9 +630,9 @@
         call-count (atom 0)
         context (serialization/realize storage-spec update-context)
         [checking
-         salary
+         _
          groceries] (:accounts context)
-        [t1 t2 t3] (:transactions context)
+        [_ t2] (:transactions context)
         updated (-> t2
                     (assoc-in [:items 0 :quantity] 99.99M)
                     (assoc-in [:items 1 :quantity] 99.99M))
@@ -650,7 +643,7 @@
                                                 (real-reload storage-spec transaction)))]
             (try
               (transactions/update storage-spec updated)
-              (catch RuntimeException e nil)))]
+              (catch RuntimeException _ nil)))]
     (testing "transaction items are not updated"
       (is (= #{101M} (->> t2
                           (transactions/reload storage-spec)
@@ -670,9 +663,9 @@
 (deftest update-a-transaction-change-date
   (let [context (serialization/realize storage-spec update-context)
         [checking
-         salary
+         _
          groceries] (:accounts context)
-        [t1 t2 t3] (:transactions context)
+        [_t1 _t2 t3] (:transactions context)
         updated (assoc t3 :transaction-date (t/local-date 2016 3 10)
                           :original-transaction-date (:transaction-date t3))
         result (transactions/update storage-spec updated)
@@ -802,10 +795,8 @@
 ; 2016-03-30     104  Groceries Checking
 (deftest update-a-transaction-short-circuit-updates
   (let [context (serialization/realize storage-spec short-circuit-context)
-        [checking
-         salary
-         groceries] (:accounts context)
-        [t1 t2 t3 t4] (:transactions context)
+        [checking] (:accounts context)
+        [_t1 _t2 t3] (:transactions context)
         updated (-> t3
                     (rename-keys {:transaction-date :original-transaction-date})
                     (assoc :transaction-date (t/local-date 2016 3 8)))
@@ -1026,7 +1017,7 @@
                                                      (= (:account-id item)
                                                         (:id pets)))
                                                    %)))
-        updated (transactions/update storage-spec to-update)
+        _ (transactions/update storage-spec to-update)
         expected-items [{:index 2
                          :quantity 101M
                          :balance 306M}
@@ -1056,7 +1047,7 @@
                                                     :account-id (:id pets)
                                                     :quantity 13M
                                                     :value 13M})))
-        updated (transactions/update storage-spec to-update)
+        _ (transactions/update storage-spec to-update)
         expected-items [{:index 1
                          :quantity 12M
                          :balance 25M}
@@ -1117,9 +1108,7 @@
 
 (deftest get-a-balance-delta
   (let [context (serialization/realize storage-spec balance-delta-context)
-        [checking
-         salary
-         groceries] (:accounts context)
+        [_ salary] (:accounts context)
         january (transactions/balance-delta storage-spec
                                             (:id salary)
                                             (t/local-date 2016 1 1)
@@ -1133,9 +1122,7 @@
 
 (deftest get-a-balance-as-of
   (let [context (serialization/realize storage-spec balance-delta-context)
-        [checking
-         salary
-         groceries] (:accounts context)
+        [checking] (:accounts context)
         january (transactions/balance-as-of storage-spec
                                             (:id checking)
                                             (t/local-date 2016 1 31))

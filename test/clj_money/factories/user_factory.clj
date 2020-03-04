@@ -1,5 +1,5 @@
 (ns clj-money.factories.user-factory
-  (:require [clj-factory.core :refer [deffactory defseq]]
+  (:require [clj-factory.core :refer [deffactory]]
             [faker.name :as names]
             [faker.internet :as internet]))
 

@@ -1,10 +1,7 @@
 (ns clj-money.models.imports-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
-            [clojure.java.io :as io]
             [environ.core :refer [env]]
-            [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.serialization :as serialization]
@@ -65,21 +62,21 @@
   (let [context (serialization/realize storage-spec import-context)
         result (imports/create storage-spec
                                (dissoc (attributes context) :user-id))]
-    (is (not (empty? (validation/error-messages result :user-id)))
+    (is (seq (validation/error-messages result :user-id))
         "There is a validation error on :user-id")))
 
 (deftest image-ids-is-required
   (let [context (serialization/realize storage-spec import-context)
         result (imports/create storage-spec
                                (dissoc (attributes context) :image-ids))]
-    (is (not (empty? (validation/error-messages result :image-ids)))
+    (is (seq (validation/error-messages result :image-ids))
         "There is a validation error on :image-ids")))
 
 (deftest entity-name-is-required
   (let [context (serialization/realize storage-spec import-context)
         result (imports/create storage-spec
                                (dissoc (attributes context) :entity-name))]
-    (is (not (empty? (validation/error-messages result :entity-name)))
+    (is (seq (validation/error-messages result :entity-name))
         "There is a validation error on :entity-name")))
 
 (deftest update-an-import
@@ -87,10 +84,10 @@
         import (imports/create storage-spec (attributes context))
         updated (assoc import :progress {:account {:total 20
                                                    :processed 0}})
-        result (try
-                 (imports/update storage-spec updated)
-                 (catch java.sql.BatchUpdateException e
-                   (pprint {:error (.getNextException e)})))
+        _ (try
+            (imports/update storage-spec updated)
+            (catch java.sql.BatchUpdateException e
+              (pprint {:error (.getNextException e)})))
         retrieved (imports/find-by-id storage-spec (:id import))]
     (is (= {:account {:total 20
                       :processed 0}}
@@ -129,6 +126,6 @@
       (is (empty? (imports/search storage-spec {:user-id (:id user)
                                                 :entity-name "same entity"}))
           "The import record is removed")
-      (is (not (empty? (images/search storage-spec {:user-id (:id user)
-                                                    :original-filename "sample_with_commodities.gnucash"})))
+      (is (seq (images/search storage-spec {:user-id (:id user)
+                                            :original-filename "sample_with_commodities.gnucash"}))
           "The image record is preserved"))))

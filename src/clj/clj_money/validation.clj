@@ -4,8 +4,7 @@
             [clojure.string :as string]
             [clojure.tools.logging :as log]
             [clj-money.inflection :refer [humanize]])
-  (:import org.joda.time.LocalDate
-           java.util.Date))
+  (:import org.joda.time.LocalDate))
 
 (def EmailPattern #"\A[\w\.-_]+@[\w\.-_]+\.\w{2,4}\z")
 

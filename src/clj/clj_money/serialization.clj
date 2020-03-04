@@ -320,24 +320,6 @@
   [context storage]
   (update-in context [:lots] #(create-lots storage context %)))
 
-(defn- find-lot
-  [context attr]
-  (let [{:keys [account-id
-                commodity-id
-                purchase-date]} (-> attr
-                                    (resolve-account context)
-                                    (resolve-commodity context))]
-    (->> context
-         :lots
-         (filter #(and (= account-id (:account-id %))
-                       (= commodity-id (:commodity-id %))
-                       (= purchase-date (:purchase-date %))))
-         first)))
-
-(defn- resolve-lot
-  [model context]
-  (update-in model [:lot-id] #(:id (find-lot context %))))
-
 (defn- resolve-transaction-item-ids
   [context account-id items]
   (mapv (fn [{:keys [transaction-date quantity]}]

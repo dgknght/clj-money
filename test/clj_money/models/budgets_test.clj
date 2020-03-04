@@ -1,14 +1,8 @@
 (ns clj-money.models.budgets-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.validation :as validation]
-            [clj-money.models.users :as users]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.serialization :as serialization]
             [clj-money.test-helpers :refer [reset-db
@@ -53,8 +47,7 @@
         "A query for budgets returns the new budget")))
 
 (deftest entity-id-is-required
-  (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)]
+  (let [context (serialization/realize storage-spec budget-context)]
     (assert-validation-error
       :entity-id
       "Entity id is required"
@@ -62,7 +55,6 @@
 
 (deftest name-is-required
   (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)
         result (budgets/create storage-spec (dissoc (attributes context) :name))]
     (assert-validation-error
       :name
@@ -71,7 +63,6 @@
 
 (deftest start-date-is-required
   (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)
         result (budgets/create storage-spec (dissoc (attributes context) :start-date))]
     (assert-validation-error
       :start-date
@@ -80,14 +71,12 @@
 
 (deftest start-date-can-be-a-string
   (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)
         result (budgets/create storage-spec (assoc (attributes context) :start-date "3/2/2016"))]
     (is (empty? (validation/error-messages result)) "The budget should be valid with a string start date.")
     (is (= (t/local-date 2016 3 2) (:start-date result)) "The result should have the correct start date value")))
 
 (deftest period-is-required
   (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)
         result (budgets/create storage-spec (dissoc (attributes context) :period))]
     (assert-validation-error
       :period
@@ -96,7 +85,6 @@
 
 (deftest period-must-be-week-month-or-quarter
   (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)
         result (budgets/create storage-spec (assoc (attributes context) :period :not-a-period))]
     (assert-validation-error
       :period
@@ -105,7 +93,6 @@
 
 (deftest period-count-is-required
   (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)
         result (budgets/create storage-spec (dissoc (attributes context) :period-count))]
     (assert-validation-error
       :period-count
@@ -114,7 +101,6 @@
 
 (deftest period-count-must-be-greater-than-zero
   (let [context (serialization/realize storage-spec budget-context)
-        entity (-> context :entities first)
         result (budgets/create storage-spec (assoc (attributes context) :period-count 0))]
     (assert-validation-error
       :period-count
@@ -167,15 +153,6 @@
     (is (= (t/local-date 2016 12 31)
            (:end-date retrieved))
         "The retrieved value reflects the recalculated end date")))
-
-(deftest find-a-budget-by-date
-  (let [context (serialization/realize storage-spec update-context)]
-    #_(testing "when no budget matches"
-      (is (nil? (budgets/find-by-date storage-spec (t/local-date 2016 1 1)))))
-    (testing "when a budget is mached"
-      (is (= "2017"
-             (:name (budgets/find-by-date storage-spec
-                                          (t/local-date 2017 1 1))))))))
 
 ;; Items
 (def budget-item-context
@@ -275,7 +252,7 @@
 
 (deftest update-a-budget-item
   (let [context (serialization/realize storage-spec update-budget-item-context)
-        [salary rent] (:accounts context)
+        [_ rent] (:accounts context)
         budget (-> context :budgets first)
         budget-item (->> budget
                          :items

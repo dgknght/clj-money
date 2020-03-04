@@ -160,7 +160,6 @@
                 resource-name
                 storage
                 delete-keys]
-         :as test-def
          :or {resource-name "resource"
               context 'context
               storage (env :db)

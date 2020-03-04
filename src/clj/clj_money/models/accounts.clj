@@ -14,8 +14,7 @@
                                               update-account
                                               delete-account]]
             [clj-money.models.entities :as entities]
-            [clj-money.models.commodities :as commodities])
-  (:import java.math.BigDecimal))
+            [clj-money.models.commodities :as commodities]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)

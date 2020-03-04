@@ -381,15 +381,6 @@
                      :class "btn btn-info"
                      :title "Click here to return to the account list."})])))
 
-(defn- refine-item
-  [item]
-  (-> item
-      (assoc :quantity (some item [:debit-quantity :credit-quantity]))
-      (assoc :action (if (:debit-quantity item)
-                       :debit
-                       :credit))
-      (dissoc :debit-quantity :credit-quantity)))
-
 (defn- post-transaction-save
   [page-state]
   (load-accounts page-state #(reset-item-loading page-state)))
@@ -543,18 +534,6 @@
                           (map :quantity)
                           first))
       (dissoc :items)))
-
-(defn- untradify
-  "Accepts a trade transaction and converts it into a regular transaction, more or less."
-  [transaction]
-  (-> transaction
-      (rename-keys {:trade-date :transaction-date})
-      (dissoc :shares :value :commodity-id)
-      (assoc :items [{:account-id (:id (:account-id transaction))
-                      :action :credit
-                      :quantity (or (:shares transaction) 0)}
-                     {:quantity (or (:shares transaction) 0)
-                      :action :debit}])))
 
 (defn- transaction-form-nav-items
   [page-state]

@@ -6,9 +6,7 @@
             [environ.core :refer [env]]
             [buddy.sign.jwt :as jwt]
             [clj-money.validation :as validation]
-            [clj-money.authorization :refer [authorize
-                                             tag-resource
-                                             apply-scope]]
+            [clj-money.authorization :refer [authorize]]
             [clj-money.models.users :as users]))
 
 (defn ->response
@@ -42,38 +40,6 @@
 (defn invalid->response
   [model]
   (->response {:message (validation/error-messages model)} 422))
-
-(defn index-resource
-  [search-fn params resource-type]
-  (->response (search-fn
-                (env :db)
-                (apply-scope params resource-type))))
-
-(defn- extract-validation-messages
-  [model]
-  {:message (str "The resource is not valid. " (validation/error-messages model))})
-
-(defn create-resource
-  [resource-type params create-fn]
-  (let [resource (-> params
-                     (tag-resource resource-type)
-                     (authorize :create))
-        result (create-fn (env :db) resource)]
-    (if (validation/has-error? result)
-      (status (->response (extract-validation-messages result)) 422)
-      (status (->response result) 201))))
-
-(defn update-resource
-  [params find-fn update-fn]
-  (if-let [resource (find-fn (env :db) params)]
-    (let [to-update (-> resource
-                        (authorize :update)
-                        (merge params))
-          result (update-fn (env :db) to-update)]
-      (if (validation/has-error? result)
-        (status (->response result) 422)
-        (status (->response result) 200)))
-    (status (->response {}) 404)))
 
 (defn delete-resource
   [id user find-fn delete-fn]

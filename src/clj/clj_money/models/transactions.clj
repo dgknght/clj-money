@@ -87,11 +87,6 @@
           model
           keys))
 
-(defn- to-entity-currency
-  [amount _account]
-  ; TODO look up the entity currency and convert if needed
-  amount)
-
 (defn- before-save-item
   "Makes pre-save adjustments for a transaction item"
   [item]
@@ -158,7 +153,7 @@
 
     (and
       (string? (:id item))
-      (not (empty? (:id item))))
+      (seq (:id item)))
     (update-in [:id] #(UUID/fromString %)))) ; TODO: use coercion rule for this
 
 (def ^:private coercion-rules
@@ -433,17 +428,6 @@
   [storage-spec criteria]
   (with-storage [s storage-spec]
     (select-transactions s criteria {:count true})))
-
-(defn- create-transaction-and-lot-links
-  [storage transaction]
-  (let [result (create-transaction storage transaction)]
-    (when-let [lot-items (:lot-items transaction)]
-      (doseq [lot-item lot-items]
-        (create-lot->transaction-link storage
-                                      (assoc lot-item
-                                             :transaction-id
-                                             (:id result)))))
-    result))
 
 (defn- create-transaction-item*
   [storage item]

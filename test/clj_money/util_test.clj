@@ -1,8 +1,6 @@
 (ns clj-money.util-test
   (:refer-clojure :exclude [update])
-  (:require [clojure.test :refer :all]
-            [clojure.data :refer [diff]]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.test :refer [deftest is testing]]
             [clj-time.core :as t]
             [clj-money.util :refer [parse-local-date
                                     format-date

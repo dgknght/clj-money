@@ -261,11 +261,6 @@
   [storage-spec {id :id}]
   (find-by-id storage-spec id))
 
-(defn- set-account-id
-  [storage reconciliation]
-  (let [existing (find-by-id storage (Integer. (:id reconciliation)))]
-    (assoc reconciliation :account-id (:account-id existing))))
-
 (def update
   (update-fn {:spec ::existing-reconciliation
               :before-validation before-validation

@@ -66,14 +66,6 @@
   [[response]]
   (assert-not-found response))
 
-(defn- assert-successful-list
-  [[response body]]
-  (assert-successful response)
-  (is (= [{:symbol "MSFT"}
-          {:symbol "USD"}]
-         (map #(select-keys % [:symbol]) body))
-      "The correct entities are returned"))
-
 (deftest a-user-can-get-a-count-of-commodities-in-his-entity
   (assert-successful-count (get-a-count-of-commodities "john@doe.com")))
 

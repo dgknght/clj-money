@@ -1,6 +1,6 @@
 (ns clj-money.factories.account-factory
   (:require [clojure.string :as s]
-            [clj-factory.core :refer [deffactory defseq]]
+            [clj-factory.core :refer [deffactory]]
             [faker.lorem :as lorem]))
 
 (deffactory :account

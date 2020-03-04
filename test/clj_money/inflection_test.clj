@@ -1,6 +1,9 @@
 (ns clj-money.inflection-test
-  (:require [clojure.test :refer :all])
-  (:use [clj-money.inflection]))
+  (:require [clojure.test :refer [deftest is]]
+            [clj-money.inflection :refer [humanize
+                                          keywordize
+                                          ordinal
+                                          singular]]))
 
 (deftest humanize-a-keyword
   (let [tests [{:input :test      :expected "Test"}

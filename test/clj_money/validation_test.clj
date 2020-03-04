@@ -1,7 +1,6 @@
 (ns clj-money.validation-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest testing is]]
             [clojure.spec.alpha :as s]
-            [clojure.pprint :refer [pprint]]
             [clj-money.validation :as validation]))
 
 (s/def ::person (s/keys :req-un [::first-name ::last-name]))

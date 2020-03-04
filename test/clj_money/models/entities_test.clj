@@ -1,15 +1,16 @@
 (ns clj-money.models.entities-test
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-money.validation :as validation]
             [clj-money.serialization :as serialization]
             [clj-money.models.entities :as entities]
-            [clj-money.models.users :as users]
             [clj-factory.core :refer [factory]]
-            [clj-money.factories.user-factory])
-  (:use [clj-money.test-helpers :refer :all]))
+            [clj-money.factories.user-factory]
+            [clj-money.test-helpers :refer [reset-db
+                                            find-users
+                                            assert-validation-error]]))
 
 (def storage-spec (env :db))
 
@@ -41,8 +42,7 @@
           (is (number? (:id other-entity))))))))
 
 (deftest attempt-to-create-an-invalid-entity
-  (let [context (serialization/realize storage-spec entity-context)
-        user (-> context :users first)]
+  (let [context (serialization/realize storage-spec entity-context)]
     (testing "Name is required"
       (assert-validation-error
         :name
@@ -58,7 +58,7 @@
 (deftest select-entities-for-a-user
   (let [context (serialization/realize storage-spec entity-context)
         [user other-user] (:users context)
-        other-entity (entities/create storage-spec {:name "Other entity"
+        _ (entities/create storage-spec {:name "Other entity"
                                                     :user-id (:id other-user)})
         _ (mapv #(entities/create storage-spec {:name %
                                                 :user-id (:id user)})
@@ -122,7 +122,7 @@
                   :settings {:monitored-account-ids [1 2]}}
         actual (dissoc retrieved :updated-at :created-at)]
 
-    (if (validation/has-error? result)
+    (when (validation/has-error? result)
       (pprint {:result result}))
 
     (is (= "Entity Y" (:name result)) "The result contains the correct values")

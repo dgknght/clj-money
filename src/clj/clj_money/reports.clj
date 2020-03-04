@@ -55,7 +55,7 @@
 
 (defn- default-commodity?
   [entity commodity]
-  (if (= :currency (:type commodity))
+  (when (= :currency (:type commodity))
     (if-let [id (-> entity :settings :default-commodity-id)]
       (= id (:id commodity))
       true))) ; assume default commodity id will be set if there is more than one commodity

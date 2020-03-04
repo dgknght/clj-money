@@ -1,12 +1,8 @@
 (ns clj-money.models.reconciliations-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
-            [clj-money.util :refer [pprint-and-return]]
-            [clj-money.test-helpers :refer [reset-db
-                                            assert-validation-error]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.serialization :as serialization]
             [clj-money.validation :as validation]
             [clj-money.models.reconciliations :as reconciliations]
@@ -91,13 +87,6 @@
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
-        [paycheck
-         landlord
-         kroger
-         safeway] (->> context
-                       :transactions
-                       (mapcat :items)
-                       (filter #(= (:id checking) (:account-id %))))
         reconciliation {:account-id (:id checking)
                         :balance 447M
                         :end-of-period (t/local-date 2017 1 31)}
@@ -122,7 +111,7 @@
         checking (-> context :accounts first)
         [paycheck
          landlord
-         kroger
+         _
          safeway] (->> context
                        :transactions
                        (mapcat :items)
@@ -163,7 +152,7 @@
         checking (-> context :accounts first)
         [paycheck
          landlord
-         kroger
+         _
          safeway] (->> context
                        :transactions
                        (mapcat :items)
@@ -179,7 +168,7 @@
         checking (-> context :accounts first)
         [paycheck
          landlord
-         kroger
+         _
          safeway] (->> context
                        :transactions
                        (mapcat :items)
@@ -244,7 +233,7 @@
         checking (-> context :accounts first)
         [paycheck
          landlord
-         kroger
+         _
          safeway] (->> context
                        :transactions
                        (mapcat :items)
@@ -261,13 +250,6 @@
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
-        [paycheck
-         landlord
-         kroger
-         safeway] (->> context
-                       :transactions
-                       (mapcat :items)
-                       (filter #(= (:id checking) (:account-id %))))
         result (reconciliations/create storage-spec
                                        {:account-id (:id checking)
                                         :end-of-period (t/local-date 2017 1 31)})]
@@ -277,13 +259,6 @@
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
-        [paycheck
-         landlord
-         kroger
-         safeway] (->> context
-                       :transactions
-                       (mapcat :items)
-                       (filter #(= (:id checking) (:account-id %))))
         result (reconciliations/create storage-spec
                                        {:account-id (:id checking)
                                         :end-of-period (t/local-date 2017 1 31)
@@ -294,13 +269,6 @@
   (let [context (serialization/realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
-        [paycheck
-         landlord
-         kroger
-         safeway] (->> context
-                       :transactions
-                       (mapcat :items)
-                       (filter #(= (:id checking) (:account-id %))))
         result (reconciliations/create storage-spec
                                        {:account-id (:id checking)
                                         :end-of-period (t/local-date 2017 1 31)
@@ -383,7 +351,6 @@
 (deftest a-working-reconciliation-can-be-completed
   (let [context (serialization/realize storage-spec
                                        working-reconciliation-context)
-        checking (-> context :accounts first)
         reconciliation (-> context :reconciliations last)
         updated (assoc reconciliation :status :completed)
         result (reconciliations/update storage-spec updated)
@@ -439,7 +406,7 @@
     (is (do
           (try
             (transactions/delete storage-spec transaction-id date)
-            (catch clojure.lang.ExceptionInfo e nil))
+            (catch clojure.lang.ExceptionInfo _ nil))
           (transactions/find-by-item-id storage-spec item-id date))
         "The transaction can be retrieved after the delete has been denied")))
 
@@ -477,7 +444,7 @@
              (reconciliations/delete storage-spec (:id reconciliation)))
         "an exception should be thrown")
     (is (reconciliations/find-by-id storage-spec (:id reconciliation)) "The reconciliation can still be retrieved")
-    (is (not (empty? (transactions/select-items-by-reconciliation storage-spec reconciliation)))
+    (is (seq (transactions/select-items-by-reconciliation storage-spec reconciliation))
         "The transaction items are still associated with the reconciliation")))
 
 (deftest check-if-a-transaction-can-be-deleted

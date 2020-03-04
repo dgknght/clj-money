@@ -1,7 +1,5 @@
 (ns clj-money.models.commodities-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
@@ -193,14 +191,8 @@
   (let [context (serialization/realize storage-spec commodity-context)
         entity-1 (-> context :entities first)
         entity-2 (-> context :entities second)
-        c1 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
+        _ (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
         c2 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-2)))]
-    (is (empty? (validation/error-messages c2)))))
-
-(deftest name-can-be-duplicated-between-exchanges
-  (let [context (serialization/realize storage-spec commodity-context)
-        c1 (commodities/create storage-spec (assoc (attributes context) :exchange :nasdaq))
-        c2 (commodities/create storage-spec (assoc (attributes context) :exchange :nyse))]
     (is (empty? (validation/error-messages c2)))))
 
 (deftest symbol-is-required
@@ -235,7 +227,7 @@
 
 (deftest symbol-can-be-duplicated-between-exchanges
   (let [context (serialization/realize storage-spec commodity-context)
-        c1 (commodities/create storage-spec (assoc (attributes context) :exchange :nasdaq))
+        _ (commodities/create storage-spec (assoc (attributes context) :exchange :nasdaq))
         c2 (commodities/create storage-spec (assoc (attributes context) :exchange :nyse))]
     (is (empty? (validation/error-messages c2)))))
 
@@ -243,7 +235,7 @@
   (let [context (serialization/realize storage-spec commodity-context)
         entity-1 (-> context :entities first)
         entity-2 (-> context :entities second)
-        c1 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
+        _ (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
         c2 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-2)))]
     (is (empty? (validation/error-messages c2)))))
 
@@ -293,37 +285,31 @@
 
 (deftest exchange-can-be-nasdaq
   (let [context (serialization/realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
         commodity (assoc (attributes context)
                          :exchange :nasdaq
                          :symbol "APPL"
                          :name "Apple")
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create storage-spec commodity)]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")))
 
 (deftest exchange-can-be-nyse
   (let [context (serialization/realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
         commodity (assoc (attributes context)
                          :exchange :nyse
                          :symbol "HD"
                          :name "Home Depot")
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create storage-spec commodity)]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")))
 
 (deftest exchange-must-be-valid
   (let [context (serialization/realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
         commodity (assoc (attributes context)
                          :exchange :not-a-valid-exchange
                          :symbol "NUNYA"
                          :name "None of your business")
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create storage-spec commodity)]
     (is (= ["Exchange must be one of: amex, nasdaq, nyse"]
            (validation/error-messages result :exchange))
         "The result has an error messages")))
@@ -370,7 +356,7 @@
         prices-before (prices/search storage-spec criteria)
         _ (commodities/delete storage-spec (:id commodity))
         prices-after (prices/search storage-spec criteria)]
-    (is (not (empty? prices-before))
+    (is (seq prices-before)
         "The commodity prices exist before delete")
     (is (empty? prices-after)
         "The commodity prices are absent after delete")))

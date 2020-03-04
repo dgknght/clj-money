@@ -121,14 +121,6 @@
       (update-in [:start-date] to-sql-date)
       (update-in [:period] name)))
 
-(defn- period-count-must-be-greater-than-one
-  [{period-count :period-count :as budget}]
-  {:model budget
-   :errors (if (and period-count
-                    (> 1 period-count))
-             [[:period-count "Period count must be greater than zero"]]
-             [])})
-
 (def create
   (create-fn {:before-save before-save
               :create (rev-args create-budget)

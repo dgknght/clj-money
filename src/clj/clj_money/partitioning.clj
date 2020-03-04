@@ -69,9 +69,6 @@
    :transactions
    :transaction_items])
 
-(def ^:private create-table-format
-  "create table %s (check (transaction_date >= '%s' and transaction_date < '%s')) inherits (%s_base);")
-
 (defmulti ^:private period-range partition-period)
 
 (defmethod period-range :year

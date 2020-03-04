@@ -99,13 +99,13 @@
                                                                 (:id account)))]]]))))
 
 (defn new-reconciliation
-  [{{account-id :account-id :as params} :params}]
+  [{{account-id :account-id :as params} :params authenticated :authenticated}]
   (let [reconciliation (reconciliations/find-working (env :db) account-id)]
     (if reconciliation
       (redirect (format "/reconciliations/%s/edit" (:id reconciliation)))
       (reconciliation-form (-> params
                                (tag-resource :reconciliation)
-                               (authorize :create))))))
+                               (authorize :create authenticated))))))
 
 (defn create
   [{params :params}]

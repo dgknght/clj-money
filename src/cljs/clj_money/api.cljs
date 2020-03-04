@@ -86,9 +86,7 @@
   ([path success-fn error-fn]
    (get-resource path {} success-fn error-fn))
   ([path criteria success-fn error-fn]
-   (get-resource path criteria {} success-fn error-fn))
-  ([path criteria options success-fn error-fn]
-   (get-resources path criteria options (comp success-fn first) error-fn)))
+   (get-resource path criteria success-fn error-fn)))
 
 (defn create-resource
   [path model success-fn error-fn]

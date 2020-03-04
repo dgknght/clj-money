@@ -1,7 +1,5 @@
 (ns clj-money.coercion-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest is]]
             [clj-time.core :as t]
             [clj-money.coercion :as coercion]))
 

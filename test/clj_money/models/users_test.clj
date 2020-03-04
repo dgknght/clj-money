@@ -1,7 +1,5 @@
 (ns clj-money.models.users-test
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.models.users :as users]

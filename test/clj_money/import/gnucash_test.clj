@@ -1,21 +1,13 @@
 (ns clj-money.import.gnucash-test
   (:refer-clojure :exclude [update])
-  (:require [clojure.test :refer :all]
+  (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
-            [clojure.core.async :refer [chan <!! <! go-loop] :as async]
+            [clojure.core.async :refer [chan <!!] :as async]
             [clj-time.core :as t]
-            [environ.core :refer [env]]
-            [clj-factory.core :refer [factory]]
-            [clj-money.serialization :as serialization]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
-            [clj-money.models.entities :as entities]
-            [clj-money.reports :as reports]
+            [clj-money.test-helpers :refer [pprint-diff]]
             [clj-money.import :refer [read-source]]
-            [clj-money.import.gnucash :as gnucash]))
+            [clj-money.import.gnucash]))
 
 (defn- input []
   [(io/input-stream "resources/fixtures/budget_sample.gnucash")])

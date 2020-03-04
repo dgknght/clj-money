@@ -1,5 +1,5 @@
 (ns clj-money.api.trading-test
-  (:require [clojure.test :refer [deftest use-fixtures testing is]]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]

@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.util :refer [format-number]]
             [clj-money.validation :as validation]

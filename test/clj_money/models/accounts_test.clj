@@ -348,7 +348,7 @@
 
 (deftest change-an-account-parent
   (let [context (serialization/realize storage-spec same-parent-context)
-        [current fixed house] (:accounts context)
+        [_ fixed house] (:accounts context)
         updated (assoc house :parent-id (:id fixed))
         result (accounts/update storage-spec updated)
         retrieved (accounts/reload storage-spec updated)]

@@ -1,7 +1,5 @@
 (ns clj-money.models.images-test
-  (:require [clojure.test :refer :all]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
+  (:require [clojure.test :refer [deftest use-fixtures is]]
             [clojure.java.io :as io]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
@@ -37,13 +35,13 @@
 (deftest user-id-is-required
   (let [context (serialization/realize storage-spec image-context)
         result (images/create storage-spec (dissoc (attributes context) :user-id))]
-    (is (not (empty? (validation/error-messages result :user-id)))
+    (is (seq (validation/error-messages result :user-id))
         "The result has a validation error on :user-id")))
 
 (deftest original-filename-is-required
   (let [context (serialization/realize storage-spec image-context)
         result (images/create storage-spec (dissoc (attributes context) :original-filename))]
-    (is (not (empty? (validation/error-messages result :original-filename)))
+    (is (seq (validation/error-messages result :original-filename))
         "The result has a validation error on :original-filename")))
 
 (deftest body-hash-is-generated
@@ -57,15 +55,15 @@
 
 (deftest body-hash-is-unique-for-each-user
   (let [context (serialization/realize storage-spec image-context)
-        image-1 (images/create storage-spec (attributes context))
+        _ (images/create storage-spec (attributes context))
         image-2 (images/create storage-spec (attributes context))]
-    (is (not (empty? (validation/error-messages image-2 :body-hash)))
+    (is (seq (validation/error-messages image-2 :body-hash))
         "The result has a validation error on :body")))
 
 (deftest body-is-required
   (let [context (serialization/realize storage-spec image-context)
         result (images/create storage-spec (dissoc (attributes context) :body))]
-    (is (not (empty? (validation/error-messages result :body)))
+    (is (seq (validation/error-messages result :body))
         "The result has a validation error on :body")))
 
 (deftest content-type-is-required
@@ -74,5 +72,5 @@
                                                         :content-type))]
     (is (not (validation/valid? result))
         "The value can be retreived from the database")
-    (is (not (empty? (validation/error-messages result :content-type)))
+    (is (seq (validation/error-messages result :content-type))
         "The content-type attribute has an error message")))
