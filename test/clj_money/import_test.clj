@@ -10,7 +10,7 @@
             [clj-money.util :refer [file-ext
                                     file-name]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.serialization :as serialization]
+            [clj-money.test-context :refer [realize]]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff]]
@@ -215,13 +215,13 @@
 
 (deftest import-a-simple-gnucash-file
   (test-import
-    (serialization/realize
+    (realize
       storage-spec
       (import-context :gnucash))))
 
 (deftest import-a-simple-edn-file
   (test-import
-    (serialization/realize
+    (realize
       storage-spec
       (import-context :edn))))
 
@@ -237,7 +237,7 @@
               :image-ids ["budget_sample.gnucash"]}]})
 
 (deftest receive-updates-asynchronously
-  (let [context (serialization/realize
+  (let [context (realize
                   storage-spec
                   (import-context :gnucash))
         imp (-> context :imports first)
@@ -253,7 +253,7 @@
     (shutdown-agents)))
 
 (deftest import-a-budget
-  (let [context (serialization/realize storage-spec import-budget-context)
+  (let [context (realize storage-spec import-budget-context)
         user (-> context :users first)
         imp (-> context :imports first)
         _ (import-data storage-spec imp (nil-chan) {:atomic? true})
@@ -311,7 +311,7 @@
      :price 12M}})
 
 (deftest import-commodities
-  (let [context (serialization/realize storage-spec commodities-context)
+  (let [context (realize storage-spec commodities-context)
         imp (-> context :imports first)
         {:keys [entity]} (import-data storage-spec imp (nil-chan) {:atomic? true})
         account (->> {:entity-id (:id entity)}
@@ -356,7 +356,7 @@
               :image-ids ["sample_with_commodities_ext.gnucash"]}]})
 
 (deftest import-commodities-with-extended-actions
-  (let [context (serialization/realize storage-spec ext-commodities-context)
+  (let [context (realize storage-spec ext-commodities-context)
         {:keys [entity]} (import-data storage-spec
                                       (-> context :imports first)
                                       (nil-chan)

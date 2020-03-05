@@ -11,12 +11,12 @@
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found]]
             [clj-money.test-helpers :refer [reset-db
-                                            selective=
+                                            selective=]]
+            [clj-money.test-context :refer [realize
                                             find-entity
                                             find-user
                                             find-account
                                             find-commodity]]
-            [clj-money.serialization :refer [realize]]
             [clj-money.models.transactions :as trans]
             [clj-money.models.lots :as lots]
             [clj-money.web.server :refer [app]]))

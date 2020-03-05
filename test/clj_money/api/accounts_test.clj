@@ -5,13 +5,13 @@
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=
+            [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity
                                             find-commodity
                                             find-account]]
+            [clj-money.test-helpers :refer [reset-db
+                                            selective=]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found]]
@@ -38,7 +38,7 @@
 
 (defn- create-an-account
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         usd (find-commodity ctx "USD")
@@ -78,7 +78,7 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         entity (find-entity ctx "Personal")
         user (find-user ctx email)
         response (app (-> (req/request :get (path :api
@@ -110,7 +110,7 @@
 
 (defn- get-an-account
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         checking (find-account ctx "Checking")
         user (find-user ctx email)
         response (app (-> (req/request :get (path :api
@@ -140,7 +140,7 @@
 
 (defn- update-an-account
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         account (find-account ctx "Checking")
         user (find-user ctx email)
         response (app (-> (req/request :patch (path :api
@@ -179,7 +179,7 @@
 
 (defn- delete-an-account
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         account (find-account ctx "Checking")
         user (find-user ctx email)
         response (app (-> (req/request :delete (path :api

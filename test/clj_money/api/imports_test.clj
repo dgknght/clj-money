@@ -7,13 +7,13 @@
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
-                                            selective=
-                                            find-user
-                                            find-import]]
+                                            selective=]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found]]
-            [clj-money.serialization :as serialization]
+            [clj-money.test-context :refer [realize
+                                            find-user
+                                            find-import]]
             [clj-money.x-platform.util :refer [path]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.imports :as imports]
@@ -73,7 +73,7 @@
               :user-id (:user-id imp)}}))
 
 (deftest a-user-can-create-an-import
-  (let [ctx (serialization/realize (env :db) create-context)
+  (let [ctx (realize (env :db) create-context)
         user (find-user ctx "john@doe.com")
         source-file (io/file (io/resource "fixtures/sample.gnucash"))
         calls (atom [])
@@ -108,7 +108,7 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         response (-> (req/request :get (path :api :imports))
                      (add-auth user)
@@ -141,7 +141,7 @@
 
 (defn- get-an-import
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         imp (find-import ctx "Personal")
         response (-> (req/request :get (path :api :imports (:id imp)))
@@ -168,7 +168,7 @@
 
 (defn- delete-import
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         imp (find-import ctx "Personal")
         response (-> (req/request :delete (path :api :imports (:id imp)))
@@ -197,7 +197,7 @@
 
 (defn- start-import
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         imp (find-import ctx "Personal")
         calls (atom [])

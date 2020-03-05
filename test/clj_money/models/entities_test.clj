@@ -4,12 +4,12 @@
             [clojure.data :refer [diff]]
             [environ.core :refer [env]]
             [clj-money.validation :as validation]
-            [clj-money.serialization :as serialization]
+            [clj-money.test-context :refer [realize
+                                            find-users]]
             [clj-money.models.entities :as entities]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
-                                            find-users
                                             assert-validation-error]]))
 
 (def storage-spec (env :db))
@@ -27,7 +27,7 @@
 
 (deftest create-an-entity
   (testing "An entity can be created with valid attributes"
-    (let [context (serialization/realize storage-spec entity-context)
+    (let [context (realize storage-spec entity-context)
           [user other-user] (:users context)
           actual (entities/create storage-spec (attributes context))
           expected {:name "Personal"
@@ -42,7 +42,7 @@
           (is (number? (:id other-entity))))))))
 
 (deftest attempt-to-create-an-invalid-entity
-  (let [context (serialization/realize storage-spec entity-context)]
+  (let [context (realize storage-spec entity-context)]
     (testing "Name is required"
       (assert-validation-error
         :name
@@ -56,7 +56,7 @@
         (entities/create storage-spec (attributes context))))))
 
 (deftest select-entities-for-a-user
-  (let [context (serialization/realize storage-spec entity-context)
+  (let [context (realize storage-spec entity-context)
         [user other-user] (:users context)
         _ (entities/create storage-spec {:name "Other entity"
                                                     :user-id (:id other-user)})
@@ -84,7 +84,7 @@
                        :permissions {:account #{:index}}}])))
 
 (deftest select-owned-and-granted-entities-for-a-user
-  (let [context (serialization/realize storage-spec grants-context)
+  (let [context (realize storage-spec grants-context)
         [john jane] (find-users context "john@doe.com" "jane@doe.com")
         expected #{{:name "Personal"
                     :user-id (:id john)}
@@ -101,13 +101,13 @@
         "The correct entities are returned")))
 
 (deftest find-an-entity-by-id
-  (let [context (serialization/realize storage-spec entity-context)
+  (let [context (realize storage-spec entity-context)
         entity (entities/create storage-spec (attributes context))
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (= entity retrieved))))
 
 (deftest update-an-entity
-  (let [context (serialization/realize storage-spec entity-context)
+  (let [context (realize storage-spec entity-context)
         user (-> context :users first)
         entity (entities/create storage-spec {:name "Entity X"
                                               :user-id (:id user)})
@@ -135,14 +135,14 @@
     (is (= expected actual) "The retreived value has the correct values")))
 
 (deftest delete-an-entity
-  (let [context (serialization/realize storage-spec entity-context)
+  (let [context (realize storage-spec entity-context)
         entity (entities/create storage-spec (attributes context))
         _ (entities/delete storage-spec (:id entity))
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (nil? retrieved) "The entity is not returned after delete")))
 
 (deftest inventory-method-can-be-lifo
-  (let [context (serialization/realize storage-spec entity-context)
+  (let [context (realize storage-spec entity-context)
         entity (entities/create storage-spec
                                 (-> context
                                     attributes
@@ -150,7 +150,7 @@
     (is (empty? (validation/error-messages entity)) "The entity is valid")))
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
-  (let [context (serialization/realize storage-spec entity-context)
+  (let [context (realize storage-spec entity-context)
         entity (entities/create storage-spec
                                 (-> context
                                     attributes

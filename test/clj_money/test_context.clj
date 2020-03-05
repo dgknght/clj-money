@@ -1,4 +1,4 @@
-(ns clj-money.serialization
+(ns clj-money.test-context
   (:require [clj-money.io :refer [read-bytes]]
             [clj-money.models.helpers :refer [with-storage]]
             [clj-money.validation :as validation]
@@ -16,7 +16,94 @@
             [clj-money.models.images :as images]
             [clj-money.models.imports :as imports]
             [clj-money.models.identities :as idents]
-            [clj-money.trading :as trading]))
+            [clj-money.trading :as trading])
+  (:import org.joda.time.LocalDate))
+
+(defn- find-in-context
+  [context model-group-key model-id-key model-id]
+  (->> context
+       model-group-key
+       (filter #(= model-id (model-id-key %)))
+       first))
+
+(defn find-user
+  [context email]
+  (find-in-context context :users :email email))
+
+(defn find-users
+  [context & emails]
+  (map #(find-user context %) emails))
+
+(defn find-entity
+  [context entity-name]
+  (find-in-context context :entities :name entity-name))
+
+(defn find-entities
+  [context & entity-names]
+  (map #(find-entity context %) entity-names))
+
+(defn find-import
+  [context entity-name]
+  (find-in-context context :imports :entity-name entity-name))
+
+(defn find-imports
+  [context & entity-names]
+  (map #(find-import context %) entity-names))
+
+(defn find-grant
+  [context entity-id user-id]
+  (->> context
+       :grants
+       (filter #(and (= entity-id (:entity-id %))
+                     (= user-id (:user-id %))))
+       first))
+
+(defn find-account
+  [context account-name]
+  (find-in-context context :accounts :name account-name))
+
+(defn find-accounts
+  [context & account-names]
+  (map #(find-account context %) account-names))
+
+(defn find-attachment
+  [context caption]
+  (find-in-context context :attachments :caption caption))
+
+(defn find-image
+  [context original-filename]
+  (find-in-context context :images :original-filename original-filename))
+
+(defn find-commodity
+  [context symbol]
+  (find-in-context context :commodities :symbol symbol))
+
+(defn find-commodities
+  [context & symbols]
+  (map #(find-commodity context %) symbols))
+
+(defn find-budget
+  [context budget-name]
+  (find-in-context context :budgets :name budget-name))
+
+(defn find-price
+  [context sym trade-date]
+  (let [commodity (find-commodity context sym)]
+    (->> context
+         :prices
+         (filter #(and (= (:id commodity) (:commodity-id %))
+                       (= trade-date (:trade-date %))))
+         first)))
+
+(defn find-transaction
+  [context transaction-date description]
+  {:pre [(string? description) (instance? LocalDate transaction-date)]}
+
+  (->> context
+       :transactions
+       (filter #(and (= transaction-date (:transaction-date %))
+                     (= description (:description %))))
+       first))
 
 (defn- throw-on-invalid
   [model]
@@ -36,20 +123,14 @@
   [context storage]
   (update-in context [:users] #(create-users storage %)))
 
-(defn- find-user
-  [context email]
-  (->> context
-       :users
-       (filter #(or (nil? email)
-                    (= email (:email %))))
-       first))
-
 (defn- resolve-user
   [model context]
-  (update-in model [:user-id] #(:id (find-user context %))))
+  (assoc model :user-id (:id (if-let [id (:user-id model)]
+                               (find-user context id)
+                               (-> context :users first)))))
 
 (defn- create-entities
-  [storage context entities]
+  [entities storage context]
   (mapv (fn [attributes]
           (if (:id attributes)
             attributes
@@ -60,13 +141,7 @@
 
 (defn- realize-entities
   [context storage]
-  (update-in context [:entities] #(create-entities storage context %)))
-
-(defn- find-entity
-  [context entity-name]
-  (->> (:entities context)
-       (filter #(= (:name %) entity-name))
-       first))
+  (update-in context [:entities] create-entities storage context))
 
 (defn- resolve-entity
   [model context]
@@ -93,13 +168,6 @@
     (let [parent (accounts/find-by-name storage (:entity-id account) (:parent-id account))]
       (assoc account :parent-id (:id parent)))
     account))
-
-(defn- find-commodity
-  [context symbol]
-  (->> context
-       :commodities
-       (filter #(= (:symbol %) symbol))
-       first))
 
 (defn- resolve-commodity
   [model context]
@@ -137,13 +205,6 @@
 (defn- realize-accounts
   [context storage]
   (update-in context [:accounts] #(create-accounts storage context %)))
-
-(defn- find-account
-  [context account-name]
-  (->> context
-       :accounts
-       (filter #(= account-name (:name %)))
-       first))
 
 (defn- resolve-account
   [model context]
@@ -206,22 +267,15 @@
                                       (map (juxt :id :transaction-date))
                                       first))))
 
-(defn- find-image
-  [original-filename context]
-  (->> (:images context)
-       (filter #(= original-filename (:original-filename %)))
-       first))
-
 (defn- resolve-image
   [model context]
-  (update-in model [:image-id] #(:id (find-image % context))))
+  (update-in model [:image-id] #(:id (find-image context %))))
 
 (defn- resolve-images
   [model context]
-  (update-in model [:image-ids] #(->> %
-                                      (map (fn [filename]
-                                             (find-image filename context)))
-                                      (map :id))))
+  (update-in model [:image-ids] (fn [file-names]
+                                  (map (comp :id #(find-image context %))
+                                       file-names))))
 
 (defn- create-attachment
   [model storage]

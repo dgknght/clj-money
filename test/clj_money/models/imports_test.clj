@@ -4,11 +4,11 @@
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
+            [clj-money.test-context :refer [realize
                                             find-user
                                             find-imports]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.validation :as validation]
             [clj-money.models.imports :as imports]
             [clj-money.models.images :as images]))
@@ -29,7 +29,7 @@
                                    :image-ids ["sample.gnucash"]}]))
 
 (deftest get-a-list-of-imports
-  (let [context (serialization/realize storage-spec existing-imports-context)
+  (let [context (realize storage-spec existing-imports-context)
         user (-> context :users first)
         actual (map #(dissoc % :id :created-at :updated-at)
                     (imports/search storage-spec
@@ -51,7 +51,7 @@
                    (take 1))})
 
 (deftest create-an-import
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (realize storage-spec import-context)
         result (imports/create storage-spec (attributes context))]
 
     (is (empty? (validation/error-messages result))
@@ -59,28 +59,28 @@
     (is (:id result) "It assigns an ID to the result")))
 
 (deftest user-id-is-required
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (realize storage-spec import-context)
         result (imports/create storage-spec
                                (dissoc (attributes context) :user-id))]
     (is (seq (validation/error-messages result :user-id))
         "There is a validation error on :user-id")))
 
 (deftest image-ids-is-required
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (realize storage-spec import-context)
         result (imports/create storage-spec
                                (dissoc (attributes context) :image-ids))]
     (is (seq (validation/error-messages result :image-ids))
         "There is a validation error on :image-ids")))
 
 (deftest entity-name-is-required
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (realize storage-spec import-context)
         result (imports/create storage-spec
                                (dissoc (attributes context) :entity-name))]
     (is (seq (validation/error-messages result :entity-name))
         "There is a validation error on :entity-name")))
 
 (deftest update-an-import
-  (let [context (serialization/realize storage-spec import-context)
+  (let [context (realize storage-spec import-context)
         import (imports/create storage-spec (attributes context))
         updated (assoc import :progress {:account {:total 20
                                                    :processed 0}})
@@ -107,7 +107,7 @@
                                      :body "resources/fixtures/sample_with_commodities.gnucash"}))))
 
 (deftest delete-an-import
-  (let [context (serialization/realize storage-spec delete-context)
+  (let [context (realize storage-spec delete-context)
         user (find-user context "john@doe.com")
         [import-entity
          same-entity] (find-imports context

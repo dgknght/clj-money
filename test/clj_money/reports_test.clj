@@ -6,15 +6,15 @@
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.core]
-            [clj-money.serialization :as serialization]
-            [clj-money.factories.user-factory]
-            [clj-money.trading :as trading]
-            [clj-money.reports :as reports]
-            [clj-money.test-helpers :refer [reset-db
+            [clj-money.test-context :refer [realize
                                             find-account
                                             find-accounts
                                             find-commodity
-                                            find-commodities]]))
+                                            find-commodities]]
+            [clj-money.factories.user-factory]
+            [clj-money.trading :as trading]
+            [clj-money.reports :as reports]
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (def storage-spec (env :db))
 
@@ -204,7 +204,7 @@
                                           :quantity 700M}]}]}))
 
 (deftest create-an-income-statement
-  (let [context (serialization/realize storage-spec report-context)
+  (let [context (realize storage-spec report-context)
         actual (into [] (reports/income-statement storage-spec
                                                   (-> context :entities first :id)
                                                   (t/local-date 2016 1 1)
@@ -249,7 +249,7 @@
     (is (= expected actual) "The report renders the corect data")))
 
 (deftest create-a-balance-sheet-report
-  (let [context (serialization/realize storage-spec report-context)
+  (let [context (realize storage-spec report-context)
         actual (reports/balance-sheet storage-spec
                                       (-> context :entities first :id)
                                       (t/local-date 2016 1 31))
@@ -323,7 +323,7 @@
                        :commodity-id "MSFT"}])))
 
 (deftest balance-sheet-report-with-commodities
-  (let [context (serialization/realize storage-spec commodities-context)
+  (let [context (realize storage-spec commodities-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/buy storage-spec {:account-id (:id ira)
@@ -373,7 +373,7 @@
     (is (= expected report) "The report contains the correct data")))
 
 (deftest create-a-commodities-account-summary
-  (let [context (serialization/realize storage-spec commodities-context)
+  (let [context (realize storage-spec commodities-context)
         [ira
          lt-gains
          st-gains
@@ -650,7 +650,7 @@
                                                   :quantity (bigdec 700)}]}]}))
 
 (deftest create-a-budget-report
-  (let [context (serialization/realize storage-spec budget-report-context)
+  (let [context (realize storage-spec budget-report-context)
         actual (reports/budget storage-spec
                                (-> context :budgets first :id)
                                (t/local-date 2016 2 29))
@@ -739,7 +739,7 @@
 ; Entertainment        180 185  -5
 
 (deftest create-a-budget-monitor
-  (let [context (serialization/realize storage-spec budget-report-context)
+  (let [context (realize storage-spec budget-report-context)
         groceries (find-account context "Groceries")
 
         ; half-way through january
@@ -767,7 +767,7 @@
     (is (= expected actual) "The correct information is returned")))
 
 (deftest get-a-lot-report
-  (let [context (serialization/realize storage-spec commodities-context)
+  (let [context (realize storage-spec commodities-context)
         [ira
          lt-gains
          st-gains

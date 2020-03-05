@@ -4,10 +4,10 @@
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
+            [clj-money.test-context :refer [realize
                                             find-account
                                             find-commodity]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.validation :as validation]
             [clj-money.models.lots :as lots]))
 
@@ -44,7 +44,7 @@
    :shares-purchased 100M})
 
 (deftest create-a-lot
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (find-commodity context "AAPL")
         result (lots/create storage-spec (attributes context))
         lots (lots/select-by-commodity-id storage-spec (:id commodity))]
@@ -60,7 +60,7 @@
         "The value is retrieved after create")))
 
 (deftest commodity-id-is-required
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (-> context :commodities first)
         result (lots/create storage-spec (-> context
                                              attributes
@@ -71,7 +71,7 @@
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest account-id-is-required
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (-> context :commodities first)
         result (lots/create storage-spec (-> context
                                              attributes
@@ -82,7 +82,7 @@
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-price-is-required
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (-> context :commodities first)
         result (lots/create storage-spec (-> context
                                              attributes
@@ -93,7 +93,7 @@
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest account-id-must-reference-an-asset-account
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (-> context :commodities first)
         dining (find-account context "Dining")
         result (lots/create storage-spec (-> context
@@ -105,7 +105,7 @@
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-date-is-required
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (-> context :commodities first)
         result (lots/create storage-spec (-> context
                                              attributes
@@ -116,7 +116,7 @@
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-date-can-be-a-date-string
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (find-commodity context "AAPL")
         result (lots/create storage-spec (-> context
                                              attributes
@@ -130,7 +130,7 @@
         "The value is retrieved after create")))
 
 (deftest purchase-date-must-be-a-date
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (find-commodity context "IRA")
         result (lots/create storage-spec (-> context
                                              attributes
@@ -141,7 +141,7 @@
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest shares-purchased-is-required
-  (let [context (serialization/realize storage-spec lot-context)
+  (let [context (realize storage-spec lot-context)
         commodity (find-commodity context "IRA")
         result (lots/create storage-spec (-> context
                                              attributes
@@ -160,7 +160,7 @@
                              :purchase-date (t/local-date 2016 3 2)}]))
 
 (deftest update-a-lot
-  (let [context (serialization/realize storage-spec existing-lot-context)
+  (let [context (realize storage-spec existing-lot-context)
         lot (-> context :lots first)
         updated (update-in lot [:shares-owned] #(- % 30M))
         result (lots/update storage-spec updated)
@@ -171,7 +171,7 @@
         "The retrieved map contains the updated value")))
 
 (deftest search-lots-by-account
-  (let [context (serialization/realize storage-spec existing-lot-context)
+  (let [context (realize storage-spec existing-lot-context)
         ira (find-account context "IRA")
         commodity (->> context
                        :commodities

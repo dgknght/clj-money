@@ -7,7 +7,10 @@
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
-            [clj-money.serialization :as serialization]
+            [clj-money.test-context :refer [realize
+                                            find-entity
+                                            find-commodity
+                                            find-account]]
             [clj-money.validation :as validation]
             [clj-money.tagging :as tagging]
             [clj-money.models.accounts :as accounts]
@@ -17,10 +20,7 @@
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
                                             assert-validation-error
-                                            simplify-account-groups
-                                            find-entity
-                                            find-commodity
-                                            find-account]]))
+                                            simplify-account-groups]]))
 
 (def storage-spec (env :db))
 
@@ -53,7 +53,7 @@
                :type :asset}]})
 
 (deftest select-accounts
-  (let [context (serialization/realize storage-spec select-context)
+  (let [context (realize storage-spec select-context)
         entity-id (-> context :entities first :id)
         actual (->> {:entity-id entity-id}
                     (accounts/search storage-spec)
@@ -87,7 +87,7 @@
     (is (= expected actual) "It returns the correct accounts")))
 
 (deftest tag-an-account
-  (let [context (serialization/realize storage-spec select-context)
+  (let [context (realize storage-spec select-context)
         checking (find-account context "Checking")
         tagged (tagging/tag checking :special)
         _ (accounts/update storage-spec tagged)
@@ -129,7 +129,7 @@
 
 ; TODO Probably this should be moved to mirror the ns where the nest fn is defined
 (deftest select-nested-accounts
-  (let [context (serialization/realize storage-spec nested-context)
+  (let [context (realize storage-spec nested-context)
         entity-id (-> context :entities first :id)
         result (->> {:entity-id entity-id}
                     (accounts/search storage-spec)
@@ -169,7 +169,7 @@
     (is (= expected result) "The accounts should be returned in the correct hierarchy")))
 
 (deftest create-an-account
-  (let [context (serialization/realize storage-spec account-context)
+  (let [context (realize storage-spec account-context)
         result (accounts/create storage-spec (attributes context))
         entity (find-entity context "Personal")
         usd (find-commodity context "USD")
@@ -226,7 +226,7 @@
                :entity-id "Personal"} ]})
 
 (deftest duplicate-name-across-entities
-  (let [context (serialization/realize storage-spec duplicate-name-context)
+  (let [context (realize storage-spec duplicate-name-context)
         business (first (filter #(= "Business" (:name %)) (:entities context)))
         result (accounts/create storage-spec {:name "Credit card"
                                               :type :liability
@@ -235,7 +235,7 @@
         "A second account can be created with the same name in a different entity")))
 
 (deftest duplicate-name-across-parents
-  (let [context (serialization/realize storage-spec duplicate-name-context)
+  (let [context (realize storage-spec duplicate-name-context)
         business (first (filter #(= "Business" (:name %)) (:entities context)))
         household (first (filter #(= "Household" (:name %)) (:accounts context)))
         result (accounts/create storage-spec {:name "Repair"
@@ -255,7 +255,7 @@
                :type :asset}]})
 
 (deftest create-a-child-account
-  (let [context (serialization/realize storage-spec create-child-context)
+  (let [context (realize storage-spec create-child-context)
         savings (-> context :accounts first)
         entity (-> context :entities first)
         car (accounts/create storage-spec {:name "Car"
@@ -266,7 +266,7 @@
         "The model should not have any errors")))
 
 (deftest child-must-have-same-type-as-parent
-  (let [context (serialization/realize storage-spec create-child-context)
+  (let [context (realize storage-spec create-child-context)
         savings (-> context :accounts first)
         entity (-> context :entities first)
         result (accounts/create storage-spec {:name "Federal income tax"
@@ -279,7 +279,7 @@
       result)))
 
 (deftest name-is-required
-  (let [context (serialization/realize storage-spec account-context)
+  (let [context (realize storage-spec account-context)
         attr (-> context
                  attributes
                  (dissoc :name))
@@ -287,7 +287,7 @@
     (assert-validation-error :name "Name is required" result)))
 
 (deftest name-is-unique-within-a-parent
-  (let [context (serialization/realize storage-spec duplicate-name-context)
+  (let [context (realize storage-spec duplicate-name-context)
         entity (-> context :entities first)
         auto (first (filter #(= "Auto" (:name %)) (:accounts context)))
         attributes {:name "Repair"
@@ -300,7 +300,7 @@
       (accounts/create storage-spec attributes))))
 
 (deftest correct-account-type
-  (let [context (serialization/realize storage-spec account-context)
+  (let [context (realize storage-spec account-context)
         attr (assoc (attributes context) :type :invalidtype)]
     (assert-validation-error
       :type
@@ -308,7 +308,7 @@
       (accounts/create storage-spec attr))))
 
 (deftest commodity-id-defaults-to-entity-default
-  (let [context (serialization/realize storage-spec account-context)
+  (let [context (realize storage-spec account-context)
         commodity (-> context :commodities first)
         account (-> context
                     attributes
@@ -319,7 +319,7 @@
 
 (deftest update-an-account
   (try
-    (let [context (serialization/realize storage-spec select-context)
+    (let [context (realize storage-spec select-context)
           account (first (filter #(= "Checking" (:name %)) (:accounts context)))
           result (accounts/update storage-spec (assoc account :name "New name"))
           retrieved (accounts/find-by-id storage-spec (:id account))]
@@ -347,7 +347,7 @@
                :parent-id "Current assets"}]})
 
 (deftest change-an-account-parent
-  (let [context (serialization/realize storage-spec same-parent-context)
+  (let [context (realize storage-spec same-parent-context)
         [_ fixed house] (:accounts context)
         updated (assoc house :parent-id (:id fixed))
         result (accounts/update storage-spec updated)
@@ -362,7 +362,7 @@
         "The retrieved account has the correct parent-id value")) )
 
 (deftest delete-an-account
-  (let [context (serialization/realize storage-spec select-context)
+  (let [context (realize storage-spec select-context)
         account (-> context :accounts first)
         _ (accounts/delete storage-spec (:id account))
         accounts (->> {:entity-id (-> context
@@ -384,7 +384,7 @@
      (is (= ~expected polarized#) ~message)))
 
 (deftest polarize-a-quantity
-  (let [context (serialization/realize storage-spec account-context)]
+  (let [context (realize storage-spec account-context)]
     ; Debits
     (test-polarization context :asset     :debit 100M  100M "A debit in an asset account increases the balance")
     (test-polarization context :expense   :debit 100M  100M "A debit in an expense account increases the balance")

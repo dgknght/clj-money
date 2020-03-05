@@ -5,10 +5,10 @@
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :as h :refer [find-user
-                                                  find-entity
-                                                  selective=]]
+            [clj-money.test-context :refer [realize
+                                            find-user
+                                            find-entity]]
+            [clj-money.test-helpers :as h :refer [selective=]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found
                                                 assert-unauthorized]]
@@ -24,7 +24,7 @@
            (factory :user {:email "jane@doe.com"})]})
 
 (deftest a-user-can-create-an-entity
-  (let [ctx (serialization/realize (env :db) create-context)
+  (let [ctx (realize (env :db) create-context)
         user (find-user ctx "john@doe.com")
         response (app (-> (req/request :post (path :api :entities))
                           (req/json-body {:name "Personal"
@@ -45,7 +45,7 @@
 
 (defn- edit-an-entity
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (app (-> (req/request :patch (path :api :entities (:id entity)))
@@ -81,7 +81,7 @@
   (assert-blocked-edit (edit-an-entity "jane@doe.com")))
 
 (deftest an-unauthenticated-user-cannot-edit-an-entity
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         entity (find-entity ctx "Personal")
         response (app (-> (req/request :patch (path :api :entities (:id entity)))
                           (req/json-body (-> entity
@@ -95,7 +95,7 @@
 
 (defn- get-a-list
   [email]
-  (let  [ctx (serialization/realize (env :db) list-context)
+  (let  [ctx (realize (env :db) list-context)
          user (find-user ctx email)
          response (app (-> (req/request :get (path :api :entities))
                            (add-auth user)))
@@ -113,7 +113,7 @@
 
 (defn- delete-an-entity
   [email]
-  (let  [ctx (serialization/realize (env :db) list-context)
+  (let  [ctx (realize (env :db) list-context)
          user (find-user ctx email)
          entity (find-entity ctx "Personal")
          response (app (-> (req/request :delete (path :api :entities (:id entity)))

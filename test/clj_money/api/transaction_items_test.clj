@@ -10,11 +10,11 @@
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.test-helpers :refer [assert-successful]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
+            [clj-money.test-context :refer [realize
                                             find-account
                                             find-user]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.web.server :refer [app]]))
 
 
@@ -101,7 +101,7 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         account (find-account ctx "Checking")
         response (-> (req/request :get (str (path :api

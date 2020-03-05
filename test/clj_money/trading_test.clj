@@ -5,12 +5,12 @@
             [clj-factory.core :refer [factory]]
             [clj-money.x-platform.util :refer [model->id]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
+            [clj-money.test-context :refer [realize
                                             find-entity
                                             find-account
                                             find-accounts
-                                            find-commodity
+                                            find-commodity]]
+            [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
                                             selective=]]
             [clj-money.validation :as validation]
@@ -94,7 +94,7 @@
    :value 1000M})
 
 (deftest purchase-a-commodity
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         result (trading/buy (env :db) (purchase-attributes context))
@@ -192,7 +192,7 @@
         "The specified account is tagged as a trading account")))
 
 (deftest purchase-a-commodity-with-string-values
- (let [context (serialization/realize (env :db) purchase-context)
+ (let [context (realize (env :db) purchase-context)
         result (trading/buy (env :db) (-> context
                                              purchase-attributes
                                              (update-in [:account-id] str)
@@ -204,7 +204,7 @@
         "The transaction is valid")))
 
 (deftest purchase-a-commodity-with-a-fee
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (->> context
                  :accounts
                  (filter #(= "IRA" (:name %)))
@@ -223,7 +223,7 @@
         "The investment expense account reflects the fee")))
 
 (deftest purchase-requires-a-trade-date
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         result (trading/buy (env :db) (-> context
                                              (purchase-attributes)
                                              (dissoc :trade-date)))]
@@ -232,7 +232,7 @@
         "The validation message indicates the error")))
 
 (deftest purchase-trade-date-can-be-a-date-string
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         result (trading/buy (env :db) (-> context
                                              (purchase-attributes)
                                              (assoc :trade-date "3/2/2016")))]
@@ -240,7 +240,7 @@
         "The transaction is valid")))
 
 (deftest purchase-requires-a-number-of-shares
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         result (trading/buy (env :db) (-> context
                                              (purchase-attributes)
                                              (dissoc :shares)))]
@@ -249,7 +249,7 @@
         "The validation message indicates the error")))
 
 (deftest purchase-requires-a-value
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         result (trading/buy (env :db) (-> context
                                              (purchase-attributes)
                                              (dissoc :value)))]
@@ -258,7 +258,7 @@
         "The validation message indicates the error")))
 
 (deftest a-purchase-creates-a-lot-record
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/buy (env :db) {:commodity-id (:id commodity)
@@ -280,7 +280,7 @@
     (is (= expected actual) "The lot can be retrieved from the database")))
 
 (deftest a-purchase-creates-a-price-record
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/buy (env :db) {:commodity-id (:id commodity)
@@ -297,7 +297,7 @@
     (is (= expected actual) "The price can be retrieved from the database")))
 
 (deftest buying-a-commodity-reduces-the-balance-of-the-account
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/buy (env :db) {:commodity-id (:id commodity)
@@ -405,7 +405,7 @@
                    :value 1000M}]))
 
 (deftest sell-a-commodity-for-a-gain
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         entity (find-entity context "Personal")
         aapl (find-commodity context "AAPL")
         {:keys [transaction
@@ -464,7 +464,7 @@
             "The entity settings are updated with default account ids")))))
 
 (deftest sell-a-commodity-for-a-loss
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         entity (find-entity context "Personal")
         aapl (find-commodity context "AAPL")
         attr (assoc (sale-attributes context) :value 200M) ; 25 shares, $50 loss
@@ -510,7 +510,7 @@
                                         (remove #(re-find #"Capital" (:name %)) accounts))))
 
 (deftest auto-create-gains-accounts
-  (let [context (serialization/realize (env :db) auto-create-context)
+  (let [context (realize (env :db) auto-create-context)
         _ (trading/sell (env :db)
                         (sale-attributes context))
         entity (entities/find-by-id (env :db) (:id  (find-entity context "Personal")))
@@ -548,7 +548,7 @@
         "The Short-term Capital Losses account id is placed in the entity settings")))
 
 (deftest sell-a-commodity-with-a-fee
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         ira (find-account context "IRA")
         inv-exp (->> context
                      :accounts
@@ -565,7 +565,7 @@
         "The investment fee account balance reflects the fee")))
 
 (deftest sales-requires-a-trade-date
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         result (trading/sell (env :db) (-> context
                                               sale-attributes
                                               (dissoc :trade-date)))]
@@ -574,7 +574,7 @@
         "The correct validation error is present")))
 
 (deftest sale-trade-date-can-be-a-date-string
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         result (trading/sell (env :db) (-> context
                                               sale-attributes
                                               (assoc :trade-date "3/2/2017")))]
@@ -582,7 +582,7 @@
         "The transaction is value")))
 
 (deftest sales-requires-a-number-of-shares
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         result (trading/sell (env :db) (-> context
                                               sale-attributes
                                               (dissoc :shares)))]
@@ -591,7 +591,7 @@
         "The correct validation error is present")))
 
 (deftest sales-requires-a-value
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         result (trading/sell (env :db) (-> context
                                               sale-attributes
                                               (dissoc :value)))]
@@ -600,7 +600,7 @@
         "The correct validation error is present")))
 
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         [ira] (:accounts context)
         commodity (find-commodity context "AAPL")
         _ (trading/buy (env :db) {:commodity-id (:id commodity)
@@ -615,7 +615,7 @@
     (is (= 1560M new-balance) "The account balance decreases by the amount of the purchase")))
 
 (deftest selling-a-commodity-updates-a-lot-record
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/sell (env :db) (-> context
@@ -633,7 +633,7 @@
     (is (= expected lots) "The lot is updated to reflect the sale")))
 
 (deftest selling-a-commodity-for-a-profit-after-1-year-credits-long-term-capital-gains
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         lt-capital-gains (find-account context "Long-term Capital Gains")
         _ (trading/sell (env :db) (-> context
                                          sale-attributes
@@ -654,7 +654,7 @@
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         st-capital-gains (find-account context "Short-term Capital Gains")
         _ (trading/sell (env :db) (-> context
                                          sale-attributes
@@ -688,7 +688,7 @@
        account-names))
 
 (deftest lifo-sale
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         commodity (find-commodity context "AAPL")
         [ira
          lt-gains
@@ -741,7 +741,7 @@
     (is (= expected actual) "Shares are sold from the most recent lot")))
 
 (deftest fifo-sale
-  (let [context (serialization/realize
+  (let [context (realize
                   (env :db)
                   (update-in purchase-context
                              [:entities 0]
@@ -797,7 +797,7 @@
     (is (= expected actual) "Shares are sold from the most recent lot")))
 
 (deftest undo-a-purchase
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         purchase (trading/buy (env :db) {:trade-date (t/local-date 2017 3 2)
@@ -815,7 +815,7 @@
           "The lot is deleted"))))
 
 (deftest cannot-undo-a-purchase-if-shares-have-been-sold
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         purchase (trading/buy (env :db) {:trade-date (t/local-date 2017 3 2)
@@ -828,7 +828,7 @@
                           (trading/unbuy (env :db) (:transaction purchase))))))
 
 (deftest undo-a-sale
-  (let [context (serialization/realize (env :db) purchase-context)
+  (let [context (realize (env :db) purchase-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/buy (env :db) {:trade-date (t/local-date 2017 3 2)
@@ -855,7 +855,7 @@
                                             :type :asset}))
 
 (deftest transfer-a-commodity
-  (let [context (serialization/realize (env :db) transfer-context)
+  (let [context (realize (env :db) transfer-context)
         [ira ira-2] (find-accounts context "IRA" "IRA 2")
         commodity (find-commodity context "AAPL")
         result (trading/transfer (env :db) {:commodity-id (:id commodity)
@@ -928,7 +928,7 @@
         "The balance in the 'to' account is updated correclty")))
 
 (deftest split-a-commodity
-  (let [context (serialization/realize (env :db) sale-context)
+  (let [context (realize (env :db) sale-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         commodity-account (accounts/find-by (env :db) {:commodity-id (:id commodity)
@@ -992,7 +992,7 @@
                                     :value 30000M}]))
 
 (deftest reverse-split-a-commodity
-  (let  [ctx (serialization/realize (env :db) rev-split-context)
+  (let  [ctx (realize (env :db) rev-split-context)
          account (find-account ctx "IRA")
          commodity (find-commodity ctx "AAPL")
          result (trading/split (env :db) {:split-date (t/local-date 2016 4 1)

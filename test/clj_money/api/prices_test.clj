@@ -10,14 +10,14 @@
                                                serialize-date
                                                path]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.serialization :as serialization]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=
+            [clj-money.test-context :refer [realize
                                             find-user
                                             find-price
                                             find-commodity]]
+            [clj-money.web.test-helpers :refer [assert-successful
+                                                assert-not-found]]
+            [clj-money.test-helpers :refer [reset-db
+                                            selective=]]
             [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
 
@@ -40,7 +40,7 @@
 
 (defn- create-a-price
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         commodity (find-commodity ctx "AAPL")
         response (-> (req/request :post (path :api
@@ -95,7 +95,7 @@
 
 (defn- get-a-list-by-commodity
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         commodity (find-commodity ctx "AAPL")
         response (-> (req/request :get (str (path :api
@@ -133,7 +133,7 @@
 
 (defn- update-a-price
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :patch (path :api
@@ -176,7 +176,7 @@
 
 (defn- delete-a-price
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :delete (path :api

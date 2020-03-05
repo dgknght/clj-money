@@ -3,10 +3,10 @@
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :refer [realize]]
+            [clj-money.test-context :refer [realize
+                                            find-user]]
             [clj-money.validation :as v]
             [clj-money.test-helpers :refer [reset-db
-                                            find-user
                                             selective=]]
             [clj-money.models.identities :as idents]))
 

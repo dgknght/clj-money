@@ -5,12 +5,12 @@
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=
+            [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity
                                             find-commodity]]
+            [clj-money.test-helpers :refer [reset-db
+                                            selective=]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-created
                                                 assert-bad-request
@@ -44,7 +44,7 @@
 
 (defn- get-a-count-of-commodities
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -74,7 +74,7 @@
 
 (defn- get-a-commodity
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         msft (find-commodity ctx "MSFT")
         response (-> (req/request :get (path :api
@@ -113,7 +113,7 @@
 
 (defn- create-a-commodity
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :post (path :api
@@ -157,7 +157,7 @@
   (assert-blocked-create (create-a-commodity "jane@doe.com")))
 
 (deftest attempt-to-create-an-invalid-commodity
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx "john@doe.com")
         entity (find-entity ctx "Personal")
         response (-> (req/request :post (path :api
@@ -177,7 +177,7 @@
 
 (defn- update-a-commodity
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         msft (find-commodity ctx "MSFT")
         response (-> (req/request :patch (path :api
@@ -215,7 +215,7 @@
 
 (defn- delete-a-commodity
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         msft (find-commodity ctx "MSFT")
         response (-> (req/request :delete (path :api

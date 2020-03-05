@@ -5,13 +5,13 @@
             [clojure.data :refer [diff]]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.validation :as validation]
-            [clj-money.models.grants :as grants]
-            [clj-money.test-helpers :refer [reset-db
+            [clj-money.test-context :refer [realize
                                             find-entity
                                             find-user
-                                            find-grant]]))
+                                            find-grant]]
+            [clj-money.validation :as validation]
+            [clj-money.models.grants :as grants]
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (def storage-spec (env :db))
 
@@ -27,7 +27,7 @@
                   :symbol "USD"}]})
 
 (deftest create-a-grant
-  (let [context (serialization/realize storage-spec grant-context)
+  (let [context (realize storage-spec grant-context)
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant {:entity-id (:id entity)
@@ -56,7 +56,7 @@
                                  :permissions {:account #{:index :show}}}]))
 
 (deftest update-a-grant
-  (let [context (serialization/realize storage-spec existing-grant-context)
+  (let [context (realize storage-spec existing-grant-context)
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant (find-grant context (:id entity) (:id user))
@@ -73,7 +73,7 @@
         "The retrieved record should have the correct content")))
 
 (deftest delete-a-grant
-  (let [context (serialization/realize storage-spec existing-grant-context)
+  (let [context (realize storage-spec existing-grant-context)
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant (find-grant context (:id entity) (:id user))

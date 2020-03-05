@@ -7,10 +7,10 @@
             [clj-factory.core :refer [factory]]
             [clj-money.core]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.validation :as validation]
-            [clj-money.test-helpers :refer [reset-db
+            [clj-money.test-context :refer [realize
                                             find-commodity]]
+            [clj-money.validation :as validation]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.prices :as prices]))
 
 (def storage-spec (env :db))
@@ -30,7 +30,7 @@
                   :type :currency}]})
 
 (deftest create-a-price
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
@@ -40,8 +40,7 @@
                                   (t/local-date 2017 3 1)
                                   (t/local-date 2017 3 31)]}
                     (prices/search storage-spec)
-                    (map #(dissoc % :id :created-at :updated-at))
-                    )
+                    (map #(dissoc % :id :created-at :updated-at)))
         expected [{:commodity-id (:id commodity)
                    :trade-date (t/local-date 2017 3 2)
                    :price 12.34M}]]
@@ -57,7 +56,7 @@
         "The price can be retrieved after create")))
 
 (deftest commodity-id-is-required
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:trade-date (t/local-date 2017 3 2)
                                            :price 12.34M})
@@ -73,7 +72,7 @@
         "The price cannot be retrieved after create")))
 
 (deftest trade-date-is-required
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :price 12.34M})
@@ -89,7 +88,7 @@
         "The price cannot be retrieved after create")))
 
 (deftest trade-date-must-be-a-date
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date "notadate"
@@ -106,7 +105,7 @@
         "The price cannot be retrieved after create")))
 
 (deftest trade-date-must-be-unique
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price-1 (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
@@ -130,7 +129,7 @@
         "The the duplicate price is not saved")))
 
 (deftest trade-date-can-be-a-string-date
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date "2017-03-02"
@@ -147,7 +146,7 @@
         "The price can be retrieved after create")))
 
 (deftest price-is-required
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)})
@@ -163,7 +162,7 @@
         "The price cannot be retrieved after create")))
 
 (deftest price-must-be-a-number
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
@@ -180,7 +179,7 @@
         "The price cannot be retrieved after create")))
 
 (deftest price-can-be-a-string-number
-  (let [context (serialization/realize storage-spec price-context)
+  (let [context (realize storage-spec price-context)
         commodity (find-commodity context "AAPL")
         price (prices/create storage-spec {:commodity-id (:id commodity)
                                            :trade-date (t/local-date 2017 3 2)
@@ -202,7 +201,7 @@
                                  :price 12.34M}]))
 
 (deftest a-price-can-be-updated
-  (let [context (serialization/realize storage-spec existing-price-context)
+  (let [context (realize storage-spec existing-price-context)
         price (-> context :prices first)
         result (prices/update storage-spec (assoc price :price "10"))
         retrieved (prices/find-by-id storage-spec (:id price) (:trade-date price))]
@@ -212,7 +211,7 @@
         "The retrieved map has the correct values")))
 
 (deftest a-price-can-be-deleted
-  (let [context (serialization/realize storage-spec existing-price-context)
+  (let [context (realize storage-spec existing-price-context)
         price (-> context :prices first)
         _ (prices/delete storage-spec price)
         prices (prices/search storage-spec {:commodity-id (:commodity-id price)
@@ -232,7 +231,7 @@
                                  :price 12.00}]))
 
 (deftest get-the-most-recent-price-for-a-commodity
-  (let [context (serialization/realize storage-spec multi-price-context)]
+  (let [context (realize storage-spec multi-price-context)]
     (testing "When at least one price exists"
       (let [commodity (find-commodity context "AAPL")
             price (prices/most-recent storage-spec (:id commodity))]

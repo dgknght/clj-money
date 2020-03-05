@@ -7,7 +7,7 @@
             [clj-money.models.attachments :as attachments]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
-            [clj-money.serialization :as serialization]
+            [clj-money.test-context :refer [realize]]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (def storage-spec (env :db))
@@ -46,7 +46,7 @@
    :caption "receipt"})
 
 (deftest create-an-attachment
-  (let [context (serialization/realize storage-spec attach-context)
+  (let [context (realize storage-spec attach-context)
         result (attachments/create storage-spec (attributes context))
         transaction (-> context :transactions first)
         retrieved (->> {:transaction-id (:id transaction)
@@ -59,7 +59,7 @@
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")))
 
 (deftest transaction-id-is-required
-  (let [context (serialization/realize storage-spec attach-context)
+  (let [context (realize storage-spec attach-context)
         result (attachments/create storage-spec (dissoc (attributes context)
                                                         :transaction-id))]
     (is (not (validation/valid? result))
@@ -68,7 +68,7 @@
         "The transaction-id attribute has an error message")))
 
 (deftest image-id-is-required
-  (let [context (serialization/realize storage-spec attach-context)
+  (let [context (realize storage-spec attach-context)
         result (attachments/create storage-spec (dissoc (attributes context)
                                                         :image-id))]
     (is (not (validation/valid? result))
@@ -77,7 +77,7 @@
         "The image-id attribute has an error message")))
 
 (deftest caption-is-required
-  (let [context (serialization/realize storage-spec attach-context)
+  (let [context (realize storage-spec attach-context)
         result (attachments/create storage-spec (dissoc (attributes context)
                                                         :caption))]
     (is (not (validation/valid? result))
@@ -93,7 +93,7 @@
                           :caption "receipt"}]))
 
 (deftest delete-an-attachment
-  (let [context (serialization/realize storage-spec delete-context)
+  (let [context (realize storage-spec delete-context)
         attachment (-> context :attachments first)
         _ (attachments/delete storage-spec attachment)
         retrieved (attachments/find-by-id storage-spec (:id attachment))]

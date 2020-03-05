@@ -11,13 +11,13 @@
                                                 assert-not-found]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=
+            [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity
                                             find-account
                                             find-transaction]]
+            [clj-money.test-helpers :refer [reset-db
+                                            selective=]]
             [clj-money.models.transactions :as trans]
             [clj-money.web.server :refer [app]]))
 
@@ -51,7 +51,7 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -89,7 +89,7 @@
 
 (defn- get-a-transaction
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :get (path :api
@@ -123,7 +123,7 @@
 
 (defn- create-a-transaction
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         checking (find-account ctx "Checking")
@@ -188,7 +188,7 @@
 
 (defn- update-a-transaction
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :patch (path :api
@@ -236,7 +236,7 @@
 
 (defn- delete-a-transaction
   [email]
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx email)
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :delete (path :api

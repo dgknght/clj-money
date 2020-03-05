@@ -4,8 +4,7 @@
             [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
             [clj-time.core :as t]
-            [clj-money.validation :as validation])
-  (:import org.joda.time.LocalDate))
+            [clj-money.validation :as validation]))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
@@ -87,92 +86,6 @@
   (map #(update-in % [:accounts] (fn [accounts]
                                    (simplify-accounts accounts additional-attributes)))
        groups)))
-
-(defn- find-in-context
-  [context model-group-key model-id-key model-id]
-  (->> context
-       model-group-key
-       (filter #(= model-id (model-id-key %)))
-       first))
-
-(defn find-user
-  [context email]
-  (find-in-context context :users :email email))
-
-(defn find-users
-  [context & emails]
-  (map #(find-user context %) emails))
-
-(defn find-entity
-  [context entity-name]
-  (find-in-context context :entities :name entity-name))
-
-(defn find-entities
-  [context & entity-names]
-  (map #(find-entity context %) entity-names))
-
-(defn find-import
-  [context entity-name]
-  (find-in-context context :imports :entity-name entity-name))
-
-(defn find-imports
-  [context & entity-names]
-  (map #(find-import context %) entity-names))
-
-(defn find-grant
-  [context entity-id user-id]
-  (->> context
-       :grants
-       (filter #(and (= entity-id (:entity-id %))
-                     (= user-id (:user-id %))))
-       first))
-
-(defn find-account
-  [context account-name]
-  (find-in-context context :accounts :name account-name))
-
-(defn find-accounts
-  [context & account-names]
-  (map #(find-account context %) account-names))
-
-(defn find-attachment
-  [context caption]
-  (find-in-context context :attachments :caption caption))
-
-(defn find-image
-  [context original-filename]
-  (find-in-context context :images :original-filename original-filename))
-
-(defn find-commodity
-  [context symbol]
-  (find-in-context context :commodities :symbol symbol))
-
-(defn find-commodities
-  [context & symbols]
-  (map #(find-commodity context %) symbols))
-
-(defn find-budget
-  [context budget-name]
-  (find-in-context context :budgets :name budget-name))
-
-(defn find-price
-  [context sym trade-date]
-  (let [commodity (find-commodity context sym)]
-    (->> context
-         :prices
-         (filter #(and (= (:id commodity) (:commodity-id %))
-                       (= trade-date (:trade-date %))))
-         first)))
-
-(defn find-transaction
-  [context transaction-date description]
-  {:pre [(string? description) (instance? LocalDate transaction-date)]}
-
-  (->> context
-       :transactions
-       (filter #(and (= transaction-date (:transaction-date %))
-                     (= description (:description %))))
-       first))
 
 (defn context-errors
   [context]

@@ -14,13 +14,13 @@
                                                        unentryfy]]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
+            [clj-money.test-context :refer [realize
                                             find-entity
                                             find-account
                                             find-accounts
-                                            find-transaction
+                                            find-transaction]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff
                                             assert-validation-error]]))
 
 (def storage-spec (env :db))
@@ -76,7 +76,7 @@
               :quantity 1000M}]}))
 
 (deftest create-a-transaction
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create storage-spec (attributes context))]
     (testing "return value includes the new id"
       (is (empty? (validation/error-messages transaction)))
@@ -134,7 +134,7 @@
                                                     (do
                                                       (swap! call-count inc)
                                                       (update-in item [:action] name))))]
-      (let [context (serialization/realize storage-spec base-context)
+      (let [context (realize storage-spec base-context)
             [checking
              salary] (:accounts context)
             _ (try
@@ -154,33 +154,33 @@
         (assert-account-quantities checking 0M salary 0M)))))
 
 (deftest create-a-transaction-us-string-date
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create storage-spec (-> (attributes context)
                                                           (assoc :transaction-date "3/2/2016")))]
     (is (empty? (validation/error-messages transaction)) "The transaction is valid")
     (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
 
 (deftest create-a-transaction-intl-string-date
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create storage-spec (-> (attributes context)
                                                           (assoc :transaction-date "2016-03-02")))]
     (is (empty? (validation/error-messages transaction)) "The transaction is valid")
     (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
 
 (deftest transaction-date-is-required
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create storage-spec (-> (attributes context)
                                                           (dissoc :transaction-date)))]
     (is (validation/has-error? transaction :transaction-date))))
 
 (deftest entity-id-is-required
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create storage-spec (-> (attributes context)
                                                           (dissoc :entity-id)))]
     (is (validation/has-error? transaction :entity-id))))
 
 (deftest items-are-required
-  (let [context (serialization/realize storage-spec base-context)]
+  (let [context (realize storage-spec base-context)]
     (assert-validation-error :items "Count must be greater than or equal to 1"
                              (transactions/create
                                storage-spec
@@ -189,7 +189,7 @@
                                    (assoc :items []))))))
 
 (deftest item-account-id-is-required
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create
                       storage-spec
                       (-> (attributes context)
@@ -199,7 +199,7 @@
     (is (validation/has-error? transaction :items))))
 
 (deftest item-quantity-is-required
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create
                       storage-spec
                       (-> (attributes context)
@@ -209,7 +209,7 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-quantity-must-be-greater-than-zero
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create
                       storage-spec
                       (-> (attributes context)
@@ -219,7 +219,7 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-is-required
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create
                       storage-spec
                       (-> (attributes context)
@@ -229,7 +229,7 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-must-be-debit-or-created
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create
                       storage-spec
                       (-> (attributes context)
@@ -239,7 +239,7 @@
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest sum-of-debits-must-equal-sum-of-credits
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         transaction (transactions/create
                       storage-spec
                       (-> (attributes context)
@@ -271,7 +271,7 @@
 
 
 (deftest item-balances-are-set-when-saved
-  (let [context (serialization/realize storage-spec balance-context)
+  (let [context (realize storage-spec balance-context)
         [checking-items
          salary-items
          groceries-items] (map #(items-by-account (:id %))
@@ -286,7 +286,7 @@
           "The groceries account balances are correct")))
 
 (deftest item-indexes-are-set-when-saved
-  (let [context (serialization/realize storage-spec balance-context)
+  (let [context (realize storage-spec balance-context)
         [checking-items
          salary-items
          groceries-items] (map #(items-by-account (:id %))
@@ -296,7 +296,7 @@
     (is (= [0] (map :index groceries-items)) "The groceries transaction items have the correct indexes")))
 
 (deftest account-balances-are-set-when-saved
-  (let [context (serialization/realize storage-spec balance-context)
+  (let [context (realize storage-spec balance-context)
         [checking
          salary
          groceries] (find-accounts context "Checking"
@@ -335,7 +335,7 @@
                             :quantity 99}]}]}))
 
 (deftest insert-transaction-before-the-end
-  (let [context (serialization/realize storage-spec insert-context)
+  (let [context (realize storage-spec insert-context)
         [checking-items] (map #(items-by-account (:id %))
                               (:accounts context))]
     (is (= [{:index 2
@@ -385,7 +385,7 @@
                                        :quantity 100}]}]})))
 
 (deftest create-a-transaction-with-multiple-items-for-one-account
-  (let [context (serialization/realize storage-spec multi-context)
+  (let [context (realize storage-spec multi-context)
         checking (find-account context "Checking")
         checking-items (items-by-account (:id checking))
         expected-checking-items #{{:transaction-date (t/local-date 2016 3 10) :quantity  100M}
@@ -430,7 +430,7 @@
                                    :quantity 102}]}]}))
 
 (deftest delete-a-transaction
-  (let [context (serialization/realize storage-spec delete-context)
+  (let [context (realize storage-spec delete-context)
         [checking
          _
          groceries] (:accounts context)
@@ -495,7 +495,7 @@
                               :quantity 102}]}]}))
 
 (deftest get-a-transaction
-  (let [context (serialization/realize storage-spec update-context)
+  (let [context (realize storage-spec update-context)
         {:keys [id transaction-date]} (find-transaction context (t/local-date 2016 3 2) "Paycheck")]
     (testing "items are not included if not specified"
       (let [transaction (first (transactions/search storage-spec
@@ -547,7 +547,7 @@
                      :credit-account-id "Salary"}]}))
 
 (deftest search-by-year
-  (let [context (serialization/realize storage-spec search-context)
+  (let [context (realize storage-spec search-context)
         entity (find-entity context "Personal")
         actual (transactions/search storage-spec {:transaction-date "2016"
                                                   :entity-id (:id entity)})]
@@ -557,7 +557,7 @@
         "The transactions from the specified year are returned")))
 
 (deftest search-by-month
-  (let [context (serialization/realize storage-spec search-context)
+  (let [context (realize storage-spec search-context)
         entity (find-entity context "Personal")
         actual (transactions/search storage-spec {:transaction-date "2017-06"
                                                   :entity-id (:id entity)})]
@@ -567,7 +567,7 @@
         "The transactions from the specified month are returned")))
 
 (deftest search-by-date-string
-  (let [context (serialization/realize storage-spec search-context)
+  (let [context (realize storage-spec search-context)
         entity (find-entity context "Personal")
         actual (transactions/search storage-spec {:transaction-date "2017-06-01"
                                                   :entity-id (:id entity)})]
@@ -575,7 +575,7 @@
         "The transactions from the specified day are returned")))
 
 (deftest search-by-date
-  (let [context (serialization/realize storage-spec search-context)
+  (let [context (realize storage-spec search-context)
         entity (find-entity context "Personal")
         actual (transactions/search storage-spec {:transaction-date (t/local-date 2017 6 15)
                                                   :entity-id (:id entity)})]
@@ -583,7 +583,7 @@
         "The transactions from the specified day are returned")))
 
 (deftest search-by-date-vector
-  (let [context (serialization/realize storage-spec search-context)
+  (let [context (realize storage-spec search-context)
         entity (find-entity context "Personal")
         actual (transactions/search storage-spec {:transaction-date [:between
                                                                      (t/local-date 2017 6 1)
@@ -595,7 +595,7 @@
         "The transactions from the specified day are returned")))
 
 (deftest update-a-transaction-change-quantity
-  (let [context (serialization/realize storage-spec update-context)
+  (let [context (realize storage-spec update-context)
         [checking
          _
          groceries] (:accounts context)
@@ -628,7 +628,7 @@
 (deftest rollback-a-failed-update
   (let [real-reload transactions/reload
         call-count (atom 0)
-        context (serialization/realize storage-spec update-context)
+        context (realize storage-spec update-context)
         [checking
          _
          groceries] (:accounts context)
@@ -661,7 +661,7 @@
           "The groceries account balance should not be changed"))))
 
 (deftest update-a-transaction-change-date
-  (let [context (serialization/realize storage-spec update-context)
+  (let [context (realize storage-spec update-context)
         [checking
          _
          groceries] (:accounts context)
@@ -697,7 +697,7 @@
 
 ; TODO: Uncomment this test
 #_(deftest update-a-transaction-cross-partition-boundary
-  (let [context (serialization/realize storage-spec update-context)
+  (let [context (realize storage-spec update-context)
         [checking
          salary
          groceries] (:accounts context)
@@ -794,7 +794,7 @@
 ; 2016-03-23     103  Groceries Checking
 ; 2016-03-30     104  Groceries Checking
 (deftest update-a-transaction-short-circuit-updates
-  (let [context (serialization/realize storage-spec short-circuit-context)
+  (let [context (realize storage-spec short-circuit-context)
         [checking] (:accounts context)
         [_t1 _t2 t3] (:transactions context)
         updated (-> t3
@@ -867,7 +867,7 @@
                                   :quantity 103}]}]})))
 
 (deftest update-a-transaction-change-account
-  (let [context (serialization/realize storage-spec change-account-context)
+  (let [context (realize storage-spec change-account-context)
         [rent
          groceries] (find-accounts context "Rent" "Groceries")
         t3 (find-transaction context (t/local-date 2016 3 16) "Kroger")
@@ -935,7 +935,7 @@
                               :quantity 101}]}]}))
 
 (deftest update-a-transaction-change-action
-  (let [context (serialization/realize storage-spec change-action-context)
+  (let [context (realize storage-spec change-action-context)
         [checking _ groceries] (:accounts context)
         transaction (find-transaction context (t/local-date 2016 3 16) "Kroger")
         result (transactions/update storage-spec (-> transaction
@@ -1005,7 +1005,7 @@
                                        :quantity 101}]}]})))
 
 (deftest update-a-transaction-remove-item
-  (let [context (serialization/realize storage-spec add-remove-item-context)
+  (let [context (realize storage-spec add-remove-item-context)
         [checking
          pets
          groceries] (find-accounts context "Checking" "Pets" "Groceries")
@@ -1035,7 +1035,7 @@
     (assert-account-quantities pets 0M groceries 306M checking 694M)))
 
 (deftest update-a-transaction-add-item
-  (let [context (serialization/realize storage-spec add-remove-item-context)
+  (let [context (realize storage-spec add-remove-item-context)
         [pets
          groceries
          checking] (find-accounts context "Pets" "Groceries" "Checking")
@@ -1107,7 +1107,7 @@
                               :quantity 1200M}]}]}))
 
 (deftest get-a-balance-delta
-  (let [context (serialization/realize storage-spec balance-delta-context)
+  (let [context (realize storage-spec balance-delta-context)
         [_ salary] (:accounts context)
         january (transactions/balance-delta storage-spec
                                             (:id salary)
@@ -1121,7 +1121,7 @@
     (is (= 2202M february) "The February value is the sum of the polarized quantitys for the period")))
 
 (deftest get-a-balance-as-of
-  (let [context (serialization/realize storage-spec balance-delta-context)
+  (let [context (realize storage-spec balance-delta-context)
         [checking] (:accounts context)
         january (transactions/balance-as-of storage-spec
                                             (:id checking)
@@ -1133,7 +1133,7 @@
     (is (= 4203M february) "The February value is the balance for the last item in the period")))
 
 (deftest create-multiple-transactions-then-recalculate-balances
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         entity (-> context :entities first)
         [checking
          salary
@@ -1172,7 +1172,7 @@
         "The account balance is recalculated after the form exits")))
 
 (deftest use-simplified-items
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         entity (find-entity context "Personal")
         [checking salary] (find-accounts context "Checking" "Salary")
         trx (transactions/create storage-spec {:entity-id (:id entity)
@@ -1193,7 +1193,7 @@
     (is (= expected-items actual-items) "The items are created correctly")))
 
 (deftest set-account-boundaries
-  (let [context (serialization/realize storage-spec base-context)
+  (let [context (realize storage-spec base-context)
         entity (find-entity context "Personal")
         [checking
          salary
@@ -1228,7 +1228,7 @@
         "The groceries account's latest is the grocery purchase")))
 
 (deftest simplify-a-transaction
-  (let [ctx (serialization/realize (env :db) base-context)
+  (let [ctx (realize (env :db) base-context)
         checking (find-account ctx "Checking")
         groceries (find-account ctx "Groceries")
         transaction {:transaction-date (t/local-date 2016 3 2)
@@ -1253,7 +1253,7 @@
     (is (= expected actual))))
 
 (deftest fullify-a-transaction
-  (let [ctx (serialization/realize (env :db) base-context)
+  (let [ctx (realize (env :db) base-context)
         checking (find-account ctx "Checking")
         groceries (find-account ctx "Groceries")
         expected {:transaction-date (t/local-date 2016 3 2)

@@ -10,12 +10,12 @@
                                                map->query-string]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.test-helpers :refer [assert-successful]]
-            [clj-money.serialization :as serialization]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
+            [clj-money.test-context :refer [realize
                                             find-user
                                             find-account
                                             find-commodity]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each (partial reset-db (env :db)))
@@ -71,7 +71,7 @@
 
 (defn- get-a-list-of-lots
   [email]
-  (let [ctx (serialization/realize (env :db) list-context)
+  (let [ctx (realize (env :db) list-context)
         account (find-account ctx "IRA")
         commodity (find-commodity ctx "FND")
         user (find-user ctx email)

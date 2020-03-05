@@ -3,7 +3,7 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.serialization :as serialization]
+            [clj-money.test-context :refer [realize]]
             [clj-money.validation :as validation]
             [clj-money.models.reconciliations :as reconciliations]
             [clj-money.models.transactions :as transactions]))
@@ -84,7 +84,7 @@
                                    :quantity 500M}]})))
 
 (deftest create-a-reconciliation
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         reconciliation {:account-id (:id checking)
@@ -106,7 +106,7 @@
           "None of the transaction items should be marked as reconcilied"))))
 
 (deftest create-a-completed-reconciliation
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         [paycheck
@@ -136,7 +136,7 @@
           "Each transaction item included in the reconciliation should be marked as reconciled"))))
 
 (deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
-  (let [context (serialization/realize storage-spec working-reconciliation-context)
+  (let [context (realize storage-spec working-reconciliation-context)
         checking (-> context :accounts first)
         result (reconciliations/create storage-spec {:account-id (:id checking)
                                                      :balance 1M
@@ -147,7 +147,7 @@
            (validation/error-messages result :account-id)))))
 
 (deftest account-id-is-required
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         [paycheck
@@ -163,7 +163,7 @@
     (is (validation/has-error? result :account-id))))
 
 (deftest end-of-period-is-required
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         [paycheck
@@ -180,7 +180,7 @@
     (is (validation/has-error? result :end-of-period))))
 
 (deftest end-of-period-can-be-an-international-date-string
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         reconciliation {:account-id (:id checking)
@@ -193,7 +193,7 @@
     (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
 
 (deftest end-of-period-can-be-a-US-date-string
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         reconciliation {:account-id (:id checking)
@@ -206,7 +206,7 @@
     (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
 
 (deftest end-of-period-cannot-be-a-non-date-string
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         reconciliation {:account-id (:id checking)
@@ -216,7 +216,7 @@
     (is (= ["End of period must be a date"] (validation/error-messages result :end-of-period)) "The result contains the correct error message")))
 
 (deftest end-of-period-must-come-after-the-previous-end-of-period
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        existing-reconciliation-context)
         checking (-> context :accounts first)
         reconciliation {:account-id (:id checking)
@@ -228,7 +228,7 @@
         "The result contains the correct error message")))
 
 (deftest status-must-be-new-or-completed
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         [paycheck
@@ -247,7 +247,7 @@
     (is (validation/has-error? result :status))))
 
 (deftest balance-must-match-the-calculated-balance
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         result (reconciliations/create storage-spec
@@ -256,7 +256,7 @@
     (is (validation/has-error? result :balance))))
 
 (deftest balance-cannot-be-a-non-number-string
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         result (reconciliations/create storage-spec
@@ -266,7 +266,7 @@
     (is (validation/has-error? result :balance))))
 
 (deftest item-refs-cannot-be-a-non-number-string
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         checking (-> context :accounts first)
         result (reconciliations/create storage-spec
@@ -277,7 +277,7 @@
     (is (validation/has-error? result :item-refs))))
 
 (deftest item-refs-must-reference-items-that-belong-to-the-account-being-reconciled
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        reconciliation-context)
         [checking
          salary] (:accounts context)
@@ -311,20 +311,20 @@
                        :quantity 53M}]}]))
 
 (deftest find-the-working-reconciliation
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        working-rec-context)
         checking (-> context :accounts first)
         reconciliation (reconciliations/find-working storage-spec (:id checking))]
     (is reconciliation "A reconciliation is returned")))
 
 (deftest find-the-last-completed-reconciliation
-  (let [context (serialization/realize storage-spec working-reconciliation-context)
+  (let [context (realize storage-spec working-reconciliation-context)
         checking (-> context :accounts first)]
     (is (= 1000M (:balance (reconciliations/find-last-completed storage-spec (:id checking))))
         "The previous balance is the balance of the last completed reconciliation")))
 
 (deftest transaction-item-can-only-belong-to-one-reconciliation
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        existing-reconciliation-context)
         checking (-> context :accounts first)
         item (->> (:transactions context)
@@ -339,7 +339,7 @@
         "An item ID that is already reconconciled should be invalid")))
 
 (deftest a-working-reconciliation-can-be-updated
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        working-reconciliation-context)
         reconciliation (-> context :reconciliations last)
         updated (assoc reconciliation :balance 1499M)
@@ -349,7 +349,7 @@
     (is (= 1499M (:balance retrieved)) "The retrieved value has the correct balance after update")))
 
 (deftest a-working-reconciliation-can-be-completed
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        working-reconciliation-context)
         reconciliation (-> context :reconciliations last)
         updated (assoc reconciliation :status :completed)
@@ -359,7 +359,7 @@
     (is (= (:status retrieved) :completed) "The retrieved value has the correct satus")))
 
 (deftest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
-  (let [context (serialization/realize storage-spec
+  (let [context (realize storage-spec
                                        working-reconciliation-context)
         checking (-> context :accounts first)
         reconciliation (-> context :reconciliations last)
@@ -375,7 +375,7 @@
     (is (validation/has-error? result :balance))))
 
 (deftest the-quantity-and-action-of-a-reconciled-item-cannot-be-changed
-  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+  (let [context (realize storage-spec existing-reconciliation-context)
         reconciliation (-> context :reconciliations first)
         item (first (transactions/select-items-by-reconciliation storage-spec reconciliation))
         transaction (transactions/find-by-id storage-spec
@@ -397,7 +397,7 @@
            (validation/error-messages result2 :items)))))
 
 (deftest a-reconciled-transaction-item-cannot-be-deleted
-  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+  (let [context (realize storage-spec existing-reconciliation-context)
         [item-id date] (-> context :reconciliations first :item-refs first)
         transaction-id (:id (transactions/find-by-item-id storage-spec item-id date))]
     (is (thrown-with-msg? clojure.lang.ExceptionInfo #"A transaction with reconciled items cannot be deleted."
@@ -411,7 +411,7 @@
         "The transaction can be retrieved after the delete has been denied")))
 
 (deftest a-completed-reconciliation-cannot-be-updated
-  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+  (let [context (realize storage-spec existing-reconciliation-context)
         reconciliation (-> context :reconciliations first)
         updated (assoc reconciliation :balance 1M)
         result (reconciliations/update storage-spec updated)
@@ -420,7 +420,7 @@
     (is (= 1000M (:balance retrieved)) "The new valud is not saved")))
 
 (deftest the-most-recent-completed-reconciliation-can-be-deleted
-  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+  (let [context (realize storage-spec existing-reconciliation-context)
         reconciliation (-> context :reconciliations first)
         _ (reconciliations/delete storage-spec (:id reconciliation))
         retrieved (reconciliations/find-by-id storage-spec (:id reconciliation))
@@ -429,7 +429,7 @@
     (is (empty? items) "The reconciliation is not associated with any items after delete")))
 
 (deftest a-working-reconciliation-can-be-deleted
-  (let [context (serialization/realize storage-spec working-reconciliation-context)
+  (let [context (realize storage-spec working-reconciliation-context)
         reconciliation (-> context :reconciliations second)
         _ (reconciliations/delete storage-spec (:id reconciliation))
         retrieved (reconciliations/find-by-id storage-spec (:id reconciliation))
@@ -438,7 +438,7 @@
     (is (empty? items) "The reconciliation is not associated with any items after delete")))
 
 (deftest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
-  (let [context (serialization/realize storage-spec working-reconciliation-context)
+  (let [context (realize storage-spec working-reconciliation-context)
         reconciliation (-> context :reconciliations first)]
     (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
              (reconciliations/delete storage-spec (:id reconciliation)))
@@ -448,7 +448,7 @@
         "The transaction items are still associated with the reconciliation")))
 
 (deftest check-if-a-transaction-can-be-deleted
-  (let [context (serialization/realize storage-spec existing-reconciliation-context)
+  (let [context (realize storage-spec existing-reconciliation-context)
         [t1 t2] (->> context
                      :transactions
                      (take 2)

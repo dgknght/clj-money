@@ -4,12 +4,12 @@
             [ring.mock.request :as req]
             [environ.core :refer [env]]
             [clj-money.test-helpers :refer [reset-db
-                                            selective=
-                                            find-user]]
+                                            selective=]]
             [clj-money.web.test-helpers :refer [assert-unauthorized
                                                 assert-successful]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.serialization :as serialization]
+            [clj-money.test-context :refer [realize
+                                            find-user]]
             [clj-money.x-platform.util :refer [path]]
             [clj-money.web.server :refer [app]]))
 
@@ -23,7 +23,7 @@
             :password-confirmation "please01"}]})
 
 (deftest a-user-gets-his-own-info
-  (let [ctx (serialization/realize (env :db) context)
+  (let [ctx (realize (env :db) context)
         user (find-user ctx "john@doe.com")
         response (app (-> (req/request :get (path :api
                                                   :users

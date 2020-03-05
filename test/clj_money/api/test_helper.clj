@@ -6,72 +6,6 @@
             [clj-money.test-helpers :refer [with-authentication]]
             [clj-money.web.auth :as auth]))
 
-(defmacro deftest-list
-  [name {:keys [context
-                storage
-                resource-name
-                find-user-fn
-                find-other-user-fn
-                list-fn
-                params-fn
-                expectation-fn]
-         :or {resource-name "resource"
-              context 'context
-              storage (env :db)
-              find-user-fn 'find-user
-              find-other-user-fn 'find-other-user}}]
-  `(deftest ~name
-     (let [context# (serialization/realize ~storage ~context)
-           params# {:params (~params-fn context#)}]
-       (testing (format "A user can get a %s list from his own entity" ~resource-name)
-         (let [response# (with-authentication (~find-user-fn context#)
-                           (~list-fn params#))]
-           (is (= 200 (:status response#)) "The response is successful")
-           (is (~expectation-fn (:body response#))
-               "The response contains expected resources.")))
-       (testing (format "A user cannot get a %s list from someone else's entities" ~resource-name)
-         (let [error# (try (with-authentication (~find-other-user-fn context#)
-                             (~list-fn params#))
-                           (catch Exception e#
-                             e#))]
-           (is (= clojure.lang.ExceptionInfo (type error#))
-               "An exception is thrown"))))))
-
-(defmacro deftest-get-one
-  [name {:keys [context
-                storage
-                resource-name
-                find-user-fn
-                find-other-user-fn
-                get-one-fn
-                params-fn
-                expectation-fn]
-         :as params
-         :or {resource-name "resource"
-              context 'context
-              storage (env :db)
-              find-user-fn 'find-user
-              find-other-user-fn 'find-other-user}}]
-  (if-not expectation-fn
-    (throw (ex-info "expectation-fn must be supplied", params)))
-  `(deftest ~name
-     (let [context# (serialization/realize ~storage ~context)
-           params# {:params (~params-fn context#)}]
-       (testing (format "A user can get a %s from his own entity" ~resource-name)
-         (let [response# (with-authentication (~find-user-fn context#)
-                           (~get-one-fn params#))]
-           (is (= 200 (:status response#)) "The response is successful")
-           (is (~expectation-fn (:body response#))
-               "The response contains expected resource.")))
-       (testing (format "A user cannot get a %s from someone else's entities" ~resource-name)
-         (let [error# (try (with-authentication (~find-other-user-fn context#)
-                             (~get-one-fn params#))
-                           (catch Exception e#
-                             e#))]
-           (is (= clojure.lang.ExceptionInfo (type error#))
-               "An exception is thrown"))))))
-
-
 (defmacro deftest-create
   [name {:keys [context
                 storage
@@ -90,7 +24,7 @@
               find-other-user-fn 'find-other-user
               select-resources-fn 'select-resources}}]
   `(deftest ~name
-     (let [context# (serialization/realize ~storage ~context)
+     (let [context# (realize ~storage ~context)
            params# {:params (~create-params-fn context#)}]
        (when-not ~skip-auth-failure-test
          (testing (format "A user cannot create a %s for someone else's entities" ~resource-name)
@@ -132,7 +66,7 @@
               find-resource-fn 'find-resource
               prepare-update-fn (fn [& _ ] nil)}}]
   `(deftest ~name
-     (let [context# (serialization/realize ~storage ~context)
+     (let [context# (realize ~storage ~context)
           resource# (~find-resource-fn context#)
           to-save# {:params (or (~prepare-update-fn resource#)
                                 (assoc ~update-params :id (:id resource#)))}]
@@ -169,7 +103,7 @@
               select-resources-fn 'select-resources
               delete-keys [:id]}}]
   `(deftest ~name
-     (let [context# (serialization/realize ~storage ~context)
+     (let [context# (realize ~storage ~context)
            resource# (~find-resource-fn context#)
            params# (select-keys resource# ~delete-keys)]
        (testing (format "A user cannot delete a %s from someone else's entity" ~resource-name)

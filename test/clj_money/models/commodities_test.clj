@@ -4,10 +4,10 @@
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.serialization :as serialization]
-            [clj-money.validation :as validation]
-            [clj-money.test-helpers :refer [reset-db
+            [clj-money.test-context :refer [realize
                                             find-entity]]
+            [clj-money.validation :as validation]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
@@ -29,7 +29,7 @@
    :symbol "APPL"})
 
 (deftest create-a-commodity
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (attributes context)
         result (commodities/create storage-spec commodity)
@@ -46,7 +46,7 @@
         "The commodity can be retrieved after create")))
 
 (deftest entity-id-can-be-a-string
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :entity-id (str entity-id))
         result (commodities/create storage-spec commodity)
@@ -60,7 +60,7 @@
         "The commodity can be retrieved after create")))
 
 (deftest entity-id-is-required
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :entity-id)
         result (commodities/create storage-spec commodity)
@@ -73,7 +73,7 @@
         "The commodity is not retrieved after create")))
 
 (deftest type-is-required
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :type)
         result (commodities/create storage-spec commodity)
@@ -86,7 +86,7 @@
         "The commodity is not retrieved after create")))
 
 (deftest type-can-be-currency
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :currency)
         result (commodities/create storage-spec commodity)
@@ -98,7 +98,7 @@
         "The commodity is retrieved after create")))
 
 (deftest type-can-be-stock
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :stock)
         result (commodities/create storage-spec commodity)
@@ -110,7 +110,7 @@
         "The commodity is retrieved after create")))
 
 (deftest type-can-be-fund
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :fund)
         result (commodities/create storage-spec commodity)
@@ -122,7 +122,7 @@
         "The commodity is retrieved after create")))
 
 (deftest type-cannot-be-invalid
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :not-a-valid-type)
         result (commodities/create storage-spec commodity)
@@ -135,7 +135,7 @@
         "The commodity is not retrieved after create")))
 
 (deftest name-is-required
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :name)
         result (commodities/create storage-spec commodity)
@@ -148,7 +148,7 @@
         "The commodity is not retrieved after create")))
 
 (deftest name-is-unique-for-an-entity-and-exchange
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (attributes context) 
         result-1 (commodities/create storage-spec commodity)
@@ -165,7 +165,7 @@
         "The commodity exists only once after both calls to create")))
 
 (deftest name-can-be-duplicated-between-exchanges
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-1-id (-> context :entities first :id)
         entity-2-id (-> context :entities second :id)
         commodity-1 (assoc (attributes context) :entity-id entity-1-id)
@@ -188,7 +188,7 @@
         "The second commodity can be retrieved after create")))
 
 (deftest name-can-be-duplicated-between-entities
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-1 (-> context :entities first)
         entity-2 (-> context :entities second)
         _ (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
@@ -196,7 +196,7 @@
     (is (empty? (validation/error-messages c2)))))
 
 (deftest symbol-is-required
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :symbol)
         result (commodities/create storage-spec commodity)
@@ -209,7 +209,7 @@
         "The commodity is not retrieved after create")))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (attributes context) 
         result-1 (commodities/create storage-spec commodity)
@@ -226,13 +226,13 @@
         "The commodity exists only once after both calls to create")))
 
 (deftest symbol-can-be-duplicated-between-exchanges
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         _ (commodities/create storage-spec (assoc (attributes context) :exchange :nasdaq))
         c2 (commodities/create storage-spec (assoc (attributes context) :exchange :nyse))]
     (is (empty? (validation/error-messages c2)))))
 
 (deftest symbol-can-be-duplicated-between-entities
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-1 (-> context :entities first)
         entity-2 (-> context :entities second)
         _ (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
@@ -240,7 +240,7 @@
     (is (empty? (validation/error-messages c2)))))
 
 (deftest exchange-can-be-a-string
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :entity-id (str entity-id))
         result (commodities/create storage-spec commodity)
@@ -256,7 +256,7 @@
     (is (= expected actual) "The commodity can be retrieved after create")))
 
 (deftest exchange-is-required-for-stocks
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :exchange)
         result (commodities/create storage-spec commodity)
@@ -269,7 +269,7 @@
         "The commodity is not retrieved after create")))
 
 (deftest exchange-is-not-required-for-currencies
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)
         commodity {:entity-id entity-id
                    :name "US Dollar"
@@ -284,7 +284,7 @@
         "The commodity is retrieved after create")))
 
 (deftest exchange-can-be-nasdaq
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         commodity (assoc (attributes context)
                          :exchange :nasdaq
                          :symbol "APPL"
@@ -294,7 +294,7 @@
         "The result has no error messages")))
 
 (deftest exchange-can-be-nyse
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         commodity (assoc (attributes context)
                          :exchange :nyse
                          :symbol "HD"
@@ -304,7 +304,7 @@
         "The result has no error messages")))
 
 (deftest exchange-must-be-valid
-  (let [context (serialization/realize storage-spec commodity-context)
+  (let [context (realize storage-spec commodity-context)
         commodity (assoc (attributes context)
                          :exchange :not-a-valid-exchange
                          :symbol "NUNYA"
@@ -321,7 +321,7 @@
                                           :exchange :nasdaq}]))
 
 (deftest a-commodity-can-be-updated
-  (let [context (serialization/realize storage-spec existing-commodity-context)
+  (let [context (realize storage-spec existing-commodity-context)
         commodity (-> context :commodities first)
         result (commodities/update storage-spec (assoc commodity :name "New name"))
         retrieved (commodities/find-by-id storage-spec (:id commodity))]
@@ -331,7 +331,7 @@
     (is (= "New name" (:name retrieved)) "The retrieved value has the correct name")))
 
 (deftest a-commodity-can-be-deleted
-  (let [context (serialization/realize storage-spec existing-commodity-context)
+  (let [context (realize storage-spec existing-commodity-context)
         commodity (-> context :commodities first)
         _ (commodities/delete storage-spec (:id commodity))
         retrieved (commodities/find-by-id storage-spec (:id commodity))]
@@ -347,7 +347,7 @@
                                               :price 10.50M}]))
 
 (deftest deleting-a-commodity-deletes-the-prices
-  (let [context (serialization/realize storage-spec commodity-with-prices-context)
+  (let [context (realize storage-spec commodity-with-prices-context)
         commodity (-> context :commodities first)
         criteria {:commodity-id (:id commodity)
                   :trade-date [:between
@@ -382,7 +382,7 @@
                                           :type :currency}]))
 
 (deftest get-a-count-of-commodities
-  (let [ctx (serialization/realize storage-spec count-context)
+  (let [ctx (realize storage-spec count-context)
         entity (find-entity ctx "Personal")
         result (commodities/count storage-spec {:entity-id (:id entity)})]
     (is  (= 3 result))))
