@@ -119,3 +119,40 @@
         (println cmd))
       (when-not (:dry-run options)
         (jdbc/execute! c cmd)))))
+
+(defn descending-sort?
+  "Returns a boolean value indicating whether or not
+  the first segment of the sort expression specified
+  descending order"
+  [sort-exp]
+  (when (and sort-exp
+             (sequential? sort-exp)
+             (sequential? (first sort-exp)))
+    (= :desc (-> sort-exp first second))))
+
+(defn limit-reached?
+  [records {:keys [limit]}]
+  (and limit
+       (<= limit (count records))))
+
+(defmacro with-partitioning
+  [exec-fn table-name d-range options bindings & body]
+  `(let [tables# (tables-for-range (first ~d-range)
+                                   (second ~d-range)
+                                   ~table-name
+                                   {:descending? (descending-sort?
+                                                   (:sort ~options))})
+         sql-fn# (fn* [~(first bindings)] ~@body)]
+     (->> tables#
+          (map #(if (coll? %)
+                  (map keyword %)
+                  (keyword %)))
+          (reduce (fn [records# table#]
+                    (let [sql# (sql-fn# table#)
+                          _logresult# (log/debugf "partitioned select from %s: %s" ~table-name (prn-str (sql/format sql#)))
+                          found-records# (~exec-fn sql#)
+                          updated-records# (concat records# found-records#)]
+                      (if (limit-reached? updated-records# ~options)
+                        (reduced updated-records#)
+                        updated-records#)))
+                  []))))

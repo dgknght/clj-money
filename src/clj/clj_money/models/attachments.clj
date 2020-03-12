@@ -35,11 +35,12 @@
 (defn search
   ([storage-spec criteria]
    (search storage-spec criteria {}))
-  ([storage-spec criteria _options]
+  ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (->> criteria
-          (select-attachments s )
-          (map after-read)))))
+     (map after-read
+          (select-attachments s
+                              criteria
+                              options)))))
 
 (defn find-by-id
   [storage-spec id]

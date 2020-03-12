@@ -1,324 +1,24 @@
 (ns clj-money.models.storage.sql-storage
-  (:require [clojure.spec.alpha :as s]
-            [clojure.string :as string]
-            [clojure.java.jdbc :as jdbc]
+  (:require [clojure.java.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
-            [clj-time.core :as t]
-            [clj-time.coerce :refer [to-sql-date
-                                     to-sql-time
-                                     to-local-date]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-postgresql.types]
+            [clj-money.models.storage.sql-helpers :refer [->clojure-keys
+                                                          query
+                                                          date-range
+                                                          select-count
+                                                          insert-model
+                                                          update-model
+                                                          append-sort
+                                                          append-paging
+                                                          append-limit
+                                                          append-where]]
             [clj-money.partitioning :refer [table-name
-                                            tables-for-range]]
+                                            with-partitioning]]
             [clj-money.models.storage :refer [Storage]])
-  (:import [java.sql BatchUpdateException
-                     Date]
-           org.joda.time.LocalDate
-           org.postgresql.util.PSQLException))
-
-(defn- first-key-present
-  "Accepts a list of keys and a map, returning the first
-  key from the list that is present in the map.
-
-  (first-key-present :a :b :c {:b 42})
-  ;; => :b"
-  [& args]
-  (let [m (last args)
-        k (take (- (count args) 1) args)]
-    (-> m
-        keys
-        set
-        (some k))))
-
-(extend-protocol jdbc/IResultSetReadColumn
-  Date
-  (result-set-read-column [v _ _]
-    (to-local-date v)))
-
-(extend-protocol jdbc/ISQLValue
-  LocalDate
-  (sql-value [v]
-    (to-sql-date v)))
-
-(extend-protocol jdbc/ISQLValue
-  org.joda.time.DateTime
-  (sql-value [v]
-    (to-sql-time v)))
-
-(extend-protocol jdbc/ISQLValue
-  clojure.lang.Keyword
-  (sql-value [v]
-    (name v)))
-
-(defn- id-criteria?
-  [value]
-  (or (integer? value)
-      (uuid? value)
-      (and (coll? value)
-           (seq value)
-           (every? integer? value))))
-
-(s/def ::user-id integer?)
-(s/def ::entity-id id-criteria?)
-(s/def ::lot-id (s/or :id integer?
-                      :ids (s/coll-of integer?)))
-(s/def ::account-id integer?)
-(s/def ::commodity-id integer?)
-(s/def ::transaction-id uuid?)
-(s/def ::date (partial instance? LocalDate))
-(s/def ::nilable-date #(or (instance? LocalDate %) (nil? %)))
-(s/def ::lot-criteria
-  (s/and (fn [model]
-           (when-let [v (some #(get model %) #{:id :account-id :commodity-id :entity-id})]
-             (integer? v)))
-         (s/keys :opt-un [::id ::account-id ::commodity-id ::entity-id])))
-
-(s/def ::lot-transaction-criteria
-  (fn [c] (integer? (some #(% c) [:id :lot-id :transaction-id]))))
-(s/def ::entity-or-account-id (s/or ::entity-id ::account-id))
-
-(defmulti commodity-criteria #(contains? % :id))
-(defmethod commodity-criteria true [_]
-  (s/keys :req-un [::id]))
-(defmethod commodity-criteria false [_]
-  (s/keys :req-un [::entity-id]))
-(s/def ::commodity-criteria (s/multi-spec commodity-criteria #(contains? % :id)))
-
-(s/def ::image-criteria (s/keys :req-un [::user-id]))
-
-(defmulti trade-date #(if (vector? %)
-                        (if (= :between (first %))
-                          :ternary
-                          :binary)
-                        :unary))
-(defmethod trade-date :ternary [_]
-  (s/tuple keyword? ::date ::date))
-(defmethod trade-date :binary [_]
-  (s/tuple keyword? ::date))
-(defmethod trade-date :unary [_]
-  ::date)
-(s/def ::trade-date (s/multi-spec trade-date vector?))
-
-(defmulti price-criteria #(contains? % :id))
-(defmethod price-criteria false [_]
-  (s/keys :req-un [::commodity-id] :opt-un [::trade-date]))
-(defmethod price-criteria true [_]
-  (s/keys :req-un [::id ::trade-date]))
-(s/def ::price-criteria (s/multi-spec price-criteria #(contains? % :id)))
-
-(defmulti attachment-criteria #(contains? % :id))
-(defmethod attachment-criteria true [_]
-  (s/keys :req-un [::id]))
-(defmethod attachment-criteria false [_]
-  (s/keys :req-un [::transaction-id]))
-(s/def ::attachment-criteria (s/multi-spec attachment-criteria #(contains? % :id)))
-
-(def ^:private transaction-criteria-key
-  (partial first-key-present :lot-id :entity-id :id))
-(defmulti transaction-criteria transaction-criteria-key)
-(defmethod transaction-criteria :lot-id [_]
-  (s/keys :req-un [::lot-id] :opt-un [::transaction-date]))
-(defmethod transaction-criteria :entity-id [_]
-  (s/keys :req-un [::entity-id] :opt-un [::transaction-date]))
-(defmethod transaction-criteria :id [_]
-  (s/keys :req-un [::id ::transaction-date]))
-(defmethod transaction-criteria :default [c]
-  (throw (RuntimeException. (str "The criteria must contain either :lot-id, :entity-id, or :id. " (prn-str c)))))
-
-(s/def
-  ::transaction-criteria
-  (s/multi-spec transaction-criteria transaction-criteria-key))
-
-(s/def ::transaction-item-criteria (s/keys :opt-un [::transaction-date]))
-
-(defmulti budget-criteria #(contains? % :id))
-(defmethod budget-criteria true [_]
-  (s/keys :req-un [::id]))
-(defmethod budget-criteria false [_]
-  (s/keys :req-un [::entity-id]))
-(s/def ::budget-criteria (s/multi-spec budget-criteria #(contains? % :id)))
-(defmulti grant-criteria #(contains? % :id))
-(defmethod grant-criteria true [_]
-  (s/keys :req-un [::id]))
-(defmethod grant-criteria false [_]
-  (s/keys :req-un [::entity-id]))
-(s/def ::grant-criteria (s/multi-spec grant-criteria #(contains? % :id)))
-
-(defn- update-keys
-  [model f]
-  (when model
-    (->> model
-         (map #(update-in % [0] f))
-         (into {}))))
-
-(defn- ->sql-key
-  "Accepts a keyword returns it with hyphens replaced with underscores"
-  [k]
-  (keyword (string/replace (name k) "-" "_")))
-
-(defn- ->sql-keys
-  "Accepts a hash and replaces hyphens in key names
-  with underscores"
-  [model]
-  (update-keys model ->sql-key))
-
-(defn- ->clojure-key
-  "Accepts a keyword returns it with underscores replaced with hyphens"
-  [k]
-  (keyword (string/replace (name k) "_" "-")))
-
-(defn- ->clojure-keys
-  "Accepts a hash and replaces underscores in key names
-  with hyphens"
-  [model]
-  (if (map? model)
-    (update-keys model ->clojure-key)
-    model))
-
-(defn- insert
-  "Inserts a record into the specified table"
-  [db-spec table model & allowed-keys]
-  (->> (select-keys model allowed-keys)
-       ->sql-keys
-       (jdbc/insert! db-spec table)
-       first
-       ->clojure-keys))
-
-(defn- ->update-set
-  "Prepares a model for update"
-  [model & keys]
-  (-> model
-      (select-keys keys)
-      (assoc :updated-at (t/now))
-      ->sql-keys))
-
-(defn- ensure-not-keyword
-  "Make sure the value is not a keyword. It could be a string, an integer
-  or anything else."
-  [value]
-  (if (keyword? value)
-    (name value)
-    value))
-
-(defn- map-entry->statements
-  [[key value]]
-  (if (coll? value)
-    (case (first value)
-
-      (:= :> :>= :<= :< :<> :!=)
-      [[(first value) key (ensure-not-keyword (second value))]]
-
-      :between
-      [[:>= key (ensure-not-keyword (second value))]
-       [:<= key (ensure-not-keyword (nth value 2))]]
-
-      [[:in key (map ensure-not-keyword value)]])
-    [[:= key (ensure-not-keyword value)]]))
-
-(defn- map->where
-  ([m] (map->where m {}))
-  ([m options]
-   (let [prefix-fn (if-let [prefix (:prefix options)]
-                     #(keyword (format "%s.%s" prefix (name %)))
-                     identity)]
-     (->> m
-          (map #(update-in % [0] prefix-fn))
-          (mapcat map-entry->statements)
-          (reduce conj [:and])))))
-
-(defn- append-where
-  ([sql criteria]
-   (append-where sql criteria {}))
-  ([sql criteria options]
-   (if (and criteria (seq criteria))
-     (h/merge-where sql (map->where criteria options))
-     sql)))
-
-(defn- append-entity-id-to-lot-query
-  [sql entity-id]
-  (if entity-id
-    (-> sql
-        (h/join [:commodities :c] [:= :c.id :lots.commodity_id])
-        (h/merge-where [:= :c.entity-id entity-id]))
-    sql))
-
-(defn- descending-sort?
-  "Returns a boolean value indicating whether or not
-  the first segment of the sort expression specified
-  descending order"
-  [sort-exp]
-  (when (and sort-exp
-             (sequential? sort-exp)
-             (sequential? (first sort-exp)))
-    (= :desc (-> sort-exp first second))))
-
-
-(defn- limit-reached?
-  [records {:keys [limit]}]
-  (and limit
-       (<= limit (count records))))
-
-; TODO: maybe extract the sql parts and move this to the partitioning namespace?
-(defmacro with-partitioning
-  [exec-fn table-name d-range options bindings & body]
-  `(let [tables# (tables-for-range (first ~d-range)
-                                   (second ~d-range)
-                                   ~table-name
-                                   {:descending? (descending-sort?
-                                                   (:sort ~options))})
-         sql-fn# (fn* [~(first bindings)] ~@body)]
-     (->> tables#
-          (map #(if (coll? %)
-                  (map keyword %)
-                  (keyword %)))
-          (reduce (fn [records# table#]
-                    (let [sql# (sql-fn# table#)
-                          _logresult# (log/debugf "partitioned select from %s: %s" ~table-name (prn-str (sql/format sql#)))
-                          found-records# (~exec-fn sql#)
-                          updated-records# (concat records# found-records#)]
-                      (if (limit-reached? updated-records# ~options)
-                        (reduced updated-records#)
-                        updated-records#)))
-                  []))))
-
-(defn- append-sort
-  [sql options]
-  (if-let [s (:sort options)]
-    (apply h/order-by sql s)
-    sql))
-
-(defn- append-paging
-  [sql options]
-  (cond-> sql
-    (:per-page options) (h/limit (:per-page options))
-    (:page options) (h/offset (* (:per-page options) (- (:page options) 1)))))
-
-(defn- append-limit
-  [sql options]
-  (if-let [limit (:limit options)]
-    (h/limit sql limit)
-    sql))
-
-(defn- adjust-select
-  [sql options]
-  (if (:count options)
-    (h/select sql :%count.*)
-    sql))
-
-(defn- append-grants
-  "Appends joins and where clauses necessary to search entities
-  including those owned by another user but grantedto the specified user"
-  [sql user-id options]
-  (if (:include-grants? options)
-    (-> sql
-        (h/left-join :grants [:= :entities.id :grants.entity-id])
-        (h/where [:or
-                  [:= :entities.user-id user-id]
-                  [:= :grants.user-id user-id]]))
-    sql))
+  (:import java.sql.BatchUpdateException))
 
 (defn- append-select-password
   "For a user query, adds the password to the list of selected
@@ -327,41 +27,6 @@
   (if {:include-password? options}
     (h/merge-select sql :password)
     sql))
-
-(defn- append-transaction-lot-filter
-  [sql criteria]
-  (let [without-lot (dissoc criteria :lot-id)]
-    (cond-> sql
-
-      (not (seq without-lot))
-      (h/merge-where (map->where without-lot))
-
-      (contains? criteria :lot-id)
-      (-> (h/join [:lots_transactions :lt]
-                  [:= :t.id :lt.transaction_id])
-          (h/merge-where [:= :lt.lot_id (:lot-id criteria)])))))
-
-(defn- query
-  "Executes a SQL query and maps field names into
-  clojure keys"
-  [db-spec sql-map]
-  (->> (sql/format sql-map)
-       (jdbc/query db-spec)
-       (map ->clojure-keys)))
-
-(defn- execute
-  [db-spec sql-map]
-  (let [sql (sql/format sql-map)]
-    (try
-      (jdbc/execute! db-spec sql)
-      (catch PSQLException e
-        (pprint {:sql sql
-                 :exception e})
-        (throw (ex-info (.getMessage e) {:sql sql})))
-      (catch BatchUpdateException e
-        (pprint {:sql sql
-                 :batch-update-exception (.getNextException e)})
-        (throw (ex-info (.getMessage (.getNextException e)) {:sql sql}))))))
 
 (defn- delete
   [db-spec table where]
@@ -374,80 +39,19 @@
       (throw (ex-info (.getMessage (.getNextException e)) {:table table
                                                            :where where})))))
 
-(defn- validate-criteria
-  [criteria spec]
-  (when-not (s/valid? spec criteria)
-      (let [explanation (s/explain-data spec criteria)]
-        (throw (ex-info
-                 (str "The criteria is not valid: " explanation)
-                 {:criteria criteria
-                  :explanation explanation})))))
-
-(defmulti ^:private date-range
-  "Accepts a date criteria value and returns a tuple
-  containing the start date in the first position and
-  the end date in the second position"
-  (fn [_ range-value]
-    (if (sequential? range-value)
-      (if (= :between (first range-value))
-        :ternary
-        :binary)
-      :scalar)))
-
-(defmethod ^:private date-range :scalar
-  [storage range-value]
-  (if range-value
-    [range-value range-value]
-    [(.get-setting storage
-                   "earliest-partition-date"
-                   (fnil read-string "#local-date \"2000-01-01\""))
-     (.get-setting storage
-                   "latest-partition-date"
-                   (fnil read-string "#local-date \"2999-01-01\""))]))
-
-(defmethod ^:private date-range :binary
-  [storage [operator date]]
-  (if (#{:< :<=} operator)
-    [(.get-setting storage
-                   "earliest-partition-date"
-                   (fnil read-string "#local-date \"2000-01-01\""))
-     date]
-    [date
-     (.get-setting storage
-                   "latest-partition-date"
-                   (fnil read-string "#local-date \"2999-01-01\""))]))
-
-(defmethod ^:private date-range :ternary
-  [storage range-value]
-  (-> range-value
-      (update-in [1] #(or % (.get-setting
-                              storage
-                              "earliest-partition-date"
-                              (fnil read-string "#local-date \"2000-01-01\""))))
-      (update-in [2] #(or % (.get-setting
-                              storage
-                              "latest-partition-date"
-                              (fnil read-string "#local-date \"2999-01-01\""))))
-      rest))
-
 (deftype SqlStorage [db-spec]
   Storage
 
   ; Users
   (create-user
     [_ user]
-    (insert db-spec :users user :first-name
-                                :last-name
-                                :email
-                                :password))
-
-  (select-users
-    [this]
-    (.select-users this {}))
-
-  (select-users
-    [this criteria]
-    (.select-users this criteria {}))
+    (insert-model db-spec
+                  :users
+                  user
+                  :first-name
+                  :last-name
+                  :email
+                  :password))
 
   (select-users
     [_ criteria options]
@@ -459,20 +63,17 @@
 
   (update-user
     [_ user]
-    (let [sql (sql/format (-> (h/update :users)
-                              (h/sset (->update-set user
-                                                    :first-name
-                                                    :last-name
-                                                    :password
-                                                    :password-reset-token
-                                                    :token-expires-at))
-                              (h/where [:= :id (:id user)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :users user
+                  :first-name
+                  :last-name
+                  :password
+                  :password-reset-token
+                  :token-expires-at))
 
   ; Identities
   (create-identity
     [_ ident]
-    (insert db-spec :identities ident
+    (insert-model db-spec :identities ident
             :user-id
             :provider
             :provider-id))
@@ -485,7 +86,7 @@
                             [:u.email :user_email])
                   (h/from [:identities :i])
                   (h/join [:users :u] [:= :u.id :i.user_id])
-                  (h/where (map->where criteria {:prefix "i"}))
+                  (append-where criteria {:prefix "i"})
                   (append-limit options))]
       (log/debugf "select-identities %s - %s" (prn-str criteria) (prn-str (sql/format sql)))
       (query db-spec sql)))
@@ -493,17 +94,17 @@
   ; Entities
   (create-entity
     [_ entity]
-    (insert db-spec :entities entity :name
+    (insert-model db-spec :entities entity :name
                                      :user-id
                                      :settings))
 
   (select-entities
-    [_ user-id options]
+    [_ criteria options]
+    {:pre [(map? criteria)]}
     (query db-spec (-> (h/select :entities.*)
                        (h/from :entities)
-                       (h/where [:= :user_id user-id])
-                       (h/order-by :name)
-                       (append-grants user-id options))))
+                       (append-where criteria)
+                       (h/order-by :name))))
 
   (find-entity-by-id
     [_ id]
@@ -511,12 +112,7 @@
 
   (update-entity
     [_ entity]
-    (let [sql (sql/format (-> (h/update :entities)
-                              (h/sset (->update-set entity
-                                                    :name
-                                                    :settings))
-                              (h/where [:= :id (:id entity)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :entities entity :name :settings))
 
   (delete-entity
     [_ id]
@@ -525,39 +121,30 @@
   ; Grants
   (create-grant
     [_ grant]
-    (insert db-spec :grants grant :entity-id
+    (insert-model db-spec :grants grant :entity-id
                                   :user-id
                                   :permissions))
 
   (update-grant
     [_ grant]
-    (let [sql (sql/format (-> (h/update :grants)
-                              (h/sset (->update-set grant
-                                                    :permissions))
-                              (h/where [:= :id (:id grant)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :grants grant :permissions))
 
   (delete-grant
     [_ id]
     (jdbc/delete! db-spec :grants ["id = ?" id]))
 
   (select-grants
-    [this criteria]
-    (.select-grants this criteria {}))
-
-  (select-grants
     [_ criteria options]
-    (validate-criteria criteria ::grant-criteria)
     (let [sql (-> (h/select :*)
                   (h/from :grants)
-                  (h/where (map->where criteria))
+                  (append-where criteria)
                   (append-limit options))]
       (query db-spec sql)))
 
   ; Accounts
   (create-account
     [_ account]
-    (insert db-spec :accounts account :name
+    (insert-model db-spec :accounts account :name
                                       :type
                                       :tags
                                       :commodity-id
@@ -570,16 +157,16 @@
 
   (update-account
     [_ account]
-    (let [updates (->update-set account :name
-                                        :type
-                                        :tags
-                                        :commodity-id
-                                        :parent-id
-                                        :quantity,
-                                        :value
-                                        :earliest-transaction-date
-                                        :latest-transaction-date)]
-      (jdbc/update! db-spec :accounts updates ["id = ?" (:id account)])))
+    (update-model db-spec :accounts account
+                  :name
+                  :type
+                  :tags
+                  :commodity-id
+                  :parent-id
+                  :quantity,
+                  :value
+                  :earliest-transaction-date
+                  :latest-transaction-date))
 
   (delete-account
     [_ id]
@@ -600,48 +187,39 @@
                   (h/from [:accounts :a])
                   (h/join [:commodities :c] [:= :c.id :a.commodity-id])
                   (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
-                  (h/where (map->where criteria {:prefix "a"}))
+                  (append-where criteria {:prefix "a"})
                   (append-limit options))]
       (query db-spec sql)))
 
   ; Commodities
   (create-commodity
     [_ commodity]
-    (insert db-spec :commodities commodity :name
+    (insert-model db-spec :commodities commodity :name
                                            :type
                                            :symbol
                                            :exchange
                                            :entity-id))
 
-  (update-commodity
-    [_ commodity]
-    (let [sql (sql/format (-> (h/update :commodities)
-                              (h/sset (->update-set commodity
-                                                    :entity-id
-                                                    :type
-                                                    :name
-                                                    :symbol
-                                                    :exchange))
-                              (h/where [:= :id (:id commodity)])))]
-      (jdbc/execute! db-spec sql)))
+(update-commodity
+  [_ commodity]
+  (update-model db-spec :commodities commodity
+                :entity-id
+                :type
+                :name
+                :symbol
+                :exchange))
 
   (count-commodities
     [_ criteria]
-    (validate-criteria criteria ::commodity-criteria)
     (query db-spec (-> (h/select :%count.1)
                        (h/from :commodities)
-                       (h/where (map->where criteria)))))
-
-  (select-commodities
-    [this criteria]
-    (.select-commodities this criteria {}))
+                       (append-where criteria))))
 
   (select-commodities
     [_ criteria options]
-    (validate-criteria criteria ::commodity-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :commodities)
-                       (h/where (map->where criteria))
+                       (append-where criteria)
                        (append-paging options)
                        (append-limit options))))
 
@@ -652,16 +230,12 @@
   ; Prices
   (create-price
     [_ price]
-    (insert db-spec
+    (insert-model db-spec
             (table-name (:trade-date price) :prices)
             price
             :commodity-id
             :trade-date
             :price))
-
-  (select-prices
-    [this criteria]
-    (.select-prices this criteria {}))
 
   (select-prices
     [this criteria options]
@@ -680,13 +254,12 @@
             (append-limit options)))))
 
   (update-price
-    [_ price]
-    (let [sql (sql/format (-> (h/update (keyword (table-name (:trade-date price) :prices)))
-                              (h/sset (->update-set price
-                                                    :trade-date
-                                                    :price))
-                              (h/where [:= :id (:id price)])))]
-      (jdbc/execute! db-spec sql)))
+    [_ {:keys [trade-date] :as price}]
+    (update-model db-spec
+                  (keyword (table-name trade-date :prices))
+                  price
+                  :trade-date
+                  :price))
 
   (delete-price
     [_ price]
@@ -701,7 +274,7 @@
   ; Lots
   (create-lot
     [_ lot]
-    (insert db-spec :lots lot :commodity-id
+    (insert-model db-spec :lots lot :commodity-id
                               :account-id
                               :purchase-price
                               :purchase-date
@@ -709,16 +282,13 @@
                               :shares-owned))
   (update-lot
     [_ lot]
-    (let [sql (sql/format (-> (h/update :lots)
-                              (h/sset (->update-set lot
-                                                    :purchase-date
-                                                    :account-id
-                                                    :commodity-id
-                                                    :purchase-price
-                                                    :shares-owned
-                                                    :shares-purchased))
-                              (h/where [:= :id (:id lot)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :lots lot
+                  :purchase-date
+                  :account-id
+                  :commodity-id
+                  :purchase-price
+                  :shares-owned
+                  :shares-purchased))
 
   (select-lots
     [_ criteria options]
@@ -726,16 +296,11 @@
              (set? (:entity-id criteria))
              (empty? (:entity-id criteria)))
       []
-      (do
-        (validate-criteria criteria ::lot-criteria)
-        (let [entity-id (:entity-id criteria)
-              filtered-criteria (dissoc criteria :entity-id)]
-          (query db-spec (-> (h/select :*)
-                             (h/from :lots)
-                             (h/where (map->where filtered-criteria))
-                             (append-entity-id-to-lot-query entity-id)
-                             (append-limit options)
-                             (append-sort options)))))))
+      (query db-spec (-> (h/select :*)
+                            (h/from :lots)
+                            (append-where criteria {:target :lot})
+                            (append-limit options)
+                            (append-sort options)))))
 
   (delete-lot
     [_ id]
@@ -743,7 +308,7 @@
 
   (create-lot->transaction-link
     [_ link]
-    (insert db-spec :lots_transactions link :lot-id
+    (insert-model db-spec :lots_transactions link :lot-id
                                             :transaction-id
                                             :lot-action
                                             :shares
@@ -765,97 +330,91 @@
   ; Transactions
   (select-transactions
     [this criteria options]
-    (validate-criteria criteria ::transaction-criteria)
     (let [d-range (date-range this (:transaction-date criteria))
           result
           (with-partitioning (partial query db-spec) :transactions d-range options
             [table]
             (-> (h/select :t.*)
                 (h/from [table :t])
-                (adjust-select options)
+                (select-count options)
                 (append-sort options)
-                #_(append-paging options)
-                (append-where criteria)
-                (append-transaction-lot-filter criteria)))]
+                (append-where criteria {:target :transaction
+                                        :target-alias :t})))]
       (if (:count options) ; TODO remove this duplication with select-transaction-items
         (-> result first vals first)
         result)))
 
   (create-transaction
     [_ transaction]
-    (insert db-spec
-            (table-name (:transaction-date transaction) :transactions)
-            transaction
-            :entity-id
-            :description
-            :transaction-date
-            :memo
-            :value))
+    (insert-model db-spec
+                  (table-name (:transaction-date transaction) :transactions)
+                  transaction
+                  :entity-id
+                  :description
+                  :transaction-date
+                  :memo
+                  :value))
 
   (delete-transaction
     [_ id transaction-date]
     (jdbc/delete! db-spec (table-name transaction-date :transactions) ["id = ?" id]))
 
   (update-transaction
-    [_ transaction]
-    (let [sql (sql/format (-> (h/update (table-name (:transaction-date transaction)
-                                                    :transactions))
-                              (h/sset (->update-set
-                                        transaction
-                                        :description
-                                        :transaction-date
-                                        :memo
-                                        :value))
-                              (h/where [:= :id (:id transaction)])))]
-      (jdbc/execute! db-spec sql)))
+    [_ {:keys [transaction-date] :as transaction}]
+    (update-model db-spec
+                  (table-name transaction-date :transactions)
+                  transaction
+                  :description
+                  :transaction-date
+                  :memo
+                  :value))
 
   ; Transaction Items
   (create-transaction-item
     [_ transaction-item]
-    (insert db-spec
-            (table-name (:transaction-date transaction-item) :transaction_items)
-            transaction-item
-            :transaction-id
-            :transaction-date
-            :account-id
-            :action
-            :quantity
-            :negative
-            :value
-            :index
-            :balance
-            :memo))
+    (insert-model db-spec
+                  (table-name (:transaction-date transaction-item) :transaction_items)
+                  transaction-item
+                  :transaction-id
+                  :transaction-date
+                  :account-id
+                  :action
+                  :quantity
+                  :negative
+                  :value
+                  :index
+                  :balance
+                  :memo))
 
   (update-transaction-item
-    [_ transaction-item]
-    (execute db-spec (-> (h/update (table-name
-                                     (:transaction-date transaction-item)
-                                     :transaction_items))
-                         (h/sset (->update-set transaction-item
-                                               :transaction-date
-                                               :quantity
-                                               :value
-                                               :negative
-                                               :memo
-                                               :action
-                                               :index
-                                               :balance
-                                               :account-id))
-                         (h/where [:= :id (:id transaction-item)]))))
+    [_ {:keys [transaction-date] :as transaction-item}]
+    (update-model db-spec
+                  (table-name transaction-date :transaction_items)
+                  transaction-item
+                  :transaction-date
+                  :quantity
+                  :value
+                  :negative
+                  :memo
+                  :action
+                  :index
+                  :balance
+                  :account-id))
 
   (update-transaction-item-index-and-balance
     [_ transaction-item]
-    (execute db-spec (-> (h/update (table-name (:transaction-date transaction-item)
-                                               :transaction_items))
-                         (h/sset (->update-set transaction-item
-                                               :transaction-date
-                                               :index
-                                               :balance))
-                         (h/where [:and
-                                   [:= :id (:id transaction-item)]
-                                   [:or
-                                     [:!= :balance (:balance transaction-item)]
-                                     [:!= :index (:index transaction-item)]]]))))
+    (update-model db-spec
+                  (table-name (:transaction-date transaction-item)
+                              :transaction_items)
+                  transaction-item
+                  [:and
+                   [:= :id (:id transaction-item)]
+                   [:or
+                    [:!= :balance (:balance transaction-item)]
+                    [:!= :index (:index transaction-item)]]]
+                  :transaction-date
+                  :index
+                  :balance))
 
   (delete-transaction-item
     [_ id transaction-date]
@@ -885,45 +444,40 @@
           sql/format)))
 
   (select-transaction-items
-    [this criteria]
-    (.select-transaction-items this criteria {}))
-
-  (select-transaction-items
     [this {:keys [entity-id] :as criteria} options]
     (if (and entity-id (empty? entity-id))
       []
-      (do
-        (validate-criteria criteria ::transaction-item-criteria)
-        (let [d-range (date-range this (:transaction-date criteria))
-              opts (if (:count options)
-                     options
-                     (merge
-                       {:sort [[:i.index :desc]]}
-                       options))
-              result (with-partitioning
-                       (partial query db-spec)
-                       [:transaction_items :transactions]
-                       d-range
-                       opts
-                       [tables]
-                       (cond-> (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
-                                   (h/from [(first tables) :i])
-                                   (h/join [(second tables) :t]
-                                           [:= :t.id :i.transaction_id])
-                                   (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
-                                   (adjust-select opts)
-                                   (h/where (map->where (dissoc criteria :entity-id) {:prefix "i"}))
-                                   (append-sort opts)
-                                   (append-limit opts))
-                         entity-id (h/merge-where [:in :t.entity_id entity-id])))]
-          (if (:count opts)
-            (-> result first vals first)
-            result)))))
+      (let [d-range (date-range this (:transaction-date criteria))
+            opts (if (:count options)
+                   options
+                   (merge
+                     {:sort [[:i.index :desc]]}
+                     options))
+            result (with-partitioning
+                     (partial query db-spec)
+                     [:transaction_items :transactions]
+                     d-range
+                     opts
+                     [tables]
+                     (cond-> (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
+                                 (h/from [(first tables) :i])
+                                 (h/join [(second tables) :t]
+                                         [:= :t.id :i.transaction_id])
+                                 (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
+                                 (select-count opts)
+                                 (append-where (dissoc criteria :entity-id)
+                                               {:prefix "i"})
+                                 (append-sort opts)
+                                 (append-limit opts))
+                       entity-id (h/merge-where [:in :t.entity_id entity-id])))]
+        (if (:count opts)
+          (-> result first vals first)
+          result))))
 
   ; Reconciliations
   (create-reconciliation
     [_ reconciliation]
-    (insert db-spec :reconciliations reconciliation :account-id
+    (insert-model db-spec :reconciliations reconciliation :account-id
                                                     :balance
                                                     :end-of-period
                                                     :status))
@@ -938,14 +492,11 @@
 
   (update-reconciliation
     [_ reconciliation]
-    (let [sql (sql/format (-> (h/update :reconciliations)
-                              (h/sset (->update-set reconciliation
-                                                    :account-id
-                                                    :balance
-                                                    :status
-                                                    :end-of-period))
-                              (h/where [:= :id (:id reconciliation)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :reconciliations reconciliation
+                  :account-id
+                  :balance
+                  :status
+                  :end-of-period))
 
   (delete-reconciliation
     [_ id]
@@ -954,7 +505,7 @@
   ; Budgets
   (create-budget
     [_ budget]
-    (insert db-spec :budgets budget :entity-id
+    (insert-model db-spec :budgets budget :entity-id
                                     :name
                                     :period
                                     :period-count
@@ -972,28 +523,20 @@
                               (h/limit 1)))))
 
   (select-budgets
-    [this criteria]
-    (.select-budgets this criteria {}))
-
-  (select-budgets
     [_ criteria options]
-    (validate-criteria criteria ::budget-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :budgets)
-                       (h/where (map->where criteria))
+                       (append-where criteria)
                        (append-limit options))))
 
   (update-budget
     [_ budget]
-    (let [sql (sql/format (-> (h/update :budgets)
-                              (h/sset (->update-set budget
-                                                    :name
-                                                    :period
-                                                    :period-count
-                                                    :start-date
-                                                    :end-date))
-                              (h/where [:= :id (:id budget)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :budgets budget
+                  :name
+                  :period
+                  :period-count
+                  :start-date
+                  :end-date))
 
   (delete-budget
     [_ id]
@@ -1002,18 +545,15 @@
   ; Budget items
   (create-budget-item
     [_ budget-item]
-    (insert db-spec :budget_items budget-item :budget-id
+    (insert-model db-spec :budget_items budget-item :budget-id
                                               :account-id
                                               :periods))
 
   (update-budget-item
     [_ budget-item]
-    (let [sql (sql/format (-> (h/update :budget_items)
-                              (h/sset (->update-set budget-item
-                                                    :account-id
-                                                    :periods))
-                              (h/where [:= :id (:id budget-item)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :budget_items budget-item
+                  :account-id
+                  :periods))
 
   (find-budget-item-by-id
     [_ id]
@@ -1036,7 +576,7 @@
 
   (create-image
     [_ image]
-    (insert db-spec :images image :user-id
+    (insert-model db-spec :images image :user-id
                                   :original-filename
                                   :content-type
                                   :body-hash
@@ -1047,15 +587,10 @@
     (->clojure-keys (jdbc/get-by-id db-spec :images id)))
 
   (select-images
-    [this criteria]
-    (.select-images this criteria {}))
-
-  (select-images
     [_ criteria options]
-    (validate-criteria criteria ::image-criteria)
     (query db-spec (-> (h/select :id :user_id :original_filename :body_hash :created_at)
                         (h/from :images)
-                        (h/where (map->where criteria))
+                        (append-where criteria)
                         (append-limit options))))
 
   (delete-image
@@ -1065,21 +600,16 @@
   ; Attachments
   (create-attachment
     [_ attachment]
-    (insert db-spec :attachments attachment :transaction-id
+    (insert-model db-spec :attachments attachment :transaction-id
                                             :transaction-date
                                             :caption
                                             :image-id))
 
   (select-attachments
-    [this criteria]
-    (.select-attachments this criteria {}))
-
-  (select-attachments
     [_ criteria options]
-    (validate-criteria criteria ::attachment-criteria)
     (query db-spec (-> (h/select :*)
                        (h/from :attachments)
-                       (h/where (map->where criteria))
+                       (append-where criteria)
                        (append-limit options))))
 
   (delete-attachment
@@ -1088,15 +618,16 @@
 
   ; Imports
   (select-imports
-    [_ criteria]
+    [_ criteria options]
     (query db-spec (-> (h/select :imports.*)
                    (h/from :imports)
-                   (h/where (map->where criteria))
+                   (append-where criteria)
+                   (append-limit options)
                    (h/order-by :created_at))))
 
   (create-import
     [_ import]
-    (insert db-spec :imports import :entity-name
+    (insert-model db-spec :imports import :entity-name
                                     :user-id
                                     :image-ids))
 
@@ -1106,11 +637,7 @@
 
   (update-import
     [_ import]
-    (let [sql (sql/format (-> (h/update :imports)
-                              (h/sset (->update-set import
-                                                    :progress))
-                              (h/where [:= :id (:id import)])))]
-      (jdbc/execute! db-spec sql)))
+    (update-model db-spec :imports import :progress))
 
   (delete-import
     [_ id]
@@ -1129,7 +656,7 @@
                                  (h/sset {:value setting-value})
                                  (h/where [:= :name setting-name])
                                  (sql/format)))
-      (insert db-spec
+      (insert-model db-spec
               :settings
               {:name (name setting-name)
                :value (prn-str setting-value)}

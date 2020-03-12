@@ -34,7 +34,7 @@
                     (:suffix %))
                  rules))))
 
-(defn- apply-singularize-rule
+(defn- apply-word-rule
   [word {pattern :pattern f :fn}]
   (when-let [match (re-find pattern word)]
     (f match)))
@@ -46,4 +46,14 @@
                 :fn second}
                {:pattern #"(.+)s\z"
                 :fn second}]]
-    (some (partial apply-singularize-rule word) rules)))
+    (some (partial apply-word-rule word) rules)))
+
+(defn plural
+  [word]
+  (let [rules [{:pattern #"(?i)\Achildren\z"
+                :fn (fn [_] "child")}
+               {:pattern #"(.+)y"
+                :fn #(str (second %) "ies")}
+               {:pattern #".+"
+                :fn #(str (first %) "s")}]]
+    (some (partial apply-word-rule word) rules)))

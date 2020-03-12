@@ -182,17 +182,20 @@
                                 (:entity-id %)
                                 (:as-of %))}])
 
+(defn- append-pseudo-account
+  [result {:keys [calc-fn negative-caption positive-caption]} storage-spec entity-id as-of]
+  (let [value (calc-fn {:storage-spec storage-spec
+                        :entity-id entity-id
+                        :as-of as-of
+                        :account-groups result})
+        caption (if (< value 0)
+                  negative-caption
+                  positive-caption)]
+    (append-equity-pseudo-account result caption value)))
+
 (defn- append-pseudo-accounts
   [storage-spec entity-id as-of account-groups]
-  (reduce (fn [result {:keys [calc-fn negative-caption positive-caption]}]
-            (let [value (calc-fn {:storage-spec storage-spec
-                                  :entity-id entity-id
-                                  :as-of as-of
-                                  :account-groups result})
-                  caption (if (< value 0)
-                            negative-caption
-                            positive-caption)]
-              (append-equity-pseudo-account result caption value)))
+  (reduce #(append-pseudo-account %1 %2 storage-spec entity-id as-of)
           account-groups
           pseudo-accounts))
 
@@ -428,7 +431,7 @@
          :transactions
          (mapcat transform-lot-transactions (transactions/search
                                               storage-spec
-                                              {:lot-id (:id lot)
+                                              {[:lot-transaction :lot-id] (:id lot)
                                                :transaction-date [:>= (:purchase-date lot)]}
                                               {:include-lot-items? true}))))
 

@@ -58,7 +58,8 @@
                  [buddy/buddy-sign "3.1.0"]
                  [buddy/buddy-hashers "1.4.0"]
                  [org.mindrot/jbcrypt "0.3m"]
-                 [co.deps/ring-etag-middleware "0.2.1"]]
+                 [co.deps/ring-etag-middleware "0.2.1"]
+                 [camel-snake-kebab "0.4.1"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
@@ -125,6 +126,7 @@
                             :show-error-messages? "true"
                             :detailed-import-logging? "true"
                             :google-client-id "google-id"
+                            :google-client-secret "google-client-secret"
                             :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
                             :site-protocol "https"
                             :site-host "www.mymoney.com"}}

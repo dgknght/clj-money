@@ -118,7 +118,7 @@
 (defn unrealized-gains
   [storage-spec entity-id as-of]
   (with-storage [s storage-spec]
-    (let [lots (search s {:entity-id entity-id
+    (let [lots (search s {[:commodity :entity-id] entity-id
                           :purchase-date [:<= as-of]})
           commodity-prices (->> lots
                                 (map :commodity-id)

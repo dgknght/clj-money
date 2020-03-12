@@ -68,7 +68,8 @@
            storage
            {:entity-id entity-id
             :name commodity-name
-            :exchange (name exchange)})
+            :exchange (name exchange)}
+           {})
          (remove #(= id (:id %)))
          seq)))
 
@@ -79,7 +80,8 @@
            storage
            {:entity-id entity-id
             :symbol commodity-symbol
-            :exchange (name exchange)})
+            :exchange (name exchange)}
+           {})
          (remove #(= id (:id %)))
          seq)))
 
@@ -98,8 +100,10 @@
   this is the default."
   [commodity storage]
   (when (#{:currency "currency"} (:type commodity))
-    (let [other-commodities (select-commodities storage {:entity-id (:entity-id commodity)
-                                                         :id [:!= (:id commodity)]})]
+    (let [other-commodities (select-commodities storage
+                                                {:entity-id (:entity-id commodity)
+                                                 :id [:!= (:id commodity)]}
+                                                {})]
       (when (empty? other-commodities)
         (let [entity (entities/find-by-id storage (:entity-id commodity))]
           (entities/update storage (assoc-in entity

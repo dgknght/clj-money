@@ -37,7 +37,8 @@
                (select-prices
                  storage
                  {:commodity-id commodity-id
-                  :trade-date trade-date}))))
+                  :trade-date trade-date}
+                 {}))))
 
 (defn- validation-rules
   [storage]

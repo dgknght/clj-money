@@ -60,7 +60,7 @@
   ([user context]
    (user-entity-ids user context {}))
   ([user context options]
-   (->> (entities/select (:storage-spec context) (:id user) options)
+   (->> (entities/select (:storage-spec context) {:user-id (:id user)} options)
         (map :id)
         (into #{}))))
 

@@ -27,7 +27,7 @@
   [storage {entity-name :name
             user-id :user-id
             entity-id :id}]
-  (->> (select-entities storage user-id {})
+  (->> (select-entities storage {:user-id user-id} {})
        (remove #(= (:id %) entity-id))
        (filter #(= (:name %) entity-name))
        empty?))
@@ -72,11 +72,18 @@
 
 (defn select
   "Returns entities for the specified user"
-  ([storage-spec user-id]
-   (select storage-spec user-id {}))
-  ([storage-spec user-id options]
+  ([storage-spec criteria]
+   (select storage-spec criteria {}))
+  ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (map after-read (select-entities s user-id options)))))
+     (map after-read (select-entities s criteria options)))))
+
+(defn find-by
+  "Returns the first entity that matches the specified criteria"
+  ([storage-spec criteria]
+   (find-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+  (first (select storage-spec criteria (merge options {:limit 1})))))
 
 (defn find-by-id
   "Finds the entity with the specified ID"
@@ -90,22 +97,13 @@
   [storage-spec entity]
   (find-by-id storage-spec (:id entity)))
 
-(defn find-by-name
-  "Finds the entity having the specified name
-  for the specified user"
-  [storage-spec user entity-name]
-
-  (let [user-id (or (:id user) user)]
-    (->> (select storage-spec user-id)
-         (filter #(= entity-name (:name %)))
-         first)))
-
 (defn find-or-create
   "Finds the entity with the specified name for the
   specified user, or creates it if it is not found."
   [storage-spec user entity-name]
   (or
-    (find-by-name storage-spec user entity-name)
+    (find-by storage-spec {:user-id (:id user)
+                           :name entity-name})
     (create storage-spec {:user-id (:id user)
                           :name entity-name})))
 

@@ -5,7 +5,7 @@
             [environ.core :refer [env]]
             [clj-money.validation :as validation]
             [clj-money.test-context :refer [realize
-                                            find-users]]
+                                            find-user]]
             [clj-money.models.entities :as entities]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
@@ -55,49 +55,20 @@
         "Name is already in use"
         (entities/create storage-spec (attributes context))))))
 
-(deftest select-entities-for-a-user
-  (let [context (realize storage-spec entity-context)
-        [user other-user] (:users context)
-        _ (entities/create storage-spec {:name "Other entity"
-                                                    :user-id (:id other-user)})
-        _ (mapv #(entities/create storage-spec {:name %
-                                                :user-id (:id user)})
-                ["Personal"
-                 "Business"])
-        actual (entities/select storage-spec (:id user))
-        expected [{:name "Business"
-                   :user-id (:id user)}
-                  {:name "Personal"
-                   :user-id (:id user)}]]
-    (is (= expected
-           (map #(select-keys % [:name :user-id]) actual)) "The returned list should contain the correct items")
-    (is (not-any? #(= "Other entity" (:name %)) actual) "The returned list should not contain other users entities")))
-
-(def ^:private grants-context
+(def ^:private list-context
   (-> entity-context
       (assoc :entities [{:name "Personal"
                          :user-id "john@doe.com"}
                         {:name "Business"
-                         :user-id "jane@doe.com"}])
-      (assoc :grants [{:entity-id "Business"
-                       :user-id "john@doe.com"
-                       :permissions {:account #{:index}}}])))
+                         :user-id "john@doe.com"}])))
 
-(deftest select-owned-and-granted-entities-for-a-user
-  (let [context (realize storage-spec grants-context)
-        [john jane] (find-users context "john@doe.com" "jane@doe.com")
-        expected #{{:name "Personal"
-                    :user-id (:id john)}
-                   {:name "Business"
-                    :user-id (:id jane)}}
-        actual (->> (entities/select storage-spec (:id john) {:include-grants? true})
-                    (map #(dissoc % :created-at :updated-at :id :settings))
-                    (into #{}))]
-    (if-not (= expected actual)
-      (pprint {:expected expected
-               :actual actual
-               :diff (diff expected actual)}))
-    (is (= expected actual)
+(deftest get-a-list-of-entities
+  (let [context (realize storage-spec list-context)
+        john (find-user context "john@doe.com")
+        actual (entities/select storage-spec {:user-id (:id john)})]
+    (is (= #{"Personal" "Business"} (->> actual
+                                         (map :name)
+                                         set))
         "The correct entities are returned")))
 
 (deftest find-an-entity-by-id

@@ -17,7 +17,7 @@
 
 (defn- index
   [{:keys [authenticated]}]
-  (->response (entities/select (env :db) (:id authenticated))))
+  (->response (entities/select (env :db) {:user-id (:id authenticated)})))
 
 (defn- create
   [{:keys [body authenticated]}]

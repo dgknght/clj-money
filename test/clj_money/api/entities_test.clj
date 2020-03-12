@@ -30,7 +30,7 @@
                           (req/json-body {:name "Personal"
                                           :settings {:inventory-method :fifo}})
                           (add-auth user)))
-        retrieved (entities/select (env :db) (:id user))]
+        retrieved (entities/select (env :db) {:user-id (:id user)})]
     (assert-successful response)
     (is (selective= {:user-id (:id user)
                      :name "Personal"

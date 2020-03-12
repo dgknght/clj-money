@@ -30,7 +30,8 @@
       :else
       (with-transacted-storage [s (env :db)]
         (let [user (users/find-by-email s (:user options))
-              entity (entities/find-by-name s user (:entity options))
+              entity (entities/find-by s {:user-id (:id user)
+                                          :name (:entity options)})
               accounts (accounts/search s (cond-> {:entity-id (:id entity)}
                                             (not= :all (:account options))
                                             (assoc :name (:account options))))]

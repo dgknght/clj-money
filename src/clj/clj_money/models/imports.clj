@@ -32,17 +32,31 @@
   [import & _]
   (update-in import [:progress] json/generate-string))
 
+(defn- prepare-progress
+  [progress]
+  (-> progress
+      (json/parse-string true)
+      (select-keys [:account
+                    :transaction
+                    :budget
+                    :commodity
+                    :price
+                    :finished
+                    :error])))
+
+(defn- entity-exists?
+  [imp storage]
+  (boolean
+    (entities/find-by storage
+                      {:user-id (:user-id imp)
+                       :name (:entity-name imp)})))
+
 (defn- after-read
   [imp storage]
   (when imp
     (-> imp
-        (update-in [:progress]
-                   #(-> %
-                        (json/parse-string true)
-                        (select-keys [:account :transaction :budget :commodity :price :finished :error])))
-        (assoc :entity-exists? (not (nil? (entities/find-by-name storage
-                                                                 (:user-id imp)
-                                                                 (:entity-name imp)))))
+        (update-in [:progress] prepare-progress)
+        (assoc :entity-exists? (entity-exists? imp storage))
         (authorization/tag-resource :import))))
 
 (defn find-by-id
@@ -57,9 +71,12 @@
               :spec ::existing-import}))
 
 (defn search
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (map #(after-read % s) (select-imports s criteria))))
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map #(after-read % s)
+          (select-imports s criteria options)))))
 
 (defn delete
   [storage-spec id]

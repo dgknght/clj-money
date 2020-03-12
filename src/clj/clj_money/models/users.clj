@@ -59,10 +59,13 @@
 
 (defn select
   "Lists the users in the database"
-  [storage-spec]
-  (with-storage [s storage-spec]
-    (->> s
-         select-users)))
+  ([storage-spec]
+   (select storage-spec {}))
+  ([storage-spec criteria]
+   (select storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (select-users s criteria options))))
 
 (defn find-by-id
   "Returns the user having the specified id"

@@ -73,7 +73,7 @@
       (update-in [:value] (fnil identity 0M))
       (update-in [:type] name)
       (update-in [:tags] #(if (seq %)
-                            (mapv name %)
+                            (into-array (map name %))
                             nil))
       (dissoc :commodity)))
 

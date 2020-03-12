@@ -8,8 +8,6 @@
     [this user]
     "Creates a new user record")
   (select-users
-    [this]
-    [this criteria]
     [this criteria options]
     "Returns all of the users in the system matching the specified criteria")
   (update-user
@@ -52,7 +50,6 @@
     [this id]
     "Deletes the specified grant")
   (select-grants
-    [this criteria]
     [this criteria options]
     "Returns the grants matching the specified criteria")
 
@@ -84,7 +81,6 @@
     "Returns a count of commodities matching the specified criteria")
 
   (select-commodities
-    [this criteria]
     [this criteria options]
     "Returns a list of commodities matching the specified criteria")
 
@@ -98,7 +94,6 @@
     "Creates a new commodity price record")
 
   (select-prices
-    [this criteria]
     [this criteria options]
     "Returns a list of prices matching the specified criteria")
 
@@ -185,7 +180,6 @@
     [this reconciliation-id date-range]
     "Unsets the reconciliation ID to null for all matching values")
   (select-transaction-items
-    [this criteria]
     [this criteria options]
     "Returns a list of transaction items matching the criteria")
 
@@ -194,7 +188,6 @@
     [this reconciliation]
     "Creates a new reconciliation record")
   (select-reconciliations
-    [this criteria]
     [this criteria options]
     "Returns reconciliation records for the specified account")
   (update-reconciliation
@@ -214,7 +207,6 @@
     "Returns the budget containing the specified date")
 
   (select-budgets
-    [this criteria]
     [this criteria options]
     "Returns budgets for the specified criteria")
 
@@ -253,7 +245,6 @@
     "Creates a new image record")
 
   (select-images
-    [this criteria]
     [this criteria options]
     "Selects images matching the specified criteria")
 
@@ -271,7 +262,6 @@
     "Creates a new attachment record")
 
   (select-attachments
-    [this criteria]
     [this criteria options]
     "Returns matching attachments")
 
@@ -281,7 +271,7 @@
 
   ; Imports
   (select-imports
-    [this criteria]
+    [this criteria options]
     "Returns all import records matching the specified criteria")
 
   (create-import
