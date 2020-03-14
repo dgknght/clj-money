@@ -9,13 +9,14 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
             [clj-money.api :refer [delete-resource]]
+            [clj-money.models :as models]
             [clj-money.models.images :as images]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash]
             [clj-money.import.edn]
             [clj-money.models.imports :as imports]
-            [clj-money.authorization :refer [authorize]]
-            [clj-money.permissions.imports]))
+            [clj-money.authorization :refer [authorize +scope] :as authorization]
+            [clj-money.authorization.imports]))
 
 (defn- launch-and-track-import
   [imp]
@@ -86,13 +87,15 @@
 (defn- show
   [{:keys [params authenticated]}]
   (let [imp (authorize (imports/find-by-id (env :db) (:id params))
-                       :show
+                       ::authorization/show
                        authenticated)]
     (response imp)))
 
 (defn- index
-  [{:keys [authenticated]}]
-  (response (imports/search (env :db) {:user-id (:id authenticated)})))
+  [{:keys [authenticated params]}]
+  (response (imports/search (env :db) (-> params
+                                          (select-keys [:entity-name])
+                                          (+scope ::models/import authenticated)))))
 
 (defn- delete
   [{:keys [params authenticated]}]
@@ -101,7 +104,7 @@
 (defn- start
   [{:keys [params authenticated]}]
   (let [imp (authorize (imports/find-by-id (env :db) (:id params))
-                       :update
+                       ::authorization/update
                        authenticated)]
     (launch-and-track-import imp)
     (-> imp response (status 200))))

@@ -4,7 +4,7 @@
             [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -24,7 +24,7 @@
 (defn- after-read
   [price & _]
   (when price
-    (authorization/tag-resource price :price)))
+    (models/tag price ::models/price)))
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])

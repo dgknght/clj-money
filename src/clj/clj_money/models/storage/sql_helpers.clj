@@ -121,22 +121,32 @@
     [[:= k (ensure-not-keyword v)]]))
 
 (def ^:private relationships
-  {#{:transaction :lot-transaction} {:primary-table :transactions
-                                     :primary-id    :id
-                                     :foreign-table :lots_transactions
-                                     :foreign-id    :transaction_id}
-   #{:lot :commodity}               {:primary-table :commodities
-                                     :primary-id    :id
-                                     :foreign-table :lots
-                                     :foreign-id    :commodity_id}
-   #{:commodity :entity}            {:primary-table :entities
-                                     :primary-id    :id
-                                     :foreign-table :commodities
-                                     :foreign-id    :entity_id}})
+  {#{:transaction :lot-transaction}  {:primary-table :transactions
+                                      :foreign-table :lots_transactions
+                                      :foreign-id    :transaction_id}
+   #{:transaction :transaction-item} {:primary-table :transactions
+                                      :foreign-table :transaction_items
+                                      :foreign-id    :transaction_id}
+   #{:entity :transaction}           {:primary-table :entities
+                                      :foreign-table :transactions
+                                      :foreign-id    :entity_id}
+   #{:entity :account}               {:primary-table :entities
+                                      :foreign-table :accounts
+                                      :foreign-id    :entity_id}
+   #{:lot :commodity}                {:primary-table :commodities
+                                      :foreign-table :lots
+                                      :foreign-id    :commodity_id}
+   #{:price :commodity}              {:primary-table :commodities
+                                      :foreign-table :prices
+                                      :foreign-id    :commodity_id}
+   #{:commodity :entity}             {:primary-table :entities
+                                      :foreign-table :commodities
+                                      :foreign-id    :entity_id}})
 
 (defn- relationship
   [rel-key]
-  (get-in relationships [(set rel-key)]))
+  (merge {:primary-id :id}
+         (get-in relationships [(set rel-key)])))
 
 (defn- col-ref
   [table column]
@@ -175,33 +185,54 @@
       :map)))
 
 (defmethod ^:private ->where :map
-  [m options]
-  (let [prefix-fn (if-let [prefix (:prefix options)]
-                    #(keyword (format "%s.%s" prefix (name %)))
-                    identity)]
-    (->> m
-         (map (fn [kv]
-                (update-in kv [0] (comp #(resolve-join-col % options)
-                                        prefix-fn))))
-         (mapcat map-entry->statements)
-         (reduce conj [:and]))))
+  [m {:keys [prefix] :as options}]
+  (let [prefix-fn (if prefix
+                    (fn [k]
+                      (if (string/includes? (name k) ".")
+                        k
+                        (keyword
+                          (format "%s.%s"
+                                  (ensure-not-keyword prefix)
+                                  (name k)))))
+                    identity)
+        result (->> m
+                    (map (fn [kv]
+                           (update-in kv [0] (comp prefix-fn
+                                                   #(resolve-join-col % options)))))
+                    (mapcat map-entry->statements))]
+    (if (= 1 (count result))
+      (first result)
+      (concat [:and]
+              result))))
 
 (defmethod ^:private ->where :clause
   [m options]
-  (update-in m [1] ->where options))
+  (concat [(first m)]
+          (map #(->where % options)
+               (rest m))))
 
 (defn- apply-criteria-join
   [sql rel-key {:keys [target-alias]}]
-  (let [{:keys [primary-table
+  (let [existing-joins (->> (get-in sql [:join])
+                            (partition 2)
+                            (map (comp #(if (vector? %)
+                                          (second %)
+                                          %)
+                                       first))
+                            set)
+        new-table (model->table (second rel-key))
+        {:keys [primary-table
                 primary-id
                 foreign-table
                 foreign-id]} (relationship rel-key)]
     (assert primary-table (str "No relationship defined for " (prn-str rel-key)))
-    (h/merge-join sql (model->table (second rel-key))
-                  [:=
-                   (col-ref (or target-alias primary-table) ; TODO: this will cause a problem with an alias specified and depth > 1
-                            primary-id)
-                   (col-ref foreign-table foreign-id)])))
+    (if (existing-joins new-table)
+      sql
+      (h/merge-join sql new-table
+                    [:=
+                     (col-ref (or target-alias primary-table) ; TODO: this will cause a problem with an alias specified and depth > 1
+                              primary-id)
+                     (col-ref foreign-table foreign-id)]))))
 
 (defn- apply-criteria-join-chain
   [sql join-key {:keys [target] :as options}]
@@ -223,10 +254,24 @@
           sql
           join-keys))
 
+(defmulti ^:private extract-join-keys
+  #(if (sequential? %)
+     :clause
+     :map))
+
+(defmethod ^:private extract-join-keys :clause
+  [criteria]
+  (mapcat #(extract-join-keys %)
+          (rest criteria)))
+
+(defmethod ^:private extract-join-keys :map
+  [criteria]
+  (->> (keys criteria)
+       (filter coll?)))
+
 (defn- ensure-criteria-joins
   [sql criteria options]
-  (let [join-keys (->> (keys criteria)
-                       (filter coll?))]
+  (let [join-keys (extract-join-keys criteria)]
     (if (seq join-keys)
       (apply-criteria-joins sql join-keys options)
       sql)))

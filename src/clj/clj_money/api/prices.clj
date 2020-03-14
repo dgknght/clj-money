@@ -2,14 +2,15 @@
   (:refer-clojure :exclude [update])
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET DELETE POST PATCH]]
-            [clj-money.authorization :refer [apply-scope
-                                             authorize
-                                             tag-resource]]
+            [clj-money.models :as models]
+            [clj-money.authorization :refer [+scope
+                                             authorize]
+             :as authorization]
             [clj-money.api :refer [->response
                                    not-found]]
             [clj-money.x-platform.util :refer [unserialize-date]]
             [clj-money.models.prices :as prices]
-            [clj-money.permissions.prices])
+            [clj-money.authorization.prices])
   (:import java.util.UUID))
 
 (defn- handle-start-end-dates
@@ -39,7 +40,7 @@
   (->response (prices/search (env :db) (->  params
                                            (handle-start-end-dates)
                                            (select-keys [:commodity-id :entity-id :trade-date])
-                                           (apply-scope :price authenticated)))))
+                                           (+scope ::models/price authenticated)))))
 
 (defn- create
   [{:keys [params body authenticated]}]
@@ -47,8 +48,8 @@
                      (merge body)
                      (select-keys [:commodity-id :trade-date :price])
                      (update-in [:trade-date] unserialize-date)
-                     (tag-resource :price)
-                     (authorize :create authenticated))]
+                     (models/tag ::models/price)
+                     (authorize ::authorization/create authenticated))]
     (->response (prices/create (env :db) price)
                 201)
     (not-found)))
@@ -58,7 +59,7 @@
   (if-let [price (authorize (prices/find-by-id (env :db)
                                                (UUID/fromString (:id params))
                                                (unserialize-date (:trade-date params)))
-                            :update
+                            ::authorization/update
                             authenticated)]
     (->response (prices/update (env :db) (merge price (-> body
                                                           (select-keys [:price :trade-date])
@@ -70,7 +71,7 @@
   (if-let [price (authorize (prices/find-by-id (env :db)
                                                (UUID/fromString (:id params))
                                                (unserialize-date (:trade-date params)))
-                            :delete
+                            ::authorization/destroy
                             authenticated)]
     (do
       (prices/delete (env :db) price)

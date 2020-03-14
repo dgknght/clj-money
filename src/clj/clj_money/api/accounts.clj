@@ -4,17 +4,18 @@
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-money.api :refer [->response
                                    not-found]]
+            [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
-                                             apply-scope
-                                             tag-resource]]
+                                             +scope]
+             :as authorization]
             [clj-money.models.accounts :as accounts]
-            [clj-money.permissions.accounts]))
+            [clj-money.authorization.accounts]))
 
 (defn- index
   [{:keys [params authenticated]}]
   (->response (accounts/search (env :db) (-> params
                                              (select-keys [:entity-id])
-                                             (apply-scope :account authenticated)))))
+                                             (+scope ::models/account authenticated)))))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
@@ -25,7 +26,7 @@
 
 (defn- show
   [req]
-  (->response (find-and-auth req :show)))
+  (->response (find-and-auth req ::authorization/show)))
 
 (def ^:private attribute-keys
   [:id
@@ -43,20 +44,20 @@
                             (conj (or % #{}) :trading)
                             %))
       (select-keys attribute-keys)
-      (tag-resource :account)))
+      (models/tag ::models/account)))
 
 (defn- create
   [{:keys [params body authenticated]}]
   (let [account (-> body
                     (assoc :entity-id (:entity-id params))
                     before-save
-                    (authorize :create authenticated))]
+                    (authorize ::authorization/create authenticated))]
     (->response (accounts/create (env :db) account)
                 201)))
 
 (defn- update
   [{:keys [body] :as req}]
-  (if-let [account (find-and-auth req :update)]
+  (if-let [account (find-and-auth req ::authorization/update)]
     (->response (accounts/update (env :db)
                                  (merge account
                                         (select-keys body attribute-keys))))
@@ -64,7 +65,7 @@
 
 (defn- delete
   [req]
-  (if-let [account (find-and-auth req :delete)]
+  (if-let [account (find-and-auth req ::authorization/destroy)]
     (do
       (accounts/delete (env :db) (:id account))
       (->response))

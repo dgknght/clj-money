@@ -6,7 +6,7 @@
             [environ.core :refer [env]]
             [buddy.sign.jwt :as jwt]
             [clj-money.validation :as validation]
-            [clj-money.authorization :refer [authorize]]
+            [clj-money.authorization :refer [authorize] :as authorization]
             [clj-money.models.users :as users]))
 
 (defn ->response
@@ -44,7 +44,7 @@
 (defn delete-resource
   [id user find-fn delete-fn]
   (let [resource (authorize (find-fn (env :db) id)
-                            :delete
+                            ::authorization/destroy
                             user)]
     (try
       (delete-fn (env :db) (:id resource))

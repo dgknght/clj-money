@@ -7,7 +7,7 @@
             [clj-money.util :refer [ensure-local-date]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]
             [clj-money.x-platform.accounts :refer [polarize-quantity]]
@@ -316,7 +316,7 @@
        (append-lot-items storage)
 
        true
-       (authorization/tag-resource :transaction)))))
+       (models/tag ::models/transaction)))))
 
 (defn find-item
   "Returns the first item matching the specified criteria"
@@ -775,14 +775,14 @@
   (find-item storage-spec
              {:account-id account-id
               :transaction-date [:< date]}
-             {:sort [[:t.transaction-date :desc] [:i.index :desc]]}))
+             {:sort [[:transactions.transaction-date :desc] [:transaction_items.index :desc]]}))
 
 (defn- find-last-item-on-or-before
   [storage-spec account-id date]
   (find-item storage-spec
              {:account-id account-id
               :transaction-date [:<= date]}
-             {:sort [[:i.transaction-date :desc] [:i.index :desc]]}))
+             {:sort [[:transactions.transaction-date :desc] [:transaction_items.index :desc]]}))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"

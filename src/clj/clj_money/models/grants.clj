@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [clj-money.coercion :as coercion]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.util :refer [rev-args]]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
@@ -47,7 +47,7 @@
   (when grant
     (-> grant
         (update-in [:permissions] read-string)
-        (authorization/tag-resource :grant))))
+        (models/tag ::models/grant))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])

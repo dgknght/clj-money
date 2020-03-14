@@ -1,7 +1,7 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage
@@ -47,7 +47,7 @@
   (when entity
     (cond-> entity
       true
-      (authorization/tag-resource :entity)
+      (models/tag ::models/entity)
 
       (:settings entity)
       (update-in [:settings] read-string))))
@@ -125,4 +125,4 @@
 
 (defn entity?
   [model]
-  (= :entity (authorization/get-resource-tag model)))
+  (= ::models/entity (models/tag model)))

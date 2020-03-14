@@ -10,7 +10,8 @@
                                             find-entity
                                             find-commodity]]
             [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+                                            selective=
+                                            seq-containing?]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-created
                                                 assert-bad-request
@@ -63,14 +64,53 @@
   (is (= {:count 2} body) "The body contains the count"))
 
 (defn- assert-blocked-count
-  [[response]]
-  (assert-not-found response))
+  [[response body]]
+  (assert-successful response)
+  (is (= {:count 0} body) "The body contains a count of zero"))
 
 (deftest a-user-can-get-a-count-of-commodities-in-his-entity
   (assert-successful-count (get-a-count-of-commodities "john@doe.com")))
 
 (deftest a-user-cannot-get-a-count-of-commodities-in-anothers-entity
   (assert-blocked-count (get-a-count-of-commodities "jane@doe.com")))
+
+(defn- get-a-list-of-commodities
+  [email]
+  (let [ctx (realize (env :db) context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        response (-> (req/request :get (path :api
+                                             :entities
+                                             (:id entity)
+                                             :commodities))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-list
+  [[response body]]
+  (assert-successful response)
+  (is (seq-containing? [{:name "Microsoft, Inc"
+                         :symbol "MSFT"
+                         :type "stock"
+                         :exchange "nasdaq"}
+                        {:name "US Dollar"
+                         :symbol "USD"
+                         :type "currency"}]
+         body)
+      "The body contains the list of commodities"))
+
+(defn- assert-blocked-list
+  [[response body]]
+  (assert-successful response)
+  (is (empty? body) "The body is empty"))
+
+(deftest a-user-can-get-a-list-of-commodities-in-his-entity
+  (assert-successful-list (get-a-list-of-commodities "john@doe.com")))
+
+(deftest a-user-cannot-get-a-list-of-commodities-in-anothers-entity
+  (assert-blocked-list (get-a-list-of-commodities "jane@doe.com")))
 
 (defn- get-a-commodity
   [email]

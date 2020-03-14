@@ -3,24 +3,31 @@
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-money.api :refer [->response]]
+            [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
-                                             tag-resource
-                                             apply-scope]]
+                                             +scope]
+             :as authorization]
             [clj-money.validation :as v]
             [clj-money.models.commodities :as coms]
-            [clj-money.permissions.commodities]))
+            [clj-money.authorization.commodities]))
+
+(defn- scoped-params
+  [{:keys [params authenticated]}]
+  (-> params
+      (select-keys [:entity-id])
+      (+scope ::models/commodity authenticated)))
 
 (defn- count
-  [{:keys [params authenticated]}]
-  (->response {:count (coms/count (env :db) (-> params
-                                                (select-keys [:entity-id])
-                                                (apply-scope :commodity authenticated)))}))
+  [req]
+  (->response
+    {:count (coms/count (env :db)
+                        (scoped-params req))}))
 
 (defn- index
-  [{:keys [params authenticated]}]
-  (->response (coms/search (env :db) (-> params
-                                         (select-keys [:entity-id])
-                                         (apply-scope :commodity authenticated)))))
+  [req]
+  (->response
+    (coms/search (env :db)
+                 (scoped-params req))))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
@@ -30,7 +37,7 @@
 
 (defn- show
   [req]
-  (->response (find-and-authorize req :show)))
+  (->response (find-and-authorize req ::authorization/show)))
 
 (def ^:private attribute-keys
   [:id
@@ -54,8 +61,8 @@
                       (assoc :entity-id (:entity-id params))
                       (select-keys attribute-keys)
                       (ensure-keyword :exchange :type)
-                      (tag-resource :commodity)
-                      (authorize :create authenticated))
+                      (models/tag ::models/commodity)
+                      (authorize ::authorization/create authenticated))
         result (coms/create (env :db) commodity)]
     (->response result
                 (if (v/has-error? result)
@@ -64,14 +71,14 @@
 
 (defn- update
   [{:keys [body] :as req}]
-  (let [commodity (find-and-authorize req :update)]
+  (let [commodity (find-and-authorize req ::authorization/update)]
     (->response (coms/update (env :db) (merge commodity (-> body
                                                             (select-keys attribute-keys)
                                                             (ensure-keyword :exchange :type)))))))
 
 (defn- delete
   [req]
-  (let [commodity (find-and-authorize req :delete)]
+  (let [commodity (find-and-authorize req ::authorization/destroy)]
     (coms/delete (env :db) (:id commodity))
     (->response)))
 

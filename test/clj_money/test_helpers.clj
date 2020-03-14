@@ -123,3 +123,10 @@
         e (select-keys expected attr)
         a (select-keys actual attr)]
     (= e a)))
+
+(defn seq-containing?
+  [expected actual & attributes]
+  (when (= (count expected) (count actual))
+    (->> actual
+         (zipmap expected)
+         (every? (fn [[e a]] (apply selective= e a attributes))))))

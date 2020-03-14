@@ -5,7 +5,7 @@
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
@@ -88,17 +88,18 @@
       (assoc :commodity {:name (:commodity-name account)
                          :symbol (:commodity-symbol account)
                          :type (keyword (:commodity-type account))
-                         :default (= (:commodity-id account) (-> account
-                                                                 :entity-settings
-                                                                 safe-read-string
-                                                                 :default-commodity-id))
+                         :default (= (:commodity-id account)
+                                     (-> account
+                                         :entity-settings
+                                         safe-read-string
+                                         :default-commodity-id))
                          #_:exchange #_(:commodity-exchange account)})
       (dissoc :commodity-name
               :commodity-symbol
               :commodity-type
               :commodity-exchange
               :entity-settings)
-      (authorization/tag-resource :account)
+      (models/tag ::models/account)
       (cond->
         (and ; Remove :parent-id if it's nil
              (contains? account :parent-id)

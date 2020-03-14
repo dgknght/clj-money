@@ -5,6 +5,7 @@
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.models :as models]
             [clj-money.authorization :as authorization]
             [clj-money.models.entities :as entities]
             [clj-money.models.helpers :refer [with-storage
@@ -51,7 +52,7 @@
   [commodity & _]
   (when commodity
     (-> commodity
-        (authorization/tag-resource :commodity)
+        (models/tag ::models/commodity)
         (update-in [:exchange] #(safe-invoke keyword %))
         (update-in [:type] keyword))))
 

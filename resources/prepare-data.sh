@@ -5,7 +5,7 @@ cp "$1" target/sample-data.xml.gz
 echo 'Unzipping the file...'
 gunzip target/sample-data.xml.gz
 echo 'Removing prices...'
-sed '2838,1288700d' target/sample-data.xml > target/sample-data-without-prices.xml
+sed '2838,1288734d' target/sample-data.xml > target/sample-data-without-prices.xml
 echo 'Zipping the file...'
 gzip target/sample-data-without-prices.xml
 mv target/sample-data-without-prices.xml.gz target/sample-data-without-prices.gnucash

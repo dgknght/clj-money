@@ -9,7 +9,7 @@
                                     rev-args]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
@@ -52,7 +52,7 @@
   [item]
   (-> item
       (update-in [:periods] read-string)
-      (authorization/tag-resource :budget-item)))
+      (models/tag ::models/budget-item)))
 
 (defn- select-items-by-budget-id
   [storage budget-id]
@@ -63,7 +63,7 @@
   [budget storage]
   (when budget
     (-> budget
-        (authorization/tag-resource :budget)
+        (models/tag ::models/budget)
         (update-in [:start-date] to-local-date)
         (update-in [:end-date] to-local-date)
         (update-in [:period] keyword)

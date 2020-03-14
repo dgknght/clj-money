@@ -78,8 +78,9 @@
       "The correct transactions are returned in the response"))
 
 (defn- assert-blocked-list
-  [[response]]
-  (assert-not-found response))
+  [[response body]]
+  (assert-successful response)
+  (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-transactions-in-his-entity
   (assert-successful-list (get-a-list "john@doe.com")))

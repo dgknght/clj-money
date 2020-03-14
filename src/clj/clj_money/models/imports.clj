@@ -3,7 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [cheshire.core :as json]
             [clj-money.util :refer [rev-args]]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
                                               create-fn
@@ -57,7 +57,7 @@
     (-> imp
         (update-in [:progress] prepare-progress)
         (assoc :entity-exists? (entity-exists? imp storage))
-        (authorization/tag-resource :import))))
+        (models/tag ::models/import))))
 
 (defn find-by-id
   [storage-spec id]

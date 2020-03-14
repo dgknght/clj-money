@@ -2,9 +2,9 @@
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes POST]]
             [clj-money.api :refer [->response]]
-            [clj-money.authorization :refer [tag-resource
-                                             authorize]]
-            [clj-money.permissions.trades]
+            [clj-money.models :as models]
+            [clj-money.authorization :refer [authorize] :as authorization]
+            [clj-money.authorization.trades]
             [clj-money.trading :as trading]
             [clj-money.x-platform.util :refer [unserialize-date]]))
 
@@ -20,8 +20,8 @@
                   (merge body)
                   (update-in [:trade-date] unserialize-date)
                   (select-keys create-attributes)
-                  (tag-resource :trade)
-                  (authorize :create authenticated))
+                  (models/tag ::models/trade)
+                  (authorize ::authorization/create authenticated))
         result (f (env :db) trade) ]
     (->response (select-keys result [:transaction :lot :lots]) 201)))
 

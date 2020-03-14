@@ -3,7 +3,7 @@
   (:require
             [clojure.spec.alpha :as s]
             [clj-money.util :refer [rev-args]]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
                                               create-fn]]
@@ -25,7 +25,7 @@
 (defn- after-read
   [attachment & _]
   (when attachment
-    (authorization/tag-resource attachment :attachment)))
+    (models/tag attachment ::models/attachment)))
 
 (def create
   (create-fn {:create (rev-args create-attachment)

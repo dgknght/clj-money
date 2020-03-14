@@ -3,7 +3,8 @@
             [clj-money.inflection :refer [humanize
                                           keywordize
                                           ordinal
-                                          singular]]))
+                                          singular
+                                          plural]]))
 
 (deftest humanize-a-keyword
   (let [tests [{:input :test      :expected "Test"}
@@ -36,8 +37,17 @@
 (deftest singluraize-a-word
   (let [tests [{:input "words"    :expected "word"}
                {:input "Words"    :expected "Word"}
+               {:input "babies"   :expected "baby"}
                {:input "children" :expected "child"}
                {:input "Children" :expected "Child"}
                {:input "CHILDREN" :expected "CHILD"}]]
     (doseq [{:keys [input expected]} tests]
       (is (= expected (singular input))))))
+
+(deftest pluralize-a-word
+  (let [tests [{:input "word"  :expected "words"}
+               {:input "Word"  :expected "Words"}
+               {:input "child" :expected "children"}
+               {:input "baby"  :expected "babies"}]]
+    (doseq [{:keys [input expected]} tests]
+      (is (= expected (plural input))))))

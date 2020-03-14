@@ -1,102 +1,47 @@
 (ns clj-money.authorization
-  (:require [slingshot.slingshot :refer [throw+]]))
+  (:require [clj-money.models :as models]
+            [slingshot.slingshot :refer [throw+]]))
 
-(defn get-resource-tag
-  "Returns a keyword identifying the type of the resource"
-  [resource]
-  (if-not resource
-    (throw (IllegalArgumentException. "resource cannot be null")))
-  (if-let [result (if (keyword? resource)
-                    resource
-                    (-> resource meta ::resource-type))]
-    result
-    (throw (ex-info "Unable to determine the resource type." {:resource resource}))))
+(derive ::create ::manage)
+(derive ::show ::manage)
+(derive ::update ::manage)
+(derive ::destroy ::manage)
 
-(defn tag-resource
-  "Adds meta data to identity the type of the specified resource"
-  [resource tag]
-  (vary-meta resource #(assoc % ::resource-type tag)))
-
-(def ^:private auth-context (atom {}))
-
-(defn ->context
-  "Add a key-value pair to the context that will be
-  passed to authorization functions"
-  [key value]
-  (swap! auth-context #(assoc % key value)))
-
-(def ^:private auth-fns (atom {}))
-
-(defn allowed?
+(defmulti allowed?
   "Returns a truthy or falsey value indicating whether or not the
   authenticated user is allowed to perform the specified
-  action on the specified resource"
-  [user action resource]
-  (let [tag (get-resource-tag resource)
-        auth-fns (@auth-fns tag)]
-    (if auth-fns
-      (some
-        #(%
-          user
-          resource
-          action
-          @auth-context)
-        auth-fns)
-      (throw+ {:type ::no-rules
-               :action action
-               :resource tag}))))
+  action on the specified model"
+  (fn [model action _user]
+    [(models/tag model) action]))
 
 (defn authorize
   "Raises an error if the current user does not have
   permission to perform the specified function.
 
-  This function returns the resource so that it can be threaded together
+  This function returns the model so that it can be threaded together
   with other left-threadable operations"
-  [resource action user]
-  (when resource
-    (if (allowed? user action resource)
-      resource
+  [model action user]
+  {:pre [model action user]}
+  (if (allowed? model action user)
+      model
       (throw+ {:type ::unauthorized
                :action action
-               :resource (get-resource-tag resource)}))))
+               :model (models/tag model)})))
 
-(defn allow
-  "Registers a rule that will be used to determine if the
-  current user has permission to perform a requested function
+(defmulti scope
+  "Returns a criteria structure limiting the scope
+  of a query to that to which the specified user
+  has access."
+  (fn
+    [model-type _user]
+    model-type))
 
-  The function needs to accept three arguments:
-    user: The current user, whose permissions are being queried
-    action: A keyword indicating the action for which permission is being queried
-    resource: The resource on which permission is being queried"
-  [resource auth-fn]
-  (swap! auth-fns (fn [auth-fn-map]
-                    (update-in auth-fn-map
-                               [resource]
-                               #((fnil conj #{}) % auth-fn)))))
-
-(def ^:private scope-maps
-  (atom {}))
-
-(defn set-scope
-  "Registers a scope function map with a resource type.
-
-  A scope function map is a map of attribute names to
-  functions that will be used at run time to get the
-  broadest available criteria for the authenticated
-  resource to use to query that type of resource"
-  [resource-type fn-map]
-  (swap! scope-maps #(assoc % resource-type fn-map)))
-
-(defn apply-scope
-  "Applies the registered scope function map to the specified
-  criteria in order to ensure the query does not extend
-  beyond the scope the user is authorized to access."
-  [criteria resource-type user]
-  (->> (resource-type @scope-maps)
-       (map (fn [[attribute scope-fn]]
-              [attribute (scope-fn user @auth-context)]))
-       (into {})
-       (merge-with (fn [requested allowed]
-                     (or (allowed requested)
-                         (throw+ {:type ::unauthorized :resource resource-type})))
-                   criteria)))
+(defn +scope
+  ([criteria user]
+   (+scope criteria (models/tag criteria) user))
+  ([criteria model-type user]
+   (if-let [s (scope model-type user)]
+     (if (empty? criteria)
+       s
+       [:and criteria s])
+     criteria)))

@@ -99,8 +99,9 @@
       "The accounts are returned in the response"))
 
 (defn- assert-blocked-list
-  [[response _]]
-  (assert-not-found response))
+  [[response body]]
+  (assert-successful response)
+  (is (empty? body)))
 
 (deftest a-user-can-get-a-list-of-accounts-in-his-entity
   (assert-successful-list (get-a-list "john@doe.com")))

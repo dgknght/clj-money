@@ -108,8 +108,16 @@
   (is (= #{"Personal" "Business"} (set (map :name body)))
       "The body contains the correct entities"))
 
+(defn- assert-blocked-list
+  [[response body]]
+  (assert-successful response)
+  (is (empty? body) "The body is empty"))
+
 (deftest a-user-can-get-a-list-of-his-entities
   (assert-successful-list (get-a-list "john@doe.com")))
+
+(deftest a-user-cannot-get-a-list-of-anothers-entities
+  (assert-blocked-list (get-a-list "jane@doe.com")))
 
 (defn- delete-an-entity
   [email]

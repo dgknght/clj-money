@@ -10,10 +10,10 @@
             [clj-money.web.shared :refer [date-input-field
                                           tabbed-nav
                                           with-layout]]
+            [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
-                                             allowed?
-                                             tag-resource]]
-            [clj-money.permissions.reports]
+                                             allowed?]]
+            [clj-money.authorization.reports]
             [clj-money.models.budgets :as budgets]
             [clj-money.reports :as reports]))
 
@@ -146,7 +146,7 @@
                         {:type :budget
                          :caption "Budget"}]
                        (map #(assoc % :entity-id (:id entity)))
-                       (map #(tag-resource % :report))
+                       (map #(models/tag % ::models/report))
                        (filter #(allowed? (:type %) %))
                        (map #(-> %
                                  (assoc :id (:type %)
@@ -157,7 +157,8 @@
 
 (defn render
   [{{entity :entity :as params} :params}]
-  (let [report-spec (-> params ; TODO separate default based on the report type
+  (throw (RuntimeException. "not implemented"))
+  #_(let [report-spec (-> params ; TODO separate default based on the report type
                         (select-keys [:entity-id :type :start-date :end-date :as-of])
                         (update-in [:type] (fnil keyword :balance-sheet))
                         (assoc :start-date (or (parse-local-date (:start-date params))
@@ -166,7 +167,7 @@
                                              (default-end-date))
                                :as-of (or (parse-local-date (:as-of params))
                                           (default-end-date)))
-                        (tag-resource :report)
+                        (models/tag ::models/report)
                         (authorize (:type params)))]
     (with-layout "Reports" {:entity entity}
       [:div.row

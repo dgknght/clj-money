@@ -174,20 +174,17 @@
 
   (select-accounts
     [_ criteria options]
-    (when-not (some #(% criteria) [:id :parent-id :entity-id])
-      (throw (ex-info
-               "The criteria must specify id, parent-id or entity-id"
-               {:criteria criteria})))
-    (let [sql (-> (h/select :a.*
+    (let [sql (-> (h/select :accounts.*
                             [:c.name :commodity-name]
                             [:c.symbol :commodity-symbol]
                             [:c.type :commodity-type]
                             [:c.exchange :commodity-exchange]
-                            [:e.settings :entity-settings])
-                  (h/from [:accounts :a])
-                  (h/join [:commodities :c] [:= :c.id :a.commodity-id])
-                  (h/merge-join [:entities :e] [:= :e.id :a.entity-id])
-                  (append-where criteria {:prefix "a"})
+                            [:entities.settings :entity-settings])
+                  (h/from :accounts)
+                  (h/join [:commodities :c] [:= :c.id :accounts.commodity-id]
+                          :entities [:= :entities.id :accounts.entity-id])
+                  (append-where criteria {:target :account
+                                          :prefix :accounts})
                   (append-limit options))]
       (query db-spec sql)))
 
@@ -213,13 +210,13 @@
     [_ criteria]
     (query db-spec (-> (h/select :%count.1)
                        (h/from :commodities)
-                       (append-where criteria))))
+                       (append-where criteria {:target :commodity}))))
 
   (select-commodities
     [_ criteria options]
     (query db-spec (-> (h/select :*)
                        (h/from :commodities)
-                       (append-where criteria)
+                       (append-where criteria {:target :commodity})
                        (append-paging options)
                        (append-limit options))))
 
@@ -247,9 +244,10 @@
                     options
                     (assoc options :sort [[:trade-date :desc]]))]
       (with-partitioning (partial query db-spec) :prices d-range options [table]
-        (-> (h/select :p.*)
-            (h/from [table :p])
-            (append-where criteria {:prefix "p"})
+        (-> (h/select :prices.*)
+            (h/from [table :prices])
+            (append-where criteria {:prefix "prices"
+                                    :target :price})
             (append-sort options)
             (append-limit options)))))
 
@@ -292,15 +290,11 @@
 
   (select-lots
     [_ criteria options]
-    (if (and (contains? criteria :entity-id) ; TODO: remove this hack after reworking scoping logic
-             (set? (:entity-id criteria))
-             (empty? (:entity-id criteria)))
-      []
-      (query db-spec (-> (h/select :*)
-                            (h/from :lots)
-                            (append-where criteria {:target :lot})
-                            (append-limit options)
-                            (append-sort options)))))
+    (query db-spec (-> (h/select :*)
+                       (h/from :lots)
+                       (append-where criteria {:target :lot})
+                       (append-limit options)
+                       (append-sort options))))
 
   (delete-lot
     [_ id]
@@ -334,12 +328,11 @@
           result
           (with-partitioning (partial query db-spec) :transactions d-range options
             [table]
-            (-> (h/select :t.*)
-                (h/from [table :t])
+            (-> (h/select :transactions.*)
+                (h/from [table :transactions])
                 (select-count options)
                 (append-sort options)
-                (append-where criteria {:target :transaction
-                                        :target-alias :t})))]
+                (append-where criteria {:target :transaction})))]
       (if (:count options) ; TODO remove this duplication with select-transaction-items
         (-> result first vals first)
         result)))
@@ -444,35 +437,33 @@
           sql/format)))
 
   (select-transaction-items
-    [this {:keys [entity-id] :as criteria} options]
-    (if (and entity-id (empty? entity-id))
-      []
-      (let [d-range (date-range this (:transaction-date criteria))
-            opts (if (:count options)
-                   options
-                   (merge
-                     {:sort [[:i.index :desc]]}
-                     options))
-            result (with-partitioning
-                     (partial query db-spec)
-                     [:transaction_items :transactions]
-                     d-range
-                     opts
-                     [tables]
-                     (cond-> (-> (h/select :i.* :t.description, [:r.status "reconciliation_status"])
-                                 (h/from [(first tables) :i])
-                                 (h/join [(second tables) :t]
-                                         [:= :t.id :i.transaction_id])
-                                 (h/left-join [:reconciliations :r] [:= :r.id :i.reconciliation_id])
-                                 (select-count opts)
-                                 (append-where (dissoc criteria :entity-id)
-                                               {:prefix "i"})
-                                 (append-sort opts)
-                                 (append-limit opts))
-                       entity-id (h/merge-where [:in :t.entity_id entity-id])))]
-        (if (:count opts)
-          (-> result first vals first)
-          result))))
+    [this criteria options]
+    (let [d-range (date-range this (:transaction-date criteria))
+          opts (if (:count options)
+                options
+                (merge
+                  {:sort [[:transaction_items.index :desc]]}
+                  options))
+          result (with-partitioning
+                  (partial query db-spec)
+                  [:transaction_items :transactions]
+                  d-range
+                  opts
+                  [tables]
+                  (-> (h/select :transaction_items.* :transactions.description, [:reconciliations.status :reconciliation_status])
+                      (h/from [(first tables) :transaction_items])
+                      (h/join [(second tables) :transactions]
+                              [:= :transactions.id :transaction_items.transaction_id])
+                      (h/left-join :reconciliations [:= :reconciliations.id :transaction_items.reconciliation_id])
+                      (select-count opts)
+                      (append-where criteria
+                                    {:prefix "transaction_items"
+                                      :target :transaction-item})
+                      (append-sort opts)
+                      (append-limit opts)))]
+      (if (:count opts)
+        (-> result first vals first)
+        result)))
 
   ; Reconciliations
   (create-reconciliation

@@ -122,8 +122,9 @@
               body))))
 
 (defn- assert-blocked-list
-  [[response]]
-  (assert-not-found response))
+  [[response body]]
+  (assert-successful response)
+  (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-prices-from-his-entity
   (assert-successful-list (get-a-list-by-commodity "john@doe.com")))

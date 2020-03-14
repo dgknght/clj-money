@@ -10,21 +10,23 @@
                                    delete-resource
                                    log-error]]
             [clj-money.validation :as validation]
-            [clj-money.authorization :refer [authorize
-                                             tag-resource]]
+            [clj-money.models :as models]
+            [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models.entities :as entities]
-            [clj-money.permissions.entities]))
+            [clj-money.authorization.entities]))
 
 (defn- index
-  [{:keys [authenticated]}]
-  (->response (entities/select (env :db) {:user-id (:id authenticated)})))
+  [{:keys [authenticated params]}]
+  (->response (entities/select (env :db) (-> params
+                                             (select-keys [:name])
+                                             (+scope ::models/entity authenticated)))))
 
 (defn- create
   [{:keys [body authenticated]}]
   (let [entity (-> body
                    (select-keys [:name :settings])
                    (assoc :user-id (:id authenticated))
-                   (tag-resource :entity))]
+                   (models/tag ::models/entity))]
     (try
       (let [result (entities/create (env :db) entity)]
         (if (validation/has-error? result)
@@ -37,7 +39,7 @@
 (defn- update
   [{:keys [params body authenticated]}]
   (let [entity (authorize (entities/find-by-id (env :db) (:id params))
-                          :update
+                          ::authorization/update
                           authenticated)
         updated (merge entity (select-keys body [:name :settings]))]
     (try

@@ -4,24 +4,25 @@
             [environ.core :refer [env]]
             [clj-money.x-platform.util :refer [unserialize-date]]
             [clj-money.api :refer [->response]]
+            [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
-                                             tag-resource
-                                             apply-scope]]
+                                             +scope]
+             :as authorization]
             [clj-money.models.transactions :as trans]
-            [clj-money.permissions.transactions]))
+            [clj-money.authorization.transactions]))
 
 (defn- index
   [{:keys [params authenticated]}]
   (->response (trans/search (env :db) (-> params
                                           (select-keys [:entity-id :account-id])                        
-                                          (apply-scope :transaction authenticated)))))
+                                          (+scope ::models/transaction authenticated)))))
 
 (defn- show
   [{{:keys [id transaction-date]} :params authenticated :authenticated}]
   (->response (authorize (trans/find-by-id (env :db)
                                        id
                                        (unserialize-date transaction-date))
-                         :show
+                         ::authorization/show
                          authenticated)))
 
 (def ^:private attribute-keys
@@ -41,8 +42,8 @@
   (->response (trans/create (env :db) (-> body
                                           (select-keys attribute-keys)
                                           (assoc :entity-id (:entity-id params))
-                                          (tag-resource :transaction)
-                                          (authorize :create authenticated)))))
+                                          (models/tag ::models/transaction)
+                                          (authorize ::authorization/create authenticated)))))
 
 (defn- apply-to-existing
   [updated-item items]
@@ -67,7 +68,7 @@
   [{:keys [params body authenticated]}]
   (let [trans-date (some #(params %) [:original-transaction-date :transaction-date])
         transaction (authorize (trans/find-by-id (env :db) (:id params) trans-date)
-                               :update
+                               ::authorization/update
                                authenticated)]
     (->response (trans/update (env :db) (apply-update transaction body)))))
 
@@ -76,7 +77,7 @@
   (let [transaction (authorize (trans/find-by-id (env :db)
                                                  (:id params)
                                                  (:transaction-date params))
-                               :delete
+                               ::authorization/destroy
                                authenticated)]
     (trans/delete (env :db) (:id transaction)  (:transaction-date transaction))
     (->response)))

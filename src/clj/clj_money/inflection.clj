@@ -44,16 +44,18 @@
   [word]
   (let [rules [{:pattern #"(?i)\A(child)ren\z"
                 :fn second}
+               {:pattern #"(?i)\A(.+)ies\z"
+                :fn #(str (second %) "y")}
                {:pattern #"(.+)s\z"
                 :fn second}]]
     (some (partial apply-word-rule word) rules)))
 
 (defn plural
   [word]
-  (let [rules [{:pattern #"(?i)\Achildren\z"
-                :fn (fn [_] "child")}
-               {:pattern #"(.+)y"
+  (let [rules [{:pattern #"(?i)\Achild\z"
+                :fn #(str % "ren")}
+               {:pattern #"(?i)(.+)y\z"
                 :fn #(str (second %) "ies")}
                {:pattern #".+"
-                :fn #(str (first %) "s")}]]
+                :fn #(str % "s")}]]
     (some (partial apply-word-rule word) rules)))

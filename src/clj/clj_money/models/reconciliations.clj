@@ -5,7 +5,7 @@
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models.transactions :as transactions]
@@ -79,7 +79,7 @@
   (when reconciliation
     (-> reconciliation
         (update-in [:status] keyword)
-        (authorization/tag-resource :reconciliation)
+        (models/tag ::models/reconciliation)
         (append-transaction-item-refs storage))))
 
 (defn search

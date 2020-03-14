@@ -4,12 +4,12 @@
             [environ.core :refer [env]]
             [ring.util.response :refer [response content-type]]
             [clj-money.models.images :as images]
-            [clj-money.permissions.images]
-            [clj-money.authorization :refer [authorize]]))
+            [clj-money.authorization.images]
+            [clj-money.authorization :refer [authorize] :as authorization]))
 
 (defn show
-  [{{image-id :image-id} :params}]
-  (let [image (authorize (images/find-by-id (env :db) image-id) :show)]
+  [{{image-id :image-id} :params :keys [authenticated]}]
+  (let [image (authorize (images/find-by-id (env :db) image-id) authenticated ::authorization/show)]
     (if image
       (-> (io/input-stream (:body image))
           response

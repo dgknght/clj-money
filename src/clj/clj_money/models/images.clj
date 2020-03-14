@@ -4,7 +4,7 @@
             [digest :refer [sha-1]]
             [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
-            [clj-money.authorization :as authorization]
+            [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn]]
             [clj-money.models.storage :refer [create-image
@@ -68,7 +68,7 @@
 (defn find-by-id
   [storage-spec id]
   (with-storage [s storage-spec]
-    (authorization/tag-resource (find-image-by-id s id) :image)))
+    (models/tag (find-image-by-id s id) ::models/image)))
 
 (defn delete
   [storage-spec id]

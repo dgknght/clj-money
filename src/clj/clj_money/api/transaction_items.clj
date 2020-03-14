@@ -2,13 +2,14 @@
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET]]
             [environ.core :refer [env]]
-            [clj-money.authorization :refer [apply-scope]]
+            [clj-money.authorization :refer [+scope]]
             [clj-money.x-platform.util :refer [update-in-criteria
                                                parse-int
                                                unserialize-date]]
             [clj-money.api :refer [->response]]
+            [clj-money.models :as models]
             [clj-money.models.transactions :as transactions]
-            [clj-money.permissions.transactions]))
+            [clj-money.authorization.transactions]))
 
 (defn- prepare-criteria
   [params]
@@ -39,8 +40,8 @@
              (and (:start-date params)
                   (:end-date params)))]}
   (->response (transactions/search-items (env :db)
-                                         (apply-scope (prepare-criteria params)
-                                                      :transaction-item
+                                         (+scope (prepare-criteria params)
+                                                      ::models/transaction-item
                                                       authenticated)
                                          (prepare-options params))))
 
