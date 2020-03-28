@@ -67,7 +67,7 @@
   [req]
   (if-let [account (find-and-auth req ::authorization/destroy)]
     (do
-      (accounts/delete (env :db) (:id account))
+      (accounts/delete (env :db) account)
       (->response))
     (not-found)))
 

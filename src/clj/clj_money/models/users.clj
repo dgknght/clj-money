@@ -5,20 +5,25 @@
             [clj-time.core :as t]
             [clj-money.util :refer [to-sql-date]]
             [buddy.hashers :as hashers]
+            [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn
                                               throw-if-nil]]
             [clj-money.validation :as validation]
-            [clj-money.models.storage :refer [create-user
-                                              select-users
-                                              update-user]])
+            [clj-money.models.storage :as storage])
   (:import java.util.UUID))
 
-(defn before-save
+(defn- before-save
   "Prepares a user record to be saved in the database"
   [user & _]
-  (update-in user [:password] hashers/derive))
+  (-> user
+    (models/tag ::models/user)
+    (update-in [:password] hashers/derive)))
+
+(defn- after-read
+  [user & _]
+  (models/tag user ::models/user))
 
 (s/def ::first-name validation/non-empty-string?)
 (s/def ::last-name validation/non-empty-string?)
@@ -33,7 +38,9 @@
   ([storage-spec criteria options]
    {:pre [(map? criteria) (map? options)]}
    (with-storage [s storage-spec]
-     (->> (select-users s criteria (merge options {:limit 1}))
+     (->> (storage/select s
+                          (models/tag criteria :user)
+                          (merge options {:limit 1}))
           first))))
 
 (defn find-by-email
@@ -54,7 +61,8 @@
 (def create
   (create-fn {:spec ::new-user
               :rules-fn validation-rules
-              :create (fn [user s] (create-user s user))
+              :create (fn [user s] (storage/create s user))
+              :after-read after-read
               :before-save before-save}))
 
 (defn select
@@ -65,7 +73,7 @@
    (select storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (select-users s criteria options))))
+     (storage/select s (models/tag criteria ::models/user) options))))
 
 (defn find-by-id
   "Returns the user having the specified id"
@@ -98,7 +106,7 @@
   (format "%s %s" (:first-name user) (:last-name user)))
 
 (def update
-  (update-fn {:update (fn [user s] (update-user s user))
+  (update-fn {:update (fn [user s] (storage/update s user))
               :find find-by-id
               :spec ::existing-user}))
 
@@ -122,7 +130,7 @@
                           :password-reset-token nil
                           :token-expires-at nil)
                    before-save)]
-      (update-user s user))))
+      (update s user))))
 
 (defn find-or-create-from-profile
   [storage-spec profile]

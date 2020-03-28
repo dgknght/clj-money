@@ -7,10 +7,7 @@
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-grant
-                                              select-grants
-                                              update-grant
-                                              delete-grant]]))
+            [clj-money.models.storage :as storage]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
@@ -40,14 +37,16 @@
 
 (defn- before-save
   [grant & _]
-  (update-in grant [:permissions] prn-str))
+  (-> grant
+      (models/tag :grant)
+      (update-in [:permissions] prn-str)))
 
 (defn- after-read
   [grant & _]
   (when grant
     (-> grant
         (update-in [:permissions] read-string)
-        (models/tag ::models/grant))))
+        (models/tag :grant))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -55,7 +54,7 @@
    (coercion/rule :integer [:user-id])])
 
 (def create
-  (create-fn {:create (rev-args create-grant)
+  (create-fn {:create (rev-args storage/create)
               :spec ::new-grant
               :coercion-rules coercion-rules
               :before-save before-save
@@ -66,14 +65,16 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (map after-read (select-grants s criteria options)))))
+     (map after-read (storage/select s
+                                     (models/tag criteria :grant)
+                                     options)))))
 
 (defn find-by-id
   [storage-spec id]
   (first (search storage-spec {:id id} {:limit 1})))
 
 (def update
-  (update-fn {:update (rev-args update-grant)
+  (update-fn {:update (rev-args storage/update)
               :spec ::existing-grant
               :coercion-rules coercion-rules
               :before-save before-save
@@ -81,9 +82,9 @@
               :find find-by-id}))
 
 (defn delete
-  [storage-spec id]
+  [storage-spec grant]
   (with-storage [s storage-spec]
-    (delete-grant s id)))
+    (storage/delete s grant)))
 
 (defn has-permission?
   [grant resource-type action]

@@ -5,6 +5,7 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t])
   (:import java.text.DecimalFormat
+           java.util.UUID
            org.joda.time.format.DateTimeFormat
            org.joda.time.LocalDate))
 
@@ -125,3 +126,10 @@
   [f]
   (fn [& args]
     (apply f (reverse args))))
+
+(defn uuid
+  ([] (UUID/randomUUID))
+  ([id]
+   (if (instance? UUID id)
+     id
+     (UUID/fromString id))))

@@ -3,8 +3,8 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
-            [clj-money.models.storage :refer [create-identity
-                                              select-identities]]
+            [clj-money.models :as models]
+            [clj-money.models.storage :as storage]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn]]
             [clj-money.models.users :as users]))
@@ -16,17 +16,19 @@
 
 (defn- before-save
   [ident _]
-  ident)
+  (models/tag ident :identity))
 
 (def create
   (create-fn {:spec ::identity
-              :create #(create-identity %2 %1)
+              :create #(storage/create %2 %1)
               :before-save before-save}))
 
 (defn select
   [storage-spec criteria options]
   (with-storage [s storage-spec]
-    (select-identities s criteria options)))
+    (storage/select s
+                    (models/tag criteria :identity)
+                    options)))
 
 (defn find
   [storage-spec criteria]
@@ -64,8 +66,8 @@
                                     :password "please001!"
                                     :password-confirmation "please001!"})
         ident (create storage {:provider provider
-                     :provider-id id
-                     :user-id (:id user)})]
+                               :provider-id id
+                               :user-id (:id user)})]
     (log/debugf "created user from profile %s" (prn-str user))
     (log/debugf "created identity from profile %s" (prn-str ident))
     user))

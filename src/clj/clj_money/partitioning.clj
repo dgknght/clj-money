@@ -1,11 +1,13 @@
 ; should this really exist in sql-storage?
 (ns clj-money.partitioning
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-local-date]]
             [clj-time.periodic :refer [periodic-seq]]
             [environ.core :refer [env]]
             [selmer.parser :refer [render]]
+            [honeysql.core :as sql]
             [clj-money.x-platform.util :refer [desc-periodic-seq]]))
 
 (defn partition-period

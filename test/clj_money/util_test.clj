@@ -7,7 +7,9 @@
                                     format-number
                                     keywordify-keys
                                     file-ext
-                                    file-name]]))
+                                    file-name
+                                    uuid]])
+  (:import java.util.UUID))
 
 (deftest format-a-date
   (is (= "3/2/2016" (format-date (t/local-date 2016 3 2)))))
@@ -58,3 +60,13 @@
       (testing (format "Given \"%s\", it should return \"%s\"" input expected)
         (is (= expected (file-name input))
             "The correct value is returned")))))
+
+(deftest get-a-uuid
+  (let [str-id "10000000-0000-0000-0000-000000000000"
+        id (UUID/fromString str-id)]
+    (is (= id (uuid str-id))
+        "A string is parsed into a uuid")
+    (is (= id (uuid id))
+        "A UUID is returned as-is")
+    (is (instance? UUID (uuid))
+        "With no args, a new UUID is returned")))

@@ -26,7 +26,7 @@
    :type :stock
    :exchange :nasdaq
    :name "Apple"
-   :symbol "APPL"})
+   :symbol "AAPL"})
 
 (deftest create-a-commodity
   (let [context (realize storage-spec commodity-context)
@@ -36,7 +36,7 @@
         commodities (commodities/search storage-spec {:entity-id entity-id})
         expected [{:name "Apple"
                    :type :stock
-                   :symbol "APPL"
+                   :symbol "AAPL"
                    :exchange :nasdaq}]
         actual (map #(dissoc % :id :entity-id :created-at :updated-at)
                     commodities)]
@@ -54,7 +54,7 @@
     (is (empty? (validation/error-messages result))
         "The result has no error messages")
     (is (= [{:name "Apple"
-             :symbol "APPL"
+             :symbol "AAPL"
              :exchange :nasdaq}]
            (map #(select-keys % [:name :symbol :exchange]) commodities))
         "The commodity can be retrieved after create")))
@@ -69,7 +69,7 @@
            (validation/error-messages result :entity-id))
         "The result has an error messages")
     (is (empty? (->> commodities
-                     (filter #(= "APPL" (:symbol %)))))
+                     (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
 
 (deftest type-is-required
@@ -82,7 +82,7 @@
            (validation/error-messages result :type))
         "The result has an error messages")
     (is (empty? (->> commodities
-                     (filter #(= "APPL" (:symbol %)))))
+                     (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
 
 (deftest type-can-be-currency
@@ -94,7 +94,7 @@
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
-                  (filter #(= "APPL" (:symbol %)))))
+                  (filter #(= "AAPL" (:symbol %)))))
         "The commodity is retrieved after create")))
 
 (deftest type-can-be-stock
@@ -106,7 +106,7 @@
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
-                  (filter #(= "APPL" (:symbol %)))))
+                  (filter #(= "AAPL" (:symbol %)))))
         "The commodity is retrieved after create")))
 
 (deftest type-can-be-fund
@@ -118,7 +118,7 @@
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
-                  (filter #(= "APPL" (:symbol %)))))
+                  (filter #(= "AAPL" (:symbol %)))))
         "The commodity is retrieved after create")))
 
 (deftest type-cannot-be-invalid
@@ -131,7 +131,7 @@
            (validation/error-messages result :type))
         "The result has an error messages")
     (is (empty? (->> commodities
-                     (filter #(= "APPL" (:symbol %)))))
+                     (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
 
 (deftest name-is-required
@@ -144,7 +144,7 @@
            (validation/error-messages result :name))
         "The result has an error messages")
     (is (empty? (->> commodities
-                     (filter #(= "APPL" (:symbol %)))))
+                     (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
 
 (deftest name-is-unique-for-an-entity-and-exchange
@@ -205,7 +205,7 @@
            (validation/error-messages result :symbol))
         "The result has an error message")
     (is (empty? (->> commodities
-                     (filter #(= "APPL" (:symbol %)))))
+                     (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
@@ -247,7 +247,7 @@
         commodities (commodities/search storage-spec {:entity-id entity-id})
         expected [{:entity-id entity-id
                    :name "Apple"
-                   :symbol "APPL"
+                   :symbol "AAPL"
                    :type :stock
                    :exchange :nasdaq}]
         actual (map #(dissoc % :updated-at :created-at :id) commodities)]
@@ -265,7 +265,7 @@
            (validation/error-messages result :exchange))
         "The result has an error message")
     (is (empty? (->> commodities
-                     (filter #(= "APPL" (:symbol %)))))
+                     (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
 
 (deftest exchange-is-not-required-for-currencies
@@ -287,7 +287,7 @@
   (let [context (realize storage-spec commodity-context)
         commodity (assoc (attributes context)
                          :exchange :nasdaq
-                         :symbol "APPL"
+                         :symbol "AAPL"
                          :name "Apple")
         result (commodities/create storage-spec commodity)]
     (is (empty? (validation/error-messages result))
@@ -317,7 +317,7 @@
 (def ^:private existing-commodity-context
   (assoc commodity-context :commodities [{:name "Apple"
                                           :type :stock
-                                          :symbol "APPL"
+                                          :symbol "AAPL"
                                           :exchange :nasdaq}]))
 
 (deftest a-commodity-can-be-updated
@@ -333,16 +333,16 @@
 (deftest a-commodity-can-be-deleted
   (let [context (realize storage-spec existing-commodity-context)
         commodity (-> context :commodities first)
-        _ (commodities/delete storage-spec (:id commodity))
+        _ (commodities/delete storage-spec commodity)
         retrieved (commodities/find-by-id storage-spec (:id commodity))]
     (is (not retrieved)
         "The commodity cannot be retrieved after delete")))
 
 (def ^:private commodity-with-prices-context
-  (assoc existing-commodity-context :prices [{:commodity-id "APPL"
+  (assoc existing-commodity-context :prices [{:commodity-id "AAPL"
                                               :trade-date (t/local-date 2016 2 27)
                                               :price 10.00M}
-                                             {:commodity-id "APPL"
+                                             {:commodity-id "AAPL"
                                               :trade-date (t/local-date 2016 3 2)
                                               :price 10.50M}]))
 
@@ -354,7 +354,7 @@
                                (t/local-date 2016 1 1)
                                (t/local-date 2016 12 31)]}
         prices-before (prices/search storage-spec criteria)
-        _ (commodities/delete storage-spec (:id commodity))
+        _ (commodities/delete storage-spec commodity)
         prices-after (prices/search storage-spec criteria)]
     (is (seq prices-before)
         "The commodity prices exist before delete")

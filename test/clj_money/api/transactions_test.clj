@@ -57,6 +57,8 @@
         response (-> (req/request :get (path :api
                                              :entities
                                              (:id entity)
+                                             "2016-02-01"
+                                             "2016-02-29"
                                              :transactions))
                      (add-auth user)
                      app)

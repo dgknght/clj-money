@@ -6,18 +6,12 @@
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models :as models]
-            [clj-money.authorization :as authorization]
             [clj-money.models.entities :as entities]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-commodity
-                                              update-commodity
-                                              count-commodities
-                                              select-commodities
-                                              delete-prices-by-commodity-id
-                                              delete-commodity]]))
+            [clj-money.models.storage :as storage]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
@@ -45,6 +39,7 @@
 (defn- before-save
   [commodity & _]
   (-> commodity
+      (models/tag :commodity)
       (update-in [:exchange] #(safe-invoke name %))
       (update-in [:type] name)))
 
@@ -62,27 +57,36 @@
    (coercion/rule :integer [:id])
    (coercion/rule :keyword [:type])])
 
+(defn search
+  "Returns commodities matching the specified criteria"
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map after-read
+          (storage/select s
+                          (models/tag criteria :commodity)
+                          options)))))
+
 (defn- name-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-name :name}]
   (when (and commodity-name entity-id exchange)
-    (->> (select-commodities
+    (->> (search
            storage
            {:entity-id entity-id
             :name commodity-name
-            :exchange (name exchange)}
-           {})
+            :exchange (name exchange)})
          (remove #(= id (:id %)))
          seq)))
 
 (defn- symbol-is-in-use?
   [storage {:keys [id entity-id exchange] commodity-symbol :symbol}]
   (when (and commodity-symbol entity-id exchange)
-    (->> (select-commodities
+    (->> (search
            storage
            {:entity-id entity-id
             :symbol commodity-symbol
-            :exchange (name exchange)}
-           {})
+            :exchange (name exchange)})
          (remove #(= id (:id %)))
          seq)))
 
@@ -101,10 +105,9 @@
   this is the default."
   [commodity storage]
   (when (#{:currency "currency"} (:type commodity))
-    (let [other-commodities (select-commodities storage
-                                                {:entity-id (:entity-id commodity)
-                                                 :id [:!= (:id commodity)]}
-                                                {})]
+    (let [other-commodities (search storage
+                                    {:entity-id (:entity-id commodity)
+                                     :id [:!= (:id commodity)]})]
       (when (empty? other-commodities)
         (let [entity (entities/find-by-id storage (:entity-id commodity))]
           (entities/update storage (assoc-in entity
@@ -118,25 +121,16 @@
               :rules-fn validation-rules
               :coercion-rules coercion-rules
               :spec ::new-commodity
-              :create (rev-args create-commodity)
+              :create (rev-args storage/create)
               :after-read after-read}))
 
 (defn count
   "Returns the number of commodities matching the specified criteria"
   [storage-spec criteria]
   (with-storage [s storage-spec]
-    (->> (count-commodities s criteria)
-         (map vals)
-         ffirst)))
-
-(defn search
-  "Returns commodities matching the specified criteria"
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
-     (map after-read
-          (select-commodities s criteria options)))))
+    (-> (search s criteria {:count true})
+        first
+        :count)))
 
 (defn find-by
   [storage-spec criteria]
@@ -149,7 +143,7 @@
 
 (def update
   (update-fn {:spec ::existing-commodity
-              :update (rev-args update-commodity)
+              :update (rev-args storage/update)
               :find find-by-id
               :before-save before-save
               :after-read after-read
@@ -157,7 +151,6 @@
 
 (defn delete
   "Removes a commodity from the system"
-  [storage-spec id]
+  [storage-spec commodity]
   (with-transacted-storage [s storage-spec]
-    (delete-prices-by-commodity-id s id)
-    (delete-commodity s id)))
+    (storage/delete s commodity)))

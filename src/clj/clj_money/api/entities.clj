@@ -7,7 +7,7 @@
             [clj-money.api :refer [->response
                                    error->response
                                    invalid->response
-                                   delete-resource
+                                   not-found
                                    log-error]]
             [clj-money.validation :as validation]
             [clj-money.models :as models]
@@ -65,10 +65,15 @@
 
 (defn- delete
   [{:keys [params authenticated]}]
-  (delete-resource (:id params)
-                   authenticated
-                   entities/find-by-id
-                   entities/delete))
+  (if-let [entity (first (entities/select (env :db)
+                                          (-> params
+                                              (select-keys [:id])
+                                              (+scope ::models/entity authenticated))))]
+    (entities/delete (env :db)
+                     (authorize entity
+                                ::authorization/destroy
+                                authenticated))
+    (not-found)))
 
 (defroutes routes
   (GET "/api/entities" req (index req))

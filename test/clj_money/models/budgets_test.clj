@@ -121,7 +121,7 @@
     (is (= 1
            (count (budgets/search storage-spec {:entity-id (:id entity)})))
         "The budget is returned before delete")
-    (budgets/delete storage-spec (:id budget))
+    (budgets/delete storage-spec budget)
     (is (= 0
            (count (budgets/search storage-spec {:entity-id (:id entity)})))
         "The budget is absent after delete")))

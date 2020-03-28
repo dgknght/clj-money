@@ -8,13 +8,9 @@
                                               with-transacted-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [select-imports
-                                              create-import
-                                              update-import
-                                              delete-import
-                                              delete-image
-                                              find-import-by-id]]
-            [clj-money.models.entities :as entities]))
+            [clj-money.models.storage :as storage]
+            [clj-money.models.entities :as entities]
+            [clj-money.models.images :as images]))
 
 (s/def ::id integer?)
 (s/def ::entity-name string?)
@@ -24,13 +20,9 @@
 (s/def ::progress map?)
 (s/def ::existing-import (s/keys :req-un [::id ::progress]))
 
-(def create
-  (create-fn {:create (rev-args create-import)
-              :spec ::new-import}))
-
-(defn- before-update
-  [import & _]
-  (update-in import [:progress] json/generate-string))
+(defn- before-save
+  [imp & _]
+  (models/tag imp :import))
 
 (defn- prepare-progress
   [progress]
@@ -57,18 +49,17 @@
     (-> imp
         (update-in [:progress] prepare-progress)
         (assoc :entity-exists? (entity-exists? imp storage))
-        (models/tag ::models/import))))
+        (models/tag :import))))
 
-(defn find-by-id
-  [storage-spec id]
-  (with-storage [s storage-spec]
-    (after-read (find-import-by-id s id) s)))
+(def create
+  (create-fn {:create (rev-args storage/create)
+              :before-save before-save
+              :after-read after-read
+              :spec ::new-import}))
 
-(def update
-  (update-fn {:update (rev-args update-import)
-              :find find-by-id
-              :before-save before-update
-              :spec ::existing-import}))
+(defn- before-update
+  [import & _]
+  (update-in import [:progress] json/generate-string))
 
 (defn search
   ([storage-spec criteria]
@@ -76,12 +67,33 @@
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
      (map #(after-read % s)
-          (select-imports s criteria options)))))
+          (storage/select s
+                          (models/tag criteria :import)
+                          (merge {:sort [:created-at]} options))))))
+
+(defn find-by
+  ([storage-spec criteria]
+   (find-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (search storage-spec criteria (assoc options :limit 1)))))
+
+(defn find-by-id
+  [storage-spec id]
+  (find-by storage-spec {:id id}))
+
+(def update
+  (update-fn {:update (rev-args storage/update)
+              :find find-by-id
+              :before-save before-update
+              :spec ::existing-import}))
 
 (defn delete
   [storage-spec id]
   (with-transacted-storage [s storage-spec]
     (let [imp (find-by-id s id)]
-      (doseq [image-id (:image-ids imp)]
-        (delete-image s image-id))
-      (delete-import s id))))
+      (->> (:image-ids imp)
+           (map #(images/find-by s {:id %}))
+           (filter identity)
+           (map #(images/delete s %))
+           doall)
+      (storage/delete s imp))))

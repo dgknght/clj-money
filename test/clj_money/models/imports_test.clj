@@ -81,14 +81,11 @@
 
 (deftest update-an-import
   (let [context (realize storage-spec import-context)
-        import (imports/create storage-spec (attributes context))
-        updated (assoc import :progress {:account {:total 20
-                                                   :processed 0}})
-        _ (try
-            (imports/update storage-spec updated)
-            (catch java.sql.BatchUpdateException e
-              (pprint {:error (.getNextException e)})))
-        retrieved (imports/find-by-id storage-spec (:id import))]
+        imp (imports/create storage-spec (attributes context))
+        updated (assoc imp :progress {:account {:total 20
+                                                :processed 0}})
+        _ (imports/update storage-spec updated)
+        retrieved (imports/find-by-id storage-spec (:id imp))]
     (is (= {:account {:total 20
                       :processed 0}}
            (:progress retrieved))

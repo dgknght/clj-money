@@ -253,9 +253,11 @@
   "Returns the input data and source type based
   on the specified image"
   [storage image-ids]
-  (let [images (map #(images/find-by-id storage %) image-ids)
+  (let [images (map #(images/find-by storage {:id %} {:include-body? true})
+                    image-ids)
         source-type (-> images first get-source-type)]
-    [(map #(io/input-stream (byte-array (:body %))) images)
+    [(map #(io/input-stream (byte-array (:body %)))
+          images)
      source-type]))
 
 (def ^:private reportable-record-types

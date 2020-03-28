@@ -1,10 +1,27 @@
 (ns clj-money.models.helpers
-  (:require
-            [slingshot.slingshot :refer [throw+]]
+  (:require [slingshot.slingshot :refer [throw+]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.storage :refer [with-transaction]]
-            [clj-money.models.storage.sql-storage])
+            [clj-money.models.storage.sql-storage]
+            [clj-money.models.storage.sql-storage.accounts]
+            [clj-money.models.storage.sql-storage.identities]
+            [clj-money.models.storage.sql-storage.users]
+            [clj-money.models.storage.sql-storage.entities]
+            [clj-money.models.storage.sql-storage.grants]
+            [clj-money.models.storage.sql-storage.commodities]
+            [clj-money.models.storage.sql-storage.prices]
+            [clj-money.models.storage.sql-storage.lots]
+            [clj-money.models.storage.sql-storage.transactions]
+            [clj-money.models.storage.sql-storage.transaction-items]
+            [clj-money.models.storage.sql-storage.lot-transactions]
+            [clj-money.models.storage.sql-storage.reconciliations]
+            [clj-money.models.storage.sql-storage.budgets]
+            [clj-money.models.storage.sql-storage.budget-items]
+            [clj-money.models.storage.sql-storage.images]
+            [clj-money.models.storage.sql-storage.attachments]
+            [clj-money.models.storage.sql-storage.imports]
+            [clj-money.models.storage.sql-storage.settings])
   (:import clj_money.models.storage.sql_storage.SqlStorage
            clj_money.models.storage.Storage))
 
@@ -87,7 +104,11 @@
     (with-storage [s storage-spec]
       (let [validated (validate model options s)]
         (if (validation/valid? validated)
-          (process-options options s validated :before-save :create :after-save :after-read)
+          (process-options options s validated
+                           :before-save
+                           :create
+                           :after-save
+                           :after-read)
           validated)))))
 
 (defn update-fn

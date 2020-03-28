@@ -108,7 +108,7 @@
 (deftest delete-an-entity
   (let [context (realize storage-spec entity-context)
         entity (entities/create storage-spec (attributes context))
-        _ (entities/delete storage-spec (:id entity))
+        _ (entities/delete storage-spec entity)
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (nil? retrieved) "The entity is not returned after delete")))
 

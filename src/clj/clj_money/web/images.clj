@@ -9,7 +9,7 @@
 
 (defn show
   [{{image-id :image-id} :params :keys [authenticated]}]
-  (let [image (authorize (images/find-by-id (env :db) image-id) authenticated ::authorization/show)]
+  (let [image (authorize (images/find-by (env :db) {:id image-id}) authenticated ::authorization/show)]
     (if image
       (-> (io/input-stream (:body image))
           response

@@ -9,10 +9,7 @@
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-account
-                                              select-accounts
-                                              update-account
-                                              delete-account]]
+            [clj-money.models.storage :as storage]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]))
 
@@ -69,6 +66,7 @@
   "Adjusts account data for saving in the database"
   [account & _]
   (-> account
+      (models/tag ::models/account)
       (update-in [:quantity] (fnil identity 0M))
       (update-in [:value] (fnil identity 0M))
       (update-in [:type] name)
@@ -111,7 +109,10 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (map after-read (select-accounts s criteria options)))))
+     (map after-read
+          (storage/select s
+                          (models/tag criteria ::models/account)
+                          options)))))
 
 (defn find-by
   "Returns the first account that matches the specified criteria"
@@ -163,7 +164,7 @@
 (def create
   (create-fn {:before-save before-save
               :after-read after-read
-              :create (rev-args create-account)
+              :create (rev-args storage/create)
               :before-validation before-validation
               :rules-fn validation-rules
               :coercion-rules coercion-rules
@@ -177,7 +178,7 @@
 (def update
   (update-fn {:before-save before-save
               :after-read after-read
-              :update (rev-args update-account)
+              :update (rev-args storage/update)
               :find find-by-id
               :spec ::existing-account
               :coercion-rules coercion-rules
@@ -185,6 +186,6 @@
 
 (defn delete
   "Removes the account from the system"
-  [storage-spec id]
+  [storage-spec account]
   (with-storage [s storage-spec]
-    (delete-account s id)))
+    (storage/delete s account)))

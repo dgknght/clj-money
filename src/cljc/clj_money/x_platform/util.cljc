@@ -171,3 +171,30 @@
   [value]
   (or (:id value)
       value))
+
+(defn update-in-if
+  [m k-path f]
+  (if-let [v (get-in m k-path)]
+    (assoc-in m k-path (f v))
+    m))
+
+(defn deep-contains?
+  [data k]
+  (cond
+    (vector? data) (some #(deep-contains? % k) data)
+    (map? data)    (contains? data k)
+    :else          false))
+
+(defn deep-get
+  [data k]
+  (cond
+    (vector? data) (some #(deep-get % k) data)
+    (map? data)    (get-in data [k])
+    :else          nil))
+
+(defn deep-update-in-if
+  [data k f]
+  (cond
+    (vector? data) (mapv #(deep-update-in-if % k f) data)
+    (map? data)    (update-in-if data [k] f)
+    :else          data))

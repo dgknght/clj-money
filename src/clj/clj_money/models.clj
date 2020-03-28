@@ -6,4 +6,7 @@
    (or (-> model meta ::model)
        (throw (ex-info "Unable to determine the model type." {:model model}))))
   ([model tag]
-   (vary-meta model assoc ::model tag)))
+   (vary-meta model
+              assoc
+              ::model
+              (keyword "clj-money.models" (name tag)))))

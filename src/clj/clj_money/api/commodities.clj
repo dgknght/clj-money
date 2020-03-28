@@ -79,7 +79,7 @@
 (defn- delete
   [req]
   (let [commodity (find-and-authorize req ::authorization/destroy)]
-    (coms/delete (env :db) (:id commodity))
+    (coms/delete (env :db) commodity)
     (->response)))
 
 (defroutes routes

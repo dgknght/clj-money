@@ -7,10 +7,7 @@
             [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn]]
-            [clj-money.models.storage :refer [create-image
-                                              select-images
-                                              find-image-by-id
-                                              delete-image]]))
+            [clj-money.models.storage :as storage]))
 
 (s/def ::user-id integer?)
 (s/def ::original-filename validation/non-empty-string?)
@@ -23,12 +20,19 @@
                                 ::body-hash
                                 ::body]))
 
+(defn- after-read
+  [image]
+  (models/tag image :image))
+
 (defn search
   ([storage-spec criteria]
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (select-images s criteria options))))
+     (map after-read
+          (storage/select s
+                          (models/tag criteria :image)
+                          options)))))
 
 (defn- find-by-hash
   [storage user-id hash]
@@ -51,8 +55,13 @@
   [image & _]
   (assoc image :body-hash (sha-1 (:body image))))
 
+(defn- before-save
+  [image & _]
+  (models/tag image :image))
+
 (def create
-  (create-fn {:create (rev-args create-image)
+  (create-fn {:create (rev-args storage/create)
+              :before-save before-save
               :spec ::image
               :before-validation before-validation
               :rules-fn validation-rules}))
@@ -65,12 +74,13 @@
         (find-by-hash s (:user-id image) hash)
         (create s image)))))
 
-(defn find-by-id
-  [storage-spec id]
-  (with-storage [s storage-spec]
-    (models/tag (find-image-by-id s id) ::models/image)))
+(defn find-by
+  ([storage-spec criteria]
+   (find-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (search storage-spec criteria (merge options {:limit 1})))))
 
 (defn delete
-  [storage-spec id]
+  [storage-spec image]
   (with-storage [s storage-spec]
-    (delete-image s id)))
+    (storage/delete s image)))

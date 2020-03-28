@@ -12,7 +12,6 @@
                                             find-commodity
                                             find-account]]
             [clj-money.validation :as validation]
-            [clj-money.tagging :as tagging]
             [clj-money.models.accounts :as accounts]
             [clj-money.x-platform.accounts :refer [nest
                                                    polarize-quantity
@@ -85,15 +84,6 @@
                                :type :currency
                                :default true}}]]
     (is (= expected actual) "It returns the correct accounts")))
-
-(deftest tag-an-account
-  (let [context (realize storage-spec select-context)
-        checking (find-account context "Checking")
-        tagged (tagging/tag checking :special)
-        _ (accounts/update storage-spec tagged)
-        retrieved (accounts/reload storage-spec checking)]
-    (is (tagging/tagged? tagged :special) "The account is tagged after calling tag")
-    (is (tagging/tagged? retrieved :special) "The account is tagged on retrieval")))
 
 (def ^:private nested-context
   {:users [(factory :user)]
@@ -318,19 +308,15 @@
         "The specified default commodity is used")))
 
 (deftest update-an-account
-  (try
-    (let [context (realize storage-spec select-context)
-          account (first (filter #(= "Checking" (:name %)) (:accounts context)))
-          result (accounts/update storage-spec (assoc account :name "New name"))
-          retrieved (accounts/find-by-id storage-spec (:id account))]
-      (is (not (validation/has-error? result))
-          (format "Unexpected validation error: %s"
-                  (validation/error-messages result)) )
-      (is (= "New name" (:name result)) "The updated account is returned")
-      (is (= "New name" (:name retrieved)) "The updated account is retreived"))
-    (catch clojure.lang.ExceptionInfo e
-      (pprint (ex-data e))
-      (is false "unexpected validation error"))))
+  (let [context (realize storage-spec select-context)
+        account (find-account context "Checking")
+        result (accounts/update storage-spec (assoc account :name "New name"))
+        retrieved (accounts/find-by-id storage-spec (:id account))]
+    (is (not (validation/has-error? result))
+        (format "Unexpected validation error: %s"
+                (validation/error-messages result)) )
+    (is (= "New name" (:name result)) "The updated account is returned")
+    (is (= "New name" (:name retrieved)) "The updated account is retreived")))
 
 (def same-parent-context
   {:users [(factory :user)]
@@ -364,7 +350,7 @@
 (deftest delete-an-account
   (let [context (realize storage-spec select-context)
         account (-> context :accounts first)
-        _ (accounts/delete storage-spec (:id account))
+        _ (accounts/delete storage-spec account)
         accounts (->> {:entity-id (-> context
                                       :entities
                                       first

@@ -5,20 +5,15 @@
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
-            [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-reconciliation
-                                              update-reconciliation
-                                              select-reconciliations
-                                              set-transaction-item-reconciled
-                                              unreconcile-transaction-items-by-reconciliation-id
-                                              delete-reconciliation]])
+            [clj-money.models.storage :as storage])
   (:import org.joda.time.LocalDate
            java.util.UUID))
 
@@ -62,7 +57,9 @@
 
 (defn- before-save
   [reconciliation & _]
-  (update-in reconciliation [:status] name))
+  (-> reconciliation
+      (models/tag :reconciliation)
+      (update-in [:status] name)))
 
 (defn- append-transaction-item-refs
   [reconciliation storage]
@@ -87,7 +84,10 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (map #(after-read % s) (select-reconciliations s criteria options)))))
+     (map #(after-read % s)
+          (storage/select  s
+                          (models/tag criteria :reconciliation)
+                          options)))))
 
 (defn find
   ([storage-spec criteria]
@@ -224,27 +224,35 @@
                             (map second)
                             sort))))
 
+(defn- unreconcile
+  [reconciliation-id date-range storage]
+  (transactions/update-items storage
+                             {:reconciliation-id nil}
+                             {:reconciliation-id reconciliation-id
+                              :transaction-date date-range}))
+
+(defn- reconcile
+  [reconciliation-id [item-id trans-date] storage]
+  (transactions/update-items storage
+                             {:reconciliation-id reconciliation-id}
+                             {:id item-id
+                              :transaction-date trans-date}))
+
 (defn- after-save
   [{:keys [id item-refs] :as reconciliation} storage]
   ; Set reconciled flag on specified transaction items
   (let [date-range (item-refs->date-range item-refs)]
     (when date-range
-      (unreconcile-transaction-items-by-reconciliation-id
-        storage
-        id
-        date-range))
-    (when (and item-refs (seq item-refs))
-      (doseq [[item-ref transaction-date] item-refs]
-        (set-transaction-item-reconciled storage
-                                         id
-                                         item-ref
-                                         transaction-date))))
+      (unreconcile id date-range storage))
+    (when (seq item-refs)
+      (doseq [item-ref item-refs]
+        (reconcile id item-ref storage))))
   reconciliation)
 
 (defn- create*
   [storage reconciliation]
   (merge reconciliation
-  (create-reconciliation storage reconciliation)))
+  (storage/create storage reconciliation)))
 
 (def create
   (create-fn {:spec ::new-reconciliation
@@ -264,7 +272,7 @@
 (def update
   (update-fn {:spec ::existing-reconciliation
               :before-validation before-validation
-              :update (rev-args update-reconciliation)
+              :update (rev-args storage/update)
               :before-save before-save
               :after-save after-save
               :rules-fn validation-rules
@@ -283,5 +291,5 @@
         (throw (ex-info "Only the most recent reconciliation may be deleted" {:specified-reconciliation reconciliation
                                                                               :most-recent-reconciliation most-recent})))
       (when date-range
-        (unreconcile-transaction-items-by-reconciliation-id s id date-range))
-      (delete-reconciliation s id))))
+        (unreconcile id date-range s))
+      (storage/delete s reconciliation))))

@@ -126,7 +126,7 @@
          entity (find-entity ctx "Personal")
          response (app (-> (req/request :delete (path :api :entities (:id entity)))
                            (add-auth user)))
-         retrieved (entities/find-by-id (env :db)  (:id entity))]
+         retrieved (entities/find-by-id (env :db) (:id entity))]
     [response retrieved]))
 
 (defn- assert-successful-delete

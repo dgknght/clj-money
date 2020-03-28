@@ -75,3 +75,23 @@
 (deftest build-a-path
   (is (= "/api/users/me"
          (util/path :api :users :me))))
+
+(deftest conditionally-update-in
+  (is (= {:value 2}
+         (util/update-in-if {:value 1}
+                            [:value]
+                            inc))
+      "The fn is applied if the value is present")
+  (is (= {}
+         (util/update-in-if {}
+                            [:value]
+                            inc))
+      "The map is not modified if the key is not present"))
+
+(deftest test-for-deeply-contained-key
+  (is (util/deep-contains? {:one 1} :one))
+  (is (util/deep-contains? [:and {:one 1}] :one)))
+
+(deftest find-deeply-contained-value
+  (is (= 1 (util/deep-get {:one 1} :one)))
+  (is (= 1 (util/deep-get [:and {:one 1}] :one))))

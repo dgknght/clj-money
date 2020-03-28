@@ -316,8 +316,8 @@
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.
                  "Cannot undo a purchase if shares have been sold from the lot")))
-      (transactions/delete s transaction-id transaction-date)
-      (lots/delete s (:id lot))
+      (transactions/delete s transaction)
+      (lots/delete s lot)
       {:transaction transaction
        :lot lot
        :commodity commodity})))
@@ -483,7 +483,7 @@
       (doseq [lot-item (:lot-items transaction)]
         (let [lot (lots/find-by-id s (:lot-id lot-item))]
           (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
-      (transactions/delete s transaction-id transaction-date))))
+      (transactions/delete s transaction))))
 
 (def ^:private transfer-coercion-rules
   [(coercion/rule :local-date [:transfer-date])

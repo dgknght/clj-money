@@ -7,9 +7,7 @@
             [clj-money.models.helpers :refer [with-storage
                                               with-transacted-storage
                                               create-fn]]
-            [clj-money.models.storage :refer [create-attachment
-                                              select-attachments
-                                              delete-attachment]]
+            [clj-money.models.storage :as storage]
             [clj-money.models.images :as images])
   (:import org.joda.time.LocalDate))
 
@@ -25,10 +23,15 @@
 (defn- after-read
   [attachment & _]
   (when attachment
-    (models/tag attachment ::models/attachment)))
+    (models/tag attachment :attachment)))
+
+(defn- before-save
+  [attachment & _]
+  (models/tag attachment :attachment))
 
 (def create
-  (create-fn {:create (rev-args create-attachment)
+  (create-fn {:create (rev-args storage/create)
+              :before-save before-save
               :after-read after-read
               :spec ::new-attachment}))
 
@@ -38,21 +41,26 @@
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
      (map after-read
-          (select-attachments s
-                              criteria
-                              options)))))
+          (storage/select s
+                          (models/tag criteria :attachment)
+                          options)))))
+
+(defn find-by
+  ([storage-spec criteria]
+   (find-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (search storage-spec criteria (assoc options :limit 1)))))
 
 (defn find-by-id
   [storage-spec id]
-  (->> (search storage-spec {:id id} {:limit 1})
-       first
-       after-read))
+  (find-by storage-spec {:id id}))
 
 (defn delete
   [storage-spec id-or-attachment]
   (with-transacted-storage [s storage-spec]
     (let [attachment (if (integer? id-or-attachment)
                        (find-by-id s id-or-attachment)
-                       id-or-attachment)]
-      (images/delete s (:image-id attachment))
-      (delete-attachment s (:id attachment)))))
+                       id-or-attachment)
+          image (images/find-by s {:id (:image-id attachment)})]
+      (images/delete s image)
+      (storage/delete s attachment))))

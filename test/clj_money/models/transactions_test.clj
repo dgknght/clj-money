@@ -438,7 +438,7 @@
         trans (-> context
                   :transactions
                   second)
-        _ (transactions/delete storage-spec (:id trans) (:transaction-date trans))
+        _ (transactions/delete storage-spec trans)
         checking-items-after (items-by-account (:id checking))]
     (testing "transaction item balances are adjusted"
       (let [expected-before [{:index 2 :quantity 102M :balance 797M}
@@ -1009,8 +1009,8 @@
         [checking
          pets
          groceries] (find-accounts context "Checking" "Pets" "Groceries")
-        t3 (find-transaction context (t/local-date 2016 3 16) "Kroger")
-        to-update (-> t3
+        transaction (find-transaction context (t/local-date 2016 3 16) "Kroger")
+        to-update (-> transaction
                       (assoc-in [:items 0 :quantity] 102M)
                       (assoc-in [:items 0 :value] 102M)
                       (update-in [:items] #(remove (fn [item]
@@ -1029,6 +1029,7 @@
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id groceries)))]
+    (pprint-diff expected-items actual-items)
     (testing "item values are correct"
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))

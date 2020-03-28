@@ -1,17 +1,14 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
+            [clj-money.x-platform.util :refer [update-in-if]]
             [clj-money.models :as models]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-entity
-                                              select-entities
-                                              find-entity-by-id
-                                              update-entity
-                                              delete-entity]]))
+            [clj-money.models.storage :as storage]))
 
 (s/def ::name string?)
 (s/def ::id integer?)
@@ -23,11 +20,32 @@
 (s/def ::new-entity (s/keys :req-un [::name ::user-id] :opt-un [::settings]))
 (s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::user-id ::settings]))
 
+(defn- after-read
+  [entity & _]
+  (when entity
+    (cond-> entity
+      true
+      (models/tag ::models/entity)
+
+      (:settings entity)
+      (update-in [:settings] read-string))))
+
+(defn select
+  "Returns entities for the specified user"
+  ([storage-spec criteria]
+   (select storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
+     (map after-read
+          (storage/select s
+                          (models/tag criteria :entity)
+                          options)))))
+
 (defn- name-is-unique?
   [storage {entity-name :name
             user-id :user-id
             entity-id :id}]
-  (->> (select-entities storage {:user-id user-id} {})
+  (->> (select storage {:user-id user-id} {})
        (remove #(= (:id %) entity-id))
        (filter #(= (:name %) entity-name))
        empty?))
@@ -38,19 +56,9 @@
 
 (defn- before-save
   [entity & _]
-   (cond-> entity
-     (contains? entity :settings)
-     (update-in [:settings] pr-str)))
-
-(defn- after-read
-  [entity & _]
-  (when entity
-    (cond-> entity
-      true
+  (-> entity
       (models/tag ::models/entity)
-
-      (:settings entity)
-      (update-in [:settings] read-string))))
+      (update-in-if [:settings] pr-str)))
 
 (defn- validation-rules
   [storage]
@@ -65,18 +73,10 @@
   (create-fn {:before-validation before-validation
               :before-save before-save
               :after-read after-read
-              :create (fn [entity s] (create-entity s entity))
+              :create (fn [entity s] (storage/create s entity))
               :spec ::new-entity
               :rules-fn validation-rules
               :coercion-rules coercion-rules}))
-
-(defn select
-  "Returns entities for the specified user"
-  ([storage-spec criteria]
-   (select storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
-     (map after-read (select-entities s criteria options)))))
 
 (defn find-by
   "Returns the first entity that matches the specified criteria"
@@ -88,9 +88,7 @@
 (defn find-by-id
   "Finds the entity with the specified ID"
   [storage-spec id]
-  (with-storage [s storage-spec]
-    (->> (find-entity-by-id s id)
-         after-read)))
+  (find-by storage-spec {:id id}))
 
 (defn reload
   "Reloads the specified entity"
@@ -108,7 +106,7 @@
                           :name entity-name})))
 
 (def update
-  (update-fn {:update (fn [entity s] (update-entity s entity))
+  (update-fn {:update (fn [entity s] (storage/update s entity))
               :spec ::existing-entity
               :coercion-rules coercion-rules
               :rule-fn validation-rules
@@ -119,9 +117,9 @@
 
 (defn delete
   "Removes the specifiedy entity and all related records from storage"
-  [storage-spec id]
+  [storage-spec entity]
   (with-storage [s storage-spec]
-    (delete-entity s id)))
+    (storage/delete s entity)))
 
 (defn entity?
   [model]

@@ -6,13 +6,11 @@
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.models :as models]
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-lot
-                                              select-lots
-                                              update-lot
-                                              delete-lot]]
+            [clj-money.models.storage :as storage]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]))
 
@@ -37,14 +35,19 @@
 
 (defn- after-read
   [lot & _]
-  (update-in lot [:purchase-date] to-local-date))
+  (-> lot
+      (models/tag :lot)
+      (update-in [:purchase-date] to-local-date)))
 
 (defn search
   ([storage-spec criteria]
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (map after-read (select-lots s criteria options)))))
+     (map after-read
+          (storage/select s
+                          (models/tag criteria :lot)
+                          options)))))
 
 (defn find-by
   ([storage-spec criteria]
@@ -59,6 +62,7 @@
 (defn- before-save
   [lot & _]
   (-> lot
+      (models/tag :lot)
       (update-in [:purchase-date] to-sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 
@@ -86,7 +90,7 @@
   (create-fn {:before-save before-save
               :before-validation before-validation
               :rules-fn validation-rules
-              :create (rev-args create-lot)
+              :create (rev-args storage/create)
               :after-read after-read
               :spec ::new-lot
               :coercion-rules coercion-rules}))
@@ -101,7 +105,7 @@
   (update-fn {:before-save before-save
               :before-validation before-validation
               :rules-fn validation-rules
-              :update (rev-args update-lot)
+              :update (rev-args storage/update)
               :after-read after-read
               :spec ::existing-lot
               :coercion-rules coercion-rules
@@ -131,6 +135,6 @@
            (reduce + 0M)))))
 
 (defn delete
-  [storage-spec lot-id]
+  [storage-spec lot]
   (with-storage [s storage-spec]
-    (delete-lot s lot-id)))
+    (storage/delete s lot)))

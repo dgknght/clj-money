@@ -5,6 +5,8 @@
             [clj-money.util :refer [format-date]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.helpers :refer [with-storage]]
+            [clj-money.models.date-helpers :refer [available-date-range]]
+            [clj-money.models.settings :as settings]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.x-platform.accounts :refer [nest
@@ -133,7 +135,7 @@
 (defn income-statement
   "Returns the data used to populate an income statement report"
   ([storage-spec entity-id]
-   (let [[start end] (transactions/available-date-range storage-spec)]
+   (let [[start end] (available-date-range)]
      (income-statement storage-spec entity-id start end)))
   ([storage-spec entity-id start end]
    (->> {:entity-id entity-id}
@@ -202,7 +204,7 @@
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
   ([storage-spec entity-id]
-   (let [[_ end] (transactions/available-date-range storage-spec)]
+   (let [end (settings/get storage-spec "latest-partition-date")]
      (balance-sheet storage-spec entity-id end)))
   ([storage-spec entity-id as-of]
    (let [entity (entities/find-by-id storage-spec entity-id)]

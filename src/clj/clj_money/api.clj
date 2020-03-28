@@ -27,6 +27,11 @@
 (defn not-found []
   (->response {:message "not found"} 404))
 
+(defn bad-request
+  ([] (bad-request "bad request"))
+  ([message]
+   (->response {:message message} 400)))
+
 (defn error->response
   [error safe-error-message]
   (->response

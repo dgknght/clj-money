@@ -14,16 +14,7 @@
             [clj-money.models.helpers :refer [with-storage
                                               create-fn
                                               update-fn]]
-            [clj-money.models.storage :refer [create-budget
-                                              update-budget
-                                              create-budget-item
-                                              update-budget-item
-                                              find-budget-by-date
-                                              find-budget-item-by-id
-                                              select-budgets
-                                              select-budget-items-by-budget-id
-                                              delete-budget
-                                              delete-budget-item]])
+            [clj-money.models.storage :as storage])
   (:import (org.joda.time LocalDate
                           Months
                           Weeks
@@ -54,10 +45,14 @@
       (update-in [:periods] read-string)
       (models/tag ::models/budget-item)))
 
-(defn- select-items-by-budget-id
-  [storage budget-id]
-  (map after-item-read
-       (select-budget-items-by-budget-id storage budget-id)))
+(defn- select-items
+  ([storage criteria]
+   (select-items storage criteria {}))
+  ([storage criteria options]
+   (map after-item-read
+        (storage/select storage
+                        (models/tag criteria :budget-item)
+                        options))))
 
 (defn- after-read
   [budget storage]
@@ -67,7 +62,7 @@
         (update-in [:start-date] to-local-date)
         (update-in [:end-date] to-local-date)
         (update-in [:period] keyword)
-        (assoc :items (select-items-by-budget-id storage (:id budget))))))
+        (assoc :items (select-items storage {:budget-id (:id budget)})))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -117,13 +112,14 @@
 (defn- before-save
   [budget & _]
   (-> budget
+      (models/tag :budget)
       (assoc :end-date (to-sql-date (end-date budget)))
       (update-in [:start-date] to-sql-date)
       (update-in [:period] name)))
 
 (def create
   (create-fn {:before-save before-save
-              :create (rev-args create-budget)
+              :create (rev-args storage/create)
               :spec ::new-budget
               :before-validation before-validation
               :coercion-rules coercion-rules
@@ -135,19 +131,26 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (->> (select-budgets s criteria options)
+     (->> (storage/select s (models/tag criteria :budget) options)
           (map #(after-read % s))))))
+
+(defn find-by
+  ([storage-spec criteria]
+   (find-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (search storage-spec criteria (merge options {:limit 1})))))
 
 (defn find-by-id
   "Returns the specified budget"
   [storage-spec id]
-  (first (search storage-spec {:id id} {:limit 1})))
+  (find-by storage-spec {:id id}))
 
 (defn find-by-date
   "Returns the budget containing the specified date"
   [storage-spec entity-id date]
-  (with-storage [s storage-spec]
-    (after-read (find-budget-by-date s entity-id (to-sql-date date)) s)))
+  (find-by storage-spec {:start-date [:<= date]
+                         :end-date [:>= date]
+                         :entity-id entity-id}))
 
 (defn reload
   "Returns the lastest version of the specified budget from the data store"
@@ -159,14 +162,15 @@
               :before-validation before-validation
               :before-save before-save
               :coercion-rules coercion-rules
-              :update (rev-args update-budget)
+              :update (rev-args storage/update)
               :find find-by-id}))
 
-(defn find-item-by-id
+(defn find-item-by
   "Returns the budget item with the specified id"
-  [storage-spec item-id]
-  (with-storage [s storage-spec]
-    (after-item-read (find-budget-item-by-id s item-id))))
+  ([storage-spec criteria]
+   (find-item-by storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (first (select-items storage-spec criteria (merge options {:limit 1})))))
 
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"
@@ -215,7 +219,9 @@
 
 (defn- before-save-item
   [item]
-  (update-in item [:periods] (comp prn-str vec)))
+  (-> item
+      (models/tag :budget-item)
+      (update-in [:periods] (comp prn-str vec))))
 
 (defn create-item
   "Adds a new budget item to an existing budget"
@@ -227,27 +233,20 @@
         validated
         (->> validated
              before-save-item
-             (create-budget-item s)
+             (storage/create s)
              after-item-read)))))
 
 (defn- reload-item
   "Returns the lastest version of the specified budget from the data store"
   [storage-spec item]
-  (with-storage [s storage-spec]
-    (->> item
-         :id
-         (find-item-by-id s))))
+  (find-item-by storage-spec {:id (:id item)}))
 
 (defn update-item
   "Updates the specified budget item"
   [storage-spec item]
   (with-storage [s storage-spec]
     (let [item (coercion/coerce item item-coercion-rules)
-          budget (->> item
-                      :id
-                      (find-item-by-id s)
-                      :budget-id
-                      (find-by-id s))
+          budget (find-by-id s (:budget-id item))
           validated (-> item
                         (select-keys [:id
                                       :account-id
@@ -259,21 +258,21 @@
         (do
           (->> validated
                before-save-item
-               (update-budget-item s))
+               (storage/update s))
           (reload-item s validated))
         validated))))
 
 (defn delete
   "Removes the specified budget from the system"
-  [storage-spec id]
+  [storage-spec budget]
   (with-storage [s storage-spec]
-    (delete-budget s id)))
+    (storage/delete s budget)))
 
 (defn delete-item
   "Removes the specified budget from the system"
   [storage-spec id]
   (with-storage [s storage-spec]
-    (delete-budget-item s id)))
+    (storage/delete s id)))
 
 (defn- within-period?
   "Returns a boolean value indicating whether or not

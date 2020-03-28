@@ -13,15 +13,20 @@
 
 (defn- index
   [{:keys [params authenticated]}]
-  (->response (trans/search (env :db) (-> params
-                                          (select-keys [:entity-id :account-id])                        
-                                          (+scope ::models/transaction authenticated)))))
+  (->response
+    (trans/search (env :db)
+                  (-> params
+                      (assoc :transaction-date [:between
+                                                (unserialize-date (:start params))
+                                                (unserialize-date (:end params))])
+                      (select-keys [:entity-id :transaction-date])
+                      (+scope ::models/transaction authenticated)))))
 
 (defn- show
   [{{:keys [id transaction-date]} :params authenticated :authenticated}]
   (->response (authorize (trans/find-by-id (env :db)
-                                       id
-                                       (unserialize-date transaction-date))
+                                           id
+                                           (unserialize-date transaction-date))
                          ::authorization/show
                          authenticated)))
 
@@ -67,7 +72,9 @@
 (defn- update
   [{:keys [params body authenticated]}]
   (let [trans-date (some #(params %) [:original-transaction-date :transaction-date])
-        transaction (authorize (trans/find-by-id (env :db) (:id params) trans-date)
+        transaction (authorize (trans/find-by-id (env :db)
+                                                 (:id params)
+                                                 trans-date)
                                ::authorization/update
                                authenticated)]
     (->response (trans/update (env :db) (apply-update transaction body)))))
@@ -79,11 +86,11 @@
                                                  (:transaction-date params))
                                ::authorization/destroy
                                authenticated)]
-    (trans/delete (env :db) (:id transaction)  (:transaction-date transaction))
+    (trans/delete (env :db) transaction)
     (->response)))
 
 (defroutes routes
-  (GET "/api/entities/:entity-id/transactions" req (index req))
+  (GET "/api/entities/:entity-id/:start/:end/transactions" req (index req))
   (POST "/api/entities/:entity-id/transactions" req (create req))
   (GET "/api/transactions/:transaction-date/:id" req (show req))
   (PATCH "/api/transactions/:transaction-date/:id" req (update req))

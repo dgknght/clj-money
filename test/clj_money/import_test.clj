@@ -427,9 +427,11 @@
                                            :reconciliation-status
                                            :reconciliation-id
                                            :reconciled?)
-                                  (transactions/search-items storage-spec
-                                                             {:account-id (:id ira-aapl)}
-                                                             {:sort [:index]}))
+                                  (transactions/search-items
+                                    storage-spec
+                                    {:account-id (:id ira-aapl)
+                                     :transaction-date "2015"}
+                                    {:sort [:index]}))
             expected-fee-items [{:transaction-date (t/local-date 2015 5 1)
                                  :description "Sell 100 shares of AAPL at 6.000"
                                  :value 10M
@@ -438,7 +440,8 @@
                                  :balance 10M
                                  :action :debit
                                  :index 0}]
-            actual-fee-items (->> {:account-id (:id inv-exp)}
+            actual-fee-items (->> {:account-id (:id inv-exp)
+                                   :transaction-date "2015"}
                                   (transactions/search-items storage-spec)
                                   (map #(dissoc %
                                                 :created-at

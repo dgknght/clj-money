@@ -12,9 +12,7 @@
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
                                      to-local-date]]
-            [clj-money.inflection :refer [plural]]
-            #_[honeysql.core :as sql]
-            #_[honeysql.helpers :as h])
+            [clj-money.inflection :refer [plural]])
   (:import java.sql.Date
            [org.joda.time LocalDate DateTime]
            [clojure.lang PersistentVector Keyword]))
@@ -41,7 +39,7 @@
   (sql-value [v]
     (to-sql-time v)))
 
-(defn- ->sql-keys
+(defn ->sql-keys
   "Accepts a hash and replaces hyphens in key names
   with underscores"
   [model]
@@ -178,13 +176,13 @@
                (->snake_case_string (last column-spec))))
     column-spec))
 
-(defmulti ^:private ->where
+(defmulti ->where
   (fn [criteria & _]
     (if (sequential? criteria)
       :clause
       :map)))
 
-(defmethod ^:private ->where :map
+(defmethod ->where :map
   [m {:keys [prefix] :as options}]
   (let [prefix-fn (if prefix
                     (fn [k]
@@ -205,7 +203,7 @@
       (concat [:and]
               result))))
 
-(defmethod ^:private ->where :clause
+(defmethod ->where :clause
   [m options]
   (concat [(first m)]
           (map #(->where % options)
@@ -285,54 +283,6 @@
          (h/merge-where (->where criteria options))
          (ensure-criteria-joins criteria options))
      sql)))
-
-(defmulti date-range
-  "Accepts a date criteria value and returns a tuple
-  containing the start date in the first position and
-  the end date in the second position"
-  (fn [_ range-value]
-    (if (sequential? range-value)
-      (if (= :between (first range-value))
-        :ternary
-        :binary)
-      :scalar)))
-
-(defmethod date-range :scalar
-  [storage range-value]
-  (if range-value
-    [range-value range-value]
-    [(.get-setting storage
-                   "earliest-partition-date"
-                   (fnil read-string "#local-date \"2000-01-01\""))
-     (.get-setting storage
-                   "latest-partition-date"
-                   (fnil read-string "#local-date \"2999-01-01\""))]))
-
-(defmethod date-range :binary
-  [storage [operator date]]
-  (if (#{:< :<=} operator)
-    [(.get-setting storage
-                   "earliest-partition-date"
-                   (fnil read-string "#local-date \"2000-01-01\""))
-     date]
-    [date
-     (.get-setting storage
-                   "latest-partition-date"
-                   (fnil read-string "#local-date \"2999-01-01\""))]))
-
-(defmethod date-range :ternary
-  [storage range-value]
-  (-> range-value
-      (update-in [1] #(or % (.get-setting
-                              storage
-                              "earliest-partition-date"
-                              (fnil read-string "#local-date \"2000-01-01\""))))
-      (update-in [2] #(or % (.get-setting
-                              storage
-                              "latest-partition-date"
-                              (fnil read-string "#local-date \"2999-01-01\""))))
-      rest))
-
 
 (defn select-count
   "If the specified options contains :count true, replace the

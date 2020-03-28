@@ -2,21 +2,13 @@
   (:refer-clojure :exclude [update])
   (:require[clojure.tools.cli :refer [parse-opts]]
             [clj-time.core :as t]
-            [clojure.java.jdbc :as jdbc]
-            [honeysql.core :as sql]
-            [honeysql.helpers :refer [select
-                                      update
-                                      sset
-                                      from
-                                      where
-                                      values
-                                      insert-into]]
             [ragtime.jdbc :refer [sql-database
                                   load-resources]]
             [ragtime.repl :as rt]
             [environ.core :refer [env]]
             [clj-money.core]
             [clj-money.util :refer [parse-local-date]]
+            [clj-money.models.settings :as settings]
             [clj-money.partitioning :refer [create-partition-tables]]))
 
 (defn ragtime-config []
@@ -35,43 +27,25 @@
   [["-n" "--dry-run" "Dry run"]
    ["-s" "--silent" "Do not output SQL commands"]])
 
-(defn- get-setting
-  [setting-name]
-  (when-let [record (first (jdbc/query (env :db) (-> (select :value)
-                                                     (from :settings)
-                                                     (where [:= :name setting-name])
-                                                     sql/format)))]
-    (read-string (:value record))))
+(defn put-partition-date
+  [setting-name date compare-fn]
+  (when (if-let [existing (settings/get (env :db) setting-name)]
+          (when (compare-fn date (:value existing))
+            date)
+          date)
+    (settings/put (env :db) setting-name date)))
 
 (defn- put-earliest-partition-date
   [date]
-  (let [setting-name "earliest-partition-date"
-        existing (get-setting setting-name)
-        sql (if existing
-              (when (t/before? date existing)
-                (-> (update :settings)
-                    (sset {:value (prn-str date)})
-                    (where [:= :name setting-name])))
-              (-> (insert-into :settings)
-                  (values [{:name setting-name
-                            :value (prn-str date)}])))]
-    (when sql
-      (jdbc/execute! (env :db) (sql/format sql)))))
+  (put-partition-date "earliest-partition-date"
+                      date
+                      t/before?))
 
 (defn- put-latest-partition-date
   [date]
-  (let [setting-name "latest-partition-date"
-        existing (get-setting setting-name)
-        sql (if existing
-              (when (t/after? date existing)
-                (-> (update :settings)
-                    (sset {:value (prn-str date)})
-                    (where [:= :name setting-name])))
-              (-> (insert-into :settings)
-                  (values [{:name setting-name
-                            :value (prn-str date)}])))]
-    (when sql
-      (jdbc/execute! (env :db) (sql/format sql)))))
+  (put-partition-date "latest-partition-date"
+                      date
+                      t/after?))
 
 (defn create-partitions
   [& args]
