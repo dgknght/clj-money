@@ -354,11 +354,13 @@
              :reconciled false}
             {:action :debit
              :account-id (:ira ids)
+             :memo "Cash In Lieu"
              :quantity 1M
              :value 1M
              :reconciled false}
             {:action :credit
              :account-id (:other-inc ids)
+             :memo "Cash In Lieu"
              :quantity 1M
              :value 1M
              :reconciled false}]}

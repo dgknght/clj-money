@@ -102,6 +102,7 @@
     ::trn/description
     ::ts/date
     ::split/reconciled-state
+    ::split/memo
     ::split/quantity
     ::split/value
     ::split/account
