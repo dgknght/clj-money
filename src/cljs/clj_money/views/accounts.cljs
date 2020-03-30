@@ -556,11 +556,7 @@
     (swap! page-state #(-> %
                           (assoc :transaction-entry-mode mode
                                  :unprep-fn unprep-fn)
-                          (update-in [:transaction] #_(comp prep-fn unprep-fn)
-                                     (fn [trx]
-                                       (let  [unprepped (current-unprep-fn trx)
-                                              prepped (prep-fn unprepped)]
-                                         prepped)))))))
+                          (update-in [:transaction] (comp prep-fn current-unprep-fn))))))
 
 (defn- transaction-form-nav-tab
   [mode {:keys [disabled? hidden?]} page-state]
