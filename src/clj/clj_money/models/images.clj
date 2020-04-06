@@ -2,12 +2,11 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [digest :refer [sha-1]]
+            [stowaway.core :as storage :refer [with-storage]]
             [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [with-storage
-                                              create-fn]]
-            [clj-money.models.storage :as storage]))
+            [clj-money.models.helpers :refer [create-fn]]))
 
 (s/def ::user-id integer?)
 (s/def ::original-filename validation/non-empty-string?)

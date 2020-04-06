@@ -2,20 +2,20 @@
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
+            [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
-                                                          append-where
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/select ::models/grant
   [criteria options db-spec]
   (let [sql (-> (select :*)
                 (from :grants)
-                (append-where criteria)
-                (append-limit options))]
+                (apply-criteria criteria)
+                (apply-limit options))]
     (query db-spec sql)))
 
 (defmethod stg/insert ::models/grant

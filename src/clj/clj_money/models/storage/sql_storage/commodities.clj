@@ -2,13 +2,13 @@
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
+            [stowaway.sql :refer [select-count
+                                  apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
-                                                          append-where
-                                                          select-count
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/select ::models/commodity
@@ -16,14 +16,8 @@
   (query db-spec (-> (select :*)
                      (from :commodities)
                      (select-count options)
-                     (append-where criteria {:target :commodity})
-                     (append-limit options))))
-
-(defmethod stg/count ::models/commodity
-  [criteria db-spec]
-  (query db-spec (-> (select :%count.1)
-                     (from :commodities)
-                     (append-where criteria {:target :commodity}))))
+                     (apply-criteria criteria {:target :commodity})
+                     (apply-limit options))))
 
 (defmethod stg/insert ::models/commodity
   [commodity db-spec]

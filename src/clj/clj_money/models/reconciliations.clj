@@ -1,6 +1,7 @@
 (ns clj-money.models.reconciliations
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
             [clj-money.util :refer [parse-local-date
                                     rev-args]]
             [clj-money.validation :as validation]
@@ -9,11 +10,8 @@
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage
-                                              create-fn
-                                              update-fn]]
-            [clj-money.models.storage :as storage])
+            [clj-money.models.helpers :refer [create-fn
+                                              update-fn]])
   (:import org.joda.time.LocalDate
            java.util.UUID))
 

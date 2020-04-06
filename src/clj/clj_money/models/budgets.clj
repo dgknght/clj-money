@@ -5,16 +5,15 @@
             [clj-time.coerce :refer [to-local-date
                                      to-date-time]]
             [clj-time.periodic :refer [periodic-seq]]
+            [stowaway.core :as storage :refer [with-storage]]
             [clj-money.util :refer [to-sql-date
                                     rev-args]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.helpers :refer [with-storage
-                                              create-fn
-                                              update-fn]]
-            [clj-money.models.storage :as storage])
+            [clj-money.models.helpers :refer [create-fn
+                                              update-fn]])
   (:import (org.joda.time LocalDate
                           Months
                           Weeks

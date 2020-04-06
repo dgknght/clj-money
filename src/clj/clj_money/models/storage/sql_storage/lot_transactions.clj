@@ -2,19 +2,19 @@
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
+            [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-storage :as stg]
             [clj-money.models.storage.sql-helpers :refer [insert-model
                                                           query
-                                                          append-where
-                                                          append-limit]]))
+                                                          apply-criteria]]))
 
 (defmethod stg/select ::models/lot-transaction
   [criteria options db-spec]
   (query db-spec (-> (select :lots_transactions.*)
                      (from :lots_transactions)
-                     (append-where criteria {:target :lot-transaction})
-                     (append-limit options))))
+                     (apply-criteria criteria {:target :lot-transaction})
+                     (apply-limit options))))
 
 (defmethod stg/insert ::models/lot-transaction
   [lot-transaction db-spec]

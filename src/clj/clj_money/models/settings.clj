@@ -1,8 +1,8 @@
 (ns clj-money.models.settings
   (:refer-clojure :exclude [update get])
-  (:require [clj-money.models :as models]
-            [clj-money.models.helpers :refer [with-storage]]
-            [clj-money.models.storage :as storage]))
+  (:require [stowaway.core :as storage :refer [with-storage]]
+            [clj-money.models.sql-storage-ref]
+            [clj-money.models :as models]))
 
 (defn- after-read
   [setting]

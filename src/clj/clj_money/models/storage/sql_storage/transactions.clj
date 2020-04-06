@@ -2,6 +2,8 @@
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
+            [stowaway.sql :refer [apply-sort
+                                  select-count]]
             [clj-money.x-platform.util :refer [deep-contains?
                                                deep-get]]
             [clj-money.models :as models]
@@ -10,9 +12,7 @@
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
-                                                          select-count
-                                                          append-where
-                                                          append-sort]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/select ::models/transaction
@@ -27,8 +27,8 @@
             (-> (select :transactions.*)
                 (from [table :transactions])
                 (select-count options)
-                (append-sort options)
-                (append-where criteria {:target :transaction})))]
+                (apply-sort options)
+                (apply-criteria criteria {:target :transaction})))]
       (if (:count options) ; TODO remove this duplication with select-transaction-items
         (-> result first vals first)
         result)))

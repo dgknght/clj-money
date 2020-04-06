@@ -1,6 +1,6 @@
 (ns clj-money.test-context
-  (:require [clj-money.io :refer [read-bytes]]
-            [clj-money.models.helpers :refer [with-storage]]
+  (:require [stowaway.core :refer [with-storage]]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]

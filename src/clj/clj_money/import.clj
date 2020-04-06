@@ -3,6 +3,8 @@
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<!! >!! chan go] :as async]
+            [stowaway.core :refer [with-storage
+                                   with-transacted-storage]]
             [clj-money.validation :as validation]
             [clj-money.trading :as trading]
             [clj-money.models.users :as users]
@@ -12,9 +14,7 @@
             [clj-money.models.transactions :as transactions]
             [clj-money.models.images :as images]
             [clj-money.models.commodities :as commodities]
-            [clj-money.models.prices :as prices]
-            [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage]]))
+            [clj-money.models.prices :as prices]))
 
 (defn- ignore?
   [record]

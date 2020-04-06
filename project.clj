@@ -19,7 +19,7 @@
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [honeysql "0.9.2" :exclusions [org.clojure/tools.reader]]
+                 [honeysql "0.9.10" :exclusions [org.clojure/tools.reader]]
                  [clj-time "0.14.3" :exclusions [org.clojure/tools.reader]]
                  [compojure "1.6.1" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-core "1.8.0"]
@@ -59,7 +59,8 @@
                  [buddy/buddy-hashers "1.4.0"]
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
-                 [camel-snake-kebab "0.4.1"]]
+                 [camel-snake-kebab "0.4.1"]
+                 [stowaway "0.1.2-SNAPSHOT"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]

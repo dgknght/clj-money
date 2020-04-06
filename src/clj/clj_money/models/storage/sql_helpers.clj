@@ -1,10 +1,8 @@
 (ns clj-money.models.storage.sql-helpers
   (:require [clojure.tools.logging :as log]
-            [clojure.string :as string]
             [clojure.java.jdbc :as jdbc]
             [camel-snake-kebab.core :refer [->kebab-case
-                                            ->snake_case
-                                            ->snake_case_string]]
+                                            ->snake_case]]
             [camel-snake-kebab.extras :refer [transform-keys]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
@@ -12,7 +10,7 @@
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
                                      to-local-date]]
-            [clj-money.inflection :refer [plural]])
+            [stowaway.sql :as storage])
   (:import java.sql.Date
            [org.joda.time LocalDate DateTime]
            [clojure.lang PersistentVector Keyword]))
@@ -77,47 +75,6 @@
     (log/debug "update-model" (prn-str model) "in" table ": " (prn-str sql))
     (jdbc/execute! db-spec sql)))
 
-(defn append-sort
-  [sql options]
-  (if-let [s (:sort options)]
-    (apply h/order-by sql s)
-    sql))
-
-(defn append-paging
-  [sql options]
-  (cond-> sql
-    (:per-page options) (h/limit (:per-page options))
-    (:page options) (h/offset (* (:per-page options) (- (:page options) 1)))))
-
-(defn append-limit
-  [sql options]
-  (if-let [limit (:limit options)]
-    (h/limit sql limit)
-    sql))
-
-(defn- ensure-not-keyword
-  "Make sure the value is not a keyword. It could be a string, an integer
-  or anything else."
-  [value]
-  (if (keyword? value)
-    (name value)
-    value))
-
-(defn- map-entry->statements
-  [[k v]]
-  (if (coll? v)
-    (case (first v)
-
-      (:= :> :>= :<= :< :<> :!=)
-      [[(first v) k (ensure-not-keyword (second v))]]
-
-      :between
-      [[:>= k (ensure-not-keyword (second v))]
-       [:<= k (ensure-not-keyword (nth v 2))]]
-
-      [[:in k (map ensure-not-keyword v)]])
-    [[:= k (ensure-not-keyword v)]]))
-
 (def ^:private relationships
   {#{:transaction :lot-transaction}  {:primary-table :transactions
                                       :foreign-table :lots_transactions
@@ -141,156 +98,16 @@
                                       :foreign-table :commodities
                                       :foreign-id    :entity_id}})
 
-(defn- relationship
-  [rel-key]
-  (merge {:primary-id :id}
-         (get-in relationships [(set rel-key)])))
-
-(defn- col-ref
-  [table column]
-  (keyword (->> [table column]
-                (map ensure-not-keyword)
-                (string/join "."))))
-
 (def ^:private table-names
   {:lot-transaction :lots_transactions})
 
-(defn- model->table
-  [m]
-  (get-in table-names [m] (-> m name plural keyword)))
-
-(defn- resolve-join-col
-  "Replaces a column spec that references another table with
-  a property table.column expression.
-
-  (resolve-join-col [:lot-transaction :lot-id]) => :lots_transactions.lot_id
-  {[:lot-transaction :lot-id] (:id lot)}
-  [:= :lots_transactions.lot_id (:id lot)]"
-  [column-spec _options]
-  (if (coll? column-spec)
-    (let [model (->> column-spec
-                     reverse
-                     (drop 1)
-                     first)]
-      (col-ref (model->table model)
-               (->snake_case_string (last column-spec))))
-    column-spec))
-
-(defmulti ->where
-  (fn [criteria & _]
-    (if (sequential? criteria)
-      :clause
-      :map)))
-
-(defmethod ->where :map
-  [m {:keys [prefix] :as options}]
-  (let [prefix-fn (if prefix
-                    (fn [k]
-                      (if (string/includes? (name k) ".")
-                        k
-                        (keyword
-                          (format "%s.%s"
-                                  (ensure-not-keyword prefix)
-                                  (name k)))))
-                    identity)
-        result (->> m
-                    (map (fn [kv]
-                           (update-in kv [0] (comp prefix-fn
-                                                   #(resolve-join-col % options)))))
-                    (mapcat map-entry->statements))]
-    (if (= 1 (count result))
-      (first result)
-      (concat [:and]
-              result))))
-
-(defmethod ->where :clause
-  [m options]
-  (concat [(first m)]
-          (map #(->where % options)
-               (rest m))))
-
-(defn- apply-criteria-join
-  [sql rel-key {:keys [target-alias]}]
-  (let [existing-joins (->> (get-in sql [:join])
-                            (partition 2)
-                            (map (comp #(if (vector? %)
-                                          (second %)
-                                          %)
-                                       first))
-                            set)
-        new-table (model->table (second rel-key))
-        {:keys [primary-table
-                primary-id
-                foreign-table
-                foreign-id]} (relationship rel-key)]
-    (assert primary-table (str "No relationship defined for " (prn-str rel-key)))
-    (if (existing-joins new-table)
-      sql
-      (h/merge-join sql new-table
-                    [:=
-                     (col-ref (or target-alias primary-table) ; TODO: this will cause a problem with an alias specified and depth > 1
-                              primary-id)
-                     (col-ref foreign-table foreign-id)]))))
-
-(defn- apply-criteria-join-chain
-  [sql join-key {:keys [target] :as options}]
-  (->> (butlast join-key)
-       (concat [target])
-       (partition 2 1)
-       (reduce #(apply-criteria-join %1 %2 options)
-               sql)))
-
-(defn- apply-criteria-joins
-  "Creates join clauses for criteria with keys that reference other tables.
-
-  {[:lot-transaction :lot-id] (:id lot)}
-  (join sql :lots_transactions [:= :transactions.id :lots_transactions.transaction_id])"
-  [sql join-keys options]
-  {:pre [(:target options)]}
-
-  (reduce #(apply-criteria-join-chain %1 %2 options)
-          sql
-          join-keys))
-
-(defmulti ^:private extract-join-keys
-  #(if (sequential? %)
-     :clause
-     :map))
-
-(defmethod ^:private extract-join-keys :clause
-  [criteria]
-  (mapcat #(extract-join-keys %)
-          (rest criteria)))
-
-(defmethod ^:private extract-join-keys :map
-  [criteria]
-  (->> (keys criteria)
-       (filter coll?)))
-
-(defn- ensure-criteria-joins
-  [sql criteria options]
-  (let [join-keys (extract-join-keys criteria)]
-    (if (seq join-keys)
-      (apply-criteria-joins sql join-keys options)
-      sql)))
-
-(defn append-where
+(defn apply-criteria
   ([sql criteria]
-   (append-where sql criteria {}))
+   (apply-criteria sql criteria {}))
   ([sql criteria options]
-   (if (seq criteria)
-     (-> sql
-         (h/merge-where (->where criteria options))
-         (ensure-criteria-joins criteria options))
-     sql)))
-
-(defn select-count
-  "If the specified options contains :count true, replace the
-  select clause with count(*)"
-  [sql options]
-  (if (:count options)
-    (h/select sql :%count.*)
-    sql))
+   (storage/apply-criteria sql criteria (merge options
+                                               {:table-names table-names
+                                                :relationships relationships}))))
 
 (defn query
   "Executes a SQL query and maps field names into

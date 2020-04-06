@@ -1,17 +1,18 @@
 (ns clj-money.models.commodities
   (:refer-clojure :exclude [update count])
   (:require [clojure.spec.alpha :as s]
+            [stowaway.core
+             :as storage
+             :refer [with-storage
+                     with-transacted-storage]]
             [clj-money.util :refer [safe-invoke
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
-            [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage
-                                              create-fn
-                                              update-fn]]
-            [clj-money.models.storage :as storage]))
+            [clj-money.models.helpers :refer [create-fn
+                                              update-fn]]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
@@ -130,7 +131,7 @@
   (with-storage [s storage-spec]
     (-> (search s criteria {:count true})
         first
-        :count)))
+        :record-count)))
 
 (defn find-by
   [storage-spec criteria]

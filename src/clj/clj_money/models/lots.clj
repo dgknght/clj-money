@@ -2,15 +2,14 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [clj-time.coerce :refer [to-local-date]]
+            [stowaway.core :as storage :refer [with-storage]]
             [clj-money.util :refer [to-sql-date
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [with-storage
-                                              create-fn
+            [clj-money.models.helpers :refer [create-fn
                                               update-fn]]
-            [clj-money.models.storage :as storage]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]))
 

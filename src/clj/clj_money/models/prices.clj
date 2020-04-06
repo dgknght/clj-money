@@ -1,17 +1,16 @@
 (ns clj-money.models.prices
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
+            [stowaway.core :as storage :refer [with-storage]]
             [clj-money.util :refer [rev-args]]
             [clj-money.x-platform.util :refer [deep-update-in-if]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
-            [clj-money.models.helpers :refer [with-storage
-                                              create-fn
+            [clj-money.models.helpers :refer [create-fn
                                               update-fn]]
-            [clj-money.models.date-helpers :refer [parse-date-range]]
-            [clj-money.models.storage :as storage]))
+            [clj-money.models.date-helpers :refer [parse-date-range]]))
 
 (s/def ::commodity-id integer?)
 (s/def ::trade-date validation/local-date?)

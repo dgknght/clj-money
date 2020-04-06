@@ -3,11 +3,11 @@
             [honeysql.helpers :refer [select
                                       merge-select
                                       from]]
+            [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
-                                                          append-where
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defn- append-body
@@ -25,9 +25,9 @@
                              :body_hash
                              :created_at)
                      (from :images)
-                     (append-where criteria)
+                     (apply-criteria criteria)
                      (append-body options)
-                     (append-limit options))))
+                     (apply-limit options))))
 
 (defmethod stg/insert ::models/image
   [image db-spec]

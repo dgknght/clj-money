@@ -2,13 +2,11 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [cheshire.core :as json]
+            [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
             [clj-money.util :refer [rev-args]]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [with-storage
-                                              with-transacted-storage
-                                              create-fn
+            [clj-money.models.helpers :refer [create-fn
                                               update-fn]]
-            [clj-money.models.storage :as storage]
             [clj-money.models.entities :as entities]
             [clj-money.models.images :as images]))
 

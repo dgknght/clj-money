@@ -2,8 +2,8 @@
   (:refer-clojure :exclude [update count])
   (:require [clojure.java.jdbc :as jdbc]
             [clj-postgresql.types]
-            [clj-money.models :as models]
-            [clj-money.models.storage :refer [Storage]]))
+            [stowaway.core :as storage :refer [Storage]]
+            [clj-money.models :as models]))
 
 (defn- dispatch-model
   [model & _]
@@ -11,7 +11,6 @@
 
 (defmulti select dispatch-model)
 (defmulti insert dispatch-model)
-(defmulti count dispatch-model)
 (defmulti update dispatch-model)
 (defmulti delete dispatch-model)
 
@@ -43,3 +42,9 @@
     [_ func]
     (jdbc/with-db-transaction [trans db-spec {:isolation :serializable :read-only false}]
       (func (SqlStorage. trans)))))
+
+(storage/register-strategy
+  (fn [storage-spec]
+    (when (and (string? storage-spec)
+               (re-find #"\Apostgres" storage-spec))
+      (SqlStorage. storage-spec))))

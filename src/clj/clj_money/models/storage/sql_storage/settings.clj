@@ -7,19 +7,19 @@
                                       from
                                       where]]
             [honeysql.format :as sql]
+            [stowaway.sql :refer [apply-limit]]
             [clojure.java.jdbc :as jdbc]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
-                                                          append-where
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/select ::models/setting
   [criteria options db-spec]
   (query db-spec (-> (select :name :value)
                      (from :settings)
-                     (append-where criteria)
-                     (append-limit options))))
+                     (apply-criteria criteria)
+                     (apply-limit options))))
 
 (defmethod stg/insert ::models/setting
   [setting db-spec]

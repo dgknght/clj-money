@@ -5,13 +5,13 @@
             [clj-time.core :as t]
             [clj-money.util :refer [to-sql-date]]
             [buddy.hashers :as hashers]
+            [stowaway.core :as storage :refer [with-storage]]
+            [clj-money.models.sql-storage-ref]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [with-storage
-                                              create-fn
+            [clj-money.models.helpers :refer [create-fn
                                               update-fn
                                               throw-if-nil]]
-            [clj-money.validation :as validation]
-            [clj-money.models.storage :as storage])
+            [clj-money.validation :as validation])
   (:import java.util.UUID))
 
 (defn- before-save

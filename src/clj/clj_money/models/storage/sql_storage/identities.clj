@@ -4,11 +4,11 @@
                                       from
                                       join]]
             [honeysql.format :as sql]
+            [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
-                                                          append-where
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/insert ::models/identity
@@ -26,7 +26,7 @@
                             [:u.email :user_email])
                   (from [:identities :i])
                   (join [:users :u] [:= :u.id :i.user_id])
-                  (append-where criteria {:prefix "i"})
-                  (append-limit options))]
+                  (apply-criteria criteria {:prefix "i"})
+                  (apply-limit options))]
       (log/debugf "select-identities %s - %s" (prn-str criteria) (prn-str (sql/format sql)))
       (query db-spec sql)))

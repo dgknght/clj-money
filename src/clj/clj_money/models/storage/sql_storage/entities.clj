@@ -1,15 +1,14 @@
 (ns clj-money.models.storage.sql-storage.entities
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
-                                      from
-                                      join]]
+                                      from]]
+            [stowaway.sql :refer [apply-limit
+                                  apply-sort]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
-                                                          append-where
-                                                          append-limit
-                                                          append-sort]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/insert ::models/entity
@@ -22,9 +21,9 @@
   [criteria options db-spec]
   (query db-spec (-> (select :entities.*)
                      (from :entities)
-                     (append-where criteria)
-                     (append-limit options)
-                     (append-sort (merge {:sort [:name]} options)))))
+                     (apply-criteria criteria)
+                     (apply-limit options)
+                     (apply-sort (merge {:sort [:name]} options)))))
 
 (defmethod stg/update ::models/entity
   [entity db-spec]

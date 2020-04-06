@@ -2,22 +2,22 @@
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
+            [stowaway.sql :refer [apply-sort
+                                  apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
-                                                          append-where
-                                                          append-sort
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/select ::models/lot
   [criteria options db-spec]
   (query db-spec (-> (select :*)
                      (from :lots)
-                     (append-where criteria {:target :lot})
-                     (append-limit options)
-                     (append-sort options))))
+                     (apply-criteria criteria {:target :lot})
+                     (apply-limit options)
+                     (apply-sort options))))
 
 (defmethod stg/insert ::models/lot
   [lot db-spec]

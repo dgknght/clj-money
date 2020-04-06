@@ -4,6 +4,7 @@
             [clojure.set :refer [difference]]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
+            [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
             [clj-money.util :refer [ensure-local-date uuid]]
             [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
@@ -15,9 +16,7 @@
                                                    available-date-range]]
             [clj-money.x-platform.util :refer [deep-update-in-if
                                                deep-contains?]]
-            [clj-money.x-platform.accounts :refer [polarize-quantity]]
-            [clj-money.models.helpers :refer [with-storage with-transacted-storage]]
-            [clj-money.models.storage :as storage])
+            [clj-money.x-platform.accounts :refer [polarize-quantity]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)

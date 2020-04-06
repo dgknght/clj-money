@@ -3,10 +3,9 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
+            [stowaway.core :as storage :refer [with-storage]]
             [clj-money.models :as models]
-            [clj-money.models.storage :as storage]
-            [clj-money.models.helpers :refer [with-storage
-                                              create-fn]]
+            [clj-money.models.helpers :refer [create-fn]]
             [clj-money.models.users :as users]))
 
 (s/def ::user-id integer?)

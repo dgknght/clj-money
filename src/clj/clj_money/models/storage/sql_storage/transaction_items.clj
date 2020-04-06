@@ -10,20 +10,20 @@
                                       where
                                       left-join]]
             [honeysql.format :as sql]
+            [stowaway.sql :refer [apply-sort
+                                  apply-limit
+                                  select-count
+                                  map->where]]
             [clj-money.x-platform.util :refer [deep-contains?
                                                deep-get]]
             [clj-money.models :as models]
             [clj-money.partitioning :refer [table-name
                                             with-partitioning]]
             [clj-money.models.storage.sql-helpers :refer [query
-                                                          ->where
                                                           ->sql-keys
-                                                          select-count
                                                           insert-model
                                                           update-model
-                                                          append-where
-                                                          append-sort
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/select ::models/transaction-item
@@ -46,11 +46,11 @@
                            [:= :transactions.id :transaction_items.transaction_id])
                      (left-join :reconciliations [:= :reconciliations.id :transaction_items.reconciliation_id])
                      (select-count opts)
-                     (append-where criteria
+                     (apply-criteria criteria
                                    {:prefix "transaction_items"
                                     :target :transaction-item})
-                     (append-sort opts)
-                     (append-limit opts)))]
+                     (apply-sort opts)
+                     (apply-limit opts)))]
     (if (:count opts)
       (-> result first vals first)
       result)))
@@ -96,7 +96,7 @@
    (->> date-range ; TODO: add this to partitions to get one query per table
         (map #(-> (update (table-name % :transaction_items))
                   (sset (->sql-keys attr))
-                  (where (->where criteria {}))
+                  (where (map->where criteria {}))
                   sql/format))
         (reduce (fn [update-count sql]
                   (log/debug "update transaction items " (prn-str attr) " matching " (prn-str criteria) ": " (prn-str sql))

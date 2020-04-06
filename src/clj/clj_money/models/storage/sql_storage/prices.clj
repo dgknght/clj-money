@@ -2,15 +2,15 @@
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
+            [stowaway.sql :refer [apply-limit
+                                  apply-sort]]
             [clj-money.x-platform.util :refer [deep-contains?
                                     deep-get]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
-                                                          append-where
-                                                          append-limit
-                                                          append-sort]]
+                                                          apply-criteria]]
             [clj-money.partitioning :refer [table-name
                                             with-partitioning]]
             [clj-money.models.storage.sql-storage :as stg]))
@@ -29,10 +29,10 @@
       [table]
       (-> (select :prices.*)
           (from [table :prices])
-          (append-where criteria {:prefix "prices"
-                                  :target :price})
-          (append-sort options)
-          (append-limit options)))))
+          (apply-criteria criteria {:prefix "prices"
+                                    :target :price})
+          (apply-sort options)
+          (apply-limit options)))))
 
 (defmethod stg/insert ::models/price
   [price db-spec]

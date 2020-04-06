@@ -1,15 +1,14 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
+            [stowaway.core :as storage :refer [with-storage]]
             [clj-money.util :refer [safe-read-string
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [with-storage
-                                              create-fn
+            [clj-money.models.helpers :refer [create-fn
                                               update-fn]]
-            [clj-money.models.storage :as storage]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]))
 

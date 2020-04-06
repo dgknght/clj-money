@@ -3,12 +3,12 @@
             [honeysql.helpers :refer [select
                                       from
                                       join]]
+            [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
-                                                          append-where
-                                                          append-limit]]
+                                                          apply-criteria]]
             [clj-money.models.storage.sql-storage :as stg]))
 
 (defmethod stg/select ::models/account
@@ -22,9 +22,9 @@
                 (from :accounts)
                 (join [:commodities :c] [:= :c.id :accounts.commodity-id]
                         :entities [:= :entities.id :accounts.entity-id])
-                (append-where criteria {:target :account
+                (apply-criteria criteria {:target :account
                                         :prefix :accounts})
-                (append-limit options))]
+                (apply-limit options))]
     (query db-spec sql)))
 
 (defmethod stg/insert ::models/account

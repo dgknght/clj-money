@@ -1,7 +1,6 @@
 (ns clj-money.models.lot-transactions
-  (:require [clj-money.models :as models]
-            [clj-money.models.helpers :refer [with-storage]]
-            [clj-money.models.storage :as storage]))
+  (:require [stowaway.core :as storage :refer [with-storage]]
+            [clj-money.models :as models]))
 
 (defn search
   ([storage-spec criteria]
