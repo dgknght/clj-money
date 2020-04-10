@@ -19,7 +19,9 @@
             [clj-money.api.users :as users]))
 
 (defn home-page []
-  [:h1 "This Is ClojureScript"])
+  [:div.jumbotron.mt-3
+   [:h1.display-5 "clj-money"]
+   [:p "This is a double-entry accounting application that aims to be available anywhere."]])
 
 (secretary/defroute "/" []
   (swap! app-state assoc :page #'home-page))

@@ -42,19 +42,22 @@
                                 ["currency"]
                                 ["currency" "stock" "fund"]))]
     (fn []
-      [:div#commodity-form
-       [forms/select-field commodity :type @types]
-       (when (= "stock" (:type @commodity))
-         [forms/select-field commodity :exchange ["nyse" "nasdaq"]])
-       [forms/text-field commodity :symbol {:validate [:required]}]
-       [forms/text-field commodity :name {:validate [:required]}]
-       [:button.btn.btn-primary {:title "Click here to save this commodity"
-                                 :on-click #(save-commodity page-state)}
-        (bs/icon-with-text :check "Save")]
-       (util/space)
-       [:button.btn.btn-danger {:title "Click here to discontinue this edit operation."
-                                :on-click #(swap! page-state dissoc :selected)}
-        (bs/icon-with-text :x "Cancel")]])))
+      [:div#commodity-form.card
+       [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
+       [:div.card-body
+        [forms/select-field commodity :type @types]
+        (when (= "stock" (:type @commodity))
+          [forms/select-field commodity :exchange ["nyse" "nasdaq"]])
+        [forms/text-field commodity :symbol {:validate [:required]}]
+        [forms/text-field commodity :name {:validate [:required]}]]
+       [:div.card-footer
+        [:button.btn.btn-primary {:title "Click here to save this commodity"
+                                  :on-click #(save-commodity page-state)}
+         (bs/icon-with-text :check "Save")]
+        (util/space)
+        [:button.btn.btn-danger {:title "Click here to discontinue this edit operation."
+                                 :on-click #(swap! page-state dissoc :selected)}
+         (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- delete
   [commodity page-state]
@@ -184,7 +187,7 @@
     (init-price-loading page-state)
     (fn []
       [:div.card
-       [:div.card-header [:h3.card-title (str (:name @commodity) " Prices")]]
+       [:div.card-header [:strong (str (:name @commodity) " Prices")]]
        [:div#prices-container {:style {:max-height "40em" :overflow "auto"}}
         [:table.table.table-striped.table-hover
          [:thead
@@ -248,8 +251,8 @@
   [page-state]
   (let [price (r/cursor page-state [:selected-price])]
     (fn []
-      [:div.card
-       [:div.card-header [:h3 "Edit Price"]]
+      [:div.card.mt-2
+       [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
        [:div.card-body
         [forms/date-field price :trade-date]
         [forms/float-field price :price]]

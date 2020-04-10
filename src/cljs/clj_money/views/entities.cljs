@@ -47,12 +47,13 @@
   [page-state]
   (let [entity (r/cursor page-state [:selected])]
     (fn []
-      [:div.row
-       [:div.col-md-6
-        [:h1 "Edit Entity"]
+      [:div.card
+       [:div.card-header [:strong (str (if (:id @entity) "Edit" "New") " Entity")]]
+       [:div.card-body
         [:form
          [text-field entity :name {:validate [:required]}]
-         #_(radio-buttons :settings.inventory-method ["fifo" "lifo"])]
+         #_(radio-buttons :settings.inventory-method ["fifo" "lifo"])]]
+       [:div.card-footer
         [:button.btn.btn-primary {:on-click #(save-entity page-state)}
          (bs/icon-with-text :check "Save")]
         (util/space)
@@ -94,9 +95,9 @@
         current-entity (r/cursor app-state [:current-entity])
         selected (r/cursor page-state [:selected])]
     (fn []
-      [:div.row
+      [:div.row.mt-5
        [:div.col-md-6
-        [:h1.mt-5 "Entities"]
+        [:h1 "Entities"]
         [entity-table page-state]
         [:button.btn.btn-primary {:on-click (fn []
                                               (swap! page-state

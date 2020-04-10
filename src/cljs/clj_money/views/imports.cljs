@@ -41,7 +41,7 @@
   [page-state]
   (let [imp (r/cursor page-state [:active])]
     (fn []
-      [:h1 (str "Import " (:entity-name @imp))])))
+      [:strong (str "Import " (:entity-name @imp))])))
 
 (defn- progress-row
   [[progress-type {:keys [total imported]}]]
@@ -72,7 +72,7 @@
   [page-state]
   (let [progress (r/cursor page-state [:active :progress])]
     (fn []
-      [:table.table.table-striped
+      [:table.table.table-hover
        [:tbody
         [:tr
          [:th.col-sm-3 "Record Type"]
@@ -167,10 +167,10 @@
 (defn- import-activity
   [page-state]
   (fn []
-    [:section
-     [import-title page-state]
+    [:div.card
+     [:div.card-header [import-title page-state]]
      [progress-table page-state]
-     [:p
+     [:div.card-footer
       [:button.btn.btn-light {:title "Click here to return the list of imports."
                               :on-click #(swap! page-state dissoc :active)}
        (bs/icon-with-text :x "Cancel")]
@@ -203,7 +203,7 @@
   [page-state]
   (let [import-data (r/cursor page-state [:import-data])]
     [:div.card
-     [:div.card-header [:h2 "Import Entity"]]
+     [:div.card-header [:strong "Import Entity"]]
      [:div.card-body
       [:form
        [text-field import-data :entity-name {:validate [:required]}]]
@@ -213,8 +213,13 @@
        [:div "Drop files here"]]]
      [file-list import-data]
      [:div.card-footer
-      [:button.btn.btn-success {:on-click #(import-click % page-state)}
-       (bs/icon-with-text :file-arrow-up "Import")]]]))
+      [:button.btn.btn-success {:on-click #(import-click % page-state)
+                                :title "Click here to begin the import."}
+       (bs/icon-with-text :file-arrow-up "Import")]
+      (util/space)
+      [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :import-data)
+                               :title "Click here to discard this import."}
+       (bs/icon-with-text :x "Cancel")]]]))
 
 (defn- import-list []
   (let [page-state (r/atom {})

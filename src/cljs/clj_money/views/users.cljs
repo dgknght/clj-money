@@ -4,7 +4,7 @@
             [clj-money.util :refer [google-g]]))
 
 (defn- login []
-  [:div
+  [:div.mt-5
    [:h1 "Login"]
    [:a#login.btn.btn-light {:href "/auth/google/start"
                               :title "Click here to sign in with a Google account"}
