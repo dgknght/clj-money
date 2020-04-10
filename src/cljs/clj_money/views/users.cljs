@@ -6,7 +6,7 @@
 (defn- login []
   [:div
    [:h1 "Login"]
-   [:a#login.btn.btn-default {:href "/auth/google/start"
+   [:a#login.btn.btn-light {:href "/auth/google/start"
                               :title "Click here to sign in with a Google account"}
     (google-g)
     [:span "Sign in with Google"]]])

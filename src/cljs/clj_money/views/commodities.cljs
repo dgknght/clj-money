@@ -50,11 +50,11 @@
        [forms/text-field commodity :name {:validate [:required]}]
        [:button.btn.btn-primary {:title "Click here to save this commodity"
                                  :on-click #(save-commodity page-state)}
-        "Save"]
+        (bs/icon-with-text :check "Save")]
        (util/space)
-       [:button.btn.btn-danger {:title "Click ehre to discontinue this edit operation."
+       [:button.btn.btn-danger {:title "Click here to discontinue this edit operation."
                                 :on-click #(swap! page-state dissoc :selected)}
-        "Cancel"]])))
+        (bs/icon-with-text :x "Cancel")]])))
 
 (defn- delete
   [commodity page-state]
@@ -84,24 +84,30 @@
      [:td "coming soon..."]
      [:td
       [:div.btn-group
-       [:button.btn.btn-info.btn-xs {:title "Click here to edit this entity."
+       [:button.btn.btn-info.btn-sm {:title "Click here to edit this commodity."
                                      :on-click (fn []
-                                                 (swap! page-state assoc :selected commodity)
+                                                 (swap! page-state #(-> %
+                                                                        (dissoc :prices-commodity)
+                                                                        (assoc :selected commodity)))
                                                  (util/set-focus "type"))}
-        "edit"]
-       [:button.btn.btn-info.btn-xs {:title "Click here to view prices for this entity."
+        (bs/icon :pencil)]
+       [:button.btn.btn-info.btn-sm {:title "Click here to view prices for this commodity."
                                      :disabled default?
                                      :on-click (fn []
-                                                 (swap! page-state dissoc :prices :prices-commodity :more-prices)
+                                                 (swap! page-state dissoc
+                                                        :selected
+                                                        :prices
+                                                        :prices-commodity
+                                                        :more-prices)
                                                  (js/setTimeout #(swap! page-state assoc
                                                                         :prices-commodity commodity
                                                                         :more-prices? true)
                                                                 100))}
-        "prices"]
-       [:button.btn.btn-danger.btn-xs {:title "Click here to delete this commodity."
+        (bs/icon :collection)]
+       [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
                                        :disabled default?
                                        :on-click #(delete commodity page-state)}
-        "remove"]]]]))
+        (bs/icon :x-circle)]]]]))
 
 (defn- commodity-list
   [page-state]
@@ -144,14 +150,14 @@
    [:td.text-right (currency-format (:price price))]
    [:td
     [:div.btn-group
-     [:button.btn.btn-info.btn-xs {:title "Click here to edit this price."
+     [:button.btn.btn-info.btn-sm {:title "Click here to edit this price."
                                    :on-click (fn []
                                                (swap! page-state assoc :selected-price price)
                                                (util/set-focus "trade-date"))}
-      "edit"]
-     [:button.btn.btn-danger.btn-xs {:title "Click here to remove this price."
+      (bs/icon :pencil)]
+     [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
                                      :on-click #(delete-price price page-state)}
-      "delete"]]]])
+      (bs/icon :x-circle)]]]])
 
 (defn- init-price-loading
   [page-state]
@@ -177,9 +183,9 @@
         ctl-chan (r/cursor page-state [:prices-ctl-chan])]
     (init-price-loading page-state)
     (fn []
-      [:div.panel.panel-default
-       [:div.panel-heading [:h2.panel-title (str (:name @commodity) " Prices")]]
-       [:div#prices-container.panel-body {:style {:height "40em" :overflow "auto"}}
+      [:div.card
+       [:div.card-header [:h3.card-title (str (:name @commodity) " Prices")]]
+       [:div#prices-container {:style {:max-height "40em" :overflow "auto"}}
         [:table.table.table-striped.table-hover
          [:thead
           [:tr
@@ -190,10 +196,22 @@
           (if @prices
             (doall (map #(price-row % page-state) @prices))
             [:tr [:td {:col-span 3} [:span.inline-status "Loading..."]]])]]]
-       [:div.panel-footer
-        [load-on-scroll {:target "prices-container"
-                         :can-load-more? (fn [] @more-prices?)
-                         :load-fn #(go (>! @ctl-chan :fetch))}]]])))
+       [:div.card-footer.d-flex
+        [:button.btn.btn-primary {:title "Click here to add a new price for this commodity."
+                                  :on-click (fn []
+                                              (swap! page-state
+                                                     assoc
+                                                     :selected-price
+                                                     {:commodity-id (:id @commodity)})
+                                              (util/set-focus "trade-date"))}
+         (bs/icon-with-text :plus "Add")]
+        (util/space)
+        [:button.btn.btn-light {:on-click #(swap! page-state dissoc :prices-commodity)}
+         (bs/icon-with-text :x "Cancel")]
+        [:span.ml-auto
+         [load-on-scroll {:target "prices-container"
+                          :can-load-more? (fn [] @more-prices?)
+                          :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
 
 (defn- comp-prices
   [{d1 :trade-date} {d2 :trade-date}]
@@ -230,16 +248,19 @@
   [page-state]
   (let [price (r/cursor page-state [:selected-price])]
     (fn []
-      [:div
-       [forms/date-field price :trade-date]
-       [forms/float-field price :price]
-       [:button.btn.btn-primary {:title "Click here to save this price."
-                                 :on-click #(save-price page-state)}
-        "Save"]
-       (util/space)
-       [:button.btn.btn-default {:title "Click here to cancel this update."
-                                 :on-click #(swap! page-state dissoc :selected-price)}
-        "Cancel"]])))
+      [:div.card
+       [:div.card-header [:h3 "Edit Price"]]
+       [:div.card-body
+        [forms/date-field price :trade-date]
+        [forms/float-field price :price]]
+       [:div.card-footer
+        [:button.btn.btn-primary {:title "Click here to save this price."
+                                  :on-click #(save-price page-state)}
+         (bs/icon-with-text :check "Save")]
+        (util/space)
+        [:button.btn.btn-light {:title "Click here to cancel this update."
+                                :on-click #(swap! page-state dissoc :selected-price)}
+         (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- index []
   (let [page-state (r/atom {:page-size 16
@@ -256,10 +277,10 @@
                                            (when (get-in after [field])
                                              (load-commodities page-state))))
     (fn []
-      [:section
+      [:div.mt-5
        [:h1 "Commodities"]
        [:div.row
-        [:div.col-md-8
+        [:div.col
          [commodity-list page-state]
          (when (and (seq @commodities)
                     (> @total @page-size))
@@ -275,28 +296,15 @@
                                :exchange "nyse"})
                        (util/set-focus "type"))
            :disabled (boolean @selected)}
-          "Add"]]
+          (bs/icon-with-text :plus "Add")]]
         (when @prices-commodity
-          [:div.row
-           [:div.col-md-4
-            [price-list page-state]
-            [:button.btn.btn-primary {:title "Click here to add a new price for this commodity."
-                                      :on-click (fn []
-                                                  (swap! page-state
-                                                         assoc
-                                                         :selected-price
-                                                         {:commodity-id (:id @prices-commodity)})
-                                                  (util/set-focus "trade-date"))}
-             "Add"]
-            (util/space)
-            [:button.btn.btn-default {:on-click #(swap! page-state dissoc :prices-commodity)}
-             "Cancel"]
-            (when @selected-price
-              [price-form page-state])]])
+          [:div.col
+           [price-list page-state]
+           (when @selected-price
+             [price-form page-state])])
         (when @selected
-          [:div.row
-           [:div.col-md-4
-            [commodity-form page-state]]])]])))
+          [:div.col-md-4
+           [commodity-form page-state]])]])))
 
 (secretary/defroute "/commodities" []
   (swap! app-state assoc :page #'index))

@@ -12,7 +12,7 @@
             [clj-money.plain-forms :as forms]
             [clj-money.components :refer [load-on-scroll
                                           load-in-chunks]]
-            [clj-money.bootstrap :refer [nav-tabs]]
+            [clj-money.bootstrap :as bs :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.transaction-items :as transaction-items]
@@ -69,18 +69,19 @@
   [page-state]
   (let [account (:view-account @page-state)
         end (t/last-day-of-the-month (or (:latest-transaction-date account)
-                                          (t/today)))] ; This is probably only nil for newly imported entities
+                                          (t/today))) ; This is probably only nil for newly imported entities
+        start (t/first-day-of-the-month (or (:earliest-transaction-date account)
+                                                 (t/minus- end (t/months 6))))]
     (load-in-chunks
-      {:start (t/first-day-of-the-month (or (:earliest-transaction-date account)
-                                            (t/minus- end (t/months 6))))
+      {:start start
        :end end
        :ctl-chan (:ctl-chan @page-state)
        :fetch-fn (fn [date-range callback-fn]
-                            (transaction-items/search
-                              {:account-id (:id account)
-                               :transaction-date date-range}
-                              callback-fn
-                              (notify/danger-fn "Unable to fetch transaction items: %s")))
+                   (transaction-items/search
+                     {:account-id (:id account)
+                      :transaction-date date-range}
+                     callback-fn
+                     (notify/danger-fn "Unable to fetch transaction items: %s")))
        :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
        :finish-fn #(swap! page-state assoc :more-items? false)})))
 
@@ -97,37 +98,30 @@
   [{:keys [id parents] :as account} expanded hide-zero-balances? page-state]
   ^{:key (str "account-" id)}
   [:tr {:class (when (account-hidden? account expanded hide-zero-balances?)
-                 "hidden")}
+                 "d-none")}
    [:td [:span {:class (str "account-depth-" (count parents))}
-         [:span.toggle-ctl.glyphicon {:aria-hidden true
-                                      :on-click #(toggle-account (:id account) page-state)
-                                      :class [(if (@expanded id)
-                                                "glyphicon-collapse-up"
-                                                "glyphicon-expand")
-                                              (when-not (:has-children? account)
-                                                "invisible")]}]
+         [:span.toggle-ctl {:on-click #(toggle-account (:id account) page-state)
+                            :class (when-not (:has-children? account)
+                                     "invisible")}
+          (bs/icon (if (@expanded id)
+                     :arrows-collapse
+                     :arrows-expand))]
          (:name account)]]
    [:td.text-right (currency-format (+ (:children-value account)
                                        (:value account)))]
    [:td.text-center
     [:div.btn-group
-     (util/button nil
-                  #(swap! page-state assoc :view-account account)
-                   {:icon :list-alt
-                    :class "btn btn-default btn-xs"
-                    :title "Click here to view transactions for this account."})
-     (util/button  nil
-                  (fn []
-                    (swap! page-state assoc :selected account)
-                    (util/set-focus "parent-id"))
-                   {:icon :pencil
-                    :class "btn btn-info btn-xs"
-                    :title "Click here to edit this account."})
-     (util/button nil
-                  #(delete account page-state)
-                  {:icon :remove
-                   :class "btn btn-danger btn-xs"
-                   :title "Click here to remove this account."})]]])
+     [:button.btn.btn-light.btn-sm {:on-click #(swap! page-state assoc :view-account account)
+                                    :title "Click here to view transactions for this account."}
+      (bs/icon :collection)]
+     [:button.btn.btn-info.btn-sm {:on-click (fn []
+                                               (swap! page-state assoc :selected account)
+                                               (util/set-focus "parent-id"))
+                                   :title "Click here to edit this account."}
+      (bs/icon :pencil)]
+     [:button.btn.btn-danger.btn-sm {:on-click #(delete account page-state)
+                                     :title "Click here to remove this account."}
+      (bs/icon :x-circle)]]]])
 
 (defn- account-and-type-rows
   [page-state]
@@ -141,11 +135,12 @@
                           (concat [^{:key (str "account-type" account-type)}
                                    [:tr.account-type {:id (str "account-type-" account-type)}
                                     [:td
-                                     [:span.toggle-ctl.glyphicon {:aria-hidden true
-                                                                  :on-click #(toggle-account account-type page-state)
-                                                                  :class [(if (@expanded account-type)
-                                                                            "glyphicon-collapse-up"
-                                                                            "glyphicon-expand")]}]
+                                     [:span.toggle-ctl {:aria-hidden true
+                                                        :on-click #(toggle-account account-type page-state)
+                                                        }
+                                      (bs/icon (if (@expanded account-type)
+                                                 :arrows-collapse 
+                                                 :arrows-expand))]
                                      (name account-type)]
                                     [:td.text-right (currency-format (->> group
                                                                           (map :value)
@@ -165,7 +160,7 @@
          page-state
          :hide-zero-balances?
          {:caption "Hide Zero-Balance Accounts"}]]
-       [:table.table.table-striped.table-hover
+       [:table.table.table-hover
         [:thead
          [:tr
           [:th.col-md-7 "Name"]
@@ -176,13 +171,11 @@
           [:tbody
            [:tr
             [:td {:col-span 3} [:span.inline-status "Loading..."]]]])]
-       (util/button "Add"
-                    (fn []
-                      (swap! page-state assoc :selected {:entity-id (:id @current-entity)
-                                                         :type :asset})
-                      (util/set-focus "parent-id"))
-                    {:class "btn btn-primary"
-                     :icon :plus})])))
+       [:button.btn.btn-primary {:on-click (fn []
+                                             (swap! page-state assoc :selected {:entity-id (:id @current-entity)
+                                                                                :type :asset})
+                                             (util/set-focus "parent-id"))}
+        (bs/icon-with-text :plus "Add")]])))
 
 (defn- account-fields
   [page-state]
@@ -251,17 +244,14 @@
        [:div.col-md-6
         [:h2 (if (:id @account) "Edit" "New")]
         [account-fields page-state]
-        (util/button "Save"
-                     #(save-account page-state)
-                     {:class "btn btn-primary"
-                      :title "Click here to save the account."
-                      :icon :ok})
+        [:button.btn.btn-primary {:on-click #(save-account page-state)
+                                  :title "Click here to save the account."}
+         (bs/icon-with-text :check "Save")]
+        
         (util/space)
-        (util/button "Cancel"
-                     #(swap! page-state dissoc :selected)
-                      {:class "btn btn-danger"
-                       :title "Click here to return to the list of accounts."
-                       :icon :ban-circle})]])))
+        [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :selected)
+                                 :title "Click here to return to the list of accounts."}
+         (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- prepare-transaction-for-edit
   [transaction account]
@@ -313,16 +303,12 @@
      [:td.text-right (currency-format (:balance item))]
      [:td
       [:div.btn-group
-       (util/button nil
-                    #(edit-transaction item page-state)
-                    {:icon :pencil
-                     :class "btn btn-info btn-xs"
-                     :title "Click here to edit this transaction."})
-       (util/button nil
-                    #(delete-transaction item page-state)
-                    {:icon :remove
-                     :class "btn btn-danger btn-xs"
-                     :title "Click here to remove this transaction."})]]]))
+       [:button.btn.btn-info.btn-sm {:on-click #(edit-transaction item page-state)
+                                   :title "Click here to edit this transaction."}
+        (bs/icon :pencil)]
+       [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
+                                       :title "Click here to remove this transaction."}
+        (bs/icon :x-circle)]]]]))
 
 (defn- items-table
   [page-state]
@@ -364,22 +350,18 @@
   (let  [transaction (r/cursor page-state [:transaction])]
     (fn []
       [:div
-       (util/button "New"
-                    #(new-transaction page-state)
-                    {:icon :plus
-                     :class "btn btn-primary"
-                     :disabled (not (nil? @transaction))})
+       [:button.btn.btn-primary {:on-click #(new-transaction page-state)
+                                 :disabled (not (nil? @transaction))}
+        (bs/icon-with-text :plus "Add")]
        (util/space)
-       (util/button "Back"
-                    (fn []
-                      (stop-item-loading page-state)
-                      (swap! page-state #(-> %
-                                             (dissoc :view-account)
-                                             (assoc :items []
-                                                    :more-items? true))))
-                    {:icon :hand-left
-                     :class "btn btn-info"
-                     :title "Click here to return to the account list."})])))
+       [:button.btn.btn-light {:on-click (fn []
+                                           (stop-item-loading page-state)
+                                           (swap! page-state #(-> %
+                                                                  (dissoc :view-account)
+                                                                  (assoc :items []
+                                                                         :more-items? true))))
+                               :title "Click here to return to the account list."}
+        (bs/icon-with-text :arrow-left-short "Back")]])))
 
 (defn- post-transaction-save
   [page-state]
@@ -412,7 +394,7 @@
     (fn []
       [:form {:class (when (or (:items @transaction)
                                (:trade-date @transaction))
-                       "hidden")}
+                       "d-none")}
        (forms/date-field transaction :transaction-date {:validate [:required]})
        (forms/text-field transaction :description {:validate [:required]})
        (forms/float-field transaction :quantity {:validate [:required]})
@@ -438,7 +420,7 @@
   (let [transaction (r/cursor page-state [:transaction])
         commodities (r/cursor page-state [:commodities])]
     (fn []
-      [:form {:class (when-not (:trade-date @transaction) "hidden")}
+      [:form {:class (when-not (:trade-date @transaction) "d-none")}
        (forms/date-field transaction :trade-date {:validate [:required]})
        (forms/select-field transaction :action (map (juxt name humanize) [:buy :sell]) {})
        (forms/float-field transaction :shares {:validate [:required]})
@@ -492,7 +474,7 @@
     (fn []
       [:form {:class (when-not (and (:transaction-date @transaction)
                                     (:items @transaction))
-                       "hidden")}
+                       "d-none")}
        (forms/date-field transaction :transaction-date {:validate [:required]})
        (forms/text-field transaction :description {:validate [:required]})
        [:table.table
@@ -573,53 +555,47 @@
   (let [transaction (r/cursor page-state [:transaction])]
     (fn []
       (when @transaction
-        [:div.panel.panel-primary
-         [:div.panel-heading
-          [:h2.panel-title (if (:id @transaction)
-                             "Edit Transaction"
-                             "New Transaction")]]
-         [:div.panel-body
+        [:div.card
+         [:div.card-header
+          [:strong (if (:id @transaction)
+                     "Edit Transaction"
+                     "New Transaction")]]
+         [:div.card-body
           (nav-tabs (map #(transaction-form-nav-tab (first %) (second %) page-state)
                          (transaction-form-nav-items page-state)))
           [:div.transaction-form-container
            [full-transaction-form page-state]
            [simple-transaction-form page-state]
-           [trade-transaction-form page-state]]
-          (util/button "Save"
-                       #(save-transaction page-state)
-                       {:class "btn btn-primary"
-                        :icon :ok
-                        :title "Click here to save the transaction"})
+           [trade-transaction-form page-state]]]
+         [:div.card-footer
+          [:button.btn.btn-primary {:on-click #(save-transaction page-state)
+                                    :title "Click here to save the transaction"}
+           (bs/icon-with-text :check "Save")]
+
           (util/space)
-          (util/button "Cancel"
-                       #(swap! page-state dissoc :transaction)
-                       {:class "btn btn-danger"
-                        :icon :remove
-                        :title "Click here to cancel this transaction"})]]))))
+          [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :transaction)
+                                   :title "Click here to cancel this transaction"}
+           (bs/icon-with-text :x "Cancel")]]]))))
 
 (defn- currency-account-details
   [page-state]
-  (let [account (r/cursor page-state [:view-account])
-        ctl-chan (r/cursor page-state [:ctl-chan])
+  (let [ctl-chan (r/cursor page-state [:ctl-chan])
         more-items? (r/cursor page-state [:more-items?])]
     (init-item-loading page-state)
     (fn []
       [:section
        [:div.row
-        [:div.col-md-12
-         [:h2 (str (:name @account) " Details")]]]
-       [:div.row
         [:div.col-md-6
-         [:div.panel.panel-default
-          [:div.panel-heading
-           [:h2.panel-title "Transaction Items"]]
-          [:div#items-container.panel-body {:style {:height "40em" :overflow "auto"}}
+         [:div.card
+          [:div.card-header [:strong "Transaction Items"]]
+          [:div#items-container {:style {:max-height "40em" :overflow "auto"}}
            [items-table page-state]]
-          [:div.panel-footer
-           [load-on-scroll {:target "items-container"
-                            :can-load-more? (fn [] @more-items?)
-                            :load-fn #(go (>! @ctl-chan :fetch))}]]]
-         [account-buttons page-state]]
+          [:div.card-footer.d-flex.align-items-center
+           [account-buttons page-state]
+           [:span.ml-auto
+            [load-on-scroll {:target "items-container"
+                             :can-load-more? (fn [] @more-items?)
+                             :load-fn #(go (>! @ctl-chan :fetch))}]]]]]
         [:div.col-md-6
          [transaction-form page-state]]]])))
 
@@ -789,9 +765,10 @@
                                              (load-accounts page-state)
                                              (load-commodities page-state))))
     (fn []
-      [:section
+      [:div.mt-5
        [:div.accounts-header
-        [:h1.accounts-title "Accounts"]]
+        [:h1.accounts-title (str "Accounts" (when @view-account
+                                              (str " - " (:name @view-account) )))]]
        (when-not (or @selected @view-account)
          [account-list page-state])
        (when @selected

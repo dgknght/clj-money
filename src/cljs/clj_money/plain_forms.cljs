@@ -3,25 +3,34 @@
             [cljs-time.format :as tf]
             [clj-money.inflection :refer [humanize]]))
 
+(defn- ->caption
+  [field]
+  (let [humanized (humanize field)]
+    (if-let [trimmed (re-find #"^.+(?= id$)" humanized)]
+      trimmed
+      humanized)))
+
 (defn checkbox-input
-  [model field _options]
+  [model field options]
   (let [checked (r/cursor model [field])]
     (fn []
-      [:input {:type :checkbox
-               :checked @checked
-               :on-change (fn [e]
-                            (reset! checked (.-checked (.-target e))))}])))
+      [:input.form-check-input (merge options
+                                      {:type :checkbox
+                                       :checked @checked
+                                       :on-change (fn [e]
+                                                    (reset! checked (.-checked (.-target e))))})])))
 
 (defn checkbox-field
   ([model field]
    (checkbox-field model field {}))
   ([model field options]
    (fn []
-     [:div.checkbox
-      [:label
-       [checkbox-input model field options]
-       (or (:caption options)
-           (humanize field))]])))
+     (let [id (str (name field) "-checkbox")]
+       [:div.form-check
+        [:label.form-check-label {:for id}
+         [checkbox-input model field (assoc options :id id)]
+         (or (:caption options)
+             (->caption field))]]))))
 
 (defn text-input
   [model field {input-type :type
@@ -40,7 +49,7 @@
   [model field options]
   [:div.form-group
    [:label {:for field} (or (:caption options)
-                            (humanize field))]
+                            (->caption field))]
    [text-input model field options]])
 
 (defn- specialized-text-input
@@ -83,7 +92,7 @@
   [model field options]
   [:div.form-group
    [:label {:for field} (or (:caption options)
-                            (humanize field))]
+                            (->caption field))]
    [specialized-text-input model field (merge options {:parse-fn parse-date
                                                        :unparse-fn unparse-date})]])
 
@@ -102,7 +111,7 @@
   [model field options]
   [:div.form-group
    [:label {:for field} (or (:caption options)
-                            (humanize field))]
+                            (->caption field))]
    [float-input model field options]])
 
 (defmulti ^:private select-option
@@ -150,7 +159,7 @@
   ([model field items options]
    [:div.form-group (select-keys options [:class])
     [:label {:for field} (or (:caption options)
-                             (humanize field))]
+                             (->caption field))]
     [select-elem model field items options]]))
 
 (defn typeahead-input
@@ -232,5 +241,5 @@
   [model field options]
   [:div.form-group
    [:label {:for field} (or (:caption options)
-                            (humanize field))]
+                            (->caption field))]
    [typeahead-input model field options]])

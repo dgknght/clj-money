@@ -3,12 +3,12 @@
   (:require [clojure.spec.alpha :as s]
             [stowaway.core
              :as storage
-             :refer [with-storage
-                     with-transacted-storage]]
+             :refer [with-storage]]
             [clj-money.util :refer [safe-invoke
                                     rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
+            [clj-money.models.sql-storage-ref]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.helpers :refer [create-fn
@@ -153,5 +153,5 @@
 (defn delete
   "Removes a commodity from the system"
   [storage-spec commodity]
-  (with-transacted-storage [s storage-spec]
+  (with-storage [s storage-spec]
     (storage/delete s commodity)))

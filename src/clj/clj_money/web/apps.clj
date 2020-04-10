@@ -11,7 +11,7 @@
    [:meta  {:name "viewport" :content "width=device-width, initial-scale=1"}]
    "<!-- The above 3 meta tags *must* come first in the head; any other head content must come *after* these tags -->"
 
-   [:meta  {:name "description" :content "Double-entry account system"}]
+   [:meta  {:name "description" :content "Double-entry accounting system"}]
    [:meta  {:name "author" :content "Doug Knight"}]
    [:link  {:rel "icon" :href "../../favicon.ico"}]
    [:title "clj-money"]
@@ -20,12 +20,12 @@
    [:script {:src "/js/jquery-3.1.0.min.js"}]
    [:script {:src "/js/jquery-ui.min.js"}]
    [:script {:src "/js/jquery-startup.js"}]
-   [:script {:src "/js/bootstrap.min.js"}]
+   [:script {:src "/js/bootstrap/bootstrap.min.js"}]
    [:script {:src "/js/paced-progress-bar.js"}]
 
    "<!-- Bootstrap core CSS -->"
-   [:link {:rel "stylesheet" :href "/css/bootstrap.min.css"}]
-   [:link {:rel "stylesheet" :href "/css/bootstrap-theme.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/bootstrap/bootstrap.min.css"}]
+   [:link {:rel "stylesheet" :href "/css/bootstrap/bootstrap-theme.min.css"}]
    [:link {:rel "stylesheet" :href "/css/jquery-ui.min.css"}]
    [:link {:rel "stylesheet" :href "/css/jquery-ui.structure.min.css"}]
    [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]

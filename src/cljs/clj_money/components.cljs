@@ -63,7 +63,13 @@
        :component-will-unmount (fn [this]
                                  (detach-scroll-listener this))
        :reagent-render (fn [_]
-                         [:span @message])})))
+                         [:span.text-muted @message])})))
+
+(defn- ensure-range
+  [start end ranges]
+  (if (seq ranges)
+    ranges
+    [[start end]]))
 
 (defn load-in-chunks
   "Loads data in a series of queries based on a range of dates. This works along-side load-on-scroll
@@ -77,6 +83,8 @@
   :finish-fn  - a fn that will receive notification that no more items are available to be queries"
   [{:keys [start end ctl-chan fetch-fn receive-fn finish-fn interval]
     :or {interval (t/months 1)}}]
+  {:pre [start end ctl-chan fetch-fn receive-fn finish-fn interval]}
+
   (let [items-chan (chan)]
 
     ; handle items received on the items channel
@@ -90,8 +98,11 @@
     ; on the items channel
     (go-loop [date-ranges (->> (desc-periodic-seq start end interval)
                                (partition 2 1)
-                               (map (fn [[end start]]
-                                      [:between start (t/minus- end (t/days 1))])))]
+                               (map (comp #(update-in % [1] t/minus (t/days 1))
+                                          vec
+                                          reverse))
+                               (ensure-range start end)
+                               (map #(apply vector :between %)))]
              (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause
                    count-needed (if (number? action)
                                   action

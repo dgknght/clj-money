@@ -1,6 +1,7 @@
 (ns clj-money.views.entities
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
+            [clj-money.bootstrap :as bs]
             [clj-money.util :as util]
             [clj-money.api.entities :as entities]
             [clj-money.notifications :as notify]
@@ -53,12 +54,10 @@
          [text-field entity :name {:validate [:required]}]
          #_(radio-buttons :settings.inventory-method ["fifo" "lifo"])]
         [:button.btn.btn-primary {:on-click #(save-entity page-state)}
-         "Save"]
+         (bs/icon-with-text :check "Save")]
         (util/space)
-        (util/button "Cancel"
-                     #(swap! page-state dissoc :selected)
-                     {:class "btn btn-danger"
-                      :icon :ban-circle})]])))
+        [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :selected)}
+         (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- entity-row
   [entity page-state]
@@ -68,14 +67,14 @@
     (:name entity)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-xs.btn-info {:on-click (fn []
+     [:button.btn.btn-sm.btn-info {:on-click (fn []
                                                (swap! page-state assoc :selected entity)
                                                (util/set-focus "name"))
                                    :title "Click here to edit this entity."}
-      [:span.glyphicon.glyphicon-pencil {:aria-hidden true}]]
-     [:button.btn.btn-xs.btn-danger {:on-click #(delete entity)
+      (bs/icon :pencil)]
+     [:button.btn.btn-sm.btn-danger {:on-click #(delete entity)
                                      :title "Click here to remove this entity."}
-      [:span.glyphicon.glyphicon-remove {:aria-hidden true}]]]]])
+      (bs/icon :x-circle)]]]])
 
 (defn- entity-table
   [page-state]
@@ -97,7 +96,7 @@
     (fn []
       [:div.row
        [:div.col-md-6
-        [:h1 "Entities"]
+        [:h1.mt-5 "Entities"]
         [entity-table page-state]
         [:button.btn.btn-primary {:on-click (fn []
                                               (swap! page-state
@@ -106,11 +105,11 @@
                                                      {:entity-id (:id @current-entity)})
                                               (util/set-focus "name"))
                                   :title "Click here to create a new entity."}
-         "Add"]
+         (bs/icon-with-text :plus "Add")]
         (util/space)
-        [:button.btn.btn-default {:on-click #(secretary/dispatch! "/imports")
+        [:button.btn.btn-light {:on-click #(secretary/dispatch! "/imports")
                                   :title "Click here to import an entity from another accounting system"}
-         "Import"]]
+         (bs/icon-with-text :file-arrow-up "Import")]]
        (when @selected
          [:div.col-md-6
           [entity-form page-state]])])))

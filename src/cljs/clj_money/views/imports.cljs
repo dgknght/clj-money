@@ -4,6 +4,7 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [timeout
                                      <!]]
+            [clj-money.bootstrap :as bs]
             [clj-money.util :as util]
             [clj-money.state :as state :refer [app-state]]
             [clj-money.api.imports :as imports]
@@ -31,12 +32,10 @@
 (defn- file-list
   [import-data]
   (when (seq (:files @import-data))
-    [:section
-     [:h2 "Files"]
-     [:ul.list-group
-      (for [file (:files @import-data)]
-        ^{:key (.-name file)}
-        [:li.list-group-item (.-name file)])]]))
+    [:ul.list-group.list-group-flush
+     (for [file (:files @import-data)]
+       ^{:key (.-name file)}
+       [:li.list-group-item (.-name file)])]))
 
 (defn- import-title
   [page-state]
@@ -121,26 +120,20 @@
    [:td (util/format-date-time (:created-at imp))]
    [:td
     [:div.btn-group
-     (util/button nil
-                  #(start-import imp page-state)
-                  {:icon :play
-                   :disabled (:entity-exists? imp)
-                   :class "btn btn-success btn-xs"
-                   :title "Click here to start the import."})
-     (util/button nil
-                  (fn []
-                    (swap! page-state assoc :active imp)
-                    (reset! auto-refresh true)
-                    (load-import page-state))
-                  {:icon :eye-open
-                   :class "btn btn-info btn-xs"
-                   :title "Click here to view this import."})
-     (util/button nil
-                  #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
-                     (delete-import imp page-state))
-                  {:icon :remove
-                   :class "btn btn-danger btn-xs"
-                   :title "Click here to remove this import."})]]])
+     [:button.btn.btn-success.btn-sm {:disabled (:entity-exists? imp)
+                                      :on-click #(start-import imp page-state)
+                                      :title "Click here to start the import."}
+      (bs/icon :play)]
+     [:button.btn.btn-info.btn-sm {:on-click (fn []
+                                               (swap! page-state assoc :active imp)
+                                               (reset! auto-refresh true)
+                                               (load-import page-state))
+                                   :title "Click here to view this import."}
+      (bs/icon :eye)]
+     [:button.btn.btn-danger.btn-sm {:on-click #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
+                                                  (delete-import imp page-state))
+                                     :title "Click here to remove this import."}
+      (bs/icon :x-circle)]]]])
 
 (defn- import-table
   [page-state]
@@ -158,19 +151,18 @@
 
 (defn- refresh-button
   [page-state]
-  (let [options (if @auto-refresh
-                  {:icon :stop
-                   :class "btn btn-danger"
+  (let [attr (if @auto-refresh
+                  {:class "btn-danger"
                    :title "Click here to stop the auto-refresh."}
-                  {:icon :refresh
-                   :class "btn btn-success"
+                  {:class "btn-success"
                    :title "Click here to auto-refresh the page."})]
-    (util/button nil
-                 (fn []
-                   (swap! auto-refresh not)
-                   (when @auto-refresh
-                     (load-import page-state)))
-                 options)))
+    [:button.btn (assoc attr :on-click (fn []
+                                         (swap! auto-refresh not)
+                                         (when @auto-refresh
+                                           (load-import page-state))))
+     (bs/icon (if @auto-refresh
+                :stop
+                :arrow-repeat))]))
 
 (defn- import-activity
   [page-state]
@@ -179,9 +171,9 @@
      [import-title page-state]
      [progress-table page-state]
      [:p
-      [:button.btn.btn-default {:title "Click here to return the list of imports."
-                                :on-click #(swap! page-state dissoc :active)}
-       "Cancel"]
+      [:button.btn.btn-light {:title "Click here to return the list of imports."
+                              :on-click #(swap! page-state dissoc :active)}
+       (bs/icon-with-text :x "Cancel")]
       (util/space)
       [refresh-button page-state]]]))
 
@@ -210,19 +202,19 @@
 (defn- import-form
   [page-state]
   (let [import-data (r/cursor page-state [:import-data])]
-    [:section
-     [:h1 "Import Entity"]
-     [:form
-      [text-field import-data :entity-name {:validate [:required]}]]
-     [:div#import-source.drop-zone.bg-primary
-      {:on-drag-over #(.preventDefault %)
-       :on-drop #(file-drop import-data %)}
-      [:div "Drop files here"]]
+    [:div.card
+     [:div.card-header [:h2 "Import Entity"]]
+     [:div.card-body
+      [:form
+       [text-field import-data :entity-name {:validate [:required]}]]
+      [:div#import-source.drop-zone.bg-primary.text-light
+       {:on-drag-over #(.preventDefault %)
+        :on-drop #(file-drop import-data %)}
+       [:div "Drop files here"]]]
      [file-list import-data]
-     (util/button "Import"
-                  #(import-click % page-state)
-                  {:class "btn btn-primary"
-                   :icon :ok})]))
+     [:div.card-footer
+      [:button.btn.btn-success {:on-click #(import-click % page-state)}
+       (bs/icon-with-text :file-arrow-up "Import")]]]))
 
 (defn- import-list []
   (let [page-state (r/atom {})
@@ -230,7 +222,7 @@
         active (r/cursor page-state [:active])]
     (load-imports page-state)
     (fn []
-      [:div.row
+      [:div.row.mt-5
        [:div.col-md-6
         [:h1 "Imports"]
         [import-table page-state]
@@ -239,7 +231,7 @@
                                               (swap! page-state assoc
                                                      :import-data {:user-id (:id @state/current-user)})
                                               (util/set-focus "entity-name"))}
-         "Add"]]
+         (bs/icon-with-text :plus "Add")]]
        (when @import-data
          [:div.col-md-6
           [import-form page-state]])
@@ -247,5 +239,5 @@
          [:div.col-md-6
           [import-activity page-state]])])))
 
-(secretary/defroute imports-path "/imports" []
+(secretary/defroute "/imports" []
   (swap! app-state assoc :page #'import-list))
