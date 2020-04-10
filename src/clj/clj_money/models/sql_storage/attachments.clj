@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.attachments
+(ns clj-money.models.sql-storage.attachments
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
@@ -7,7 +7,7 @@
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defmethod stg/select ::models/attachment
   [criteria options db-spec]

@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.identities
+(ns clj-money.models.sql-storage.identities
   (:require [clojure.tools.logging :as log]
             [honeysql.helpers :refer [select
                                       from
@@ -9,7 +9,7 @@
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defmethod stg/insert ::models/identity
   [ident db-spec]

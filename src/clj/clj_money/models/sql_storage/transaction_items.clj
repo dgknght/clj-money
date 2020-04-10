@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.transaction-items
+(ns clj-money.models.sql-storage.transaction-items
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.java.jdbc :as jdbc]
@@ -24,7 +24,7 @@
                                                           insert-model
                                                           update-model
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defmethod stg/select ::models/transaction-item
   [criteria options db-spec]

@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.settings
+(ns clj-money.models.sql-storage.settings
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [honeysql.helpers :refer [select
@@ -12,7 +12,7 @@
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defmethod stg/select ::models/setting
   [criteria options db-spec]

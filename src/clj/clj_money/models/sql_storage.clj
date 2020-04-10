@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage
+(ns clj-money.models.sql-storage
   (:refer-clojure :exclude [update count])
   (:require [clojure.java.jdbc :as jdbc]
             [clj-postgresql.types]

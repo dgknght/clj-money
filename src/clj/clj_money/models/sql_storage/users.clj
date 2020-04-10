@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.users
+(ns clj-money.models.sql-storage.users
   (:require [honeysql.helpers :refer [select
                                       merge-select
                                       from]]
@@ -8,7 +8,7 @@
                                                           insert-model
                                                           update-model
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defn- apply-select-password
   "For a user query, adds the password to the list of selected

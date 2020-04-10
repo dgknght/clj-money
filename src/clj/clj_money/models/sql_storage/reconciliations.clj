@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.reconciliations
+(ns clj-money.models.sql-storage.reconciliations
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
@@ -9,7 +9,7 @@
                                                           insert-model
                                                           update-model
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defmethod stg/select ::models/reconciliation
   [criteria options db-spec]

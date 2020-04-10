@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.images
+(ns clj-money.models.sql-storage.images
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       merge-select
@@ -8,7 +8,7 @@
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defn- append-body
   [sql {:keys [include-body?]}]

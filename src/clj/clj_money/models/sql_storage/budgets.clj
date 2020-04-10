@@ -1,4 +1,4 @@
-(ns clj-money.models.storage.sql-storage.budgets
+(ns clj-money.models.sql-storage.budgets
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
@@ -8,7 +8,7 @@
                                                           insert-model
                                                           update-model
                                                           apply-criteria]]
-            [clj-money.models.storage.sql-storage :as stg]))
+            [clj-money.models.sql-storage :as stg]))
 
 (defmethod stg/select ::models/budget
   [criteria options db-spec]
