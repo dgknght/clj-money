@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update count])
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+            [stowaway.core :as storage]
             [clj-money.api :refer [->response]]
             [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
@@ -61,7 +62,7 @@
                       (assoc :entity-id (:entity-id params))
                       (select-keys attribute-keys)
                       (ensure-keyword :exchange :type)
-                      (models/tag ::models/commodity)
+                      (storage/tag ::models/commodity)
                       (authorize ::authorization/create authenticated))
         result (coms/create (env :db) commodity)]
     (->response result

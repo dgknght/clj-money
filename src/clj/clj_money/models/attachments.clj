@@ -23,11 +23,11 @@
 (defn- after-read
   [attachment & _]
   (when attachment
-    (models/tag attachment :attachment)))
+    (storage/tag attachment ::models/attachment)))
 
 (defn- before-save
   [attachment & _]
-  (models/tag attachment :attachment))
+  (storage/tag attachment ::models/attachment))
 
 (def create
   (create-fn {:create (rev-args storage/create)
@@ -42,7 +42,7 @@
    (with-storage [s storage-spec]
      (map after-read
           (storage/select s
-                          (models/tag criteria :attachment)
+                          (storage/tag criteria ::models/attachment)
                           options)))))
 
 (defn find-by

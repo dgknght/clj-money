@@ -82,7 +82,7 @@
   "Makes pre-save adjustments for a transaction item"
   [item]
   (-> item
-      (models/tag :transaction-item)
+      (storage/tag ::models/transaction-item)
       (update-in [:value] (fnil identity (:quantity item))) ; TODO need to calculate the correct value
       (update-in [:action] name)
       (remove-empty-strings :memo)
@@ -94,7 +94,7 @@
   [{:keys [quantity negative reconciliation-status] :as item}]
   (if (map? item)
     (-> item
-        (models/tag :transaction-item)
+        (storage/tag ::models/transaction-item)
         (update-in [:action] keyword)
         (assoc :reconciled? (= "completed" reconciliation-status)
                :polarized-quantity (if negative
@@ -197,7 +197,7 @@
   database"
   [transaction]
   (-> transaction
-      (models/tag :transaction)
+      (storage/tag ::models/transaction)
       (dissoc :items)
       (assoc :value (->> (:items transaction)
                          (filter #(= :credit (:action %)))
@@ -220,7 +220,7 @@
                                 (map uuid %)
                                 (uuid %)))
       (deep-update-in-if :transaction-date parse-date-range)
-      (models/tag tag)))
+      (storage/tag tag)))
 
 (defn search-items
   "Returns transaction items matching the specified criteria"
@@ -230,7 +230,7 @@
    (with-storage [s storage-spec]
      (map after-item-read
           (storage/select s
-                          (prepare-criteria criteria :transaction-item)
+                          (prepare-criteria criteria ::models/transaction-item)
                           options)))))
 
 (defn- append-items
@@ -270,7 +270,7 @@
        (append-lot-items storage)
 
        true
-       (models/tag :transaction)))))
+       (storage/tag ::models/transaction)))))
 
 (defn find-item
   "Returns the first item matching the specified criteria"
@@ -299,7 +299,7 @@
 (defn update-items
   [storage-spec attr criteria]
   (with-storage [s storage-spec]
-    (storage/update s (models/tag attr :transaction-item) criteria)))
+    (storage/update s (storage/tag attr ::models/transaction-item) criteria)))
 
 (defn update-item-index-and-balance
   "Updates only the index and balance of an item, returning true if
@@ -374,7 +374,7 @@
      (with-storage [s storage-spec]
        (map #(after-read s % options)
             (storage/select s
-                            (prepare-criteria criteria :transaction)
+                            (prepare-criteria criteria ::models/transaction)
                             parsed-options))))))
 
 (defn select-items-by-reconciliation

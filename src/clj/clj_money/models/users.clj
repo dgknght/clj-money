@@ -18,12 +18,12 @@
   "Prepares a user record to be saved in the database"
   [user & _]
   (-> user
-    (models/tag ::models/user)
+    (storage/tag ::models/user)
     (update-in [:password] hashers/derive)))
 
 (defn- after-read
   [user & _]
-  (models/tag user ::models/user))
+  (storage/tag user ::models/user))
 
 (s/def ::first-name validation/non-empty-string?)
 (s/def ::last-name validation/non-empty-string?)
@@ -39,7 +39,7 @@
    {:pre [(map? criteria) (map? options)]}
    (with-storage [s storage-spec]
      (->> (storage/select s
-                          (models/tag criteria :user)
+                          (storage/tag criteria ::models/user)
                           (merge options {:limit 1}))
           first))))
 
@@ -73,7 +73,7 @@
    (select storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (storage/select s (models/tag criteria ::models/user) options))))
+     (storage/select s (storage/tag criteria ::models/user) options))))
 
 (defn find-by-id
   "Returns the user having the specified id"

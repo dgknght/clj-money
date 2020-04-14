@@ -24,7 +24,7 @@
   (when entity
     (cond-> entity
       true
-      (models/tag ::models/entity)
+      (storage/tag ::models/entity)
 
       (:settings entity)
       (update-in [:settings] read-string))))
@@ -37,7 +37,7 @@
    (with-storage [s storage-spec]
      (map after-read
           (storage/select s
-                          (models/tag criteria :entity)
+                          (storage/tag criteria ::models/entity)
                           options)))))
 
 (defn- name-is-unique?
@@ -56,7 +56,7 @@
 (defn- before-save
   [entity & _]
   (-> entity
-      (models/tag ::models/entity)
+      (storage/tag ::models/entity)
       (update-in-if [:settings] pr-str)))
 
 (defn- validation-rules
@@ -122,4 +122,4 @@
 
 (defn entity?
   [model]
-  (= ::models/entity (models/tag model)))
+  (= ::models/entity (storage/tag model)))

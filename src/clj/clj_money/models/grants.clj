@@ -37,7 +37,7 @@
 (defn- before-save
   [grant & _]
   (-> grant
-      (models/tag :grant)
+      (storage/tag ::models/grant)
       (update-in [:permissions] prn-str)))
 
 (defn- after-read
@@ -45,7 +45,7 @@
   (when grant
     (-> grant
         (update-in [:permissions] read-string)
-        (models/tag :grant))))
+        (storage/tag ::models/grant))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -65,7 +65,7 @@
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
      (map after-read (storage/select s
-                                     (models/tag criteria :grant)
+                                     (storage/tag criteria ::models/grant)
                                      options)))))
 
 (defn find-by-id

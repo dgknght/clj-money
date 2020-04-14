@@ -4,6 +4,7 @@
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [environ.core :refer [env]]
             [cheshire.core :as json]
+            [stowaway.core :as storage]
             [clj-money.api :refer [->response
                                    error->response
                                    invalid->response
@@ -26,7 +27,7 @@
   (let [entity (-> body
                    (select-keys [:name :settings])
                    (assoc :user-id (:id authenticated))
-                   (models/tag ::models/entity))]
+                   (storage/tag ::models/entity))]
     (try
       (let [result (entities/create (env :db) entity)]
         (if (validation/has-error? result)

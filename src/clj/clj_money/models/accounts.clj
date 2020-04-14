@@ -65,7 +65,7 @@
   "Adjusts account data for saving in the database"
   [account & _]
   (-> account
-      (models/tag ::models/account)
+      (storage/tag ::models/account)
       (update-in [:quantity] (fnil identity 0M))
       (update-in [:value] (fnil identity 0M))
       (update-in [:type] name)
@@ -96,7 +96,7 @@
               :commodity-type
               :commodity-exchange
               :entity-settings)
-      (models/tag ::models/account)
+      (storage/tag ::models/account)
       (cond->
         (and ; Remove :parent-id if it's nil
              (contains? account :parent-id)
@@ -110,7 +110,7 @@
    (with-storage [s storage-spec]
      (map after-read
           (storage/select s
-                          (models/tag criteria ::models/account)
+                          (storage/tag criteria ::models/account)
                           options)))))
 
 (defn find-by

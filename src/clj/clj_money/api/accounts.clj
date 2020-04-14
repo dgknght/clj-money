@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+            [stowaway.core :as storage]
             [clj-money.api :refer [->response
                                    not-found]]
             [clj-money.models :as models]
@@ -44,7 +45,7 @@
                             (conj (or % #{}) :trading)
                             %))
       (select-keys attribute-keys)
-      (models/tag ::models/account)))
+      (storage/tag ::models/account)))
 
 (defn- create
   [{:keys [params body authenticated]}]

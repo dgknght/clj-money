@@ -2,12 +2,11 @@
   (:refer-clojure :exclude [update count])
   (:require [clojure.java.jdbc :as jdbc]
             [clj-postgresql.types]
-            [stowaway.core :as storage :refer [Storage]]
-            [clj-money.models :as models]))
+            [stowaway.core :as storage :refer [Storage]]))
 
 (defn- dispatch-model
   [model & _]
-  (models/tag model))
+  (storage/tag model))
 
 (defmulti select dispatch-model)
 (defmulti insert dispatch-model)

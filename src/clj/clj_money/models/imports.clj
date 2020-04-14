@@ -20,7 +20,7 @@
 
 (defn- before-save
   [imp & _]
-  (models/tag imp :import))
+  (storage/tag imp ::models/import))
 
 (defn- prepare-progress
   [progress]
@@ -47,7 +47,7 @@
     (-> imp
         (update-in [:progress] prepare-progress)
         (assoc :entity-exists? (entity-exists? imp storage))
-        (models/tag :import))))
+        (storage/tag ::models/import))))
 
 (def create
   (create-fn {:create (rev-args storage/create)
@@ -66,7 +66,7 @@
    (with-storage [s storage-spec]
      (map #(after-read % s)
           (storage/select s
-                          (models/tag criteria :import)
+                          (storage/tag criteria ::models/import)
                           (merge {:sort [:created-at]} options))))))
 
 (defn find-by

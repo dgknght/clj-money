@@ -42,7 +42,7 @@
   [item]
   (-> item
       (update-in [:periods] read-string)
-      (models/tag ::models/budget-item)))
+      (storage/tag ::models/budget-item)))
 
 (defn- select-items
   ([storage criteria]
@@ -50,14 +50,14 @@
   ([storage criteria options]
    (map after-item-read
         (storage/select storage
-                        (models/tag criteria :budget-item)
+                        (storage/tag criteria ::models/budget-item)
                         options))))
 
 (defn- after-read
   [budget storage]
   (when budget
     (-> budget
-        (models/tag ::models/budget)
+        (storage/tag ::models/budget)
         (update-in [:start-date] to-local-date)
         (update-in [:end-date] to-local-date)
         (update-in [:period] keyword)
@@ -111,7 +111,7 @@
 (defn- before-save
   [budget & _]
   (-> budget
-      (models/tag :budget)
+      (storage/tag ::models/budget)
       (assoc :end-date (to-sql-date (end-date budget)))
       (update-in [:start-date] to-sql-date)
       (update-in [:period] name)))
@@ -130,7 +130,7 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (->> (storage/select s (models/tag criteria :budget) options)
+     (->> (storage/select s (storage/tag criteria ::models/budget) options)
           (map #(after-read % s))))))
 
 (defn find-by
@@ -219,7 +219,7 @@
 (defn- before-save-item
   [item]
   (-> item
-      (models/tag :budget-item)
+      (storage/tag ::models/budget-item)
       (update-in [:periods] (comp prn-str vec))))
 
 (defn create-item

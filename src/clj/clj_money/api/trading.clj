@@ -1,6 +1,7 @@
 (ns clj-money.api.trading
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes POST]]
+            [stowaway.core :as storage]
             [clj-money.api :refer [->response]]
             [clj-money.models :as models]
             [clj-money.authorization :refer [authorize] :as authorization]
@@ -20,7 +21,7 @@
                   (merge body)
                   (update-in [:trade-date] unserialize-date)
                   (select-keys create-attributes)
-                  (models/tag ::models/trade)
+                  (storage/tag ::models/trade)
                   (authorize ::authorization/create authenticated))
         result (f (env :db) trade) ]
     (->response (select-keys result [:transaction :lot :lots]) 201)))

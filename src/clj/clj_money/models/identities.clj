@@ -15,7 +15,7 @@
 
 (defn- before-save
   [ident _]
-  (models/tag ident :identity))
+  (storage/tag ident ::models/identity))
 
 (def create
   (create-fn {:spec ::identity
@@ -26,7 +26,7 @@
   [storage-spec criteria options]
   (with-storage [s storage-spec]
     (storage/select s
-                    (models/tag criteria :identity)
+                    (storage/tag criteria ::models/identity)
                     options)))
 
 (defn find

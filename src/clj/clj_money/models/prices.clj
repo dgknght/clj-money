@@ -22,7 +22,7 @@
 (defn- after-read
   [price & _]
   (when price
-    (models/tag price :price)))
+    (storage/tag price ::models/price)))
 
 (def ^:private coercion-rules
   [(coercion/rule :decimal [:price])
@@ -33,7 +33,7 @@
   [criteria]
   (-> criteria
       (deep-update-in-if :trade-date parse-date-range)
-      (models/tag :price)))
+      (storage/tag ::models/price)))
 
 (defn search
   ([storage-spec criteria]
@@ -63,7 +63,7 @@
 
 (defn- before-save
   [price & _]
-  (models/tag price :price))
+  (storage/tag price ::models/price))
 
 (defn- validate
   [storage spec model]

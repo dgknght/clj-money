@@ -21,7 +21,7 @@
 
 (defn- after-read
   [image]
-  (models/tag image :image))
+  (storage/tag image ::models/image))
 
 (defn search
   ([storage-spec criteria]
@@ -30,7 +30,7 @@
    (with-storage [s storage-spec]
      (map after-read
           (storage/select s
-                          (models/tag criteria :image)
+                          (storage/tag criteria ::models/image)
                           options)))))
 
 (defn- find-by-hash
@@ -56,7 +56,7 @@
 
 (defn- before-save
   [image & _]
-  (models/tag image :image))
+  (storage/tag image ::models/image))
 
 (def create
   (create-fn {:create (rev-args storage/create)

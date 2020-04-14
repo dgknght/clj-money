@@ -40,7 +40,7 @@
 (defn- before-save
   [commodity & _]
   (-> commodity
-      (models/tag :commodity)
+      (storage/tag ::models/commodity)
       (update-in [:exchange] #(safe-invoke name %))
       (update-in [:type] name)))
 
@@ -48,7 +48,7 @@
   [commodity & _]
   (when commodity
     (-> commodity
-        (models/tag ::models/commodity)
+        (storage/tag ::models/commodity)
         (update-in [:exchange] #(safe-invoke keyword %))
         (update-in [:type] keyword))))
 
@@ -66,7 +66,7 @@
    (with-storage [s storage-spec]
      (map after-read
           (storage/select s
-                          (models/tag criteria :commodity)
+                          (storage/tag criteria ::models/commodity)
                           options)))))
 
 (defn- name-is-in-use?

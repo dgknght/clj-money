@@ -35,7 +35,7 @@
 (defn- after-read
   [lot & _]
   (-> lot
-      (models/tag :lot)
+      (storage/tag ::models/lot)
       (update-in [:purchase-date] to-local-date)))
 
 (defn search
@@ -45,7 +45,7 @@
    (with-storage [s storage-spec]
      (map after-read
           (storage/select s
-                          (models/tag criteria :lot)
+                          (storage/tag criteria ::models/lot)
                           options)))))
 
 (defn find-by
@@ -61,7 +61,7 @@
 (defn- before-save
   [lot & _]
   (-> lot
-      (models/tag :lot)
+      (storage/tag ::models/lot)
       (update-in [:purchase-date] to-sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 

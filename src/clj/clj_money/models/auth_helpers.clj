@@ -1,5 +1,6 @@
 (ns clj-money.models.auth-helpers
   (:require [environ.core :refer [env]]
+            [stowaway.core :as storage]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -10,7 +11,7 @@
 
 (defmulti ^:private lookup-entity-id
   (fn [resource]
-    (models/tag resource)))
+    (storage/tag resource)))
 
 (defmethod ^:private lookup-entity-id :default
   [resource]
@@ -81,7 +82,7 @@
   [resource user action]
   (when-let [g (find-grant user resource)]
     (grants/has-permission? g
-                            (models/tag resource)
+                            (storage/tag resource)
                             action)))
 
 (defn owner-or-granted?

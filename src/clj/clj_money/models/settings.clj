@@ -8,14 +8,14 @@
   [setting]
   (-> setting
       (update-in [:value] read-string)
-      (models/tag :setting)))
+      (storage/tag ::models/setting)))
 
 (defn search
   [storage-spec criteria options]
   (with-storage [s storage-spec]
     (map after-read
          (storage/select s
-                         (models/tag criteria :setting)
+                         (storage/tag criteria ::models/setting)
                          options))))
 
 (defn find-by
@@ -28,7 +28,7 @@
   [setting]
   (-> setting
       (update-in [:value] pr-str)
-      (models/tag :setting)))
+      (storage/tag ::models/setting)))
 
 (defn create
   [storage-spec setting]

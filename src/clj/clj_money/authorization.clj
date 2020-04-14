@@ -1,5 +1,5 @@
 (ns clj-money.authorization
-  (:require [clj-money.models :as models]
+  (:require [stowaway.core :as storage]
             [slingshot.slingshot :refer [throw+]]))
 
 (derive ::create ::manage)
@@ -12,7 +12,7 @@
   authenticated user is allowed to perform the specified
   action on the specified model"
   (fn [model action _user]
-    [(models/tag model) action]))
+    [(storage/tag model) action]))
 
 (defn authorize
   "Raises an error if the current user does not have
@@ -26,7 +26,7 @@
       model
       (throw+ {:type ::unauthorized
                :action action
-               :model (models/tag model)})))
+               :model (storage/tag model)})))
 
 (defmulti scope
   "Returns a criteria structure limiting the scope
@@ -38,7 +38,7 @@
 
 (defn +scope
   ([criteria user]
-   (+scope criteria (models/tag criteria) user))
+   (+scope criteria (storage/tag criteria) user))
   ([criteria model-type user]
    (if-let [s (scope model-type user)]
      (if (empty? criteria)

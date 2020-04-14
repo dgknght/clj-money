@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [environ.core :refer [env]]
+            [stowaway.core :as storage]
             [clj-money.x-platform.util :refer [unserialize-date]]
             [clj-money.api :refer [->response]]
             [clj-money.models :as models]
@@ -47,7 +48,7 @@
   (->response (trans/create (env :db) (-> body
                                           (select-keys attribute-keys)
                                           (assoc :entity-id (:entity-id params))
-                                          (models/tag ::models/transaction)
+                                          (storage/tag ::models/transaction)
                                           (authorize ::authorization/create authenticated)))))
 
 (defn- apply-to-existing

@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET DELETE POST PATCH]]
+            [stowaway.core :as storage]
             [clj-money.models :as models]
             [clj-money.authorization :refer [+scope
                                              authorize]
@@ -48,7 +49,7 @@
                      (merge body)
                      (select-keys [:commodity-id :trade-date :price])
                      (update-in [:trade-date] unserialize-date)
-                     (models/tag ::models/price)
+                     (storage/tag ::models/price)
                      (authorize ::authorization/create authenticated))]
     (->response (prices/create (env :db) price)
                 201)

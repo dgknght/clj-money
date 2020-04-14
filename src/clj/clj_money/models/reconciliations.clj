@@ -56,7 +56,7 @@
 (defn- before-save
   [reconciliation & _]
   (-> reconciliation
-      (models/tag :reconciliation)
+      (storage/tag ::models/reconciliation)
       (update-in [:status] name)))
 
 (defn- append-transaction-item-refs
@@ -74,7 +74,7 @@
   (when reconciliation
     (-> reconciliation
         (update-in [:status] keyword)
-        (models/tag ::models/reconciliation)
+        (storage/tag ::models/reconciliation)
         (append-transaction-item-refs storage))))
 
 (defn search
@@ -84,7 +84,7 @@
    (with-storage [s storage-spec]
      (map #(after-read % s)
           (storage/select  s
-                          (models/tag criteria :reconciliation)
+                          (storage/tag criteria ::models/reconciliation)
                           options)))))
 
 (defn find
