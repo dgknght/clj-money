@@ -6,11 +6,12 @@
             [clj-money.api.entities :as entities]
             [clj-money.notifications :as notify]
             [clj-money.state :as state :refer [app-state]]
-            [clj-money.plain-forms :refer [text-field]]))
+            [clj-money.plain-forms :refer [text-field
+                                           #_radio-buttons]]))
 
 (defn- delete
   [entity]
-  (when (js/confirm "Are you sure you want to delete this entity?")
+  (when (js/confirm (str "Are you sure you want to delete the entity \"" (:name entity) "\"?"))
     (entities/delete entity
                      #(state/remove-entity entity)
                      notify/danger)))
@@ -51,8 +52,8 @@
        [:div.card-header [:strong (str (if (:id @entity) "Edit" "New") " Entity")]]
        [:div.card-body
         [:form
-         [text-field entity :name {:validate [:required]}]
-         #_(radio-buttons :settings.inventory-method ["fifo" "lifo"])]]
+         [text-field entity [:name] {:validate [:required]}]
+         #_[radio-buttons [:settings :inventory-method] ["fifo" "lifo"]]]]
        [:div.card-footer
         [:button.btn.btn-primary {:on-click #(save-entity page-state)}
          (bs/icon-with-text :check "Save")]

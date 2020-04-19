@@ -37,19 +37,20 @@
 (defn- commodity-form
   [page-state]
   (let [commodity (r/cursor page-state [:selected])
-        types (make-reaction #(if (= (:id @commodity)
-                                     (get-in @state/current-entity [:settings :default-commodity-id]))
+        types (make-reaction #(if (and (:id @commodity)
+                                       (= (:id @commodity)
+                                          (get-in @state/current-entity [:settings :default-commodity-id])))
                                 ["currency"]
                                 ["currency" "stock" "fund"]))]
     (fn []
       [:div#commodity-form.card
        [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
        [:div.card-body
-        [forms/select-field commodity :type @types]
+        [forms/select-field commodity [:type] @types]
         (when (= "stock" (:type @commodity))
-          [forms/select-field commodity :exchange ["nyse" "nasdaq"]])
-        [forms/text-field commodity :symbol {:validate [:required]}]
-        [forms/text-field commodity :name {:validate [:required]}]]
+          [forms/select-field commodity [:exchange] ["nyse" "nasdaq"]])
+        [forms/text-field commodity [:symbol] {:validate [:required]}]
+        [forms/text-field commodity [:name] {:validate [:required]}]]
        [:div.card-footer
         [:button.btn.btn-primary {:title "Click here to save this commodity"
                                   :on-click #(save-commodity page-state)}
@@ -254,8 +255,8 @@
       [:div.card.mt-2
        [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
        [:div.card-body
-        [forms/date-field price :trade-date]
-        [forms/float-field price :price]]
+        [forms/date-field price [:trade-date]]
+        [forms/float-field price [:price]]]
        [:div.card-footer
         [:button.btn.btn-primary {:title "Click here to save this price."
                                   :on-click #(save-price page-state)}

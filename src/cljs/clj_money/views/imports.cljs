@@ -206,7 +206,7 @@
      [:div.card-header [:strong "Import Entity"]]
      [:div.card-body
       [:form
-       [text-field import-data :entity-name {:validate [:required]}]]
+       [text-field import-data [:entity-name] {:validate [:required]}]]
       [:div#import-source.drop-zone.bg-primary.text-light
        {:on-drag-over #(.preventDefault %)
         :on-drop #(file-drop import-data %)}

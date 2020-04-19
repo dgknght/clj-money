@@ -158,7 +158,7 @@
        [:div.accounts-options
         [forms/checkbox-field
          page-state
-         :hide-zero-balances?
+         [:hide-zero-balances?]
          {:caption "Hide Zero-Balance Accounts"}]]
        [:table.table.table-hover
         [:thead
@@ -186,7 +186,7 @@
       [:form
        (forms/typeahead-field
          account
-         :parent-id
+         [:parent-id]
          {:search-fn (fn [input callback]
                        (let [term (string/lower-case input)]
                          (->> @accounts
@@ -201,13 +201,13 @@
                           first
                           callback))})
        (forms/select-field account
-                           :type
+                           [:type]
                            (map (juxt name humanize) account-types)
                            {:class (when (:parent-id @account) "hidden")})
-       (forms/text-field account :name {:validate [:required]})
+       (forms/text-field account [:name] {:validate [:required]})
        (forms/typeahead-field
          account
-         :commodity-id
+         [:commodity-id]
          {:search-fn (fn [input callback]
                        (let [term (string/lower-case input)]
                          (->> @commodities
@@ -225,7 +225,7 @@
                           callback))})
        (forms/checkbox-field
          account
-         :trading
+         [:trading]
          {:caption "Check here if this account is used to trade commodities"})])))
 
 (defn- save-account
@@ -395,12 +395,12 @@
       [:form {:class (when (or (:items @transaction)
                                (:trade-date @transaction))
                        "d-none")}
-       (forms/date-field transaction :transaction-date {:validate [:required]})
-       (forms/text-field transaction :description {:validate [:required]})
-       (forms/float-field transaction :quantity {:validate [:required]})
+       (forms/date-field transaction [:transaction-date] {:validate [:required]})
+       (forms/text-field transaction [:description] {:validate [:required]})
+       (forms/float-field transaction [:quantity] {:validate [:required]})
        [forms/typeahead-field
          transaction
-         :other-account-id
+         [:other-account-id]
          {:search-fn (fn [input callback]
                        (let [term (string/lower-case input)]
                          (->> @accounts
@@ -421,13 +421,13 @@
         commodities (r/cursor page-state [:commodities])]
     (fn []
       [:form {:class (when-not (:trade-date @transaction) "d-none")}
-       (forms/date-field transaction :trade-date {:validate [:required]})
-       (forms/select-field transaction :action (map (juxt name humanize) [:buy :sell]) {})
-       (forms/float-field transaction :shares {:validate [:required]})
-       (forms/float-field transaction :value {:validate [:required]})
+       (forms/date-field transaction [:trade-date] {:validate [:required]})
+       (forms/select-field transaction [:action] (map (juxt name humanize) [:buy :sell]) {})
+       (forms/float-field transaction [:shares] {:validate [:required]})
+       (forms/float-field transaction [:value] {:validate [:required]})
        [forms/typeahead-field
          transaction
-         :commodity-id
+         [:commodity-id]
          {:search-fn (fn [input callback]
                        (let [term (string/lower-case input)]
                          (->> @commodities
@@ -450,7 +450,7 @@
   [:tr
    [:td [forms/typeahead-input
          item
-         :account-id
+         [:account-id]
          {:search-fn (fn [input callback]
                        (let [term (string/lower-case input)]
                          (->> (:accounts @page-state)
@@ -464,9 +464,9 @@
                           (filter #(= id (:id %)))
                           first
                           callback))}]]
-   [:td [forms/text-input item :memo {}]]
-   [:td [forms/float-input item :credit-quantity {}]]
-   [:td [forms/float-input item :debit-quantity {}]]])
+   [:td [forms/text-input item [:memo] {}]]
+   [:td [forms/float-input item [:credit-quantity] {}]]
+   [:td [forms/float-input item [:debit-quantity] {}]]])
 
 (defn- full-transaction-form
   [page-state]
@@ -475,8 +475,8 @@
       [:form {:class (when-not (and (:transaction-date @transaction)
                                     (:items @transaction))
                        "d-none")}
-       (forms/date-field transaction :transaction-date {:validate [:required]})
-       (forms/text-field transaction :description {:validate [:required]})
+       (forms/date-field transaction [:transaction-date] {:validate [:required]})
+       (forms/text-field transaction [:description] {:validate [:required]})
        [:table.table
         [:thead
          [:tr

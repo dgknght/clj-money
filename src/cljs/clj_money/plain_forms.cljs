@@ -1,18 +1,31 @@
 (ns clj-money.plain-forms
   (:require [reagent.core :as r]
+            [clojure.string :as string]
             [cljs-time.format :as tf]
             [clj-money.inflection :refer [humanize]]))
 
 (defn- ->caption
   [field]
-  (let [humanized (humanize field)]
+  (let [humanized (humanize (last field))]
     (if-let [trimmed (re-find #"^.+(?= id$)" humanized)]
       trimmed
       humanized)))
 
+(defn- ->name
+  [field]
+  (->> field
+       (map #(if (keyword? %)
+               (name %)
+               %))
+       (string/join "-")))
+
+(defn- ->id
+  [field]
+  (->name field))
+
 (defn checkbox-input
   [model field options]
-  (let [checked (r/cursor model [field])]
+  (let [checked (r/cursor model field)]
     (fn []
       [:input.form-check-input (merge options
                                       {:type :checkbox
@@ -25,7 +38,7 @@
    (checkbox-field model field {}))
   ([model field options]
    (fn []
-     (let [id (str (name field) "-checkbox")]
+     (let [id (str (->id field) "-checkbox")]
        [:div.form-check
         [:label.form-check-label {:for id}
          [checkbox-input model field (assoc options :id id)]
@@ -35,20 +48,20 @@
 (defn text-input
   [model field {input-type :type
                 :or {input-type :text}}]
-  (let [value (r/cursor model [field])]
+  (let [value (r/cursor model field)]
     (fn []
       [:input.form-control {:type input-type
-                            :name field
-                            :id field
+                            :name (->name field)
+                            :id (->id field)
                             :value @value
                             :on-change (fn [e]
                                          (let [new-value (.-value (.-target e))]
-                                           (swap! model assoc field new-value)))}])))
+                                           (swap! model assoc-in field new-value)))}])))
 
 (defn text-field
   [model field options]
   [:div.form-group
-   [:label {:for field} (or (:caption options)
+   [:label {:for (->id field)} (or (:caption options)
                             (->caption field))]
    [text-input model field options]])
 
@@ -58,22 +71,22 @@
                 unparse-fn :unparse-fn
                 :or {input-type :text
                      unparse-fn str}}]
-  (let [text-value (r/atom (unparse-fn (get-in @model [field])))]
+  (let [text-value (r/atom (unparse-fn (get-in @model field)))]
     (add-watch model field (fn [_field _sender before after]
-                             (let [b (get-in before [field])
-                                   a (get-in after [field])]
+                             (let [b (get-in before field)
+                                   a (get-in after field)]
                                (when (and a (not b))
                                  (reset! text-value (unparse-fn a))))))
     (fn []
       [:input.form-control {:type input-type
-                            :name field
-                            :id field
+                            :name (->name field)
+                            :id (->id field)
                             :value @text-value
                             :on-change (fn [e]
                                          (let [new-value (.-value (.-target e))
                                                parsed (parse-fn new-value)]
                                            (when parsed
-                                             (swap! model assoc field parsed))
+                                             (swap! model assoc-in field parsed))
                                            (reset! text-value new-value)))}])))
 
 (defn- parse-date
@@ -141,25 +154,25 @@
   (fn []
     [:select.form-control {:id field
                            :name field
-                           :value (get-in @model [field])
+                           :value (get-in @model field)
                            :on-change (fn [e]
                                         (let [value (.-value (.-target e))]
-                                          (swap! model assoc field (if (empty? value)
-                                                                     nil
-                                                                     value))))}
+                                          (swap! model assoc-in field (if (empty? value)
+                                                                        nil
+                                                                        value))))}
      (->> items
-          (map (comp #(if (= (get-in % [1 :value]) (get-in @model [field]))
+          (map (comp #(if (= (get-in % [1 :value]) (get-in @model field))
                         (update-in % [1] assoc :selected true)
                         %)
-                 #(select-option % field)))
+                     #(select-option % field)))
           doall)]))
 
 (defn select-field
   ([model field items] (select-field model field items {}))
   ([model field items options]
    [:div.form-group (select-keys options [:class])
-    [:label {:for field} (or (:caption options)
-                             (->caption field))]
+    [:label {:for (->id field)} (or (:caption options)
+                                    (->caption field))]
     [select-elem model field items options]]))
 
 (defn typeahead-input
@@ -178,7 +191,7 @@
                                              [nil ""])]
                        (reset! items nil)
                        (swap! model
-                              assoc
+                              assoc-in
                               field
                               value)
                        (reset! text-value caption))
@@ -197,7 +210,7 @@
 
                               ; escape -> 27
                               27 (do
-                                   (find-fn (get-in @model [field])
+                                   (find-fn (get-in @model field)
                                             #(reset! text-value (caption-fn %)))
                                    (reset! items nil))
 
@@ -211,11 +224,11 @@
                             (search-fn raw-value #(->> %
                                                        (take max-items)
                                                        (reset! items))))))]
-    (when-let [current-value (get-in @model [field])]
+    (when-let [current-value (get-in @model field)]
       (find-fn current-value #(reset! text-value (caption-fn %))))
     (add-watch model field (fn [_field _sender before after]
-                             (let [v-before (get-in before [field])
-                                   v-after (get-in after [field])]
+                             (let [v-before (get-in before field)
+                                   v-after (get-in after field)]
                                (when (and v-after
                                           (nil? v-before))
                                  (find-fn v-after #(reset! text-value (caption-fn %)))))))
@@ -223,23 +236,23 @@
     (fn []
       [:span
        [:input.form-control {:type :text
-                             :id field
-                             :name field
+                             :id (->id field)
+                             :name (->name field)
                              :value @text-value
                              :on-key-down handle-key-down
                              :on-change handle-change}]
        [:div.list-group {:style {:z-index 99}}
         (doall (map-indexed (fn [i item]
                               ^{:key (str "option-" (value-fn item))}
-                              [:button.list-group-item {:type :button
-                                                        :on-click #(select-item i)
-                                                        :class (when (= @index i) "active")}
+                              [:button.list-group-item.list-group-item-action {:type :button
+                                                                               :on-click #(select-item i)
+                                                                               :class (when (= @index i) "active")}
                                (caption-fn item)])
                             @items))]])))
 
 (defn typeahead-field
   [model field options]
   [:div.form-group
-   [:label {:for field} (or (:caption options)
-                            (->caption field))]
+   [:label {:for (->id field)} (or (:caption options)
+                                   (->caption field))]
    [typeahead-input model field options]])
