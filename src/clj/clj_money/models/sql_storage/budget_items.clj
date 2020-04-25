@@ -1,12 +1,12 @@
-(ns clj-money.models.sql-storage.accounts
+(ns clj-money.models.sql-storage.budget-items
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.tools.logging :as log]
             [honeysql.helpers :refer [select
                                       from]]
             [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
-                                                          update-model
                                                           apply-criteria]]
             [clj-money.models.sql-storage :as stg]))
 
@@ -26,9 +26,12 @@
 
 (defmethod stg/update ::models/budget-item
   [budget-item db-spec]
-  (update-model db-spec :budget_items budget-item
-                :account-id
-                :periods))
+  (let [sql ["UPDATE budget_items SET account_id = ?, periods = ? WHERE id = ?"
+             (:account-id budget-item)
+             (:periods budget-item)
+             (:id budget-item)]]
+    (log/debugf "update budget item: %s" (prn-str sql))
+    (jdbc/execute! db-spec sql)))
 
 (defmethod stg/delete ::models/budget-item
   [{:keys [id]} db-spec]

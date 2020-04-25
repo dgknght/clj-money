@@ -39,11 +39,13 @@
   ([page-state callback]
    (accounts/get-all (get-in @app-state [:current-entity :id])
                      (fn [result]
-                       (swap! page-state assoc
-                              :accounts (-> result nest unnest)
-                              :hide-zero-balances? (->> result
-                                                        (map :value)
-                                                        (not-every? #(= 0 %))))
+                       (swap! page-state
+                              (fn [s]
+                                (cond-> (assoc s :accounts (-> result nest unnest))
+                                  (empty? (:accounts s))
+                                  (assoc :hide-zero-balances? (->> result
+                                                                   (map :value)
+                                                                   (not-every? #(= 0 %)))))))
                        (callback))
                      notify/danger)))
 

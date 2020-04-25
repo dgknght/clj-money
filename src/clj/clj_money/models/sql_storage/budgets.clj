@@ -2,7 +2,8 @@
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
-            [stowaway.sql :refer [apply-limit]]
+            [stowaway.sql :refer [apply-limit
+                                  apply-sort]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
@@ -12,10 +13,11 @@
 
 (defmethod stg/select ::models/budget
   [criteria options db-spec]
-  (query db-spec (-> (select :*)
+  (query db-spec (-> (select :budgets.*)
                      (from :budgets)
-                     (apply-criteria criteria)
-                     (apply-limit options))))
+                     (apply-criteria criteria (assoc options :target :budget))
+                     (apply-limit options)
+                     (apply-sort options))))
 
 (defmethod stg/insert ::models/budget
   [budget db-spec]

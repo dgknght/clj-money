@@ -68,22 +68,31 @@
     (log/info (format "imported account \"%s\"" (:name result)))
     (update-in context [:accounts] #(assoc % original-id (:id result)))))
 
+(defn- prepare-budget-item
+  [item {:keys [accounts]}]
+  (update-in item [:account-id] #(get accounts %)))
+
+(defn- prepare-budget
+  [budget {:keys [entity] :as context}]
+  (-> budget
+      (update-in [:items]
+                 (fn [items]
+                   (map #(prepare-budget-item % context)
+                        items)))
+      (assoc :entity-id (:id entity))))
+
 (defn- import-budget
-  [{:keys [storage accounts] :as context} budget]
-  (let [result (budgets/create
-                 storage
-                 (-> budget
-                     (dissoc :items)
-                     (assoc :entity-id (-> context :entity :id))))]
-    (doseq [item (:items budget)]
-      (budgets/create-item storage
-                           (-> item
-                               (assoc :budget-id (:id result))
-                               (update-in [:periods] #(->> %
-                                                           (sort-by :index)
-                                                           (map :amount)))
-                               (update-in [:account-id] #(get accounts %)))))
-    (log/info (format "imported budget \"%s\"" (:name result))))
+  [{:keys [storage ] :as context} budget]
+  (log/debugf "importing budget %s" (prn-str budget))
+  (let [to-create (prepare-budget budget context)
+        created (budgets/create storage to-create)]
+    (try
+      (log/infof "imported budget %s" (:name created))
+      (catch Exception e
+        (log/errorf "error importing budget %s - %s: %s"
+                    (.getClass e)
+                    (.getMessage e)
+                    (prn-str to-create)))))
   context)
 
 (defn- import-commodity

@@ -10,7 +10,9 @@
             [clj-money.util :refer [file-ext
                                     file-name]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.test-context :refer [realize]]
+            [clj-money.test-context :refer [realize
+                                            find-user
+                                            find-import]]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff]]
@@ -254,36 +256,41 @@
 
 (deftest import-a-budget
   (let [context (realize storage-spec import-budget-context)
-        user (-> context :users first)
-        imp (-> context :imports first)
+        user (find-user context "john@doe.com")
+        imp (find-import context "Personal")
         _ (import-data storage-spec imp (nil-chan) {:atomic? true})
-        entity (first (entities/select storage-spec {:user-id (:id user)}))
-        [salary groceries] (->> {:entity-id (:id entity)}
-                                (accounts/search storage-spec)
-                                (sort #(compare (:name %2) (:name %1))))
-        actual (-> (->> {:entity-id (:id entity)}
-                        (budgets/search storage-spec)
-                        first)
+        entity (entities/find-by (env :db)  {:user-id  (:id user)})
+        salary (accounts/find-by (env :db) {:name "Salary"
+                                           :entity_id  (:id entity)})
+        groceries (accounts/find-by (env :db) {:name "Groceries"
+                                           :entity_id  (:id entity)})
+        bonus (accounts/find-by (env :db) {:name "Bonus"
+                                           :entity_id  (:id entity)})
+        actual (-> (budgets/find-by storage-spec
+                                    {:entity-id (:id entity)})
                    (dissoc :id :updated-at :created-at)
                    (update-in [:items] (fn [items]
-                                         (map (fn [item]
-                                                (-> item
-                                                    (dissoc :budget-id :id :created-at :updated-at)
-                                                    (update-in [:periods] #(sort-by :index %))))
-                                              items))))
+                                         (->> items
+                                              (map (fn [item]
+                                                     (-> item
+                                                         (dissoc :budget-id :id :created-at :updated-at)
+                                                         (update-in [:periods] #(sort-by :index %)))))
+                                              set))))
         expected {:name "2017"
                   :entity-id (:id entity)
                   :period :month
                   :period-count 12
                   :start-date (t/local-date 2017 1 1)
                   :end-date (t/local-date 2017 12 31)
-                  :items [{:account-id (:id salary)
-                           :periods (repeat 12 1000M)}
-                          {:account-id (:id groceries)
-                           :periods [200M 200M 250M
-                                     250M 275M 275M
-                                     200M 200M 250M
-                                     250M 275M 275M]}]}]
+                  :items #{{:account-id (:id salary)
+                            :periods (repeat 12 1000M)}
+                           {:account-id (:id bonus)
+                            :periods  [0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 800M]}
+                           {:account-id (:id groceries)
+                            :periods [200M 200M 250M
+                                      250M 275M 275M
+                                      200M 200M 250M
+                                      250M 275M 275M]}}}]
     (pprint-diff expected actual)
     (is (= expected actual) "The budget exists after import with correct values")))
 

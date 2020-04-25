@@ -15,6 +15,7 @@
 (def ids
   {:checking    "ed92489659ab879fb9354a3a050fb65d"
    :salary      "1b71fd298aeca1a18d35b04a7618e76e"
+   :bonus       "fafe8f4b3b9c4592bb73e6889a42eefb"
    :groceries   "835bfe9b2728976d06e63b90aea8c090"
    :credit-card "337685830c05f47b2b09734a05a7c1a2"
    :401k        "fc053b4fc6b94898a5d6fa53ed203bd0"
@@ -28,7 +29,7 @@
   [{:record-type :commodity
     :record-count 2}
    {:record-type :account
-    :record-count 9}
+    :record-count 10}
    {:record-type :transaction
     :record-count 6}
    {:record-type :budget
@@ -39,25 +40,31 @@
     :id (:checking ids)
     :parent-id "d005a139a1aaab6899867923509b96ca"
     :type :asset
-    :commodity {:exchange :iso4217
+    :commodity {:exchange :currency
                 :symbol "USD"}}
    {:name "Salary"
     :id (:salary ids)
     :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
     :type :income
-    :commodity {:exchange :iso4217
+    :commodity {:exchange :currency
+                :symbol "USD"}}
+   {:name "Bonus"
+    :id (:bonus ids)
+    :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
+    :type :income
+    :commodity {:exchange :currency
                 :symbol "USD"}}
    {:name "Groceries"
     :id (:groceries ids)
     :parent-id "abff103816fb2e5cb93778b1ea51ca45"
     :type :expense
-    :commodity {:exchange :iso4217
+    :commodity {:exchange :currency
                 :symbol "USD"}}
    {:name "Credit Card"
     :id (:credit-card ids)
     :parent-id "9ee0484c7788656a0800e28ec8cefaff"
     :type :liability
-    :commodity {:exchange :iso4217
+    :commodity {:exchange :currency
                 :symbol "USD"}}])
 
 (def ^:private transactions
@@ -135,61 +142,50 @@
              :reconciled false}]}])
 
 (def ^:private budgets
-  [{:id "cdb9ef21d19570acd3cf6a23d1a97ce8"
+  [{:id "61ed60ec54ff4ece8837ca18d5897162"
     :name "2017"
     :start-date (t/local-date 2017 1 1)
     :period :month
     :period-count 12
     :items [{:account-id (:salary ids)
-             :periods #{{:index 0
-                         :amount 1000M}
-                        {:index 1
-                         :amount 1000M}
-                        {:index 2
-                         :amount 1000M}
-                        {:index 3
-                         :amount 1000M}
-                        {:index 4
-                         :amount 1000M}
-                        {:index 5
-                         :amount 1000M}
-                        {:index 6
-                         :amount 1000M}
-                        {:index 7
-                         :amount 1000M}
-                        {:index 8
-                         :amount 1000M}
-                        {:index 9
-                         :amount 1000M}
-                        {:index 10
-                         :amount 1000M}
-                        {:index 11
-                         :amount 1000M}}}
+             :periods [1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M
+                       1000M]}
             {:account-id (:groceries ids)
-             :periods #{{:index 0
-                         :amount 200M}
-                        {:index 1
-                         :amount 200M}
-                        {:index 2
-                         :amount 250M}
-                        {:index 3
-                         :amount 250M}
-                        {:index 4
-                         :amount 275M}
-                        {:index 5
-                         :amount 275M}
-                        {:index 6
-                         :amount 200M}
-                        {:index 7
-                         :amount 200M}
-                        {:index 8
-                         :amount 250M}
-                        {:index 9
-                         :amount 250M}
-                        {:index 10
-                         :amount 275M}
-                        {:index 11
-                         :amount 275M}}}]}])
+             :periods [200M
+                       200M
+                       250M
+                       250M
+                       275M
+                       275M
+                       200M
+                       200M
+                       250M
+                       250M
+                       275M
+                       275M]}
+            {:account-id (:bonus ids)
+             :periods [0M
+                       0M
+                       0M
+                       0M
+                       0M
+                       0M
+                       0M
+                       0M
+                       0M
+                       0M
+                       0M
+                       800M]}]}])
 
 (defn- track-record
   [store record]
@@ -256,20 +252,21 @@
      :record-count 8}})
 
 (def ^:private accounts-with-commodities
-  (-> accounts
-      (concat [{:id (:401k ids)
-                :parent-id "d005a139a1aaab6899867923509b96ca"
-                :name "401k"
-                :type :asset
-                :commodity {:exchange :iso4217
-                            :symbol "USD"}}
-               {:id (:apple-401k ids)
-                :parent-id (:401k ids)
-                :name "Apple, Inc"
-                :type :asset
-                :commodity {:exchange :nasdaq
-                            :symbol "AAPL"}}])
-      set))
+  (->> accounts
+       (remove #(= "Bonus" (:name %)))
+       (concat [{:id (:401k ids)
+                 :parent-id "d005a139a1aaab6899867923509b96ca"
+                 :name "401k"
+                 :type :asset
+                 :commodity {:exchange :currency
+                             :symbol "USD"}}
+                {:id (:apple-401k ids)
+                 :parent-id (:401k ids)
+                 :name "Apple, Inc"
+                 :type :asset
+                 :commodity {:exchange :nasdaq
+                             :symbol "AAPL"}}])
+       set))
 
 (defn- test-commodity-results
   [found]

@@ -13,6 +13,7 @@
             [clj-money.views.accounts]
             [clj-money.views.transactions]
             [clj-money.views.users]
+            [clj-money.views.budgets]
             [clj-money.api.entities :as entities]
             [clj-money.dom :refer [app-element]]
             [clj-money.bootstrap :as bootstrap]
@@ -45,7 +46,12 @@
         :active? (= :accounts active-nav)
         :url "/accounts"
         :caption "Accounts"
-        :tool-tip "Click here to manage accounts."}]
+        :tool-tip "Click here to manage accounts."}
+       {:id :budgets
+        :active? (= :budgets active-nav)
+        :url "/budgets"
+        :caption "Budgets"
+        :tool-tip "Click here to manage budgets."}]
       [])
     [{:id :login
       :url "/login"

@@ -83,10 +83,18 @@
              (error-fn (extract-error response))))))))
 
 (defn get-resource
-  ([path success-fn error-fn]
-   (get-resource path {} success-fn error-fn))
-  ([path criteria success-fn error-fn]
-   (get-resource path criteria success-fn error-fn)))
+  [path success-fn error-fn]
+  (go (let [response (<! (http/get path
+                                   (append-auth (request))))]
+        (if (= 200 (:status response))
+          (success-fn (:body response))
+          (do
+            (.log js/console
+                  "Unable to get the resource at "
+                  path
+                  " from the service: "
+                  (prn-str (:body response)))
+            (error-fn (extract-error response)))))))
 
 (defn create-resource
   [path model success-fn error-fn]

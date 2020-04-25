@@ -2,7 +2,8 @@
   (:require [goog.string :as gstring]
             [clojure.string :as string]
             [cljs-time.format :as f]
-            [clj-money.macros :refer-macros [with-retry]]))
+            [clj-money.macros :refer-macros [with-retry]])
+  (:import goog.i18n.NumberFormat))
 
 (defn parse-date [str-date]
   (f/parse-local (f/formatters :date) str-date))
@@ -25,7 +26,11 @@
 (defn format-decimal
   ([value] (format-decimal value 2))
   ([value places]
-   (gstring/format (str "%." places "f") value)))
+   (.format
+     (.setMinimumFractionDigits
+       (NumberFormat. (.-DECIMAL (.-Format NumberFormat)))
+       places)
+     value)))
 
 (defn space
   "Renders an HTML non-breakable space."

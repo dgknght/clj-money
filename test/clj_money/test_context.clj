@@ -1,5 +1,7 @@
 (ns clj-money.test-context
   (:require [stowaway.core :refer [with-storage]]
+            [clj-factory.core :refer [factory]]
+            [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
             [clj-money.models.users :as users]
@@ -18,6 +20,37 @@
             [clj-money.models.identities :as idents]
             [clj-money.trading :as trading])
   (:import org.joda.time.LocalDate))
+
+(def basic-context
+  {:users (->> ["john@doe.com" "jane@doe.com"]
+               (mapv #(factory :user {:email %})))
+   :entities [{:name "Personal"
+               :user-id "john@doe.com"}
+              {:name "Business"
+               :user-id "jane@doe.com"}]
+   :commodities [{:name "US Dollar"
+                  :entity-id "Personal"
+                  :symbol "USD"
+                  :type :currency}
+                 {:name "US Dollar"
+                  :entity-id "Business"
+                  :symbol "USD"
+                  :type :currency}]
+   :accounts [{:name "Checking"
+               :entity-id "Personal"
+               :type :asset}
+              {:name "Salary"
+               :entity-id "Personal"
+               :type :income}
+              {:name "Rent"
+               :entity-id "Personal"
+               :type :expense}
+              {:name "Groceries"
+               :entity-id "Personal"
+               :type :expense}
+              {:name "Sales"
+               :entity-id "Business"
+               :type :income}]})
 
 (defn- find-in-context
   [context model-group-key model-id-key model-id]
@@ -300,12 +333,12 @@
   [context storage]
   (update-in context [:attachments] #(create-attachments storage context %)))
 
-(defn- append-budget-items
-  [budget storage context items]
-  (assoc budget :items (->> items
-                            (map #(resolve-account % context))
-                            (map #(assoc % :budget-id (:id budget)))
-                            (mapv #(budgets/create-item storage %)))))
+(defn- resolve-budget-items
+  [budget context]
+  (update-in budget
+             [:items]
+             (fn [items]
+               (map #(resolve-account % context) items))))
 
 (defn- create-budget
   [model storage]
@@ -316,8 +349,8 @@
   (mapv (fn [attributes]
           (-> attributes
               (resolve-entity context)
-              (create-budget storage)
-              (append-budget-items storage context (:items attributes))))
+              (resolve-budget-items context)
+              (create-budget storage)))
         budgets))
 
 (defn- realize-budgets

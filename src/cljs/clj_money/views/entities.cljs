@@ -106,6 +106,7 @@
                                                      :selected
                                                      {:entity-id (:id @current-entity)})
                                               (util/set-focus "name"))
+                                  :disabled (boolean @selected)
                                   :title "Click here to create a new entity."}
          (bs/icon-with-text :plus "Add")]
         (util/space)

@@ -47,8 +47,8 @@
   [[progress-type {:keys [total imported]}]]
   ^{:key (str "progress-" (name progress-type))}
   [:tr
-   [:td.col-sm-3 (name progress-type)]
-   [:td.col-sm-9.text-center
+   [:td (name progress-type)]
+   [:td.text-center
     [:div.progress
      (let [perc (* 100 (/ imported total))]
        [:div.progress-bar.text-center {:aria-valuenow imported
@@ -75,8 +75,8 @@
       [:table.table.table-hover
        [:tbody
         [:tr
-         [:th.col-sm-3 "Record Type"]
-         [:th.col-sm-9.text-center "Progress"]]
+         [:th "Record Type"]
+         [:th.text-center "Progress"]]
         (->> @progress
              (filter #(map? (second %)))
              (map progress-row))]])))

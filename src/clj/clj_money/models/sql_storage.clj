@@ -4,6 +4,11 @@
             [clj-postgresql.types]
             [stowaway.core :as storage :refer [Storage]]))
 
+(extend-protocol jdbc/ISQLValue
+  clojure.lang.Keyword
+  (sql-value [v]
+    (name v)))
+
 (defn- dispatch-model
   [model & _]
   (storage/tag model))

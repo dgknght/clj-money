@@ -1,6 +1,7 @@
 (ns clj-money.authorization.budgets
   (:refer-clojure :exclude [update])
-  (:require [clj-money.authorization :as authorization]
+  (:require [clj-money.models :as models]
+            [clj-money.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
 (defmethod authorization/allowed? [::models/budget ::authorization/manage]
@@ -10,3 +11,7 @@
 (defmethod authorization/allowed? [::models/budget-item ::authorization/manage]
   [budget-item action user]
   (owner-or-granted? budget-item user action))
+
+(defmethod authorization/scope ::models/budget
+  [_ user]
+  {[:entity :user-id] (:id user)})

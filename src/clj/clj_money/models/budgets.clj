@@ -5,15 +5,12 @@
             [clj-time.coerce :refer [to-local-date
                                      to-date-time]]
             [clj-time.periodic :refer [periodic-seq]]
-            [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.util :refer [to-sql-date
-                                    rev-args]]
+            [stowaway.core :as storage :refer [with-storage
+                                               with-transacted-storage]]
             [clj-money.coercion :as coercion]
-            [clj-money.validation :as validation]
+            [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]])
+            [clj-money.models.accounts :as accounts])
   (:import (org.joda.time LocalDate
                           Months
                           Weeks
@@ -40,28 +37,25 @@
 
 (defn- after-item-read
   [item]
-  (-> item
-      (update-in [:periods] read-string)
-      (storage/tag ::models/budget-item)))
+  (storage/tag item ::models/budget-item))
 
 (defn- select-items
   ([storage criteria]
    (select-items storage criteria {}))
   ([storage criteria options]
-   (map after-item-read
-        (storage/select storage
-                        (storage/tag criteria ::models/budget-item)
-                        options))))
+   (mapv after-item-read
+         (storage/select storage
+                         (storage/tag criteria ::models/budget-item)
+                         options))))
 
 (defn- after-read
-  [budget storage]
+  [budget]
   (when budget
     (-> budget
         (storage/tag ::models/budget)
         (update-in [:start-date] to-local-date)
         (update-in [:end-date] to-local-date)
-        (update-in [:period] keyword)
-        (assoc :items (select-items storage {:budget-id (:id budget)})))))
+        (update-in [:period] keyword))))
 
 (def ^:private coercion-rules
   [(coercion/rule :integer [:id])
@@ -75,10 +69,6 @@
    (coercion/rule :integer [:id])
    (coercion/rule :integer [:account-id])])
 
-(defn- before-validation
-  [budget & _]
-  (dissoc budget :items))
-
 (def period-map
   {:month Months/ONE
    :week Weeks/ONE
@@ -89,8 +79,10 @@
   :start-date, :period, :period-count"
   [budget]
   (when budget
-    (->> ((:period budget) period-map)
-         (periodic-seq (:start-date budget))
+    (->> (periodic-seq (:start-date budget)
+                       (get-in period-map
+                               [(:period budget)]
+                               Months/ONE))
          (partition 2 1)
          (map-indexed (fn [index [start next-start]]
                         {:start start
@@ -112,17 +104,19 @@
   [budget & _]
   (-> budget
       (storage/tag ::models/budget)
-      (assoc :end-date (to-sql-date (end-date budget)))
-      (update-in [:start-date] to-sql-date)
-      (update-in [:period] name)))
+      (update-in [:period] name)
+      (assoc :end-date (end-date budget))
+      (dissoc :items)))
 
-(def create
-  (create-fn {:before-save before-save
-              :create (rev-args storage/create)
-              :spec ::new-budget
-              :before-validation before-validation
-              :coercion-rules coercion-rules
-              :after-read after-read}))
+(defn- creation-rules
+  [_storage]
+  [])
+
+(defn- append-items
+  [budget storage options]
+  (if (:include-items? options)
+    (assoc budget :items (select-items storage {:budget-id (:id budget)}))
+    budget))
 
 (defn search
   "Returns a list of budgets matching the specified criteria"
@@ -130,14 +124,19 @@
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
    (with-storage [s storage-spec]
-     (->> (storage/select s (storage/tag criteria ::models/budget) options)
-          (map #(after-read % s))))))
+     (map (comp #(append-items % s options)
+                after-read)
+          (storage/select s
+                          (storage/tag criteria ::models/budget)
+                          options)))))
 
 (defn find-by
   ([storage-spec criteria]
    (find-by storage-spec criteria {}))
   ([storage-spec criteria options]
-   (first (search storage-spec criteria (merge options {:limit 1})))))
+   (first (search storage-spec criteria (merge {:include-items? true}
+                                               options
+                                               {:limit 1})))))
 
 (defn find-by-id
   "Returns the specified budget"
@@ -156,13 +155,35 @@
   [storage-spec budget]
   (find-by-id storage-spec (:id budget)))
 
-(def update
-  (update-fn {:spec ::existing-budget
-              :before-validation before-validation
-              :before-save before-save
-              :coercion-rules coercion-rules
-              :update (rev-args storage/update)
-              :find find-by-id}))
+(defn- update-items
+  [storage {:keys [items] :as budget}]
+  (let [existing (select-items storage {:budget-id (:id budget)})
+        current-ids (->> items
+                         (map :id)
+                         set)]
+    (doseq [removed (remove #(current-ids (:id %)) existing)]
+      (storage/delete storage removed))
+    (doseq [item (->> items
+                      (filter :id)
+                      (map #(storage/tag % ::models/budget-item)))]
+      (storage/update storage item))
+    (doseq [item (->> items
+                      (remove :id)
+                      (map #(storage/tag % ::models/budget-item))
+                      (map #(assoc % :budget-id (:id budget))))]
+      (storage/create storage item))))
+
+(defn update
+  [storage-spec budget]
+  {:pre [(sequential? (:items budget))]}
+
+  (with-storage [s storage-spec]
+    (with-validation budget ::existing-budget []
+      (as-> budget b
+        (before-save b)
+        (storage/update s b))
+      (update-items s budget)
+      (find-by-id s (:id budget)))))
 
 (defn find-item-by
   "Returns the budget item with the specified id"
@@ -200,40 +221,30 @@
        (remove #(= (:id item) (:id %)))
        empty?))
 
-(defn- item-validation-rules
+#_(defn- item-rules
   [storage budget]
-  [(validation/create-rule (partial budget-item-account-is-unique? budget)
-                           [:acount-id]
-                           "Account is already in the budget")
-   (validation/create-rule (partial budget-item-account-belongs-to-budget-entity storage budget)
-                           [:account-id]
-                           "Account must belong to the same entity as the budget")
-   (validation/create-rule (partial budget-item-has-correct-number-of-periods budget)
-                           [:periods]
-                           "Number of periods must match the budget \"Period count\" value")])
+  [(validation/create-rule
+     (partial budget-item-account-is-unique? budget)
+     [:acount-id]
+     "Account is already in the budget")
+   (validation/create-rule
+     (partial budget-item-account-belongs-to-budget-entity storage budget)
+     [:account-id]
+     "Account must belong to the same entity as the budget")
+   (validation/create-rule
+     (partial budget-item-has-correct-number-of-periods budget)
+     [:periods]
+     "Number of periods must match the budget \"Period count\" value")])
 
-(defn- validate-item
-  [item storage spec budget]
-  (validation/validate item spec (item-validation-rules storage budget)))
-
-(defn- before-save-item
-  [item]
-  (-> item
-      (storage/tag ::models/budget-item)
-      (update-in [:periods] (comp prn-str vec))))
-
-(defn create-item
-  "Adds a new budget item to an existing budget"
-  [storage-spec item]
-  (with-storage [s storage-spec]
-    (let [budget (when (:budget-id item) (find-by-id s (:budget-id item)))
-          validated (validate-item item s ::new-budget-item budget)]
-      (if (validation/has-error? validated)
-        validated
-        (->> validated
-             before-save-item
-             (storage/create s)
-             after-item-read)))))
+(defn create
+  [storage-spec budget]
+  (with-transacted-storage [s storage-spec]
+    (with-validation budget ::new-budget []
+      (let [created (after-read (storage/create s (before-save budget)))]
+        (assoc created :items (mapv (comp #(storage/create s %)
+                                          #(storage/tag % ::models/budget-item)
+                                          #(assoc % :budget-id (:id created)))
+                                    (:items budget)))))))
 
 (defn- reload-item
   "Returns the lastest version of the specified budget from the data store"
@@ -243,7 +254,7 @@
 (defn update-item
   "Updates the specified budget item"
   [storage-spec item]
-  (with-storage [s storage-spec]
+  #_(with-storage [s storage-spec]
     (let [item (coercion/coerce item item-coercion-rules)
           budget (find-by-id s (:budget-id item))
           validated (-> item

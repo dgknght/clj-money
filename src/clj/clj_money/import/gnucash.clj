@@ -366,9 +366,11 @@
                                                    :id :symbol})
                                      (update-in [:exchange] (fn [e]
                                                               (when e
-                                                                (-> e
-                                                                    s/lower-case
-                                                                    keyword))))))
+                                                                (if (= e "ISO4217")
+                                                                  :currency
+                                                                  (-> e
+                                                                      s/lower-case
+                                                                      keyword)))))))
         (vary-meta assoc :ignore? (contains? ignored-accounts (:name account))))))
 
 (defmulti ^:private refine-trading-transaction
@@ -502,31 +504,29 @@
       (update-in [:items] #(map process-transaction-item %))
       refine-trading-transaction))
 
-(defn- process-budget-item-period
-  [period]
-  (-> period
-      (rename-keys {:key :index
-                    :value :amount})
-      (update-in [:index] parse-integer)
-      (update-in [:amount] parse-decimal)))
-
 (defn- process-budget-item
-  [item]
-  (-> item
-      (rename-keys {:key :account-id})
-      (update-in [:periods] #(->> %
-                                  (map process-budget-item-period)
-                                  set))))
+  [item period-count]
+  (let [periods (->> (:periods item)
+                     (map (comp #(update-in % [1] parse-decimal)
+                                #(update-in % [0] parse-integer)
+                                (juxt :key :value)))
+                     (into {}))]
+    (-> item
+        (rename-keys {:key :account-id})
+        (assoc :periods (map #(get-in periods [%] 0M)
+                             (range period-count))))))
 
 (defmethod ^:private process-record :budget
-  [record _]
-  (-> record
-      (rename-keys {:num-periods :period-count})
-      (update-in [:period-count] parse-integer)
-      (assoc :period (-> record :recurrence :period_type keyword)
-             :start-date (-> record :recurrence :start :gdate parse-date))
-      (update-in [:items] #(map process-budget-item %))
-      (dissoc :recurrence)))
+  [{:keys [num-periods] :as record} _]
+  (let [period-count (parse-integer num-periods)]
+    (-> record
+        (assoc :period (-> record :recurrence :period_type keyword)
+               :start-date (-> record :recurrence :start :gdate parse-date)
+               :period-count period-count)
+        (update-in [:items] (fn [items]
+                              (map #(process-budget-item % period-count)
+                                   items)))
+        (select-keys [:period :period-count :start-date :items :id :name]))))
 
 (defn- process-records
   [xf]
@@ -537,10 +537,25 @@
       ([acc record]
        (xf acc (process-record record state))))))
 
+(def ^:private reporting-types
+  #{})
+
+(defn- log-records
+  [xf]
+  (completing
+    (fn [acc record]
+      (let [record-type (-> record meta :record-type)]
+        (when (reporting-types record-type)
+          (log/debugf "reporting %s: %s"
+                      (name record-type)
+                      (prn-str record))))
+      (xf acc record))))
+
 (defmethod read-source :gnucash
   [_ inputs out-chan]
   (let [records-chan (chan 1000 (comp filter-records
-                                      process-records))
+                                      process-records
+                                      log-records))
         _ (pipe records-chan out-chan)]
     (->> inputs
          (map #(GZIPInputStream. %))

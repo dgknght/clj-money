@@ -88,6 +88,9 @@
    #{:entity :account}               {:primary-table :entities
                                       :foreign-table :accounts
                                       :foreign-id    :entity_id}
+   #{:entity :budget}                {:primary-table :entities
+                                      :foreign-table :budgets
+                                      :foreign-id    :entity_id}
    #{:lot :commodity}                {:primary-table :commodities
                                       :foreign-table :lots
                                       :foreign-id    :commodity_id}

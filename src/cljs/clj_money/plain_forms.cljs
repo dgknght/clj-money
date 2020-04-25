@@ -109,6 +109,24 @@
    [specialized-text-input model field (merge options {:parse-fn parse-date
                                                        :unparse-fn unparse-date})]])
 
+(defn- parse-int
+  [text-value]
+  (when (and text-value
+             (re-find #"^\d\+$" text-value))
+    (js/parseInt text-value)))
+
+(defn integer-input
+  [model field options]
+  [specialized-text-input model field (merge options {:type :number
+                                                      :parse-fn parse-int})])
+
+(defn integer-field
+  [model field options]
+  [:div.form-group
+   [:label {:for (->id field)} (or (:caption options)
+                                   (->caption field))]
+   [integer-input model field options]])
+
 (defn- parse-float
   [text-value]
   (when (and text-value
@@ -236,6 +254,7 @@
     (fn []
       [:span
        [:input.form-control {:type :text
+                             :auto-complete :off
                              :id (->id field)
                              :name (->name field)
                              :value @text-value

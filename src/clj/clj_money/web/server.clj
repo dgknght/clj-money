@@ -32,6 +32,7 @@
             [clj-money.api.commodities :as commodities-api]
             [clj-money.api.prices :as prices-api]
             [clj-money.api.accounts :as accounts-api]
+            [clj-money.api.budgets :as budgets-api]
             [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
@@ -49,6 +50,7 @@
               imports-api/routes
               entities-api/routes
               accounts-api/routes
+              budgets-api/routes
               transactions-api/routes
               transaction-items-api/routes
               commodities-api/routes

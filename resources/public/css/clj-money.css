@@ -29,9 +29,17 @@
   margin-right: 3em;
 }
 
-.report-header td {
+.report-header td, .report-footer td {
   font-weight: bold;
   font-size: 120%;
+}
+
+.report-header td {
+  border-bottom: 1px solid black;
+}
+
+.report-footer td {
+  border-top: 1px solid black;
 }
 
 .report-summary {

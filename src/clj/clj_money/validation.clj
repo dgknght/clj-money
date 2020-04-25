@@ -196,3 +196,11 @@
       ::errors
       vals
       flatten))
+
+(defmacro with-validation
+  [model spec rules & body]
+  `(let [validated# (clj-money.validation/validate ~model ~spec ~rules)
+         f# (fn* [~model] ~@body)]
+     (if (clj-money.validation/valid? validated#)
+       (f# validated#)
+       validated#)))
