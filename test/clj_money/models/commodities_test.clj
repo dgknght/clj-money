@@ -7,7 +7,8 @@
             [clj-money.test-context :refer [realize
                                             find-entity]]
             [clj-money.validation :as validation]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
@@ -37,11 +38,14 @@
         expected [{:name "Apple"
                    :type :stock
                    :symbol "AAPL"
+                   :earliest-price nil
+                   :latest-price nil
                    :exchange :nasdaq}]
         actual (map #(dissoc % :id :entity-id :created-at :updated-at)
                     commodities)]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")
+    (pprint-diff expected actual)
     (is (= expected actual)
         "The commodity can be retrieved after create")))
 
@@ -238,22 +242,6 @@
         _ (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
         c2 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-2)))]
     (is (empty? (validation/error-messages c2)))))
-
-(deftest exchange-can-be-a-string
-  (let [context (realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (assoc (attributes context) :entity-id (str entity-id))
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})
-        expected [{:entity-id entity-id
-                   :name "Apple"
-                   :symbol "AAPL"
-                   :type :stock
-                   :exchange :nasdaq}]
-        actual (map #(dissoc % :updated-at :created-at :id) commodities)]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")
-    (is (= expected actual) "The commodity can be retrieved after create")))
 
 (deftest exchange-is-required-for-stocks
   (let [context (realize storage-spec commodity-context)

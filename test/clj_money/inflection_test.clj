@@ -1,25 +1,13 @@
 (ns clj-money.inflection-test
   (:require [clojure.test :refer [deftest is]]
-            [clj-money.inflection :refer [humanize
-                                          keywordize
-                                          ordinal
-                                          singular
-                                          plural]]))
+            [clj-money.inflection :as inf]))
 
 (deftest humanize-a-keyword
   (let [tests [{:input :test      :expected "Test"}
                {:input :test-word :expected "Test word"}
                {:input :test_word :expected "Test word"}]]
     (doseq [{:keys [input expected]} tests]
-      (is (= expected (humanize input))))))
-
-(deftest keywordize-a-string
-  (let [tests [{:input "Test"         :expected :test}
-               {:input "Another test" :expected :another-test}
-               {:input "HTML"         :expected :html}]]
-    (doseq [{:keys [input expected]} tests]
-      (is (= expected (keywordize input))
-          (format "expected \"%s\" to return %s" input expected)))))
+      (is (= expected (inf/humanize input))))))
 
 (deftest ordinalize-a-number
   (let [tests [{:input 1  :expected "1st"}
@@ -32,7 +20,7 @@
                {:input 21 :expected "21st"}
                {:input 42 :expected "42nd"}]]
     (doseq [{:keys [input expected]} tests]
-      (is (= expected (ordinal input))))))
+      (is (= expected (inf/ordinal input))))))
 
 (deftest singluraize-a-word
   (let [tests [{:input "words"    :expected "word"}
@@ -42,7 +30,7 @@
                {:input "Children" :expected "Child"}
                {:input "CHILDREN" :expected "CHILD"}]]
     (doseq [{:keys [input expected]} tests]
-      (is (= expected (singular input))))))
+      (is (= expected (inf/singular input))))))
 
 (deftest pluralize-a-word
   (let [tests [{:input "word"  :expected "words"}
@@ -50,4 +38,7 @@
                {:input "child" :expected "children"}
                {:input "baby"  :expected "babies"}]]
     (doseq [{:keys [input expected]} tests]
-      (is (= expected (plural input))))))
+      (is (= expected (inf/plural input))))))
+
+(deftest title-case-a-phrase
+  (is (= "My Important Thing" (inf/title-case "my important thing"))))

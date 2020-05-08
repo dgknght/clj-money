@@ -50,7 +50,7 @@
    [:td (name progress-type)]
    [:td.text-center
     [:div.progress
-     (let [perc (* 100 (/ imported total))]
+     (let [perc (/ imported total)]
        [:div.progress-bar.text-center {:aria-valuenow imported
                                        :aria-valuemax total
                                        :aria-valuemin 0

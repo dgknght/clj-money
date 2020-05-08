@@ -732,37 +732,35 @@
         (recalculate-account s account-id (:transaction-date transaction))))))
 
 (defn- find-last-item-before
-  [storage-spec account-id date]
+  [storage-spec account date]
   (find-item storage-spec
-             {:account-id account-id
-              :transaction-date [:< date]}
+             {:account-id (:id account)
+              :transaction-date [:between (:earliest-transaction-date account) (t/minus date (t/days 1))]}
              {:sort [[:transactions.transaction-date :desc] [:transaction_items.index :desc]]}))
 
 (defn- find-last-item-on-or-before
-  [storage-spec account-id date]
+  [storage-spec account date]
   (find-item storage-spec
-             {:account-id account-id
-              :transaction-date [:<= date]}
+             {:account-id (:id account)
+              :transaction-date [:between (:earliest-transaction-date account) date]}
              {:sort [[:transactions.transaction-date :desc]
                      [:transaction_items.index :desc]]}))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
-  [storage-spec account-id start end]
-  (let [t1 (find-last-item-before storage-spec account-id start)
-        t2 (find-last-item-on-or-before storage-spec account-id end)
-        prior-balance (if t1 (:balance t1) 0M)]
-    (if t2
-      (- (:balance t2) prior-balance)
-      0M)))
+  [storage-spec account start end]
+  (let [t1 (find-last-item-before storage-spec account start)
+        t2 (find-last-item-on-or-before storage-spec account end)]
+    (- (or (:balance t2) 0M)
+       (or (:balance t1) 0M))))
 
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
-  [storage-spec account-id as-of]
-  (let [t (find-last-item-on-or-before storage-spec account-id as-of)]
-    (if t
-      (:balance t)
-      0M)))
+  [storage-spec account as-of]
+  (or (:balance
+        (find-last-item-on-or-before storage-spec
+                                     account as-of))
+      0M))
 
 (defn find-items-by-ids
   [storage-spec ids date-range]

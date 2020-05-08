@@ -21,16 +21,18 @@
   ([value]
    (format-percent value 1))
   ([value places]
-   (str (gstring/format (str "%." places "f") value) "%")))
+   (when value
+     (gstring/format (str "%." places "f%") (* 100 value)))))
 
 (defn format-decimal
   ([value] (format-decimal value 2))
   ([value places]
-   (.format
-     (.setMinimumFractionDigits
-       (NumberFormat. (.-DECIMAL (.-Format NumberFormat)))
-       places)
-     value)))
+   (let [number-format (doto (NumberFormat. (.-DECIMAL (.-Format NumberFormat)))
+                         (.setMaximumFractionDigits places)
+                         (.setMinimumFractionDigits places))]
+     (.format
+       number-format
+       value))))
 
 (defn space
   "Renders an HTML non-breakable space."

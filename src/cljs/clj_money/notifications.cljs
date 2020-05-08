@@ -21,7 +21,7 @@
 (defn danger-fn
   [msg-format]
   (fn [msg]
-    (danger (gstr/format msg-format msg))))
+    (danger (gstr/format msg-format (or (:message msg) msg)))))
 
 (defn unnotify
   [notification]

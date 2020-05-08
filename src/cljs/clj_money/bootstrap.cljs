@@ -141,31 +141,33 @@
    message])
 
 (defn nav-tabs
-  [items]
-  [:ul.nav.nav-tabs
-   (doall (for [{:keys [active?
-                        disabled?
-                        hidden?
-                        on-click
-                        caption
-                        elem-key]} items]
-            ^{:key elem-key}
-            [:li.nav-item
-             [:a.nav-link {:href "#"
-                           :on-click on-click
-                           :class (cond
-                                    active? "active"
-                                    disabled? "disabled"
-                                    hidden? "d-none")}
-              caption]]))])
+  ([items]
+   (nav-tabs {} items))
+  ([options items]
+   [:ul.nav.nav-tabs options
+    (doall (for [{:keys [active?
+                         disabled?
+                         hidden?
+                         on-click
+                         caption
+                         elem-key]} items]
+             ^{:key elem-key}
+             [:li.nav-item
+              [:a.nav-link {:href "#"
+                            :on-click on-click
+                            :class (cond
+                                     active? "active"
+                                     disabled? "disabled"
+                                     hidden? "d-none")}
+               caption]]))]))
 
 (defn- page-item
   [index state]
   ^{:key (str "page-item-" index)}
-  [:li {:class (when (= index (get-in @state [:page-index]))
-                 "active")}
-   [:a {:href "#"
-        :on-click #(swap! state assoc :page-index index)}
+  [:li.page-item {:class (when (= index (get-in @state [:page-index]))
+                           "active")}
+   [:a.page-link {:href "#"
+                  :on-click #(swap! state assoc :page-index index)}
     (inc index)]])
 
 (defn pagination

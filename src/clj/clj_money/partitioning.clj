@@ -1,13 +1,11 @@
 ; should this really exist in sql-storage?
 (ns clj-money.partitioning
   (:require [clojure.java.jdbc :as jdbc]
-            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-local-date]]
             [clj-time.periodic :refer [periodic-seq]]
             [environ.core :refer [env]]
             [selmer.parser :refer [render]]
-            [honeysql.core :as sql]
             [clj-money.x-platform.util :refer [desc-periodic-seq]]))
 
 (defn partition-period
@@ -151,7 +149,6 @@
                   (keyword %)))
           (reduce (fn [records# table#]
                     (let [sql# (sql-fn# table#)
-                          _logresult# (log/debugf "partitioned select from %s: %s" ~table-name (prn-str (sql/format sql#)))
                           found-records# (~exec-fn sql#)
                           updated-records# (concat records# found-records#)]
                       (if (limit-reached? updated-records# ~options)

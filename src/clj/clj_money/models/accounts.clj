@@ -74,6 +74,14 @@
                             nil))
       (dissoc :commodity)))
 
+(defn- dissoc-if-nil
+  "Removes the key from the map if the value is nil"
+  [m k]
+  (if (and (contains? m k)
+           (nil? (get-in m [k])))
+    (dissoc m k)
+    m))
+
 (defn- after-read
   "Adjusts account data read from the database for use"
   [account & _]
@@ -82,26 +90,8 @@
       (update-in [:tags] #(->> %
                                (map keyword)
                                set))
-      (assoc :commodity {:name (:commodity-name account)
-                         :symbol (:commodity-symbol account)
-                         :type (keyword (:commodity-type account))
-                         :default (= (:commodity-id account)
-                                     (-> account
-                                         :entity-settings
-                                         safe-read-string
-                                         :default-commodity-id))
-                         #_:exchange #_(:commodity-exchange account)})
-      (dissoc :commodity-name
-              :commodity-symbol
-              :commodity-type
-              :commodity-exchange
-              :entity-settings)
       (storage/tag ::models/account)
-      (cond->
-        (and ; Remove :parent-id if it's nil
-             (contains? account :parent-id)
-             (nil? (:parent-id account)))
-        (dissoc :parent-id))))
+      (dissoc-if-nil :parent-id)))
 
 (defn search
   ([storage-spec criteria]

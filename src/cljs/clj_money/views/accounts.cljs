@@ -298,12 +298,12 @@
   [item page-state]
   (let [account (r/cursor page-state [:view-account])]
     ^{:key (str "item-row-" (:id item))}
-    [:tr
-     [:td.text-right (util/format-date (:transaction-date item))]
-     [:td (:description item)]
-     [:td.text-right (currency-format (polarize-quantity item @account))]
-     [:td.text-right (currency-format (:balance item))]
-     [:td
+    [:tr.d-flex
+     [:td.col-2.text-right (util/format-date (:transaction-date item))]
+     [:td.col-4 (:description item)]
+     [:td.col-2.text-right (currency-format (polarize-quantity item @account))]
+     [:td.col-2.text-right (currency-format (:balance item))]
+     [:td.col-2
       [:div.btn-group
        [:button.btn.btn-info.btn-sm {:on-click #(edit-transaction item page-state)
                                    :title "Click here to edit this transaction."}
@@ -318,12 +318,12 @@
     (fn []
       [:table.table.table-striped.table-hover
        [:thead
-        [:tr
-         [:th.col-sm-2.text-right "Date"]
-         [:th.col-sm-3 "Description"]
-         [:th.col-sm-2.text-right "Amount"]
-         [:th.col-sm-2.text-right "Balance"]
-         [:th.col-sm-2 (util/space)]]]
+        [:tr.d-flex
+         [:th.col-2.text-right "Date"]
+         [:th.col-4 "Description"]
+         [:th.col-2.text-right "Amount"]
+         [:th.col-2.text-right "Balance"]
+         [:th.col-2 (util/space)]]]
        [:tbody
         (if @items
           (doall (map #(item-row % page-state) @items))
@@ -556,50 +556,50 @@
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])]
     (fn []
-      (when @transaction
-        [:div.card
-         [:div.card-header
-          [:strong (if (:id @transaction)
-                     "Edit Transaction"
-                     "New Transaction")]]
-         [:div.card-body
-          (nav-tabs (map #(transaction-form-nav-tab (first %) (second %) page-state)
-                         (transaction-form-nav-items page-state)))
-          [:div.transaction-form-container
-           [full-transaction-form page-state]
-           [simple-transaction-form page-state]
-           [trade-transaction-form page-state]]]
-         [:div.card-footer
-          [:button.btn.btn-primary {:on-click #(save-transaction page-state)
-                                    :title "Click here to save the transaction"}
-           (bs/icon-with-text :check "Save")]
+      [:div.card
+       [:div.card-header
+        [:strong (if (:id @transaction)
+                   "Edit Transaction"
+                   "New Transaction")]]
+       [:div.card-body
+        (nav-tabs (map #(transaction-form-nav-tab (first %) (second %) page-state)
+                       (transaction-form-nav-items page-state)))
+        [:div.transaction-form-container
+         [full-transaction-form page-state]
+         [simple-transaction-form page-state]
+         [trade-transaction-form page-state]]]
+       [:div.card-footer
+        [:button.btn.btn-primary {:on-click #(save-transaction page-state)
+                                  :title "Click here to save the transaction"}
+         (bs/icon-with-text :check "Save")]
 
-          (util/space)
-          [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :transaction)
-                                   :title "Click here to cancel this transaction"}
-           (bs/icon-with-text :x "Cancel")]]]))))
+        (util/space)
+        [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :transaction)
+                                 :title "Click here to cancel this transaction"}
+         (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- currency-account-details
   [page-state]
   (let [ctl-chan (r/cursor page-state [:ctl-chan])
-        more-items? (r/cursor page-state [:more-items?])]
+        more-items? (r/cursor page-state [:more-items?])
+        transaction (r/cursor page-state [:transaction])]
     (init-item-loading page-state)
     (fn []
-      [:section
-       [:div.row
-        [:div.col-md-6
-         [:div.card
-          [:div.card-header [:strong "Transaction Items"]]
-          [:div#items-container {:style {:max-height "40em" :overflow "auto"}}
-           [items-table page-state]]
-          [:div.card-footer.d-flex.align-items-center
-           [account-buttons page-state]
-           [:span.ml-auto
-            [load-on-scroll {:target "items-container"
-                             :can-load-more? (fn [] @more-items?)
-                             :load-fn #(go (>! @ctl-chan :fetch))}]]]]]
-        [:div.col-md-6
-         [transaction-form page-state]]]])))
+      [:div.row
+       [:div.col {:style {:max-width "50em"}}
+        [:div.card
+         [:div.card-header [:strong "Transaction Items"]]
+         [:div#items-container {:style {:max-height "40em" :overflow "auto"}}
+          [items-table page-state]]
+         [:div.card-footer.d-flex.align-items-center
+          [account-buttons page-state]
+          [:span.ml-auto
+           [load-on-scroll {:target "items-container"
+                            :can-load-more? (fn [] @more-items?)
+                            :load-fn #(go (>! @ctl-chan :fetch))}]]]]]
+       (when @transaction
+         [:div.col
+          [transaction-form page-state]])])))
 
 (defn- lots-table
   [page-state]
@@ -619,7 +619,7 @@
                                         (reduce +)))
         gain-loss (make-reaction #(- @total-value @total-cost))]
     (fn []
-      [:table.table.table-striped
+      [:table.table.table-hover.table-borderless
        [:thead
         [:tr
          [:th.text-right "Purchase Date"]
@@ -640,9 +640,15 @@
                     [:td.text-right (util/format-decimal (:shares-purchased lot) 4)]
                     [:td.text-right (util/format-decimal (:shares-owned lot) 4)]
                     [:td.text-right (util/format-decimal (:purchase-price lot) 2)]
-                    [:td.text-right {:class (if (> g-l) "success" "danger")}
+                    [:td.text-right
+                     {:class (if (>= g-l 0M)
+                               "text-success"
+                               "text-danger")}
                      (util/format-decimal g-l)]
-                    [:td.text-right {:class (if (> @gain-loss) "success" "danger")}
+                    [:td.text-right
+                     {:class (if (>= @gain-loss 0M)
+                               "text-success"
+                               "text-danger")}
                      (util/format-percent (/ g-l
                                              (* (:shares-purchased lot)
                                                 (:purchase-price lot)))
@@ -656,9 +662,9 @@
                          (util/format-date (:trade-date @latest-price))))]
          [:td.text-right (util/format-decimal @total-shares 4)]
          [:td.text-right (currency-format @total-value)]
-         [:td.text-right {:class (if (> @gain-loss) "text-success" "text-danger")}
+         [:td.text-right {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
           (currency-format @gain-loss)]
-         [:td.text-right {:class (if (> @gain-loss) "text-success" "text-danger")}
+         [:td.text-right {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
           (util/format-percent (/ @gain-loss
                                   @total-cost)
                                3)]]]])))
@@ -668,7 +674,7 @@
   (let [items (r/cursor page-state [:items])
         account  (r/cursor page-state [:view-account])]
     (fn []
-      [:table.table.table-striped
+      [:table.table.table-hover.table-borderless
        [:thead
         [:tr
          [:th.text-right "Transaction Date"]
@@ -688,7 +694,8 @@
 
 (defn- tradable-account-details
   [page-state]
-  (let [account (r/cursor page-state [:view-account])
+  (let [current-nav (r/atom :lots)
+        account (r/cursor page-state [:view-account])
         {:keys [parent-id
                 commodity-id
                 id
@@ -714,17 +721,17 @@
                    (notify/danger-fn "Unable to load the prices: %s"))
     (fn []
       [:section
-       [:div.row
-        [:div.col-md-12
-         [:h2 (:name @account)]]]
-       [:div.row
-        [:div.col-md-7
-         [:h3 "Lots"]
-         [lots-table page-state]]]
-       [:div.row
-        [:div.col-md-8
-         [:h3 "Transactions"]
-         [fund-transactions-table page-state]]]
+       (bs/nav-tabs [{:caption "Lots"
+                      :elem-key :lots
+                      :active? (= :lots @current-nav)
+                      :on-click #(reset! current-nav :lots)}
+                     {:caption "Transactions"
+                      :elem-key :transactions
+                      :active? (= :transactions @current-nav)
+                      :on-click #(reset! current-nav :transactions)}])
+       (case @current-nav
+         :lots         [lots-table page-state]
+         :transactions [fund-transactions-table page-state])
        [:div.row
         [:div.col-md-6
          (util/button "Buy/Sell"
@@ -752,7 +759,7 @@
                        #(swap! page-state assoc :commodities %)
                        notify/danger))
 
-(defn- accounts-page []
+(defn- index []
   (let [page-state (r/atom {:expanded #{}
                             :ctl-chan (chan)
                             :transaction-entry-mode :simple
@@ -761,11 +768,7 @@
         view-account (r/cursor page-state [:view-account])]
     (load-accounts page-state)
     (load-commodities page-state)
-    (add-watch app-state :current-entity (fn [field _sender _before after]
-                                           (swap! page-state assoc :accounts [] :commodities [])
-                                           (when (get-in after [field])
-                                             (load-accounts page-state)
-                                             (load-commodities page-state))))
+    
     (fn []
       [:div.mt-5
        [:div.accounts-header
@@ -779,4 +782,4 @@
          [account-details page-state])])))
 
 (secretary/defroute "/accounts" []
-  (swap! app-state assoc :page #'accounts-page))
+  (swap! app-state assoc :page #'index))

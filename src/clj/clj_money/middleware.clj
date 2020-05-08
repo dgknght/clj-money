@@ -54,4 +54,11 @@
             (status 500)
             (header "Content-Type" "application/json")))
       (catch [:type :clj-money.authorization/unauthorized] error-data
-        (api/not-found)))))
+        (api/not-found))
+      (catch Exception e
+        (api/log-error e "unexpected error")
+        (-> {:message (str "unexpected error: " (or (.getMessage e)
+                                                    (.getClass e)))}
+            response
+            (status 500)
+            (header "Content-Type" "application/json"))))))

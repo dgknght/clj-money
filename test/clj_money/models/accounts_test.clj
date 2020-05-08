@@ -68,21 +68,13 @@
                    :tags #{}
                    :quantity 0M
                    :value 0M
-                   :entity-id entity-id
-                   :commodity {:symbol "USD"
-                               :name "US Dollar"
-                               :type :currency
-                               :default true}}
+                   :entity-id entity-id}
                   {:name "Credit card"
                    :type :liability
                    :tags #{}
                    :quantity 0M
                    :value 0M
-                   :entity-id entity-id
-                   :commodity {:symbol "USD"
-                               :name "US Dollar"
-                               :type :currency
-                               :default true}}]]
+                   :entity-id entity-id}]]
     (is (= expected actual) "It returns the correct accounts")))
 
 (def ^:private nested-context
@@ -170,7 +162,6 @@
                                             :entity-id
                                             :tags
                                             :commodity-id
-                                            :commodity
                                             :quantity
                                             :value])))
         expected [{:name "Checking"
@@ -178,10 +169,6 @@
                    :entity-id (:id entity)
                    :tags #{:something-special}
                    :commodity-id (:id usd)
-                   :commodity {:name "US Dollar"
-                               :symbol "USD"
-                               :type :currency
-                               :default true}
                    :quantity 0M
                    :value 0M}]]
     (is (empty? (validation/error-messages result))

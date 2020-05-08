@@ -1,6 +1,7 @@
 (ns clj-money.models.lots
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
+            [clojure.tools.logging :as log]
             [clj-time.coerce :refer [to-local-date]]
             [stowaway.core :as storage :refer [with-storage]]
             [clj-money.util :refer [to-sql-date
@@ -11,6 +12,7 @@
             [clj-money.models.helpers :refer [create-fn
                                               update-fn]]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
 (s/def ::id integer?)
@@ -111,11 +113,16 @@
               :find find-by-id}))
 
 (defn- lot-unrealized-gains
-  [price-fn {:keys [purchase-price
-                        commodity-id
-                        shares-owned]}]
+  [{:keys [purchase-price
+           commodity-id
+           shares-owned]}
+   price-map]
   (let [cost (* purchase-price shares-owned)
-        value (* (price-fn commodity-id) shares-owned)]
+        price (or (price-map commodity-id)
+                  0M)
+        value (* price shares-owned)]
+    (when (= 0M price)
+      (log/errorf "Unable to find price for commodity %s to calculate unrealized gains" commodity-id))
     (- value cost)))
 
 (defn unrealized-gains
@@ -123,14 +130,14 @@
   (with-storage [s storage-spec]
     (let [lots (search s {[:commodity :entity-id] entity-id
                           :purchase-date [:<= as-of]})
-          commodity-prices (->> lots
-                                (map :commodity-id)
-                                (into #{})
-                                (map #(vector % (:price (prices/most-recent s % as-of))))
-                                (into {}))
-          price-fn #(commodity-prices %)]
+          commodity-prices (->> (commodities/search s {:id (->> lots
+                                                                (map :commodity-id)
+                                                                set)})
+                                (map (juxt :id
+                                           #(:price (prices/most-recent s % as-of))))
+                                (into {}))]
       (->> lots
-           (map #(lot-unrealized-gains price-fn %))
+           (map #(lot-unrealized-gains % commodity-prices))
            (reduce + 0M)))))
 
 (defn delete

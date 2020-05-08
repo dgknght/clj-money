@@ -38,6 +38,10 @@
              (recur (<! c)))
     c))
 
+(defn- strip-account-ids
+  [items]
+  (map #(dissoc % :id) items))
+
 (defn- path->image
   [path]
   (let [ext (file-ext path)
@@ -170,7 +174,7 @@
 
 (defn- test-import
   [context]
-  (let [imp (-> context :imports first)
+  (let [imp (find-import context "Personal")
         updates (atom [])
         progress-chan (chan)
         _ (go-loop [p (<! progress-chan)]
@@ -178,8 +182,7 @@
                    (recur (<! progress-chan)))
         {:keys [entity wait]} (import-data storage-spec imp progress-chan {:atomic? true})
         _ @wait
-        actual-accounts (->> {:entity-id (:id entity)}
-                             (accounts/search storage-spec)
+        actual-accounts (->> (accounts/search storage-spec {:entity-id (:id entity)})
                              (sort-by :name)
                              (map #(select-keys % [:name
                                                    :type
@@ -187,20 +190,24 @@
                                                    :quantity
                                                    :value
                                                    :tags])))
-        expected-accounts (->> expected-accounts
-                               (map #(assoc % :tags #{}))
-                               (map #(update-in %
-                                                [:commodity-id]
-                                                (fn [sym]
-                                                  (->> {:entity-id (:id entity)
-                                                        :symbol sym}
-                                                       (commodities/search storage-spec)
-                                                       first
-                                                       :id)))))
-        actual-inc-stmt (reports/income-statement storage-spec
-                                                  (:id entity))
-        actual-bal-sheet (reports/balance-sheet storage-spec
-                                                (:id entity))]
+        expected-accounts (map #(-> %
+                                    (assoc :tags #{})
+                                    (update-in [:commodity-id]
+                                               (fn [sym]
+                                                 (:id (commodities/find-by
+                                                        storage-spec
+                                                        {:entity-id (:id entity)
+                                                         :symbol sym})))))
+                               expected-accounts)
+        actual-inc-stmt (strip-account-ids
+                          (reports/income-statement storage-spec
+                                                    entity
+                                                    (t/local-date 2015 1 1)
+                                                    (t/local-date 2017 12 31)))
+        actual-bal-sheet (strip-account-ids
+                           (reports/balance-sheet storage-spec
+                                                  entity
+                                                  (t/local-date 2017 12 31)))]
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (pprint-diff expected-accounts actual-accounts)
     (is (= expected-accounts actual-accounts)
@@ -259,13 +266,13 @@
         user (find-user context "john@doe.com")
         imp (find-import context "Personal")
         _ (import-data storage-spec imp (nil-chan) {:atomic? true})
-        entity (entities/find-by (env :db)  {:user-id  (:id user)})
+        entity (entities/find-by (env :db) {:user-id (:id user)})
         salary (accounts/find-by (env :db) {:name "Salary"
-                                           :entity_id  (:id entity)})
+                                            :entity_id (:id entity)})
         groceries (accounts/find-by (env :db) {:name "Groceries"
-                                           :entity_id  (:id entity)})
+                                               :entity_id (:id entity)})
         bonus (accounts/find-by (env :db) {:name "Bonus"
-                                           :entity_id  (:id entity)})
+                                           :entity_id (:id entity)})
         actual (-> (budgets/find-by storage-spec
                                     {:entity-id (:id entity)})
                    (dissoc :id :updated-at :created-at)
@@ -364,7 +371,7 @@
 
 (deftest import-commodities-with-extended-actions
   (let [context (realize storage-spec ext-commodities-context)
-        {:keys [entity]} (import-data storage-spec
+        {:keys [entity] :as r} (import-data storage-spec
                                       (-> context :imports first)
                                       (nil-chan)
                                       {:atomic? true})

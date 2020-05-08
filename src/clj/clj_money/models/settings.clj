@@ -45,14 +45,35 @@
     (storage/update s (before-save setting))
     (find-by s {:name (:name setting)})))
 
-(defn put
-  [storage-spec name value]
+(def ^:private settings-cache (atom {}))
+
+(defn- same-as-cached?
+  [setting-name value]
+  (when-let [retrieved (get-in @settings-cache [setting-name])]
+    (= value retrieved)))
+
+(defn- put*
+  [storage-spec setting-name value]
   (with-storage [s storage-spec]
-    (if-let [existing (find-by s {:name name})]
+    (if-let [existing (find-by s {:name setting-name})]
       (update storage-spec (assoc existing :value value))
-      (create storage-spec {:name name
+      (create storage-spec {:name setting-name
                             :value value}))))
+
+(defn put
+  [storage-spec setting-name value]
+  (when-not (same-as-cached? setting-name value)
+    (swap! settings-cache dissoc setting-name)
+    (put* storage-spec setting-name value)))
+
+(defn- get*
+  [storage-spec setting-name]
+  (:value (find-by storage-spec {:name setting-name})))
 
 (defn get
   [storage-spec setting-name]
-  (:value (find-by storage-spec {:name setting-name})))
+  (if-let [value (get-in @settings-cache [setting-name])]
+    value
+    (let [retrieved (get* storage-spec setting-name)]
+      (swap! settings-cache assoc setting-name retrieved)
+      retrieved)))

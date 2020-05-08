@@ -13,15 +13,8 @@
 
 (defmethod stg/select ::models/account
   [criteria options db-spec]
-  (let [sql (-> (select :accounts.*
-                          [:c.name :commodity-name]
-                          [:c.symbol :commodity-symbol]
-                          [:c.type :commodity-type]
-                          [:c.exchange :commodity-exchange]
-                          [:entities.settings :entity-settings])
+  (let [sql (-> (select :accounts.*)
                 (from :accounts)
-                (join [:commodities :c] [:= :c.id :accounts.commodity-id]
-                        :entities [:= :entities.id :accounts.entity-id])
                 (apply-criteria criteria {:target :account
                                         :prefix :accounts})
                 (apply-limit options))]

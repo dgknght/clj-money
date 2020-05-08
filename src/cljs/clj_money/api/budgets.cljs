@@ -51,8 +51,6 @@
 
 (defn save
   [budget success-fn error-fn]
-  {:pre [(sequential? (:items budget))]}
-
   (let [f (if (:id budget)
             update 
             create)]

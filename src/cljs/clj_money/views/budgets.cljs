@@ -91,7 +91,7 @@
 
 (defn- save-budget
   [page-state]
-  (api/save (:selected @page-state)
+  (api/save (dissoc (:selected @page-state) :items)
             (fn []
               (load-budgets page-state)
               (swap! page-state dissoc :selected))

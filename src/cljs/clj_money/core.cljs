@@ -4,9 +4,14 @@
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
+            [clj-money.inflection :refer [humanize
+                                          plural]]
             [clj-money.state :refer [app-state
+                                     current-user
+                                     current-entity
                                      logout]]
             [clj-money.notifications :as notify]
+            [clj-money.util :as util]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -14,6 +19,7 @@
             [clj-money.views.transactions]
             [clj-money.views.users]
             [clj-money.views.budgets]
+            [clj-money.views.reports]
             [clj-money.api.entities :as entities]
             [clj-money.dom :refer [app-element]]
             [clj-money.bootstrap :as bootstrap]
@@ -27,31 +33,48 @@
 (secretary/defroute "/" []
   (swap! app-state assoc :page #'home-page))
 
+(defn- nil-page []
+  (util/space))
+
 (defn- entity->nav-item
   [{:keys [id name] :as entity}]
   {:id id
    :caption name
-   :on-click #(swap! app-state assoc :current-entity entity)})
+   :on-click (fn []
+               (let [page (get-in @app-state [:page])]
+                 (swap! app-state assoc :page #'nil-page)
+                 (js/setTimeout
+                     #(swap! app-state assoc
+                             :current-entity entity
+                             :page page)
+                     5)))})
+
+(def authenticated-nav-items
+  [{:id :commodities}
+   {:id :accounts}
+   {:id :budgets}
+   {:id :reports
+    :tool-tip "Click here to view reports"}])
+
+(defn- assoc-if-nil
+  [m k v]
+  (if (get-in m [k])
+    m
+    (assoc m k v)))
 
 (defn- nav-items
   [current-user current-entity active-nav]
   (if current-user
     (if current-entity
-      [{:id :commodities
-        :active? (= :commodities active-nav)
-        :url "/commodities"
-        :caption "Commodities"
-        :tool-tip "Click here to manage commodities."}
-       {:id :accounts
-        :active? (= :accounts active-nav)
-        :url "/accounts"
-        :caption "Accounts"
-        :tool-tip "Click here to manage accounts."}
-       {:id :budgets
-        :active? (= :budgets active-nav)
-        :url "/budgets"
-        :caption "Budgets"
-        :tool-tip "Click here to manage budgets."}]
+      (map (fn [{:keys [id] :as item}]
+             (-> item
+                 (assoc-if-nil :caption (humanize id))
+                 (assoc-if-nil :url (str "/" (name id)))
+                 (assoc-if-nil :active? (= id active-nav))
+                 (assoc-if-nil :tool-type (str "Click here to manage "
+                                               (plural (humanize id))
+                                               "."))))
+           authenticated-nav-items)
       [])
     [{:id :login
       :url "/login"
@@ -91,8 +114,6 @@
 
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])
-        current-user (r/cursor app-state [:current-user])
-        current-entity (r/cursor app-state [:current-entity])
         entities (r/cursor app-state [:entities])]
     (fn []
       (let [items (nav-items @current-user @current-entity @active-nav)
@@ -132,21 +153,22 @@
     (dissoc state :current-entity)))
 
 (defn- sign-in-from-cookie []
-  (when-let [auth-token (cookies/get :auth-token)]
-    (swap! app-state assoc :auth-token auth-token)
-    (users/me
-      #(swap! app-state assoc :current-user %)
-      (notify/danger-fn "Unable to get information for the user: %s"))
-    (entities/get-all
-      (fn [[entity :as result]]
-        (swap! app-state (fn [s]
-                           (-> s
-                               (assoc :entities result)
-                               (set-default-entity entity))))
-        (if entity
-          (secretary/dispatch! "/accounts")
-          (secretary/dispatch! "/entities")))
-      (notify/danger-fn "Unable to get the entities: %s"))))
+  (when-not @current-user
+    (when-let [auth-token (cookies/get :auth-token)]
+      (swap! app-state assoc :auth-token auth-token)
+      (users/me
+        #(swap! app-state assoc :current-user %)
+        (notify/danger-fn "Unable to get information for the user: %s"))
+      (entities/get-all
+        (fn [[entity :as result]]
+          (swap! app-state (fn [s]
+                             (-> s
+                                 (assoc :entities result)
+                                 (set-default-entity entity))))
+          (if entity
+            (secretary/dispatch! "/")
+            (secretary/dispatch! "/entities")))
+        (notify/danger-fn "Unable to get the entities: %s")))))
 
 (defn init! []
   (accountant/configure-navigation!

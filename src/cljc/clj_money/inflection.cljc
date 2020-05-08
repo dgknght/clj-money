@@ -1,6 +1,30 @@
 (ns clj-money.inflection
   (:require [clojure.string :as string]))
 
+(def ^:private title-case-ignore-patterns
+  [#"^\s+$"
+   #"^[A-Z]+$"])
+
+(defn- title-case-ignore?
+  [word]
+  (some #(re-matches % word) title-case-ignore-patterns))
+
+(defn- title-case-word
+  [word]
+  (if (title-case-ignore? word)
+    word
+    (string/capitalize word)))
+
+(defn title-case
+  "Renders the string in title case. E.g.
+  (title-case \"my important thing\") => \"My Important Thing\""
+  [s]
+  (->> (-> s
+           (string/replace "-" " ")
+           (string/split #"\b"))
+       (map title-case-word)
+       (string/join "")))
+
 (defn humanize
   "Accepts a value in kabob case and returns the value in human friendly form"
   [value]
@@ -9,23 +33,18 @@
       (string/replace #"[_-]" " ")
       string/capitalize))
 
-(defn keywordize
-  "Accepts a human-friendly string and returns a kabob-case keyword"
-  [value]
-  (-> value
-      (string/replace #"\b[A-Z]+" #(string/lower-case %1))
-      (string/replace #"\s+" "-")
-      keyword))
-
 (defn ordinal
   "Accepts a number and returns a string expressing the value
   as an ordinal. E.g., 1 => '1st'"
   [number]
-  (let [rules [{:pattern #"(?<!1)1\z"
+  number
+  (let [rules [{:pattern #"\A1[1-3]\z"
+                :suffix "th"}
+               {:pattern #"1\z"
                 :suffix  "st"}
-               {:pattern #"(?<!1)2\z"
+               {:pattern #"2\z"
                 :suffix "nd"}
-               {:pattern #"(?<!1)3\z"
+               {:pattern #"3\z"
                 :suffix "rd"}
                {:pattern #"."
                 :suffix "th"}]

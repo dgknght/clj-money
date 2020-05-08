@@ -26,7 +26,9 @@
                 :type
                 :symbol
                 :exchange
-                :entity-id))
+                :entity-id
+                :earliest-price
+                :latest-price))
 
 (defmethod stg/update ::models/commodity
   [commodity db-spec]
@@ -35,7 +37,9 @@
                 :type
                 :name
                 :symbol
-                :exchange))
+                :exchange
+                :earliest-price
+                :latest-price))
 
 (defmethod stg/delete ::models/commodity
   [{:keys [id]} db-spec]

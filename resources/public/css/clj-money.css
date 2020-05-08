@@ -18,15 +18,19 @@
 }
 .value-depth-1 {
   display: block;
-  margin-right: 1em;
+  margin-right: 2em;
 }
 .value-depth-2 {
   display: block;
-  margin-right: 2em;
+  margin-right: 4em;
 }
 .value-depth-3 {
   display: block;
-  margin-right: 3em;
+  margin-right: 6em;
+}
+.value-depth-4 {
+  display: block;
+  margin-right: 8em;
 }
 
 .report-header td, .report-footer td {
@@ -34,15 +38,16 @@
   font-size: 120%;
 }
 
-.report-header td {
+.report-header td, .report-header th {
   border-bottom: 1px solid black;
 }
 
-.report-footer td {
+.report-footer td, .report-footer th {
   border-top: 1px solid black;
 }
 
 .report-summary {
+  border-top: 1px solid black;
   font-weight: bold;
   font-size: 120%;
 }

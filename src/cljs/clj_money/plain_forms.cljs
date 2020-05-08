@@ -70,7 +70,8 @@
                 parse-fn :parse-fn
                 unparse-fn :unparse-fn
                 :or {input-type :text
-                     unparse-fn str}}]
+                     unparse-fn str}
+                :as options}]
   (let [text-value (r/atom (unparse-fn (get-in @model field)))]
     (add-watch model field (fn [_field _sender before after]
                              (let [b (get-in before field)
@@ -78,16 +79,18 @@
                                (when (and a (not b))
                                  (reset! text-value (unparse-fn a))))))
     (fn []
-      [:input.form-control {:type input-type
-                            :name (->name field)
-                            :id (->id field)
-                            :value @text-value
-                            :on-change (fn [e]
-                                         (let [new-value (.-value (.-target e))
-                                               parsed (parse-fn new-value)]
-                                           (when parsed
-                                             (swap! model assoc-in field parsed))
-                                           (reset! text-value new-value)))}])))
+      [:input.form-control (merge (select-keys options [:placeholder
+                                                        :class])
+                                  {:type input-type
+                                   :name (->name field)
+                                   :id (->id field)
+                                   :value @text-value
+                                   :on-change (fn [e]
+                                                (let [new-value (.-value (.-target e))
+                                                      parsed (parse-fn new-value)]
+                                                  (when parsed
+                                                    (swap! model assoc-in field parsed))
+                                                  (reset! text-value new-value)))})])))
 
 (defn- parse-date
   [date-string]
@@ -101,18 +104,22 @@
     (tf/unparse (tf/formatter "M/d/yyyy") date)
     ""))
 
+(defn date-input
+  [model field options]
+  [specialized-text-input model field (merge options {:parse-fn parse-date
+                                                      :unparse-fn unparse-date})])
+
 (defn date-field
   [model field options]
   [:div.form-group
    [:label {:for field} (or (:caption options)
                             (->caption field))]
-   [specialized-text-input model field (merge options {:parse-fn parse-date
-                                                       :unparse-fn unparse-date})]])
+   [date-input model field options]])
 
 (defn- parse-int
   [text-value]
   (when (and text-value
-             (re-find #"^\d\+$" text-value))
+             (re-find #"^\d+$" text-value))
     (js/parseInt text-value)))
 
 (defn integer-input
@@ -178,7 +185,9 @@
                                           (swap! model assoc-in field (if (empty? value)
                                                                         nil
                                                                         value))))}
-     (->> items
+     (->> (if (coll? items)
+            items
+            @items)
           (map (comp #(if (= (get-in % [1 :value]) (get-in @model field))
                         (update-in % [1] assoc :selected true)
                         %)

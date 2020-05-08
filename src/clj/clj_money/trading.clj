@@ -539,7 +539,7 @@
            shares]
     s :storage
     :as context}]
-  (let [price (prices/most-recent s (:id commodity) transfer-date)
+  (let [price (prices/most-recent s commodity transfer-date)
         value (* shares (:price price))
         transaction (transactions/create s {:entity-id (:entity-id commodity)
                                             :transaction-date transfer-date

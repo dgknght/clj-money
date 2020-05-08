@@ -157,21 +157,22 @@
 
 (defn- update-items
   [storage {:keys [items] :as budget}]
-  (let [existing (select-items storage {:budget-id (:id budget)})
-        current-ids (->> items
-                         (map :id)
-                         set)]
-    (doseq [removed (remove #(current-ids (:id %)) existing)]
-      (storage/delete storage removed))
-    (doseq [item (->> items
-                      (filter :id)
-                      (map #(storage/tag % ::models/budget-item)))]
-      (storage/update storage item))
-    (doseq [item (->> items
-                      (remove :id)
-                      (map #(storage/tag % ::models/budget-item))
-                      (map #(assoc % :budget-id (:id budget))))]
-      (storage/create storage item))))
+  (when items
+    (let [existing (select-items storage {:budget-id (:id budget)})
+          current-ids (->> items
+                           (map :id)
+                           set)]
+      (doseq [removed (remove #(current-ids (:id %)) existing)]
+        (storage/delete storage removed))
+      (doseq [item (->> items
+                        (filter :id)
+                        (map #(storage/tag % ::models/budget-item)))]
+        (storage/update storage item))
+      (doseq [item (->> items
+                        (remove :id)
+                        (map #(storage/tag % ::models/budget-item))
+                        (map #(assoc % :budget-id (:id budget))))]
+        (storage/create storage item)))))
 
 (defn update
   [storage-spec budget]

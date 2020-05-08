@@ -1111,11 +1111,11 @@
   (let [context (realize storage-spec balance-delta-context)
         [_ salary] (:accounts context)
         january (transactions/balance-delta storage-spec
-                                            (:id salary)
+                                            salary
                                             (t/local-date 2016 1 1)
                                             (t/local-date 2016 1 31))
         february (transactions/balance-delta storage-spec
-                                            (:id salary)
+                                            salary
                                             (t/local-date 2016 2 1)
                                             (t/local-date 2016 2 29))]
     (is (= 2001M january) "The January value is the sum of polarized quantitys for the period")
@@ -1125,10 +1125,10 @@
   (let [context (realize storage-spec balance-delta-context)
         [checking] (:accounts context)
         january (transactions/balance-as-of storage-spec
-                                            (:id checking)
+                                            checking
                                             (t/local-date 2016 1 31))
         february (transactions/balance-as-of storage-spec
-                                            (:id checking)
+                                            checking
                                             (t/local-date 2016 2 29))]
     (is (= 2001M january) "The January value is the balance for the last item in the period")
     (is (= 4203M february) "The February value is the balance for the last item in the period")))

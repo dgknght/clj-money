@@ -6,7 +6,9 @@
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.core]
+            [clj-money.x-platform.util :refer [update-in-if]]
             [clj-money.test-context :refer [realize
+                                            find-entity
                                             find-account
                                             find-accounts
                                             find-commodity
@@ -14,11 +16,20 @@
             [clj-money.factories.user-factory]
             [clj-money.trading :as trading]
             [clj-money.reports :as reports]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]))
 
 (def storage-spec (env :db))
 
 (use-fixtures :each (partial reset-db storage-spec))
+
+(defn- strip-account-ids
+  [items]
+  (map (fn [item]
+         (-> item
+             (update-in-if [:items] strip-account-ids)
+             (dissoc item :id)))
+       items))
 
 (def ^:private base-context
   {:users [(factory :user)]
@@ -205,10 +216,12 @@
 
 (deftest create-an-income-statement
   (let [context (realize storage-spec report-context)
-        actual (into [] (reports/income-statement storage-spec
-                                                  (-> context :entities first :id)
-                                                  (t/local-date 2016 1 1)
-                                                  (t/local-date 2016 1 31)))
+        entity (find-entity context "Personal")
+        actual (strip-account-ids
+                 (reports/income-statement storage-spec
+                                           entity
+                                           (t/local-date 2016 1 1)
+                                           (t/local-date 2016 1 31)))
         expected [{:caption "Income"
                    :value 2003M
                    :style :header}
@@ -246,13 +259,15 @@
                   {:caption "Net"
                    :value 249M
                    :style :summary}]]
+    (pprint-diff expected actual)
     (is (= expected actual) "The report renders the corect data")))
 
 (deftest create-a-balance-sheet-report
   (let [context (realize storage-spec report-context)
-        actual (reports/balance-sheet storage-spec
-                                      (-> context :entities first :id)
-                                      (t/local-date 2016 1 31))
+        actual (strip-account-ids
+                 (reports/balance-sheet storage-spec
+                                        (-> context :entities first)
+                                        (t/local-date 2016 1 31)))
         expected [{:caption "Asset"
                    :value 749M
                    :style :header}
@@ -327,13 +342,14 @@
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
         _ (trading/buy storage-spec {:account-id (:id ira)
-                                            :commodity-id (:id commodity)
-                                            :shares 100M
-                                            :value 500M
-                                            :trade-date (t/local-date 2016 3 2)})
-        report (reports/balance-sheet storage-spec
-                                      (-> context :entities first :id)
-                                      (t/local-date 2017 3 2))
+                                     :commodity-id (:id commodity)
+                                     :shares 100M
+                                     :value 500M
+                                     :trade-date (t/local-date 2016 3 2)})
+        report (strip-account-ids
+                 (reports/balance-sheet storage-spec
+                                        (-> context :entities first)
+                                        (t/local-date 2017 3 2)))
         expected [{:caption "Asset"
                    :value 3279M
                    :style :header}
@@ -411,7 +427,7 @@
                                      :value 500M
                                      :trade-date (t/local-date 2016 3 2)})
         actual (reports/commodities-account-summary storage-spec
-                                                    (:id ira)
+                                                    ira
                                                     (t/local-date 2017 3 2))
         expected [{:caption "Apple, Inc. (AAPL)"
                    :commodity-id (:id aapl)
@@ -649,94 +665,109 @@
                                                   :account-id "Checking"
                                                   :quantity (bigdec 700)}]}]}))
 
+(def ^:private  expected-budget
+  {:title "2016: January to February"
+   :items [{:caption "Income"
+            :style :header
+            :budget 4000M
+            :actual 4010M
+            :difference 10M
+            :percent-difference 0.0025M
+            :actual-per-period 2005M
+            :items [{:caption "Salary"
+                     :style :data
+                     :depth 0
+                     :budget 4000M
+                     :actual 4010M
+                     :difference 10M
+                     :percent-difference 0.0025M
+                     :actual-per-period 2005M}]}
+           {:caption "Expense"
+            :style :header
+            :budget 3828M
+            :actual 3135M
+            :difference 693M
+            :percent-difference 0.1810344828M
+            :actual-per-period 1567.5M
+            :items [{:caption "Groceries"
+                     :style :data
+                     :depth 0
+                     :budget 900M
+                     :actual 904M
+                     :difference -4M
+                     :percent-difference -0.004444444444M
+                     :actual-per-period 452M}
+                    {:caption "Rent"
+                     :style :data
+                     :depth 0
+                     :budget 1400M
+                     :actual 1400M
+                     :difference 0M
+                     :percent-difference 0M
+                     :actual-per-period 700M}
+                    {:caption "Taxes"
+                     :style :data
+                     :depth 0
+                     :budget 0M
+                     :actual 0M
+                     :difference 0M
+                     :percent-difference nil
+                     :actual-per-period 0M
+                     :roll-up {:budget 1128M ; 60 + 268 + 800
+                               :actual 831M ; 45 + 186 + 600
+                               :difference 297M
+                               :percent-difference 0.2632978723M
+                               :actual-per-period 415.5M}}
+                    {:caption "Taxes/Medicare"
+                     :style :data
+                     :depth 1
+                     :budget 60M
+                     :actual 45M
+                     :difference 15M
+                     :percent-difference 0.25M
+                     :actual-per-period 22.5M}
+                    {:caption "Taxes/Social Security"
+                     :style :data
+                     :depth 1
+                     :budget 268M
+                     :actual 186M
+                     :difference 82M
+                     :percent-difference 0.3059701493M
+                     :actual-per-period 93M}
+                    {:caption "Taxes/FIT"
+                     :style :data
+                     :depth 1
+                     :budget 800M
+                     :actual 600M
+                     :difference 200M
+                     :percent-difference 0.25M
+                     :actual-per-period 300M}
+                    {:caption "Dining"
+                     :style :data
+                     :depth 0
+                     :budget 400M
+                     :actual 0M
+                     :difference 400M
+                     :percent-difference 1M
+                     :actual-per-period 0M}]}
+           {:caption "Net"
+            :style :summary
+            :budget 172M
+            :actual 875M
+            :difference 703M
+            :percent-difference 4.087209302M
+            :actual-per-period 437.50M}]})
+
 (deftest create-a-budget-report
   (let [context (realize storage-spec budget-report-context)
-        actual (reports/budget storage-spec
-                               (-> context :budgets first :id)
-                               (t/local-date 2016 2 29))
-        expected {:title "2016"
-                  :items [{:caption "Income"
-                           :style :header
-                           :budget 4000M
-                           :actual 4010M
-                           :difference 10M
-                           :percent-difference 0.0025M
-                           :actual-per-period 2005M}
-                          {:caption "Salary"
-                           :style :data
-                           :budget 4000M
-                           :actual 4010M
-                           :difference 10M
-                           :percent-difference 0.0025M
-                           :actual-per-period 2005M}
-                          {:caption "Expense"
-                           :style :header
-                           :budget 3828M
-                           :actual 3135M
-                           :difference 693M
-                           :percent-difference 0.1810344828M
-                           :actual-per-period 1567.5M}
-                          {:caption "Groceries"
-                           :style :data
-                           :budget 900M
-                           :actual 904M
-                           :difference -4M
-                           :percent-difference -0.004444444444M
-                           :actual-per-period 452M}
-                          {:caption "Rent"
-                           :style :data
-                           :budget 1400M
-                           :actual 1400M
-                           :difference 0M
-                           :percent-difference 0M
-                           :actual-per-period 700M}
-                          {:caption "Medicare"
-                           :style :data
-                           :budget 60M
-                           :actual 45M
-                           :difference 15M
-                           :percent-difference 0.25M
-                           :actual-per-period 22.5M}
-                          {:caption "Social Security"
-                           :style :data
-                           :budget 268M
-                           :actual 186M
-                           :difference 82M
-                           :percent-difference 0.3059701493M
-                           :actual-per-period 93M}
-                          {:caption "FIT"
-                           :style :data
-                           :budget 800M
-                           :actual 600M
-                           :difference 200M
-                           :percent-difference 0.25M
-                           :actual-per-period 300M}
-                          {:caption "Dining"
-                           :style :data
-                           :budget 400M
-                           :actual 0M
-                           :difference 400M
-                           :percent-difference 1M
-                           :actual-per-period 0M}
-                          {:caption "Net"
-                           :style :summary
-                           :budget 172M
-                           :actual 875M
-                           :difference 703M
-                           :percent-difference 4.087209302M
-                           :actual-per-period 437.50M}]}]
-    (when (not= expected actual)
-      (pprint {:diff (diff expected actual)}))
-    (is (= expected actual) "The function products the correct data")))
-
-; TODO
-; create a budget report with nesting levels rolled up
-; e.g.
-; instead of:
-; Entertainment/Drinks 100 110 -10
-; Entertainment/Movies  80  75   5
-; it would be:
-; Entertainment        180 185  -5
+        actual (update-in
+                 (reports/budget storage-spec
+                                 (-> context :budgets first)
+                                 {:as-of (t/local-date 2016 2 29)})
+                 [:items]
+                 strip-account-ids)]
+    (pprint-diff expected-budget actual)
+    (is (= expected-budget actual) "The function products the correct data")))
 
 (deftest create-a-budget-monitor
   (let [context (realize storage-spec budget-report-context)
@@ -744,8 +775,8 @@
 
         ; half-way through january
         actual (-> (reports/monitor storage-spec
-                                groceries
-                                {:as-of (t/local-date 2016 1 15)})
+                                    groceries
+                                    (t/local-date 2016 1 15))
                    (dissoc :account))
         expected {:caption "Groceries"
                   :period {:total-budget 450M

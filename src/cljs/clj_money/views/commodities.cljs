@@ -10,7 +10,8 @@
             [clj-money.bootstrap :as bs]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.prices :as prices]
-            [clj-money.state :refer [app-state] :as state]
+            [clj-money.state :refer [app-state
+                                     current-entity]]
             [clj-money.notifications :as notify]
             [clj-money.plain-forms :as forms]
             [clj-money.util :as util]
@@ -18,7 +19,7 @@
 
 (defn- load-commodities
   [page-state]
-  (commodities/get-all (:id @state/current-entity)
+  (commodities/get-all (:id @current-entity)
                        #(swap! page-state assoc
                                :commodities (sort-by :name %)
                                :total (count %))
@@ -39,7 +40,7 @@
   (let [commodity (r/cursor page-state [:selected])
         types (make-reaction #(if (and (:id @commodity)
                                        (= (:id @commodity)
-                                          (get-in @state/current-entity [:settings :default-commodity-id])))
+                                          (get-in @current-entity [:settings :default-commodity-id])))
                                 ["currency"]
                                 ["currency" "stock" "fund"]))]
     (fn []
@@ -79,7 +80,7 @@
 (defn- commodity-row
   [commodity page-state]
   (let  [default? (= (:id commodity)
-                     (get-in @state/current-entity [:settings :default-commodity-id]))]
+                     (get-in @current-entity [:settings :default-commodity-id]))]
     ^{:key (:id commodity)}
     [:tr
      [:td (truncate (:name commodity))]
@@ -128,11 +129,14 @@
          [:th "Latest Price"]
          [:th (util/space)]]]
        [:tbody
-        (->> @commodities
-             (drop (* @page-size @page-index))
-             (take @page-size)
-             (map #(commodity-row % page-state))
-             doall)]])))
+        (if @commodities
+          (->> @commodities
+               (drop (* @page-size @page-index))
+               (take @page-size)
+               (map #(commodity-row % page-state))
+               doall)
+          [:tr
+           [:td {:col-span 5} [:span.inline-status "Loading..."]]])]])))
 
 (defn- delete-price
   [price page-state]
@@ -277,9 +281,7 @@
         prices-commodity (r/cursor page-state [:prices-commodity])
         selected-price (r/cursor page-state [:selected-price])]
     (load-commodities page-state)
-    (add-watch app-state :current-entity (fn [field _sender _before after]
-                                           (when (get-in after [field])
-                                             (load-commodities page-state))))
+    
     (fn []
       [:div.mt-5
        [:h1 "Commodities"]
@@ -295,7 +297,7 @@
                        (swap! page-state
                               assoc
                               :selected
-                              {:entity-id (:id @state/current-entity)
+                              {:entity-id (:id @current-entity)
                                :type "stock"
                                :exchange "nyse"})
                        (util/set-focus "type"))

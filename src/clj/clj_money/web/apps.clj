@@ -25,7 +25,6 @@
 
    "<!-- Bootstrap core CSS -->"
    [:link {:rel "stylesheet" :href "/css/bootstrap/bootstrap.min.css"}]
-   [:link {:rel "stylesheet" :href "/css/bootstrap/bootstrap-theme.min.css"}]
    [:link {:rel "stylesheet" :href "/css/jquery-ui.min.css"}]
    [:link {:rel "stylesheet" :href "/css/jquery-ui.structure.min.css"}]
    [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]

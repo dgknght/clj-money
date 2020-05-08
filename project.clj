@@ -96,13 +96,14 @@
                                    :optimizations :none
                                    :pretty-print true}}]}
 
-  :aliases {"migrate"               ["run" "-m" "clj-money.db/migrate"]
-            "rollback"              ["run" "-m" "clj-money.db/rollback"]
-            "partition"             ["run" "-m" "clj-money.db/create-partitions"]
-            "chunk-file"            ["run" "-m" "clj-money.import.gnucash/chunk-file"]
-            "seed"                  ["run" "-m" "clj-money.seed/seed"]
-            "generate-transactions" ["run" "-m" "clj-money.seed/generate-transactions"]
-            "recalc"                ["run" "-m" "clj-money.tasks/recalc"]}
+  :aliases {"migrate"                       ["run" "-m" "clj-money.db/migrate"]
+            "rollback"                      ["run" "-m" "clj-money.db/rollback"]
+            "partition"                     ["run" "-m" "clj-money.db/create-partitions"]
+            "chunk-file"                    ["run" "-m" "clj-money.import.gnucash/chunk-file"]
+            "seed"                          ["run" "-m" "clj-money.seed/seed"]
+            "generate-transactions"         ["run" "-m" "clj-money.seed/generate-transactions"]
+            "recalc"                        ["run" "-m" "clj-money.tasks/recalc"]
+            "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:production {:env {:production true}}
