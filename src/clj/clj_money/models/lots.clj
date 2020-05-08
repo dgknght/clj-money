@@ -130,12 +130,14 @@
   (with-storage [s storage-spec]
     (let [lots (search s {[:commodity :entity-id] entity-id
                           :purchase-date [:<= as-of]})
-          commodity-prices (->> (commodities/search s {:id (->> lots
-                                                                (map :commodity-id)
-                                                                set)})
-                                (map (juxt :id
-                                           #(:price (prices/most-recent s % as-of))))
-                                (into {}))]
+          commodity-prices (if (seq lots)
+                             (->> (commodities/search s {:id (->> lots
+                                                                  (map :commodity-id)
+                                                                  set)})
+                                  (map (juxt :id
+                                             #(:price (prices/most-recent s % as-of))))
+                                  (into {}))
+                             {})]
       (->> lots
            (map #(lot-unrealized-gains % commodity-prices))
            (reduce + 0M)))))
