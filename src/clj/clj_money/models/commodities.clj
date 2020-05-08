@@ -58,19 +58,11 @@
    (coercion/rule :integer [:id])
    (coercion/rule :keyword [:type])])
 
-(defn present?
-  [value]
-  (if (coll? value)
-    (seq value)
-    value))
-
 (defn search
   "Returns commodities matching the specified criteria"
   ([storage-spec criteria]
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
-   {:pre [(or (-> criteria :id present?)
-              (-> criteria :entity-id present?))]}
    (with-storage [s storage-spec]
      (map after-read
           (storage/select s
