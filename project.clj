@@ -121,7 +121,7 @@
                                           [peridot "0.5.2"]]
                            :env
                            {:db "postgresql://app_user:please01@localhost/money_test" 
-                            :partition-period "month"
+                            :partition-period "year"
                             :mailer-host "testmailer.com"
                             :mailer-from "no-reply@clj-money.com"
                             :application-name "clj-money"

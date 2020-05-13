@@ -1,8 +1,7 @@
 (ns clj-money.models.sql-storage.accounts
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
-                                      from
-                                      join]]
+                                      from]]
             [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query

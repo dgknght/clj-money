@@ -38,10 +38,12 @@
   {:pre [(or (:trade-date params)
              (and (:start-date params)
                   (:end-date params)))]}
-  (->response (prices/search (env :db) (->  params
-                                           (handle-start-end-dates)
-                                           (select-keys [:commodity-id :entity-id :trade-date])
-                                           (+scope ::models/price authenticated)))))
+  (->response (prices/search (env :db)
+                             (->  params
+                                 (handle-start-end-dates)
+                                 (select-keys [:commodity-id :entity-id :trade-date])
+                                 (+scope ::models/price authenticated))
+                             {:sort [[:trade-date :desc]]})))
 
 (defn- create
   [{:keys [params body authenticated]}]

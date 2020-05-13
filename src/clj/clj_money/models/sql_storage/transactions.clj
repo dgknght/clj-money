@@ -3,12 +3,10 @@
             [honeysql.helpers :refer [select
                                       from]]
             [stowaway.sql :refer [apply-sort
+                                  apply-limit
                                   select-count]]
-            [clj-money.x-platform.util :refer [deep-contains?
-                                               deep-get]]
+            [clj-money.x-platform.util :refer [deep-contains?]]
             [clj-money.models :as models]
-            [clj-money.partitioning :refer [table-name
-                                            with-partitioning]]          
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
                                                           update-model
@@ -18,25 +16,19 @@
 (defmethod stg/select ::models/transaction
   [criteria options db-spec]
   {:pre [(deep-contains? criteria :transaction-date)]}
-  (let [result (with-partitioning
-                 (partial query db-spec)
-                 :transactions
-                 (rest (deep-get criteria :transaction-date))
-                 options
-                 [table]
-            (-> (select :transactions.*)
-                (from [table :transactions])
-                (select-count options)
+  (let [sql (-> (select :transactions.*)
+                (from :transactions)
+                (apply-criteria criteria {:target :transaction})
+                (apply-limit options)
                 (apply-sort options)
-                (apply-criteria criteria {:target :transaction})))]
-      (if (:count options) ; TODO remove this duplication with select-transaction-items
-        (-> result first vals first)
-        result)))
+                (select-count options))]
+    (query db-spec sql)))
 
 (defmethod stg/insert ::models/transaction
   [transaction db-spec]
+  {:pre [(:transaction-date transaction)]}
   (insert-model db-spec
-                (table-name (:transaction-date transaction) :transactions)
+                :transactions
                 transaction
                 :entity-id
                 :description
@@ -45,9 +37,10 @@
                 :value))
 
 (defmethod stg/update ::models/transaction
-  [{:keys [transaction-date] :as transaction} db-spec]
+  [transaction db-spec]
+  {:pre [(:transaction-date transaction)]}
   (update-model db-spec
-                (table-name transaction-date :transactions)
+                :transactions
                 transaction
                 :description
                 :transaction-date
@@ -56,6 +49,7 @@
 
 (defmethod stg/delete ::models/transaction
   [{:keys [id transaction-date]} db-spec]
+  {:pre [transaction-date]}
   (jdbc/delete! db-spec
-                (table-name transaction-date :transactions)
-                ["id = ?" id]))
+                :transactions
+                ["id = ? and transaction_date = ?" id transaction-date]))

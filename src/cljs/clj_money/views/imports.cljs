@@ -50,23 +50,24 @@
    [:td (name progress-type)]
    [:td.text-center
     [:div.progress
-     (let [perc (/ imported total)]
-       [:div.progress-bar.text-center {:aria-valuenow imported
-                                       :aria-valuemax total
-                                       :aria-valuemin 0
-                                       :role "progressbar"
-                                       :class (cond
-                                                (> perc 100)
-                                                "progress-bar-danger progress-bar-striped active"
-                                                (= perc 100)
-                                                "progress-bar-info"
-                                                :else
-                                                "progress-bar-info progress-bar-striped active")
-                                       :style {"width" (str (if (> perc 100)
-                                                              100
-                                                              perc)
-                                                            "%")}}
-        (util/format-percent perc)])]]])
+     (let [perc (* 100 (/ imported total))]
+       [:div.progress-bar.text-center
+        {:aria-valuenow imported
+         :aria-valuemax total
+         :aria-valuemin 0
+         :role "progressbar"
+         :class (cond
+                  (> perc 100)
+                  "progress-bar-danger progress-bar-striped active"
+                  (= perc 100)
+                  "progress-bar-info"
+                  :else
+                  "progress-bar-info progress-bar-striped active")
+         :style {"width" (str (if (> perc 100)
+                                100
+                                perc)
+                              "%")}}
+        (util/format-percent (/ perc 100))])]]])
 
 (defn- progress-table
   [page-state]

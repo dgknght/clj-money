@@ -2,18 +2,14 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
-            [clj-money.util :refer [parse-local-date
-                                    rev-args]]
+            [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
             [clj-money.x-platform.accounts :refer [polarize-quantity]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.helpers :refer [create-fn
-                                              update-fn]])
-  (:import org.joda.time.LocalDate
-           java.util.UUID))
+                                              update-fn]]))
 
 (s/def ::account-id integer?)
 (s/def ::end-of-period validation/local-date?)
@@ -25,33 +21,9 @@
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-refs]))
 (s/def ::existing-reconciliation (s/keys :req-un [::id ::end-of-period ::status ::balance] :opt-un [::account-id ::item-refs]))
 
-(coercion/register-coerce-fn
-  :transaction-item-refs
-  (fn [values]
-    (map (fn [value]
-           (if (sequential? value)
-             (let [[id date] value]
-               [(if (uuid? id)
-                  id
-                  (UUID/fromString id))
-                (if (instance? LocalDate date)
-                  date
-                  (parse-local-date date))])
-             value))
-         values)))
-
-(def ^:private coercion-rules
-  [(coercion/rule :local-date [:end-of-period])
-   (coercion/rule :decimal [:balance])
-   (coercion/rule :integer [:account-id])
-   (coercion/rule :integer [:id])
-   (coercion/rule :transaction-item-refs [:item-refs])])
-
 (defn- before-validation
   [reconciliation & _]
-  (-> reconciliation
-      (coercion/coerce coercion-rules)
-      (update-in [:status] (fnil identity :new))))
+  (update-in reconciliation [:status] (fnil identity :new)))
 
 (defn- before-save
   [reconciliation & _]
@@ -259,8 +231,7 @@
               :before-save before-save
               :after-save after-save
               :rules-fn validation-rules
-              :after-read after-read
-              :coercion-rules coercion-rules}))
+              :after-read after-read}))
 
 (defn reload
   "Returns the same reconciliation reloaded from the data store"
@@ -275,7 +246,6 @@
               :after-save after-save
               :rules-fn validation-rules
               :after-read after-read
-              :coercion-rules coercion-rules
               :reload reload}))
 
 (defn delete

@@ -66,12 +66,13 @@
   (let [[criteria allowed-keys] (if (keyword? (first options))
                                   [[:= :id id] options]
                                   [(first options) (rest options)])
-        sql (sql/format (-> (h/update table)
-                            (h/sset (-> model
-                                        (select-keys allowed-keys)
-                                        (assoc :updated-at (t/now))
-                                        ->sql-keys))
-                            (h/where criteria)))]
+        sql (-> (h/update table)
+                (h/sset (-> model
+                            (select-keys allowed-keys)
+                            (assoc :updated-at (t/now))
+                            ->sql-keys))
+                (h/where criteria)
+                sql/format)]
     (log/debug "update-model" (prn-str model) "in" table ": " (prn-str sql))
     (jdbc/execute! db-spec sql)))
 

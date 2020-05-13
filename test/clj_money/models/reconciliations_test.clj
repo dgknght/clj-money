@@ -179,42 +179,6 @@
                                         :item-refs (map :id [paycheck landlord safeway])})]
     (is (validation/has-error? result :end-of-period))))
 
-(deftest end-of-period-can-be-an-international-date-string
-  (let [context (realize storage-spec
-                                       reconciliation-context)
-        checking (-> context :accounts first)
-        reconciliation {:account-id (:id checking)
-                        :balance 447M
-                        :end-of-period "2017-01-01"}
-        result (reconciliations/create storage-spec reconciliation)
-        retrieved (reconciliations/find storage-spec {:account-id (:id checking)})]
-    (is (empty? (validation/error-messages result)) "The result contains no validation errors")
-    (is retrieved "The reconciliation can be retrieved")
-    (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
-
-(deftest end-of-period-can-be-a-US-date-string
-  (let [context (realize storage-spec
-                                       reconciliation-context)
-        checking (-> context :accounts first)
-        reconciliation {:account-id (:id checking)
-                        :balance 447M
-                        :end-of-period "1/1/2017"}
-        result (reconciliations/create storage-spec reconciliation)
-        retrieved (reconciliations/find storage-spec {:account-id (:id checking)})]
-    (is (empty? (validation/error-messages result)) "The result contains no validation errors")
-    (is retrieved "The reconciliation can be retrieved")
-    (is (= (t/local-date 2017 1 1) (:end-of-period retrieved)) "The retrieved value should have the correct date")))
-
-(deftest end-of-period-cannot-be-a-non-date-string
-  (let [context (realize storage-spec
-                                       reconciliation-context)
-        checking (-> context :accounts first)
-        reconciliation {:account-id (:id checking)
-                        :balance 447M
-                        :end-of-period "notadate"}
-        result (reconciliations/create storage-spec reconciliation)]
-    (is (= ["End of period must be a date"] (validation/error-messages result :end-of-period)) "The result contains the correct error message")))
-
 (deftest end-of-period-must-come-after-the-previous-end-of-period
   (let [context (realize storage-spec
                                        existing-reconciliation-context)
@@ -254,27 +218,6 @@
                                        {:account-id (:id checking)
                                         :end-of-period (t/local-date 2017 1 31)})]
     (is (validation/has-error? result :balance))))
-
-(deftest balance-cannot-be-a-non-number-string
-  (let [context (realize storage-spec
-                                       reconciliation-context)
-        checking (-> context :accounts first)
-        result (reconciliations/create storage-spec
-                                       {:account-id (:id checking)
-                                        :end-of-period (t/local-date 2017 1 31)
-                                        :balance "notanumber"})]
-    (is (validation/has-error? result :balance))))
-
-(deftest item-refs-cannot-be-a-non-number-string
-  (let [context (realize storage-spec
-                                       reconciliation-context)
-        checking (-> context :accounts first)
-        result (reconciliations/create storage-spec
-                                       {:account-id (:id checking)
-                                        :end-of-period (t/local-date 2017 1 31)
-                                        :balance 10M
-                                        :item-refs "notvalid"})]
-    (is (validation/has-error? result :item-refs))))
 
 (deftest item-refs-must-reference-items-that-belong-to-the-account-being-reconciled
   (let [context (realize storage-spec

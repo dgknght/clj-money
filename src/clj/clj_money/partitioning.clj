@@ -2,106 +2,125 @@
 (ns clj-money.partitioning
   (:require [clojure.java.jdbc :as jdbc]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-local-date]]
+            [clj-time.coerce :as tc]
             [clj-time.periodic :refer [periodic-seq]]
-            [environ.core :refer [env]]
-            [selmer.parser :refer [render]]
-            [clj-money.x-platform.util :refer [desc-periodic-seq]]))
+            [environ.core :refer [env]]))
 
-(defn partition-period
-  [& _]
-  (keyword (env :partition-period)))
+(defmulti ^:private suffix :interval-type)
 
-(defmulti table-suffix* partition-period)
+(defmethod ^:private suffix :year
+  [{:keys [interval-count] [start-date next-start-date] :dates}]
+  (if (= 1 interval-count)
+      (format "_y%s" (t/year start-date))
+      (format "_y%s_y%s"
+              (t/year start-date)
+              (t/year (t/minus next-start-date
+                               (t/days 1))))))
 
-(defmethod table-suffix* :year
-  [date]
-  (format "_%s" (t/year date)))
+(defmethod ^:private suffix :month
+  [{:keys [interval-count] [start-date next-start-date] :dates}]
+  (let [[year month] ((juxt t/year t/month) start-date)]
+    (if (= 1 interval-count)
+      (format "_y%04d_m%02d" year month)
+      (format "_y%04d_m%02d_m%02d"
+              year
+              month
+              (t/month (t/minus next-start-date
+                                (t/days 1))))))) ; assuming we won't cross a year boundary here
 
-(defmethod table-suffix* :month
-  [date]
-  (let [[year month] ((juxt t/year t/month) (to-local-date date))]
-    (format "_%04d_%02d" year month)))
+(defmulti period-like :interval-type)
 
-(defn table-suffix
-  [date]
-  (if-not date
-    (throw (IllegalArgumentException. "Argument \"date\" cannot be nil")))
-  (table-suffix* date))
+(defmethod period-like :month
+  [{:keys [interval-count]}]
+  (t/months interval-count))
 
-(defn table-name
-  "Given a date and a base table name, returns the name
-  of the partition table where the date belongs"
-  [date root]
-  (if (coll? root)
-    (map #(table-name date %) root)
-    (keyword (format "%s%s" (name root) (table-suffix date)))))
-
-(defmulti ^:private partition-dates partition-period)
-
-(defmethod partition-dates :month
-  [start-date end-date options]
-  (let [seq-fn (if (:descending? options)
-                 desc-periodic-seq
-                 periodic-seq)]
-    (seq-fn (t/first-day-of-the-month start-date)
-            (t/last-day-of-the-month end-date)
-            (t/months 1))))
-
-(defmethod partition-dates :year
-  [start-date end-date options]
-  (let [seq-fn (if (:descending? options)
-                 desc-periodic-seq
-                 periodic-seq)]
-    (seq-fn (t/local-date (t/year start-date) 1 1)
-            (t/local-date (t/year end-date) 12 31)
-            (t/years 1))))
-
-(defn tables-for-range
-  [start end root options]
-  (->> (partition-dates (to-local-date start)
-                        (to-local-date end)
-                        options)
-       (map #(table-name % root))))
+(defmethod period-like :year
+  [{:keys [interval-count]}]
+  (t/years interval-count))
 
 (def ^:private tables
-  [:prices
-   :transactions
-   :transaction_items])
+  {:prices {:interval-type :year
+            :interval-count 1}
+   :transactions {:interval-type :year
+                  :interval-count 1}
+   :transaction_items {:interval-type :year
+                       :interval-count 1}
+   :reconciliations {:interval-type :year
+                     :interval-count 5}})
 
-(defmulti ^:private period-range partition-period)
+(defmulti ^:private period-range :interval-type)
 
 (defmethod period-range :year
-  [date]
+  [{:keys [date]}]
   (let [start-of-period (t/local-date (t/year date) 1 1)]
-    [start-of-period
-     (t/plus start-of-period (t/years 1))]))
+    [start-of-period                         ; The lower boundary is inclusive
+     (t/plus start-of-period (t/years 1))])) ; The upper boundary is exclusive
 
 (defmethod period-range :month
-  [date]
+  [{:keys [date]}]
   (let [start-of-period (t/first-day-of-the-month date)]
     [start-of-period
      (t/plus start-of-period (t/months 1))]))
 
 (defn- create-table-cmd
-  [date table]
-  (let [[start next-start] (period-range date)]
-  (render (slurp (format "resources/db/create_partition_table_%s.sql" table))
-          {:table-suffix (table-suffix date)
-           :start-of-period start
-           :start-of-next-period next-start})))
+  [{:keys [table-name dates suffix]}]
+  (format
+    "create table if not exists %s%s partition of %s for values from ('%s') to ('%s');"
+    table-name
+    suffix
+    table-name
+    (first dates)
+    (second dates)))
+
+(defmulti ^:private anchor
+  "Given a date and an interval count, return the first valid starting date for
+  the combination.
+
+  In order to support partitions that span multiple years, we need to ensure
+  that we are not creating overlaps."
+  (fn [_date {:keys [interval-type]}]
+    interval-type))
+
+(def ^:private anchor-point (t/local-date 2001 1 1))
+
+(defmethod ^:private anchor :year
+  [date {:keys [interval-count]}]
+  (if (= 1 interval-count)
+    date
+    (let [offset (mod (Math/abs (- (t/year date)
+                                   (t/year anchor-point)))
+                      interval-count)]
+      (t/minus date (t/years offset)))))
+
+(defmethod ^:private anchor :month
+  [date {:keys [interval-count]}]
+  (if (= 1 interval-count)
+    date
+    (let [offset (mod (->> [anchor-point date]
+                           (map (comp tc/from-date
+                                      tc/to-date))
+                           (sort #(t/before? %1 %2))
+                           (apply t/interval)
+                           t/in-months)
+                      interval-count)]
+      (t/minus date (t/months offset)))))
 
 (defn- create-table-cmds
   "Given any two dates, calculates the tables that need to
   be created to accomodate data within the range and returns
   the commands to create them"
-  [start-date end-date]
-  (let [dates (partition-dates start-date end-date {})]
-    (->> tables
-         (map name)
-         (mapcat (fn [table]
-                   (map #(create-table-cmd % table)
-                        dates))))))
+  [start-date end-date options]
+  (->> tables
+       (map #(assoc (second %) :table (first %) :table-name (name (first %)))) ; turn the k-v pairs into a map
+       (map #(merge % (get-in options [:rules (:table %)]))) ; allow for override of default rules
+       (mapcat (fn [opts]
+                 (->> (periodic-seq (anchor start-date opts)
+                                    (period-like opts))
+                      (partition 2 1)
+                      (take-while #(t/after? end-date (first %)))
+                      (map #(assoc opts :dates %)))))
+       (map #(assoc % :suffix (suffix %)))
+       (map create-table-cmd)))
 
 (defn create-partition-tables
   "Creates the specified partition tables.
@@ -111,47 +130,12 @@
     end-date   - the end of the range for which tables are to be created
   Options:
     :silent    - do not output the commands that are generated
-    :dry-run   - do not execute the commands that are generated"
-  [start-date end-date options]
-  (jdbc/with-db-connection [c (env :db)]
-    (doseq [cmd (create-table-cmds start-date end-date)]
-      (when-not (:silent options)
-        (println cmd))
-      (when-not (:dry-run options)
-        (jdbc/execute! c cmd)))))
-
-(defn descending-sort?
-  "Returns a boolean value indicating whether or not
-  the first segment of the sort expression specified
-  descending order"
-  [sort-exp]
-  (when (and sort-exp
-             (sequential? sort-exp)
-             (sequential? (first sort-exp)))
-    (= :desc (-> sort-exp first second))))
-
-(defn limit-reached?
-  [records {:keys [limit]}]
-  (and limit
-       (<= limit (count records))))
-
-(defmacro with-partitioning
-  [exec-fn table-name d-range options bindings & body]
-  `(let [tables# (tables-for-range (first ~d-range)
-                                   (second ~d-range)
-                                   ~table-name
-                                   {:descending? (descending-sort?
-                                                   (:sort ~options))})
-         sql-fn# (fn* [~(first bindings)] ~@body)]
-     (->> tables#
-          (map #(if (coll? %)
-                  (map keyword %)
-                  (keyword %)))
-          (reduce (fn [records# table#]
-                    (let [sql# (sql-fn# table#)
-                          found-records# (~exec-fn sql#)
-                          updated-records# (concat records# found-records#)]
-                      (if (limit-reached? updated-records# ~options)
-                        (reduced updated-records#)
-                        updated-records#)))
-                  []))))
+    :dry-run   - do not execute the commands that are generated
+    :rules     - a map of table names to interval type and count"
+  ([start-date end-date options]
+   (jdbc/with-db-connection [c (env :db)]
+     (doseq [cmd (create-table-cmds start-date end-date options)]
+       (when-not (:silent options)
+         (println cmd))
+       (when-not (:dry-run options)
+         (jdbc/execute! c cmd))))))

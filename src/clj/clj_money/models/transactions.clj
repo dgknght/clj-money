@@ -307,16 +307,16 @@
   values match the existing values"
   [storage-spec item]
   (with-storage [s storage-spec]
-    (let [records-affected  (storage/update
-                              s
-                              (select-keys (before-save-item item) [:balance :index])
-                              [:and
-                               {:id (:id item)
-                                :transaction-date (some #(% item)  [:original-transaction-date
-                                                                    :transaction-date])}
-                               [:or
-                                {:balance [:!= (:balance item)]}
-                                {:index [:!= (:index item)]}]])]
+    (let [records-affected (storage/update
+                             s
+                             (select-keys (before-save-item item) [:balance :index])
+                             [:and
+                              {:id (:id item)
+                               :transaction-date (some #(% item)  [:original-transaction-date
+                                                                   :transaction-date])}
+                              [:or
+                               {:balance [:!= (:balance item)]}
+                               {:index [:!= (:index item)]}]])]
       (> records-affected 0))))
 
 (declare reload)

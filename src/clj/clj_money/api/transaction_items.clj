@@ -32,7 +32,8 @@
   (-> params
       (select-keys [:limit :skip])
       (update-in-criteria :limit parse-int)
-      (update-in-criteria :skip parse-int)))
+      (update-in-criteria :skip parse-int)
+      (assoc :sort [[:transaction-date :desc]])))
 
 (defn index
   [{:keys [params authenticated]}]
