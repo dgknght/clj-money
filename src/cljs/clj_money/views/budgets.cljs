@@ -240,7 +240,7 @@
   ^{:key (str "period-" index)}
   [:tr
    [:td (budgets/period-description index budget)]
-   [:td [forms/float-input item [:periods index]]]])
+   [:td [forms/decimal-input item [:periods index]]]])
 
 (defn- apply-budget-item-updates
   [{:keys [average total] :as item} {:keys [period-count]}]
@@ -298,11 +298,11 @@
 (defn- period-fields-per-total
   [item _]
   [:div
-   [forms/float-field item [:total] {:validate [:required]}]])
+   [forms/decimal-field item [:total] {:validate [:required]}]])
 
 (defn- period-fields-per-average
   [item _]
-  [forms/float-field item [:average] {:validate [:required]}])
+  [forms/decimal-field item [:average] {:validate [:required]}])
 
 (defn- period-fields
   [item page-state]

@@ -16,6 +16,9 @@
    [:link  {:rel "icon" :href "../../favicon.ico"}]
    [:title "clj-money"]
 
+   "<!-- decimal.js -->"
+   [:script {:src "/js/decimal.min.js"}]
+
    "<!-- jQuery -->"
    [:script {:src "/js/jquery-3.1.0.min.js"}]
    [:script {:src "/js/jquery-ui.min.js"}]

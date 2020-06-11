@@ -1,6 +1,5 @@
 (ns clj-money.reports
   (:require [clojure.string :as string]
-            [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
@@ -124,7 +123,7 @@
   ([storage-spec entity start end]
    (->> (accounts/search storage-spec
                          {:entity-id (:id entity)} )
-        (nest [:income :expense])
+        (nest {:account-types [:income :expense]})
         (into [])
         (set-balance-deltas-in-account-groups
           {:storage storage-spec

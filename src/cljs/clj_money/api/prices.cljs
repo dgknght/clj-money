@@ -1,6 +1,7 @@
 (ns clj-money.api.prices
   (:refer-clojure :exclude [update])
   (:require [clj-money.api :as api]
+            [clj-money.decimal :refer [->decimal]]
             [clj-money.x-platform.util :refer [unserialize-date
                                                serialize-date
                                                model->id]]))
@@ -8,9 +9,11 @@
 (defn- after-read
   [price]
   (let [trade-date (unserialize-date (:trade-date price))]
-    (assoc price
-           :trade-date trade-date
-           :original-trade-date trade-date)))
+    (-> price
+        (update-in [:price] ->decimal)
+        (assoc
+          :trade-date trade-date
+          :original-trade-date trade-date))))
 
 (defn- adjust-trade-date
   [{:keys [trade-date] :as criteria}]
@@ -46,7 +49,7 @@
                        (-> price
                            (select-keys [:price :trade-date])
                            (update-in [:trade-date] serialize-date))
-                       success-fn
+                       (comp success-fn after-read)
                        error-fn))
 
 (defn update
@@ -57,13 +60,13 @@
                        (-> price
                            (select-keys [:price :commodity-id :trade-date])
                            (update-in [:trade-date] serialize-date))
-                       success-fn
+                       (comp success-fn after-read)
                        error-fn))
 
 (defn save
   [price success-fn error-fn]
   (let [f (if (:id price) update create)]
-    (f price (comp success-fn after-read) error-fn)))
+    (f price success-fn error-fn)))
 
 (defn delete
   [price success-fn error-fn]

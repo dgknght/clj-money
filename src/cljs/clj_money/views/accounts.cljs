@@ -8,6 +8,7 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
+            [clj-money.decimal :as decimal :refer [->decimal]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.plain-forms :as forms]
             [clj-money.components :refer [load-on-scroll
@@ -41,7 +42,9 @@
                      (fn [result]
                        (swap! page-state
                               (fn [s]
-                                (cond-> (assoc s :accounts (-> result nest unnest))
+                                (cond-> (assoc s :accounts (->> result
+                                                                (nest {:plus decimal/+})
+                                                                unnest))
                                   (empty? (:accounts s))
                                   (assoc :hide-zero-balances? (->> result
                                                                    (map :value)
@@ -90,8 +93,9 @@
 (defn- account-hidden?
   [{:keys [parents] :as account} expanded hide-zero-balances?]
   (or (and @hide-zero-balances?
-           (= 0 (+ (:value account)
-                   (:children-value account))))
+           (= (->decimal 0)
+              (decimal/+ (:value account)
+                         (:children-value account))))
       (not (@expanded (:type account)))
       (and parents
            (not-every? @expanded parents))))
@@ -109,8 +113,8 @@
                      :arrows-collapse
                      :arrows-expand))]
          (:name account)]]
-   [:td.text-right (currency-format (+ (:children-value account)
-                                       (:value account)))]
+   [:td.text-right (currency-format (decimal/+ (:children-value account)
+                                               (:value account)))]
    [:td.text-center
     [:div.btn-group
      [:button.btn.btn-light.btn-sm {:on-click #(swap! page-state assoc :view-account account)
@@ -146,7 +150,7 @@
                                      (name account-type)]
                                     [:td.text-right (currency-format (->> group
                                                                           (map :value)
-                                                                          (reduce +)))]
+                                                                          (reduce decimal/+)))]
                                     [:td (util/space)]]]
                                   (doall (map #(account-row % expanded hide-zero-balances? page-state) group))))
                      grouped))]))))
@@ -399,7 +403,7 @@
                        "d-none")}
        (forms/date-field transaction [:transaction-date] {:validate [:required]})
        (forms/text-field transaction [:description] {:validate [:required]})
-       (forms/float-field transaction [:quantity] {:validate [:required]})
+       (forms/decimal-field transaction [:quantity] {:validate [:required]})
        [forms/typeahead-field
          transaction
          [:other-account-id]
@@ -425,8 +429,8 @@
       [:form {:class (when-not (:trade-date @transaction) "d-none")}
        (forms/date-field transaction [:trade-date] {:validate [:required]})
        (forms/select-field transaction [:action] (map (juxt name humanize) [:buy :sell]) {})
-       (forms/float-field transaction [:shares] {:validate [:required]})
-       (forms/float-field transaction [:value] {:validate [:required]})
+       (forms/decimal-field transaction [:shares] {:validate [:required]})
+       (forms/decimal-field transaction [:value] {:validate [:required]})
        [forms/typeahead-field
          transaction
          [:commodity-id]
@@ -467,8 +471,8 @@
                           first
                           callback))}]]
    [:td [forms/text-input item [:memo] {}]]
-   [:td [forms/float-input item [:credit-quantity] {}]]
-   [:td [forms/float-input item [:debit-quantity] {}]]])
+   [:td [forms/decimal-input item [:credit-quantity] {}]]
+   [:td [forms/decimal-input item [:debit-quantity] {}]]])
 
 (defn- full-transaction-form
   [page-state]
@@ -610,9 +614,11 @@
                                            last))
         total-shares (make-reaction #(->> @lots
                                            (map :shares-owned)
-                                           (reduce +)))
-        total-value (make-reaction #(* (or @total-shares 0)
-                                       (or (:price @latest-price) 0)))
+                                           (reduce decimal/+)))
+        total-value (make-reaction #(decimal/* (or @total-shares
+                                                   (decimal/zero))
+                                               (or (:price @latest-price)
+                                                   (decimal/zero))))
         total-cost (make-reaction #(->> @lots
                                         (map (fn [{:keys [purchase-price shares-owned]}]
                                                (* purchase-price shares-owned)))

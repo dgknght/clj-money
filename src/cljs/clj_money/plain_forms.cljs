@@ -2,6 +2,7 @@
   (:require [reagent.core :as r]
             [clojure.string :as string]
             [cljs-time.format :as tf]
+            [clj-money.decimal :refer [->decimal]]
             [clj-money.inflection :refer [humanize]]))
 
 (defn- ->caption
@@ -151,6 +152,24 @@
    [:label {:for field} (or (:caption options)
                             (->caption field))]
    [float-input model field options]])
+
+(defn- parse-decimal
+  [value]
+  (when (and value
+             (re-find #"^-?\d+(\.\d\+)?$" value))
+    (->decimal value)))
+
+(defn decimal-input
+  [model field options]
+  [specialized-text-input model field (merge options {:type :number
+                                                      :parse-fn parse-decimal})])
+
+(defn decimal-field
+  [model field options]
+  [:div.form-group
+   [:label {:for field} (or (:caption options)
+                            (->caption field))]
+   [decimal-input model field options]])
 
 (defmulti ^:private select-option
   #(if (vector? %)

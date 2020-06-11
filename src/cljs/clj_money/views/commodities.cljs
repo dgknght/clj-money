@@ -260,7 +260,7 @@
        [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
        [:div.card-body
         [forms/date-field price [:trade-date]]
-        [forms/float-field price [:price]]]
+        [forms/decimal-field price [:price]]]
        [:div.card-footer
         [:button.btn.btn-primary {:title "Click here to save this price."
                                   :on-click #(save-price page-state)}

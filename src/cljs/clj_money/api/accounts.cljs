@@ -1,6 +1,7 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
   (:require [clj-money.x-platform.util :refer [unserialize-date]]
+            [clj-money.decimal :as decimal :refer [->decimal]]
             [clj-money.api :as api]))
 
 (defn- set-flags ; TODO: maybe the checkbox form fn should be able to handle keywords in a set?
@@ -14,6 +15,8 @@
   (-> account
       (update-in [:type] keyword)
       (update-in [:tags] (comp set #(map keyword %)))
+      (update-in [:value] ->decimal)
+      (update-in [:quantity] ->decimal)
       set-flags
       (update-in [:commodity :type] keyword)
       (update-in [:earliest-transaction-date] unserialize-date)

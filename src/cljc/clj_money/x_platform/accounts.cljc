@@ -11,36 +11,39 @@
          :parents ((fnil conj []) (:parents parent) (:id parent))))
 
 (defn- append-children
-  [account all-accounts]
+  [account {:keys [all-accounts plus]
+            :as options}]
   (let [children (->> all-accounts
                       (filter #(= (:id account) (:parent-id %)))
                       (map #(append-path % account))
-                      (map #(append-children % all-accounts))
+                      (map #(append-children % options))
                       (sort-by :name)
                       vec)]
     (assoc account :children children
-                   :children-value (reduce #(+ %1 (:value %2) (:children-value %2))
+                   :children-value (reduce #(plus %1 (:value %2) (:children-value %2))
                                              0
                                              children))))
 
 (defn nest
   "Accepts a list of accounts and nests
   children under parents"
-  ([accounts]
-   (nest account-types accounts))
-  ([types accounts]
-   (let [grouped (->> accounts
+  ([accounts] (nest {} accounts))
+  ([opts accounts]
+   (let [options (merge {:plus +
+                         :account-types account-types}
+                        opts
+                        {:all-accounts accounts})
+         grouped (->> accounts
                       (remove :parent-id)
-                      (map #(assoc % :path (:name %)))
-                      (map #(append-children % accounts))
+                      (map (comp #(append-children % options)
+                                 #(assoc % :path (:name %))))
                       (group-by :type))]
      (mapv #(hash-map :type % :accounts (or
-                                          (->> grouped
-                                               %
+                                          (->> (get-in grouped [%])
                                                (sort-by :name)
                                                vec)
                                           []))
-           types))))
+           (:account-types options)))))
 
 (defn- unnest*
   [accumulator accounts]
