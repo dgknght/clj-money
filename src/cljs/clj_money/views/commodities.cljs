@@ -103,10 +103,9 @@
                                                         :selected
                                                         :prices
                                                         :prices-commodity
-                                                        :more-prices)
+                                                        :all-prices-fetched?)
                                                  (js/setTimeout #(swap! page-state assoc
-                                                                        :prices-commodity commodity
-                                                                        :more-prices? true)
+                                                                        :prices-commodity commodity)
                                                                 100))}
         (bs/icon :collection)]
        [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
@@ -181,13 +180,13 @@
                                   callback-fn
                                   (notify/danger-fn "Unable to fetch prices: %s")))
        :receive-fn #(swap! page-state update-in [:prices] (fnil into []) %)
-       :finish-fn #(swap! page-state assoc :more-prices? false)})))
+       :finish-fn #(swap! page-state assoc :all-prices-fetched? true)})))
 
 (defn- price-list
   [page-state]
   (let [prices (r/cursor page-state [:prices])
         commodity (r/cursor page-state [:prices-commodity])
-        more-prices? (r/cursor page-state [:more-prices?])
+        all-prices-fetched? (r/cursor page-state [:all-prices-fetched?])
         ctl-chan (r/cursor page-state [:prices-ctl-chan])]
     (init-price-loading page-state)
     (fn []
@@ -218,7 +217,7 @@
          (bs/icon-with-text :x "Cancel")]
         [:span.ml-auto
          [load-on-scroll {:target "prices-container"
-                          :can-load-more? (fn [] @more-prices?)
+                          :all-items-fetched? all-prices-fetched?
                           :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
 
 (defn- comp-prices

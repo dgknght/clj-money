@@ -7,10 +7,8 @@
             [clj-time.periodic :refer [periodic-seq]]
             [stowaway.core :as storage :refer [with-storage
                                                with-transacted-storage]]
-            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation :refer [with-validation]]
-            [clj-money.models :as models]
-            [clj-money.models.accounts :as accounts])
+            [clj-money.models :as models])
   (:import (org.joda.time LocalDate
                           Months
                           Weeks
@@ -57,18 +55,6 @@
         (update-in [:end-date] to-local-date)
         (update-in [:period] keyword))))
 
-(def ^:private coercion-rules
-  [(coercion/rule :integer [:id])
-   (coercion/rule :integer [:entity-id])
-   (coercion/rule :local-date [:start-date])
-   (coercion/rule :keyword [:period])
-   (coercion/rule :integer [:period-count])])
-
-(def ^:private item-coercion-rules
-  [(coercion/rule :integer [:budget-id])
-   (coercion/rule :integer [:id])
-   (coercion/rule :integer [:account-id])])
-
 (def period-map
   {:month Months/ONE
    :week Weeks/ONE
@@ -107,10 +93,6 @@
       (update-in [:period] name)
       (assoc :end-date (end-date budget))
       (dissoc :items)))
-
-(defn- creation-rules
-  [_storage]
-  [])
 
 (defn- append-items
   [budget storage options]
@@ -172,7 +154,7 @@
                         (remove :id)
                         (map #(storage/tag % ::models/budget-item))
                         (map #(assoc % :budget-id (:id budget))))]
-        (storage/create storage item)))))
+          (storage/create storage item)))))
 
 (defn update
   [storage-spec budget]
@@ -202,41 +184,6 @@
          (filter #(= account-id (:account-id %)))
          first)))
 
-(defn- budget-item-account-belongs-to-budget-entity
-  [storage budget item]
-  (if-let [account (accounts/find-by-id storage (:account-id item))]
-    (= 1 (->> [account budget]
-              (map :entity-id)
-              (into #{})
-              count))
-    false))
-
-(defn- budget-item-has-correct-number-of-periods
-  [budget item]
-  (= (:period-count budget) (count (:periods item))))
-
-(defn- budget-item-account-is-unique?
-  [budget item]
-  (->> (:items budget)
-       (filter #(= (:account-id item) (:account-id %)))
-       (remove #(= (:id item) (:id %)))
-       empty?))
-
-#_(defn- item-rules
-  [storage budget]
-  [(validation/create-rule
-     (partial budget-item-account-is-unique? budget)
-     [:acount-id]
-     "Account is already in the budget")
-   (validation/create-rule
-     (partial budget-item-account-belongs-to-budget-entity storage budget)
-     [:account-id]
-     "Account must belong to the same entity as the budget")
-   (validation/create-rule
-     (partial budget-item-has-correct-number-of-periods budget)
-     [:periods]
-     "Number of periods must match the budget \"Period count\" value")])
-
 (defn create
   [storage-spec budget]
   (with-transacted-storage [s storage-spec]
@@ -246,32 +193,6 @@
                                           #(storage/tag % ::models/budget-item)
                                           #(assoc % :budget-id (:id created)))
                                     (:items budget)))))))
-
-(defn- reload-item
-  "Returns the lastest version of the specified budget from the data store"
-  [storage-spec item]
-  (find-item-by storage-spec {:id (:id item)}))
-
-(defn update-item
-  "Updates the specified budget item"
-  [storage-spec item]
-  #_(with-storage [s storage-spec]
-    (let [item (coercion/coerce item item-coercion-rules)
-          budget (find-by-id s (:budget-id item))
-          validated (-> item
-                        (select-keys [:id
-                                      :account-id
-                                      :periods])
-                        (validate-item s
-                                       ::existing-budget-item
-                                       budget)) ]
-      (if (validation/valid? validated)
-        (do
-          (->> validated
-               before-save-item
-               (storage/update s))
-          (reload-item s validated))
-        validated))))
 
 (defn delete
   "Removes the specified budget from the system"

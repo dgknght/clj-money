@@ -95,3 +95,21 @@
 (deftest find-deeply-contained-value
   (is (= 1 (util/deep-get {:one 1} :one)))
   (is (= 1 (util/deep-get [:and {:one 1}] :one))))
+
+(deftest dissoc-deeply-contained-value
+  (is (= [:or [{:account-id 1}
+               {:description "test"}]]
+         (util/deep-dissoc [:or [{:account-id 1
+                                  :reconciled true}
+                                 {:description "test"}]]
+                           :reconciled))))
+
+(deftest parse-a-boolean
+  (is (util/parse-bool "true"))
+  (is (util/parse-bool "True"))
+  (is (util/parse-bool "TRUE"))
+  (is (util/parse-bool "1"))
+  (is (not (util/parse-bool "false")))
+  (is (not (util/parse-bool "False")))
+  (is (not (util/parse-bool "FALSE")))
+  (is (not (util/parse-bool "0"))))

@@ -16,10 +16,10 @@
 
 (defn load-on-scroll
   "Adds load-on-scroll behavior to a component.
-  
+
   props has the following attributes
     :load-fn                  - the function that loads for items on queue
-    :can-load-more?           - a function that returns true if more items are available
+    :all-items-fetched?       - a dereferencable item indicating whether or not all items have been fetched
     :partially-loaded-content - content to be rendered when the items are partially loaded
     :fully-loaded-content     - content to be displayed when the items are fully loaded
     :loading-content          - content to be dislpayed when the items are actively loading"
@@ -36,18 +36,21 @@
                               (< remaining threshold)))
         scroll-listener (fn [this e]
                           (let [{:keys [load-fn
-                                        can-load-more?
+                                        all-items-fetched?
                                         fully-loaded-content
                                         loading-content]
                                  :or {fully-loaded-content "All items loaded."
                                       loading-content "loading..."}}
                                 (r/props this)]
-                            (if (can-load-more?)
+                            (if @all-items-fetched?
+                              (reset! message fully-loaded-content)
                               (when (should-load-more? e)
                                 (reset! message loading-content)
                                 (load-fn)
-                                (js/setTimeout #(reset! message partially-loaded-content) 250)) ; a callback would be nice, but complicated. Let's just show a brief message
-                              (reset! message fully-loaded-content))))
+                                (js/setTimeout #(reset! message (if @all-items-fetched?
+                                                                  fully-loaded-content
+                                                                  partially-loaded-content))
+                                               250))))) ; a callback would be nice, but complicated. Let's just show a brief message)))
         debounced-scroll-listener (debounce 200 scroll-listener)
         attach-scroll-listener (fn [this]
                                  (let [targetElem (if target
@@ -82,7 +85,7 @@
   :receive-fn - a fn that will handle the items that were fetched
   :finish-fn  - a fn that will receive notification that no more items are available to be queries"
   [{:keys [start end ctl-chan fetch-fn receive-fn finish-fn interval]
-    :or {interval (t/months 1)}}]
+    :or {interval (t/months 6)}}]
   {:pre [start end ctl-chan fetch-fn receive-fn finish-fn interval]}
 
   (let [items-chan (chan)]
@@ -96,11 +99,12 @@
     ; respond to requests for more items by querying
     ; the service and putting the retrieved items
     ; on the items channel
-    (go-loop [date-ranges (->> (desc-periodic-seq start end interval)
+    (go-loop [date-ranges (->> (desc-periodic-seq end interval)
                                (partition 2 1)
                                (map (comp #(update-in % [1] t/minus (t/days 1))
                                           vec
                                           reverse))
+                               (take-while #(t/before? start (second %)))
                                (ensure-range start end)
                                (map #(apply vector :between %)))]
              (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause

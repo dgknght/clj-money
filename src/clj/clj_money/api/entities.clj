@@ -70,10 +70,12 @@
                                           (-> params
                                               (select-keys [:id])
                                               (+scope ::models/entity authenticated))))]
-    (entities/delete (env :db)
-                     (authorize entity
-                                ::authorization/destroy
-                                authenticated))
+    (do
+      (entities/delete (env :db)
+                       (authorize entity
+                                  ::authorization/destroy
+                                  authenticated))
+      (->response))
     (not-found)))
 
 (defroutes routes

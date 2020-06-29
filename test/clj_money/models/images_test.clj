@@ -49,7 +49,7 @@
         result (images/create storage-spec (attributes context))]
     (is (empty? (validation/error-messages result))
         "There are no validation errors")
-    (is (= "dd9c277e9bfdbdace10a06820e76b659a6b3a851"
+    (is (= "7e3feff7f2dc501a32af044d3ead2f8667649b79"
            (:body-hash result))
         "The body-hash value is calculated and saved")))
 

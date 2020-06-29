@@ -19,6 +19,7 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.reconciliations :as recs]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.lots :as lots]
@@ -182,7 +183,11 @@
                    (recur (<! progress-chan)))
         {:keys [entity wait]} (import-data storage-spec imp progress-chan {:atomic? true})
         _ @wait
-        actual-accounts (->> (accounts/search storage-spec {:entity-id (:id entity)})
+        all-accounts (accounts/search storage-spec {:entity-id (:id entity)})
+        accounts (->> all-accounts
+                      (map (juxt :name identity))
+                      (into {}))
+        actual-accounts (->> all-accounts
                              (sort-by :name)
                              (map #(select-keys % [:name
                                                    :type
@@ -207,7 +212,18 @@
         actual-bal-sheet (strip-account-ids
                            (reports/balance-sheet storage-spec
                                                   entity
-                                                  (t/local-date 2017 12 31)))]
+                                                  (t/local-date 2017 12 31)))
+        expected-reconciliations [{:account-id (get-in accounts ["Checking" :id])
+                                   :status :completed
+                                   :end-of-period (t/local-date 2015 1 15)
+                                   :balance 800M}]
+        actual-reconciliations (map #(select-keys % [:account-id
+                                                     :end-of-period
+                                                     :status
+                                                     :balance])
+                                    (recs/search
+                                      (env :db)
+                                      {[:account :entity-id] (:id entity)}))]
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (pprint-diff expected-accounts actual-accounts)
     (is (= expected-accounts actual-accounts)
@@ -220,7 +236,11 @@
         "The balance sheet is correct after import")
     (pprint-diff expected-updates @updates)
     (is (= expected-updates @updates)
-        "The import record is updated at each insert")))
+        "The import record is updated at each insert")
+    (pprint-diff expected-reconciliations actual-reconciliations)
+    (is (= expected-reconciliations
+           actual-reconciliations)
+        "The reconciliations are imported correctly.")))
 
 (deftest import-a-simple-gnucash-file
   (test-import
@@ -371,7 +391,7 @@
 
 (deftest import-commodities-with-extended-actions
   (let [context (realize storage-spec ext-commodities-context)
-        {:keys [entity] :as r} (import-data storage-spec
+        {:keys [entity]} (import-data storage-spec
                                       (-> context :imports first)
                                       (nil-chan)
                                       {:atomic? true})

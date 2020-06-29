@@ -9,12 +9,19 @@
             [clj-money.authorization :refer [authorize] :as authorization]
             [clj-money.models.users :as users]))
 
+(defn- infer-status-code
+  [data]
+  (if (and (map? data)
+           (validation/has-error? data))
+    400
+    200))
+
 (defn ->response
   ([]
    (-> (response {})
        (status 204)
        (header "Content-Type" "application/json")))
-  ([value] (->response value 200))
+  ([value] (->response value (infer-status-code value)))
   ([value status-code]
    (-> value
        response

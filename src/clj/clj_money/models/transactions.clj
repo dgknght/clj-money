@@ -85,8 +85,7 @@
       (storage/tag ::models/transaction-item)
       (update-in [:value] (fnil identity (:quantity item))) ; TODO need to calculate the correct value
       (update-in [:action] name)
-      (remove-empty-strings :memo)
-      (update-in [:negative] (fnil identity false))))
+      (remove-empty-strings :memo)))
 
 (defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return
@@ -309,7 +308,9 @@
   (with-storage [s storage-spec]
     (let [records-affected (storage/update
                              s
-                             (select-keys (before-save-item item) [:balance :index])
+                             (select-keys (before-save-item item) [:balance
+                                                                   :index
+                                                                   :negative])
                              [:and
                               {:id (:id item)
                                :transaction-date (some #(% item)  [:original-transaction-date
@@ -466,7 +467,8 @@
          last-balance balance
          first-date (:transaction-date item)]
     (let [new-index (+ last-index 1)
-          new-balance (+ last-balance (polarize-quantity item account))]
+          polarized-quantity (polarize-quantity item account)
+          new-balance (+ last-balance polarized-quantity)]
       (if (and (not= first-date (:transaction-date item))
                (not force)
                (= new-index (:index item))
@@ -474,6 +476,7 @@
         nil
         (do
           (update-item-index-and-balance storage (assoc item
+                                                        :negative (> 0 polarized-quantity)
                                                         :balance new-balance
                                                         :index new-index))
           (if (seq remaining)

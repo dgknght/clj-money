@@ -11,6 +11,7 @@
       (update-in [:value] ->decimal)
       (update-in [:balance] ->decimal)
       (update-in [:transaction-date] unserialize-date)
+      (update-in [:reconciliation-status] keyword)
       (update-in [:action] keyword)))
 
 (defn- prepare-criteria
@@ -22,7 +23,7 @@
 
 (defn search
   [criteria success-fn error-fn]
-  {:pre [(every? #(contains? criteria %) [:account-id :transaction-date])]}
+  {:pre [(contains? criteria :account-id)]}
 
   (api/get-resources (api/path :accounts
                                (:account-id criteria)

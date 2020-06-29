@@ -77,30 +77,36 @@
     (jdbc/execute! db-spec sql)))
 
 (def ^:private relationships
-  {#{:transaction :lot-transaction}  {:primary-table :transactions
-                                      :foreign-table :lots_transactions
-                                      :foreign-id    :transaction_id}
-   #{:transaction :transaction-item} {:primary-table :transactions
-                                      :foreign-table :transaction_items
-                                      :foreign-id    :transaction_id}
-   #{:entity :transaction}           {:primary-table :entities
-                                      :foreign-table :transactions
-                                      :foreign-id    :entity_id}
-   #{:entity :account}               {:primary-table :entities
-                                      :foreign-table :accounts
-                                      :foreign-id    :entity_id}
-   #{:entity :budget}                {:primary-table :entities
-                                      :foreign-table :budgets
-                                      :foreign-id    :entity_id}
-   #{:lot :commodity}                {:primary-table :commodities
-                                      :foreign-table :lots
-                                      :foreign-id    :commodity_id}
-   #{:price :commodity}              {:primary-table :commodities
-                                      :foreign-table :prices
-                                      :foreign-id    :commodity_id}
-   #{:commodity :entity}             {:primary-table :entities
-                                      :foreign-table :commodities
-                                      :foreign-id    :entity_id}})
+  {#{:transaction :lot-transaction}     {:primary-table :transactions
+                                         :foreign-table :lots_transactions
+                                         :foreign-id    :transaction_id}
+   #{:transaction :transaction-item}    {:primary-table :transactions
+                                         :foreign-table :transaction_items
+                                         :foreign-id    :transaction_id}
+   #{:entity :transaction}              {:primary-table :entities
+                                         :foreign-table :transactions
+                                         :foreign-id    :entity_id}
+   #{:reconciliation :account}          {:primary-table :accounts
+                                         :foreign-table :reconciliations
+                                         :foreign-id    :account-id}
+   #{:reconciliation :transaction-item} {:primary-table :reconciliations
+                                         :foreign-table :transaction_items
+                                         :foreign-id    :reconciliation_id}
+   #{:entity :account}                  {:primary-table :entities
+                                         :foreign-table :accounts
+                                         :foreign-id    :entity_id}
+   #{:entity :budget}                   {:primary-table :entities
+                                         :foreign-table :budgets
+                                         :foreign-id    :entity_id}
+   #{:lot :commodity}                   {:primary-table :commodities
+                                         :foreign-table :lots
+                                         :foreign-id    :commodity_id}
+   #{:price :commodity}                 {:primary-table :commodities
+                                         :foreign-table :prices
+                                         :foreign-id    :commodity_id}
+   #{:commodity :entity}                {:primary-table :entities
+                                         :foreign-table :commodities
+                                         :foreign-id    :entity_id}})
 
 (def ^:private table-names
   {:lot-transaction :lots_transactions})

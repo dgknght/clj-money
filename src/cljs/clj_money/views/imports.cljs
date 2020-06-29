@@ -18,8 +18,11 @@
 
 (defn- delete-import
   [imp page-state]
+  (swap! page-state assoc :busy? true)
   (imports/delete imp
-                  #(load-imports page-state)
+                  (fn []
+                    (swap! page-state dissoc :busy?)
+                    (load-imports page-state))
                   notify/danger))
 
 (defn- append-dropped-files
@@ -114,7 +117,7 @@
                  notify/danger))
 
 (defn- import-row
-  [imp page-state]
+  [imp page-state busy?]
   ^{:key (str "import-row-" (:id imp))}
   [:tr
    [:td (:entity-name imp)]
@@ -129,16 +132,19 @@
                                                (swap! page-state assoc :active imp)
                                                (reset! auto-refresh true)
                                                (load-import page-state))
+                                   :disable busy?
                                    :title "Click here to view this import."}
       (bs/icon :eye)]
      [:button.btn.btn-danger.btn-sm {:on-click #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
                                                   (delete-import imp page-state))
+                                     :disabled busy?
                                      :title "Click here to remove this import."}
       (bs/icon :x-circle)]]]])
 
 (defn- import-table
   [page-state]
-  (let [imports (r/cursor page-state [:imports])]
+  (let [imports (r/cursor page-state [:imports])
+        busy? (r/cursor page-state [:busy?])]
     (fn []
       [:table.table.table-striped
        [:tbody
@@ -147,7 +153,7 @@
          [:th "Uploaded On"]
          [:th (util/space)]]
         (if @imports
-          (doall (map #(import-row % page-state) @imports))
+          (doall (map #(import-row % page-state @busy?) @imports))
           [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]])]])))
 
 (defn- refresh-button

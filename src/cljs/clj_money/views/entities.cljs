@@ -10,10 +10,13 @@
                                            #_radio-buttons]]))
 
 (defn- delete
-  [entity]
+  [entity page-state]
   (when (js/confirm (str "Are you sure you want to delete the entity \"" (:name entity) "\"?"))
+    (swap! page-state assoc :busy? true)
     (entities/delete entity
-                     #(state/remove-entity entity)
+                     (fn []
+                       (swap! page-state dissoc :busy?)
+                       (state/remove-entity entity))
                      notify/danger)))
 
 (defn find-entity
@@ -62,7 +65,7 @@
          (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- entity-row
-  [entity page-state]
+  [entity page-state busy?]
   ^{:key entity}
   [:tr
    [:td
@@ -72,24 +75,27 @@
      [:button.btn.btn-sm.btn-info {:on-click (fn []
                                                (swap! page-state assoc :selected entity)
                                                (util/set-focus "name"))
+                                   :disabled busy?
                                    :title "Click here to edit this entity."}
       (bs/icon :pencil)]
-     [:button.btn.btn-sm.btn-danger {:on-click #(delete entity)
+     [:button.btn.btn-sm.btn-danger {:on-click #(delete entity page-state)
+                                     :disabled busy?
                                      :title "Click here to remove this entity."}
       (bs/icon :x-circle)]]]])
 
 (defn- entity-table
   [page-state]
-  (let [entities (r/cursor state/app-state [:entities])]
+  (let [entities (r/cursor state/app-state [:entities])
+        busy? (r/cursor page-state [:busy?])]
     (fn []
-      [:section
-       [:table.table.table-striped.table-hover
+      [:section {:class (when @busy? "busy")}
+       [:table.table.table-hover
         [:tbody
          [:tr
           [:th.col-sm-10 "Name"]
           [:th.col-sm-2 " "]]
          (for [entity @entities]
-           (entity-row entity page-state))]]])))
+           (entity-row entity page-state @busy?))]]])))
 
 (defn- entities-page []
   (let [page-state (r/atom {})

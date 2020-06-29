@@ -37,6 +37,7 @@
             [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
+            [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.apps :as apps]))
 
@@ -55,6 +56,7 @@
               reports-api/routes
               transactions-api/routes
               transaction-items-api/routes
+              recs-api/routes
               commodities-api/routes
               lots-api/routes
               prices-api/routes

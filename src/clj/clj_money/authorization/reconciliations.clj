@@ -6,3 +6,7 @@
 (defmethod authorization/allowed? [::models/reconciliation ::authorization/manage]
   [reconciliation action user]
   (owner-or-granted? reconciliation user action))
+
+(defmethod authorization/scope ::models/reconciliation
+  [_ user]
+  {[:account :entity :user-id] (:id user)})

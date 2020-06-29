@@ -51,7 +51,9 @@
 
 (defn- extract-error
   [{:keys [body]}]
-  (or (some #(% body) [:error :message])
+  (or (some #(% body) [:clj-money.validation/errors
+                       :error
+                       :message])
       body))
 
 (defn get
@@ -103,7 +105,7 @@
                                              append-auth)))]
         (case (:status response)
           201 (success-fn (:body response))
-          400 (error-fn (get-in response [:body :clj-money.validation/errors]))
+          200 (success-fn (:body response))
           (error-fn (extract-error response))))))
 
 (defn update-resource

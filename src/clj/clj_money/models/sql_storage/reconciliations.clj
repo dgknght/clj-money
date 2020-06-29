@@ -13,9 +13,9 @@
 
 (defmethod stg/select ::models/reconciliation
   [criteria options db-spec]
-  (query db-spec (-> (select :*)
+  (query db-spec (-> (select :reconciliations.*)
                      (from :reconciliations)
-                     (apply-criteria criteria)
+                     (apply-criteria criteria {:target :reconciliation})
                      (apply-sort options)
                      (apply-limit options))))
 

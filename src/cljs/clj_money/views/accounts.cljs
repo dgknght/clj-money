@@ -11,12 +11,10 @@
             [clj-money.decimal :as decimal :refer [->decimal]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.plain-forms :as forms]
-            [clj-money.components :refer [load-on-scroll
-                                          load-in-chunks]]
+            [clj-money.components :refer [load-on-scroll]]
             [clj-money.bootstrap :as bs :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
-            [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.lots :as lots]
             [clj-money.api.prices :as prices]
@@ -27,12 +25,13 @@
                                                        entryfy
                                                        unentryfy]]
             [clj-money.x-platform.accounts :refer [account-types
-                                                   polarize-quantity
                                                    nest
                                                    unnest]]
             [clj-money.state :refer [app-state]]
             [clj-money.notifications :as notify]
             [clj-money.x-platform.util :refer [serialize-date]]
+            [clj-money.views.transactions :as trns]
+            [clj-money.views.reconciliations :as recs]
             [clj-money.util :as util]))
 
 (defn- load-accounts
@@ -66,29 +65,7 @@
                                               (disj expanded id)
                                               (conj expanded id)))))
 
-(defn- stop-item-loading
-  [page-state]
-  (go (>! (:ctl-chan @page-state) :quit)))
 
-(defn- init-item-loading
-  [page-state]
-  (let [account (:view-account @page-state)
-        end (t/last-day-of-the-month (or (:latest-transaction-date account)
-                                          (t/today))) ; This is probably only nil for newly imported entities
-        start (t/first-day-of-the-month (or (:earliest-transaction-date account)
-                                                 (t/minus- end (t/months 6))))]
-    (load-in-chunks
-      {:start start
-       :end end
-       :ctl-chan (:ctl-chan @page-state)
-       :fetch-fn (fn [date-range callback-fn]
-                   (transaction-items/search
-                     {:account-id (:id account)
-                      :transaction-date date-range}
-                     callback-fn
-                     (notify/danger-fn "Unable to fetch transaction items: %s")))
-       :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
-       :finish-fn #(swap! page-state assoc :more-items? false)})))
 
 (defn- account-hidden?
   [{:keys [parents] :as account} expanded hide-zero-balances?]
@@ -259,80 +236,6 @@
                                  :title "Click here to return to the list of accounts."}
          (bs/icon-with-text :x "Cancel")]]])))
 
-(defn- prepare-transaction-for-edit
-  [transaction account]
-  (if (can-simplify? transaction)
-      [(simplify transaction account) :simple]
-      [(entryfy transaction) :full]))
-
-(defn- item->tkey
-  [item]
-  (-> item
-      (select-keys [:transaction-id :transaction-date])
-      (rename-keys {:transaction-id :id})))
-
-(defn- edit-transaction
-  [item page-state]
-  (transactions/get-one (item->tkey item)
-                        (fn [result]
-                          (let [[prepared mode] (prepare-transaction-for-edit
-                                                  result
-                                                  (:view-account @page-state))]
-                            (swap! page-state
-                                   assoc
-                                   :transaction prepared
-                                   :transaction-entry-mode mode))
-                          (util/set-focus "transaction-date"))
-                        notify/danger))
-
-(defn- reset-item-loading
-  [page-state]
-  (swap! page-state dissoc :items :transaction)
-  (stop-item-loading page-state)
-  (init-item-loading page-state))
-
-(defn- delete-transaction
-  [item page-state]
-  (when (js/confirm "Are you sure you want to delete this transaction?")
-    (transactions/delete (item->tkey item)
-                         #(reset-item-loading page-state)
-                         notify/danger)))
-
-(defn- item-row
-  [item page-state]
-  (let [account (r/cursor page-state [:view-account])]
-    ^{:key (str "item-row-" (:id item))}
-    [:tr.d-flex
-     [:td.col-2.text-right (util/format-date (:transaction-date item))]
-     [:td.col-4 (:description item)]
-     [:td.col-2.text-right (currency-format (polarize-quantity item @account))]
-     [:td.col-2.text-right (currency-format (:balance item))]
-     [:td.col-2
-      [:div.btn-group
-       [:button.btn.btn-info.btn-sm {:on-click #(edit-transaction item page-state)
-                                   :title "Click here to edit this transaction."}
-        (bs/icon :pencil)]
-       [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
-                                       :title "Click here to remove this transaction."}
-        (bs/icon :x-circle)]]]]))
-
-(defn- items-table
-  [page-state]
-  (let [items (r/cursor page-state [:items])]
-    (fn []
-      [:table.table.table-striped.table-hover
-       [:thead
-        [:tr.d-flex
-         [:th.col-2.text-right "Date"]
-         [:th.col-4 "Description"]
-         [:th.col-2.text-right "Amount"]
-         [:th.col-2.text-right "Balance"]
-         [:th.col-2 (util/space)]]]
-       [:tbody
-        (if @items
-          (doall (map #(item-row % page-state) @items))
-          [:tr [:td {:col-span 4} [:span.inline-status "Loading..."]]])]])))
-
 (defn- find-account-fn
   [page-state]
   (fn [id]
@@ -360,18 +263,28 @@
                                  :disabled (not (nil? @transaction))}
         (bs/icon-with-text :plus "Add")]
        (util/space)
-       [:button.btn.btn-light {:on-click (fn []
-                                           (stop-item-loading page-state)
-                                           (swap! page-state #(-> %
-                                                                  (dissoc :view-account)
-                                                                  (assoc :items []
-                                                                         :more-items? true))))
-                               :title "Click here to return to the account list."}
+       [:button.btn.btn-info {:on-click (fn []
+                                          (trns/stop-item-loading page-state)
+                                          (swap! page-state assoc
+                                                 :items nil)
+                                          (recs/load-working-reconciliation page-state)
+                                          (trns/load-unreconciled-items page-state)
+                                          (util/set-focus "end-of-period"))
+                              :title "Click here to reconcile this account"}
+        (bs/icon-with-text :check-box "Reconcile")]
+       (util/space)
+       [:button.btn.btn-info {:on-click (fn []
+                                          (trns/stop-item-loading page-state)
+                                          (swap! page-state dissoc
+                                                 :view-account
+                                                 :items
+                                                 :all-items-fetched?))
+                              :title "Click here to return to the account list."}
         (bs/icon-with-text :arrow-left-short "Back")]])))
 
 (defn- post-transaction-save
   [page-state]
-  (load-accounts page-state #(reset-item-loading page-state)))
+  (load-accounts page-state #(trns/reset-item-loading page-state)))
 
 (defmulti ^:private save-transaction
   (fn [page-state]
@@ -585,25 +498,31 @@
 (defn- currency-account-details
   [page-state]
   (let [ctl-chan (r/cursor page-state [:ctl-chan])
-        more-items? (r/cursor page-state [:more-items?])
-        transaction (r/cursor page-state [:transaction])]
-    (init-item-loading page-state)
+        all-items-fetched? (r/cursor page-state [:all-items-fetched?])
+        transaction (r/cursor page-state [:transaction])
+        reconciliation (r/cursor page-state [:reconciliation])]
+    (trns/init-item-loading page-state)
     (fn []
       [:div.row
-       [:div.col {:style {:max-width "50em"}}
+       [:div.col {:style {:max-width "50em"
+                          :flex-grow 3}}
         [:div.card
          [:div.card-header [:strong "Transaction Items"]]
          [:div#items-container {:style {:max-height "40em" :overflow "auto"}}
-          [items-table page-state]]
+          [trns/items-table page-state]]
          [:div.card-footer.d-flex.align-items-center
           [account-buttons page-state]
           [:span.ml-auto
            [load-on-scroll {:target "items-container"
-                            :can-load-more? (fn [] @more-items?)
+                            :all-items-fetched? all-items-fetched?
                             :load-fn #(go (>! @ctl-chan :fetch))}]]]]]
-       (when @transaction
-         [:div.col
-          [transaction-form page-state]])])))
+       (when (or @transaction @reconciliation)
+         [:div.col {:style {:flex-grow 2}}
+          (when @transaction
+            [:div.mb-2
+             [transaction-form page-state]])
+          (when @reconciliation
+            [recs/reconciliation-form page-state])])])))
 
 (defn- lots-table
   [page-state]
@@ -675,36 +594,12 @@
                                   @total-cost)
                                3)]]]])))
 
-(defn- fund-transactions-table
-  [page-state]
-  (let [items (r/cursor page-state [:items])
-        account  (r/cursor page-state [:view-account])]
-    (fn []
-      [:table.table.table-hover.table-borderless
-       [:thead
-        [:tr
-         [:th.text-right "Transaction Date"]
-         [:th "Description"]
-         [:th.text-right "Qty."]
-         [:th.text-right "Bal."]
-         [:th.text-right "Value"]]]
-       [:tbody
-        (doall (for [item (sort-by (comp serialize-date :transaction-date) @items)]
-                 ^{:key (str "item-" (:id item))}
-                 [:tr
-                  [:td.text-right (util/format-date (:transaction-date item))]
-                  [:td (:description item)]
-                  [:td.text-right (util/format-decimal (polarize-quantity item @account) 4)]
-                  [:td.text-right (util/format-decimal (:balance item), 4)]
-                  [:td.text-right (currency-format (:value item))]]))]])))
-
 (defn- tradable-account-details
   [page-state]
   (let [current-nav (r/atom :lots)
         account (r/cursor page-state [:view-account])
         {:keys [parent-id
                 commodity-id
-                id
                 earliest-transaction-date
                 latest-transaction-date]} @account]
     (lots/search {:account-id parent-id
@@ -712,13 +607,6 @@
                   :shares-owned [:!= 0]}
                  #(swap! page-state assoc :lots %)
                  (notify/danger-fn "Unable to load the lots: %s"))
-    ; I don't think we need to chunk this, but maybe we do
-    (transaction-items/search {:account-id id
-                               :transaction-date [:between
-                                                  earliest-transaction-date
-                                                  latest-transaction-date]}
-                              #(swap! page-state assoc :items %)
-                              (notify/danger-fn "Unable to load the transaction items: %s"))
     (prices/search {:commodity-id commodity-id
                     :trade-date [:between
                                  earliest-transaction-date
@@ -737,7 +625,7 @@
                       :on-click #(reset! current-nav :transactions)}])
        (case @current-nav
          :lots         [lots-table page-state]
-         :transactions [fund-transactions-table page-state])
+         :transactions [trns/fund-transactions-table page-state])
        [:div.row
         [:div.col-md-6
          (util/button "Buy/Sell"
@@ -768,8 +656,7 @@
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
                             :ctl-chan (chan)
-                            :transaction-entry-mode :simple
-                            :more-items? true})
+                            :transaction-entry-mode :simple})
         selected (r/cursor page-state [:selected])
         view-account (r/cursor page-state [:view-account])]
     (load-accounts page-state)

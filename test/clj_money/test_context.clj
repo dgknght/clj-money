@@ -132,11 +132,27 @@
   [context transaction-date description]
   {:pre [(string? description) (instance? LocalDate transaction-date)]}
 
-  (->> context
-       :transactions
+  (->> (:transactions context)
        (filter #(and (= transaction-date (:transaction-date %))
                      (= description (:description %))))
        first))
+
+(defn find-transaction-item
+  [context transaction-date quantity account-id]
+  (->> (:transactions context)
+       (filter #(= transaction-date (:transaction-date %)))
+       (mapcat :items)
+       (filter #(and (= account-id (:account-id %))
+                     (= quantity (:quantity %))))
+       first))
+
+(defn find-recon
+  [{:keys [reconciliations] :as ctx} account-name end-of-period]
+  (let [account (find-account ctx account-name)]
+    (->> reconciliations
+         (filter #(and (= (:id account) (:account-id %))
+                       (= end-of-period (:end-of-period %))))
+         first)))
 
 (defn- throw-on-invalid
   [model]
@@ -407,29 +423,26 @@
   [context storage]
   (update-in context [:lots] #(create-lots storage context %)))
 
-(defn- resolve-transaction-item-ids
-  [context account-id items]
-  (mapv (fn [{:keys [transaction-date quantity]}]
-          (or (->> context
-               :transactions
-               (filter #(= transaction-date (:transaction-date %)))
-               (mapcat :items)
-               (filter #(and (= account-id (:account-id %))
-                             (= quantity (:quantity %))))
-               (map (juxt :id :transaction-date))
-               first)
-              (throw (Exception. (format "Unable to find a transaction with date=%s, quantity=%s"
-                                         transaction-date
-                                         quantity)))))
-        items))
+(defn- resolve-item-ref
+  [{:keys [transaction-date quantity]} context account-id]
+  (or (->> (:transactions context)
+           (filter #(= transaction-date (:transaction-date %)))
+           (mapcat :items)
+           (filter #(and (= account-id (:account-id %))
+                         (= quantity (:quantity %))))
+           (map (juxt :id :transaction-date))
+           first)
+      (throw (Exception. (format "Unable to find a transaction with date=%s, quantity=%s"
+                                 transaction-date
+                                 quantity)))))
 
-(defn- resolve-reconciliation-transaction-item-ids
-  [reconciliation context]
-  (update-in reconciliation
+(defn- resolve-item-refs
+  [model context]
+  (update-in model
              [:item-refs]
-             #(resolve-transaction-item-ids context
-                                            (:account-id reconciliation)
-                                            %)))
+             (fn [item-refs]
+               (mapv #(resolve-item-ref % context (:account-id model))
+                     item-refs))))
 
 (defn- create-reconciliation
   [model storage]
@@ -440,7 +453,7 @@
   (mapv (fn [attributes]
           (-> attributes
               (resolve-account context)
-              (resolve-reconciliation-transaction-item-ids context)
+              (resolve-item-refs context)
               (create-reconciliation storage)
               throw-on-invalid))
         reconciliations))

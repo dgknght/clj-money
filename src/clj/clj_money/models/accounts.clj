@@ -2,8 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.util :refer [safe-read-string
-                                    rev-args]]
+            [clj-money.util :refer [rev-args]]
             [clj-money.validation :as validation]
             [clj-money.coercion :as coercion]
             [clj-money.models :as models]

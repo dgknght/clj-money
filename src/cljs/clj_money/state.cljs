@@ -6,12 +6,10 @@
 (def current-entity (r/cursor app-state [:current-entity]))
 
 (defn- remove-entity-from-list
-  [state entity]
-  (update-in state [:entities] (fn [old-list]
-                                 (remove
-                                   #(= (:id %)
-                                       (:id entity))
-                                   old-list))))
+  [entity entities]
+  (remove #(= (:id %)
+              (:id entity))
+          entities))
 
 (defn- reset-removed-current-entity
   [state entity]
@@ -24,7 +22,7 @@
 (defn remove-entity
   [entity]
   (swap! app-state #(-> %
-                        (remove-entity-from-list entity)
+                        (update-in [:entities] (partial remove-entity-from-list entity))
                         (reset-removed-current-entity entity))))
 
 (defn add-entity

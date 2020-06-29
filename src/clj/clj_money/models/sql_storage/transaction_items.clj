@@ -3,17 +3,22 @@
   (:require [clojure.tools.logging :as log]
             [clojure.java.jdbc :as jdbc]
             [clj-time.core :as t]
-            [honeysql.helpers :refer [select
+            [honeysql.helpers :refer [with-recursive
+                                      select
                                       update
                                       sset
                                       from
                                       join
-                                      left-join]]
+                                      merge-join
+                                      left-join
+                                      where]]
             [honeysql.format :as sql]
             [stowaway.sql :refer [apply-sort
                                   apply-limit
                                   select-count]]
-            [clj-money.x-platform.util :refer [deep-contains?]]
+            [clj-money.x-platform.util :refer [deep-contains?
+                                               deep-get
+                                               deep-dissoc]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           ->sql-keys
@@ -22,14 +27,33 @@
                                                           apply-criteria]]
             [clj-money.models.sql-storage :as stg]))
 
+(defn- downward-recursion
+  [criteria]
+  {:pre [(deep-contains? criteria :account-id)]}
+
+  (-> (with-recursive [:raccounts
+                       {:union [(-> (select :a.id, :a.parent_id)
+                                    (from [:accounts :a])
+                                    (where [:= :a.id (deep-get criteria :account-id)]))
+                                (-> (select :a.id, :a.parent-id)
+                                    (from [:accounts :a])
+                                    (join [:raccounts :p] [:= :p.id :a.parent_id]))]}])
+      (join :raccounts [:= :raccounts.id :transaction_items.account_id])))
+
 (defmethod stg/select ::models/transaction-item
-  [criteria options db-spec]
+  [criteria {:keys [include-children?] :as options} db-spec]
   {:pre [(deep-contains? criteria :transaction-date)]}
-  (let [sql (-> (select :transaction_items.*
+
+  (let [[criteria sql] (if include-children?
+                         [(deep-dissoc criteria :account-id)
+                          (downward-recursion criteria)]
+                         [criteria {}])
+        sql (-> sql
+                (select :transaction_items.*
                         :transactions.description
                         [:reconciliations.status :reconciliation_status])
                 (from :transaction_items)
-                (join :transactions [:= :transactions.id :transaction_items.transaction_id])
+                (merge-join :transactions [:= :transactions.id :transaction_items.transaction_id])
                 (left-join :reconciliations [:= :reconciliations.id :transaction_items.reconciliation_id])
                 (apply-criteria criteria {:target :transaction-item})
                 (apply-limit options)
@@ -46,6 +70,7 @@
                   :transaction-id
                   :transaction-date
                   :account-id
+                  :reconciliation-id
                   :action
                   :quantity
                   :negative
@@ -61,6 +86,7 @@
                 :transaction_items
                 item
                 :transaction-date
+                :reconciliation-id
                 :quantity
                 :value
                 :negative

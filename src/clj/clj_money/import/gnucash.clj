@@ -15,6 +15,10 @@
             [clojure.data.xml :as xml]
             [environ.core :refer [env]]
             [clj-time.core :as t]
+            [clj-time.coerce :as tc]
+            [clj-money.util :refer [uuid]]
+            [clj-money.x-platform.util :refer [update-in-if
+                                               parse-bool]]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream
@@ -171,9 +175,21 @@
 
 (defmethod ^:private process-elem ::gnc/account
   [{:keys [out-chan child-content]} _]
-  (>!! out-chan (with-meta (into {} (peek child-content))
-                           {:record-type :account}))
+  (let [account (->> (peek child-content)
+                     (remove map?)
+                     (into {}))
+        reconciliation (->> (peek child-content)
+                            (filter map?)
+                            first)]
+    (>!! out-chan (with-meta account
+                             {:record-type :account}))
+    (when reconciliation
+      (>!! out-chan (assoc reconciliation :account-id (:id account)))))
   nil)
+
+(defmethod ^:private process-elem ::act/slots
+  [{:keys [child-content]} _]
+  (peek child-content))
 
 (defmethod ^:private process-elem ::act/commodity
   [{:keys [child-content]} _]
@@ -197,11 +213,25 @@
   (peek child-content))
 
 (defmethod ^:private process-elem ::slot/value
-  [{:keys [content child-content]} {:keys [tag attrs]}]
-  (if (= "frame" (:type attrs))
-    [[:periods (peek child-content)]]
-    [[(tag->keyword tag)
-      (agg-text-content (peek content))]]))
+  [{:keys [content child-content elems]} {:keys [tag]}]
+  (let [tag-stack (map :tag elems)]
+    (cond
+
+      (= (take-last 4 tag-stack) ; budget periods
+         [::gnc/budget
+          ::bgt/slots
+          :slot
+          ::slot/value]) [[:periods (peek child-content)]]
+
+      (= (take-last 4 tag-stack) ; reconciliation
+         [::gnc/account
+          ::act/slots
+          :slot
+          ::slot/value]) (peek child-content)
+
+      :else
+      [[(tag->keyword tag)
+        (agg-text-content (peek content))]])))
 
 ; slot elements are used as generic key-value pair containers
 ; in the gnucash XML. It's necessary to inspect the parent
@@ -218,6 +248,27 @@
       (= (take-last 5 tag-stack) ; budget period item
          [::gnc/budget
           ::bgt/slots
+          :slot
+          ::slot/value
+          :slot]) [(into {} (peek child-content))]
+
+      (and (= (take-last 3 tag-stack) ; reconcile info
+              [::gnc/account
+               ::act/slots
+               :slot])
+           (= "reconcile-info"
+              (-> child-content
+                  peek
+                  first
+                  second))) [(with-meta (->> (peek child-content)
+                                             (filter map?)
+                                             (map (juxt (comp keyword :key) :value))
+                                             (into {}))
+                                        {:record-type :reconciliation})]
+
+      (= (take-last 5 tag-stack) ; include-children or last-date
+         [::gnc/account
+          ::act/slots
           :slot
           ::slot/value
           :slot]) [(into {} (peek child-content))])))
@@ -268,7 +319,7 @@
 ; TODO: This can probably be simplified
 (defn- push-child-content
   [lst content-coll]
-  (reduce #(if (and %2 (seq %2))
+  (reduce #(if (seq %2)
              (conj (pop %1)
                    (conj (peek %1) %2))
              %1)
@@ -372,6 +423,21 @@
                                                                       s/lower-case
                                                                       keyword)))))))
         (vary-meta assoc :ignore? (contains? ignored-accounts (:name account))))))
+
+(defn- seconds-to-date
+  [seconds]
+  (-> (t/plus (t/epoch) (t/seconds seconds))
+      (t/to-time-zone (t/time-zone-for-id "America/Chicago")) ; TODO: Need to know the time zone for the file for this
+      tc/to-local-date))
+
+(defmethod ^:private process-record :reconciliation
+  [reconciliation _]
+  (-> reconciliation
+      (rename-keys {:last-date :end-of-period})
+      (assoc :id (s/replace (str (uuid)) #"-" ""))
+      (update-in-if [:include-children] parse-bool)
+      (update-in [:end-of-period] (comp seconds-to-date
+                                        parse-integer))))
 
 (defmulti ^:private refine-trading-transaction
   (fn [transaction]
@@ -553,9 +619,9 @@
 
 (defmethod read-source :gnucash
   [_ inputs out-chan]
-  (let [records-chan (chan 1000 (comp filter-records
-                                      process-records
-                                      log-records))
+  (let [records-chan (chan 100 (comp filter-records
+                                     process-records
+                                     log-records))
         _ (pipe records-chan out-chan)]
     (->> inputs
          (map #(GZIPInputStream. %))

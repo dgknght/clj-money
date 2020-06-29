@@ -163,8 +163,9 @@
   ([model spec] (validate model spec []))
   ([model spec rules]
    (if-let [explanation (s/explain-data spec model)]
-     (assoc model ::errors (interpret-problems explanation)
-            ::valid? false)
+     (do (log/debugf "validation error %s: %s" (prn-str model) (prn-str explanation))
+         (assoc model ::errors (interpret-problems explanation)
+                ::valid? false))
      (perform-additional-validation model rules))))
 
 (defn has-error?

@@ -10,6 +10,7 @@
                                              +scope]
              :as authorization]
             [clj-money.models.transactions :as trans]
+            [clj-money.validation :as v]
             [clj-money.authorization.transactions]))
 
 (defn- index
@@ -45,11 +46,15 @@
 
 (defn- create
   [{:keys [params body authenticated]}]
-  (->response (trans/create (env :db) (-> body
-                                          (select-keys attribute-keys)
-                                          (assoc :entity-id (:entity-id params))
-                                          (storage/tag ::models/transaction)
-                                          (authorize ::authorization/create authenticated)))))
+  (let [result (trans/create (env :db)
+                             (-> body
+                                 (select-keys attribute-keys)
+                                 (assoc :entity-id (:entity-id params))
+                                 (storage/tag ::models/transaction)
+                                 (authorize ::authorization/create authenticated)))]
+    (->response result (if (v/has-error? result)
+                         400
+                         201))))
 
 (defn- apply-to-existing
   [updated-item items]

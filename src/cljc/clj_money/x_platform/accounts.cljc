@@ -1,4 +1,6 @@
-(ns clj-money.x-platform.accounts)
+(ns clj-money.x-platform.accounts
+  (:require #?(:clj [clj-time.coerce :as tc]
+               :cljs [cljs-time.coerce :as tc])))
 
 (def account-types
   "The list of valid account types in standard presentation order"
@@ -114,3 +116,25 @@
   {:quantity (abs quantity)
    :account-id (:id account)
    :action (derive-action quantity account)})
+
+(defn ->criteria
+  ([account] (->criteria account {}))
+  ([account {:keys [date-field]
+             :or {date-field :transaction-date}}]
+   (if (sequential? account)
+     {:account-id (set (map :id account))
+      :transaction-date [:between
+                         (->> account
+                              (map :earliest-transaction-date)
+                              (filter identity)
+                              (sort-by tc/to-long)
+                              first)
+                         (->> account
+                              (map :latest-transaction-date)
+                              (filter identity)
+                              (sort-by tc/to-long >)
+                              first)]}
+     {:account-id (:id account)
+      date-field [:between
+                  (:earliest-transaction-date account)
+                  (:latest-transaction-date account)]})))

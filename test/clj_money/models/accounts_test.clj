@@ -150,6 +150,15 @@
 
     (is (= expected result) "The accounts should be returned in the correct hierarchy")))
 
+(deftest select-account-with-children
+  (let [ctx (realize storage-spec nested-context)
+        account (find-account ctx "Savings")
+        result (accounts/search (env :db)
+                                {:id (:id account)}
+                                {:include-children? true})]
+    (is (= #{"Savings" "Reserve" "Car" "Doug" "Eli"}
+           (set (map :name result))))))
+
 (deftest create-an-account
   (let [context (realize storage-spec account-context)
         result (accounts/create storage-spec (attributes context))

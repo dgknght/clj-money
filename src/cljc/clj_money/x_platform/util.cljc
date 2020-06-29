@@ -167,6 +167,13 @@
     #?(:clj (Integer/parseInt value)
        :cljs (js/parseInt value))))
 
+(def boolean-values #{"true" "1"})
+
+(defn parse-bool
+  [value]
+  (when value
+    (contains? boolean-values (string/lower-case value))))
+
 (defn model->id
   [value]
   (or (:id value)
@@ -198,3 +205,10 @@
     (vector? data) (mapv #(deep-update-in-if % k f) data)
     (map? data)    (update-in-if data [k] f)
     :else          data))
+
+(defn deep-dissoc
+  [data k]
+  (cond
+    (vector? data) (mapv #(deep-dissoc % k) data)
+    (map? data)  (dissoc data k)
+    :else data))

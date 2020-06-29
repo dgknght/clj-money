@@ -126,8 +126,8 @@
                                        :reconciliation-id nil}
                                       {:action :credit
                                        :quantity 1000M
-                                       :negative false
-                                       :polarized-quantity 1000M
+                                       :negative true
+                                       :polarized-quantity -1000M
                                        :balance 1000M
                                        :value 1000M
                                        :account-id (:id ira)

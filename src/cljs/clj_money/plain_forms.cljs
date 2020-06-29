@@ -25,14 +25,15 @@
   (->name field))
 
 (defn checkbox-input
-  [model field options]
+  [model field {:keys [on-change] :as options :or {on-change identity}}]
   (let [checked (r/cursor model field)]
     (fn []
       [:input.form-check-input (merge options
                                       {:type :checkbox
                                        :checked @checked
-                                       :on-change (fn [e]
-                                                    (reset! checked (.-checked (.-target e))))})])))
+                                       :on-click (fn [e]
+                                                   (reset! checked (.-checked (.-target e)))
+                                                   (on-change @model))})])))
 
 (defn checkbox-field
   ([model field]
@@ -156,7 +157,7 @@
 (defn- parse-decimal
   [value]
   (when (and value
-             (re-find #"^-?\d+(\.\d\+)?$" value))
+             (re-find #"^-?\d+(\.\d+)?$" value))
     (->decimal value)))
 
 (defn decimal-input

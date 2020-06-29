@@ -117,7 +117,7 @@
 
 (defn selective=
   [expected actual & attributes]
-  {:pre [expected (map? expected) (when actual (map? actual))]}
+  {:pre [expected (map? expected) (if actual (map? actual) true)]}
   (let [attr (if (seq attributes)
                attributes
                (keys expected))

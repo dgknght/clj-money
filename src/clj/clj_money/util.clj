@@ -127,9 +127,17 @@
   (fn [& args]
     (apply f (reverse args))))
 
+(defmulti presence type)
+
+(defmethod presence java.lang.String
+  [value]
+  (when-not (= "" value)
+    value))
+
 (defn uuid
   ([] (UUID/randomUUID))
   ([id]
-   (if (instance? UUID id)
-     id
-     (UUID/fromString id))))
+   (when id
+     (if (instance? UUID id)
+       id
+       (UUID/fromString id)))))

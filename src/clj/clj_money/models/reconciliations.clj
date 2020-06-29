@@ -1,32 +1,63 @@
 (ns clj-money.models.reconciliations
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
-            [clj-money.util :refer [rev-args]]
-            [clj-money.validation :as validation]
-            [clj-money.x-platform.accounts :refer [polarize-quantity]]
+            [stowaway.core :as storage :refer [with-storage
+                                               with-transacted-storage]]
+            [clj-money.validation :as v :refer [with-validation]]
+            [clj-money.x-platform.accounts :refer [->criteria]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]]))
+            [clj-money.models.transactions :as transactions]))
 
 (s/def ::account-id integer?)
-(s/def ::end-of-period validation/local-date?)
+(s/def ::end-of-period v/local-date?)
 (s/def ::balance decimal?)
 (s/def ::status #{:new :completed})
-(s/def ::item-ref (s/tuple uuid? validation/local-date?))
+(s/def ::item-ref (s/tuple uuid? v/local-date?))
 (s/def ::item-refs (s/coll-of ::item-ref))
 
 (s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-refs]))
 (s/def ::existing-reconciliation (s/keys :req-un [::id ::end-of-period ::status ::balance] :opt-un [::account-id ::item-refs]))
 
+(defn- resolve-item-refs
+  [item-refs storage]
+  (if (seq item-refs)
+    (let [ids (map first item-refs)
+          date-range ((juxt first last) (sort (map second item-refs)))]
+      (transactions/find-items-by-ids
+        storage
+        ids
+        date-range))
+    []))
+
+(defn- fetch-items
+  [{:keys [id account-id]} storage]
+  (if id
+    (let [accounts (accounts/search storage
+                                    {:id account-id}
+                                    {:include-children? true})
+          criteria (assoc (->criteria accounts)
+                          :reconciliation-id id)]
+      (transactions/search-items storage criteria))
+    []))
+
 (defn- before-validation
-  [reconciliation & _]
-  (update-in reconciliation [:status] (fnil identity :new)))
+  [{:keys [item-refs] :as reconciliation} storage]
+  (let [existing-items (fetch-items reconciliation storage)
+        ignore (->> existing-items
+                    (map :id)
+                    set)
+        all-items (resolve-item-refs item-refs storage)]
+    (-> reconciliation
+        (update-in [:status] (fnil identity :new))
+        (assoc ::new-items (->> all-items
+                                (remove #(ignore (:id %)))
+                                (into [])))
+        (assoc ::all-items all-items)
+        (assoc ::existing-items existing-items))))
 
 (defn- before-save
-  [reconciliation & _]
+  [reconciliation]
   (-> reconciliation
       (storage/tag ::models/reconciliation)
       (update-in [:status] name)))
@@ -80,56 +111,39 @@
          :status "completed"}
         {:sort [[:end-of-period :desc]]}))
 
-; TODO this still isn't ensureing that they are only loaded once, need to rework it
-(defn- ensure-transaction-items
-  [storage {item-refs :item-refs :as reconciliation}]
-  (let [ids (map first item-refs)
-        date-range ((juxt first last) (sort (map second item-refs)))]
-    (update-in reconciliation
-               [::items]
-               (fnil identity (if item-refs
-                                (transactions/find-items-by-ids
-                                  storage
-                                  ids
-                                  date-range)
-                                [])))))
-
 (defn find-by-id
   "Returns the specified reconciliation"
   [storage-spec id]
   (find storage-spec {:id id}))
 
 (defn- is-in-balance?
-  [storage {:keys [account-id] :as reconciliation}]
+  [storage {:keys [account-id balance] :as reconciliation}]
   (or (= :new (:status reconciliation))
-      (let [account (accounts/find-by-id storage account-id)
-            starting-balance (or (:balance (find-last-completed
+      (let [starting-balance (or (:balance (find-last-completed
                                              storage
                                              account-id))
                                  0M)
-            delta (->> reconciliation
-                       (ensure-transaction-items storage)
-                       ::items
-                       (map #(polarize-quantity % account))
-                       (reduce +))]
-        (= (:balance reconciliation)
-           (+ starting-balance delta)))))
+            new-balance (->> (::all-items reconciliation)
+                             (map :polarized-quantity)
+                             (reduce + starting-balance))]
+        (= balance new-balance))))
 
 (defn- items-belong-to-account?
-  [storage {account-id :account-id :as reconciliation}]
-  (or (nil? (:item-refs reconciliation))
-      (= (->> reconciliation
-              (ensure-transaction-items storage)
-              ::items
-              (map :account-id)
-              set)
-         #{account-id})))
+  [{:keys [account-id] :as reconciliation} storage]
+  (or (empty? (::new-items reconciliation))
+      (let [account-ids (->> (accounts/search
+                               storage
+                               {:id account-id}
+                               {:include-children? true})
+                             (map :id)
+                             set)]
+        (->> (::new-items reconciliation)
+             (map :account-id)
+             (every? #(account-ids %))))))
 
 (defn- items-do-not-belong-to-another-reconciliation?
-  [storage {id :id :as reconciliation}]
-  (let [reconciliation-ids (->> reconciliation
-                                (ensure-transaction-items storage)
-                                ::items
+  [{:keys [id] :as reconciliation}]
+  (let [reconciliation-ids (->> (::new-items reconciliation)
                                 (map :reconciliation-id)
                                 (filter identity)
                                 set)]
@@ -168,85 +182,86 @@
 
 (defn- validation-rules
   [storage]
-  [(validation/create-rule (partial is-in-balance? storage)
-                           [:balance]
-                           "The account balance must match the statement balance.")
-   (validation/create-rule (partial items-belong-to-account? storage)
-                           [:item-refs]
-                           "All items must belong to the account being reconciled")
-   (validation/create-rule (partial items-do-not-belong-to-another-reconciliation? storage)
-                           [:item-refs]
-                           "No items may belong to another reconcilidation")
-   (validation/create-rule (partial is-after-last-reconciliation? storage)
-                           [:end-of-period]
-                           "End of period must be after the latest reconciliation")
-   (validation/create-rule (partial can-be-updated? storage)
-                           [:status]
-                           "A completed reconciliation cannot be updated")
-   (validation/create-rule (partial no-working-reconciliation-exists? storage)
-                           [:account-id]
-                           "A new reconciliation cannot be created while a working reconciliation already exists")])
+  [(v/create-rule (partial is-in-balance? storage)
+                  [:balance]
+                  "The account balance must match the statement balance.")
+   (v/create-rule #(items-belong-to-account? % storage)
+                  [:item-refs]
+                  "All items must belong to the account being reconciled")
+   (v/create-rule items-do-not-belong-to-another-reconciliation?
+                  [:item-refs]
+                  "No items may belong to another reconcilidation")
+   (v/create-rule (partial is-after-last-reconciliation? storage)
+                  [:end-of-period]
+                  "End of period must be after the latest reconciliation")
+   (v/create-rule (partial can-be-updated? storage)
+                  [:status]
+                  "A completed reconciliation cannot be updated")
+   (v/create-rule (partial no-working-reconciliation-exists? storage)
+                  [:account-id]
+                  "A new reconciliation cannot be created while a working reconciliation already exists")])
 
-(defn- item-refs->date-range
-  [item-refs]
-  (when (seq item-refs)
-    ((juxt first last) (->> item-refs
-                            (map second)
+(defn- ->date-range
+  [items date-fn]
+  (when (seq items)
+    ((juxt first last) (->> items
+                            (map date-fn)
                             sort))))
 
-(defn- unreconcile
-  [reconciliation-id date-range storage]
-  (transactions/update-items storage
-                             {:reconciliation-id nil}
-                             {:reconciliation-id reconciliation-id
-                              :transaction-date date-range}))
+(defn- unreconcile-old-items
+  [{:keys [id] :as reconciliation} storage]
+  (when (seq (::existing-items reconciliation))
+    (let [[start end] (->date-range (::existing-items reconciliation)
+                                   :transaction-date)]
+      (transactions/update-items storage
+                                 {:reconciliation-id nil}
+                                 {:reconciliation-id id
+                                  :transaction-date [:between start end]}))))
 
-(defn- reconcile
-  [reconciliation-id [item-id trans-date] storage]
-  (transactions/update-items storage
-                             {:reconciliation-id reconciliation-id}
-                             {:id item-id
-                              :transaction-date trans-date}))
+(defn- reconcile-all-items
+  [{id :id all-items ::all-items} storage]
+  (when (seq all-items)
+    (let [[start end] (->date-range all-items :transaction-date)]
+      (transactions/update-items storage
+                                 {:reconciliation-id id}
+                                 {:id (map :id all-items)
+                                  :transaction-date [:between start end]}))))
 
 (defn- after-save
-  [{:keys [id item-refs] :as reconciliation} storage]
-  ; Set reconciled flag on specified transaction items
-  (let [date-range (item-refs->date-range item-refs)]
-    (when date-range
-      (unreconcile id date-range storage))
-    (when (seq item-refs)
-      (doseq [item-ref item-refs]
-        (reconcile id item-ref storage))))
+  [reconciliation storage]
+  (unreconcile-old-items reconciliation storage)
+  (reconcile-all-items reconciliation storage)
   reconciliation)
-
-(defn- create*
-  [storage reconciliation]
-  (merge reconciliation
-  (storage/create storage reconciliation)))
-
-(def create
-  (create-fn {:spec ::new-reconciliation
-              :before-validation before-validation
-              :create (rev-args create*)
-              :before-save before-save
-              :after-save after-save
-              :rules-fn validation-rules
-              :after-read after-read}))
 
 (defn reload
   "Returns the same reconciliation reloaded from the data store"
   [storage-spec {id :id}]
   (find-by-id storage-spec id))
 
-(def update
-  (update-fn {:spec ::existing-reconciliation
-              :before-validation before-validation
-              :update (rev-args storage/update)
-              :before-save before-save
-              :after-save after-save
-              :rules-fn validation-rules
-              :after-read after-read
-              :reload reload}))
+(defn create
+  [storage-spec reconciliation]
+  (with-transacted-storage [s storage-spec]
+    (let [recon (before-validation reconciliation s)]
+      (with-validation recon ::new-reconciliation (validation-rules s)
+        (let [to-create (before-save recon)
+              created (storage/create s to-create)]
+          (after-save (merge created
+                             (select-keys to-create [:item-refs
+                                                     ::all-items
+                                                     ::existing-items
+                                                     ::new-items]))
+                      s)
+          (reload s created))))))
+
+(defn update
+  [storage-spec reconciliation]
+  (with-transacted-storage [s storage-spec]
+    (let [recon (before-validation reconciliation s)]
+      (with-validation recon ::existing-reconciliation (validation-rules s)
+        (let [to-update (before-save recon)]
+          (storage/update s to-update)
+          (after-save to-update s)
+          (reload s recon))))))
 
 (defn delete
   "Removes the specified reconciliation from the system. (Only the most recent may be deleted.)"
@@ -254,10 +269,13 @@
   (with-transacted-storage [s storage-spec]
     (let [reconciliation (find-by-id s id)
           most-recent (find-last s (:account-id reconciliation))
-          date-range (item-refs->date-range (:item-refs reconciliation))]
+          [start end] (->date-range (:item-refs reconciliation) second)]
       (when (not= id (:id most-recent))
         (throw (ex-info "Only the most recent reconciliation may be deleted" {:specified-reconciliation reconciliation
                                                                               :most-recent-reconciliation most-recent})))
-      (when date-range
-        (unreconcile id date-range s))
+      (when start
+        (transactions/update-items s
+                                   {:reconciliation-id nil}
+                                   {:reconciliation-id id
+                                    :transaction-date [:between start end]}))
       (storage/delete s reconciliation))))

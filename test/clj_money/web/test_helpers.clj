@@ -17,6 +17,14 @@
              (> 300 s))
         (str "Expected successful response, but got " s))))
 
+(defn assert-successful-create
+  [res]
+  {:pre [(valid-response? res)]}
+
+  (let [s (:status res)]
+    (is (= 201 s)
+        (str "Expected creation success response, but got " s))))
+
 (defn assert-successful-no-content
   [res]
   {:pre [(valid-response? res)]}

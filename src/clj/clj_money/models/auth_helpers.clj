@@ -41,10 +41,9 @@
     (commodities/find-by-id (env :db) commodity-id)))
 
 (defmethod ^:private lookup-entity-id ::models/reconciliation
-  [{storage-spec :storage-spec :as context} resource]
-  (->> (:account-id resource)
-       (accounts/find-by-id storage-spec)
-       (lookup-entity-id context)))
+  [{:keys [account-id]}]
+  (lookup-entity-id
+    (accounts/find-by-id (env :db) account-id)))
 
 (defn- lookup-entity
   [resource]
