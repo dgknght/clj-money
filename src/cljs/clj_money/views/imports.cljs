@@ -5,6 +5,7 @@
             [cljs.core.async :refer [timeout
                                      <!]]
             [clj-money.bootstrap :as bs]
+            [clj-money.dnd :as dnd]
             [clj-money.util :as util]
             [clj-money.state :as state :refer [app-state]]
             [clj-money.api.imports :as imports]
@@ -27,10 +28,7 @@
 
 (defn- append-dropped-files
   [event import-data]
-  (let [file-list (-> event .-dataTransfer .-files)
-        file-count (.-length file-list)
-        files (mapv #(.item file-list %) (range file-count))]
-    (update-in import-data [:files] #(concat % files))))
+  (update-in import-data [:files] #(concat % (dnd/files event))))
 
 (defn- file-list
   [import-data]
@@ -83,7 +81,8 @@
          [:th.text-center "Progress"]]
         (->> @progress
              (filter #(map? (second %)))
-             (map progress-row))]])))
+             (map progress-row)
+             doall)]])))
 
 (def auto-refresh (r/atom false))
 

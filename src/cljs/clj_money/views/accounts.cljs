@@ -32,6 +32,7 @@
             [clj-money.x-platform.util :refer [serialize-date]]
             [clj-money.views.transactions :as trns]
             [clj-money.views.reconciliations :as recs]
+            [clj-money.views.attachments :as atts]
             [clj-money.util :as util]))
 
 (defn- load-accounts
@@ -481,7 +482,7 @@
        [:div.card-body
         (nav-tabs (map #(transaction-form-nav-tab (first %) (second %) page-state)
                        (transaction-form-nav-items page-state)))
-        [:div.transaction-form-container
+        [:div.mt-3
          [full-transaction-form page-state]
          [simple-transaction-form page-state]
          [trade-transaction-form page-state]]]
@@ -500,7 +501,9 @@
   (let [ctl-chan (r/cursor page-state [:ctl-chan])
         all-items-fetched? (r/cursor page-state [:all-items-fetched?])
         transaction (r/cursor page-state [:transaction])
-        reconciliation (r/cursor page-state [:reconciliation])]
+        reconciliation (r/cursor page-state [:reconciliation])
+        attachments-item (r/cursor page-state [:attachments-item])
+        selected-attachment (r/cursor page-state [:selected-attachment])]
     (trns/init-item-loading page-state)
     (fn []
       [:div.row
@@ -516,11 +519,14 @@
            [load-on-scroll {:target "items-container"
                             :all-items-fetched? all-items-fetched?
                             :load-fn #(go (>! @ctl-chan :fetch))}]]]]]
-       (when (or @transaction @reconciliation)
+       (when (or @transaction @reconciliation @attachments-item)
          [:div.col {:style {:flex-grow 2}}
+          (when @selected-attachment
+            [atts/attachment-form page-state])
+          (when @attachments-item
+            [atts/attachments-card page-state])
           (when @transaction
-            [:div.mb-2
-             [transaction-form page-state]])
+            [transaction-form page-state])
           (when @reconciliation
             [recs/reconciliation-form page-state])])])))
 

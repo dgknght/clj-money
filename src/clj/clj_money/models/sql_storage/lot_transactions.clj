@@ -21,6 +21,7 @@
   (insert-model db-spec :lots_transactions lot-transaction
                 :lot-id
                 :transaction-id
+                :transaction-date
                 :lot-action
                 :shares
                 :price

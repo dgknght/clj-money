@@ -66,23 +66,34 @@
 
 (defn log-error
   [error message]
-  (log/error message
-             ": "
-             (.getClass error)
-             " - "
-             (.getMessage error)
-             "\n  "
-             (->> (.getStackTrace error)
-                  (map str)
-                  (clojure.string/join "\n  "))))
+  (log/errorf "%s: %s - %s\n  %s"
+              message
+              (.getClass error)
+              (.getMessage error)
+              (->> (.getStackTrace error)
+                   (map str)
+                   (clojure.string/join "\n  "))))
 
-(defn- find-user-by-auth-token
+(defn- extract-header-auth-token
   [{:keys [headers]}]
   (when-let [header-value (get-in headers ["authorization"])]
-    (when-let [token (re-find #"(?<=Bearer ).*" header-value)]
-      (users/find-by-id (env :db)
-                        (:user-id (jwt/unsign token
-                                              (env :secret)))))))
+    (re-find #"(?<=Bearer ).*" header-value)))
+
+(defn- extract-cookie-auth-token
+  [{:keys [cookies]}]
+  (get-in cookies ["auth-token" :value]))
+
+(defn- extract-auth-token
+  [req]
+  (some #(% req) [extract-header-auth-token
+                  extract-cookie-auth-token]))
+
+(defn- find-user-by-auth-token
+  [req]
+  (when-let [token (extract-auth-token req)]
+    (users/find-by-id (env :db)
+                      (:user-id (jwt/unsign token
+                                            (env :secret))))))
 
 (defn wrap-authentication
   [handler]

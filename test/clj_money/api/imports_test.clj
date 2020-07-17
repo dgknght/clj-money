@@ -8,7 +8,8 @@
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db
                                             selective=]]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.api.test-helper :refer [add-auth
+                                               build-multipart-request]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found]]
             [clj-money.test-context :refer [realize
@@ -17,51 +18,12 @@
             [clj-money.x-platform.util :refer [path]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.imports :as imports]
-            [clj-money.api.imports :as imports-api])
-  (:import [java.io File ByteArrayOutputStream]
-           [org.apache.http.entity ContentType]
-           [org.apache.http.entity.mime MultipartEntity]
-           [org.apache.http.entity.mime.content StringBody FileBody]))
+            [clj-money.api.imports :as imports-api]))
 
 (use-fixtures :each (partial reset-db (env :db)))
 
 (def ^:private create-context
   {:users [(factory :user {:email "john@doe.com"})]})
-
-(defmulti ^:private add-part
-  (fn [_ _ value]
-    (type value)))
-
-(defmethod ^:private add-part File
-  [^MultipartEntity mpe k ^File file]
-  (.addPart mpe k (FileBody. file
-                             (ContentType/create "application/gnucash")
-                             (.getName file))))
-
-(defmethod ^:private add-part :default
-  [^MultipartEntity mpe k v]
-  (.addPart mpe k (StringBody. v)))
-
-(defn- build-multipart-entity
-  [params]
-  (let [mpe (MultipartEntity.)]
-    (doseq [[k v] params]
-      (add-part mpe (name k) v))
-    mpe))
-
-(defn- build-multipart-request
-  [params]
-  (let [^MultipartEntity mpe (build-multipart-entity params)
-        content-length (.getContentLength mpe)
-        content-type (.getValue (.getContentType mpe))]
-    {:body (let [out (ByteArrayOutputStream.)]
-             (.writeTo mpe out)
-             (.close out)
-             (io/input-stream (.toByteArray out)))
-     :content-length content-length
-     :content-type content-type
-     :headers {"content-type" content-type
-               "content-length" (str content-length)}}))
 
 (defn- mock-launch-and-track
   [calls]
@@ -80,7 +42,8 @@
         response (with-redefs [imports-api/launch-and-track-import (mock-launch-and-track calls)]
                    (-> (req/request :post (path :api :imports))
                        (merge (build-multipart-request {:entity-name "Personal"
-                                                        :source-file-0 source-file}))
+                                                        :source-file-0 {:file source-file
+                                                                        :content-type "application/gnucash"}}))
                        (add-auth user)
                        app))
         body (json/parse-string (:body response) true)

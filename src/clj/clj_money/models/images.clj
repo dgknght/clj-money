@@ -79,6 +79,10 @@
   ([storage-spec criteria options]
    (first (search storage-spec criteria (merge options {:limit 1})))))
 
+(defn find-by-id
+  [storage-spec id]
+  (find-by storage-spec {:id id} {:include-body? true}))
+
 (defn delete
   [storage-spec image]
   (with-storage [s storage-spec]

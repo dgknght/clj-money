@@ -6,3 +6,7 @@
 (defmethod authorization/allowed? [::models/attachment ::authorization/manage]
   [attachment action user]
   (owner-or-granted? attachment user action))
+
+(defmethod authorization/scope ::models/attachment
+  [_ user]
+  {[:transaction :entity :user-id] (:id user)})

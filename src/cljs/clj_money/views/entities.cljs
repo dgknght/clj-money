@@ -94,8 +94,8 @@
          [:tr
           [:th.col-sm-10 "Name"]
           [:th.col-sm-2 " "]]
-         (for [entity @entities]
-           (entity-row entity page-state @busy?))]]])))
+         (doall (map #(entity-row % page-state @busy?)
+                     @entities))]]])))
 
 (defn- entities-page []
   (let [page-state (r/atom {})

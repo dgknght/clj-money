@@ -132,3 +132,13 @@
    [:a.btn.btn-light {:href "/auth/google/start"}
     (google-g options)
     " Sign In With Google"]))
+
+(defn debounce
+  [timeout f]
+  (let [t (atom nil)]
+    (fn [& args]
+      (when @t (js/clearTimeout @t))
+      (reset! t (js/setTimeout (fn []
+                                 (reset! t nil)
+                                 (apply f args))
+                               timeout)))))

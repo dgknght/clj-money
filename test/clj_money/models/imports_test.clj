@@ -1,6 +1,5 @@
 (ns clj-money.models.imports-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
-            [clojure.pprint :refer [pprint]]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]

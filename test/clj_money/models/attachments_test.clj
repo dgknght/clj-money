@@ -7,7 +7,8 @@
             [clj-money.models.attachments :as attachments]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
-            [clj-money.test-context :refer [realize]]
+            [clj-money.test-context :refer [realize
+                                            find-attachment]]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (def storage-spec (env :db))
@@ -76,24 +77,26 @@
     (is (seq (validation/error-messages result :image-id))
         "The image-id attribute has an error message")))
 
-(deftest caption-is-required
-  (let [context (realize storage-spec attach-context)
-        result (attachments/create storage-spec (dissoc (attributes context)
-                                                        :caption))]
-    (is (not (validation/valid? result))
-        "The value can be retreived from the database")
-    (is (seq (validation/error-messages result :caption))
-        "The caption attribute has an error message")))
-
-(def ^:private delete-context
+(def ^:private update-context
   (assoc attach-context :attachments
                         [{:transaction-id {:transaction-date (t/local-date 2017 1 1)
                                            :description "Paycheck"}
                           :image-id "sample_receipt.jpg"
                           :caption "receipt"}]))
 
+(deftest update-an-attachment
+  (let [ctx (realize (env :db) update-context)
+        attachment (find-attachment ctx "receipt")
+        result (attachments/update (env :db)
+                                   (assoc attachment
+                                          :caption "Updated caption"))
+        retrieved (attachments/find-by-id (env :db) (:id result))]
+    (is (empty? (validation/error-messages result)) "There are no validation errors")
+    (is (= "Updated caption" (:caption result)) "The updated value is returned")
+    (is (= "Updated caption" (:caption retrieved)) "The correct value is retrieved")))
+
 (deftest delete-an-attachment
-  (let [context (realize storage-spec delete-context)
+  (let [context (realize storage-spec update-context)
         attachment (-> context :attachments first)
         _ (attachments/delete storage-spec attachment)
         retrieved (attachments/find-by-id storage-spec (:id attachment))]

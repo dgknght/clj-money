@@ -78,20 +78,27 @@
 
 (def ^:private relationships
   {#{:transaction :lot-transaction}     {:primary-table :transactions
+                                         :primary-id    [:transaction_date :id]
                                          :foreign-table :lots_transactions
-                                         :foreign-id    :transaction_id}
+                                         :foreign-id    [:transaction_date :transaction_id]}
    #{:transaction :transaction-item}    {:primary-table :transactions
+                                         :primary-id    [:transaction_date :id]
                                          :foreign-table :transaction_items
-                                         :foreign-id    :transaction_id}
+                                         :foreign-id    [:transaction_date :transaction_id]}
    #{:entity :transaction}              {:primary-table :entities
                                          :foreign-table :transactions
                                          :foreign-id    :entity_id}
+   #{:attachment :transaction}          {:primary-table :transactions
+                                         :primary-id    [:transaction_date :id]
+                                         :foreign-table :attachments
+                                         :foreign-id    [:transaction_date :transaction_id]}
    #{:reconciliation :account}          {:primary-table :accounts
                                          :foreign-table :reconciliations
                                          :foreign-id    :account-id}
    #{:reconciliation :transaction-item} {:primary-table :reconciliations
+                                         :primary-id    [:end_of_period :id]
                                          :foreign-table :transaction_items
-                                         :foreign-id    :reconciliation_id}
+                                         :foreign-id    [:reconciliation_end_of_period :reconciliation_id]}
    #{:entity :account}                  {:primary-table :entities
                                          :foreign-table :accounts
                                          :foreign-id    :entity_id}

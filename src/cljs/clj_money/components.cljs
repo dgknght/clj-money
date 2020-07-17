@@ -2,17 +2,8 @@
   (:require [reagent.core :as r]
             [cljs-time.core :as t]
             [cljs.core.async :refer [chan <! >! go-loop go]]
+            [clj-money.util :refer [debounce]]
             [clj-money.x-platform.util :refer [desc-periodic-seq]]))
-
-(defn- debounce
-  [timeout f]
-  (let [t (atom nil)]
-    (fn [& args]
-      (when @t (js/clearTimeout @t))
-      (reset! t (js/setTimeout (fn []
-                                 (reset! t nil)
-                                 (apply f args))
-                               timeout)))))
 
 (defn load-on-scroll
   "Adds load-on-scroll behavior to a component.

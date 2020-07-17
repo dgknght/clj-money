@@ -108,6 +108,7 @@
                               :memo nil
                               :value 1000M
                               :lot-items [{:lot-action :buy
+                                           :transaction-date (t/local-date 2016 1 2)
                                            :shares 100M
                                            :price 10M}]
                               :items [{:action :debit

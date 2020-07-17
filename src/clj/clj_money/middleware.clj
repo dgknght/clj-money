@@ -41,6 +41,7 @@
   (fn [request]
     (handler (update-in request [:params] integerize-id-params))))
 
+; TODO: Move this to the api namespace
 (defn wrap-exceptions
   [handler]
   (fn [request]

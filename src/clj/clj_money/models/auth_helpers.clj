@@ -7,7 +7,8 @@
             [clj-money.models.grants :as grants]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.budgets :as budgets]
-            [clj-money.models.commodities :as commodities]))
+            [clj-money.models.commodities :as commodities]
+            [clj-money.models.attachments :as attachments]))
 
 (defmulti ^:private lookup-entity-id
   (fn [resource]
@@ -44,6 +45,11 @@
   [{:keys [account-id]}]
   (lookup-entity-id
     (accounts/find-by-id (env :db) account-id)))
+
+(defmethod ^:private lookup-entity-id ::models/image
+  [{:keys [id]}]
+  (lookup-entity-id
+    (attachments/find-by (env :db) {:image-id id})))
 
 (defn- lookup-entity
   [resource]

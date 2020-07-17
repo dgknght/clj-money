@@ -418,11 +418,12 @@
        first))
 
 (defn- link-lots
-  [storage transaction-id lot-items]
-  (when lot-items
-    (doseq [lot-item lot-items]
-      (l-t/create storage
-                  (assoc lot-item :transaction-id transaction-id)))))
+  [storage {:keys [id transaction-date]} lot-items]
+  (mapv (comp #(l-t/create storage %)
+              #(assoc %
+                      :transaction-id id
+                      :transaction-date transaction-date))
+        lot-items))
 
 (defn- find-base-item
   "Given an account ID and a date, finds the transaction item for that
@@ -566,15 +567,15 @@
       (if (validation/has-error? validated)
         validated
         (let [created (storage/create s (before-save validated))
-              _  (link-lots s (:id created) (:lot-items validated))
+              _  (link-lots s created (:lot-items validated))
               account-ids (extract-account-ids validated)]
-          (doall (->> (:items validated)
-                      (map #(assoc %
-                                   :transaction-id (:id created)
-                                   :transaction-date (:transaction-date validated)
-                                   :index -1))
-                      (map before-save-item)
-                      (map #(create-transaction-item* s %))))
+          (mapv (comp #(create-transaction-item* s %)
+                      before-save-item
+                      #(assoc %
+                              :transaction-id (:id created)
+                              :transaction-date (:transaction-date created)
+                              :index -1))
+                (:items validated))
           (if (delay-balances? (:entity-id validated))
             (swap! ambient-settings
                    save-delayed-info

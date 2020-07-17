@@ -188,7 +188,8 @@ CREATE TABLE public.lots_transactions (
     price numeric(12,4) NOT NULL,
     shares numeric(10,4) NOT NULL,
     lot_action character varying(10) NOT NULL,
-    transaction_id uuid NOT NULL
+    transaction_id uuid NOT NULL,
+    transaction_date date NOT NULL
 );
 CREATE TABLE public.prices(
     trade_date date NOT NULL,
@@ -291,8 +292,16 @@ ALTER TABLE ONLY public.imports
     ADD CONSTRAINT imports_pkey PRIMARY KEY (id);
 ALTER TABLE ONLY public.lots
     ADD CONSTRAINT lots_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.prices
+    ADD CONSTRAINT prices_pkey PRIMARY KEY (trade_date, id);
+ALTER TABLE ONLY public.reconciliations
+    ADD CONSTRAINT reconciliations_pkey PRIMARY KEY (end_of_period, id);
 ALTER TABLE ONLY public.settings
     ADD CONSTRAINT settings_pkey PRIMARY KEY (name);
+ALTER TABLE ONLY public.transaction_items
+    ADD CONSTRAINT transaction_items_pkey PRIMARY KEY (transaction_date, id);
+ALTER TABLE ONLY public.transactions
+    ADD CONSTRAINT transactions_pkey PRIMARY KEY (transaction_date, id);
 ALTER TABLE ONLY public.users
     ADD CONSTRAINT users_pkey PRIMARY KEY (id);
 CREATE INDEX ix_attachments_image_id ON public.attachments USING btree (image_id);

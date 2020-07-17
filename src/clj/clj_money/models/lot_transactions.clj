@@ -11,6 +11,9 @@
 
 (defn create
   [storage-spec lot-transaction]
+  {:pre [(:transaction-id lot-transaction)
+         (:transaction-date lot-transaction)]}
+
   (with-storage [s storage-spec]
     (storage/create s (storage/tag lot-transaction ::models/lot-transaction))))
 

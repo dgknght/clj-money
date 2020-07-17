@@ -113,3 +113,42 @@
   (is (not (util/parse-bool "False")))
   (is (not (util/parse-bool "FALSE")))
   (is (not (util/parse-bool "0"))))
+
+(deftest convert-nominal-comparatives-to-symbolic
+  (let [date (t/local-date 2015 1 1)
+        other-date (t/local-date 2015 1 31)]
+    (is (= {:start-on [:> date]}
+           (util/symbolic-comparatives {:start-after date}
+                                       :start)))
+    (is (= {:transaction-date [:> date]}
+           (util/symbolic-comparatives {:transaction-date-after date}
+                                       :transaction-date))
+        "Keys that end with -date don't receive -on or -at")
+    (is (= {:transaction-date [:between date other-date]}
+           (util/symbolic-comparatives {:transaction-date-on-or-after date
+                                        :transaction-date-on-or-before other-date}
+                                       :transaction-date)))
+    (is (= {:start-on [:between date other-date]}
+           (util/symbolic-comparatives {:start-on-or-after date
+                                        :start-on-or-before other-date}
+                                       :start-on)))))
+
+(deftest convert-symbolic-comparatives-to-nominal
+  (let [date (t/local-date 2015 1 1)
+        other-date (t/local-date 2015 1 31)]
+    (is (= {:start-after date}
+           (util/nominal-comparatives {:start-on [:> date]}
+                                      :start)))
+    (is (= {:transaction-date-after date}
+           (util/nominal-comparatives {:transaction-date [:> date]}
+                                      :transaction-date)))
+    (is (= {:transaction-date-on-or-after date
+            :transaction-date-on-or-before other-date}
+           (util/nominal-comparatives {:transaction-date [:between date other-date]}
+                                      :transaction-date))
+        "between generates to keys in the result")
+    (is (= {:start-on-or-after date
+            :start-on-or-before other-date}
+           (util/nominal-comparatives {:start-on [:between date other-date]}
+                                      :start-on))
+        "between generates to keys in the result")))

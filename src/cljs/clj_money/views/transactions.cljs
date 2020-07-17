@@ -5,6 +5,7 @@
             [reagent.format :refer [currency-format]]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
+            [clj-money.dnd :as dnd]
             [clj-money.bootstrap :as bs]
             [clj-money.util :as util]
             [clj-money.x-platform.util :refer [serialize-date]]
@@ -16,6 +17,7 @@
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]
+            [clj-money.api.attachments :as att]
             [clj-money.notifications :as notify]))
 
 (defn- prepare-transaction-for-edit
@@ -59,6 +61,21 @@
       #(swap! page-state assoc :items %)
       (notify/danger-fn "Unable to load the unreconciled items: %s"))))
 
+(defn- load-attachments
+  [page-state items]
+  (let [[start end] ((juxt first last) (->> items
+                                            (sort-by :transaction-date t/before?)
+                                            (map :transaction-date)))
+        ids (map :transaction-id items)]
+    (att/search {:transaction-date [:between start end]
+                 :transaction-id ids}
+                #(swap! page-state
+                       update-in
+                       [:attachments]
+                       (fnil (partial merge-with conj) {})
+                       (group-by :transaction-id %))
+                (notify/danger-fn "Unable to load the attachments: %s"))))
+
 (defn init-item-loading
   [page-state]
   (let [account (:view-account @page-state)
@@ -75,7 +92,10 @@
                    (transaction-items/search
                      {:account-id (:id account)
                       :transaction-date date-range}
-                     callback-fn
+                     (fn [result]
+                       (when (seq result)
+                         (load-attachments page-state result))
+                       (callback-fn result))
                      (notify/danger-fn "Unable to fetch transaction items: %s")))
        :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
        :finish-fn #(swap! page-state assoc :all-items-fetched? true)})))
@@ -93,14 +113,40 @@
                          #(reset-item-loading page-state)
                          notify/danger)))
 
+(defn- handle-item-row-drop
+  [item e page-state]
+  (.preventDefault e)
+  (att/create {:transaction-id (:transaction-id item) ; TODO: use transaction-ref to combine these?
+               :transaction-date (:transaction-date item)
+               :file (first (dnd/files e))}
+              (fn [a]
+                (swap! page-state
+                       #(-> %
+                            (update-in [:attachments]
+                                       (fnil (partial merge-with conj) {}) {(:transaction-id a) [a]})
+                            (update-in [:item-row-styles]
+                                       dissoc (:id item)))))
+              (notify/danger-fn "Unable to save the attachment: %s")))
+
 (defn- item-row
   [item page-state]
   (let [account (r/cursor page-state [:view-account])
-        reconciliation (r/cursor page-state [:reconciliation])]
+        reconciliation (r/cursor page-state [:reconciliation])
+        attachments (r/cursor page-state [:attachments])
+        styles (r/cursor page-state [:item-row-styles])]
     ^{:key (str "item-row-" (:id item))}
-    [:tr.d-flex
+    [:tr.d-flex {:on-drag-enter #(swap! page-state
+                                        assoc-in
+                                        [:item-row-styles (:id item)]
+                                        {:background-color "var(--primary)"
+                                         :color "var(--white)"
+                                         :cursor :copy})
+                 :on-drag-leave (util/debounce 100 #(swap! page-state update-in [:item-row-styles] dissoc (:id item)))
+                 :on-drag-over #(.preventDefault %)
+                 :on-drop #(handle-item-row-drop item % page-state)
+                 :style (get-in @styles [(:id item)])}
      [:td.col-2.text-right (util/format-date (:transaction-date item))]
-     [:td.col-3 (:description item)]
+     [:td.col-3 {:style (get-in @styles [(:id item)])} (:description item)]
      [:td.col-2.text-right (currency-format (polarize-quantity item @account))]
      [:td.col-1.text-center
       (if @reconciliation
@@ -115,8 +161,17 @@
      [:td.col-2
       [:div.btn-group
        [:button.btn.btn-info.btn-sm {:on-click #(edit-transaction item page-state)
-                                   :title "Click here to edit this transaction."}
+                                     :title "Click here to edit this transaction."}
         (bs/icon :pencil)]
+       [:button.btn.btn-sm {:on-click #(swap! page-state
+                                              assoc
+                                              :attachments-item
+                                              item)
+                            :class (if (get-in @attachments [(:transaction-id item)])
+                                     "btn-info"
+                                     "btn-outline-info")
+                            :title "Click here to view attachments for this transaction"}
+        (bs/icon :paperclip)]
        [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
                                        :title "Click here to remove this transaction."}
         (bs/icon :x-circle)]]]]))

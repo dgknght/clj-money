@@ -6,7 +6,7 @@
                                     routes
                                     ANY]]
             [cheshire.generate]
-            [ring.util.response :refer [header]]
+            [ring.util.response :refer [header] :as res]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.middleware.params :refer [wrap-params]]
@@ -19,10 +19,12 @@
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [co.deps.ring-etag-middleware :as etag]
             [environ.core :refer [env]]
+            [slingshot.slingshot :refer [try+]]
             [clj-money.x-platform.util :refer [serialize-date]]
             [clj-money.core]
             [clj-money.json]
             [clj-money.web.auth :as web-auth]
+            [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-exceptions]]
             [clj-money.api :as api :refer [wrap-authentication]]
@@ -37,6 +39,7 @@
             [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
+            [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.apps :as apps]))
@@ -56,6 +59,7 @@
               reports-api/routes
               transactions-api/routes
               transaction-items-api/routes
+              att-api/routes
               recs-api/routes
               commodities-api/routes
               lots-api/routes
@@ -71,21 +75,59 @@
       wrap-exceptions
       wrap-json-response))
 
+(defn- not-found []
+  (-> (slurp "resources/404.html")
+      res/response
+      (res/status 404)
+      (res/content-type "text/html")))
+
+(defn internal-error []
+  (-> (slurp "resources/500.html")
+      res/response
+      (res/status 500)
+      (res/content-type "text/html")))
+
+(defn wrap-web-exceptions
+  [handler]
+  (fn [req]
+    (try+
+      (handler req)
+      (catch [:type :clj-money.models/not-found] error-data
+        (not-found))
+      (catch [:type :clj-money.authorization/no-rules] error-data
+        (internal-error))
+      (catch [:type :clj-money.authorization/unauthorized] error-data
+        (not-found))
+      (catch Exception e
+        (api/log-error e "unexpected error")
+        (internal-error)))))
+
+(defroutes protected-web-routes
+  (-> images/routes
+      (wrap-routes wrap-integer-id-params)
+      wrap-authentication
+      wrap-web-exceptions))
+
 (defn- wrap-no-cache-header
   [handler]
   (fn [req]
     (header (handler req) "Cache-Control" "no-cache")))
 
+(defn- wrap-request-logging
+  [handler]
+  (fn [{:keys [request-method uri query-string] :as req}]
+    (log/debugf "Request %s: %s?%s" request-method uri query-string)
+    (handler req)))
+
 (defroutes app
   (-> (routes apps/routes
               web-auth/routes
               api-routes
+              protected-web-routes
               (ANY "*" req
                    (do
                      (log/debugf "unable to match route for \"%s\"." (:uri req))
-                     {:status 404
-                      :body (slurp "resources/404.html")
-                      :headers {"Content-Type" "text/html"}})))
+                     (not-found))))
       (wrap-resource "public")
       wrap-cookies
       wrap-keyword-params
@@ -94,7 +136,8 @@
       wrap-params
       wrap-no-cache-header
       etag/wrap-file-etag
-      wrap-not-modified))
+      wrap-not-modified
+      wrap-request-logging))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 5000))]
