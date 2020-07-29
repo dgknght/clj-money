@@ -1,6 +1,7 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
   (:require [clj-money.x-platform.util :refer [unserialize-date]]
+            [clj-money.state :refer [current-entity]]
             [clj-money.decimal :as decimal :refer [->decimal]]
             [clj-money.api :as api]))
 
@@ -23,10 +24,12 @@
       (update-in [:latest-transaction-date] unserialize-date)))
 
 (defn get-all
-  [entity-id success-fn error-fn]
-  (api/get-resources (api/path :entities entity-id :accounts)
-                     #(success-fn (map after-read %))
-                     error-fn))
+  ([success-fn error-fn]
+   (get-all (:id @current-entity) success-fn error-fn))
+  ([entity-id success-fn error-fn]
+   (api/get-resources (api/path :entities entity-id :accounts)
+                      #(success-fn (map after-read %))
+                      error-fn)))
 
 (defn get-one
   [id success-fn error-fn]

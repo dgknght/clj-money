@@ -184,8 +184,7 @@
           (if (:id attributes)
             attributes
             (throw-on-invalid
-              (entities/create storage
-                               (resolve-user attributes context)))))
+              (entities/create storage (resolve-user attributes context)))))
         entities))
 
 (defn- realize-entities
@@ -531,6 +530,41 @@
   [context storage]
   (update-in context [:identities] (fnil create-identities []) storage context))
 
+(defn- extract-monitored-account-ids
+  [entities]
+  (->> entities
+       (map (fn [{{:keys [monitored-account-ids]} :settings :keys [name]}]
+              (when monitored-account-ids
+                [name monitored-account-ids])))
+       (filter identity)
+       (into {})))
+
+(defn- stash-monitored-account-ids
+  [{:keys [entities] :as context} _]
+  (-> context
+      (assoc :monitored-account-ids (extract-monitored-account-ids entities))
+      (assoc :entities (map #(update-in % [:settings] dissoc :monitored-account-ids)
+                            entities))))
+
+(defn- apply-monitored-account-ids
+  [entity {:keys [monitored-account-ids] :as context} storage]
+  (if-let [account-ids (get-in monitored-account-ids[(:name entity)])]
+    (entities/update storage (assoc-in entity [:settings :monitored-account-ids]
+                                       (->> account-ids
+                                            (map (comp :id
+                                                       #(find-account context %)))
+                                            set)))
+    entity))
+
+(defn- update-monitored-account-ids
+  [context storage]
+  (-> context
+      (update-in [:entities]
+                 (fn [entities]
+                   (map #(apply-monitored-account-ids % context storage)
+                        entities)))
+      (dissoc :monitored-account-ids)))
+
 (defn realize
   "Realizes a test context"
   [storage-spec input]
@@ -539,10 +573,12 @@
         (realize-users s)
         (realize-images s)
         (realize-imports s)
+        (stash-monitored-account-ids s)
         (realize-entities s)
         (realize-grants s)
         (realize-commodities s)
         (realize-accounts s)
+        (update-monitored-account-ids s)
         (realize-prices s)
         (realize-lots s)
         (realize-budgets s)

@@ -35,3 +35,12 @@
                               budget-id)
                     (comp success-fn #(update-in % [:items] after-read))
                     error-fn))
+
+(defn budget-monitors
+  [success-fn error-fn]
+  (api/get-resources (api/path :entities
+                               (:id @current-entity)
+                               :reports
+                               :budget-monitors)
+                     success-fn
+                     error-fn))

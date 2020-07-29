@@ -4,7 +4,8 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-time.core :as t]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            pprint-diff]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found]]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -123,3 +124,59 @@
 
 (deftest a-user-cannot-get-an-budget-report-for-anothers-entity
   (assert-blocked-budget-report (get-budget-report "jane@doe.com")))
+
+(def ^:private monitor-context
+  (-> budget-context
+      (update-in [:budgets 0] assoc :items [{:account-id "Groceries"
+                                             :periods (repeat 12 200)}])
+      (update-in [:entities 0] assoc-in [:settings :monitored-account-ids] #{"Groceries"})
+      (assoc :transactions [{:transaction-date (t/local-date 2016 1 1)
+                             :description "Kroger"
+                             :quantity 85M
+                             :debit-account-id "Groceries"
+                             :credit-account-id "Checking"}])))
+
+(defn- get-monitor-list
+  [email]
+  (let [ctx (realize (env :db) monitor-context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        response (t/do-at (t/date-time 2016 1 7)
+                          (-> (req/request :get (path :api
+                                                      :entities
+                                                      (:id entity)
+                                                      :reports
+                                                      :budget-monitors))
+                              (add-auth user)
+                              app))
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-monitor-list
+  [[response body]]
+  (assert-successful response)
+  (let [expected [{:caption "Groceries"
+                   :period {:total-budget 200.0
+                            :actual 85.0
+                            :percentage 0.2258
+                            :prorated-budget 45.162
+                            :actual-percent 0.425}
+                   :budget {:total-budget 2400.0
+                            :actual 85.0
+                            :percentage 0.0191
+                            :prorated-budget 45.902
+                            :actual-percent 0.035417}}]
+        actual (when (sequential? body)
+                 (map #(dissoc % :account-id) body))]
+    (pprint-diff expected actual)
+    (is (= expected actual))))
+
+(defn- assert-blocked-monitor-list
+  [[response]]
+  (assert-not-found response))
+
+(deftest a-user-can-get-budget-monitors-for-his-entity
+  (assert-successful-monitor-list (get-monitor-list "john@doe.com")))
+
+(deftest a-user-cannot-get-budget-monitors-for-anothers-entity
+  (assert-blocked-monitor-list (get-monitor-list "jane@doe.com")))

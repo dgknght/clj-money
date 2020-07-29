@@ -12,7 +12,7 @@
 (s/def ::name string?)
 (s/def ::id integer?)
 (s/def ::user-id integer?)
-(s/def ::monitored-account-ids (s/coll-of integer?))
+(s/def ::monitored-account-ids (s/coll-of integer? :kind set?))
 (s/def ::inventory-method #{:fifo :lifo})
 (s/def ::default-commodity-id integer?)
 (s/def ::settings (s/keys :opt-un [::inventory-method ::monitored-account-ids ::default-commodity-id]))
@@ -22,12 +22,9 @@
 (defn- after-read
   [entity & _]
   (when entity
-    (cond-> entity
-      true
-      (storage/tag ::models/entity)
-
-      (:settings entity)
-      (update-in [:settings] read-string))))
+    (-> entity
+        (storage/tag ::models/entity)
+        (update-in-if [:settings] read-string))))
 
 (defn select
   "Returns entities for the specified user"
@@ -57,6 +54,7 @@
   [entity & _]
   (-> entity
       (storage/tag ::models/entity)
+      (update-in-if [:settings :monitored-account-ids] set)
       (update-in-if [:settings] pr-str)))
 
 (defn- validation-rules

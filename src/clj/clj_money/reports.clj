@@ -252,8 +252,10 @@
        :actual actual-amount
        :difference difference
        :percent-difference (when (not= 0M budget-amount)
-                             (/ difference budget-amount)) 
-       :actual-per-period (/ actual-amount period-count)})))
+                             (with-precision 5
+                               (/ difference budget-amount)))
+       :actual-per-period (with-precision 5
+                            (/ actual-amount period-count))})))
 
 (defn- sum
   [attr col]
@@ -278,7 +280,7 @@
 
 (defn- append-roll-up
   [{:keys [budget actual difference] :as record} children period-count]
-  (let [b (+ budget (sum :budget children)) 
+  (let [b (+ budget (sum :budget children))
         a (+ actual (sum :actual children))
         d (+ difference (sum :difference children))]
     (assoc record
@@ -409,39 +411,70 @@
    :prorated-budget (* percentage budget)
    :actual-percent (/ actual budget)})
 
+(defn- aggregate-account-actuals
+  [accounts start end storage]
+  (->> accounts
+       (map #(transactions/balance-delta storage % start end))
+       (reduce + 0M)))
+
 (defn- monitor-from-item
-  [{:keys [storage account as-of budget] {:keys [periods]} :item}]
+  [{:keys [storage account as-of budget children] {:keys [periods]} :item}]
   (let [period (budgets/period-containing budget as-of)
-        period-budget (get periods (:index period))
-        total-budget (reduce + periods)
+        period-budget (nth periods (:index period) 0M)
+        total-budget (reduce + 0M periods)
         percent-of-period (budgets/percent-of-period budget
                                                      as-of)
-        period-actual (transactions/balance-delta storage
-                                                  account
-                                                  (:start period)
-                                                  as-of)
-        total-actual (transactions/balance-delta storage
-                                                 account
-                                                 (:start-date budget)
-                                                 as-of)
-        percent-of-total (->> [as-of (:end-date budget)]
-                              (map (comp inc
-                                         t/in-days
-                                         #(t/interval
-                                            (tc/to-date-time (:start-date budget))
-                                            %)
-                                         tc/to-date-time))
-                              (apply /))]
+        period-actual (aggregate-account-actuals (conj children account)
+                                                 (:start period)
+                                                 as-of
+                                                 storage)
+        total-actual (aggregate-account-actuals (conj children account)
+                                                (:start-date budget)
+                                                as-of
+                                                storage)
+        percent-of-total (with-precision 5
+                           (->> [as-of (:end-date budget)]
+                                (map (comp inc
+                                           t/in-days
+                                           #(t/interval
+                                              (tc/to-date-time (:start-date budget))
+                                              %)
+                                           tc/to-date-time))
+                                (apply /)))]
     (with-precision 5
       {:caption (:name account)
        :account account
        :period (monitor-item period-budget period-actual percent-of-period)
        :budget (monitor-item total-budget total-actual percent-of-total)})))
 
+(defn- aggregate-item
+  [{:keys [budget account storage]}]
+  (let [items (budgets/find-items-by-account budget account storage)]
+    (when (seq items)
+      {:account account
+       :periods (->> items
+                     (map :periods)
+                     (apply interleave)
+                     (partition (count items))
+                     (map #(reduce + %)))})))
+
+(defn- append-account-children
+  [{:keys [account storage] :as ctx}]
+  (let [children (remove
+                   #(= (:id %)  (:id account))
+                   (accounts/search storage
+                                    {:id (:id account)}
+                                    {:include-children? true}))]
+    (-> ctx
+        (update-in [:account] assoc :child-ids (map :id children))
+        (assoc :children children))))
+
 (defn- monitor-from-budget
-  [{:keys [budget account] :as ctx}]
-  (if-let [item (budgets/find-item-by-account budget account)]
-    (monitor-from-item (assoc ctx :item item))
+  [{:keys [account] :as ctx}]
+  (if-let [item (aggregate-item ctx)]
+    (monitor-from-item (-> ctx
+                           (assoc :item item)
+                           append-account-children))
     {:caption (:name account)
      :account account
      :message "There is no budget item for this account"}))

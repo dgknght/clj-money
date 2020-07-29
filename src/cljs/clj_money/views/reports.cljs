@@ -180,23 +180,20 @@
                                          :budget-id (:id (first result)))))
               (notify/danger-fn "Unable to load the budgets: %s")))
 
-(defn- apply-depth
+(defn- refine-items
   [depth items]
-  (let [result (->> items
-                      (remove #(< depth (:depth %)))
-                      (map #(if (= depth (:depth %))
-                              (merge % (:roll-up %))
-                              %)))]
-    (remove #(= 0 (:actual %) (:budget %))
-                 result)))
+  (->> items
+       (remove #(< depth (:depth %)))
+       (map #(if (= depth (:depth %))
+               (merge % (:roll-up %))
+               %))
+       (remove #(= 0 (:actual %) (:budget %)))
+       (sort-by :difference)))
 
-(defn- apply-depth-to-group
+(defn- refine-and-flatten
   [depth groups]
-  (mapcat (fn [{:keys [items] :as group}]
-            (concat [group]
-                    (->> items
-                         (apply-depth depth)
-                         (sort-by :difference))))
+  (mapcat #(concat [%]
+                   (refine-items depth (:items %)))
           groups))
 
 (defn- budget []
@@ -222,7 +219,7 @@
              [:th.text-right "Act/Mo"]]]
            [:tbody
             (->> (:items @report)
-                 (apply-depth-to-group @depth)
+                 (refine-and-flatten @depth)
                  (map budget-report-row)
                  doall)]]])])))
 

@@ -5,7 +5,8 @@
             [environ.core :refer [env]]
             [clj-money.validation :as validation]
             [clj-money.test-context :refer [realize
-                                            find-user]]
+                                            find-user
+                                            find-entity]]
             [clj-money.models.entities :as entities]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
@@ -72,25 +73,24 @@
         "The correct entities are returned")))
 
 (deftest find-an-entity-by-id
-  (let [context (realize storage-spec entity-context)
-        entity (entities/create storage-spec (attributes context))
+  (let [ctx (realize storage-spec list-context)
+        entity (find-entity ctx "Personal")
         retrieved (entities/find-by-id storage-spec (:id entity))]
     (is (= entity retrieved))))
 
 (deftest update-an-entity
-  (let [context (realize storage-spec entity-context)
+  (let [context (realize storage-spec list-context)
         user (-> context :users first)
-        entity (entities/create storage-spec {:name "Entity X"
-                                              :user-id (:id user)})
+        entity (find-entity context "Personal")
         updated (-> entity
                     (assoc :name "Entity Y")
-                    (assoc-in [:settings :monitored-account-ids] [1 2]))
+                    (assoc-in [:settings :monitored-account-ids] #{1 2}))
         result (entities/update storage-spec updated)
         retrieved (entities/find-by-id storage-spec (:id entity))
         expected {:id (:id entity)
                   :name "Entity Y"
                   :user-id (:id user)
-                  :settings {:monitored-account-ids [1 2]}}
+                  :settings {:monitored-account-ids #{1 2}}}
         actual (dissoc retrieved :updated-at :created-at)]
 
     (when (validation/has-error? result)

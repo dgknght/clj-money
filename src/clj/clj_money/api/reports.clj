@@ -8,7 +8,10 @@
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.budgets :as budgets]
-            [clj-money.reports :as rpt]))
+            [clj-money.models.accounts :as accounts]
+            [clj-money.reports :as rpt])
+  (:import java.math.BigDecimal
+           clojure.lang.Ratio))
 
 (defn- fetch-entity
   [{:keys [params authenticated]}]
@@ -46,6 +49,32 @@
                                        (update-in-if [:as-of] unserialize-date))))
     (api/not-found)))
 
+(defn- flatten-ratio
+  [ratio]
+  (if (instance? Ratio ratio)
+    (.divide (bigdec (numerator ratio))
+             (bigdec (denominator ratio))
+             4
+             BigDecimal/ROUND_HALF_UP)
+    ratio))
+
+(defn- serialize-monitor
+  [monitor]
+  (-> monitor
+      (update-in [:budget :percentage] flatten-ratio)
+      (update-in [:period :percentage] flatten-ratio)
+      (assoc :account-id (-> monitor :account :id))
+      (dissoc :account)))
+
+(defn- monitors
+  [req]
+  (if-let [entity (fetch-entity req)]
+    (api/->response (map (comp serialize-monitor
+                               #(rpt/monitor (env :db) %)
+                               #(accounts/find-by-id (env :db) %))
+                         (get-in entity [:settings :monitored-account-ids])))
+    (api/not-found)))
+
 (defroutes routes
   (GET "/api/entities/:entity-id/reports/income-statement/:start-date/:end-date"
        req
@@ -53,6 +82,9 @@
   (GET "/api/entities/:entity-id/reports/balance-sheet/:as-of"
        req
        (balance-sheet req))
+  (GET "/api/entities/:entity-id/reports/budget-monitors"
+       req
+       (monitors req))
   (GET "/api/reports/budget/:budget-id"
        req
        (budget req)))

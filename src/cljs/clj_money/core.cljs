@@ -20,6 +20,7 @@
             [clj-money.views.users]
             [clj-money.views.budgets]
             [clj-money.views.reports]
+            [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.api.entities :as entities]
             [clj-money.dom :refer [app-element]]
             [clj-money.bootstrap :as bootstrap]
@@ -31,7 +32,9 @@
    [:p "This is a double-entry accounting application that aims to be available anywhere."]])
 
 (secretary/defroute "/" []
-  (swap! app-state assoc :page #'home-page))
+    (swap! app-state assoc :page (if @current-user
+                                   #'dashboard
+                                   #'home-page)))
 
 (defn- nil-page []
   (util/space))

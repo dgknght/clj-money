@@ -8,7 +8,8 @@
             [stowaway.core :as storage :refer [with-storage
                                                with-transacted-storage]]
             [clj-money.validation :as validation :refer [with-validation]]
-            [clj-money.models :as models])
+            [clj-money.models :as models]
+            [clj-money.models.accounts :as accounts])
   (:import (org.joda.time LocalDate
                           Months
                           Weeks
@@ -177,12 +178,23 @@
 
 (defn find-item-by-account
   "Finds the item in the specified budget associated with the specified account"
-  [budget account-or-id]
-  (let [account-id (or (:id account-or-id)
-                       account-or-id)]
-    (->> (:items budget)
-         (filter #(= account-id (:account-id %)))
-         first)))
+  [{:keys [items]} account]
+  (->> items
+       (filter #(= (:id account) (:account-id %)))
+       first))
+
+(defn find-items-by-account
+  "Finds items in the specified match belonging to the specified account or its children."
+  [{:keys [items]} {:keys [child-ids id]} storage]
+  (let [ids (if (seq child-ids)
+              (conj (into #{} child-ids) id)
+              (->> (accounts/search storage
+                                    {:id id}
+                                    {:include-children? true})
+                   (map :id)
+                   (into #{})))]
+    (filter #(ids (:account-id %))
+            items)))
 
 (defn create
   [storage-spec budget]

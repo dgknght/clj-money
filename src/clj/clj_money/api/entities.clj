@@ -5,6 +5,7 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [stowaway.core :as storage]
+            [clj-money.x-platform.util :refer [update-in-if]]
             [clj-money.api :refer [->response
                                    error->response
                                    invalid->response
@@ -42,7 +43,9 @@
   (let [entity (authorize (entities/find-by-id (env :db) (:id params))
                           ::authorization/update
                           authenticated)
-        updated (merge entity (select-keys body [:name :settings]))]
+        updated (merge entity (-> body
+                                  (update-in-if [:settings :monitored-account-ids] set)
+                                  (select-keys [:name :settings])))]
     (try
       (let [result (entities/update (env :db) updated)]
         (if (validation/has-error? result)

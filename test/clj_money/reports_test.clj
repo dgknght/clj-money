@@ -695,7 +695,7 @@
                      :budget 900M
                      :actual 904M
                      :difference -4M
-                     :percent-difference -0.004444444444M
+                     :percent-difference -0.0044444M
                      :actual-per-period 452M}
                     {:caption "Rent"
                      :style :data
@@ -732,7 +732,7 @@
                      :budget 268M
                      :actual 186M
                      :difference 82M
-                     :percent-difference 0.3059701493M
+                     :percent-difference 0.30597M
                      :actual-per-period 93M}
                     {:caption "Taxes/FIT"
                      :style :data

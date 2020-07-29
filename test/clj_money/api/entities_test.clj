@@ -51,6 +51,7 @@
         response (app (-> (req/request :patch (path :api :entities (:id entity)))
                           (req/json-body (-> entity
                                              (assoc :name "New Name")
+                                             (assoc-in [:settings :monitored-account-ids] #{1 2})
                                              (select-keys [:name :settings])))
                           (add-auth user)))
         body (json/parse-string (:body response) true)

@@ -10,7 +10,8 @@
                                             find-account
                                             find-accounts
                                             find-budget]]
-            [clj-money.test-helpers :refer [reset-db
+            [clj-money.test-helpers :refer [pprint-diff
+                                            reset-db
                                             selective=
                                             assert-validation-error]]))
 
@@ -369,3 +370,44 @@
     (doseq [{:keys [description budget date expected]} tests]
       (testing description
         (is (= expected (budgets/percent-of-period budget date)))))))
+
+(def ^:private get-items-context
+  (-> budget-context
+      (update-in [:accounts] concat [{:name "Food"
+                                      :parent-id "Groceries"
+                                      :type :expense}
+                                     {:name "Non-food"
+                                      :parent-id "Groceries"
+                                      :type :expense}])
+      (assoc :budgets [{:entity-id "Personal"
+                        :name "2015"
+                        :start-date (t/local-date 2015 1 1)
+                        :period-count 3
+                        :period :month
+                        :items [{:account-id "Food"
+                                 :periods (repeat 3 100M)}
+                                {:account-id "Non-food"
+                                 :periods (repeat 3 50M)}]}])))
+
+(deftest get-items-by-account
+  (let [ctx (realize (env :db) get-items-context)
+        budget (find-budget ctx "2015")]
+    (testing "a leaf account"
+      (let [account (find-account ctx "Food")
+            expected [[100M 100M 100M]]
+            actual (map :periods (budgets/find-items-by-account
+                                   budget
+                                   account
+                                   (env :db)))]
+        (pprint-diff expected actual)
+        (is (= expected actual) "The correct period values are returned")))
+    (testing "a parent account"
+      (let [account (find-account ctx "Groceries")
+            expected [[100M 100M 100M]
+                      [50M 50M 50M]]
+            actual (map :periods (budgets/find-items-by-account
+                                   budget
+                                   account
+                                   (env :db)))]
+        (pprint-diff expected actual)
+        (is (= expected actual) "The correct period values are returned")))))
