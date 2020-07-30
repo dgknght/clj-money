@@ -3,10 +3,8 @@
   (:require [clojure.spec.alpha :as s]
             [digest :refer [sha-1]]
             [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.util :refer [rev-args]]
-            [clj-money.validation :as validation]
-            [clj-money.models :as models]
-            [clj-money.models.helpers :refer [create-fn]]))
+            [clj-money.validation :as validation :refer [with-validation]]
+            [clj-money.models :as models]))
 
 (s/def ::user-id integer?)
 (s/def ::original-filename validation/non-empty-string?)
@@ -58,12 +56,15 @@
   [image & _]
   (storage/tag image ::models/image))
 
-(def create
-  (create-fn {:create (rev-args storage/create)
-              :before-save before-save
-              :spec ::image
-              :before-validation before-validation
-              :rules-fn validation-rules}))
+(defn create
+  [storage image]
+  (with-storage [s storage]
+    (let [image (before-validation image)]
+      (with-validation image ::image (validation-rules s)
+        (as-> image i
+          (before-save i)
+          (storage/create s i)
+          (after-read i))))))
 
 (defn find-or-create
   [storage-spec image]

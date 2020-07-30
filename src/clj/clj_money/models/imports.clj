@@ -2,11 +2,10 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [cheshire.core :as json]
-            [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
-            [clj-money.util :refer [rev-args]]
+            [stowaway.core :as storage :refer [with-storage
+                                               with-transacted-storage]]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]]
+            [clj-money.validation :refer [with-validation]]
             [clj-money.models.entities :as entities]
             [clj-money.models.images :as images]))
 
@@ -19,7 +18,7 @@
 (s/def ::existing-import (s/keys :req-un [::id ::progress]))
 
 (defn- before-save
-  [imp & _]
+  [imp]
   (storage/tag imp ::models/import))
 
 (defn- prepare-progress
@@ -49,11 +48,14 @@
         (assoc :entity-exists? (entity-exists? imp storage))
         (storage/tag ::models/import))))
 
-(def create
-  (create-fn {:create (rev-args storage/create)
-              :before-save before-save
-              :after-read after-read
-              :spec ::new-import}))
+(defn create
+  [storage impt]
+  (with-storage [s storage]
+    (with-validation impt ::new-import []
+      (as-> impt i
+        (before-save i)
+        (storage/create s i)
+        (after-read i s)))))
 
 (defn- before-update
   [import & _]
@@ -79,11 +81,12 @@
   [storage-spec id]
   (find-by storage-spec {:id id}))
 
-(def update
-  (update-fn {:update (rev-args storage/update)
-              :find find-by-id
-              :before-save before-update
-              :spec ::existing-import}))
+(defn update
+  [storage impt]
+  (with-storage [s storage]
+    (with-validation impt ::existing-import []
+      (storage/update s (before-update impt))
+      (find-by-id s (:id impt)))))
 
 (defn delete
   [storage-spec id]

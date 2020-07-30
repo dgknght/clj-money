@@ -44,6 +44,7 @@
       (update-in [:tags] #(if (:trading account)
                             (conj (or % #{}) :trading)
                             %))
+      (update-in [:type] keyword)
       (select-keys attribute-keys)
       (storage/tag ::models/account)))
 
@@ -59,9 +60,11 @@
 (defn- update
   [{:keys [body] :as req}]
   (if-let [account (find-and-auth req ::authorization/update)]
-    (->response (accounts/update (env :db)
-                                 (merge account
-                                        (select-keys body attribute-keys))))
+    (->response (accounts/update
+                  (env :db)
+                  (merge account (-> body
+                                     (select-keys attribute-keys)
+                                     before-save))))
     (not-found)))
 
 (defn- delete

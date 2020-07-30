@@ -11,7 +11,6 @@
             [clj-money.coercion :as coercion]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
-            [clj-money.models.helpers :refer [update-fn]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.date-helpers :refer [parse-date-range]]))
 
@@ -98,13 +97,12 @@
   [storage-spec price]
   (find-by-id storage-spec (:id price) (:trade-date price)))
 
-(def update
-  (update-fn {:update (rev-args storage/update)
-              :rules-fn validation-rules
-              :reload reload
-              :spec ::existing-price
-              :after-read after-read
-              :coercion-rules coercion-rules}))
+(defn update
+  [storage price]
+  (with-storage [s storage]
+    (with-validation price ::existing-price (validation-rules s)
+      (storage/update s (before-save price)) ; TODO: might need to delete from the old location
+      (find-by-id s (:id price) (:trade-date price)))))
 
 (defn delete
   [storage-spec price]

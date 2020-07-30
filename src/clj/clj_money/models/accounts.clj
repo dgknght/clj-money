@@ -2,12 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.util :refer [rev-args]]
-            [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
+            [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]))
 
@@ -23,13 +19,6 @@
                                   :opt-un [::parent-id ::commodity-id]))
 ; :value and :children-value are not specified because they are always
 ; calculated and not passed in
-
-(def ^:private coercion-rules
-  [(coercion/rule :integer [:id])
-   (coercion/rule :keyword [:type])
-   (coercion/rule :integer [:commodity-id])
-   (coercion/rule :integer [:entity-id])
-   (coercion/rule :integer [:parent-id])])
 
 (defn- default-commodity-id
   [storage entity-id]
@@ -149,28 +138,29 @@
          :path [:type]
          :message "Type must match the parent type"}]))
 
-(def create
-  (create-fn {:before-save before-save
-              :after-read after-read
-              :create (rev-args storage/create)
-              :before-validation before-validation
-              :rules-fn validation-rules
-              :coercion-rules coercion-rules
-              :spec ::new-account}))
+(defn create
+  [storage account]
+  (with-storage [s storage]
+    (let [account (before-validation account s)]
+      (with-validation account ::new-account (validation-rules s)
+        (as-> account a
+          (before-save a)
+          (storage/create s a)
+          (after-read a))))))
 
 (defn reload
   "Returns a fresh copy of the specified account from the data store"
   [storage-spec {:keys [id]}]
   (find-by-id storage-spec id))
 
-(def update
-  (update-fn {:before-save before-save
-              :after-read after-read
-              :update (rev-args storage/update)
-              :find find-by-id
-              :spec ::existing-account
-              :coercion-rules coercion-rules
-              :rules-fn validation-rules}))
+(defn update
+  [storage account]
+  (with-storage [s storage]
+    (with-validation account ::existing-account (validation-rules s)
+      (as-> account a
+        (before-save a)
+        (storage/update s a))
+      (find-by-id s (:id account)))))
 
 (defn delete
   "Removes the account from the system"

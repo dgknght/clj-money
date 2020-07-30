@@ -115,20 +115,6 @@
     (is (seq (validation/error-messages result :purchase-date)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
-(deftest purchase-date-can-be-a-date-string
-  (let [context (realize storage-spec lot-context)
-        commodity (find-commodity context "AAPL")
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (assoc :purchase-date "2017-03-02")))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
-    (is (:id result) "The result receives an ID value")
-    (is (empty? (validation/error-messages result)) "The result contains no validation errors")
-    (is (= [{:purchase-date (t/local-date 2017 3 2)
-             :shares-owned 100M}] ; shares-owned is set to shares-purchased
-           (map #(select-keys % [:purchase-date :shares-owned]) lots))
-        "The value is retrieved after create")))
-
 (deftest purchase-date-must-be-a-date
   (let [context (realize storage-spec lot-context)
         commodity (find-commodity context "IRA")

@@ -4,10 +4,7 @@
             [stowaway.core :as storage :refer [with-storage]]
             [clj-money.x-platform.util :refer [update-in-if]]
             [clj-money.models :as models]
-            [clj-money.coercion :as coercion]
-            [clj-money.validation :as validation]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]]))
+            [clj-money.validation :as validation :refer [with-validation]]))
 
 (s/def ::name string?)
 (s/def ::id integer?)
@@ -20,7 +17,7 @@
 (s/def ::existing-entity (s/keys :req-un [::id ::name] :opt-un [::user-id ::settings]))
 
 (defn- after-read
-  [entity & _]
+  [entity]
   (when entity
     (-> entity
         (storage/tag ::models/entity)
@@ -47,11 +44,11 @@
        empty?))
 
 (defn- before-validation
-  [entity & _]
+  [entity]
   (update-in entity [:settings] (fnil identity {})))
 
 (defn- before-save
-  [entity & _]
+  [entity]
   (-> entity
       (storage/tag ::models/entity)
       (update-in-if [:settings :monitored-account-ids] set)
@@ -63,17 +60,15 @@
                            [:name]
                            "Name is already in use")])
 
-(def ^:private coercion-rules
-  [(coercion/rule :keyword [:settings :inventory-method])])
-
-(def create
-  (create-fn {:before-validation before-validation
-              :before-save before-save
-              :after-read after-read
-              :create (fn [entity s] (storage/create s entity))
-              :spec ::new-entity
-              :rules-fn validation-rules
-              :coercion-rules coercion-rules}))
+(defn create
+  [storage entity]
+  (with-storage [s storage]
+    (let [entity (before-validation entity)]
+      (with-validation entity ::new-entity (validation-rules s)
+        (as-> entity e
+          (before-save e)
+          (storage/create s e)
+          (after-read e))))))
 
 (defn find-by
   "Returns the first entity that matches the specified criteria"
@@ -102,15 +97,13 @@
     (create storage-spec {:user-id (:id user)
                           :name entity-name})))
 
-(def update
-  (update-fn {:update (fn [entity s] (storage/update s entity))
-              :spec ::existing-entity
-              :coercion-rules coercion-rules
-              :rule-fn validation-rules
-              :before-validation before-validation
-              :before-save before-save
-              :after-read after-read
-              :find find-by-id}))
+(defn update
+  [storage entity]
+  (with-storage [s storage]
+    (let [entity (before-validation entity)]
+      (with-validation entity ::existing-entity (validation-rules s)
+        (storage/update s (before-save entity))
+        (find-by-id s (:id entity))))))
 
 (defn delete
   "Removes the specifiedy entity and all related records from storage"

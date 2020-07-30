@@ -49,20 +49,6 @@
     (is (= expected actual)
         "The commodity can be retrieved after create")))
 
-(deftest entity-id-can-be-a-string
-  (let [context (realize storage-spec commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (assoc (attributes context) :entity-id (str entity-id))
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")
-    (is (= [{:name "Apple"
-             :symbol "AAPL"
-             :exchange :nasdaq}]
-           (map #(select-keys % [:name :symbol :exchange]) commodities))
-        "The commodity can be retrieved after create")))
-
 (deftest entity-id-is-required
   (let [context (realize storage-spec commodity-context)
         entity-id (-> context :entities first :id)

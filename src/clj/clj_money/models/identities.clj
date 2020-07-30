@@ -5,7 +5,7 @@
             [clojure.tools.logging :as log]
             [stowaway.core :as storage :refer [with-storage]]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [create-fn]]
+            [clj-money.validation :refer [with-validation]]
             [clj-money.models.users :as users]))
 
 (s/def ::user-id integer?)
@@ -14,13 +14,21 @@
 (s/def ::identity (s/keys :req-un [::user-id ::provider ::provider-id]))
 
 (defn- before-save
-  [ident _]
+  [ident]
   (storage/tag ident ::models/identity))
 
-(def create
-  (create-fn {:spec ::identity
-              :create #(storage/create %2 %1)
-              :before-save before-save}))
+(defn- after-read
+  [ident]
+  (storage/tag ident ::models/identity))
+
+(defn create
+  [storage ident]
+  (with-storage [s storage]
+    (with-validation ident ::identity []
+      (as-> ident i
+        (before-save i)
+        (storage/create s i)
+        (after-read i)))))
 
 (defn select
   [storage-spec criteria options]

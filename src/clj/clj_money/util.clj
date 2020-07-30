@@ -65,11 +65,6 @@
     (string? value)
     (parse-local-date value)))
 
-(defn to-sql-date
-  [value]
-  (when value
-    (java.sql.Date. (.getTime (.toDate value)))))
-
 (defn pprint-and-return
   [message value]
   (println "")
@@ -83,13 +78,6 @@
 (defn pprint-and-return-l
   [value message]
   (pprint-and-return message value))
-
-(defmacro safe-invoke
-  "Executes a function accepting a single argument only if
-  the argument is not nil, in which case nil is returned"
-  [target-fn value]
-  `(when ~value
-     (~target-fn ~value)))
 
 (defn keywordify-keys
   [m]

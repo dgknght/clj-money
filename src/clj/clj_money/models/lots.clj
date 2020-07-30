@@ -2,15 +2,11 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
-            [clj-time.coerce :refer [to-local-date]]
+            [clj-time.coerce :refer [to-local-date
+                                     to-sql-date]]
             [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.util :refer [to-sql-date
-                                    rev-args]]
-            [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
+            [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
@@ -35,7 +31,7 @@
                                        ::shares-owned]))
 
 (defn- after-read
-  [lot & _]
+  [lot]
   (-> lot
       (storage/tag ::models/lot)
       (update-in [:purchase-date] to-local-date)))
@@ -61,7 +57,7 @@
   (find-by storage-spec {:id id}))
 
 (defn- before-save
-  [lot & _]
+  [lot]
   (-> lot
       (storage/tag ::models/lot)
       (update-in [:purchase-date] to-sql-date)
@@ -81,20 +77,15 @@
                            [:account-id]
                            "The account must be an asset account")])
 
-(def ^:private coercion-rules
-  [(coercion/rule :local-date [:purchase-date])
-   (coercion/rule :decimal [:shares-purchased])
-   (coercion/rule :integer [:account-id])
-   (coercion/rule :integer [:commodity-id])])
-
-(def create
-  (create-fn {:before-save before-save
-              :before-validation before-validation
-              :rules-fn validation-rules
-              :create (rev-args storage/create)
-              :after-read after-read
-              :spec ::new-lot
-              :coercion-rules coercion-rules}))
+(defn create
+  [storage lot]
+  (with-storage [s storage]
+    (let [lot (before-validation lot s)]
+      (with-validation lot ::new-lot (validation-rules s)
+        (as-> lot l
+          (before-save l)
+          (storage/create s l)
+          (after-read l))))))
 
 (defn select-by-commodity-id
   [storage-spec commodity-id]
@@ -102,15 +93,13 @@
     (search storage-spec {:commodity-id commodity-id})
     []))
 
-(def update
-  (update-fn {:before-save before-save
-              :before-validation before-validation
-              :rules-fn validation-rules
-              :update (rev-args storage/update)
-              :after-read after-read
-              :spec ::existing-lot
-              :coercion-rules coercion-rules
-              :find find-by-id}))
+(defn update
+  [storage lot]
+  (with-storage [s storage]
+    (let [lot (before-validation lot s)]
+      (with-validation lot ::existing-lot (validation-rules s)
+        (storage/update s (before-save lot))
+        (find-by-id s (:id lot))))))
 
 (defn- lot-unrealized-gains
   [{:keys [purchase-price

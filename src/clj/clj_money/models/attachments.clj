@@ -5,10 +5,8 @@
              :as storage
              :refer [with-storage
                      with-transacted-storage]]
-            [clj-money.util :refer [rev-args]]
             [clj-money.models :as models]
             [clj-money.validation :refer [with-validation]]
-            [clj-money.models.helpers :refer [create-fn]]
             [clj-money.models.images :as images])
   (:import org.joda.time.LocalDate))
 
@@ -33,11 +31,14 @@
   [attachment & _]
   (storage/tag attachment ::models/attachment))
 
-(def create
-  (create-fn {:create (rev-args storage/create)
-              :before-save before-save
-              :after-read after-read
-              :spec ::new-attachment}))
+(defn create
+  [storage attachment]
+  (with-storage [s storage]
+    (with-validation attachment ::new-attachment []
+      (as-> attachment a
+        (before-save a)
+        (storage/create s a)
+        (after-read a)))))
 
 (defn search
   ([storage-spec criteria]

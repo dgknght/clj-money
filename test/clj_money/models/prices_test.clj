@@ -175,7 +175,7 @@
 (deftest a-price-can-be-updated
   (let [context (realize storage-spec existing-price-context)
         price (-> context :prices first)
-        result (prices/update storage-spec (assoc price :price "10"))
+        result (prices/update storage-spec (assoc price :price 10M))
         retrieved (prices/find-by-id storage-spec (:id price) (:trade-date price))]
     (is (empty? (validation/error-messages result))
         "The result does not have any validation errors")

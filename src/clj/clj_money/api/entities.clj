@@ -23,12 +23,17 @@
                                              (select-keys [:name])
                                              (+scope ::models/entity authenticated)))))
 
-(defn- create
+(defn- extract-entity
   [{:keys [body authenticated]}]
-  (let [entity (-> body
-                   (select-keys [:name :settings])
-                   (assoc :user-id (:id authenticated))
-                   (storage/tag ::models/entity))]
+  (-> body
+      (select-keys [:name :settings])
+      (assoc :user-id (:id authenticated))
+      (update-in-if [:settings :inventory-method] keyword)
+      (storage/tag ::models/entity)))
+
+(defn- create
+  [req]
+  (let [entity (extract-entity req) ]
     (try
       (let [result (entities/create (env :db) entity)]
         (if (validation/has-error? result)

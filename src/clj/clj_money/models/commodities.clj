@@ -4,15 +4,11 @@
             [stowaway.core
              :as storage
              :refer [with-storage]]
-            [clj-money.util :refer [safe-invoke
-                                    rev-args]]
-            [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
+            [clj-money.x-platform.util :refer [update-in-if]]
+            [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models.sql-storage-ref]
             [clj-money.models :as models]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]]))
+            [clj-money.models.entities :as entities]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
@@ -41,7 +37,7 @@
   [commodity & _]
   (-> commodity
       (storage/tag ::models/commodity)
-      (update-in [:exchange] #(safe-invoke name %))
+      (update-in-if [:exchange] name)
       (update-in [:type] name)))
 
 (defn- after-read
@@ -49,14 +45,8 @@
   (when commodity
     (-> commodity
         (storage/tag ::models/commodity)
-        (update-in [:exchange] #(safe-invoke keyword %))
+        (update-in-if [:exchange] keyword)
         (update-in [:type] keyword))))
-
-(def ^:private coercion-rules
-  [(coercion/rule :integer [:entity-id])
-   (coercion/rule :keyword [:exchange])
-   (coercion/rule :integer [:id])
-   (coercion/rule :keyword [:type])])
 
 (defn search
   "Returns commodities matching the specified criteria"
@@ -116,14 +106,15 @@
                                              (:id commodity)))))))
   commodity)
 
-(def create
-  (create-fn {:before-save before-save
-              :after-save set-implicit-default
-              :rules-fn validation-rules
-              :coercion-rules coercion-rules
-              :spec ::new-commodity
-              :create (rev-args storage/create)
-              :after-read after-read}))
+(defn create
+  [storage commodity]
+  (with-storage [s storage]
+    (with-validation commodity ::new-commodity (validation-rules s)
+      (as-> commodity c
+        (before-save c)
+        (storage/create s c)
+        (set-implicit-default c s)
+        (after-read c)))))
 
 (defn count
   "Returns the number of commodities matching the specified criteria"
@@ -142,13 +133,12 @@
   [storage-spec id]
   (find-by storage-spec {:id id}))
 
-(def update
-  (update-fn {:spec ::existing-commodity
-              :update (rev-args storage/update)
-              :find find-by-id
-              :before-save before-save
-              :after-read after-read
-              :coercion-rules coercion-rules}))
+(defn update
+  [storage commodity]
+  (with-storage [s storage]
+    (with-validation commodity ::existing-commodity (validation-rules s)
+      (storage/update s (before-save commodity))
+      (find-by-id s (:id commodity)))))
 
 (defn delete
   "Removes a commodity from the system"

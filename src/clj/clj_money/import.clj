@@ -51,12 +51,11 @@
         original-parent-id (:parent-id account)
         parent-id (get-in context [:accounts original-parent-id])
         commodity (find-commodity context (:commodity account))
-        to-create (cond-> (-> account
-                              (assoc :entity-id (-> context :entity :id)
-                                     :commodity-id (:id commodity))
-                              (dissoc :id :commodity))
-
-                    parent-id (assoc :parent-id parent-id))
+        to-create (-> account
+                      (assoc :entity-id (-> context :entity :id)
+                             :commodity-id (:id commodity))
+                      (dissoc :id :commodity)
+                      (assoc :parent-id parent-id))
         result (accounts/create (:storage context) to-create)]
     (when-not (:id result)
       (throw (ex-info (str

@@ -57,25 +57,27 @@
                 201)
     (not-found)))
 
+(defn- scoped-find
+  [{:keys [params authenticated]} action]
+  (authorize (prices/find-by-id (env :db)
+                                (UUID/fromString (:id params))
+                                (unserialize-date (:trade-date params)))
+             action
+             authenticated))
+
 (defn- update
-  [{:keys [params authenticated body]}]
-  (if-let [price (authorize (prices/find-by-id (env :db)
-                                               (UUID/fromString (:id params))
-                                               (unserialize-date (:trade-date params)))
-                            ::authorization/update
-                            authenticated)]
-    (->response (prices/update (env :db) (merge price (-> body
-                                                          (select-keys [:price :trade-date])
-                                                          (update-in [:trade-date] unserialize-date)))))
+  [{:keys [body] :as req}]
+  (if-let [price (scoped-find req ::authorization/update)]
+    (->response (prices/update
+                  (env :db)
+                  (merge price (-> body
+                                   (select-keys [:price :trade-date])
+                                   (update-in [:trade-date] unserialize-date)))))
     (not-found)))
 
 (defn- delete
-  [{:keys [params authenticated]}]
-  (if-let [price (authorize (prices/find-by-id (env :db)
-                                               (UUID/fromString (:id params))
-                                               (unserialize-date (:trade-date params)))
-                            ::authorization/destroy
-                            authenticated)]
+  [req]
+  (if-let [price (scoped-find req ::authorization/destroy)]
     (do
       (prices/delete (env :db) price)
       (->response))

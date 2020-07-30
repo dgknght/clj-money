@@ -26,10 +26,11 @@
 (deftest a-user-can-create-an-entity
   (let [ctx (realize (env :db) create-context)
         user (find-user ctx "john@doe.com")
-        response (app (-> (req/request :post (path :api :entities))
-                          (req/json-body {:name "Personal"
-                                          :settings {:inventory-method :fifo}})
-                          (add-auth user)))
+        response (-> (req/request :post (path :api :entities))
+                     (req/json-body {:name "Personal"
+                                     :settings {:inventory-method :fifo}})
+                     (add-auth user)
+                     app)
         retrieved (entities/select (env :db) {:user-id (:id user)})]
     (assert-successful response)
     (is (selective= {:user-id (:id user)
@@ -48,12 +49,13 @@
   (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
-        response (app (-> (req/request :patch (path :api :entities (:id entity)))
-                          (req/json-body (-> entity
-                                             (assoc :name "New Name")
-                                             (assoc-in [:settings :monitored-account-ids] #{1 2})
-                                             (select-keys [:name :settings])))
-                          (add-auth user)))
+        response (-> (req/request :patch (path :api :entities (:id entity)))
+                     (req/json-body (-> entity
+                                        (assoc :name "New Name")
+                                        (assoc-in [:settings :monitored-account-ids] #{1 2})
+                                        (select-keys [:name :settings])))
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)
         retrieved (entities/find-by-id (env :db) (:id entity))]
     [response body retrieved]))
@@ -84,10 +86,11 @@
 (deftest an-unauthenticated-user-cannot-edit-an-entity
   (let [ctx (realize (env :db) list-context)
         entity (find-entity ctx "Personal")
-        response (app (-> (req/request :patch (path :api :entities (:id entity)))
-                          (req/json-body (-> entity
-                                             (assoc :name "New Name")
-                                             (select-keys [:name :settings])))))
+        response (-> (req/request :patch (path :api :entities (:id entity)))
+                     (req/json-body (-> entity
+                                        (assoc :name "New Name")
+                                        (select-keys [:name :settings])))
+                     app)
         retrieved (entities/find-by-id (env :db) (:id entity))]
     (assert-unauthorized response)
     (is (selective= {:name "Personal"}
@@ -98,8 +101,9 @@
   [email]
   (let  [ctx (realize (env :db) list-context)
          user (find-user ctx email)
-         response (app (-> (req/request :get (path :api :entities))
-                           (add-auth user)))
+         response (-> (req/request :get (path :api :entities))
+                      (add-auth user)
+                      app)
          body (json/parse-string (:body response) true)]
     [response body]))
 
@@ -125,8 +129,9 @@
   (let  [ctx (realize (env :db) list-context)
          user (find-user ctx email)
          entity (find-entity ctx "Personal")
-         response (app (-> (req/request :delete (path :api :entities (:id entity)))
-                           (add-auth user)))
+         response (-> (req/request :delete (path :api :entities (:id entity)))
+                      (add-auth user)
+                      app)
          retrieved (entities/find-by-id (env :db) (:id entity))]
     [response retrieved]))
 

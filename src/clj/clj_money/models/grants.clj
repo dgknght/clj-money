@@ -2,11 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.coercion :as coercion]
             [clj-money.models :as models]
-            [clj-money.util :refer [rev-args]]
-            [clj-money.models.helpers :refer [create-fn
-                                              update-fn]]))
+            [clj-money.validation :refer [with-validation]]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
@@ -47,17 +44,14 @@
         (update-in [:permissions] read-string)
         (storage/tag ::models/grant))))
 
-(def ^:private coercion-rules
-  [(coercion/rule :integer [:id])
-   (coercion/rule :integer [:entity-id])
-   (coercion/rule :integer [:user-id])])
-
-(def create
-  (create-fn {:create (rev-args storage/create)
-              :spec ::new-grant
-              :coercion-rules coercion-rules
-              :before-save before-save
-              :after-read after-read}))
+(defn create
+  [storage grant]
+  (with-storage [s storage]
+    (with-validation grant ::new-grant []
+      (as-> grant g
+        (before-save g)
+        (storage/create s g)
+        (after-read g)))))
 
 (defn search
   ([storage-spec criteria]
@@ -72,13 +66,12 @@
   [storage-spec id]
   (first (search storage-spec {:id id} {:limit 1})))
 
-(def update
-  (update-fn {:update (rev-args storage/update)
-              :spec ::existing-grant
-              :coercion-rules coercion-rules
-              :before-save before-save
-              :after-read after-read
-              :find find-by-id}))
+(defn update
+  [storage grant]
+  (with-storage [s storage]
+    (with-validation grant ::existing-grant []
+      (storage/update s (before-save grant))
+      (find-by-id s (:id grant)))))
 
 (defn delete
   [storage-spec grant]
