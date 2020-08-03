@@ -1,4 +1,4 @@
-(ns clj-money.plain-forms
+(ns clj-money.forms
   (:require [reagent.core :as r]
             [clojure.string :as string]
             [cljs-time.format :as tf]

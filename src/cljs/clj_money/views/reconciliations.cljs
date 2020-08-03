@@ -6,7 +6,7 @@
             [clj-money.decimal :as decimal]
             [clj-money.bootstrap :as bs]
             [clj-money.notifications :as notify]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.accounts :as accounts]
             [clj-money.views.transactions :as trns]
             [clj-money.api.reconciliations :as recs]))

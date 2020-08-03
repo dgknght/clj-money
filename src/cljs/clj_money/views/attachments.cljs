@@ -6,7 +6,7 @@
             [clj-money.notifications :as notify]
             [clj-money.util :refer [format-date
                                     path]]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.api.attachments :as attachments]))
 
 (defn- process-deleted-attachment

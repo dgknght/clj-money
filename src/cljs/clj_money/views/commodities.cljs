@@ -13,7 +13,7 @@
             [clj-money.state :refer [app-state
                                      current-entity]]
             [clj-money.notifications :as notify]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.html :as html]
             [clj-money.util :refer [format-date]]))
 

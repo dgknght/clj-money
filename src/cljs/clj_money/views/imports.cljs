@@ -11,7 +11,7 @@
             [clj-money.state :as state :refer [app-state]]
             [clj-money.api.imports :as imports]
             [clj-money.notifications :as notify]
-            [clj-money.plain-forms :refer [text-field]]))
+            [clj-money.forms :refer [text-field]]))
 
 (defn- load-imports
   [page-state]

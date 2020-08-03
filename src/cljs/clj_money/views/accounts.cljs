@@ -10,7 +10,7 @@
             [cljs-time.core :as t]
             [clj-money.decimal :as decimal]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.components :refer [load-on-scroll]]
             [clj-money.bootstrap :as bs :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]

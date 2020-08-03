@@ -5,7 +5,7 @@
             [clj-money.state :refer [current-entity]]
             [clj-money.inflection :refer [title-case]]
             [clj-money.bootstrap :as bs]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.notifications :as notify]
             [clj-money.html :as html]
             [clj-money.accounts :refer [nest unnest]]

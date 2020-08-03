@@ -9,7 +9,7 @@
             [clj-money.util :refer [format-decimal]]
             [clj-money.bootstrap :as bs]
             [clj-money.notifications :as notify]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
             [clj-money.api.accounts :as accounts-api]

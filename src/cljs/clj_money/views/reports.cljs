@@ -9,7 +9,7 @@
                                           title-case]]
             [clj-money.bootstrap :as bs]
             [clj-money.state :refer [app-state]]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.notifications :as notify]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))

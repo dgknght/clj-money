@@ -17,7 +17,7 @@
             [clj-money.transactions :refer [simplify
                                             can-simplify?
                                             entryfy]]
-            [clj-money.plain-forms :as forms]
+            [clj-money.forms :as forms]
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]

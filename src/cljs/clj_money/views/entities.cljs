@@ -6,7 +6,7 @@
             [clj-money.api.entities :as entities]
             [clj-money.notifications :as notify]
             [clj-money.state :as state :refer [app-state]]
-            [clj-money.plain-forms :refer [text-field
+            [clj-money.forms :refer [text-field
                                            #_radio-buttons]]))
 
 (defn- delete
