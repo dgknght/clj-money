@@ -9,7 +9,9 @@
              :as authorization]
             [clj-money.api :refer [->response
                                    not-found]]
-            [clj-money.util :refer [uuid unserialize-date]]
+            [clj-money.util :refer [update-in-if
+                                    uuid
+                                    unserialize-date]]
             [clj-money.models.prices :as prices]
             [clj-money.authorization.prices]))
 
@@ -71,6 +73,7 @@
                   (env :db)
                   (merge price (-> body
                                    (select-keys [:price :trade-date])
+                                   (update-in-if [:price] bigdec)
                                    (update-in [:trade-date] unserialize-date)))))
     (not-found)))
 

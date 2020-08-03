@@ -116,7 +116,9 @@
 (defn- wrap-request-logging
   [handler]
   (fn [{:keys [request-method uri query-string] :as req}]
-    (log/debugf "Request %s: %s?%s" request-method uri query-string)
+    (if query-string
+      (log/infof "Request %s: %s?%s" request-method uri query-string)
+      (log/infof "Request %s: %s" request-method uri))
     (handler req)))
 
 (defroutes app
