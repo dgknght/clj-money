@@ -22,9 +22,7 @@
    "<!-- jQuery -->"
    [:script {:src "/js/jquery-3.1.0.min.js"}]
    [:script {:src "/js/jquery-ui.min.js"}]
-   [:script {:src "/js/jquery-startup.js"}]
    [:script {:src "/js/bootstrap/bootstrap.min.js"}]
-   [:script {:src "/js/paced-progress-bar.js"}]
 
    "<!-- Bootstrap core CSS -->"
    [:link {:rel "stylesheet" :href "/css/bootstrap/bootstrap.min.css"}]
