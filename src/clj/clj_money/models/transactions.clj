@@ -5,8 +5,6 @@
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
-            [clj-money.util :refer [ensure-local-date uuid]]
-            [clj-money.coercion :as coercion]
             [clj-money.validation :as validation]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
@@ -14,9 +12,10 @@
             [clj-money.models.lot-transactions :as l-t]
             [clj-money.models.date-helpers :refer [parse-date-range
                                                    available-date-range]]
-            [clj-money.x-platform.util :refer [deep-update-in-if
-                                               deep-contains?]]
-            [clj-money.x-platform.accounts :refer [polarize-quantity]])
+            [clj-money.util :refer [uuid
+                                    deep-update-in-if
+                                    deep-contains?]]
+            [clj-money.accounts :refer [polarize-quantity]])
   (:import org.joda.time.LocalDate))
 
 (s/def ::account-id integer?)
@@ -123,7 +122,7 @@
   transaction-dates-must-match
   [{:keys [transaction-date items]}]
   (->> items
-       (map (comp ensure-local-date :transaction-date))
+       (map :transaction-date)
        (apply = transaction-date)))
 
 (defn- before-item-validation
@@ -146,17 +145,7 @@
     (and
       (string? (:id item))
       (seq (:id item)))
-    (update-in [:id] uuid))) ; TODO: use coercion rule for this
-
-(def ^:private coercion-rules
-  [(coercion/rule :uuid [:id])
-   (coercion/rule :integer [:entity-id])
-   (coercion/rule :local-date [:transaction-date])
-   (coercion/rule :local-date [:original-transaction-date])])
-
-(def ^:private item-coercion-rules
-  [(coercion/rule :decimal [:quantity])
-   (coercion/rule :keyword [:action])])
+    (update-in [:id] uuid)))
 
 (defn- expand-simplified-items
   [{:keys [items quantity debit-account-id credit-account-id] :as transaction}]
@@ -176,10 +165,8 @@
   [transaction]
   (-> transaction
       expand-simplified-items
-      (coercion/coerce coercion-rules)
       (update-in [:items] (fn [items]
                             (->> items
-                                 (map #(coercion/coerce % item-coercion-rules))
                                  (map #(merge % (select-keys
                                                   transaction
                                                   [:transaction-date
@@ -365,11 +352,8 @@
   ([storage-spec criteria]
    (search storage-spec criteria {}))
   ([storage-spec criteria options]
-   (let [coerced-options (coercion/coerce options ; TODO: Don't coerce these here, expect them in the correct format
-                                          [(coercion/rule :integer [:page])
-                                           (coercion/rule :integer [:per-page])])
-         parsed-options (if (s/valid? ::select-options coerced-options)
-                          coerced-options
+   (let [parsed-options (if (s/valid? ::select-options options)
+                          options
                           {:page 1
                            :per-page 10})]
      (with-storage [s storage-spec]

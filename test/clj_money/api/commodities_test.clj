@@ -17,7 +17,7 @@
                                                 assert-bad-request
                                                 assert-not-found]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.x-platform.util :refer [path]]
+            [clj-money.util :refer [path]]
             [clj-money.models.commodities :as coms]
             [clj-money.validation :as v]
             [clj-money.web.server :refer [app]]))

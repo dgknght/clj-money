@@ -7,7 +7,7 @@
                                    with-transacted-storage]]
             [clj-money.validation :as validation]
             [clj-money.trading :as trading]
-            [clj-money.x-platform.accounts :refer [->criteria]]
+            [clj-money.accounts :refer [->criteria]]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]

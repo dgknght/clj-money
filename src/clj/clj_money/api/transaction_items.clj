@@ -4,16 +4,16 @@
             [environ.core :refer [env]]
             [clj-money.authorization :refer [+scope]]
             [clj-money.util :refer [uuid
-                                    presence]]
-            [clj-money.x-platform.util :refer [update-in-if
-                                               parse-int
-                                               parse-bool
-                                               unserialize-date]]
+                                    presence
+                                    update-in-if
+                                    parse-int
+                                    parse-bool
+                                    unserialize-date]]
             [clj-money.api :refer [->response]]
             [clj-money.models :as models]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.accounts :as acts]
-            [clj-money.x-platform.accounts :refer [->criteria]]
+            [clj-money.accounts :refer [->criteria]]
             [clj-money.authorization.transactions]))
 
 (defn- translate-dates

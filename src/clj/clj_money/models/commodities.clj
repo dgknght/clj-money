@@ -4,7 +4,7 @@
             [stowaway.core
              :as storage
              :refer [with-storage]]
-            [clj-money.x-platform.util :refer [update-in-if]]
+            [clj-money.util :refer [update-in-if]]
             [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models.sql-storage-ref]
             [clj-money.models :as models]

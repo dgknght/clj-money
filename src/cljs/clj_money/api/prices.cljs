@@ -2,9 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clj-money.api :as api]
             [clj-money.decimal :refer [->decimal]]
-            [clj-money.x-platform.util :refer [unserialize-date
-                                               serialize-date
-                                               model->id]]))
+            [clj-money.util :refer [unserialize-date
+                                    serialize-date
+                                    model->id]]))
 
 (defn- after-read
   [price]

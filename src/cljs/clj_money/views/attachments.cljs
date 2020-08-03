@@ -1,11 +1,11 @@
 (ns clj-money.views.attachments
   (:require [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
-            [clj-money.util :as util]
+            [clj-money.html :as html]
             [clj-money.bootstrap :as bs]
             [clj-money.notifications :as notify]
-            [clj-money.x-platform.util :refer [format-date
-                                               path]]
+            [clj-money.util :refer [format-date
+                                    path]]
             [clj-money.plain-forms :as forms]
             [clj-money.api.attachments :as attachments]))
 
@@ -41,7 +41,7 @@
                                                       assoc
                                                       :selected-attachment
                                                       attachment)
-                                               (util/set-focus "caption"))}
+                                               (html/set-focus "caption"))}
       (bs/icon :pencil)]
      [:button.btn.btn-sm.btn-danger {:title "Click here to remove this attachment"
                                      :on-click #(delete-attachment attachment page-state)}
@@ -57,7 +57,7 @@
        [:thead
         [:tr
          [:th "Description"]
-         [:th (util/space)]]]
+         [:th (html/space)]]]
        [:tbody
         (->> @attachments
              (map #(attachment-row % page-state))
@@ -108,7 +108,7 @@
         [:button.btn.btn-primary {:on-click #(save-attachment page-state)
                                   :title "Click here to save this attachment"}
          "Save"]
-        (util/space)
+        (html/space)
         [:button.btn.btn-info {:on-click #(swap! page-state dissoc :selected-attachment)
                                :title "Click here to cancel this edit operation."}
          "Cancel"]]])))

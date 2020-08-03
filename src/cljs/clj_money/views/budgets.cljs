@@ -5,12 +5,13 @@
             [reagent.ratom :refer [make-reaction]]
             [clj-money.state :refer [app-state
                                      current-entity]]
-            [clj-money.util :as util]
+            [clj-money.html :as html]
+            [clj-money.util :refer [format-decimal]]
             [clj-money.bootstrap :as bs]
             [clj-money.notifications :as notify]
             [clj-money.plain-forms :as forms]
             [clj-money.budgets :as budgets]
-            [clj-money.x-platform.accounts :as accounts]
+            [clj-money.accounts :as accounts]
             [clj-money.api.accounts :as accounts-api]
             [clj-money.api.budgets :as api]))
 
@@ -34,7 +35,7 @@
   (api/find (:id budget)
             (fn [b]
               (swap! page-state assoc :detailed-budget b)
-              (util/set-focus "account-id"))
+              (html/set-focus "account-id"))
             (notify/danger-fn "Unable to load the budget details: %s")))
 
 (defn- budget-row
@@ -46,7 +47,7 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-info {:on-click (fn []
                                                (swap! page-state assoc :selected budget)
-                                               (util/set-focus "name"))
+                                               (html/set-focus "name"))
                                    :title "Click here to edit this budget"}
       (bs/icon :pencil)]
      [:button.btn.btn-sm.btn-info {:on-click #(load-budget-details budget page-state)
@@ -65,7 +66,7 @@
        [:thead
         [:tr
          [:th "Name"]
-         [:th (util/space)]]]
+         [:th (html/space)]]]
        [:tbody
         (if @loading?
           [:tr
@@ -86,7 +87,7 @@
                                                  :selected
                                                  {:period :month
                                                   :period-count 12})
-                                          (util/set-focus "name"))}
+                                          (html/set-focus "name"))}
      (bs/icon-with-text :plus "Add")]]])
 
 (defn- save-budget
@@ -116,7 +117,7 @@
         [:button.btn.btn-primary {:on-click #(save-budget page-state)
                                   :title "Click here to save this budget."}
          (bs/icon-with-text :check "Save")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-light {:on-click #(swap! page-state dissoc :selected)}
          (bs/icon-with-text :x "Cancel")]]])))
 
@@ -146,7 +147,7 @@
                                  :total total
                                  :average average
                                  ::entry-mode mode)))
-  (util/set-focus "account-id"))
+  (html/set-focus "account-id"))
 
 (defn- budget-item-row
   [item detail? page-state]
@@ -158,9 +159,9 @@
        (map-indexed
          (fn [index value]
            ^{:key (str "period-value-" (:id item) "-" index)}
-           [:td.text-right (util/format-decimal value)])
+           [:td.text-right (format-decimal value)])
          (:periods (:item item)))))
-   [:td.text-right (util/format-decimal (:total item))]
+   [:td.text-right (format-decimal (:total item))]
    [:td
     [:div.btn-group
      [:button.btn.btn-sm.btn-info {:on-click #(select-budget-item (:item item) page-state)
@@ -180,24 +181,24 @@
        (map-indexed
          (fn [index _value]
            ^{:key (str "period-value-" (:caption item-group) "-" index)}
-           [:td (util/space)])
+           [:td (html/space)])
          (:periods item-group))))
-   [:td {:col-span 2} (util/space)]])
+   [:td {:col-span 2} (html/space)]])
 
 (defn- budget-item-group-footer-row
   [item-group detail?]
   ^{:key (str "budget-item-footer-row-" (:caption item-group))}
   [:tr.report-footer
-   [:td (util/space)]
+   [:td (html/space)]
    (when detail?
      (doall
        (map-indexed
          (fn [index value]
            ^{:key (str "period-value-" (:caption item-group) "-" index)}
-           [:td.text-right (util/format-decimal value)])
+           [:td.text-right (format-decimal value)])
          (:periods item-group))))
-   [:td.text-right (util/format-decimal (:total item-group))]
-   [:td (util/space)]])
+   [:td.text-right (format-decimal (:total item-group))]
+   [:td (html/space)]])
 
 (defn- budget-item-rows
   [item-group detail? page-state]
@@ -231,7 +232,7 @@
                     [:th.text-right (budgets/period-description index @budget)])
                   (range @period-count))))
          [:th.text-right "Total"]
-         [:th (util/space)]]]
+         [:th (html/space)]]]
        [:tbody
         (doall (mapcat #(budget-item-rows % @detail? page-state) @rendered-budget))]])))
 
@@ -363,7 +364,7 @@
        [:button.btn.btn-primary {:on-click #(save-budget-item page-state)
                                  :title "Click here to save this budget line item."}
         (bs/icon-with-text :check "Save")]
-       (util/space)
+       (html/space)
        [:button.btn.btn-light {:on-click #(swap! page-state dissoc :selected-item)
                                :title "Click here to cancel this operation."}
         (bs/icon-with-text :x "Cancel")]])))
@@ -391,7 +392,7 @@
                                  :disabled (boolean @selected-item)
                                  :title "Click here to add a new budget line item"}
         (bs/icon-with-text :plus "Add")]
-       (util/space)
+       (html/space)
        [:button.btn.btn-light {:on-click #(swap! page-state dissoc :detailed-budget)
                                :title "Click here to return to the list of budgets"}
         (bs/icon-with-text :arrow-left-short "Back")]])))

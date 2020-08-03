@@ -6,7 +6,7 @@
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.core]
-            [clj-money.x-platform.util :refer [update-in-if]]
+            [clj-money.util :refer [update-in-if]]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-account
@@ -419,7 +419,7 @@
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id aapl)
                                      :shares 50M
-                                     :value 500
+                                     :value 500M
                                      :trade-date (t/local-date 2016 3 2)})
         _ (trading/buy storage-spec {:account-id (:id ira)
                                      :commodity-id (:id msft)
@@ -453,10 +453,7 @@
                    :value 2250M
                    :gain 250M
                    :style :summary}]]
-    (if-not (= expected actual)
-      (pprint {:expected expected
-               :actual actual
-               :diff (diff expected actual)}))
+    (pprint-diff expected actual)
     (is (= expected actual) "The report contains the correct data")))
 
 (def ^:private budget-report-context
@@ -789,12 +786,7 @@
                            :percentage 15/366
                            :actual 200M
                            :actual-percent 0.037037M}}]
-
-    (if-not (= expected actual)
-      (pprint {:expected expected
-               :actual actual
-               :diff (diff expected actual)}))
-
+    (pprint-diff expected actual)
     (is (= expected actual) "The correct information is returned")))
 
 (deftest get-a-lot-report

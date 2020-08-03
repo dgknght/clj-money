@@ -15,7 +15,7 @@
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-import]]
-            [clj-money.x-platform.util :refer [path]]
+            [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.imports :as imports]
             [clj-money.api.imports :as imports-api]))

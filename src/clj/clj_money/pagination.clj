@@ -1,7 +1,6 @@
 (ns clj-money.pagination
   (:require [clojure.spec.alpha :as s]
-            [clj-money.url :as url]
-            [clj-money.coercion :as coercion]))
+            [clj-money.url :as url]))
 
 (s/def ::page integer?)
 (s/def ::per-page integer?)
@@ -10,16 +9,12 @@
 (s/def ::max-pages (s/and integer? #(< 3)))
 (s/def ::pagination-options (s/keys :req-un [::total ::url] :opt-un [::page ::per-page]))
 
-(def ^:private menu-coercion-rules
-  (coercion/rules :integer [:page] [:per-page] [:total] [:max-pages]))
-
 (defn- validate-options
   [options]
-  (let [coerced (coercion/coerce menu-coercion-rules options)]
-    (if (s/valid? ::pagination-options coerced)
-      (merge {:page 1 :per-page 10 :max-pages 10} coerced)
+  (if (s/valid? ::pagination-options options)
+      (merge {:page 1 :per-page 10 :max-pages 10} options)
       (throw (RuntimeException. (str "Invalid pagination options: "
-                                     (s/explain-data ::pagination-options coerced)))))))
+                                     (s/explain-data ::pagination-options options))))))
 
 (defn nav
   "Renders pagination navigation for the specified options

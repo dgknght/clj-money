@@ -20,7 +20,7 @@
             [co.deps.ring-etag-middleware :as etag]
             [environ.core :refer [env]]
             [slingshot.slingshot :refer [try+]]
-            [clj-money.x-platform.util :refer [serialize-date]]
+            [clj-money.util :refer [serialize-date]]
             [clj-money.core]
             [clj-money.json]
             [clj-money.web.auth :as web-auth]

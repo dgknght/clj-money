@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clj-money.api :as api]
             [clj-money.decimal :refer [->decimal]]
-            [clj-money.x-platform.util :refer [serialize-date unserialize-date]]))
+            [clj-money.util :refer [serialize-date unserialize-date]]))
 
 (defn- after-read
   [item]

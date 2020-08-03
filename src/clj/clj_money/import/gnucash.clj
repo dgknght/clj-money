@@ -16,9 +16,9 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [uuid]]
-            [clj-money.x-platform.util :refer [update-in-if
-                                               parse-bool]]
+            [clj-money.util :refer [uuid
+                                    update-in-if
+                                    parse-bool]]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream

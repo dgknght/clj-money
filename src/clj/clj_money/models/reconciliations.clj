@@ -4,7 +4,7 @@
             [stowaway.core :as storage :refer [with-storage
                                                with-transacted-storage]]
             [clj-money.validation :as v :refer [with-validation]]
-            [clj-money.x-platform.accounts :refer [->criteria]]
+            [clj-money.accounts :refer [->criteria]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]))

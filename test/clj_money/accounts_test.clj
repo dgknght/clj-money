@@ -1,7 +1,7 @@
-(ns clj-money.x-platform.accounts-test
+(ns clj-money.accounts-test
   (:require [clojure.test :refer [deftest is testing]]
             [clj-time.core :as t]
-            [clj-money.x-platform.accounts :as accounts]))
+            [clj-money.accounts :as accounts]))
 
 (deftest create-criteria-from-one-account
   (let [earliest (t/local-date 2020 1 1)

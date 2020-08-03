@@ -15,7 +15,7 @@
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.entities :as entities]
-            [clj-money.x-platform.util :refer [path]]))
+            [clj-money.util :refer [path]]))
 
 (use-fixtures :each (partial h/reset-db (env :db)))
 

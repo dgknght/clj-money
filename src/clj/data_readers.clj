@@ -1,1 +1,1 @@
-{local-date clj-money.util/parse-local-date}
+{local-date clj-money.util/unserialize-date}

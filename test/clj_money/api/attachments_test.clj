@@ -17,9 +17,9 @@
                                             find-transaction
                                             find-attachment]]
             [clj-money.models.attachments :as att]
-            [clj-money.x-platform.util :refer [path
-                                               map->query-string
-                                               serialize-date]]
+            [clj-money.util :refer [path
+                                    map->query-string
+                                    serialize-date]]
             [clj-money.validation :as v]
             [clj-money.web.server :refer [app]]))
 

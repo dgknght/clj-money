@@ -1,7 +1,7 @@
 (ns clj-money.api.reports
   (:require [clj-money.state :refer [current-entity]]
             [clj-money.api :as api]
-            [clj-money.x-platform.util :refer [serialize-date]]))
+            [clj-money.util :refer [serialize-date]]))
 
 (defn- after-read
   [report]

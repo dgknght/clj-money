@@ -6,6 +6,7 @@
                                      <!]]
             [clj-money.bootstrap :as bs]
             [clj-money.dnd :as dnd]
+            [clj-money.html :as html]
             [clj-money.util :as util]
             [clj-money.state :as state :refer [app-state]]
             [clj-money.api.imports :as imports]
@@ -150,7 +151,7 @@
         [:tr
          [:th "Entity Name"]
          [:th "Uploaded On"]
-         [:th (util/space)]]
+         [:th (html/space)]]
         (if @imports
           (doall (map #(import-row % page-state @busy?) @imports))
           [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]])]])))
@@ -180,7 +181,7 @@
       [:button.btn.btn-light {:title "Click here to return the list of imports."
                               :on-click #(swap! page-state dissoc :active)}
        (bs/icon-with-text :x "Cancel")]
-      (util/space)
+      (html/space)
       [refresh-button page-state]]]))
 
 (defn- import-click
@@ -222,7 +223,7 @@
       [:button.btn.btn-success {:on-click #(import-click % page-state)
                                 :title "Click here to begin the import."}
        (bs/icon-with-text :file-arrow-up "Import")]
-      (util/space)
+      (html/space)
       [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :import-data)
                                :title "Click here to discard this import."}
        (bs/icon-with-text :x "Cancel")]]]))
@@ -241,7 +242,7 @@
                                   :on-click (fn []
                                               (swap! page-state assoc
                                                      :import-data {:user-id (:id @state/current-user)})
-                                              (util/set-focus "entity-name"))}
+                                              (html/set-focus "entity-name"))}
          (bs/icon-with-text :plus "Add")]]
        (when @import-data
          [:div.col-md-6

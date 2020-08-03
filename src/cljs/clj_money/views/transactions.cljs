@@ -7,12 +7,16 @@
             [cljs-time.core :as t]
             [clj-money.dnd :as dnd]
             [clj-money.bootstrap :as bs]
-            [clj-money.util :as util]
-            [clj-money.x-platform.util :refer [serialize-date]]
-            [clj-money.x-platform.accounts :refer [polarize-quantity]]
-            [clj-money.x-platform.transactions :refer [simplify
-                                                       can-simplify?
-                                                       entryfy]]
+            [clj-money.html :refer [set-focus
+                                    space]]
+            [clj-money.util :as util :refer [serialize-date
+                                             debounce
+                                             format-date
+                                             format-decimal]]
+            [clj-money.accounts :refer [polarize-quantity]]
+            [clj-money.transactions :refer [simplify
+                                            can-simplify?
+                                            entryfy]]
             [clj-money.plain-forms :as forms]
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.transaction-items :as transaction-items]
@@ -43,7 +47,7 @@
                                    assoc
                                    :transaction prepared
                                    :transaction-entry-mode mode))
-                          (util/set-focus "transaction-date"))
+                          (set-focus "transaction-date"))
                         notify/danger))
 
 (defn stop-item-loading
@@ -141,11 +145,11 @@
                                         {:background-color "var(--primary)"
                                          :color "var(--white)"
                                          :cursor :copy})
-                 :on-drag-leave (util/debounce 100 #(swap! page-state update-in [:item-row-styles] dissoc (:id item)))
+                 :on-drag-leave (debounce 100 #(swap! page-state update-in [:item-row-styles] dissoc (:id item)))
                  :on-drag-over #(.preventDefault %)
                  :on-drop #(handle-item-row-drop item % page-state)
                  :style (get-in @styles [(:id item)])}
-     [:td.col-2.text-right (util/format-date (:transaction-date item))]
+     [:td.col-2.text-right (format-date (:transaction-date item))]
      [:td.col-3 {:style (get-in @styles [(:id item)])} (:description item)]
      [:td.col-2.text-right (currency-format (polarize-quantity item @account))]
      [:td.col-1.text-center
@@ -197,7 +201,7 @@
          [:th.col-1.text-center "Rec."]
          (when-not @reconciliation
            [:th.col-2.text-right "Balance"])
-         [:th.col-2 (util/space)]]]
+         [:th.col-2 (space)]]]
        [:tbody
         (if @items
           (->> @items
@@ -230,8 +234,8 @@
         (doall (for [item (sort-by (comp serialize-date :transaction-date) @items)]
                  ^{:key (str "item-" (:id item))}
                  [:tr
-                  [:td.text-right (util/format-date (:transaction-date item))]
+                  [:td.text-right (format-date (:transaction-date item))]
                   [:td (:description item)]
-                  [:td.text-right (util/format-decimal (polarize-quantity item @account) 4)]
-                  [:td.text-right (util/format-decimal (:balance item), 4)]
+                  [:td.text-right (format-decimal (polarize-quantity item @account) 4)]
+                  [:td.text-right (format-decimal (:balance item), 4)]
                   [:td.text-right (currency-format (:value item))]]))]])))

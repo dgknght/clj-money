@@ -1,4 +1,4 @@
-(ns clj-money.x-platform.accounts
+(ns clj-money.accounts
   (:require #?(:clj [clj-time.coerce :as tc]
                :cljs [cljs-time.coerce :as tc])))
 

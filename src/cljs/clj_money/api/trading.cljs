@@ -1,6 +1,6 @@
 (ns clj-money.api.trading
   (:require [clj-money.api :as api]
-            [clj-money.x-platform.util :refer [serialize-date]]))
+            [clj-money.util :refer [serialize-date]]))
 
 (defn create
   [{:keys [entity-id] :as trade} success-fn error-fn]

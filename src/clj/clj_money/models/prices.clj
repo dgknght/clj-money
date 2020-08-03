@@ -5,10 +5,8 @@
             [clj-time.core :as t]
             [stowaway.core :as storage :refer [with-storage
                                                with-transacted-storage]]
-            [clj-money.util :refer [rev-args]]
-            [clj-money.x-platform.util :refer [deep-update-in-if]]
+            [clj-money.util :refer [deep-update-in-if]]
             [clj-money.validation :as validation :refer [with-validation]]
-            [clj-money.coercion :as coercion]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.commodities :as commodities]
@@ -25,11 +23,6 @@
   [price & _]
   (when price
     (storage/tag price ::models/price)))
-
-(def ^:private coercion-rules
-  [(coercion/rule :decimal [:price])
-   (coercion/rule :local-date [:trade-date])
-   (coercion/rule :integer [:commodity-id])])
 
 (defn- prepare-criteria
   [criteria]

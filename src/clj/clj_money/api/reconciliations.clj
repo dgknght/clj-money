@@ -3,10 +3,10 @@
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH]]
             [stowaway.core :as stow]
-            [clj-money.util :as util]
-            [clj-money.x-platform.util :refer [unserialize-date
-                                               parse-int
-                                               update-in-if]]
+            [clj-money.util :refer [uuid
+                                    unserialize-date
+                                    parse-int
+                                    update-in-if]]
             [clj-money.api :refer [->response
                                    not-found]]
             [clj-money.validation :as v]
@@ -47,7 +47,7 @@
 (defn- unserialize-item-ref
   [item-ref]
   (-> item-ref
-      (update-in [0] util/uuid)
+      (update-in [0] uuid)
       (update-in [1] unserialize-date)))
 
 (defn- create
@@ -79,14 +79,14 @@
       (update-in-if [:end-of-period] unserialize-date)
       (update-in-if [:item-refs] (fn [item-refs]
                                    (map #(-> %
-                                             (update-in [0] util/uuid)
+                                             (update-in [0] uuid)
                                              (update-in [1] unserialize-date))
                                         item-refs)))))
 
 (defn- scoped-find
   [{:keys [params authenticated]}]
   (first (recs/search (env :db)
-                      (+scope {:id (util/uuid (:id params))}
+                      (+scope {:id (uuid (:id params))}
                               ::models/reconciliation
                               authenticated)
                       {:limit 1})))

@@ -1,8 +1,8 @@
 (ns clj-money.api.reports
   (:require [compojure.core :refer [defroutes GET]]
             [environ.core :refer [env]]
-            [clj-money.x-platform.util :refer [unserialize-date
-                                               update-in-if]]
+            [clj-money.util :refer [unserialize-date
+                                    update-in-if]]
             [clj-money.api :as api]
             [clj-money.authorization :refer [+scope]]
             [clj-money.models :as models]

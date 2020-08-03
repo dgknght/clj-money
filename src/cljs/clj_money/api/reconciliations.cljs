@@ -1,8 +1,8 @@
 (ns clj-money.api.reconciliations
   (:refer-clojure :exclude [find update])
   (:require [clj-money.api :as api]
-            [clj-money.x-platform.util :refer [serialize-date
-                                               unserialize-date]]))
+            [clj-money.util :refer [serialize-date
+                                    unserialize-date]]))
 
 (defn- after-read
   [reconciliation]

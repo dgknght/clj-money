@@ -6,8 +6,8 @@
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-time.core :as t]
-            [clj-money.x-platform.util :refer [path
-                                               map->query-string]]
+            [clj-money.util :refer [path
+                                    map->query-string]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.test-helpers :refer [assert-successful]]
             [clj-money.test-context :refer [realize

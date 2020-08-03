@@ -41,7 +41,7 @@ heroku open
 ```bash
 createdb money_test
 lein with-profile test migrate
-lein with-profile test partition 1/1/2015 12/31/2017
+lein with-profile test partition 2015-01-01 2017-12-31
 lein test
 ```
 

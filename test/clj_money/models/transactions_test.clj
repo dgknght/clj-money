@@ -7,11 +7,11 @@
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
-            [clj-money.x-platform.transactions :refer [simplify
-                                                       can-simplify?
-                                                       fullify
-                                                       entryfy
-                                                       unentryfy]]
+            [clj-money.transactions :refer [simplify
+                                            can-simplify?
+                                            fullify
+                                            entryfy
+                                            unentryfy]]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.test-context :refer [realize
@@ -152,20 +152,6 @@
           (is (= 0 (count (items-by-account (:id salary))))
               "The transaction item for salary should not be created"))
         (assert-account-quantities checking 0M salary 0M)))))
-
-(deftest create-a-transaction-us-string-date
-  (let [context (realize storage-spec base-context)
-        transaction (transactions/create storage-spec (-> (attributes context)
-                                                          (assoc :transaction-date "3/2/2016")))]
-    (is (empty? (validation/error-messages transaction)) "The transaction is valid")
-    (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
-
-(deftest create-a-transaction-intl-string-date
-  (let [context (realize storage-spec base-context)
-        transaction (transactions/create storage-spec (-> (attributes context)
-                                                          (assoc :transaction-date "2016-03-02")))]
-    (is (empty? (validation/error-messages transaction)) "The transaction is valid")
-    (is (= (t/local-date 2016 3 2) (:transaction-date transaction)) "The transaction date is parsed correctly")))
 
 (deftest transaction-date-is-required
   (let [context (realize storage-spec base-context)
@@ -515,31 +501,31 @@
 (def search-context
   (merge
     base-context
-    {:transactions [{:transaction-date "2016-01-01"
+    {:transactions [{:transaction-date #local-date "2016-01-01"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 160101M
                      :debit-account-id "Checking"
                      :credit-account-id "Salary"}
-                    {:transaction-date "2016-06-01"
+                    {:transaction-date #local-date "2016-06-01"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 160601M
                      :debit-account-id "Checking"
                      :credit-account-id "Salary"}
-                    {:transaction-date "2017-01-01"
+                    {:transaction-date #local-date "2017-01-01"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 170101M
                      :debit-account-id "Checking"
                      :credit-account-id "Salary"}
-                    {:transaction-date "2017-06-01"
+                    {:transaction-date #local-date "2017-06-01"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 170601M
                      :debit-account-id "Checking"
                      :credit-account-id "Salary"}
-                    {:transaction-date "2017-06-15"
+                    {:transaction-date #local-date "2017-06-15"
                      :entity-id "Personal"
                      :description "Paycheck"
                      :quantity 170615

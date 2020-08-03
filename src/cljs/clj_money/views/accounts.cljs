@@ -8,7 +8,7 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
-            [clj-money.decimal :as decimal :refer [->decimal]]
+            [clj-money.decimal :as decimal]
             [clj-money.inflection :refer [humanize]]
             [clj-money.plain-forms :as forms]
             [clj-money.components :refer [load-on-scroll]]
@@ -19,21 +19,24 @@
             [clj-money.api.lots :as lots]
             [clj-money.api.prices :as prices]
             [clj-money.api.trading :as trading]
-            [clj-money.x-platform.transactions :refer [simplify
-                                                       fullify
-                                                       can-simplify?
-                                                       entryfy
-                                                       unentryfy]]
-            [clj-money.x-platform.accounts :refer [account-types
-                                                   nest
-                                                   unnest]]
+            [clj-money.transactions :refer [simplify
+                                            fullify
+                                            can-simplify?
+                                            entryfy
+                                            unentryfy]]
+            [clj-money.accounts :refer [account-types
+                                        nest
+                                        unnest]]
             [clj-money.state :refer [app-state]]
             [clj-money.notifications :as notify]
-            [clj-money.x-platform.util :refer [serialize-date]]
+            [clj-money.util :refer [serialize-date
+                                    format-percent
+                                    format-date
+                                    format-decimal]]
             [clj-money.views.transactions :as trns]
             [clj-money.views.reconciliations :as recs]
             [clj-money.views.attachments :as atts]
-            [clj-money.util :as util]))
+            [clj-money.html :as html]))
 
 (defn- load-accounts
   ([page-state] (load-accounts page-state identity))
@@ -71,9 +74,8 @@
 (defn- account-hidden?
   [{:keys [parents] :as account} expanded hide-zero-balances?]
   (or (and @hide-zero-balances?
-           (= (->decimal 0)
-              (decimal/+ (:value account)
-                         (:children-value account))))
+           (decimal/zero? (decimal/+ (:value account)
+                                     (:children-value account))))
       (not (@expanded (:type account)))
       (and parents
            (not-every? @expanded parents))))
@@ -100,7 +102,7 @@
       (bs/icon :collection)]
      [:button.btn.btn-info.btn-sm {:on-click (fn []
                                                (swap! page-state assoc :selected account)
-                                               (util/set-focus "parent-id"))
+                                               (html/set-focus "parent-id"))
                                    :title "Click here to edit this account."}
       (bs/icon :pencil)]
      [:button.btn.btn-danger.btn-sm {:on-click #(delete account page-state)
@@ -129,7 +131,7 @@
                                     [:td.text-right (currency-format (->> group
                                                                           (map :value)
                                                                           (reduce decimal/+)))]
-                                    [:td (util/space)]]]
+                                    [:td (html/space)]]]
                                   (doall (map #(account-row % expanded hide-zero-balances? page-state) group))))
                      grouped))]))))
 
@@ -149,7 +151,7 @@
          [:tr
           [:th.col-md-7 "Name"]
           [:th.col-md-3.text-right "Value"]
-          [:th.col-md-2 (util/space)]]]
+          [:th.col-md-2 (html/space)]]]
         (if (seq @accounts)
           [account-and-type-rows page-state]
           [:tbody
@@ -158,7 +160,7 @@
        [:button.btn.btn-primary {:on-click (fn []
                                              (swap! page-state assoc :selected {:entity-id (:id @current-entity)
                                                                                 :type :asset})
-                                             (util/set-focus "parent-id"))}
+                                             (html/set-focus "parent-id"))}
         (bs/icon-with-text :plus "Add")]])))
 
 (defn- account-fields
@@ -232,7 +234,7 @@
                                   :title "Click here to save the account."}
          (bs/icon-with-text :check "Save")]
         
-        (util/space)
+        (html/space)
         [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :selected)
                                  :title "Click here to return to the list of accounts."}
          (bs/icon-with-text :x "Cancel")]]])))
@@ -253,7 +255,7 @@
                          :account-id account-id}
            :transaction-entry-mode :simple
            :unprep-fn #(fullify % (find-account-fn page-state))))
-  (util/set-focus "transaction-date"))
+  (html/set-focus "transaction-date"))
 
 (defn- account-buttons
   [page-state]
@@ -263,17 +265,17 @@
        [:button.btn.btn-primary {:on-click #(new-transaction page-state)
                                  :disabled (not (nil? @transaction))}
         (bs/icon-with-text :plus "Add")]
-       (util/space)
+       (html/space)
        [:button.btn.btn-info {:on-click (fn []
                                           (trns/stop-item-loading page-state)
                                           (swap! page-state assoc
                                                  :items nil)
                                           (recs/load-working-reconciliation page-state)
                                           (trns/load-unreconciled-items page-state)
-                                          (util/set-focus "end-of-period"))
+                                          (html/set-focus "end-of-period"))
                               :title "Click here to reconcile this account"}
         (bs/icon-with-text :check-box "Reconcile")]
-       (util/space)
+       (html/space)
        [:button.btn.btn-info {:on-click (fn []
                                           (trns/stop-item-loading page-state)
                                           (swap! page-state dissoc
@@ -491,7 +493,7 @@
                                   :title "Click here to save the transaction"}
          (bs/icon-with-text :check "Save")]
 
-        (util/space)
+        (html/space)
         [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :transaction)
                                  :title "Click here to cancel this transaction"}
          (bs/icon-with-text :x "Cancel")]]])))
@@ -567,20 +569,20 @@
                                  (:shares-owned lot)))]
                    ^{:key (str "lot-" (:id lot))}
                    [:tr
-                    [:td.text-right (util/format-date (:purchase-date lot))]
-                    [:td.text-right (util/format-decimal (:shares-purchased lot) 4)]
-                    [:td.text-right (util/format-decimal (:shares-owned lot) 4)]
-                    [:td.text-right (util/format-decimal (:purchase-price lot) 2)]
+                    [:td.text-right (format-date (:purchase-date lot))]
+                    [:td.text-right (format-decimal (:shares-purchased lot) 4)]
+                    [:td.text-right (format-decimal (:shares-owned lot) 4)]
+                    [:td.text-right (format-decimal (:purchase-price lot) 2)]
                     [:td.text-right
                      {:class (if (>= g-l 0M)
                                "text-success"
                                "text-danger")}
-                     (util/format-decimal g-l)]
+                     (format-decimal g-l)]
                     [:td.text-right
                      {:class (if (>= @gain-loss 0M)
                                "text-success"
                                "text-danger")}
-                     (util/format-percent (/ g-l
+                     (format-percent (/ g-l
                                              (* (:shares-purchased lot)
                                                 (:purchase-price lot)))
                                           3)]])))]
@@ -590,13 +592,13 @@
           (when @latest-price
             (gstr/format "(%s as of %s)"
                          (currency-format (:price @latest-price))
-                         (util/format-date (:trade-date @latest-price))))]
-         [:td.text-right (util/format-decimal @total-shares 4)]
+                         (format-date (:trade-date @latest-price))))]
+         [:td.text-right (format-decimal @total-shares 4)]
          [:td.text-right (currency-format @total-value)]
          [:td.text-right {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
           (currency-format @gain-loss)]
          [:td.text-right {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
-          (util/format-percent (/ @gain-loss
+          (format-percent (/ @gain-loss
                                   @total-cost)
                                3)]]]])))
 
@@ -634,16 +636,13 @@
          :transactions [trns/fund-transactions-table page-state])
        [:div.row
         [:div.col-md-6
-         (util/button "Buy/Sell"
-                    #(js/alert "Not implemented")
-                    {:icon :plus
-                     :class "btn btn-primary"})
-       (util/space)
-       (util/button "Back"
-                    #(swap! page-state dissoc :view-account)
-                    {:icon :hand-left
-                     :class "btn btn-info"
-                     :title "Click here to return to the account list."})]]])))
+         [:button.btn.btn-primary {:title "Click here to buy or sell this commodity."
+                                   :on-click #(js/alert "Not implemented")}
+          (bs/icon-with-text :plus "Buy/Sell")]
+         (html/space)
+         [:button.btn.btn-info {:title "Click here to return the the account list."
+                                :on-click #(swap! page-state dissoc :view-account)}
+          (bs/icon-with-text :arrow-left-short "Back")]]]])))
 
 (defn- account-details
   [page-state]

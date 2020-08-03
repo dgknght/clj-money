@@ -3,8 +3,7 @@
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]
-            [clj-money.x-platform.util :refer [map->query-string]]
-            [clj-money.util :as util]
+            [clj-money.util :refer [map->query-string] :as util]
             [clj-money.state :refer [app-state]]))
 
 (defn path

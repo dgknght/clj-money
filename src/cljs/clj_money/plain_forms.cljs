@@ -208,10 +208,7 @@
      (->> (if (coll? items)
             items
             @items)
-          (map (comp #(if (= (get-in % [1 :value]) (get-in @model field))
-                        (update-in % [1] assoc :selected true)
-                        %)
-                     #(select-option % field)))
+          (map #(select-option % field))
           doall)]))
 
 (defn select-field

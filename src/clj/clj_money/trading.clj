@@ -4,9 +4,8 @@
             [clojure.spec.alpha :as s]
             [clj-time.core :as t]
             [stowaway.core :refer [with-transacted-storage]]
-            [clj-money.util :refer [format-number]]
+            [clj-money.util :refer [format-decimal]]
             [clj-money.validation :as validation]
-            [clj-money.coercion :as coercion]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
@@ -148,7 +147,7 @@
   (format "Sell %s shares of %s at %s"
           shares
           symbol
-          (format-number price {:format :commodity-price})))
+          (format-decimal price {:fraction-digits 3})))
 
 (defn- purchase-transaction-description
   [{:keys [shares]
@@ -157,7 +156,7 @@
   (format "Purchase %s shares of %s at %s"
           shares
           symbol
-          (format-number price {:format :commodity-price})))
+          (format-decimal price {:fraction-digits 3})))
 
 (defn- create-purchase-transaction
   "Given a purchase context, creates the general currency
@@ -268,20 +267,6 @@
                                   :shares-purchased shares})]
     (assoc context :lot lot)))
 
-(def ^:private purchase-coercion-rules
-  [(coercion/rule :local-date [:trade-date])
-   (coercion/rule :integer [:account-id])
-   (coercion/rule :integer [:commodity-id])
-   (coercion/rule :integer [:commodity-account-id])
-   (coercion/rule :decimal [:shares])
-   (coercion/rule :decimal [:value])])
-
-(defn- validate-purchase
-  [purchase]
-  (-> purchase
-      (coercion/coerce purchase-coercion-rules)
-      (validation/validate ::purchase)))
-
 ; expect
 ; either
 ;   :commodity-id
@@ -294,7 +279,7 @@
 (defn buy
   [storage-spec purchase]
   (with-transacted-storage [s storage-spec]
-    (let [validated (validate-purchase purchase)]
+    (let [validated (validation/validate purchase ::purchase)]
       (if (validation/valid? validated)
         (->> (assoc validated :storage s)
              acquire-commodity-account
@@ -366,7 +351,7 @@
          (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
                                                             shares-sold
                                                             (-> context :commodity :symbol)
-                                                            (format-number sale-price {:format :commodity-price}) )
+                                                            (format-decimal sale-price {:fraction-digits 3}) )
                                        :quantity gain
                                        :long-term? long-term?})))
      remaining-shares-to-sell]))
@@ -393,20 +378,6 @@
         (log/error "Unable to find a lot to sell shares " (prn-str (dissoc context :storage)))
         (throw (ex-info "Unable to find a lot to sell the shares"
                         {:context (dissoc context :storage)}))))))
-
-(def ^:private sale-coercion-rules
-  (concat purchase-coercion-rules
-          [(coercion/rule :integer [:lt-capital-gains-account-id])
-           (coercion/rule :integer [:st-capital-gains-account-id])
-           (coercion/rule :integer [:lt-capital-loss-account-id])
-           (coercion/rule :integer [:st-capital-loss-account-id])
-           (coercion/rule :keyword [:inventory-method])]))
-
-(defn- validate-sale
-  [_ sale]
-  (-> sale
-      (coercion/coerce sale-coercion-rules)
-      (validation/validate ::sale)))
 
 (defn- update-entity-settings
   [{:keys [entity storage] :as context}]
@@ -461,7 +432,7 @@
 (defn sell
   [storage-spec sale]
   (with-transacted-storage [s storage-spec]
-    (let [validated (validate-sale s sale)]
+    (let [validated (validation/validate sale ::sale)]
       (if (validation/has-error? validated)
         validated
         (->> (assoc validated :storage s)
@@ -484,19 +455,6 @@
         (let [lot (lots/find-by-id s (:lot-id lot-item))]
           (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
       (transactions/delete s transaction))))
-
-(def ^:private transfer-coercion-rules
-  [(coercion/rule :local-date [:transfer-date])
-   (coercion/rule :integer [:from-account-id])
-   (coercion/rule :integer [:to-account-id])
-   (coercion/rule :integer [:commodity-id])
-   (coercion/rule :decimal [:shares])])
-
-(defn- validate-transfer
-  [transfer]
-  (-> transfer
-      (coercion/coerce transfer-coercion-rules)
-      (validation/validate ::transfer)))
 
 (defn- append-commodity
   [{:keys [storage commodity-id] :as context}]
@@ -558,7 +516,7 @@
 
 (defn transfer
   [storage-spec transfer]
-  (let [validated (validate-transfer transfer)]
+  (let [validated (validation/validate transfer ::transfer)]
     (if (validation/valid? validated)
       (with-transacted-storage [s storage-spec]
         (-> validated

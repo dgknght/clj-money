@@ -5,8 +5,8 @@
             [ring.mock.request :as req]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
-            [clj-money.x-platform.util :refer [path
-                                               serialize-date]]
+            [clj-money.util :refer [path
+                                    serialize-date]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found]]
             [clj-money.api.test-helper :refer [add-auth]]

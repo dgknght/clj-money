@@ -1,15 +1,72 @@
-(ns clj-money.x-platform.util
+(ns clj-money.util
   (:require [clojure.string :as string]
- ;           #?(:clj [clojure.tools.logging :as log])
+            #?(:clj [clojure.tools.logging :as lg])
             #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])
             #?(:clj [clj-time.format :as f]
-               :cljs [cljs-time.format :as f])))
+               :cljs [cljs-time.format :as f]))
+  #?(:clj (:import java.util.UUID
+                   java.text.NumberFormat
+                   java.text.DecimalFormat)
+     :cljs (:import goog.i18n.NumberFormat)))
 
-#_(defn- log
-  [msg]
-  #?(:clj (log/debug msg)
-     :cljs (.log js/console msg)))
+(defn log
+  ([msg] (log :debug msg))
+  ([level msg]
+   #?(:clj (lg/log level msg)
+      :cljs (.log js/console (prn-str {level msg})))))
+
+#?(:clj
+   (defn uuid
+     ([] (UUID/randomUUID))
+     ([value]
+      (if (instance? UUID value)
+        value
+        (UUID/fromString (str value))))))
+
+(defn- number-format
+  [fmt]
+  #?(:clj (doto (case fmt
+                  :decimal (DecimalFormat.)
+                  :percent (NumberFormat/getPercentInstance))
+            (.setGroupingUsed true))
+     :cljs (NumberFormat. (case fmt
+                            :decimal (.-DECIMAL (.-Format NumberFormat))
+                            :percent (.-PERCENT (.-Format NumberFormat))))))
+
+(defn format-decimal
+  ([value] (format-decimal value {}))
+  ([value {:keys [fraction-digits]
+           :or {fraction-digits 2}}]
+   (.format (doto (number-format :decimal)
+              (.setMaximumFractionDigits fraction-digits)
+              (.setMinimumFractionDigits fraction-digits))
+            value)))
+
+(defn format-percent
+  ([value] (format-percent value {}))
+  ([value {:keys [fraction-digits]
+           :or {fraction-digits 1}}]
+   (.format (doto (number-format :percent)
+              (.setMaximumFractionDigits fraction-digits)
+              (.setMinimumFractionDigits fraction-digits))
+            value)))
+
+
+(defmulti presence
+  #(cond
+     (string? %) :string
+     (coll? %) :collection))
+
+(defmethod presence :string
+  [value]
+  (when-not (empty? value)
+    value))
+
+(defmethod presence :collection
+  [values]
+  (when-not (empty? values)
+    values))
 
 (defmulti ^:private entry->key-value-pairs
   (fn [[_ v] _]
@@ -126,6 +183,14 @@
 (defn format-date [d]
   (when d
     (f/unparse-local-date (f/formatter "M/d/yyyy") d)))
+
+(defn unserialize-date-time [s]
+  (when (seq s)
+    (f/parse (f/formatters :date-time) s)))
+
+(defn format-date-time [dt]
+  (when dt
+    (f/unparse (f/formatter "M/d/yyyy h:mm A") dt)))
 
 (defmulti update-in-criteria
   (fn [criteria attr _f]
@@ -361,3 +426,14 @@
          :update-fn (fn [result str-k k value]
                       (let [[new-key value-with-oper] (symbolic-key str-k k value)]
                         (assoc result new-key value-with-oper)))})))
+
+#?(:cljs
+   (defn debounce
+     [timeout f]
+     (let [t (atom nil)]
+       (fn [& args]
+         (when @t (js/clearTimeout @t))
+         (reset! t (js/setTimeout (fn []
+                                    (reset! t nil)
+                                    (apply f args))
+                                  timeout))))))

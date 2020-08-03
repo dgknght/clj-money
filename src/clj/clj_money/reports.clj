@@ -8,9 +8,9 @@
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.date-helpers :refer [available-date-range]]
             [clj-money.models.accounts :as accounts]
-            [clj-money.x-platform.accounts :refer [nest
-                                                   unnest
-                                                   left-side?]]
+            [clj-money.accounts :refer [nest
+                                        unnest
+                                        left-side?]]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.commodities :as commodities]

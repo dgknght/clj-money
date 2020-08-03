@@ -3,7 +3,7 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
-            [clj-money.x-platform.util :refer [model->id]]
+            [clj-money.util :refer [model->id]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-entity
@@ -192,18 +192,6 @@
     (is ((->> ira (accounts/reload (env :db)) :tags) :trading)
         "The specified account is tagged as a trading account")))
 
-(deftest purchase-a-commodity-with-string-values
- (let [context (realize (env :db) purchase-context)
-        result (trading/buy (env :db) (-> context
-                                             purchase-attributes
-                                             (update-in [:account-id] str)
-                                             (update-in [:commodity-id] str)
-                                             (update-in [:shares] str)
-                                             (update-in [:value] str)
-                                             (update-in [:trade-date] str)))]
-    (is (empty? (validation/error-messages result))
-        "The transaction is valid")))
-
 (deftest purchase-a-commodity-with-a-fee
   (let [context (realize (env :db) purchase-context)
         ira (->> context
@@ -231,14 +219,6 @@
     (is (= ["Trade date is required"]
            (validation/error-messages result :trade-date))
         "The validation message indicates the error")))
-
-(deftest purchase-trade-date-can-be-a-date-string
-  (let [context (realize (env :db) purchase-context)
-        result (trading/buy (env :db) (-> context
-                                             (purchase-attributes)
-                                             (assoc :trade-date "3/2/2016")))]
-    (is (empty? (validation/error-messages result))
-        "The transaction is valid")))
 
 (deftest purchase-requires-a-number-of-shares
   (let [context (realize (env :db) purchase-context)
@@ -574,14 +554,6 @@
            (validation/error-messages result :trade-date))
         "The correct validation error is present")))
 
-(deftest sale-trade-date-can-be-a-date-string
-  (let [context (realize (env :db) sale-context)
-        result (trading/sell (env :db) (-> context
-                                              sale-attributes
-                                              (assoc :trade-date "3/2/2017")))]
-    (is (empty?  (validation/error-messages result))
-        "The transaction is value")))
-
 (deftest sales-requires-a-number-of-shares
   (let [context (realize (env :db) sale-context)
         result (trading/sell (env :db) (-> context
@@ -862,7 +834,7 @@
         result (trading/transfer (env :db) {:commodity-id (:id commodity)
                                                :from-account-id (:id ira)
                                                :to-account-id (:id ira-2)
-                                               :shares 100
+                                               :shares 100M
                                                :transfer-date (t/local-date 2016 4 2)})
         [ira-commodity-account
          ira-2-commodity-account] (->> [ira ira-2]

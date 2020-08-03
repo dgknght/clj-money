@@ -1,7 +1,7 @@
 (ns clj-money.views.users
   (:require [secretary.core :as secretary :include-macros true]
             [clj-money.state :refer [app-state]]
-            [clj-money.util :refer [google-g]]))
+            [clj-money.html :refer [google-g]]))
 
 (defn- login []
   [:div.mt-5

@@ -2,12 +2,12 @@
   (:require [reagent.core :as r]
             [reagent.format :refer [currency-format]]
             [reagent.ratom :refer [make-reaction]]
-            [clj-money.util :as util]
+            [clj-money.html :as html]
             [clj-money.decimal :as decimal]
             [clj-money.bootstrap :as bs]
             [clj-money.notifications :as notify]
             [clj-money.plain-forms :as forms]
-            [clj-money.x-platform.accounts :as accounts]
+            [clj-money.accounts :as accounts]
             [clj-money.views.transactions :as trns]
             [clj-money.api.reconciliations :as recs]))
 
@@ -128,10 +128,10 @@
         [:button.btn.btn-success {:on-click #(finish-reconciliation page-state)
                                   :disabled (not @balanced?)}
          (bs/icon-with-text :check "Finish")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-info {:on-click #(save-reconciliation page-state)}
          (bs/icon-with-text :download "Save")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-secondary {:on-click (fn []
                                                 (swap! page-state dissoc :reconciliation)
                                                 (trns/reset-item-loading page-state))

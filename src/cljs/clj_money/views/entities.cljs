@@ -2,7 +2,7 @@
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
             [clj-money.bootstrap :as bs]
-            [clj-money.util :as util]
+            [clj-money.html :as html]
             [clj-money.api.entities :as entities]
             [clj-money.notifications :as notify]
             [clj-money.state :as state :refer [app-state]]
@@ -60,7 +60,7 @@
        [:div.card-footer
         [:button.btn.btn-primary {:on-click #(save-entity page-state)}
          (bs/icon-with-text :check "Save")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :selected)}
          (bs/icon-with-text :x "Cancel")]]])))
 
@@ -74,7 +74,7 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-info {:on-click (fn []
                                                (swap! page-state assoc :selected entity)
-                                               (util/set-focus "name"))
+                                               (html/set-focus "name"))
                                    :disabled busy?
                                    :title "Click here to edit this entity."}
       (bs/icon :pencil)]
@@ -111,11 +111,11 @@
                                                      assoc
                                                      :selected
                                                      {:entity-id (:id @current-entity)})
-                                              (util/set-focus "name"))
+                                              (html/set-focus "name"))
                                   :disabled (boolean @selected)
                                   :title "Click here to create a new entity."}
          (bs/icon-with-text :plus "Add")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-light {:on-click #(secretary/dispatch! "/imports")
                                   :title "Click here to import an entity from another accounting system"}
          (bs/icon-with-text :file-arrow-up "Import")]]

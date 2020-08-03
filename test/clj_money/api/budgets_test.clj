@@ -18,7 +18,7 @@
                                             find-budget]]
             [clj-money.models.budgets :as budgets]
             [clj-money.validation :as v]
-            [clj-money.x-platform.util :refer [path]]
+            [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each (partial reset-db (env :db)))

@@ -13,9 +13,9 @@
                                             find-account]]
             [clj-money.validation :as validation]
             [clj-money.models.accounts :as accounts]
-            [clj-money.x-platform.accounts :refer [nest
-                                                   polarize-quantity
-                                                   derive-action]]
+            [clj-money.accounts :refer [nest
+                                        polarize-quantity
+                                        derive-action]]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff
                                             assert-validation-error

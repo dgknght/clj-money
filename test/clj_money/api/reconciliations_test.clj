@@ -5,7 +5,7 @@
             [clj-time.core :as t]
             [cheshire.core :as json]
             [clj-money.validation :as v]
-            [clj-money.x-platform.util :refer [path]]
+            [clj-money.util :refer [path]]
             [clj-money.test-helpers :refer [reset-db
                                             selective=]]
             [clj-money.api.test-helper :refer [add-auth]]

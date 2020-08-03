@@ -10,7 +10,7 @@
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [realize
                                             find-user]]
-            [clj-money.x-platform.util :refer [path]]
+            [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each (partial reset-db (env :db)))

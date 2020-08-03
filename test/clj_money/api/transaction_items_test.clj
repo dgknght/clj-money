@@ -4,8 +4,8 @@
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-time.core :as t]
-            [clj-money.x-platform.util :refer [path
-                                               map->query-string]]
+            [clj-money.util :refer [path
+                                    map->query-string]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.test-helpers :refer [assert-successful]]
             [clj-money.factories.user-factory]

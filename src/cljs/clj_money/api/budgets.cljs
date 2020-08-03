@@ -1,8 +1,8 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
   (:require [clj-money.api :as api]
-            [clj-money.x-platform.util :refer [serialize-date
-                                               unserialize-date]]
+            [clj-money.util :refer [serialize-date
+                                    unserialize-date]]
             [clj-money.state :refer [current-entity]]))
 
 (defn- after-read

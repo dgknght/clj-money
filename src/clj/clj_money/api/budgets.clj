@@ -3,8 +3,8 @@
   (:require [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
-            [clj-money.x-platform.util :refer [update-in-if
-                                               unserialize-date]]
+            [clj-money.util :refer [update-in-if
+                                    unserialize-date]]
             [clj-money.api :refer [->response
                                    not-found]]
             [clj-money.models :as models]

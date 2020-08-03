@@ -5,7 +5,7 @@
             [environ.core :refer [env]]
             [cheshire.core :as json]
             [stowaway.core :as storage]
-            [clj-money.x-platform.util :refer [update-in-if]]
+            [clj-money.util :refer [update-in-if]]
             [clj-money.api :refer [->response
                                    error->response
                                    invalid->response

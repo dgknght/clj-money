@@ -11,7 +11,7 @@
                                      current-entity
                                      logout]]
             [clj-money.notifications :as notify]
-            [clj-money.util :as util]
+            [clj-money.html :as html]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -37,7 +37,7 @@
                                    #'home-page)))
 
 (defn- nil-page []
-  (util/space))
+  (html/space))
 
 (defn- entity->nav-item
   [{:keys [id name] :as entity}]

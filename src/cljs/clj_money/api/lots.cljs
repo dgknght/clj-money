@@ -1,6 +1,6 @@
 (ns clj-money.api.lots
   (:require [clj-money.api :as api]
-            [clj-money.x-platform.util :refer [unserialize-date]]))
+            [clj-money.util :refer [unserialize-date]]))
 
 (defn- after-read
   [lot]

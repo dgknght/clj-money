@@ -3,7 +3,9 @@
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [environ.core :refer [env]]
             [stowaway.core :as storage]
-            [clj-money.x-platform.util :refer [unserialize-date]]
+            [clj-money.util :refer [uuid
+                                    update-in-if
+                                    unserialize-date]]
             [clj-money.api :refer [->response]]
             [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
@@ -44,10 +46,16 @@
    :credit-account-id
    :quantity])
 
+(defn- parse-item
+  [item]
+  (update-in-if item [:action] keyword))
+
 (defn- create
   [{:keys [params body authenticated]}]
   (let [result (trans/create (env :db)
                              (-> body
+                                 (update-in-if [:transaction-date] unserialize-date)
+                                 (update-in-if [:items] #(map parse-item %))
                                  (select-keys attribute-keys)
                                  (assoc :entity-id (:entity-id params))
                                  (storage/tag ::models/transaction)
@@ -58,11 +66,12 @@
 
 (defn- apply-to-existing
   [updated-item items]
-  (if-let [existing (->> items
-                         (filter #(= (:id %) (:id updated-item)))
-                         first)]
-    (merge existing updated-item)
-    updated-item))
+  (let [parsed (parse-item updated-item)]
+    (if-let [existing (->> items
+                           (filter #(= (:id %) (:id updated-item)))
+                           first)]
+      (merge existing parsed)
+      parsed)))
 
 (defn- apply-item-updates
   [items updates]
@@ -71,7 +80,9 @@
 (defn- apply-update
   [transaction body]
   (-> transaction
-      (merge body)
+      (merge (-> body
+                 (update-in-if [:transaction-date] unserialize-date)
+                 (update-in-if [:id] uuid)))
       (select-keys attribute-keys)
       (update-in [:items] apply-item-updates (:items body))))
 

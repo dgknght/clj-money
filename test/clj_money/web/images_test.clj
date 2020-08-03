@@ -8,7 +8,7 @@
                                             realize
                                             find-image
                                             find-user]]
-            [clj-money.x-platform.util :refer [path]]
+            [clj-money.util :refer [path]]
             [clj-money.web.auth :as auth]
             [clj-money.web.server :refer [app]]))
 

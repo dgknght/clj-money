@@ -9,10 +9,9 @@
              :as authorization]
             [clj-money.api :refer [->response
                                    not-found]]
-            [clj-money.x-platform.util :refer [unserialize-date]]
+            [clj-money.util :refer [uuid unserialize-date]]
             [clj-money.models.prices :as prices]
-            [clj-money.authorization.prices])
-  (:import java.util.UUID))
+            [clj-money.authorization.prices]))
 
 (defn- handle-start-end-dates
   [params]
@@ -60,7 +59,7 @@
 (defn- scoped-find
   [{:keys [params authenticated]} action]
   (authorize (prices/find-by-id (env :db)
-                                (UUID/fromString (:id params))
+                                (uuid (:id params))
                                 (unserialize-date (:trade-date params)))
              action
              authenticated))

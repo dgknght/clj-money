@@ -1,7 +1,7 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require [clj-money.x-platform.util :refer [serialize-date
-                                               unserialize-date]]
+  (:require [clj-money.util :refer [serialize-date
+                                    unserialize-date]]
             [clj-money.api :as api]))
 
 (defn- transaction-path

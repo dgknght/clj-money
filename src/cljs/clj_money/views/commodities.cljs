@@ -14,8 +14,8 @@
                                      current-entity]]
             [clj-money.notifications :as notify]
             [clj-money.plain-forms :as forms]
-            [clj-money.util :as util]
-            [clj-money.x-platform.util :refer [format-date]]))
+            [clj-money.html :as html]
+            [clj-money.util :refer [format-date]]))
 
 (defn- load-commodities
   [page-state]
@@ -56,7 +56,7 @@
         [:button.btn.btn-primary {:title "Click here to save this commodity"
                                   :on-click #(save-commodity page-state)}
          (bs/icon-with-text :check "Save")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-danger {:title "Click here to discontinue this edit operation."
                                  :on-click #(swap! page-state dissoc :selected)}
          (bs/icon-with-text :x "Cancel")]]])))
@@ -94,7 +94,7 @@
                                                  (swap! page-state #(-> %
                                                                         (dissoc :prices-commodity)
                                                                         (assoc :selected commodity)))
-                                                 (util/set-focus "type"))}
+                                                 (html/set-focus "type"))}
         (bs/icon :pencil)]
        [:button.btn.btn-info.btn-sm {:title "Click here to view prices for this commodity."
                                      :disabled default?
@@ -126,7 +126,7 @@
          [:th "Symbol"]
          [:th "Exchange"]
          [:th "Latest Price"]
-         [:th (util/space)]]]
+         [:th (html/space)]]]
        [:tbody
         (if @commodities
           (->> @commodities
@@ -160,7 +160,7 @@
      [:button.btn.btn-info.btn-sm {:title "Click here to edit this price."
                                    :on-click (fn []
                                                (swap! page-state assoc :selected-price price)
-                                               (util/set-focus "trade-date"))}
+                                               (html/set-focus "trade-date"))}
       (bs/icon :pencil)]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
                                      :on-click #(delete-price price page-state)}
@@ -198,7 +198,7 @@
           [:tr
            [:th.text-right "Trade Date"]
            [:th.text-right "Price"]
-           [:th (util/space)]] ]
+           [:th (html/space)]] ]
          [:tbody
           (if @prices
             (doall (map #(price-row % page-state) @prices))
@@ -210,9 +210,9 @@
                                                      assoc
                                                      :selected-price
                                                      {:commodity-id (:id @commodity)})
-                                              (util/set-focus "trade-date"))}
+                                              (html/set-focus "trade-date"))}
          (bs/icon-with-text :plus "Add")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-light {:on-click #(swap! page-state dissoc :prices-commodity)}
          (bs/icon-with-text :x "Cancel")]
         [:span.ml-auto
@@ -264,7 +264,7 @@
         [:button.btn.btn-primary {:title "Click here to save this price."
                                   :on-click #(save-price page-state)}
          (bs/icon-with-text :check "Save")]
-        (util/space)
+        (html/space)
         [:button.btn.btn-light {:title "Click here to cancel this update."
                                 :on-click #(swap! page-state dissoc :selected-price)}
          (bs/icon-with-text :x "Cancel")]]])))
@@ -299,7 +299,7 @@
                               {:entity-id (:id @current-entity)
                                :type "stock"
                                :exchange "nyse"})
-                       (util/set-focus "type"))
+                       (html/set-focus "type"))
            :disabled (boolean @selected)}
           (bs/icon-with-text :plus "Add")]]
         (when @prices-commodity

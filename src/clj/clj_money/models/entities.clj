@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.x-platform.util :refer [update-in-if]]
+            [clj-money.util :refer [update-in-if]]
             [clj-money.models :as models]
             [clj-money.validation :as validation :refer [with-validation]]))
 

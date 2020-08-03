@@ -4,7 +4,7 @@
   (:require [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]
             [clj-money.api :as api]
-            [clj-money.x-platform.util :as util]))
+            [clj-money.util :as util]))
 
 (defn create
   [attachment success-fn error-fn]

@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [clj-money.api :as api]
-            [clj-money.util :as util]
+            [clj-money.util :refer [unserialize-date-time]]
             [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]))
 
@@ -18,8 +18,8 @@
 (defn- after-read
   [imp]
   (-> imp
-      (update-in [:created-at] util/parse-date-time )
-      (update-in [:updated-at] util/parse-date-time)))
+      (update-in [:created-at] unserialize-date-time)
+      (update-in [:updated-at] unserialize-date-time)))
 
 (defn create
   [import-data success-fn error-fn]

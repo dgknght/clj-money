@@ -7,8 +7,8 @@
             [clj-money.bootstrap :as bs]
             [clj-money.plain-forms :as forms]
             [clj-money.notifications :as notify]
-            [clj-money.util :as util]
-            [clj-money.x-platform.accounts :refer [nest unnest]]
+            [clj-money.html :as html]
+            [clj-money.accounts :refer [nest unnest]]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.entities :as entities]
             [clj-money.api.reports :as reports]))
@@ -59,7 +59,7 @@
                                  :title "Click here to add this new monitor"
                                  :disabled (not (:account-id @new-monitor))}
         "Save"]
-       (util/space)
+       (html/space)
        [:button.btn.btn-secondary {:on-click #(swap! state dissoc :new-monitor)
                                    :title "Click here to close this form without creating a new monitor"}
         "Cancel"]])))
@@ -195,7 +195,7 @@
          [monitor-form state]
          [:button.btn.btn-secondary {:on-click (fn []
                                                  (swap! state assoc :new-monitor {})
-                                                 (util/set-focus "account-id"))
+                                                 (html/set-focus "account-id"))
                                      :title "Click here to add a new budget monitor"}
           "Add"])])))
 

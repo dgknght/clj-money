@@ -7,7 +7,7 @@
             [ragtime.repl :as rt]
             [environ.core :refer [env]]
             [clj-money.core]
-            [clj-money.util :refer [parse-local-date]]
+            [clj-money.util :refer [unserialize-date]]
             [clj-money.models.settings :as settings]
             [clj-money.partitioning :refer [create-partition-tables]]))
 
@@ -50,8 +50,8 @@
 (defn create-partitions
   [& args]
   (let [{:keys [arguments options]} (parse-opts args create-partitions-options)
-        start-date (-> arguments first parse-local-date)
-        end-date (or (-> arguments second parse-local-date)
+        start-date (-> arguments first unserialize-date)
+        end-date (or (-> arguments second unserialize-date)
                      start-date)]
     (create-partition-tables start-date end-date options)
     (put-earliest-partition-date start-date)

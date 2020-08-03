@@ -4,12 +4,12 @@
             [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
-            [clj-money.x-platform.util :refer [update-in-if
-                                               unserialize-date
-                                               nominative-variations
-                                               symbolic-comparatives]]
+            [clj-money.util :refer [uuid
+                                    update-in-if
+                                    unserialize-date
+                                    nominative-variations
+                                    symbolic-comparatives]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.util :refer [uuid]]
             [clj-money.api :refer [->response
                                    not-found
                                    bad-request]]

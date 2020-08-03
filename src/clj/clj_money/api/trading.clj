@@ -7,7 +7,7 @@
             [clj-money.authorization :refer [authorize] :as authorization]
             [clj-money.authorization.trades]
             [clj-money.trading :as trading]
-            [clj-money.x-platform.util :refer [unserialize-date]]))
+            [clj-money.util :refer [unserialize-date]]))
 
 (def ^:private create-attributes
   [:trade-date :entity-id :shares :value :commodity-id :account-id])
@@ -18,8 +18,10 @@
             trading/sell
             trading/buy)
         trade (-> params
-                  (merge body)
-                  (update-in [:trade-date] unserialize-date)
+                  (merge (-> body
+                             (update-in [:value] bigdec)
+                             (update-in [:shares] bigdec)
+                             (update-in [:trade-date] unserialize-date)))
                   (select-keys create-attributes)
                   (storage/tag ::models/trade)
                   (authorize ::authorization/create authenticated))

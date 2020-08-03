@@ -1,6 +1,6 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [clj-money.x-platform.util :refer [update-in-if]]
+  (:require [clj-money.util :refer [update-in-if]]
             [clj-money.api :as api]))
 
 (defn- after-read

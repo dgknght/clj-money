@@ -5,7 +5,7 @@
             [clj-factory.core :refer [factory]]
             [clj-time.core :as t]
             [environ.core :refer [env]]
-            [clj-money.x-platform.util :refer [path]]
+            [clj-money.util :refer [path]]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.test-helpers :refer [assert-successful

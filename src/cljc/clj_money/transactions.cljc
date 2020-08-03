@@ -1,6 +1,6 @@
-(ns clj-money.x-platform.transactions
-  (:require [clj-money.x-platform.accounts :refer [polarize-quantity
-                                                   derive-item]]))
+(ns clj-money.transactions
+  (:require [clj-money.accounts :refer [polarize-quantity
+                                        derive-item]]))
 
 (defn can-simplify?
   "Returns true if the transaction can be simplified (which

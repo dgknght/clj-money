@@ -7,9 +7,9 @@
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
-            [clj-money.util :refer [file-ext
-                                    file-name]]
-            [clj-money.io :refer [read-bytes]]
+            [clj-money.io :refer [read-bytes
+                                  file-ext
+                                  file-name]]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-import]]

@@ -1,6 +1,6 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
-  (:require [clj-money.x-platform.util :refer [unserialize-date]]
+  (:require [clj-money.util :refer [unserialize-date]]
             [clj-money.state :refer [current-entity]]
             [clj-money.decimal :as decimal :refer [->decimal]]
             [clj-money.api :as api]))
