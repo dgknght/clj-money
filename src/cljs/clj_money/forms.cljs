@@ -2,7 +2,10 @@
   (:require [reagent.core :as r]
             [clojure.string :as string]
             [cljs-time.format :as tf]
+            [clj-money.bootstrap :as bs]
             [clj-money.decimal :refer [->decimal]]
+            [clj-money.calendar :as cal]
+            [clj-money.views.calendar :as calview]
             [clj-money.inflection :refer [humanize]]))
 
 (defn- ->caption
@@ -71,8 +74,12 @@
   [model field {input-type :type
                 parse-fn :parse-fn
                 unparse-fn :unparse-fn
+                icon :icon
+                on-icon-click :on-icon-click
+                on-accept :on-accept
                 :or {input-type :text
-                     unparse-fn str}
+                     unparse-fn str
+                     on-accept identity}
                 :as options}]
   (let [text-value (r/atom (unparse-fn (get-in @model field)))]
     (add-watch model field (fn [_field _sender before after]
@@ -81,18 +88,29 @@
                                (when (and a (not b))
                                  (reset! text-value (unparse-fn a))))))
     (fn []
-      [:input.form-control (merge (select-keys options [:placeholder
-                                                        :class])
-                                  {:type input-type
-                                   :name (->name field)
-                                   :id (->id field)
-                                   :value @text-value
-                                   :on-change (fn [e]
-                                                (let [new-value (.-value (.-target e))
-                                                      parsed (parse-fn new-value)]
-                                                  (when parsed
-                                                    (swap! model assoc-in field parsed))
-                                                  (reset! text-value new-value)))})])))
+      (let [attr (merge (select-keys options [:placeholder
+                                              :class])
+                        {:type input-type
+                         :autocomplete :off
+                         :name (->name field)
+                         :id (->id field)
+                         :value @text-value
+                         :on-change (fn [e]
+                                      (let [new-value (.-value (.-target e))
+                                            parsed (parse-fn new-value)]
+                                        (when parsed
+                                          (swap! model assoc-in field parsed)
+                                          (on-accept))
+                                        (reset! text-value new-value)))})]
+        (if icon
+          [:div.input-group
+           [:input.form-control attr]
+           [:div.input-group-append
+            [:button.btn.btn-secondary
+             {:on-click on-icon-click
+              :type :button}
+             (bs/icon icon {:size :small})]]]
+          [:input.form-control attr])))))
 
 (defn- parse-date
   [date-string]
@@ -111,12 +129,54 @@
   [specialized-text-input model field (merge options {:parse-fn parse-date
                                                       :unparse-fn unparse-date})])
 
+(defn- invalid-feedback
+  [model field]
+  (get-in model [::invalid-feedback field]))
+
+(def ^:private date-input-defaults
+  {:unparse-fn unparse-date
+   :parse-fn parse-date})
+
 (defn date-field
   [model field options]
-  [:div.form-group
-   [:label {:for field} (or (:caption options)
-                            (->caption field))]
-   [date-input model field options]])
+  (let [ctl-state (r/atom {:calendar (cal/init {:first-day-of-week :sunday
+                                                :selected (get-in @model field)})})
+        visible? (r/cursor ctl-state [:visible?])]
+    (add-watch model field (fn [k _ before after]
+                             (let [b (get-in before k)
+                                   a (get-in after k)]
+                               (when (and a (nil? b))
+                                 (swap! ctl-state assoc
+                                        :calendar (cal/init {:first-day-of-week :sunday
+                                                             :selected a}))))))
+    (fn []
+      [:div.form-group
+       [:label {:for field} (humanize (last field))]
+       [specialized-text-input
+        model
+        field
+        (merge
+          date-input-defaults
+          {:on-accept (fn [d]
+                        (swap! ctl-state #(-> %
+                                              (update-in [:calendar] cal/select d)
+                                              (dissoc :visible?))))}
+          options
+          {:icon :calendar
+           :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
+       [:div.invalid-feedback (invalid-feedback @model field)]
+       [:div.shadow.rounded {:class (when-not @visible? "d-none")
+                     :style {:position :absolute
+                             :border "1px solid var(--dark)"
+                             :padding "2px"
+                             :z-index 99
+                             :background-color "#fff"}}
+        [calview/calendar ctl-state {:small? true
+                                     :on-day-click (fn [date]
+                                                     (swap! model assoc-in field date)
+                                                     (swap! ctl-state #(-> %
+                                                                           (update-in [:calendar] cal/select date)
+                                                                           (dissoc :visible?))))}]]])))
 
 (defn- parse-int
   [text-value]
