@@ -66,7 +66,7 @@
   [date month opts]
   {:date date
    :today? (t/equal? date (t/today))
-   :selected? (= date (:selected opts))
+   :selected? (t/equal? date (:selected opts))
    :in-month? (= month (t/month date))})
 
 (defn- ensure-year-month

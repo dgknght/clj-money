@@ -1,6 +1,7 @@
 (ns clj-money.forms
   (:require [reagent.core :as r]
             [clojure.string :as string]
+            [cljs-time.core :as t]
             [cljs-time.format :as tf]
             [clj-money.bootstrap :as bs]
             [clj-money.decimal :refer [->decimal]]
@@ -72,12 +73,14 @@
 
 (defn- specialized-text-input
   [model field {input-type :type
-                parse-fn :parse-fn
-                unparse-fn :unparse-fn
-                icon :icon
-                on-icon-click :on-icon-click
-                on-accept :on-accept
+                :keys [parse-fn
+                       unparse-fn
+                       equals-fn
+                       icon
+                       on-icon-click
+                       on-accept]
                 :or {input-type :text
+                     equals-fn =
                      unparse-fn str
                      on-accept identity}
                 :as options}]
@@ -85,7 +88,7 @@
     (add-watch model field (fn [_field _sender before after]
                              (let [b (get-in before field)
                                    a (get-in after field)]
-                               (when (and a (not b))
+                               (when-not (equals-fn a b)
                                  (reset! text-value (unparse-fn a))))))
     (fn []
       (let [attr (merge (select-keys options [:placeholder
@@ -163,6 +166,9 @@
                                               (dissoc :visible?))))}
           options
           {:icon :calendar
+           :unparse-fn unparse-date
+           :parse-fn parse-date
+           :equals-fn t/equal?
            :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
        [:div.invalid-feedback (invalid-feedback @model field)]
        [:div.shadow.rounded {:class (when-not @visible? "d-none")

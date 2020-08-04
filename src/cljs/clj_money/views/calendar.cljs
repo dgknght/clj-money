@@ -43,14 +43,16 @@
         [:tr
          [:th.text-center {:col-span 2}
           [:button.btn.btn-sm.btn-light
-           {:on-click (fn []
+           {:on-click (fn [e]
+                        (.preventDefault e)
                         (swap! ctl-state update-in [:calendar] cal/prev-month)
                         (on-previous))}
            "<<"]]
          [:th.text-center {:col-span 3} (:title @c)]
          [:th.text-center {:col-span 2}
           [:button.btn.btn-sm.btn-light
-           {:on-click (fn []
+           {:on-click (fn [e]
+                        (.preventDefault e)
                         (swap! ctl-state update-in [:calendar] cal/next-month)
                         (on-next))}
            ">>"]]]

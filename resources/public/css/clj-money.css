@@ -173,3 +173,13 @@ table tfoot td {
   display: inline-block;
   margin-left: 1em;
 }
+
+.calendar-selected {
+  background-color: var(--primary);
+  color: var(--white);
+}
+
+.calendar-today {
+  background-color: var(--secondary);
+  color: var(--white);
+}
