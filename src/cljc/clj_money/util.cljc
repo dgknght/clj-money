@@ -186,7 +186,7 @@
 
 (defn unserialize-date-time [s]
   (when (seq s)
-    (f/parse (f/formatters :date-time) s)))
+    (f/parse (f/formatters :date-time-no-ms) s)))
 
 (defn format-date-time [dt]
   (when dt
