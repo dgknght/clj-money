@@ -127,20 +127,11 @@
     (tf/unparse (tf/formatter "M/d/yyyy") date)
     ""))
 
-(defn date-input
-  [model field options]
-  [specialized-text-input model field (merge options {:parse-fn parse-date
-                                                      :unparse-fn unparse-date})])
-
-(defn- invalid-feedback
-  [model field]
-  (get-in model [::invalid-feedback field]))
-
 (def ^:private date-input-defaults
   {:unparse-fn unparse-date
    :parse-fn parse-date})
 
-(defn date-field
+(defn date-input
   [model field options]
   (let [ctl-state (r/atom {:calendar (cal/init {:first-day-of-week :sunday
                                                 :selected (get-in @model field)})})
@@ -153,8 +144,7 @@
                                         :calendar (cal/init {:first-day-of-week :sunday
                                                              :selected a}))))))
     (fn []
-      [:div.form-group
-       [:label {:for field} (humanize (last field))]
+      [:span
        [specialized-text-input
         model
         field
@@ -170,19 +160,29 @@
            :parse-fn parse-date
            :equals-fn t/equal?
            :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
-       [:div.invalid-feedback (invalid-feedback @model field)]
        [:div.shadow.rounded {:class (when-not @visible? "d-none")
-                     :style {:position :absolute
-                             :border "1px solid var(--dark)"
-                             :padding "2px"
-                             :z-index 99
-                             :background-color "#fff"}}
+                             :style {:position :absolute
+                                     :border "1px solid var(--dark)"
+                                     :padding "2px"
+                                     :z-index 99
+                                     :background-color "#fff"}}
         [calview/calendar ctl-state {:small? true
                                      :on-day-click (fn [date]
                                                      (swap! model assoc-in field date)
                                                      (swap! ctl-state #(-> %
                                                                            (update-in [:calendar] cal/select date)
                                                                            (dissoc :visible?))))}]]])))
+
+(defn- invalid-feedback
+  [model field]
+  (get-in model [::invalid-feedback field]))
+
+(defn date-field
+  [model field options]
+  [:div.form-group
+   [:label {:for field} (humanize (last field))]
+   [date-input model field options]
+   [:div.invalid-feedback (invalid-feedback @model field)]])
 
 (defn- parse-int
   [text-value]

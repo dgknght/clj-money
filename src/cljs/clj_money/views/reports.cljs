@@ -57,23 +57,26 @@
   [ctl-state]
   (let [loading? (r/cursor ctl-state [:loading?])]
     (fn []
-      [:form.form-inline.d-print-none {:on-submit (fn [e]
-                                                    (.preventDefault e)
-                                                    false)}
-       [forms/date-input ctl-state [:start-date] {:placeholder "Start date"
-                                                  :class "mr-sm-2"
-                                                  :validate [:required]}]
-       [forms/date-input ctl-state [:end-date] {:placeholder "End date"
-                                                :class "mr-sm-2"
-                                                :validate [:required]}]
-       [:button.btn.btn-primary {:on-click (fn []
-                                             (swap! ctl-state assoc :loading? true)
-                                             (fetch-income-statement ctl-state))
-                                 :title "Click here to get the report with the specified parameters"}
-        (if @loading?
-          [:div.spinner-border.spinner-border-sm.text-light
-           [:span.sr-only "Loading..."]]
-          (bs/icon :arrow-repeat))]])))
+      [:form.d-print-none {:on-submit (fn [e]
+                                        (.preventDefault e)
+                                        false)
+                           :style {:max-width "785px"}}
+       [:div.row
+        [:div.col
+         [forms/date-input ctl-state [:start-date] {:placeholder "Start date"
+                                                    :validate [:required]}]]
+        [:div.col
+         [forms/date-input ctl-state [:end-date] {:placeholder "End date"
+                                                  :validate [:required]}]]
+        [:div.col
+         [:button.btn.btn-primary {:on-click (fn []
+                                               (swap! ctl-state assoc :loading? true)
+                                               (fetch-income-statement ctl-state))
+                                   :title "Click here to get the report with the specified parameters"}
+          (if @loading?
+            [:div.spinner-border.spinner-border-sm.text-light
+             [:span.sr-only "Loading..."]]
+            (bs/icon :arrow-repeat))]]]])))
 
 (defn- income-statement []
   (let [ctl-state (r/atom {:start-date (start-of-year)
@@ -103,20 +106,23 @@
   [ctl-state]
   (let [loading? (r/cursor ctl-state [:loading?])]
     (fn []
-      [:form.form-inline.d-print-none {:on-submit (fn [e]
-                                                    (.preventDefault e)
-                                                    false)}
-       [forms/date-input ctl-state [:as-of] {:placeholder "As Of"
-                                                  :class "mr-sm-2"
-                                                  :validate [:required]}]
-       [:button.btn.btn-primary {:on-click (fn []
-                                             (swap! ctl-state assoc :loading? true)
-                                             (fetch-balance-sheet ctl-state))
-                                 :title "Click here to get the report with the specified parameters"}
-        (if @loading?
-          [:div.spinner-border.spinner-border-sm.text-light
-           [:span.sr-only "Loading..."]]
-          (bs/icon :arrow-repeat))]])))
+      [:form.d-print-none {:on-submit (fn [e]
+                                        (.preventDefault e)
+                                        false)
+                           :style {:max-width "512px"}}
+       [:div.row
+        [:div.col
+         [forms/date-input ctl-state [:as-of] {:placeholder "As Of"
+                                               :validate [:required]}]]
+        [:div.col
+         [:button.btn.btn-primary {:on-click (fn []
+                                               (swap! ctl-state assoc :loading? true)
+                                               (fetch-balance-sheet ctl-state))
+                                   :title "Click here to get the report with the specified parameters"}
+          (if @loading?
+            [:div.spinner-border.spinner-border-sm.text-light
+             [:span.sr-only "Loading..."]]
+            (bs/icon :arrow-repeat))]]]])))
 
 (defn- balance-sheet []
   (let [ctl-state (r/atom {:as-of (t/today)})
@@ -204,10 +210,11 @@
     (load-budgets ctl-state)
     (fn []
       [:div
+       [:h2 "Budget"]
        [budget-filter ctl-state]
        (when @report
          [:div
-          [:h2.mt-3 (str "Budget " (:title @report))]
+          [:h2.mt-3 (:title @report)]
           [:table.mt-3.table.table-hover.table-borderless
            [:thead
             [:tr
