@@ -558,6 +558,9 @@
       (update-in [:value] parse-decimal)
       (update-in [:reconciled] #(= "y" %))))
 
+(def ^:private ignore-transaction-patterns
+  [#"^closing( year)? \d{4}"]) ; TODO: Maybe this should be entered in the UI?
+
 (defmethod ^:private process-record :transaction
   [transaction _]
   (-> transaction
@@ -568,6 +571,11 @@
                                    %))
       (update-in [:transaction-date] #(-> % :date parse-date))
       (update-in [:items] #(map process-transaction-item %))
+      (vary-meta assoc
+                 :ignore?
+                 (boolean
+                   (some #(re-find % (get-in transaction [:description] ""))
+                         ignore-transaction-patterns)))
       refine-trading-transaction))
 
 (defn- process-budget-item
