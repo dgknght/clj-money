@@ -499,15 +499,17 @@
 (defn recalculate-account
   "Recalculates statistics for items in the the specified account
   as of the specified date"
-  ([storage account-id as-of]
-   (recalculate-account storage account-id as-of {}))
-  ([storage account-id as-of options]
-   (let [base-item (find-base-item storage account-id as-of)
+  ([storage account-or-id as-of]
+   (recalculate-account storage account-or-id as-of {}))
+  ([storage account-or-id as-of options]
+   (let [account (if (map? account-or-id)
+                   account-or-id
+                   (accounts/find-by-id storage account-or-id))
+         base-item (find-base-item storage (:id account) as-of)
          items (search-items storage
-                             {:account-id account-id
+                             {:account-id (:id account)
                               :transaction-date [:>= as-of]}
                              {:sort [:transaction-date :index]})
-         account (accounts/find-by-id storage account-id)
          [last-index
           balance
           last-date] (if (seq items)
@@ -528,6 +530,25 @@
                                       (assoc :value value)
                                       (update-in [:earliest-transaction-date] earlier as-of)
                                       (update-in [:latest-transaction-date] later last-date))))))))
+
+(defn migrate-account
+  "Moves all transaction items from from-account to to-account and recalculates the accounts"
+  [storage from-account to-account]
+  (let [as-of (->> [from-account to-account]
+                   (map :earliest-transaction-date)
+                   (filter identity)
+                   sort
+                   first)]
+    (with-transacted-storage [s storage]
+      (storage/update s
+                      (storage/tag {:account-id (:id to-account)
+                                    :index 0
+                                    :balance nil}
+                                   ::models/transaction-item)
+                      {:account-id (:id from-account)
+                       :transaction-date [:>= as-of]})
+      (doseq [account [from-account to-account]]
+        (recalculate-account s account as-of {:force true})))))
 
 (defn- extract-account-ids
   [transaction]

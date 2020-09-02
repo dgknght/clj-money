@@ -209,7 +209,10 @@
                :parent-id "Auto"}
               {:name "Household"
                :type :expense
-               :entity-id "Personal"} ]})
+               :entity-id "Personal"}
+              {:name "Investment"
+               :type :income
+               :entity-id "Personal"}]})
 
 (deftest duplicate-name-across-entities
   (let [context (realize storage-spec duplicate-name-context)
@@ -230,6 +233,15 @@
                                               :entity-id (:id business)})]
     (is (empty? (validation/error-messages result))
         "A name can be dulicated across parents")))
+
+(deftest duplicate-name-across-asset-types
+  (let [context (realize storage-spec duplicate-name-context)
+        entity (find-entity context "Personal")
+        result (accounts/create storage-spec {:name "Investment"
+                                              :type :expense
+                                              :entity-id (:id entity)})]
+    (is (empty? (validation/error-messages result))
+        "A name can be dulicated across asset types")))
 
 (def ^:private create-child-context
   {:users [(factory :user)]

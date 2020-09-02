@@ -251,9 +251,17 @@
       value))
 
 (defn update-in-if
+  "Performs an update-in if the key already exists in the map."
   [m k-path f]
   (if-let [v (get-in m k-path)]
     (assoc-in m k-path (f v))
+    m))
+
+(defn assoc-if
+  "Performs an assoc if the specified value is not nil."
+  [m k v]
+  (if v
+    (assoc m k v)
     m))
 
 (defn deep-contains?

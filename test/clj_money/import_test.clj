@@ -55,16 +55,19 @@
      :original-filename filename}))
 
 (def images
-  {:gnucash (map path->image ["resources/fixtures/sample.gnucash"])
-   :edn     (map path->image ["resources/fixtures/sample_0.edn.gz"
+  {:gnucash (mapv path->image ["resources/fixtures/sample.gnucash"])
+   :ext     (mapv path->image ["resources/fixtures/sample_with_commodities_ext.gnucash"])
+   :edn     (mapv path->image ["resources/fixtures/sample_0.edn.gz"
                               "resources/fixtures/sample_1.edn.gz"])})
 
 (defn- import-context
   [source-type]
-  {:users [(factory :user, {:email "john@doe.com"})]
-   :images (source-type images)
-   :imports [{:entity-name "Personal"
-              :image-ids (map :original-filename (source-type images))}]})
+  (let [images (source-type images)]
+    {:users [(factory :user, {:email "john@doe.com"})]
+     :images images
+     :imports [{:entity-name "Personal"
+                :image-ids (map :original-filename images)
+                :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}]}))
 
 (def expected-updates
   (concat [{:commodity   {:total 2}} ; declare commodities
@@ -173,74 +176,83 @@
     :quantity 2000M
     :value 2000M}])
 
-(defn- test-import
-  [context]
-  (let [imp (find-import context "Personal")
-        updates (atom [])
+(defn- execute-import
+  [imp]
+  (let [updates (atom [])
         progress-chan (chan)
         _ (go-loop [p (<! progress-chan)]
                    (swap! updates #(conj % p))
                    (recur (<! progress-chan)))
-        {:keys [entity wait]} (import-data storage-spec imp progress-chan {:atomic? true})
-        _ @wait
-        all-accounts (accounts/search storage-spec {:entity-id (:id entity)})
-        accounts (->> all-accounts
-                      (map (juxt :name identity))
-                      (into {}))
-        actual-accounts (->> all-accounts
-                             (sort-by :name)
-                             (map #(select-keys % [:name
-                                                   :type
-                                                   :commodity-id
-                                                   :quantity
-                                                   :value
-                                                   :tags])))
-        expected-accounts (map #(-> %
-                                    (assoc :tags #{})
-                                    (update-in [:commodity-id]
-                                               (fn [sym]
-                                                 (:id (commodities/find-by
-                                                        storage-spec
-                                                        {:entity-id (:id entity)
-                                                         :symbol sym})))))
-                               expected-accounts)
-        actual-inc-stmt (strip-account-ids
-                          (reports/income-statement storage-spec
-                                                    entity
-                                                    (t/local-date 2015 1 1)
-                                                    (t/local-date 2017 12 31)))
-        actual-bal-sheet (strip-account-ids
-                           (reports/balance-sheet storage-spec
-                                                  entity
-                                                  (t/local-date 2017 12 31)))
-        expected-reconciliations [{:account-id (get-in accounts ["Checking" :id])
-                                   :status :completed
-                                   :end-of-period (t/local-date 2015 1 15)
-                                   :balance 800M}]
-        actual-reconciliations (map #(select-keys % [:account-id
-                                                     :end-of-period
-                                                     :status
-                                                     :balance])
-                                    (recs/search
-                                      (env :db)
-                                      {[:account :entity-id] (:id entity)}))]
+        {:keys [entity wait]} (import-data storage-spec imp progress-chan {:atomic? true})]
+    @wait
+    {:entity entity
+     :updates updates}))
+
+(defn- test-import
+  [context]
+  (let [imp (find-import context "Personal")
+        {:keys [entity updates]} (execute-import imp)
+        all-accounts (accounts/search storage-spec {:entity-id (:id entity)})]
     (is (= "Personal" (:name entity)) "It returns the new entity")
-    (pprint-diff expected-accounts actual-accounts)
-    (is (= expected-accounts actual-accounts)
-        "The correct accounts are created")
-    (pprint-diff expected-inc-stmt actual-inc-stmt)
-    (is (= expected-inc-stmt actual-inc-stmt)
-        "The income statement is correct after import")
-    (pprint-diff expected-bal-sheet actual-bal-sheet)
-    (is (= expected-bal-sheet actual-bal-sheet)
-        "The balance sheet is correct after import")
     (pprint-diff expected-updates @updates)
     (is (= expected-updates @updates)
         "The import record is updated at each insert")
-    (pprint-diff expected-reconciliations actual-reconciliations)
-    (is (= expected-reconciliations
-           actual-reconciliations)
-        "The reconciliations are imported correctly.")))
+
+    (testing "the correct accounts are created"
+      (let [actual (->> all-accounts
+                        (sort-by :name)
+                        (map #(select-keys % [:name
+                                              :type
+                                              :commodity-id
+                                              :quantity
+                                              :value
+                                              :tags])))
+            expected (map #(-> %
+                               (assoc :tags #{})
+                               (update-in [:commodity-id]
+                                          (fn [sym]
+                                            (:id (commodities/find-by
+                                                   storage-spec
+                                                   {:entity-id (:id entity)
+                                                    :symbol sym})))))
+                          expected-accounts)]
+        (pprint-diff expected actual)
+        (is (= expected actual))))
+
+    (testing "a correct income statement is produced"
+      (let [actual (strip-account-ids
+                     (reports/income-statement storage-spec
+                                               entity
+                                               (t/local-date 2015 1 1)
+                                               (t/local-date 2017 12 31)))]
+        (pprint-diff expected-inc-stmt actual)
+        (is (= expected-inc-stmt actual))))
+
+    (testing "a correct balance sheet is produced"
+      (let [actual (strip-account-ids
+                     (reports/balance-sheet storage-spec
+                                            entity
+                                            (t/local-date 2017 12 31)))]
+        (pprint-diff expected-bal-sheet actual)
+        (is (= expected-bal-sheet actual))))
+
+    (testing "reconciliations are imported correctly"
+      (let [accounts (->> all-accounts
+                          (map (juxt :name identity))
+                          (into {}))
+            expected [{:account-id (get-in accounts ["Checking" :id])
+                       :status :completed
+                       :end-of-period (t/local-date 2015 1 15)
+                       :balance 800M}]
+            actual (map #(select-keys % [:account-id
+                                         :end-of-period
+                                         :status
+                                         :balance])
+                        (recs/search
+                          (env :db)
+                          {[:account :entity-id] (:id entity)}))]
+        (pprint-diff expected actual)
+        (is (= expected actual))))))
 
 (deftest import-a-simple-gnucash-file
   (test-import
@@ -253,6 +265,20 @@
     (realize
       storage-spec
       (import-context :edn))))
+
+(deftest import-with-entity-settings
+  (let [ctx (realize (env :db) (import-context :ext))
+        imp (find-import ctx "Personal")
+        {:keys [entity]} (execute-import imp)
+        entity (entities/find-by-id (env :db) (:id entity))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
+    (is (integer? (get-in entity [:settings :lt-capital-gains-account-id]))
+        "The long-term capital gains account id is set correctly")
+    (is (integer? (get-in entity [:settings :st-capital-gains-account-id]))
+        "The short-term capital gains account id is set correctly")
+    (is (integer? (get-in entity [:settings :lt-capital-loss-account-id]))
+        "The long-term capital losses account id is set correctly")
+    (is (integer? (get-in entity [:settings :lt-capital-loss-account-id]))
+        "The short-term capital losses account id is set correctly")))
 
 (def gnucash-budget-sample
   (io/input-stream "resources/fixtures/budget_sample.gnucash"))

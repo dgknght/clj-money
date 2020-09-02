@@ -2,10 +2,12 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.string :as string]
             [clojure.core.async :refer [go-loop <! chan]]
+            [cheshire.core :as json]
             [ring.util.response :refer [response
                                         status]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [environ.core :refer [env]]
+            [clj-money.util :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
             [clj-money.api :refer [delete-resource]]
@@ -54,13 +56,20 @@
                                                  :content-type content-type
                                                  :original-filename (:filename %)
                                                  :body (read-bytes (:tempfile %))})))))
+
+(defn- extract-import
+  [{:keys [params authenticated]} images]
+  (-> params
+      (select-keys [:entity-name :options])
+      (update-in-if [:options] #(json/parse-string % true))
+      (assoc :user-id (:id authenticated)
+             :image-ids (mapv :id images))))
+
 (defn- create
-  [{:keys [params authenticated]}]
+  [{:keys [params authenticated] :as req}]
   (let [images (create-images params authenticated)]
     (if (not-any? #(validation/error-messages %) images)
-      (let [imp (imports/create (env :db) {:user-id (:id authenticated)
-                                           :entity-name (:entity-name params)
-                                           :image-ids (map :id images)})]
+      (let [imp (imports/create (env :db) (extract-import req images))]
         (if (empty? (validation/error-messages imp))
           (let [{:keys [entity]} (launch-and-track-import imp)]
             (-> {:entity entity

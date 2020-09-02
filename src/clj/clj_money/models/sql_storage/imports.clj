@@ -24,7 +24,8 @@
   (insert-model db-spec :imports imp
                 :entity-name
                 :user-id
-                :image-ids))
+                :image-ids
+                :options))
 
 (defmethod stg/update ::models/import
   [imp db-spec]

@@ -2,7 +2,7 @@
  :expectations {:declaration [{:record-type :commodity
                                :record-count 3}
                               {:record-type :account
-                               :record-count 15}
+                               :record-count 21}
                               {:record-type :transaction
                                :record-count 11}
                               {:record-type :price
@@ -68,6 +68,24 @@
                            :type :income
                            :commodity {:exchange :currency
                                        :symbol "USD"}}
+                          {:name "Investment"
+                           :id "9f58204ecb4f4551b1800a64c77e63e5"
+                           :parent-id "dff5746dbbaf805f1a8ac3ceb5d1a234"
+                           :type :income
+                           :commodity {:exchange :currency
+                                       :symbol "USD"}}
+                          {:name "Long-Term Gains"
+                           :id "bafc743f9d2a4560bef084e7c9689ca9"
+                           :type :income
+                           :parent-id "9f58204ecb4f4551b1800a64c77e63e5"
+                           :commodity {:exchange :currency
+                                       :symbol "USD"}}
+                          {:name "Short-Term Gains"
+                           :id "67928c21142340cc88f67973ec4e0c8e"
+                           :type :income
+                           :parent-id "9f58204ecb4f4551b1800a64c77e63e5"
+                           :commodity {:exchange :currency
+                                       :symbol "USD"}}
                           {:name "Groceries"
                            :id "835bfe9b2728976d06e63b90aea8c090" ; groceries
                            :parent-id "abff103816fb2e5cb93778b1ea51ca45"
@@ -77,6 +95,24 @@
                           {:name "Investment Expenses"
                            :id "2b8b986602a346dc833125c86ef89f72" ; investment expenses
                            :parent-id "abff103816fb2e5cb93778b1ea51ca45"
+                           :type :expense
+                           :commodity {:exchange :currency
+                                       :symbol "USD"}}
+                          {:name "Investment"
+                           :id "6acec629acc841bdb21f36911fc11286"
+                           :parent-id "abff103816fb2e5cb93778b1ea51ca45"
+                           :type :expense
+                           :commodity {:exchange :currency
+                                       :symbol "USD"}}
+                          {:name "Long-Term Losses"
+                           :id "95354fe9dcba4bcd8b3fb46e123ab139"
+                           :parent-id "6acec629acc841bdb21f36911fc11286"
+                           :type :expense
+                           :commodity {:exchange :currency
+                                       :symbol "USD"}}
+                          {:name "Short-Term Losses"
+                           :id "14768c5f0dd542018aed9c5d1e814037"
+                           :parent-id "6acec629acc841bdb21f36911fc11286"
                            :type :expense
                            :commodity {:exchange :currency
                                        :symbol "USD"}}

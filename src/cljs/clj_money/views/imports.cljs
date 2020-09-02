@@ -51,8 +51,8 @@
   [:tr
    [:td (name progress-type)]
    [:td.text-center
-    [:div.progress
-     (let [perc (* 100 (/ imported total))]
+    (let [perc (* 100 (/ imported total))]
+      [:div.progress
        [:div.progress-bar.text-center
         {:aria-valuenow imported
          :aria-valuemax total
@@ -69,7 +69,11 @@
                                 100
                                 perc)
                               "%")}}
-        (util/format-percent (/ perc 100))])]]])
+        (when (<= 50 perc)
+          (util/format-percent (/ perc 100)))]
+       (when (> 50 perc)
+         [:span.pl-1
+          (util/format-percent (/ perc 100))])])]])
 
 (defn- progress-table
   [page-state]
@@ -213,7 +217,11 @@
      [:div.card-header [:strong "Import Entity"]]
      [:div.card-body
       [:form
-       [text-field import-data [:entity-name] {:validate [:required]}]]
+       [text-field import-data [:entity-name] {:validate [:required]}]
+       [text-field import-data [:options :lt-capital-gains-account-id] {:caption "Long-term Capital Gains Account"}]
+       [text-field import-data [:options :st-capital-gains-account-id] {:caption "Short-term Capital Gains Account"}]
+       [text-field import-data [:options :lt-capital-loss-account-id] {:caption "Long-term Capital Loss Account"}]
+       [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]]
       [:div#import-source.drop-zone.bg-primary.text-light
        {:on-drag-over #(.preventDefault %)
         :on-drop #(file-drop import-data %)}

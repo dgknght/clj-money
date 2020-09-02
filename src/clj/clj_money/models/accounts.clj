@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
             [stowaway.core :as storage :refer [with-storage]]
+            [clj-money.util :refer [assoc-if]]
             [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
@@ -110,12 +111,12 @@
 
 
 (defn- name-is-unique?
-  [storage {:keys [id parent-id name entity-id]}]
-  (->> (search storage {:entity-id entity-id
-                        :name name})
-       (remove #(= (:id %) id))
-       (filter #(= (:parent-id %) parent-id))
-       empty?))
+  [storage {:keys [id parent-id name entity-id type]}]
+  (nil? (find-by storage (assoc-if {:entity-id entity-id
+                                    :parent-id parent-id
+                                    :name name
+                                    :type type}
+                                   :id [:!= id]))))
 
 (defn- parent-has-same-type?
   "Validation rule that ensure an account

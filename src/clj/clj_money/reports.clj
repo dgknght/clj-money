@@ -122,7 +122,8 @@
      (income-statement storage-spec entity start end)))
   ([storage-spec entity start end]
    (->> (accounts/search storage-spec
-                         {:entity-id (:id entity)} )
+                         {:entity-id (:id entity)
+                          :type ["income" "expense"]})
         (nest {:account-types [:income :expense]})
         (into [])
         (set-balance-deltas-in-account-groups
@@ -162,9 +163,9 @@
   [{:positive-caption "Retained Earnings"
     :negative-caption "Retained Losses"
     :calc-fn #(let [summary (->> (:account-groups %)
-                             (map (juxt :type :value))
-                             (into {}))]
-            (- (:income summary) (:expense summary))) }
+                                 (map (juxt :type :value))
+                                 (into {}))]
+                (- (:income summary) (:expense summary))) }
    {:positive-caption "Unrealized Gains"
     :negative-caption "Unrealized Losses"
     :calc-fn #(lots/unrealized-gains (:storage %)
@@ -385,6 +386,7 @@
      (let [as-of (or as-of
                      (default-budget-end-date budget))
            context (assoc options
+                          :as-of as-of
                           :period-count (if (t/after? (:end-date budget)
                                                       as-of)
                                           (inc (:index (budgets/period-containing budget as-of)))

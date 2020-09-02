@@ -4,6 +4,7 @@
             [cheshire.core :as json]
             [stowaway.core :as storage :refer [with-storage
                                                with-transacted-storage]]
+            [clj-money.util :refer [update-in-if]]
             [clj-money.models :as models]
             [clj-money.validation :refer [with-validation]]
             [clj-money.models.entities :as entities]
@@ -13,13 +14,23 @@
 (s/def ::entity-name string?)
 (s/def ::image-ids (s/coll-of integer?))
 (s/def ::user-id integer?)
-(s/def ::new-import (s/keys :req-un [::user-id ::entity-name ::image-ids]))
+(s/def ::lt-capital-gains-account string?)
+(s/def ::st-capital-gains-account string?)
+(s/def ::lt-capital-loss-account string?)
+(s/def ::st-capital-loss-account string?)
+(s/def ::options (s/keys :opt-un [::lt-capital-gains-account
+                                  ::st-capital-gains-account
+                                  ::lt-capital-loss-account
+                                  ::st-captial-loss-account]))
+(s/def ::new-import (s/keys :req-un [::user-id ::entity-name ::image-ids] :opt-un [::options]))
 (s/def ::progress map?)
 (s/def ::existing-import (s/keys :req-un [::id ::progress]))
 
 (defn- before-save
   [imp]
-  (storage/tag imp ::models/import))
+  (-> imp
+      (update-in-if [:options] pr-str)
+      (storage/tag ::models/import)))
 
 (defn- prepare-progress
   [progress]
@@ -45,6 +56,7 @@
   (when imp
     (-> imp
         (update-in [:progress] prepare-progress)
+        (update-in-if [:options] read-string)
         (assoc :entity-exists? (entity-exists? imp storage))
         (storage/tag ::models/import))))
 

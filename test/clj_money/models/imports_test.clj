@@ -7,7 +7,8 @@
                                             find-user
                                             find-imports]]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+                                            pprint-diff
+                                            selective=]]
             [clj-money.validation :as validation]
             [clj-money.models.imports :as imports]
             [clj-money.models.images :as images]))
@@ -36,6 +37,7 @@
         expected [{:entity-name "import entity"
                    :user-id (:id user)
                    :progress {}
+                   :options nil
                    :image-ids (map :id (:images context))
                    :entity-exists? false}]]
     (pprint-diff expected actual)
@@ -45,6 +47,10 @@
   [context]
   {:user-id (-> context :users first :id)
    :entity-name "Personal"
+   :options {:lt-capital-gains-account "Investments/Long-Term Gains"
+             :st-capital-gains-account "Investments/Short-Term Gains"
+             :lt-capital-loss-account "Long-Term Losses"
+             :st-capital-loss-account "Short-Term Losses"}
    :image-ids (->> (:images context)
                    (map :id)
                    (take 1))})
@@ -55,7 +61,10 @@
 
     (is (empty? (validation/error-messages result))
         "The result has no validation errors")
-    (is (:id result) "It assigns an ID to the result")))
+    (is (:id result) "It assigns an ID to the result")
+    (is (selective= (attributes context)
+                    result)
+        "The attributes are stored and retreived correctly.")))
 
 (deftest user-id-is-required
   (let [context (realize storage-spec import-context)

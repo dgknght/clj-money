@@ -183,3 +183,7 @@ table tfoot td {
   background-color: var(--secondary);
   color: var(--white);
 }
+
+.out-of-month {
+  background-color: var(--gray);
+}

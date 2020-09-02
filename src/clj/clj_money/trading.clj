@@ -63,43 +63,45 @@
                                         :trade-date trade-date
                                         :price (with-precision 4 (/ value shares))})))
 
-(defn- acquire-commodity-account
-  "Given a context with a commodity-account-id, appends the
-  commodity account and the commodity"
-  [{:keys [storage commodity-account-id] :as context}]
-  (if commodity-account-id
-    (let [commodity-account (accounts/find-by-id storage commodity-account-id)
-          account (accounts/find-by-id storage (:parent-id commodity-account))
-          commodity (commodities/find-by-id storage (:commodity-id commodity-account))]
-      (assoc context
-             :commodity-account commodity-account
-             :account account
-             :commodity commodity))
-    context))
-
-(defn- acquire-commodity
-  "Given a purchase context, appends the commodity"
-  [{:keys [commodity-id storage] :as context}]
-  (if (:commodity context)
-    context
-    (assoc context :commodity (commodities/find-by-id storage commodity-id))))
-
 (defn- ensure-tag
   "Appends the :trading tag to the account if it isn't there already"
-  [storage tag {:keys [tags] :as account}]
-  (if  (and tags
-            (tags account) tag)
-    account
-    (accounts/update storage
-                     (update-in account [:tags] conj tag))))
+  [{:keys [tags] :as account} tag storage]
+  (when account
+    (if (contains? tags tag)
+      account
+      (accounts/update storage
+                       (update-in account [:tags] conj tag)))))
+
+(defn- append-commodity-account
+  "If the argument contains a commodity-account-id, append
+  that account and :account-id and :commodity-id to the map
+  and return it."
+  [{:keys [storage commodity-account-id] :as context}]
+  (if commodity-account-id
+    (let [{:keys [parent-id commodity-id]
+           :as account} (ensure-tag
+                          (accounts/find-by-id storage commodity-account-id)
+                          :tradable
+                          storage)]
+      (assert account (str "Unable to load the commodity account: " commodity-account-id))
+      (assoc context
+             :commodity-account account
+             :account-id parent-id
+             :commodity-id commodity-id))
+    context))
+
+(defn- append-commodity
+  "Given a context, appends the commodity"
+  [{:keys [commodity-id storage] :as context}]
+  {:pre [commodity-id]}
+
+  (assoc context :commodity (commodities/find-by-id storage commodity-id)))
 
 (defn- find-commodity-account
   [storage parent commodity]
-  (when-let [result (->> {:parent-id (:id parent)
-                          :commodity-id (:id commodity)}
-                         (accounts/search storage)
-                         first)]
-    (ensure-tag storage :tradable result)))
+  (when-let [result (accounts/find-by storage {:parent-id (:id parent)
+                                               :commodity-id (:id commodity)})]
+    (ensure-tag result :tradable storage)))
 
 (defn- create-commodity-account
   [storage parent commodity]
@@ -116,25 +118,27 @@
         [find-commodity-account
          create-commodity-account]))
 
-(defn- acquire-accounts
+(defn- append-accounts
   "Give a purchase context, acquires the accounts
   necessary to complete the purchase"
   [{:keys [account-id storage commodity]
     :as context}]
-  (let [account (or (:account context)
-                    (->> account-id
-                         (accounts/find-by-id storage)
-                         (ensure-tag storage :trading)))
-        commodity-account (or (:commodity-account context)
-                              (find-or-create-commodity-account storage
-                                                                account
-                                                                commodity))]
-    (assert account (str "Unable to resolve the account " (prn-str (select-keys context [:account :account-id]))))
+  {:pre [(and account-id commodity)]}
+  (let [account (ensure-tag (accounts/find-by-id storage account-id)
+                            :trading
+                            storage)
+        commodity-account (find-or-create-commodity-account storage
+                                                            account
+                                                            commodity)]
+    (assert account (str "Unable to resolve the account "
+                         (prn-str (select-keys context [:account-id]))))
+    (assert commodity-account (str "Unable to resolve the commodity account"
+                                   (prn-str (select-keys context [:account-id :commodity]))))
     (assoc context
            :account account
            :commodity-account commodity-account)))
 
-(defn- acquire-entity
+(defn- append-entity
   [{storage :storage
     {entity-id :entity-id} :account
     :as context}]
@@ -282,10 +286,10 @@
     (let [validated (validation/validate purchase ::purchase)]
       (if (validation/valid? validated)
         (->> (assoc validated :storage s)
-             acquire-commodity-account
-             acquire-commodity
-             acquire-accounts
-             acquire-entity
+             append-commodity-account
+             append-commodity
+             append-accounts
+             append-entity
              create-price
              create-lot
              create-purchase-transaction)
@@ -397,28 +401,27 @@
   (or (accounts/find-by storage account)
       (accounts/create storage account)))
 
+(defn- find-or-create-gains-account
+  [{:keys [storage entity]} term result]
+  (find-or-create-account
+    storage
+    {:entity-id (:id entity)
+     :type (if (= "gains" result)
+             :income
+             :expense)
+     :name (str (if (= "lt" term) "Long-term" "Short-term")
+                " Capital "
+                (if (= "gains" result) "Gains" "Losses"))}))
+
 (defn- ensure-gains-account
-  [{:keys [entity storage] :as context} [term result]]
-  (let [k (keyword (str term "-capital-" result "-account-id"))
-        n (str (if (= "lt" term) "Long-term" "Short-term")
-               " Capital "
-               (if (= "gains" result) "Gains" "Losses"))]
-    (cond
-      (k context)
+  [{:keys [entity] :as context} [term result]]
+  (let [k (keyword (str term "-capital-" result "-account-id"))]
+    (if (k context)
       context
-
-      (k (:settings entity))
-      (assoc context k (k (:settings entity)))
-
-      :else
-      (let [account (find-or-create-account
-                      storage
-                      {:entity-id (:id entity)
-                       :type (if (= "gains" result)
-                               :income
-                               :expense)
-                       :name n})]
-        (assoc context k (:id account))))))
+      (assoc context k (or (k (:settings entity))
+                           (:id (find-or-create-gains-account context
+                                                              term
+                                                              result)))))))
 
 (defn- ensure-gains-accounts
   "Ensures that the gain/loss accounts are present
@@ -436,10 +439,10 @@
       (if (validation/has-error? validated)
         validated
         (->> (assoc validated :storage s)
-             acquire-commodity-account
-             acquire-commodity
-             acquire-accounts
-             acquire-entity
+             append-commodity-account
+             append-commodity
+             append-accounts
+             append-entity
              acquire-lots
              ensure-gains-accounts
              update-entity-settings
@@ -456,16 +459,12 @@
           (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
       (transactions/delete s transaction))))
 
-(defn- append-commodity
-  [{:keys [storage commodity-id] :as context}]
-  (assoc context :commodity (commodities/find-by-id storage commodity-id)))
-
 (defn- append-transfer-accounts
   [{:keys  [storage from-account-id to-account-id commodity] :as context}]
   (let [[from-account
-         to-account] (->> [from-account-id to-account-id]
-                          (map #(accounts/find-by-id storage %))
-                          (map #(ensure-tag storage :trading %)))
+         to-account] (map (comp #(ensure-tag % :trading storage)
+                                #(accounts/find-by-id storage %))
+                          [from-account-id to-account-id])
         [from-commodity-account
          to-commodity-account] (map #(find-or-create-commodity-account
                                        storage
@@ -528,14 +527,6 @@
             (select-keys [:lots :transaction])))
       validated)))
 
-(defn- append-commodity-account
-  [{:keys [storage commodity account-id] :as context}]
-  (assoc context
-         :commodity-account
-         (accounts/find-by storage {:commodity-id (:id commodity)
-                                    :entity-id (:entity-id commodity)
-                                    :parent-id account-id})))
-
 (defn- apply-split-to-lot
   [storage ratio lot]
   (let [updated (-> lot
@@ -552,15 +543,13 @@
 
 (defn- append-split-ratio
   [{:keys [shares-gained lots] :as context}]
-  (if (empty? lots)
-    (throw (ex-info "Not lots found to which to apply the split."
-                    (select-keys context [:commodity-id :account-id])))
-    (let [shares-owned (->> lots
-                            (map :shares-owned)
-                            (reduce + 0M))]
-      (assoc context :ratio (with-precision 4
-                              (/ (+ shares-owned shares-gained)
-                                 shares-owned))))))
+  (assert (seq lots) "No lots found to which to apply the split.")
+  (let [shares-owned (->> lots
+                          (map :shares-owned)
+                          (reduce + 0M))]
+    (assoc context :ratio (with-precision 4
+                            (/ (+ shares-owned shares-gained)
+                               shares-owned)))))
 
 (defn- process-split-lots
   [{:keys [storage lots ratio] :as context}]
@@ -618,7 +607,7 @@
       (with-transacted-storage [s storage-spec]
         (-> (assoc validated :storage s)
             append-commodity
-            append-commodity-account
+            append-accounts
             append-split-lots
             append-split-ratio
             process-split-lots

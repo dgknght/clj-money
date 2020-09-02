@@ -45,6 +45,36 @@
   (or (get commodities-by-exchange-and-symbol [exchange symbol])
       (get commodities-by-symbol symbol)))
 
+(defn- update-account-relationships
+  [context {:keys [parent-id id]}]
+  (if parent-id
+    (-> context
+        (update-in [:account-children parent-id] (fnil conj #{}) id)
+        (assoc-in [:account-parents id] parent-id))
+    context))
+
+(defn- build-path
+  [account {:keys [storage]}]
+  (loop [a account
+         path (:name account)]
+    (if-let [parent (when (:parent-id a)
+                      (accounts/find-by-id storage (:parent-id a)))]
+      (recur parent (str (:name parent) "/" path))
+      path)))
+
+(defn- update-entity-settings
+  [{:keys [storage] :as context} account]
+  (let [path (build-path account context)]
+    (if-let [setting (->> (get-in context [:import :options])
+                          (filter #(= path (second %)))
+                          ffirst)]
+      (update-in context [:entity] #(entities/update
+                                      storage
+                                      (assoc-in %
+                                                [:settings setting]
+                                                (:id account))))
+      context)))
+
 (defn- import-account
   [context account]
   (let [original-id (:id account)
@@ -63,16 +93,10 @@
                         (validation/error-messages result))
                       {:result result})))
     (log/info (format "imported account \"%s\"" (:name result)))
-    (cond-> (update-in context [:accounts] assoc original-id (:id result))
-      parent-id (update-in [:account-children]
-                           (fnil update-in {})
-                           [parent-id]
-                           (fnil conj [])
-                           (:id result))
-      parent-id (update-in [:account-parents]
-                           (fnil assoc {})
-                           (:id result)
-                           parent-id))))
+    (-> context
+        (assoc-in [:accounts original-id] (:id result))
+        (update-account-relationships result)
+        (update-entity-settings result))))
 
 (defn import-reconciliation
   [{:keys [accounts storage] :as context} reconciliation]
@@ -208,7 +232,12 @@
                   :value (:value (->> (:items transaction)
                                       (filter #(= :debit (:action %)))
                                       first))}
-        {result :transaction} (trading/buy storage purchase)]
+        {result :transaction
+         errors ::validation/errors} (trading/buy storage purchase)]
+    (when (seq errors)
+      (log/errorf "Unable to import purchase transaction %s: %s"
+                  (prn-str purchase)
+                  (prn-str errors)))
     (log-transaction result "commodity purchase"))
   context)
 
@@ -274,7 +303,7 @@
   context)
 
 (defn- get-source-type
-  [{content-type :content-type}]
+  [{:keys [content-type]}]
   (->> content-type
        (re-matches #"^application\/(.*)")
        second
@@ -381,7 +410,8 @@
      (if (ignore? record)
        (xf context record)
        (xf (try (import-record* context record)
-                (catch clojure.lang.ExceptionInfo e
+                (catch Exception e
+                  (log/errorf e "unable to import record %s" record)
                   (assoc-in context [:progress :error] {:message (.getMessage e)
                                                         :data (ex-data e)})))
            record)))))

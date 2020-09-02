@@ -203,8 +203,7 @@
           groups))
 
 (defn- budget []
-  (let [ctl-state (r/atom {:as-of (t/today)
-                           :depth 0})
+  (let [ctl-state (r/atom {:depth 0})
         report (r/cursor ctl-state [:report])
         depth (r/cursor ctl-state [:depth])]
     (load-budgets ctl-state)

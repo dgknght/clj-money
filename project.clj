@@ -103,6 +103,7 @@
             "seed"                          ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions"         ["run" "-m" "clj-money.seed/generate-transactions"]
             "recalc"                        ["run" "-m" "clj-money.tasks/recalc"]
+            "migrate-account"               ["run" "-m" "clj-money.tasks/migrate-account"]
             "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
