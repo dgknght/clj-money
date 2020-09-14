@@ -3,6 +3,7 @@
             [clojure.string :as string]
             [cljs-time.core :as t]
             [cljs-time.format :as tf]
+            [clj-money.util :refer [->id]]
             [clj-money.bootstrap :as bs]
             [clj-money.decimal :refer [->decimal]]
             [clj-money.calendar :as cal]
@@ -23,10 +24,6 @@
                (name %)
                %))
        (string/join "-")))
-
-(defn- ->id
-  [field]
-  (->name field))
 
 (defn checkbox-input
   [model field {:keys [on-change] :as options :or {on-change identity}}]

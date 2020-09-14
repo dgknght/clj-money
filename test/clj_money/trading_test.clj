@@ -3,7 +3,7 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
-            [clj-money.util :refer [model->id]]
+            [clj-money.util :refer [->id]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-entity
@@ -45,7 +45,7 @@
   [acc-or-id transaction]
   {:pre [acc-or-id transaction]}
 
-  (let [id (model->id acc-or-id)]
+  (let [id (->id acc-or-id)]
     (->> (:items transaction)
          (filter #(= id (:account-id %)))
          first)))

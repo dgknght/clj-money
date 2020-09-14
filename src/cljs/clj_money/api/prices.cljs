@@ -4,7 +4,7 @@
             [clj-money.decimal :refer [->decimal]]
             [clj-money.util :refer [unserialize-date
                                     serialize-date
-                                    model->id]]))
+                                    ->id]]))
 
 (defn- after-read
   [price]
@@ -65,6 +65,6 @@
   [price success-fn error-fn]
   (api/delete-resource (api/path :prices
                                  (serialize-date (:trade-date price))
-                                 (model->id price))
+                                 (->id price))
                        success-fn
                        error-fn))

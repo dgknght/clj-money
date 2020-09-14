@@ -251,7 +251,7 @@
   (when value
     (contains? boolean-values (string/lower-case value))))
 
-(defn model->id
+(defn ->id
   [value]
   (or (:id value)
       value))
