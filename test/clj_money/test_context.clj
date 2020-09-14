@@ -1,5 +1,6 @@
 (ns clj-money.test-context
-  (:require [stowaway.core :refer [with-storage]]
+  (:require [environ.core :refer [env]]
+            [stowaway.core :refer [with-storage]]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
@@ -214,9 +215,9 @@
   (update-in context [:grants] #(create-grants storage context %)))
 
 (defn- resolve-parent
-  [account storage]
+  [account]
   (if (:parent-id account)
-    (let [parent (accounts/find-by-name storage (:entity-id account) (:parent-id account))]
+    (let [parent (accounts/find-by-name (:entity-id account) (:parent-id account))]
       (assoc account :parent-id (:id parent)))
     account))
 
@@ -230,13 +231,13 @@
                                             first)))))
 
 (defn- create-account
-  [storage context attributes]
+  [context attributes]
   (if (:id attributes)
     attributes
-    (accounts/create storage (-> attributes
-                                 (resolve-entity context)
-                                 (resolve-commodity context)
-                                 (resolve-parent storage)))))
+    (accounts/create (-> attributes
+                         (resolve-entity context)
+                         (resolve-commodity context)
+                         resolve-parent))))
 
 (defn- create-accounts
   "Creates the specified accounts.
@@ -244,18 +245,18 @@
   Accounts can be a sequence of maps containing account properties,
   or a map where the keys are account types and the values
   are vectors of account properties"
-  [storage context accounts]
+  [context accounts]
   (let [account-list (if (map? accounts)
                        (mapcat (fn [[account-type acct-list]]
                                  (map #(assoc % :type account-type)
                                       acct-list))
                                accounts)
                        accounts)]
-    (mapv #(create-account storage context %) account-list)))
+    (mapv #(create-account context %) account-list)))
 
 (defn- realize-accounts
-  [context storage]
-  (update-in context [:accounts] #(create-accounts storage context %)))
+  [context]
+  (update-in context [:accounts] #(create-accounts context %)))
 
 (defn- resolve-account
   [model context]
@@ -572,23 +573,24 @@
 
 (defn realize
   "Realizes a test context"
-  [storage-spec input]
-  (with-storage [s storage-spec]
-    (-> input
-        (realize-users s)
-        (realize-images s)
-        (realize-imports s)
-        (stash-monitored-account-ids s)
-        (realize-entities s)
-        (realize-grants s)
-        (realize-commodities s)
-        (realize-accounts s)
-        (update-monitored-account-ids s)
-        (realize-prices s)
-        (realize-lots s)
-        (realize-budgets s)
-        (realize-transactions s)
-        (realize-trades s)
-        (realize-attachments s)
-        (realize-reconciliations s)
-        (realize-identities s))))
+  ([input] (realize (env :db) input))
+  ([storage-spec input]
+   (with-storage [s storage-spec]
+     (-> input
+         (realize-users s)
+         (realize-images s)
+         (realize-imports s)
+         (stash-monitored-account-ids s)
+         (realize-entities s)
+         (realize-grants s)
+         (realize-commodities s)
+         realize-accounts
+         (update-monitored-account-ids s)
+         (realize-prices s)
+         (realize-lots s)
+         (realize-budgets s)
+         (realize-transactions s)
+         (realize-trades s)
+         (realize-attachments s)
+         (realize-reconciliations s)
+         (realize-identities s)))))

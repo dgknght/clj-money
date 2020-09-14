@@ -11,7 +11,7 @@
                                             find-entity
                                             find-commodity
                                             find-account]]
-            [clj-money.validation :as validation]
+            [clj-money.validation :as v]
             [clj-money.models.accounts :as accounts]
             [clj-money.accounts :refer [nest
                                         polarize-quantity
@@ -21,9 +21,7 @@
                                             assert-validation-error
                                             simplify-account-groups]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each (partial reset-db (env :db)))
 
 (def ^:private account-context
   {:users [(factory :user)]
@@ -52,10 +50,9 @@
                :type :asset}]})
 
 (deftest select-accounts
-  (let [context (realize storage-spec select-context)
+  (let [context (realize select-context)
         entity-id (-> context :entities first :id)
-        actual (->> {:entity-id entity-id}
-                    (accounts/search storage-spec)
+        actual (->> (accounts/search {:entity-id entity-id})
                     (map #(select-keys % [:name
                                           :type
                                           :tags
@@ -111,12 +108,11 @@
 
 ; TODO Probably this should be moved to mirror the ns where the nest fn is defined
 (deftest select-nested-accounts
-  (let [context (realize storage-spec nested-context)
+  (let [context (realize nested-context)
         entity-id (-> context :entities first :id)
-        result (->> {:entity-id entity-id}
-                    (accounts/search storage-spec)
+        result (->> (accounts/search {:entity-id entity-id})
                     nest
-                    simplify-account-groups) 
+                    simplify-account-groups)
         expected [{:type :asset
                    :accounts [{:name "Checking"
                                :path "Checking"}
@@ -151,21 +147,19 @@
     (is (= expected result) "The accounts should be returned in the correct hierarchy")))
 
 (deftest select-account-with-children
-  (let [ctx (realize storage-spec nested-context)
+  (let [ctx (realize nested-context)
         account (find-account ctx "Savings")
-        result (accounts/search (env :db)
-                                {:id (:id account)}
+        result (accounts/search {:id (:id account)}
                                 {:include-children? true})]
     (is (= #{"Savings" "Reserve" "Car" "Doug" "Eli"}
            (set (map :name result))))))
 
 (deftest create-an-account
-  (let [context (realize storage-spec account-context)
-        result (accounts/create storage-spec (attributes context))
+  (let [context (realize account-context)
+        result (accounts/create (attributes context))
         entity (find-entity context "Personal")
         usd (find-commodity context "USD")
-        accounts (->> {:entity-id (:id entity)}
-                      (accounts/search storage-spec)
+        accounts (->> (accounts/search {:entity-id (:id entity)})
                       (map #(select-keys % [:name
                                             :type
                                             :entity-id
@@ -180,7 +174,7 @@
                    :commodity-id (:id usd)
                    :quantity 0M
                    :value 0M}]]
-    (is (empty? (validation/error-messages result))
+    (is (empty? (v/error-messages result))
         "The result has no validation errors.")
     (pprint-diff expected accounts)
     (is (= expected accounts) "The account can be retrieved")))
@@ -215,32 +209,32 @@
                :entity-id "Personal"}]})
 
 (deftest duplicate-name-across-entities
-  (let [context (realize storage-spec duplicate-name-context)
+  (let [context (realize duplicate-name-context)
         business (first (filter #(= "Business" (:name %)) (:entities context)))
-        result (accounts/create storage-spec {:name "Credit card"
-                                              :type :liability
-                                              :entity-id (:id business)})]
-    (is (not (validation/has-error? result))
+        result (accounts/create {:name "Credit card"
+                                 :type :liability
+                                 :entity-id (:id business)})]
+    (is (not (v/has-error? result))
         "A second account can be created with the same name in a different entity")))
 
 (deftest duplicate-name-across-parents
-  (let [context (realize storage-spec duplicate-name-context)
+  (let [context (realize duplicate-name-context)
         business (first (filter #(= "Business" (:name %)) (:entities context)))
         household (first (filter #(= "Household" (:name %)) (:accounts context)))
-        result (accounts/create storage-spec {:name "Repair"
-                                              :type :expense
-                                              :parent-id (:id household)
-                                              :entity-id (:id business)})]
-    (is (empty? (validation/error-messages result))
+        result (accounts/create {:name "Repair"
+                                 :type :expense
+                                 :parent-id (:id household)
+                                 :entity-id (:id business)})]
+    (is (empty? (v/error-messages result))
         "A name can be dulicated across parents")))
 
 (deftest duplicate-name-across-asset-types
-  (let [context (realize storage-spec duplicate-name-context)
+  (let [context (realize duplicate-name-context)
         entity (find-entity context "Personal")
-        result (accounts/create storage-spec {:name "Investment"
-                                              :type :expense
-                                              :entity-id (:id entity)})]
-    (is (empty? (validation/error-messages result))
+        result (accounts/create {:name "Investment"
+                                 :type :expense
+                                 :entity-id (:id entity)})]
+    (is (empty? (v/error-messages result))
         "A name can be dulicated across asset types")))
 
 (def ^:private create-child-context
@@ -253,39 +247,39 @@
                :type :asset}]})
 
 (deftest create-a-child-account
-  (let [context (realize storage-spec create-child-context)
+  (let [context (realize create-child-context)
         savings (-> context :accounts first)
         entity (-> context :entities first)
-        car (accounts/create storage-spec {:name "Car"
-                                           :type :asset
-                                           :parent-id (:id savings)
-                                           :entity-id (:id entity)})]
-    (is (empty? (validation/error-messages car))
+        car (accounts/create {:name "Car"
+                              :type :asset
+                              :parent-id (:id savings)
+                              :entity-id (:id entity)})]
+    (is (empty? (v/error-messages car))
         "The model should not have any errors")))
 
 (deftest child-must-have-same-type-as-parent
-  (let [context (realize storage-spec create-child-context)
+  (let [context (realize create-child-context)
         savings (-> context :accounts first)
         entity (-> context :entities first)
-        result (accounts/create storage-spec {:name "Federal income tax"
-                                              :type :expense
-                                              :parent-id (:id savings)
-                                              :entity-id (:id entity)})]
+        result (accounts/create {:name "Federal income tax"
+                                 :type :expense
+                                 :parent-id (:id savings)
+                                 :entity-id (:id entity)})]
     (assert-validation-error
       :type
       "Type must match the parent type"
       result)))
 
 (deftest name-is-required
-  (let [context (realize storage-spec account-context)
+  (let [context (realize account-context)
         attr (-> context
                  attributes
                  (dissoc :name))
-        result (accounts/create storage-spec attr)]
+        result (accounts/create attr)]
     (assert-validation-error :name "Name is required" result)))
 
 (deftest name-is-unique-within-a-parent
-  (let [context (realize storage-spec duplicate-name-context)
+  (let [context (realize duplicate-name-context)
         entity (-> context :entities first)
         auto (first (filter #(= "Auto" (:name %)) (:accounts context)))
         attributes {:name "Repair"
@@ -295,34 +289,34 @@
     (assert-validation-error
       :name
       "Name is already in use"
-      (accounts/create storage-spec attributes))))
+      (accounts/create attributes))))
 
 (deftest correct-account-type
-  (let [context (realize storage-spec account-context)
+  (let [context (realize account-context)
         attr (assoc (attributes context) :type :invalidtype)]
     (assert-validation-error
       :type
       "Type must be one of: expense, equity, liability, income, asset"
-      (accounts/create storage-spec attr))))
+      (accounts/create attr))))
 
 (deftest commodity-id-defaults-to-entity-default
-  (let [context (realize storage-spec account-context)
+  (let [context (realize account-context)
         commodity (-> context :commodities first)
         account (-> context
                     attributes
                     (dissoc :commodity-id))
-        result (accounts/create storage-spec account)]
+        result (accounts/create account)]
     (is (= (:id commodity) (:commodity-id result))
         "The specified default commodity is used")))
 
 (deftest update-an-account
-  (let [context (realize storage-spec select-context)
+  (let [context (realize select-context)
         account (find-account context "Checking")
-        result (accounts/update storage-spec (assoc account :name "New name"))
-        retrieved (accounts/find-by-id storage-spec (:id account))]
-    (is (not (validation/has-error? result))
+        result (accounts/update (assoc account :name "New name"))
+        retrieved (accounts/find-by-id (:id account))]
+    (is (not (v/has-error? result))
         (format "Unexpected validation error: %s"
-                (validation/error-messages result)) )
+                (v/error-messages result)) )
     (is (= "New name" (:name result)) "The updated account is returned")
     (is (= "New name" (:name retrieved)) "The updated account is retreived")))
 
@@ -341,12 +335,12 @@
                :parent-id "Current assets"}]})
 
 (deftest change-an-account-parent
-  (let [context (realize storage-spec same-parent-context)
+  (let [context (realize same-parent-context)
         [_ fixed house] (:accounts context)
         updated (assoc house :parent-id (:id fixed))
-        result (accounts/update storage-spec updated)
-        retrieved (accounts/reload storage-spec updated)]
-    (is (empty? (validation/error-messages result))
+        result (accounts/update updated)
+        retrieved (accounts/reload updated)]
+    (is (empty? (v/error-messages result))
         "The result has no validation errors")
     (is (= (:id fixed)
            (:parent-id result))
@@ -356,21 +350,20 @@
         "The retrieved account has the correct parent-id value")) )
 
 (deftest delete-an-account
-  (let [context (realize storage-spec select-context)
+  (let [context (realize select-context)
         account (-> context :accounts first)
-        _ (accounts/delete storage-spec account)
-        accounts (->> {:entity-id (-> context
-                                      :entities
-                                      first
-                                      :id)}
-                      (accounts/search storage-spec))]
+        _ (accounts/delete account)
+        accounts (accounts/search {:entity-id (-> context
+                                                  :entities
+                                                  first
+                                                  :id)})]
     (is (not-any? #(= (:id account) (:id %)) accounts)
         "The deleted account is no longer returned from the database")))
 
 (defmacro test-polarization
   [context account-type action quantity expected message]
-  `(let [account# (accounts/create storage-spec (assoc (attributes ~context)
-                                                       :type ~account-type))
+  `(let [account# (accounts/create (assoc (attributes ~context)
+                                          :type ~account-type))
          item# {:account-id (:id account#)
                 :action ~action
                 :quantity ~quantity}
@@ -378,7 +371,7 @@
      (is (= ~expected polarized#) ~message)))
 
 (deftest polarize-a-quantity
-  (let [context (realize storage-spec account-context)]
+  (let [context (realize account-context)]
     ; Debits
     (test-polarization context :asset     :debit 100M  100M "A debit in an asset account increases the balance")
     (test-polarization context :expense   :debit 100M  100M "A debit in an expense account increases the balance")
