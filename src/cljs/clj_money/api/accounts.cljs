@@ -23,11 +23,12 @@
       (update-in [:earliest-transaction-date] unserialize-date)
       (update-in [:latest-transaction-date] unserialize-date)))
 
-(defn get-all
+(defn select
   ([success-fn error-fn]
-   (get-all (:id @current-entity) success-fn error-fn))
-  ([entity-id success-fn error-fn]
-   (api/get-resources (api/path :entities entity-id :accounts)
+   (select {} success-fn error-fn))
+  ([criteria success-fn error-fn]
+   (api/get-resources (api/path :entities (:id @current-entity) :accounts)
+                      criteria
                       #(success-fn (map after-read %))
                       error-fn)))
 

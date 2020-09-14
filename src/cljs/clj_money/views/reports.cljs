@@ -1,5 +1,6 @@
 (ns clj-money.views.reports
-  (:require [secretary.core :as secretary :include-macros true]
+  (:require [clojure.string :as string]
+            [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
@@ -229,6 +230,116 @@
                  (map budget-report-row)
                  doall)]]])])))
 
+(defn- load-portfolio
+  [aggregate page-state]
+  (rpt/portfolio {:aggregate aggregate}
+                 (fn [result]
+                   (swap! page-state assoc-in [aggregate :report] result))
+                 (notify/danger-fn "Unable to load the accounts report")))
+
+(defn- visible?
+  [record visible-ids]
+  (or (nil? (:parents record))
+      (every? #(visible-ids %) (:parents record))))
+
+(defn- toggle-visibility
+  [state id]
+  (update-in state
+             [(:current-nav state) :visible-ids]
+             #(if (% id)
+                   (disj % id)
+                   (conj % id))))
+
+(defn- format-shares
+  [shares]
+  (when shares
+    (format-decimal shares {:fraction-digits 4})))
+
+(defn- portfolio-report-row
+  [{:keys [id
+           parents
+           style
+           caption
+           shares-owned
+           shares-purchased
+           cost-basis
+           current-value
+           gain-loss
+           gain-loss-percent]
+    :as record}
+   visible-ids
+   page-state]
+  ^{:key (str "report-row-" (string/join "-" (cons id parents)))}
+  [:tr {:class (cond-> [(str "report-" style)]
+                 (not (visible? record visible-ids))
+                 (conj "d-none"))
+        :on-click (when-not (= "data" style)
+                    #(swap! page-state toggle-visibility id))}
+   [:td {:class (when (= "data" style)
+                  "text-right")}
+    caption]
+   [:td.text-right (format-shares shares-purchased)]
+   [:td.text-right (format-shares shares-owned)]
+   [:td.text-right (format-decimal cost-basis)]
+   [:td.text-right (format-decimal current-value)]
+   [:td.text-right {:class (if (> 0 gain-loss)
+                             "text-danger"
+                             "text-success")}
+    (format-decimal gain-loss)]
+   [:td.text-right {:class (if (> 0 gain-loss)
+                             "text-danger"
+                             "text-success")}
+    (format-percent gain-loss-percent)]])
+(defn- render-portfolio
+  [page-state]
+  (let [current-nav (r/cursor page-state [:current-nav])
+        report (make-reaction #(get-in @page-state [@current-nav :report]))
+        visible-ids (make-reaction #(get-in @page-state [@current-nav :visible-ids]))]
+    (fn []
+      [:table.table.table-hover.table-borderless.portfolio
+       [:thead
+        [:tr
+         [:th "Purchase Date"]
+         [:th.text-right "Shares Purchased"]
+         [:th.text-right "Shares Owned"]
+         [:th.text-right "Cost Basis"]
+         [:th.text-right "Current Value"]
+         [:th.text-right "Gain/Loss"]
+         [:th.text-right "G/L %"]]]
+       [:tbody
+        (cond
+          (nil? @report)
+          [:tr [:td.inline-status {:col-span 4} "Loading..."]]
+
+          (seq @report)
+          (doall (map #(portfolio-report-row % @visible-ids page-state) @report))
+
+          :else
+          [:tr [:td.inline-status {:col-span 4} "No investment accounts found."]])]])))
+
+(defn- portfolio
+  []
+  (let [page-state (r/atom {:current-nav :by-account
+                            :by-account {:visible-ids #{}}
+                            :by-commodity {:visible-ids #{}}})
+        current-nav (r/cursor page-state [:current-nav])
+        by-commodity (r/cursor page-state [:by-commodity :report])]
+    (load-portfolio :by-account  page-state)
+    (fn []
+      [:div
+       (bs/nav-pills (map (fn [id]
+                           {:elem-key id
+                            :caption (humanize id)
+                            :on-click (fn []
+                                        (when (and (= id :by-commodity)
+                                                   (nil? @by-commodity))
+                                          (load-portfolio :by-commodity page-state))
+                                        (reset! current-nav id))
+                            :active? (= id @current-nav)})
+                         [:by-account :by-commodity]))
+       [:div.mt-2
+        [render-portfolio page-state]]])))
+
 (defn- index []
   (let [page-state (r/atom {:selected :income-statement})
         selected (r/cursor page-state [:selected])]
@@ -243,12 +354,14 @@
                             :on-click #(swap! page-state assoc :selected id)})
                          [:income-statement
                           :balance-sheet
-                          :budget]))
+                          :budget
+                          :portfolio]))
        [:div.mt-3
         (case @selected
           :income-statement [income-statement]
           :balance-sheet [balance-sheet]
-          :budget [budget])]])))
+          :budget [budget]
+          :portfolio [portfolio])]])))
 
 (secretary/defroute "/reports" []
   (swap! app-state assoc :page #'index))

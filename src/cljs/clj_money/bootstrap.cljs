@@ -152,26 +152,36 @@
     (icon :x-circle)]
    message])
 
+(defn- nav-tab
+  [{:keys [active?
+           disabled?
+           hidden?
+           on-click
+           caption
+           elem-key]}]
+  ^{:key elem-key}
+  [:li.nav-item
+   [:a.nav-link {:href "#"
+                 :on-click on-click
+                 :class (cond
+                          active? "active"
+                          disabled? "disabled"
+                          hidden? "d-none")}
+    caption]])
+
 (defn nav-tabs
   ([items]
    (nav-tabs {} items))
   ([options items]
    [:ul.nav.nav-tabs options
-    (doall (for [{:keys [active?
-                         disabled?
-                         hidden?
-                         on-click
-                         caption
-                         elem-key]} items]
-             ^{:key elem-key}
-             [:li.nav-item
-              [:a.nav-link {:href "#"
-                            :on-click on-click
-                            :class (cond
-                                     active? "active"
-                                     disabled? "disabled"
-                                     hidden? "d-none")}
-               caption]]))]))
+    (doall (map nav-tab items))]))
+
+(defn nav-pills
+  ([items]
+   (nav-pills {} items))
+  ([options items]
+   [:ul.nav.nav-pills options
+    (doall (map nav-tab items))]))
 
 (defn- page-item
   [index state]

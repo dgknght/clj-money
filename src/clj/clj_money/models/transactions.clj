@@ -7,6 +7,7 @@
             [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
             [clj-money.validation :as validation]
             [clj-money.models :as models]
+            [clj-money.models.settings :as settings]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]
             [clj-money.models.lot-transactions :as l-t]
@@ -474,7 +475,7 @@
 
 (defmulti ^:private account-value
   (fn [_storage _balance {:keys [tags]}]
-    (tags :tradable)))
+    (get-in tags [:tradable])))
 
 (defmethod ^:private account-value :default
   [_storage balance _account]
@@ -502,9 +503,12 @@
   ([storage account-or-id as-of]
    (recalculate-account storage account-or-id as-of {}))
   ([storage account-or-id as-of options]
+   {:pre [account-or-id]}
+
    (let [account (if (map? account-or-id)
                    account-or-id
                    (accounts/find-by-id storage account-or-id))
+         _ (assert account "Unable to find the account.")
          base-item (find-base-item storage (:id account) as-of)
          items (search-items storage
                              {:account-id (:id account)
@@ -534,11 +538,13 @@
 (defn migrate-account
   "Moves all transaction items from from-account to to-account and recalculates the accounts"
   [storage from-account to-account]
-  (let [as-of (->> [from-account to-account]
-                   (map :earliest-transaction-date)
-                   (filter identity)
-                   sort
-                   first)]
+  (let [as-of (or (->> [from-account to-account]
+                       (map :earliest-transaction-date)
+                       (filter identity)
+                       sort
+                       first)
+                  (settings/get storage :earliest-partition-date))]
+    (assert as-of "Unable to find the earliest transaction date.")
     (with-transacted-storage [s storage]
       (storage/update s
                       (storage/tag {:account-id (:id to-account)

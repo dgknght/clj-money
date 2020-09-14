@@ -1,0 +1,5 @@
+echo "Migrating PMP LCC..."
+lein migrate-account -- -u dougbknight@gmail.com -e "ZZZ Real World" -f "UBS Bank USA Deposit" -t "PMP LCC"
+echo "Migrating PMP ACG..."
+lein migrate-account -- -u dougbknight@gmail.com -e "ZZZ Real World" -f "USA Deposit Account" -t "PMP ACG"
+echo "Done."

@@ -4,9 +4,11 @@
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
             [stowaway.core :refer [with-storage]]
-            [clj-money.util :refer [format-date]]
+            [clj-money.util :refer [format-date
+                                    desc-periodic-seq]]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.models.date-helpers :refer [available-date-range]]
+            [clj-money.models.date-helpers :refer [available-date-range
+                                                   earliest-date]]
             [clj-money.models.accounts :as accounts]
             [clj-money.accounts :refer [nest
                                         unnest
@@ -82,20 +84,20 @@
 
 (defn- transform-account
   [account depth]
-  (concat [{:caption (:name account)
+  (cons {:caption (:name account)
             :id (:id account)
             :value (+ (:value account) (:children-value account))
             :style :data
-            :depth depth}]
+            :depth depth}
           (mapcat #(transform-account % (inc depth))
                (:children account))))
 
 (defn- transform-account-group
   [{:keys [type accounts value]}]
-  (concat [{:caption (humanize type)
-            :value value
-            :style :header}]
-          (mapcat #(transform-account % 0) accounts)))
+  (cons {:caption (humanize type)
+         :value value
+         :style :header}
+        (mapcat #(transform-account % 0) accounts)))
 
 (defn- transform-income-statement
   "Accepts grouped accounts structure and returns a report structure"
@@ -499,9 +501,7 @@
 (defn- summarize-commodity
   [storage [commodity-id lots]]
   (let [commodity (commodities/find-by-id storage commodity-id)
-        shares (->> lots
-                    (map :shares-owned)
-                    (reduce +))
+        shares (sum :shares-owned lots)
         cost (->> lots
                   (map #(* (:shares-owned %)
                            (:purchase-price %)))
@@ -603,3 +603,243 @@
                    append-lot-calculated-values))
         (sort-by :caption)
         (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
+
+(defn- fetch-prices
+  [storage-spec xf]
+  (completing
+    (fn [{:keys [commodity-ids] :as acc} date]
+      (let [prices (prices/search
+                     storage-spec
+                     {:commodity-id commodity-ids
+                      :trade-date (tf/unparse (tf/formatter :year-month)
+                                              date)})]
+        (if (seq prices)
+          (xf acc prices)
+          (xf acc))))))
+
+(defn- integrate-prices
+  [xf]
+  (completing
+    (fn [acc fetched]
+      (xf
+        (update-in acc
+                   [:prices]
+                   (fn [prices]
+                     (->> fetched
+                          (group-by :commodity-id)
+                          (map #(update-in % [1] (fn [prices]
+                                                   (apply max-key
+                                                          (comp tc/to-long :trade-date)
+                                                          prices))))
+                          (into prices))))
+        fetched))))
+
+(defn- remove-satisfied-commodities
+  [xf]
+  (completing
+    (fn [acc fetched]
+      (xf (update-in acc
+                     [:commodity-ids]
+                     #(apply disj % (map :commodity-id
+                                         fetched)))
+          fetched))))
+
+(defn- load-prices
+  [storage-spec commodity-ids]
+  (let [earliest (tc/to-date-time (earliest-date))]
+    (->> (desc-periodic-seq (t/first-day-of-the-month (t/now))
+                            (t/months 1))
+         (take-while #(t/before? earliest %))
+         (transduce (comp (partial fetch-prices storage-spec)
+                          integrate-prices
+                          remove-satisfied-commodities)
+                    (fn [acc _]
+                      (if (empty? (:commodity-ids acc))
+                        (reduced acc)
+                        acc))
+                    {:prices {}
+                     :commodity-ids commodity-ids}))))
+
+(defn- append-portfolio-accounts
+  [{:keys [storage lots] :as ctx}]
+  (assoc ctx :accounts (->> (accounts/search storage
+                                  {:id (set (map :account-id lots))})
+                            (map (juxt :id identity))
+                            (into {}))))
+
+(defn- append-lots
+  [{:keys [entity-id storage] :as ctx}]
+  (assoc ctx :lots (lots/search storage
+                                {[:commodity :entity-id] entity-id
+                                 :shares-owned [:!= 0M]})))
+
+(defn- append-commodities
+  [{:keys [lots storage] :as ctx}]
+  (assoc ctx :commodities (->> (commodities/search
+                                 storage
+                                 {:id (->> lots
+                                           (map :commodity-id)
+                                           set)})
+                               (map (juxt :id identity))
+                               (into {}))))
+
+(defn- append-prices
+  [{:keys [commodities storage] :as ctx}]
+  (assoc ctx :prices (:prices (load-prices storage (set (keys commodities))))))
+
+(defn- calc-gains
+  [{:keys [commodity-id shares-owned purchase-price] :as lot}
+   {:keys [prices]}]
+  (let [current-price (get-in prices [commodity-id :price])
+        cost-basis (* shares-owned purchase-price)
+        current-value (* shares-owned current-price)
+        gain-loss (- current-value cost-basis)]
+    (assoc lot
+           :current-price current-price
+           :cost-basis cost-basis
+           :current-value current-value
+           :gain-loss gain-loss
+           :gain-loss-percent (when-not (zero? cost-basis)
+                                (with-precision 2
+                                  (/ gain-loss cost-basis))))))
+
+(defn- dispatch-portfolio-fn
+  [{:keys [options]}]
+  {:pre [(:aggregate options)]}
+  (:aggregate options))
+
+(defmulti calc-portfolio-values dispatch-portfolio-fn)
+
+(defmethod calc-portfolio-values :by-account
+  [{:keys [lots] :as ctx}]
+  (assoc ctx
+         :report
+         (->> lots
+              (map #(calc-gains % ctx))
+              (group-by :account-id)
+              (map #(update-in % [1] (fn [lots] (group-by :commodity-id lots)))))))
+
+(defmethod calc-portfolio-values :by-commodity
+  [{:keys [lots] :as ctx}]
+  (assoc ctx
+         :report
+         (->> lots
+              (map #(calc-gains % ctx))
+              (group-by :commodity-id))))
+
+(defn- sum-fields
+  [target fields coll]
+  (reduce #(assoc %1 %2 (sum %2 coll))
+           target
+           fields))
+
+(defn- calc-gain-loss-percent
+  [{:keys [cost-basis gain-loss] :as target}]
+  (assoc target :gain-loss-percent (when-not (zero? cost-basis)
+                                     (with-precision 2
+                                       (/ gain-loss cost-basis)))))
+
+(defn- summarize-gains
+  ([target coll]
+   (summarize-gains target
+                    [:cost-basis
+                     :current-value
+                     :gain-loss]
+                    coll))
+  ([target fields coll]
+   (-> target
+       (sum-fields fields coll)
+       calc-gain-loss-percent)))
+
+(defn- flatten-and-summarize-commodity
+  [[commodity-id lots] {:keys [commodities]}]
+  (->> lots
+       (map #(assoc %
+                    :parents #{commodity-id}
+                    :style :data
+                    :caption (format-date (:purchase-date %))))
+       (sort-by :purchase-date t/after?)
+       (cons (summarize-gains {:caption (get-in commodities [commodity-id :name])
+                               :id commodity-id
+                               :style :subheader}
+                              [:shares-owned
+                               :cost-basis
+                               :current-value
+                               :gain-loss]
+                              lots))))
+
+(defn- flatten-and-summarize-account
+  [[account-id groups] {:keys [accounts] :as ctx}]
+  (let [children (mapcat #(flatten-and-summarize-commodity % ctx)
+                         groups)]
+    (->> children
+         (map #(update-in % [:parents] (fnil conj #{}) account-id))
+         (cons (summarize-gains {:caption (get-in accounts [account-id :name])
+                                 :style :header
+                                 :id account-id}
+                                (filter #(= :subheader (:style %)) children))))))
+
+(defn- append-portfolio-summary
+  [records]
+  (concat records
+          [(summarize-gains
+             {:caption "Total"
+              :style :summary
+              :id :summary}
+             (remove :parents records))]))
+
+(defmulti flatten-and-summarize-portfolio dispatch-portfolio-fn)
+
+(defmethod flatten-and-summarize-portfolio :by-commodity
+  [{:keys [commodities] :as ctx}]
+  (update-in ctx
+             [:report]
+             (fn [report]
+               (->> report
+                    (sort-by #(get-in commodities [(first %) :name]))
+                    (mapcat #(flatten-and-summarize-commodity % ctx))
+                    append-portfolio-summary
+                    (map #(select-keys % [:caption
+                                          :style
+                                          :shares-purchased
+                                          :shares-owned
+                                          :cost-basis
+                                          :current-value
+                                          :gain-loss
+                                          :gain-loss-percent
+                                          :id
+                                          :parents]))))))
+
+(defmethod flatten-and-summarize-portfolio :by-account
+  [{:keys [accounts] :as ctx}]
+  (update-in ctx
+             [:report]
+             (fn [report]
+               (->> report
+                    (sort-by #(get-in accounts [(first %) :name]))
+                    (mapcat #(flatten-and-summarize-account % ctx))
+                    append-portfolio-summary
+                    (map #(select-keys % [:caption
+                                          :style
+                                          :shares-purchased
+                                          :shares-owned
+                                          :cost-basis
+                                          :current-value
+                                          :gain-loss
+                                          :gain-loss-percent
+                                          :id
+                                          :parents]))))))
+
+(defn portfolio
+  ([storage-spec entity-id] (portfolio storage-spec entity-id {}))
+  ([storage-spec entity-id options]
+   (-> {:entity-id entity-id
+        :storage storage-spec
+        :options (merge {:aggregate :by-commodity} options)}
+       append-lots
+       append-portfolio-accounts
+       append-commodities
+       append-prices
+       calc-portfolio-values
+       flatten-and-summarize-portfolio
+       :report)))

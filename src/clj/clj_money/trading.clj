@@ -332,15 +332,17 @@
          remaining-shares-to-sell
          new-lot-balance] (if (>= shares-owned shares-to-sell)
                             [shares-to-sell
-                             0
+                             0M
                              (- shares-owned shares-to-sell)]
                             [shares-owned
                              (- shares-to-sell shares-owned)
-                             0])
+                             0M])
         sale-price (-> context :price :price)
         purchase-price (:purchase-price lot)
         adj-lot (lots/update (:storage context)
                              (assoc lot :shares-owned new-lot-balance))
+        _ (when (validation/has-error? adj-lot)
+            (log/errorf "Unable to update lot for sale %s" adj-lot))
         gain (- (* shares-sold sale-price)
                 (* shares-sold purchase-price))
         cut-off-date (t/plus (:purchase-date lot) (t/years 1))
@@ -375,7 +377,7 @@
              shares-to-be-sold] (process-lot-sale context
                                                   lot
                                                   shares-remaining)]
-        (if (= 0 shares-to-be-sold)
+        (if (zero? shares-to-be-sold)
           adj-context
           (recur adj-context shares-to-be-sold (first remaining-lots)  (rest remaining-lots))))
       (do

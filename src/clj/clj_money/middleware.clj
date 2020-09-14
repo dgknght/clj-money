@@ -10,29 +10,40 @@
     (name specified-name)
     specified-name))
 
-(defmulti ^:private integerize type)
+(defmulti ^:private integerize
+  (fn [v]
+    (cond
+      (string? v) :string
+      (coll? v) :collection)))
 
 (defmethod ^:private integerize :default [v] v)
 
-(defmethod ^:private integerize java.lang.String
+(defmethod ^:private integerize :string
   [value]
   (try
     (Integer. value)
     (catch NumberFormatException _
       value)))
 
+(defmethod ^:private integerize :collection
+  [values]
+  (map integerize values))
+
 (defn- id-key?
   [k]
   (boolean (re-find #"id$" (param-name k))))
+
+(defn- integerize-id-param
+  [[k v]]
+  [k (if (id-key? k)
+       (integerize v)
+       v)])
 
 (defn- integerize-id-params
   [params]
   (when params
     (->> params
-         (map (fn [[k v]]
-                [k (if (id-key? k)
-                     (integerize v)
-                     v)]))
+         (map integerize-id-param)
          (into {}))))
 
 (defn wrap-integer-id-params
@@ -40,6 +51,25 @@
   [handler]
   (fn [request]
     (handler (update-in request [:params] integerize-id-params))))
+
+(defn- normalize-collection-param
+  [param]
+  (update-in param [0] #(if-let [match (re-find #"^(.+)\[\]$" %)]
+                           (keyword (second match))
+                           %)))
+
+(defn- normalize-collection-params
+  [params]
+  (when params
+    (->> params
+         (map normalize-collection-param)
+         (into {}))))
+
+(defn wrap-collection-params
+  "Finds params for collection values normalizes the keys"
+  [handler]
+  (fn [req]
+    (handler (update-in req [:params] normalize-collection-params))))
 
 ; TODO: Move this to the api namespace
 (defn wrap-exceptions

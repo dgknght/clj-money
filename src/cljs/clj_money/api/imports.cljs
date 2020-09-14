@@ -44,7 +44,7 @@
                      (comp success-fn after-read)
                      error-fn))
 
-(defn get-all
+(defn select
   [success-fn error-fn]
   (api/get-resources (api/path :imports)
                      (comp success-fn

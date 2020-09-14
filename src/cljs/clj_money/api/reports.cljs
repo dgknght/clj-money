@@ -1,7 +1,9 @@
 (ns clj-money.api.reports
   (:require [clj-money.state :refer [current-entity]]
             [clj-money.api :as api]
-            [clj-money.util :refer [serialize-date]]))
+            [clj-money.util :refer [serialize-date
+                                    map->query-string
+                                    update-in-if]]))
 
 (defn- after-read
   [report]
@@ -44,3 +46,20 @@
                                :budget-monitors)
                      success-fn
                      error-fn))
+
+(defn- after-portfolio-read
+  [report]
+  (map #(update-in-if % [:parents] set) report))
+
+(defn portfolio
+  ([success-fn error-fn] (portfolio {:aggregate :by-account} success-fn error-fn))
+  ([options success-fn error-fn]
+   (api/get-resources (str (api/path :entities
+                                (:id @current-entity)
+                                :reports
+                                :portfolio)
+                           "?"
+                           (map->query-string options))
+                      (comp success-fn
+                            after-portfolio-read)
+                      error-fn)))

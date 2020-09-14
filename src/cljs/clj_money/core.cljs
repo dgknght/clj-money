@@ -4,8 +4,7 @@
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
-            [clj-money.inflection :refer [humanize
-                                          plural]]
+            [clj-money.inflection :refer [humanize]]
             [clj-money.state :refer [app-state
                                      current-user
                                      current-entity
@@ -74,9 +73,9 @@
                  (assoc-if-nil :caption (humanize id))
                  (assoc-if-nil :url (str "/" (name id)))
                  (assoc-if-nil :active? (= id active-nav))
-                 (assoc-if-nil :tool-type (str "Click here to manage "
-                                               (plural (humanize id))
-                                               "."))))
+                 (assoc-if-nil :tool-tip (str "Click here to manage "
+                                              (humanize id)
+                                              "."))))
            authenticated-nav-items)
       [])
     [{:id :login
@@ -162,7 +161,7 @@
       (users/me
         #(swap! app-state assoc :current-user %)
         (notify/danger-fn "Unable to get information for the user: %s"))
-      (entities/get-all
+      (entities/select
         (fn [[entity :as result]]
           (swap! app-state (fn [s]
                              (-> s

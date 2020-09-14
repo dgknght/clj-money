@@ -15,7 +15,7 @@
         :binary)
       :scalar)))
 
-(defn- earliest-date []
+(defn earliest-date []
   (settings/get (env :db) :earliest-partition-date))
 
 (defn- latest-date []

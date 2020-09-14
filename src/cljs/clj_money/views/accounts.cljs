@@ -41,19 +41,18 @@
 (defn- load-accounts
   ([page-state] (load-accounts page-state identity))
   ([page-state callback]
-   (accounts/get-all (get-in @app-state [:current-entity :id])
-                     (fn [result]
-                       (swap! page-state
-                              (fn [s]
-                                (cond-> (assoc s :accounts (->> result
-                                                                (nest {:plus decimal/+})
-                                                                unnest))
-                                  (empty? (:accounts s))
-                                  (assoc :hide-zero-balances? (->> result
-                                                                   (map :value)
-                                                                   (not-every? #(= 0 %)))))))
-                       (callback))
-                     notify/danger)))
+   (accounts/select (fn [result]
+                      (swap! page-state
+                             (fn [s]
+                               (cond-> (assoc s :accounts (->> result
+                                                               (nest {:plus decimal/+})
+                                                               unnest))
+                                 (empty? (:accounts s))
+                                 (assoc :hide-zero-balances? (->> result
+                                                                  (map :value)
+                                                                  (not-every? #(= 0 %)))))))
+                      (callback))
+                    notify/danger)))
 
 (defn- delete
   [account page-state]
@@ -654,9 +653,8 @@
 
 (defn- load-commodities
   [page-state]
-  (commodities/get-all (get-in @app-state [:current-entity :id])
-                       #(swap! page-state assoc :commodities %)
-                       notify/danger))
+  (commodities/select #(swap! page-state assoc :commodities %)
+                      notify/danger))
 
 (defn- index []
   (let [page-state (r/atom {:expanded #{}

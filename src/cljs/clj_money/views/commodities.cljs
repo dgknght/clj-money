@@ -19,11 +19,10 @@
 
 (defn- load-commodities
   [page-state]
-  (commodities/get-all (:id @current-entity)
-                       #(swap! page-state assoc
-                               :commodities (sort-by :name %)
-                               :total (count %))
-                       (notify/danger-fn "Unable to get a list of commodities: %s")))
+  (commodities/select #(swap! page-state assoc
+                              :commodities (sort-by :name %)
+                              :total (count %))
+                      (notify/danger-fn "Unable to get a list of commodities: %s")))
 
 (defn- save-commodity
   [page-state]

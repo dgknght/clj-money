@@ -26,7 +26,8 @@
             [clj-money.web.auth :as web-auth]
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-integer-id-params
-                                          wrap-exceptions]]
+                                          wrap-exceptions
+                                          wrap-collection-params]]
             [clj-money.api :as api :refer [wrap-authentication]]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
@@ -133,6 +134,7 @@
       (wrap-resource "public")
       wrap-cookies
       wrap-keyword-params
+      wrap-collection-params
       wrap-multipart-params
       wrap-content-type
       wrap-params

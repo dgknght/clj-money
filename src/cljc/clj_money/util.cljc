@@ -1,6 +1,6 @@
 (ns clj-money.util
   (:require [clojure.string :as string]
-            #?(:clj [clojure.tools.logging :as lg])
+            #?(:clj [clojure.tools.logging :as log])
             #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])
             #?(:clj [clj-time.format :as f]
@@ -10,10 +10,10 @@
                    java.text.DecimalFormat)
      :cljs (:import goog.i18n.NumberFormat)))
 
-(defn log
-  ([msg] (log :debug msg))
+(defn trace
+  ([msg] (trace :debug msg))
   ([level msg]
-   #?(:clj (lg/log level msg)
+   #?(:clj (log/log level msg)
       :cljs (.log js/console (prn-str {level msg})))))
 
 #?(:clj
@@ -238,6 +238,12 @@
     #?(:clj (Integer/parseInt value)
        :cljs (js/parseInt value))))
 
+(defn parse-float
+  [value]
+  (when value
+    #?(:clj (Float/parseFloat value)
+       :cljs (js/parseFloat value))))
+
 (def boolean-values #{"true" "1"})
 
 (defn parse-bool
@@ -249,6 +255,12 @@
   [value]
   (or (:id value)
       value))
+
+(defn ->coll
+  [value]
+  (if (coll? value)
+    value
+    [value]))
 
 (defn update-in-if
   "Performs an update-in if the key already exists in the map."

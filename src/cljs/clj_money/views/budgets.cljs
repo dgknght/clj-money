@@ -399,14 +399,14 @@
 
 (defn- load-accounts
   [page-state]
-  (accounts-api/get-all (:id @current-entity)
-                        (fn [result]
-                          (->> result
-                               accounts/nest
-                               accounts/unnest
-                               (reduce #(assoc %1 (:id %2) %2) {})
-                               (swap! page-state assoc :accounts)))
-                        (notify/danger-fn "Unable to load the accounts: %s")))
+  (accounts-api/select (:id @current-entity)
+                       (fn [result]
+                         (->> result
+                              accounts/nest
+                              accounts/unnest
+                              (reduce #(assoc %1 (:id %2) %2) {})
+                              (swap! page-state assoc :accounts)))
+                       (notify/danger-fn "Unable to load the accounts: %s")))
 
 (defn- index []
   (let [page-state (r/atom {})

@@ -1,10 +1,14 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
-  (:require [environ.core :refer [env]]
+  (:require [clojure.set :refer [rename-keys]]
+            [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [clj-money.api :refer [->response
                                    not-found]]
+            [clj-money.util :refer [update-in-if
+                                    parse-bool
+                                    ->coll]]
             [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
                                              +scope]
@@ -12,11 +16,28 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.authorization.accounts]))
 
-(defn- index
+(defn- extract-criteria
   [{:keys [params authenticated]}]
-  (->response (accounts/search (env :db) (-> params
-                                             (select-keys [:entity-id])
-                                             (+scope ::models/account authenticated)))))
+  (-> params
+      (rename-keys {"tags[]" :tags})
+      (select-keys [:entity-id :tags])
+      (update-in-if [:tags] (fn [tags]
+                              [:& (->> (->coll tags)
+                                       (map keyword)
+                                       set)]))
+      (+scope ::models/account authenticated)))
+
+(defn- extract-options
+  [{:keys [params]}]
+  (-> params
+      (select-keys [:include-children?])
+      (update-in-if [:include-children?] parse-bool)))
+
+(defn- index
+  [req]
+  (->response (accounts/search (env :db)
+                               (extract-criteria req)
+                               (extract-options req))))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]

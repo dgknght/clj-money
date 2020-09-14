@@ -66,12 +66,12 @@
 
 (defn- load-accounts
   [state]
-  (accounts/get-all #(swap! state assoc :accounts (->> %
-                                                       nest
-                                                       unnest
-                                                       (map (juxt :id identity))
-                                                       (into {})))
-                    (notify/danger-fn "Unable to load the accounts: %s")))
+  (accounts/select #(swap! state assoc :accounts (->> %
+                                                      nest
+                                                      unnest
+                                                      (map (juxt :id identity))
+                                                      (into {})))
+                   (notify/danger-fn "Unable to load the accounts: %s")))
 
 (defn- monitor-svg
   [{:keys [percentage actual-percent actual prorated-budget]} opts]

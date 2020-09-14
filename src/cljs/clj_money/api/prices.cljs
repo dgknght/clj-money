@@ -17,29 +17,22 @@
 
 (defn- adjust-trade-date
   [{:keys [trade-date] :as criteria}]
-  (-> criteria
-      (assoc :start-date (serialize-date (nth trade-date 1))
-             :end-date (serialize-date (nth trade-date 2)))
-      (dissoc :trade-date)))
+  (if (vector? trade-date)
+    (-> criteria
+        (assoc :start-date (serialize-date (nth trade-date 1))
+               :end-date (serialize-date (nth trade-date 2)))
+        (dissoc :trade-date))
+    criteria))
 
 (defn search
   [criteria success-fn error-fn]
   {:pre [(some #(contains? criteria %) [:commodity-id :entity-id])
          (contains? criteria :trade-date)]}
-  (let [path (if (contains? criteria :entity-id)
-               (api/path :entities
-                         (:entity-id criteria)
-                         :prices)
-               (api/path :commodities
-                         (:commodity-id criteria)
-                         :prices))]
-    (api/get-resources path
-                       (-> criteria
-                           (dissoc :entity-id :commodity-id)
-                           adjust-trade-date)
-                       (comp success-fn
-                             #(map after-read %))
-                       error-fn)))
+  (api/get-resources (api/path :prices)
+                     (adjust-trade-date  criteria)
+                     (comp success-fn
+                           #(map after-read %))
+                     error-fn))
 
 (defn create
   [price success-fn error-fn]

@@ -180,3 +180,58 @@
 
 (deftest a-user-cannot-get-budget-monitors-for-anothers-entity
   (assert-blocked-monitor-list (get-monitor-list "jane@doe.com")))
+
+(def ^:private portfolio-context
+  (-> basic-context
+      (update-in [:accounts] concat [{:name "IRA"
+                                      :type :asset
+                                      :tags #{:trading}
+                                      :entity-id "Personal"}])
+      (update-in [:commodities] concat [{:name "Apple, Inc."
+                                         :symbol "AAPL"
+                                         :type :stock
+                                         :exchange :nasdaq}])
+      (assoc :transactions [{:transaction-date (t/local-date 2015 1 1)
+                             :description "Begining balance"
+                             :quantity 1000M
+                             :debit-account "IRA"
+                             :credit-account "Opening Balances"}]
+             :trades [{:trade-date (t/local-date 2015 2 1)
+                       :type :purchase
+                       :account-id "IRA"
+                       :commodity-id "AAPL"
+                       :shares 100M
+                       :value  1000M}])))
+
+(defn- get-portfolio-report
+  [email]
+  (let [ctx (realize (env :db) portfolio-context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        response (-> (req/request :get (str (path :api
+                                                  :entities
+                                                  (:id entity)
+                                                  :reports
+                                                  :portfolio)
+                                            "?aggregate=by-account"))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(defn- assert-successful-portfolio-report
+  [[response body]]
+  (assert-successful response)
+  (is (= ["IRA" "Apple, Inc." "2/1/2015" "Total"]
+         (map :caption body))
+      "The body contains the correct captions"))
+
+(defn- assert-blocked-portfolio-report
+  [[response]]
+  (assert-not-found response))
+
+(deftest a-user-can-get-a-portfolio-report-for-his-entity
+  (assert-successful-portfolio-report (get-portfolio-report "john@doe.com")))
+
+(deftest a-user-cannot-get-a-portfolio-report-for-anothers-entity
+  (assert-blocked-portfolio-report (get-portfolio-report "jane@doe.com")))

@@ -69,7 +69,7 @@
              :shares 5M
              :value 35M}]})
 
-(defn- get-a-list-of-lots
+(defn- get-lots-for-an-account
   [email]
   (let [ctx (realize (env :db) list-context)
         account (find-account ctx "IRA")
@@ -110,8 +110,29 @@
   (assert-successful response)
   (is (empty? body) "The body is empty"))
 
-(deftest a-user-can-get-lots-from-his-own-entity
-  (assert-successful-get (get-a-list-of-lots "john@doe.com")))
+(deftest a-user-can-get-lots-for-an-account-in-his-entity
+  (assert-successful-get (get-lots-for-an-account "john@doe.com")))
 
-(deftest a-user-cannot-get-lots-from-anothers-entity
-  (assert-blocked-get (get-a-list-of-lots "jane@doe.com")))
+(deftest a-user-cannot-get-lots-for-an-account-in-anothers-entity
+  (assert-blocked-get (get-lots-for-an-account "jane@doe.com")))
+
+(defn- get-lots-for-multiple-accounts
+  [email]
+  (let [ctx (realize (env :db) list-context)
+        ira (find-account ctx "IRA")
+        opening (find-account ctx "Opening Balances")
+        user (find-user ctx email)
+        response (-> (req/request :get (str (path :api
+                                                  :lots)
+                                            "?"
+                                            (map->query-string {:account-id (map :id [ira opening])})))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
+
+(deftest a-user-can-get-lots-for-multiple-accounts-in-his-entity
+  (assert-successful-get (get-lots-for-multiple-accounts "john@doe.com")))
+
+(deftest a-user-cannot-get-lots-for-multiple-accounts-in-anothers-entity
+  (assert-blocked-get (get-lots-for-multiple-accounts "jane@doe.com")))

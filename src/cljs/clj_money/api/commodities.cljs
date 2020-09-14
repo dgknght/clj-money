@@ -1,18 +1,19 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count])
-  (:require [clj-money.api :as api]))
+  (:require [clj-money.state :refer [current-entity]]
+            [clj-money.api :as api]))
 
 (defn count
-  [entity-id success-fn error-fn]
-  (api/get (api/path :entities entity-id :commodities :count)
+  [success-fn error-fn]
+  (api/get (api/path :entities (:id @current-entity) :commodities :count)
            success-fn
            error-fn))
 
-(defn get-all
-  ([entity-id success-fn error-fn]
-   (get-all entity-id {} success-fn error-fn))
-  ([entity-id criteria success-fn error-fn]
-   (api/get-resources (api/path :entities entity-id :commodities)
+(defn select
+  ([success-fn error-fn]
+   (select {} success-fn error-fn))
+  ([criteria success-fn error-fn]
+   (api/get-resources (api/path :entities (:id @current-entity) :commodities)
                       criteria
                       success-fn
                       error-fn)))

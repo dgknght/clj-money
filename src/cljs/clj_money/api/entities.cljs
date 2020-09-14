@@ -9,7 +9,7 @@
                 [:settings :monitored-account-ids]
                 set))
 
-(defn get-all
+(defn select
   [success-fn error-fn]
   (api/get-resources (api/path :entities)
                      (comp success-fn

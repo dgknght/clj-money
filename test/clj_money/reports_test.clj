@@ -7,7 +7,8 @@
             [clj-factory.core :refer [factory]]
             [clj-money.core]
             [clj-money.util :refer [update-in-if]]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [basic-context
+                                            realize
                                             find-entity
                                             find-account
                                             find-accounts
@@ -887,3 +888,168 @@
                :diff (diff expected actual)}))
     (is (= expected actual)
         "The report contains the correct data")))
+
+(def ^:private portfolio-context
+  (-> basic-context
+      (update-in [:accounts] concat [{:name "IRA"
+                                      :type :asset
+                                      :tags #{:trading}
+                                      :entity-id "Personal"}
+                                     {:name "401k"
+                                      :type :asset
+                                      :tags #{:trading}
+                                      :entity-id "Personal"}])
+      (update-in [:commodities] concat [{:name "Apple, Inc."
+                                         :symbol "AAPL"
+                                         :type :stock
+                                         :exchange :nasdaq}
+                                        {:name "Microsoft, Inc."
+                                         :symbol "MSFT"
+                                         :type :stock
+                                         :exchange :nasdaq}
+                                        {:name "Alphabet, Inc."
+                                         :symbol "GOOG"
+                                         :type :stock
+                                         :exchange :nasdaq}])
+      (assoc :transactions [{:transaction-date (t/local-date 2015 1 1)
+                             :description "Begining balance"
+                             :quantity 10000M
+                             :debit-account "401k"
+                             :credit-account "Opening Balances"}
+                            {:transaction-date (t/local-date 2015 1 1)
+                             :description "Begining balance"
+                             :quantity 10000M
+                             :debit-account "IRA"
+                             :credit-account "Opening Balances"}]
+             :trades [{:trade-date (t/local-date 2015 2 1)
+                       :type :purchase
+                       :account-id "IRA"
+                       :commodity-id "AAPL"
+                       :shares 200M
+                       :value  2000M}
+                      {:trade-date (t/local-date 2015 2 1)
+                       :type :purchase
+                       :account-id "401k"
+                       :commodity-id "MSFT"
+                       :shares 400M
+                       :value  2000M}])))
+
+(def ^:private expected-portfolio-by-account
+  [{:caption "401k"
+    :style :header
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "Microsoft, Inc."
+    :style :subheader
+    :shares-owned 400M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "2/1/2015"
+    :style :data
+    :shares-purchased 400M
+    :shares-owned 400M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "IRA"
+    :style :header
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "Apple, Inc."
+    :style :subheader
+    :shares-owned 200M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "2/1/2015"
+    :style :data
+    :shares-purchased 200M
+    :shares-owned 200M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "Total"
+    :style :summary
+    :cost-basis 4000M
+    :current-value 4000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}])
+
+(def ^:private expected-portfolio-by-commodity
+  [{:caption "Apple, Inc."
+    :style :subheader
+    :shares-owned 200M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "2/1/2015"
+    :style :data
+    :shares-purchased 200M
+    :shares-owned 200M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "Microsoft, Inc."
+    :style :subheader
+    :shares-owned 400M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "2/1/2015"
+    :style :data
+    :shares-purchased 400M
+    :shares-owned 400M
+    :cost-basis 2000M
+    :current-value 2000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "Total"
+    :style :summary
+    :cost-basis 4000M
+    :current-value 4000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}])
+
+(deftest get-a-portfolio-report-by-account
+  (let [ctx (realize (env :db) portfolio-context)
+        entity (find-entity ctx "Personal")
+        actual (map #(select-keys % [:caption
+                                     :style
+                                     :shares-purchased
+                                     :shares-owned
+                                     :cost-basis
+                                     :current-value
+                                     :gain-loss
+                                     :gain-loss-percent])
+                    (reports/portfolio (env :db) (:id entity) {:aggregate :by-account}))]
+    (pprint-diff expected-portfolio-by-account actual)
+    (is (= expected-portfolio-by-account actual)
+        "The correct report data is generated")))
+
+(deftest get-a-portfolio-report-by-commodity
+  (let [ctx (realize (env :db) portfolio-context)
+        entity (find-entity ctx "Personal")
+        actual (map #(select-keys % [:caption
+                                     :style
+                                     :shares-purchased
+                                     :shares-owned
+                                     :cost-basis
+                                     :current-value
+                                     :gain-loss
+                                     :gain-loss-percent])
+                    (reports/portfolio (env :db) (:id entity) {:aggregate :by-commodity}))]
+    (pprint-diff expected-portfolio-by-commodity actual)
+    (is (= expected-portfolio-by-commodity actual)
+        "The correct report data is generated")))

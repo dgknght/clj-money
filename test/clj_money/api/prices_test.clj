@@ -98,13 +98,11 @@
   (let [ctx (realize (env :db) list-context)
         user (find-user ctx email)
         commodity (find-commodity ctx "AAPL")
-        response (-> (req/request :get (str (path :api
-                                                  :commodities
-                                                  (:id commodity)
-                                                  :prices)
+        response (-> (req/request :get (str (path :api :prices)
                                             "?"
                                             (map->query-string {:start-date "2016-01-01"
-                                                                :end-date "2016-12-31"})))
+                                                                :end-date "2016-12-31"
+                                                                :commodity-id (:id commodity)})))
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)]

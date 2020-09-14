@@ -135,8 +135,11 @@
     (let [user (users/find (env :db) {:email (:user opts)})
           entity (entities/find-by (env :db) {:user-id (:id user)
                                               :name (:entity opts)})
+          _ (assert entity "Entity not found")
           from-account (accounts/find-by (env :db) {:entity-id (:id entity)
                                                     :name (:from-account opts)})
+          _ (assert from-account "\"From\" account not found")
           to-account (accounts/find-by (env :db) {:entity-id (:id entity)
                                                   :name (:to-account opts)})]
+      (assert to-account "\"To\" account not found")
       (transactions/migrate-account (env :db) from-account to-account))))

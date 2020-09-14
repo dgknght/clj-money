@@ -52,6 +52,16 @@
   font-size: 120%;
 }
 
+.portfolio tbody .report-header td {
+  border-bottom: none;
+  font-size: 110%;
+  cursor: pointer;
+}
+
+.portfolio tbody .report-subheader td {
+  cursor: pointer;
+}
+
 .negative {
   background: #ce403b;
   color: white;

@@ -1,5 +1,6 @@
 (ns clj-money.models.sql-storage.lots
-  (:require [clojure.java.jdbc :as jdbc]
+  (:require [clojure.tools.logging :as log]
+            [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]
             [stowaway.sql :refer [apply-sort
@@ -13,6 +14,7 @@
 
 (defmethod stg/select ::models/lot
   [criteria options db-spec]
+  (log/debugf "select %s" (prn-str criteria))
   (query db-spec (-> (select :*)
                      (from :lots)
                      (apply-criteria criteria {:target :lot})

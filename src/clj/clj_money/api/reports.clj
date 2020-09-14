@@ -38,6 +38,16 @@
                          (unserialize-date (:as-of params))))
     (api/not-found)))
 
+(defn- portfolio
+  [{:keys [params] :as req}]
+  (if-let [entity (fetch-entity req)]
+    (api/->response (rpt/portfolio (env :db)
+                                   (:id entity)
+                                   (-> params
+                                       (select-keys [:aggregate])
+                                       (update-in-if [:aggregate] keyword))))
+    (api/not-found)))
+
 (defn- budget
   [{:keys [params authenticated]}]
   (if-let [budget (budgets/find-by (env :db) (+scope {:id (:budget-id params)}
@@ -85,6 +95,9 @@
   (GET "/api/entities/:entity-id/reports/budget-monitors"
        req
        (monitors req))
+  (GET "/api/entities/:entity-id/reports/portfolio"
+       req
+       (portfolio req))
   (GET "/api/reports/budget/:budget-id"
        req
        (budget req)))

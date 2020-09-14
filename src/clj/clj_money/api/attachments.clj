@@ -35,7 +35,7 @@
       unserialize-transaction-date
       (symbolic-comparatives :transaction-date)
       (rename-keys {"transaction-id[]" :transaction-id})
-      (update-in-if [:transaction-id] #(if (vector? %)
+      (update-in-if [:transaction-id] #(if (coll? %)
                                          (map uuid %)
                                          (uuid %)))
       (+scope ::models/attachment authenticated)))

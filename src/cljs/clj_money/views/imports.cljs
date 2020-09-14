@@ -15,8 +15,8 @@
 
 (defn- load-imports
   [page-state]
-  (imports/get-all #(swap! page-state assoc :imports %)
-                   (notify/danger-fn "Unable to load the imports: %s")))
+  (imports/select #(swap! page-state assoc :imports %)
+                  (notify/danger-fn "Unable to load the imports: %s")))
 
 (defn- delete-import
   [imp page-state]

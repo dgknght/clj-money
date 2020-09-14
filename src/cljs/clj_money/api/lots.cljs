@@ -10,10 +10,15 @@
   [criteria success-fn error-fn]
   {:pre (contains? criteria :account-id)}
 
-  (api/get-resources (api/path :accounts
-                               (:account-id criteria)
-                               :lots)
-                     (dissoc criteria :account-id)
-                     (comp success-fn
-                           #(map after-read %))
-                     error-fn))
+  (let [[path criteria] (if (coll? (:account-id criteria))
+                          [(api/path :lots)
+                           criteria]
+                          [(api/path :accounts
+                                     (:account-id criteria)
+                                     :lots)
+                           (dissoc criteria :account-id)])]
+    (api/get-resources path
+                       criteria
+                       (comp success-fn
+                             #(map after-read %))
+                       error-fn)))

@@ -87,6 +87,6 @@
 
 (defroutes routes
   (POST "/api/commodities/:commodity-id/prices" req (create req))
-  (GET "/api/commodities/:commodity-id/prices" req (index req))
+  (GET "/api/prices" req (index req))
   (PATCH "/api/prices/:trade-date/:id" req (update req))
   (DELETE "/api/prices/:trade-date/:id" req (delete req)))

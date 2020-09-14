@@ -36,7 +36,10 @@
                   :entity-id "Business"
                   :symbol "USD"
                   :type :currency}]
-   :accounts [{:name "Checking"
+   :accounts [{:name "Opening Balances"
+               :type :equity
+               :entity-id "Personal"}
+              {:name "Checking"
                :entity-id "Personal"
                :type :asset}
               {:name "Salary"
@@ -503,7 +506,9 @@
 (defn- execute-trade
   [trade storage context]
   (let [f (case (:type trade)
+            :buy      (partial trading/buy storage)
             :purchase (partial trading/buy storage)
+            :sell     (partial trading/sell storage)
             :sale     (partial trading/sell storage))]
     (-> trade
         (resolve-entity context)
