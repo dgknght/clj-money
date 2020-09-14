@@ -28,7 +28,11 @@
 (defn home-page []
   [:div.jumbotron.mt-3
    [:h1.display-5 "clj-money"]
-   [:p "This is a double-entry accounting application that aims to be available anywhere."]])
+   [:p "This is a double-entry accounting application that aims to be available anywhere."]
+   [:a#login.btn.btn-light {:href "/auth/google/start"
+                              :title "Click here to sign in with a Google account"}
+    (html/google-g)
+    [:span "Sign in with Google"]]])
 
 (secretary/defroute "/" []
     (swap! app-state assoc :page (if @current-user
