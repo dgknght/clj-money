@@ -1,18 +1,16 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
             [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.util :refer [assoc-if
-                                    ->id]]
-            [clj-money.validation :as v :refer [with-validation]]
+            [clj-money.util :refer [assoc-if]]
+            [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
-(s/def ::name v/non-empty-string?)
+(s/def ::name validation/non-empty-string?)
 (s/def ::type #{:asset :liability :equity :income :expense})
 (s/def ::commodity-id integer?)
 (s/def ::parent-id (s/nilable integer?))
@@ -41,7 +39,7 @@
     ; If no entity is specified, try to look it up
     (and (:id account)
          (nil? (:entity-id account)))
-    (assoc :entity-id (:entity-id (find-by-id (:id account))))
+    (assoc :entity-id (:entity-id (find-by-id storage (:id account))))
 
     ; strip out empty string for parent-id
     (and (string? (:parent-id account))
@@ -85,10 +83,10 @@
       (dissoc-if-nil :parent-id)))
 
 (defn search
-  ([criteria]
-   (search criteria {}))
-  ([criteria options]
-   (with-storage [s (env :db)]
+  ([storage-spec criteria]
+   (search storage-spec criteria {}))
+  ([storage-spec criteria options]
+   (with-storage [s storage-spec]
      (map after-read
           (storage/select s
                           (storage/tag criteria ::models/account)
@@ -96,24 +94,25 @@
 
 (defn find-by
   "Returns the first account that matches the specified criteria"
-  [criteria]
-  (first (search criteria {:limit 1})))
+  [storage-spec criteria]
+  (first (search storage-spec criteria {:limit 1})))
 
 (defn find-by-id
   "Returns the account having the specified id"
-  [id]
-  (when id (find-by {:id id})))
+  [storage-spec id]
+  (when id
+    (find-by storage-spec {:id id})))
 
 (defn find-by-name
   "Returns the account having the specified name"
-  [entity-id account-name]
-  (find-by {:entity-id entity-id
-            :name account-name}))
+  [storage-spec entity-id account-name]
+  (find-by storage-spec {:entity-id entity-id
+                         :name account-name}))
 
 
 (defn- name-is-unique?
-  [{:keys [id parent-id name entity-id type]}]
-  (nil? (find-by (assoc-if {:entity-id entity-id
+  [storage {:keys [id parent-id name entity-id type]}]
+  (nil? (find-by storage (assoc-if {:entity-id entity-id
                                     :parent-id parent-id
                                     :name name
                                     :type type}
@@ -122,24 +121,29 @@
 (defn- parent-has-same-type?
   "Validation rule that ensure an account
   has the same type as its parent"
-  [{:keys [parent-id type]}]
+  [storage {:keys [parent-id type]}]
   (or (nil? parent-id)
       (= type
-         (:type (find-by-id parent-id)))))
+         (:type (find-by-id storage parent-id)))))
 
-(def ^:private validation-rules
-  [(v/create-rule name-is-unique?
-                  [:name]
-                  "Name is already in use")
-   (v/create-rule parent-has-same-type?
-                  [:type]
-                  "Type must match the parent type")])
+(defn- validation-rules
+  [storage]
+  (map (fn [{:keys [path message val-fn]}]
+         (validation/create-rule (partial val-fn storage)
+                                 path
+                                 message))
+       [{:val-fn name-is-unique?
+         :path [:name]
+         :message "Name is already in use"}
+        {:val-fn parent-has-same-type?
+         :path [:type]
+         :message "Type must match the parent type"}]))
 
 (defn create
-  [account]
-  (with-storage [s (env :db)]
+  [storage account]
+  (with-storage [s storage]
     (let [account (before-validation account s)]
-      (with-validation account ::new-account validation-rules
+      (with-validation account ::new-account (validation-rules s)
         (as-> account a
           (before-save a)
           (storage/create s a)
@@ -147,20 +151,20 @@
 
 (defn reload
   "Returns a fresh copy of the specified account from the data store"
-  [model-or-id]
-  (find-by-id (->id model-or-id)))
+  [storage-spec {:keys [id]}]
+  (find-by-id storage-spec id))
 
 (defn update
-  [account]
-  (with-storage [s (env :db)]
-    (with-validation account ::existing-account validation-rules
+  [storage account]
+  (with-storage [s storage]
+    (with-validation account ::existing-account (validation-rules s)
       (as-> account a
         (before-save a)
         (storage/update s a))
-      (find-by-id (:id account)))))
+      (find-by-id s (:id account)))))
 
 (defn delete
   "Removes the account from the system"
-  [account]
-  (with-storage [s (env :db)]
+  [storage-spec account]
+  (with-storage [s storage-spec]
     (storage/delete s account)))
