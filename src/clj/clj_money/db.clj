@@ -29,11 +29,11 @@
 
 (defn put-partition-date
   [setting-name date compare-fn]
-  (when (if-let [existing (settings/get (env :db) setting-name)]
+  (when (if-let [existing (settings/get setting-name)]
           (when (compare-fn date (:value existing))
             date)
           date)
-    (settings/put (env :db) setting-name date)))
+    (settings/put setting-name date)))
 
 (defn- put-earliest-partition-date
   [date]
