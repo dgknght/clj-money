@@ -521,9 +521,9 @@
                        (filter identity)
                        sort
                        first)
-                  (settings/get (env :db) :earliest-partition-date))]
+                  (settings/get  :earliest-partition-date))]
     (assert as-of "Unable to find the earliest transaction date.")
-    (with-transacted-storage (env :db)
+    (with-transacted-storage
       (storage/update (tag {:account-id (:id to-account)
                                     :index 0
                                     :balance nil}

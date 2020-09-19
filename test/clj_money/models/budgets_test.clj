@@ -191,7 +191,7 @@
                         [:items 0]
                         dissoc
                         :account-id)
-        result (budgets/create (env :db) attr)]
+        result (budgets/create attr)]
     (assert-validation-error
       :account-id
       "Account id is required"
@@ -205,7 +205,7 @@
                               assoc
                               :account-id
                               (:id account))
-        result (budgets/create (env :db) attributes)]
+        result (budgets/create attributes)]
     (assert-validation-error
       :account-id
       "Account must belong to the same entity as the budget"
@@ -218,7 +218,7 @@
                               assoc
                               :periods
                               [100M])
-        result (budgets/create (env :db) attributes)]
+        result (budgets/create attributes)]
     (assert-validation-error
       :periods
       "Number of periods must match the budget \"Period count\" value"
