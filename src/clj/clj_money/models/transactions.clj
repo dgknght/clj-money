@@ -7,7 +7,7 @@
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
-            [clj-money.validation :as validation]
+            [clj-money.validation :as v]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.accounts :as accounts]
@@ -26,7 +26,7 @@
 
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
-(s/def ::quantity validation/big-dec-not-less-than-zero?)
+(s/def ::quantity v/big-dec-not-less-than-zero?)
 ; Balance is the running total of quantities for the account to which
 ; the item belongs
 (s/def ::balance (partial instance? BigDecimal))
@@ -34,8 +34,8 @@
 ; default commodity. For most transactions, this will be the same
 ; as the quantity. For transactions involving foreign currencies
 ; and commodity purchases (like stock trades) it will be different.
-(s/def ::value validation/positive-big-dec?)
-(s/def ::description validation/non-empty-string?)
+(s/def ::value v/positive-big-dec?)
+(s/def ::description v/non-empty-string?)
 (s/def ::memo #(or (nil? %) (string? %)))
 (s/def ::transaction-date (partial instance? LocalDate))
 (s/def ::id uuid?)
@@ -115,16 +115,16 @@
                     (filter #(= action (:action %)))
                     (map :value))))
 
-(defn- ^{:clj-money.validation/message "The total debits does not match the total credits"
-         :clj-money.validation/path [:items]}
+(defn- ^{::v/message "The total debits does not match the total credits"
+         ::v/path [:items]}
   sum-of-credits-must-equal-sum-of-debits
   [transaction]
   (->> [:debit :credit]
        (map #(item-value-sum transaction %))
        (apply =)))
 
-(defn- ^{:clj-money.validation/message "Each item must have the same transaction-date as the transaction"
-         :clj-money.validation/path [:items]}
+(defn- ^{::v/message "Each item must have the same transaction-date as the transaction"
+         ::v/path [:items]}
   transaction-dates-must-match
   [{:keys [transaction-date items]}]
   (->> items
@@ -335,7 +335,7 @@
 (def ^:private validation-rules
   [#'sum-of-credits-must-equal-sum-of-debits
    #'transaction-dates-must-match
-   (validation/create-rule no-reconciled-items-changed?
+   (v/create-rule no-reconciled-items-changed?
                            [:items]
                            "A reconciled transaction item cannot be changed")])
 
@@ -343,7 +343,7 @@
   [transaction spec]
   (-> transaction
       before-validation
-      (validation/validate spec validation-rules)
+      (v/validate spec validation-rules)
       after-validation))
 
 (defn search
@@ -386,12 +386,13 @@
        after-item-read))
 
 (defn- link-lots
-  [{:keys [id transaction-date]} lot-items]
+  [{:keys [id transaction-date] :as trans} lot-items]
   (mapv (comp l-t/create
               #(assoc %
                       :transaction-id id
                       :transaction-date transaction-date))
-        lot-items))
+        lot-items)
+  trans)
 
 (defn- find-base-item
   "Given an account ID and a date, finds the transaction item for that
@@ -540,40 +541,52 @@
        (into #{})))
 
 (defn- save-delayed-info
-  [settings entity-id account-ids transaction-date]
-  (-> settings
+  [m entity-id account-ids transaction-date]
+  (-> m
       (update-in [entity-id :delayed-account-ids]
                  into
                  account-ids)
       (update-in [entity-id :earliest-date] earliest transaction-date)))
+
+(defn- post-create
+  [{:keys [entity-id transaction-date] :as transaction}]
+  (let [account-ids (extract-account-ids transaction)]
+    (if (delay-balances? entity-id)
+      (swap! ambient-settings
+             save-delayed-info
+             entity-id
+             account-ids
+             transaction-date)
+      (doseq [account-id account-ids]
+        (recalculate-account account-id transaction-date))))
+  transaction)
+
+(defn- process-item-creation
+  [trans items]
+  (assoc trans :items (mapv
+                        #(-> %
+                             (assoc
+                               :transaction-id (:id trans)
+                               :transaction-date (:transaction-date trans)
+                               :index -1)
+                             before-save-item
+                             create-transaction-item*)
+                        items)))
 
 (defn create
   "Creates a new transaction"
   [transaction]
   (with-transacted-storage (env :db)
     (let [validated (validate transaction ::new-transaction)]
-      (if (validation/has-error? validated)
+      (if (v/has-error? validated)
         validated
-        (let [created (storage/create (before-save validated))
-              _  (link-lots created (:lot-items validated))
-              account-ids (extract-account-ids validated)]
-          (doseq [item (:items validated)]
-            (-> item
-                (assoc
-                  :transaction-id (:id created)
-                  :transaction-date (:transaction-date created)
-                  :index -1)
-                before-save-item
-                create-transaction-item*))
-          (if (delay-balances? (:entity-id validated))
-            (swap! ambient-settings
-                   save-delayed-info
-                   (:entity-id validated)
-                   account-ids
-                   (:transaction-date validated))
-            (doseq [account-id account-ids]
-              (recalculate-account account-id (:transaction-date validated))))
-          (reload created))))))
+        (-> validated
+            before-save
+            storage/create
+            (link-lots (:lot-items validated))
+            (process-item-creation (:items validated))
+            post-create
+            reload)))))
 
 (defn find
   "Returns the specified transaction"
@@ -670,7 +683,7 @@
   [transaction]
   (with-transacted-storage (env :db)
     (let [validated (validate transaction ::existing-transaction)]
-      (if (validation/has-error? validated)
+      (if (v/has-error? validated)
         validated
         (let [existing (find-existing-transaction transaction)
               dereferenced-items (->> (:items existing)
