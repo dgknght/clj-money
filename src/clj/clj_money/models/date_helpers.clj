@@ -1,7 +1,7 @@
 (ns clj-money.models.date-helpers
-  (:require [environ.core :refer [env]]
-            [clj-time.core :as t]
-            [clj-time.coerce :refer [to-local-date]]
+  (:require [clj-time.core :as t]
+            [clj-time.coerce :refer [to-local-date
+                                     to-long]]
             [clj-money.models.settings :as settings]))
 
 (defmulti date-range
@@ -16,10 +16,10 @@
       :scalar)))
 
 (defn earliest-date []
-  (settings/get (env :db) :earliest-partition-date))
+  (settings/get :earliest-partition-date))
 
 (defn- latest-date []
-  (settings/get (env :db) :latest-partition-date))
+  (settings/get :latest-partition-date))
 
 (defmethod date-range :scalar
   [range-value]
@@ -82,6 +82,18 @@
        (t/local-date year 12 31)])))
 
 (defn available-date-range []
-  (map #(settings/get (env :db) %)
+  (map #(settings/get %)
        ["earliest-partition-date"
         "latest-partition-date"]))
+
+(defn earliest
+  [& dates]
+  (let [filtered (filter identity dates)]
+    (when (seq filtered)
+      (apply min-key to-long filtered))))
+
+(defn latest
+  [& dates]
+  (let [filtered (filter identity dates)]
+    (when (seq filtered)
+      (apply max-key to-long filtered))))

@@ -2,7 +2,6 @@
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.core]
@@ -14,9 +13,7 @@
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def ^:private price-context
   {:users [(factory :user)]
@@ -31,21 +28,20 @@
                   :type :currency}]})
 
 (deftest create-a-price
-  (let [context (realize storage-spec price-context)
+  (let [context (realize price-context)
         commodity (find-commodity context "AAPL")
-        price (prices/create storage-spec {:commodity-id (:id commodity)
-                                           :trade-date (t/local-date 2017 3 2)
-                                           :price 12.34M})
-        actual (->> {:commodity-id (:id commodity)
-                     :trade-date [:between
-                                  (t/local-date 2017 3 1)
-                                  (t/local-date 2017 3 31)]}
-                    (prices/search storage-spec)
-                    (map #(dissoc % :id :created-at :updated-at)))
+        price (prices/create {:commodity-id (:id commodity)
+                              :trade-date (t/local-date 2017 3 2)
+                              :price 12.34M})
+        actual (map #(dissoc % :id :created-at :updated-at)
+                    (prices/search {:commodity-id (:id commodity)
+                                    :trade-date [:between
+                                                 (t/local-date 2017 3 1)
+                                                 (t/local-date 2017 3 31)]}))
         expected [{:commodity-id (:id commodity)
                    :trade-date (t/local-date 2017 3 2)
                    :price 12.34M}]
-        updated-commodity (commodities/find-by-id storage-spec (:id commodity))]
+        updated-commodity (commodities/find commodity)]
     (is (:id price)
         "The result contains an ID value")
     (is (empty? (validation/error-messages price))
@@ -57,19 +53,19 @@
     (is (= expected actual)
         "The price can be retrieved after create")
     (is (= (t/local-date 2017 3 2)
-            (:earliest-price updated-commodity))
+           (:earliest-price updated-commodity))
         (= (t/local-date 2017 3 2)
            (:latest-price updated-commodity)))))
 
 (deftest commodity-id-is-required
-  (let [context (realize storage-spec price-context)
+  (let [context (realize price-context)
         commodity (find-commodity context "AAPL")
-        price (prices/create storage-spec {:trade-date (t/local-date 2017 3 2)
-                                           :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)
-                                            :trade-date [:between
-                                                         (t/local-date 2017 3 1)
-                                                         (t/local-date 2017 3 31)]})]
+        price (prices/create {:trade-date (t/local-date 2017 3 2)
+                              :price 12.34M})
+        prices (prices/search {:commodity-id (:id commodity)
+                               :trade-date [:between
+                                            (t/local-date 2017 3 1)
+                                            (t/local-date 2017 3 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Commodity id is required"] (validation/error-messages price :commodity-id))
@@ -78,14 +74,14 @@
         "The price cannot be retrieved after create")))
 
 (deftest trade-date-is-required
-  (let [context (realize storage-spec price-context)
+  (let [context (realize price-context)
         commodity (find-commodity context "AAPL")
-        price (prices/create storage-spec {:commodity-id (:id commodity)
-                                           :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)
-                                            :trade-date [:between
-                                                         (t/local-date 2017 1 1)
-                                                         (t/local-date 2017 12 31)]})]
+        price (prices/create {:commodity-id (:id commodity)
+                              :price 12.34M})
+        prices (prices/search {:commodity-id (:id commodity)
+                               :trade-date [:between
+                                            (t/local-date 2017 1 1)
+                                            (t/local-date 2017 12 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Trade date is required"] (validation/error-messages price :trade-date))
@@ -94,15 +90,15 @@
         "The price cannot be retrieved after create")))
 
 (deftest trade-date-must-be-a-date
-  (let [context (realize storage-spec price-context)
+  (let [context (realize price-context)
         commodity (find-commodity context "AAPL")
-        price (prices/create storage-spec {:commodity-id (:id commodity)
-                                           :trade-date "notadate"
-                                           :price 12.34M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)
-                                            :trade-date [:between
-                                                         (t/local-date 2017 1 1)
-                                                         (t/local-date 2017 12 31)]})]
+        price (prices/create {:commodity-id (:id commodity)
+                              :trade-date "notadate"
+                              :price 12.34M})
+        prices (prices/search {:commodity-id (:id commodity)
+                               :trade-date [:between
+                                            (t/local-date 2017 1 1)
+                                            (t/local-date 2017 12 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Trade date must be a date"] (validation/error-messages price :trade-date))
@@ -111,18 +107,18 @@
         "The price cannot be retrieved after create")))
 
 (deftest trade-date-must-be-unique
-  (let [context (realize storage-spec price-context)
+  (let [context (realize price-context)
         commodity (find-commodity context "AAPL")
-        price-1 (prices/create storage-spec {:commodity-id (:id commodity)
-                                           :trade-date (t/local-date 2017 3 2)
-                                           :price 12.34M})
-        price-2 (prices/create storage-spec {:commodity-id (:id commodity)
-                                           :trade-date (t/local-date 2017 3 2)
-                                           :price 43.21M})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)
-                                            :trade-date [:between
-                                                         (t/local-date 2017 1 1)
-                                                         (t/local-date 2017 12 31)]})]
+        price-1 (prices/create {:commodity-id (:id commodity)
+                                :trade-date (t/local-date 2017 3 2)
+                                :price 12.34M})
+        price-2 (prices/create {:commodity-id (:id commodity)
+                                :trade-date (t/local-date 2017 3 2)
+                                :price 43.21M})
+        prices (prices/search {:commodity-id (:id commodity)
+                               :trade-date [:between
+                                            (t/local-date 2017 1 1)
+                                            (t/local-date 2017 12 31)]})]
     (is (:id price-1)
         "The first result contains an ID value")
     (is (nil? (:id price-2))
@@ -135,14 +131,14 @@
         "The the duplicate price is not saved")))
 
 (deftest price-is-required
-  (let [context (realize storage-spec price-context)
+  (let [context (realize price-context)
         commodity (find-commodity context "AAPL")
-        price (prices/create storage-spec {:commodity-id (:id commodity)
-                                           :trade-date (t/local-date 2017 3 2)})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)
-                                            :trade-date [:between
-                                                         (t/local-date 2017 3 1)
-                                                         (t/local-date 2017 3 31)]})]
+        price (prices/create {:commodity-id (:id commodity)
+                              :trade-date (t/local-date 2017 3 2)})
+        prices (prices/search {:commodity-id (:id commodity)
+                               :trade-date [:between
+                                            (t/local-date 2017 3 1)
+                                            (t/local-date 2017 3 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Price is required"] (validation/error-messages price :price))
@@ -151,15 +147,15 @@
         "The price cannot be retrieved after create")))
 
 (deftest price-must-be-a-number
-  (let [context (realize storage-spec price-context)
+  (let [context (realize price-context)
         commodity (find-commodity context "AAPL")
-        price (prices/create storage-spec {:commodity-id (:id commodity)
-                                           :trade-date (t/local-date 2017 3 2)
-                                           :price "notanumber"})
-        prices (prices/search storage-spec {:commodity-id (:id commodity)
-                                            :trade-date [:between
-                                                         (t/local-date 2017 3 1)
-                                                         (t/local-date 2017 3 31)]})]
+        price (prices/create {:commodity-id (:id commodity)
+                              :trade-date (t/local-date 2017 3 2)
+                              :price "notanumber"})
+        prices (prices/search {:commodity-id (:id commodity)
+                               :trade-date [:between
+                                            (t/local-date 2017 3 1)
+                                            (t/local-date 2017 3 31)]})]
     (is (nil? (:id price))
         "The result does not contain an ID value")
     (is (= ["Price must be a decimal"] (validation/error-messages price :price))
@@ -173,21 +169,21 @@
                                  :price 12.34M}]))
 
 (deftest a-price-can-be-updated
-  (let [context (realize storage-spec existing-price-context)
+  (let [context (realize existing-price-context)
         price (-> context :prices first)
-        result (prices/update storage-spec (assoc price :price 10M))
-        retrieved (prices/find-by-id storage-spec (:id price) (:trade-date price))]
+        result (prices/update (assoc price :price 10M))
+        retrieved (prices/find price)]
     (is (empty? (validation/error-messages result))
         "The result does not have any validation errors")
     (is (= 10.00M (:price retrieved))
         "The retrieved map has the correct values")))
 
 (deftest a-price-can-be-deleted
-  (let [context (realize storage-spec existing-price-context)
+  (let [context (realize existing-price-context)
         price (-> context :prices first)
-        _ (prices/delete storage-spec price)
-        prices (prices/search storage-spec {:commodity-id (:commodity-id price)
-                                            :trade-date (:trade-date price)})]
+        _ (prices/delete price)
+        prices (prices/search {:commodity-id (:commodity-id price)
+                               :trade-date (:trade-date price)})]
     (is (empty? (filter #(= (:id price) (:id %))  prices))
         "The result is not retrieved after delete")))
 
@@ -203,14 +199,27 @@
                                  :price 12.00M}]))
 
 (deftest get-the-most-recent-price-for-a-commodity
-  (let [context (realize storage-spec multi-price-context)]
+  (let [context (realize multi-price-context)]
     (testing "When at least one price exists"
-      (let [commodity (commodities/find-by-id
-                        storage-spec
-                        (:id (find-commodity context "AAPL")))
-            price (prices/most-recent storage-spec commodity)]
+      (let [commodity (find-commodity context "AAPL")
+            price (prices/most-recent (commodities/find commodity))]
         (is (= 12.20M (:price price)) "The most recent price is returned")))
     (testing "When no prices exist"
       (let [commodity (find-commodity context "USD")
-            price (prices/most-recent storage-spec commodity)]
+            price (prices/most-recent commodity)]
         (is (nil? price) "The nil is returned")))))
+
+(deftest deleting-a-commodity-deletes-the-prices
+  (let [context (realize existing-price-context)
+        commodity (-> context :commodities first)
+        criteria {:commodity-id (:id commodity)
+                  :trade-date [:between
+                               (t/local-date 2016 1 1)
+                               (t/local-date 2017 12 31)]}
+        prices-before (prices/search criteria)
+        _ (commodities/delete commodity)
+        prices-after (prices/search criteria)]
+    (is (seq prices-before)
+        "The commodity prices exist before delete")
+    (is (empty? prices-after)
+        "The commodity prices are absent after delete")))

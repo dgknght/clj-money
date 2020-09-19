@@ -1,8 +1,11 @@
 (ns clj-money.models.images
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [environ.core :refer [env]]
             [digest :refer [sha-1]]
-            [stowaway.core :as storage :refer [with-storage]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage]]
+            [clj-money.util :refer [->id]]
             [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]))
 
@@ -19,72 +22,67 @@
 
 (defn- after-read
   [image]
-  (storage/tag image ::models/image))
+  (tag image ::models/image))
 
 (defn search
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
+  ([criteria]
+   (search criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
      (map after-read
-          (storage/select s
-                          (storage/tag criteria ::models/image)
+          (storage/select (tag criteria ::models/image)
                           options)))))
 
+(defn find-by
+  ([criteria] (find-by criteria {}))
+  ([criteria options]
+   (first (search criteria (assoc options :limit 1)))))
+
+(defn find
+  [image-or-id]
+  (find-by {:id (->id image-or-id)} {:include-body? true}))
+
 (defn- find-by-hash
-  [storage user-id hash]
-  (first (search storage
-                 {:user-id user-id
-                  :body-hash hash}
-                 {:limit 1})))
+  [user-id hash]
+  (find-by {:user-id user-id
+            :body-hash hash}))
 
 (defn- body-hash-is-unique?
-  [storage {:keys [body-hash user-id]}]
-  (nil? (find-by-hash storage user-id body-hash)))
+  [{:keys [body-hash user-id]}]
+  (nil? (find-by-hash user-id body-hash)))
 
-(defn- validation-rules
-  [storage]
-  [(validation/create-rule (partial body-hash-is-unique? storage)
+(def ^:private validation-rules
+  [(validation/create-rule body-hash-is-unique?
                            [:body-hash]
                            "The image content must be unique")])
 
 (defn- before-validation
-  [image & _]
+  [image]
   (assoc image :body-hash (sha-1 (:body image))))
 
 (defn- before-save
-  [image & _]
-  (storage/tag image ::models/image))
+  [image]
+  (tag image ::models/image))
 
 (defn create
-  [storage image]
-  (with-storage [s storage]
+  [image]
+  (with-storage (env :db)
     (let [image (before-validation image)]
-      (with-validation image ::image (validation-rules s)
-        (as-> image i
-          (before-save i)
-          (storage/create s i)
-          (after-read i))))))
+      (with-validation image ::image validation-rules
+        (-> image
+            before-save
+            storage/create
+            after-read)))))
 
 (defn find-or-create
-  [storage-spec image]
+  [image]
   (let [hash (sha-1 (:body image))]
-    (with-storage [s storage-spec]
+    (with-storage (env :db)
       (or
-        (find-by-hash s (:user-id image) hash)
-        (create s image)))))
-
-(defn find-by
-  ([storage-spec criteria]
-   (find-by storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (first (search storage-spec criteria (merge options {:limit 1})))))
-
-(defn find-by-id
-  [storage-spec id]
-  (find-by storage-spec {:id id} {:include-body? true}))
+        (find-by-hash (:user-id image) hash)
+        (create image)))))
 
 (defn delete
-  [storage-spec image]
-  (with-storage [s storage-spec]
-    (storage/delete s image)))
+  [image]
+  (with-storage (env :db)
+    (storage/delete image)))

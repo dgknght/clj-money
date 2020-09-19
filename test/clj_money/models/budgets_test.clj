@@ -1,6 +1,5 @@
 (ns clj-money.models.budgets-test
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.validation :as validation]
             [clj-money.models.budgets :as budgets]
@@ -15,7 +14,7 @@
                                             selective=
                                             assert-validation-error]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def budget-context
   basic-context)
@@ -39,14 +38,11 @@
               :periods [100M 90M 105M]}]}))
 
 (deftest create-a-budget
-  (let [ctx (realize (env :db) budget-context)
+  (let [ctx (realize budget-context)
         entity (find-entity ctx "Personal")
         [salary groceries rent]  (find-accounts ctx "Salary" "Groceries" "Rent")
-        budget (budgets/create
-                 (env :db)
-                 (attributes ctx))
-        retrieved (budgets/find-by (env :db)
-                                   {:entity-id (:id entity)}
+        budget (budgets/create (attributes ctx))
+        retrieved (budgets/find-by {:entity-id (:id entity)}
                                    {:include-items? true})]
     (is (not (nil? (:id budget))) "The returned value has an id")
     (is (selective= {:name "2016"
@@ -75,55 +71,55 @@
         "The rent item can be retrieved")))
 
 (deftest entity-id-is-required
-  (let [context (realize (env :db) budget-context)]
+  (let [context (realize budget-context)]
     (assert-validation-error
       :entity-id
       "Entity id is required"
-      (budgets/create (env :db) (dissoc (attributes context) :entity-id)))))
+      (budgets/create (dissoc (attributes context) :entity-id)))))
 
 (deftest name-is-required
-  (let [context (realize (env :db) budget-context)
-        result (budgets/create (env :db) (dissoc (attributes context) :name))]
+  (let [context (realize budget-context)
+        result (budgets/create  (dissoc (attributes context) :name))]
     (assert-validation-error
       :name
       "Name is required"
       result)))
 
 (deftest start-date-is-required
-  (let [context (realize (env :db) budget-context)
-        result (budgets/create (env :db) (dissoc (attributes context) :start-date))]
+  (let [context (realize budget-context)
+        result (budgets/create (dissoc (attributes context) :start-date))]
     (assert-validation-error
       :start-date
       "Start date is required"
       result)))
 
 (deftest period-is-required
-  (let [context (realize (env :db) budget-context)
-        result (budgets/create (env :db) (dissoc (attributes context) :period))]
+  (let [context (realize budget-context)
+        result (budgets/create (dissoc (attributes context) :period))]
     (assert-validation-error
       :period
       "Period is required"
       result)))
 
 (deftest period-must-be-week-month-or-quarter
-  (let [context (realize (env :db) budget-context)
-        result (budgets/create (env :db) (assoc (attributes context) :period :not-a-period))]
+  (let [context (realize budget-context)
+        result (budgets/create (assoc (attributes context) :period :not-a-period))]
     (assert-validation-error
       :period
       "Period must be one of: quarter, week, month"
       result)))
 
 (deftest period-count-is-required
-  (let [context (realize (env :db) budget-context)
-        result (budgets/create (env :db) (dissoc (attributes context) :period-count))]
+  (let [context (realize budget-context)
+        result (budgets/create (dissoc (attributes context) :period-count))]
     (assert-validation-error
       :period-count
       "Period count is required"
       result)))
 
 (deftest period-count-must-be-greater-than-zero
-  (let [context (realize (env :db) budget-context)
-        result (budgets/create (env :db) (assoc (attributes context) :period-count 0))]
+  (let [context (realize budget-context)
+        result (budgets/create (assoc (attributes context) :period-count 0))]
     (assert-validation-error
       :period-count
       "Period count must be greater than zero"
@@ -143,27 +139,27 @@
                              :periods (repeat 12 100M)}]}]))
 
 (deftest delete-a-budget
-  (let [context (realize (env :db) delete-context)
+  (let [context (realize delete-context)
         budget (-> context :budgets first)
         entity (-> context :entities first)]
     (is (= 1
-           (count (budgets/search (env :db) {:entity-id (:id entity)})))
+           (count (budgets/search {:entity-id (:id entity)})))
         "The budget is returned before delete")
-    (budgets/delete (env :db) budget)
+    (budgets/delete budget)
     (is (= 0
-           (count (budgets/search (env :db) {:entity-id (:id entity)})))
+           (count (budgets/search {:entity-id (:id entity)})))
         "The budget is absent after delete")))
 
 (deftest update-a-budget
-  (let [ctx (realize (env :db) delete-context)
+  (let [ctx (realize delete-context)
         budget (find-budget ctx "2016")
         salary (find-account ctx "Salary")
-        updated (-> budget
-                    (assoc :name "edited")
-                    (assoc :start-date (t/local-date 2015 1 1))
-                    (assoc-in [:items 0 :periods] (repeat 12 1100M)))
-        result (budgets/update (env :db) updated)
-        retrieved (budgets/find-by-id (env :db) (:id budget))]
+        result (budgets/update
+                 (-> budget
+                     (assoc :name "edited")
+                     (assoc :start-date (t/local-date 2015 1 1))
+                     (assoc-in [:items 0 :periods] (repeat 12 1100M))))
+        retrieved (budgets/find budget)]
     (is (empty? (validation/error-messages result))
         "The budget is valid")
     (is (= "edited" (:name result))
@@ -172,7 +168,7 @@
            (:end-date result))
         "the returned value reflects the recalculated end date")
     (is (= (repeat 12 1100M)
-           (->> (:items updated)
+           (->> (:items result)
                 (filter #(= (:id salary) (:account-id %)))
                 (map :periods)
                 first))
@@ -190,7 +186,7 @@
         "The retrieved value reflects the updated items")))
 
 #_(deftest budget-item-requires-account-id
-  (let [context (realize (env :db) budget-context)
+  (let [context (realize budget-context)
         attr (update-in (attributes context)
                         [:items 0]
                         dissoc
@@ -202,7 +198,7 @@
       result)))
 
 #_(deftest budget-item-account-must-belong-to-budget-entity
-  (let [context (realize (env :db) budget-context)
+  (let [context (realize budget-context)
         account (find-account context "Sales")
         attributes (update-in (attributes context)
                               [:items 0]
@@ -216,7 +212,7 @@
       result)))
 
 #_(deftest budget-item-has-same-period-count-as-budget
-  (let [context (realize (env :db) budget-context)
+  (let [context (realize budget-context)
         attributes (update-in (attributes context)
                               [:items 0]
                               assoc
@@ -297,7 +293,7 @@
           "It returns the index of the period containing the date"))))
 
 (deftest find-a-budget-by-date
-  (let [context (realize (env :db) delete-context)
+  (let [context (realize delete-context)
         entity-id (-> context :entities first :id)
         tests [{:description "before any budgets"
                 :date (t/local-date 2015 12 31)
@@ -308,9 +304,7 @@
     (doseq [{:keys [expected date description]} tests]
       (testing description
         (is (= expected
-               (->> date
-                    (budgets/find-by-date (env :db) entity-id)
-                    :name)))))))
+               (:name (budgets/find-by-date entity-id date))))))))
 
 (deftest calculate-a-percent-of-a-period
   (let [tests [{:description "the first day of a month"
@@ -390,15 +384,14 @@
                                  :periods (repeat 3 50M)}]}])))
 
 (deftest get-items-by-account
-  (let [ctx (realize (env :db) get-items-context)
+  (let [ctx (realize get-items-context)
         budget (find-budget ctx "2015")]
     (testing "a leaf account"
       (let [account (find-account ctx "Food")
             expected [[100M 100M 100M]]
             actual (map :periods (budgets/find-items-by-account
                                    budget
-                                   account
-                                   (env :db)))]
+                                   account))]
         (pprint-diff expected actual)
         (is (= expected actual) "The correct period values are returned")))
     (testing "a parent account"
@@ -407,7 +400,6 @@
                       [50M 50M 50M]]
             actual (map :periods (budgets/find-items-by-account
                                    budget
-                                   account
-                                   (env :db)))]
+                                   account))]
         (pprint-diff expected actual)
         (is (= expected actual) "The correct period values are returned")))))

@@ -1,11 +1,14 @@
 (ns clj-money.models.lots
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
+            [environ.core :refer [env]]
             [clj-time.coerce :refer [to-local-date
                                      to-sql-date]]
-            [stowaway.core :as storage :refer [with-storage]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage]]
             [clj-money.validation :as validation :refer [with-validation]]
+            [clj-money.util :refer [->id]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
@@ -33,73 +36,73 @@
 (defn- after-read
   [lot]
   (-> lot
-      (storage/tag ::models/lot)
+      (tag ::models/lot)
       (update-in [:purchase-date] to-local-date)))
 
 (defn search
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
+  ([criteria]
+   (search criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
      (map after-read
-          (storage/select s
-                          (storage/tag criteria ::models/lot)
+          (storage/select (tag criteria ::models/lot)
                           options)))))
 
 (defn find-by
-  ([storage-spec criteria]
-   (find-by storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (first (search storage-spec criteria (merge options {:limit 1})))))
+  ([criteria]
+   (find-by criteria {}))
+  ([criteria options]
+   (first (search criteria (merge options {:limit 1})))))
 
-(defn find-by-id
-  [storage-spec id]
-  (find-by storage-spec {:id id}))
+(defn find
+  [lot-or-id]
+  (find-by {:id (->id lot-or-id)}))
 
 (defn- before-save
   [lot]
   (-> lot
-      (storage/tag ::models/lot)
+      (tag ::models/lot)
       (update-in [:purchase-date] to-sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 
 (defn- before-validation
-  [lot storage]
-  (assoc lot :account (accounts/find-by-id storage (:account-id lot))))
+  [lot]
+  (assoc lot :account (accounts/find (:account-id lot))))
 
 (defn- account-is-an-asset?
-  [_ lot]
+  [lot]
   (= :asset (-> lot :account :type)))
 
-(defn- validation-rules
-  [storage]
-  [(validation/create-rule (partial account-is-an-asset? storage)
+(def ^:private validation-rules
+  [(validation/create-rule account-is-an-asset?
                            [:account-id]
                            "The account must be an asset account")])
 
 (defn create
-  [storage lot]
-  (with-storage [s storage]
-    (let [lot (before-validation lot s)]
-      (with-validation lot ::new-lot (validation-rules s)
-        (as-> lot l
-          (before-save l)
-          (storage/create s l)
-          (after-read l))))))
+  [lot]
+  (with-storage (env :db)
+    (let [lot (before-validation lot)]
+      (with-validation lot ::new-lot validation-rules
+        (-> lot
+            before-save
+            storage/create
+            after-read)))))
 
 (defn select-by-commodity-id
-  [storage-spec commodity-id]
+  [commodity-id]
   (if commodity-id
-    (search storage-spec {:commodity-id commodity-id})
+    (search {:commodity-id commodity-id})
     []))
 
 (defn update
-  [storage lot]
-  (with-storage [s storage]
-    (let [lot (before-validation lot s)]
-      (with-validation lot ::existing-lot (validation-rules s)
-        (storage/update s (before-save lot))
-        (find-by-id s (:id lot))))))
+  [lot]
+  (with-storage (env :db)
+    (let [lot (before-validation lot)]
+      (with-validation lot ::existing-lot validation-rules
+        (-> lot
+            before-save
+            storage/update)
+        (find lot)))))
 
 (defn- lot-unrealized-gains
   [{:keys [purchase-price
@@ -115,16 +118,16 @@
     (- value cost)))
 
 (defn unrealized-gains
-  [storage-spec entity-id as-of]
-  (with-storage [s storage-spec]
-    (let [lots (search s {[:commodity :entity-id] entity-id
-                          :purchase-date [:<= as-of]})
+  [entity-id as-of]
+  (with-storage (env :db)
+    (let [lots (search {[:commodity :entity-id] entity-id
+                        :purchase-date [:<= as-of]})
           commodity-prices (if (seq lots)
-                             (->> (commodities/search s {:id (->> lots
-                                                                  (map :commodity-id)
-                                                                  set)})
+                             (->> (commodities/search {:id (->> lots
+                                                                (map :commodity-id)
+                                                                set)})
                                   (map (juxt :id
-                                             #(:price (prices/most-recent s % as-of))))
+                                             #(:price (prices/most-recent % as-of))))
                                   (into {}))
                              {})]
       (->> lots
@@ -132,6 +135,6 @@
            (reduce + 0M)))))
 
 (defn delete
-  [storage-spec lot]
-  (with-storage [s storage-spec]
-    (storage/delete s lot)))
+  [lot]
+  (with-storage (env :db)
+    (storage/delete lot)))

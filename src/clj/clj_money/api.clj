@@ -28,6 +28,13 @@
        (header "Content-Type" "application/json")
        (status status-code))))
 
+(defn creation-response
+  [value]
+  (->response value (if (and (map? value)
+                             (validation/has-error? value))
+                      400
+                      201)))
+
 (defn unauthorized []
   (->response {:message "unauthorized"} 401))
 
@@ -55,11 +62,11 @@
 
 (defn delete-resource
   [id user find-fn delete-fn]
-  (let [resource (authorize (find-fn (env :db) id)
+  (let [resource (authorize (find-fn id)
                             ::authorization/destroy
                             user)]
     (try
-      (delete-fn (env :db) (:id resource))
+      (delete-fn (:id resource))
       (catch Exception e
         (error->response e "Unable to delete the resource.")))
     (->response)))
@@ -91,9 +98,8 @@
 (defn- find-user-by-auth-token
   [req]
   (when-let [token (extract-auth-token req)]
-    (users/find-by-id (env :db)
-                      (:user-id (jwt/unsign token
-                                            (env :secret))))))
+    (users/find (:user-id (jwt/unsign token
+                                      (env :secret))))))
 
 (defn wrap-authentication
   [handler]

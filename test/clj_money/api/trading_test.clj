@@ -4,7 +4,6 @@
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [clj-time.core :as t]
-            [environ.core :refer [env]]
             [clj-money.util :refer [path]]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -21,9 +20,7 @@
             [clj-money.models.lots :as lots]
             [clj-money.web.server :refer [app]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def ^:private buy-context
   {:users [(factory :user {:email "john@doe.com"})
@@ -52,7 +49,7 @@
 
 (defn- buy-a-commodity
   [email]
-  (let [context (realize (env :db) buy-context)
+  (let [context (realize buy-context)
         entity (find-entity context "Personal")
         aapl (find-commodity context "AAPL")
         ira (find-account context "IRA")
@@ -72,8 +69,8 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        transactions (trans/search (env :db) {:entity-id (:id entity)
-                                              :transaction-date (t/local-date 2016 3 2)})]
+        transactions (trans/search {:entity-id (:id entity)
+                                    :transaction-date (t/local-date 2016 3 2)})]
     [response body transactions]))
 
 (defn- assert-successful-purchase
@@ -139,7 +136,7 @@
 
 (defn- sell-a-commodity
   [email]
-  (let [ctx (realize (env :db) sell-context)
+  (let [ctx (realize sell-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         aapl (find-commodity ctx "AAPL")
@@ -159,10 +156,10 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        transactions (trans/search (env :db) {:entity-id (:id entity)
-                                              :transaction-date (t/local-date 2016 3 2)})
-        lots (lots/search (env :db)  {:account-id (:id ira)
-                                      :commodity-id (:id aapl)})]
+        transactions (trans/search {:entity-id (:id entity)
+                                    :transaction-date (t/local-date 2016 3 2)})
+        lots (lots/search  {:account-id (:id ira)
+                            :commodity-id (:id aapl)})]
     [response body transactions lots]))
 
 (defn- assert-successful-sale

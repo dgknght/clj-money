@@ -1,6 +1,5 @@
 (ns clj-money.api.transaction-items-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-time.core :as t]
@@ -18,7 +17,7 @@
             [clj-money.web.server :refer [app]]))
 
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private context
   (assoc basic-context
@@ -104,7 +103,7 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         account (find-account ctx "Checking")
         response (-> (req/request :get (str (path :api
@@ -205,7 +204,7 @@
                              :quantity 103M}])))
 
 (deftest a-user-can-get-a-list-of-items-in-an-account-and-child-accounts
-  (let [ctx (realize (env :db) children-context)
+  (let [ctx (realize children-context)
         user (find-user ctx "john@doe.com")
         account (find-account ctx "Savings")
         response (-> (req/request :get (str (path :api

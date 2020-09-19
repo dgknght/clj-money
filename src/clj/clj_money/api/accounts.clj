@@ -1,7 +1,6 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
-            [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [clj-money.api :refer [->response
@@ -35,14 +34,12 @@
 
 (defn- index
   [req]
-  (->response (accounts/search (env :db)
-                               (extract-criteria req)
+  (->response (accounts/search (extract-criteria req)
                                (extract-options req))))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (authorize (accounts/find-by-id (env :db)
-                                  (:id params))
+  (authorize (accounts/find (:id params))
              action
              authenticated))
 
@@ -75,14 +72,13 @@
                     (assoc :entity-id (:entity-id params))
                     before-save
                     (authorize ::authorization/create authenticated))]
-    (->response (accounts/create (env :db) account)
+    (->response (accounts/create account)
                 201)))
 
 (defn- update
   [{:keys [body] :as req}]
   (if-let [account (find-and-auth req ::authorization/update)]
     (->response (accounts/update
-                  (env :db)
                   (merge account (-> body
                                      (select-keys attribute-keys)
                                      before-save))))
@@ -92,7 +88,7 @@
   [req]
   (if-let [account (find-and-auth req ::authorization/destroy)]
     (do
-      (accounts/delete (env :db) account)
+      (accounts/delete account)
       (->response))
     (not-found)))
 

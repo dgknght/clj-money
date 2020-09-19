@@ -1,10 +1,12 @@
 (ns clj-money.models.commodities
-  (:refer-clojure :exclude [update count])
+  (:refer-clojure :exclude [update count find])
   (:require [clojure.spec.alpha :as s]
-            [stowaway.core
-             :as storage
-             :refer [with-storage]]
-            [clj-money.util :refer [update-in-if]]
+            [environ.core :refer [env]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage]]
+            [clj-money.util :refer [update-in-if
+                                    assoc-if
+                                    ->id]]
             [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models.sql-storage-ref]
             [clj-money.models :as models]
@@ -34,59 +36,64 @@
 (s/def ::existing-commodity (s/keys :req-un [::type ::entity-id ::name ::symbol] :opt-un [::id]))
 
 (defn- before-save
-  [commodity & _]
+  [commodity]
   (-> commodity
-      (storage/tag ::models/commodity)
+      (tag ::models/commodity)
       (update-in-if [:exchange] name)
       (update-in [:type] name)))
 
 (defn- after-read
-  [commodity & _]
+  [commodity]
   (when commodity
     (-> commodity
-        (storage/tag ::models/commodity)
+        (tag ::models/commodity)
         (update-in-if [:exchange] keyword)
         (update-in [:type] keyword))))
 
 (defn search
   "Returns commodities matching the specified criteria"
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
+  ([criteria]
+   (search criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
      (map after-read
-          (storage/select s
-                          (storage/tag criteria ::models/commodity)
+          (storage/select (tag criteria ::models/commodity)
                           options)))))
 
-(defn- name-is-in-use?
-  [storage {:keys [id entity-id exchange] commodity-name :name}]
-  (when (and commodity-name entity-id exchange)
-    (->> (search
-           storage
-           {:entity-id entity-id
-            :name commodity-name
-            :exchange (name exchange)})
-         (remove #(= id (:id %)))
-         seq)))
+(defn find-by
+  ([criteria]
+   (find-by criteria {}))
+  ([criteria options]
+  (first (search criteria (merge options {:limit 1})))))
 
-(defn- symbol-is-in-use?
-  [storage {:keys [id entity-id exchange] commodity-symbol :symbol}]
-  (when (and commodity-symbol entity-id exchange)
-    (->> (search
-           storage
-           {:entity-id entity-id
-            :symbol commodity-symbol
-            :exchange (name exchange)})
-         (remove #(= id (:id %)))
-         seq)))
+(defn find
+  "Returns the commodity having the specified ID"
+  [id-or-commodity]
+  (find-by {:id (->id id-or-commodity)}))
 
-(defn- validation-rules
-  [storage]
-  [(validation/create-rule (complement (partial name-is-in-use? storage))
+(defn- name-is-unique?
+  [{:keys [id entity-id exchange] commodity-name :name}]
+  (-> {:entity-id entity-id
+       :name commodity-name
+       :exchange (when exchange (name exchange))}
+      (assoc-if :id (when id [:!= id]))
+      find-by
+      nil?))
+
+(defn- symbol-is-unique?
+  [{:keys [id entity-id exchange] commodity-symbol :symbol}]
+  (-> {:entity-id entity-id
+       :symbol commodity-symbol
+       :exchange (when exchange (name exchange))}
+      (assoc-if :id (when id [:!= id]))
+      find-by
+      nil?))
+
+(def ^:private validation-rules
+  [(validation/create-rule name-is-unique?
                            [:name]
                            "Name must be unique for a given exchange")
-   (validation/create-rule (complement (partial symbol-is-in-use? storage))
+   (validation/create-rule symbol-is-unique?
                            [:symbol]
                            "Symbol must be unique for a given exchange")])
 
@@ -94,54 +101,45 @@
   "After a commodity is saved, checks to see if it is
   the only currency commodity. If so, update the entity to indicate
   this is the default."
-  [commodity storage]
+  [commodity]
   (when (#{:currency "currency"} (:type commodity))
-    (let [other-commodities (search storage
-                                    {:entity-id (:entity-id commodity)
+    (let [other-commodities (search {:entity-id (:entity-id commodity)
                                      :id [:!= (:id commodity)]})]
       (when (empty? other-commodities)
-        (let [entity (entities/find-by-id storage (:entity-id commodity))]
-          (entities/update storage (assoc-in entity
-                                             [:settings :default-commodity-id]
-                                             (:id commodity)))))))
+        (let [entity (entities/find (:entity-id commodity))]
+          (entities/update (assoc-in entity
+                                     [:settings :default-commodity-id]
+                                     (:id commodity)))))))
   commodity)
 
 (defn create
-  [storage commodity]
-  (with-storage [s storage]
-    (with-validation commodity ::new-commodity (validation-rules s)
-      (as-> commodity c
-        (before-save c)
-        (storage/create s c)
-        (set-implicit-default c s)
-        (after-read c)))))
+  [commodity]
+  (with-storage (env :db)
+    (with-validation commodity ::new-commodity validation-rules
+      (-> commodity
+          before-save
+          storage/create
+          set-implicit-default
+          after-read))))
 
 (defn count
   "Returns the number of commodities matching the specified criteria"
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (-> (search s criteria {:count true})
-        first
-        :record-count)))
-
-(defn find-by
-  [storage-spec criteria]
-  (first (search storage-spec criteria {:limit 1})))
-
-(defn find-by-id
-  "Returns the commodity having the specified ID"
-  [storage-spec id]
-  (find-by storage-spec {:id id}))
+  [criteria]
+  (-> (search criteria {:count true})
+      first
+      :record-count))
 
 (defn update
-  [storage commodity]
-  (with-storage [s storage]
-    (with-validation commodity ::existing-commodity (validation-rules s)
-      (storage/update s (before-save commodity))
-      (find-by-id s (:id commodity)))))
+  [commodity]
+  (with-storage (env :db)
+    (with-validation commodity ::existing-commodity validation-rules
+      (-> commodity
+          before-save
+          storage/update)
+      (find commodity))))
 
 (defn delete
   "Removes a commodity from the system"
-  [storage-spec commodity]
-  (with-storage [s storage-spec]
-    (storage/delete s commodity)))
+  [commodity]
+  (with-storage (env :db)
+    (storage/delete commodity)))

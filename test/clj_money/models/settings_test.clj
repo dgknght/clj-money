@@ -15,8 +15,8 @@
 (use-fixtures :each clear-settings)
 
 (deftest create-a-setting
-  (let [created (settings/put (env :db) "My Info" 24)
-        retrieved (settings/get (env :db) "My Info")]
+  (let [created (settings/put "My Info" 24)
+        retrieved (settings/get "My Info")]
     (is (selective= {:name "My Info"
                      :value 24}
                     created)
@@ -25,9 +25,9 @@
         "The value can be retrieved")))
 
 (deftest update-a-setting
-  (let [_ (settings/put (env :db) "My Info" 24)
-        updated (settings/put (env :db) "My Info" 25)
-        retrieved (settings/get (env :db) "My Info")]
+  (let [_ (settings/put "My Info" 24)
+        updated (settings/put "My Info" 25)
+        retrieved (settings/get "My Info")]
     (is (selective= {:name "My Info"
                      :value 25}
                     updated)

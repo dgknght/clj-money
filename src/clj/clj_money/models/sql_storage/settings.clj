@@ -23,9 +23,9 @@
 
 (defmethod stg/insert ::models/setting
   [setting db-spec]
-  (jdbc/insert! db-spec
-                :settings
-                (select-keys setting [:name :value])))
+  (first (jdbc/insert! db-spec
+                       :settings
+                       (select-keys setting [:name :value]))))
 
 (defmethod stg/update ::models/setting
   [setting db-spec]

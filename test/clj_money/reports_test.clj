@@ -1,6 +1,5 @@
 (ns clj-money.reports-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clj-time.core :as t]
@@ -20,9 +19,7 @@
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (defn- strip-account-ids
   [items]
@@ -216,11 +213,10 @@
                                           :quantity 700M}]}]}))
 
 (deftest create-an-income-statement
-  (let [context (realize storage-spec report-context)
+  (let [context (realize report-context)
         entity (find-entity context "Personal")
         actual (strip-account-ids
-                 (reports/income-statement storage-spec
-                                           entity
+                 (reports/income-statement entity
                                            (t/local-date 2016 1 1)
                                            (t/local-date 2016 1 31)))
         expected [{:caption "Income"
@@ -264,10 +260,9 @@
     (is (= expected actual) "The report renders the corect data")))
 
 (deftest create-a-balance-sheet-report
-  (let [context (realize storage-spec report-context)
+  (let [context (realize report-context)
         actual (strip-account-ids
-                 (reports/balance-sheet storage-spec
-                                        (-> context :entities first)
+                 (reports/balance-sheet (-> context :entities first)
                                         (t/local-date 2016 1 31)))
         expected [{:caption "Asset"
                    :value 749M
@@ -339,17 +334,16 @@
                        :commodity-id "MSFT"}])))
 
 (deftest balance-sheet-report-with-commodities
-  (let [context (realize storage-spec commodities-context)
+  (let [context (realize commodities-context)
         ira (find-account context "IRA")
         commodity (find-commodity context "AAPL")
-        _ (trading/buy storage-spec {:account-id (:id ira)
-                                     :commodity-id (:id commodity)
-                                     :shares 100M
-                                     :value 500M
-                                     :trade-date (t/local-date 2016 3 2)})
+        _ (trading/buy {:account-id (:id ira)
+                        :commodity-id (:id commodity)
+                        :shares 100M
+                        :value 500M
+                        :trade-date (t/local-date 2016 3 2)})
         report (strip-account-ids
-                 (reports/balance-sheet storage-spec
-                                        (-> context :entities first)
+                 (reports/balance-sheet (-> context :entities first)
                                         (t/local-date 2017 3 2)))
         expected [{:caption "Asset"
                    :value 3279M
@@ -389,46 +383,44 @@
                    :style :summary}]]
     (is (= expected report) "The report contains the correct data")))
 
+(def commodities-account-summary-context
+  (assoc commodities-context
+         :trades [{:type :buy
+                   :account-id "IRA"
+                   :commodity-id "GE"
+                   :shares 100M
+                   :value 1000M
+                   :trade-date (t/local-date 2015 1 1)}
+                  {:type :sell
+                   :account-id "IRA"
+                   :commodity-id "GE"
+                   :shares 100M
+                   :value 2000M
+                   :trade-date (t/local-date 2015 12 20)
+                   :lt-capital-gains-account-id "LT Gains"
+                   :st-capital-gains-account-id "ST Gains"
+                   :lt-capital-loss-account-id  "LT Losses"
+                   :st-capital-loss-account-id "ST Losses"}
+                  {:type :buy
+                   :account-id "IRA"
+                   :commodity-id "AAPL"
+                   :shares 50M
+                   :value 500M
+                   :trade-date (t/local-date 2016 3 2)}
+                  {:type :buy
+                   :account-id "IRA"
+                   :commodity-id "MSFT"
+                   :shares 50M
+                   :value 500M
+                   :trade-date (t/local-date 2016 3 2)}]))
+
 (deftest create-a-commodities-account-summary
-  (let [context (realize storage-spec commodities-context)
-        [ira
-         lt-gains
-         st-gains
-         lt-losses
-         st-losses] (find-accounts context "IRA"
-                                           "LT Gains"
-                                           "ST Gains"
-                                           "LT Losses"
-                                           "ST Losses")
-        [aapl msft ge] (find-commodities context "AAPL"
-                                                 "MSFT"
-                                                 "GE")
-        _ (trading/buy storage-spec {:account-id (:id ira)
-                                     :commodity-id (:id ge)
-                                     :shares 100M
-                                     :value 1000M
-                                     :trade-date (t/local-date 2015 1 1)})
-        _ (trading/sell storage-spec {:account-id (:id ira)
-                                      :commodity-id (:id ge)
-                                      :shares 100M
-                                      :value 2000M
-                                      :trade-date (t/local-date 2015 12 20)
-                                      :lt-capital-gains-account-id (:id lt-gains)
-                                      :st-capital-gains-account-id (:id st-gains)
-                                      :lt-capital-loss-account-id (:id lt-losses)
-                                      :st-capital-loss-account-id (:id st-losses)})
-        _ (trading/buy storage-spec {:account-id (:id ira)
-                                     :commodity-id (:id aapl)
-                                     :shares 50M
-                                     :value 500M
-                                     :trade-date (t/local-date 2016 3 2)})
-        _ (trading/buy storage-spec {:account-id (:id ira)
-                                     :commodity-id (:id msft)
-                                     :shares 50M
-                                     :value 500M
-                                     :trade-date (t/local-date 2016 3 2)})
-        actual (reports/commodities-account-summary storage-spec
-                                                    ira
+  (let [context (realize commodities-account-summary-context)
+        ira (find-account context "IRA")
+        [aapl msft] (find-commodities context
+                                      "AAPL"
+                                      "MSFT")
+        actual (reports/commodities-account-summary ira
                                                     (t/local-date 2017 3 2))
         expected [{:caption "Apple, Inc. (AAPL)"
                    :commodity-id (:id aapl)
@@ -757,10 +749,9 @@
             :actual-per-period 437.50M}]})
 
 (deftest create-a-budget-report
-  (let [context (realize storage-spec budget-report-context)
+  (let [context (realize budget-report-context)
         actual (update-in
-                 (reports/budget storage-spec
-                                 (-> context :budgets first)
+                 (reports/budget (-> context :budgets first)
                                  {:as-of (t/local-date 2016 2 29)})
                  [:items]
                  strip-account-ids)]
@@ -768,12 +759,11 @@
     (is (= expected-budget actual) "The function products the correct data")))
 
 (deftest create-a-budget-monitor
-  (let [context (realize storage-spec budget-report-context)
+  (let [context (realize budget-report-context)
         groceries (find-account context "Groceries")
 
         ; half-way through january
-        actual (-> (reports/monitor storage-spec
-                                    groceries
+        actual (-> (reports/monitor groceries
                                     (t/local-date 2016 1 15))
                    (dissoc :account))
         expected {:caption "Groceries"
@@ -791,7 +781,7 @@
     (is (= expected actual) "The correct information is returned")))
 
 (deftest get-a-lot-report
-  (let [context (realize storage-spec commodities-context)
+  (let [context (realize commodities-context)
         [ira
          lt-gains
          st-gains
@@ -806,35 +796,35 @@
          ge] (find-commodities context "AAPL"
                                        "MSFT"
                                        "GE")
-        p1 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
-                                      :commodity-id (:id aapl)
-                                      :account-id (:id ira)
-                                      :shares 10M
-                                      :value 100M})
-        p2 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
-                                      :commodity-id (:id msft)
-                                      :account-id (:id ira)
-                                      :shares 10M
-                                      :value 100M})
-        p3 (trading/buy storage-spec {:trade-date (t/local-date 2017 1 15)
-                                      :commodity-id (:id ge)
-                                      :account-id (:id ira)
-                                      :shares 10M
-                                      :value 100M})
-        s1 (trading/sell storage-spec {:trade-date (t/local-date 2017 1 31)
-                                       :commodity-id (:id aapl)
-                                       :account-id (:id ira)
-                                       :shares 5M
-                                       :value 55M
-                                       :lt-capital-gains-account-id (:id lt-gains)
-                                       :st-capital-gains-account-id (:id st-gains)
-                                       :lt-capital-loss-account-id (:id lt-losses)
-                                       :st-capital-loss-account-id (:id st-losses)})
+        p1 (trading/buy {:trade-date (t/local-date 2017 1 15)
+                         :commodity-id (:id aapl)
+                         :account-id (:id ira)
+                         :shares 10M
+                         :value 100M})
+        p2 (trading/buy {:trade-date (t/local-date 2017 1 15)
+                         :commodity-id (:id msft)
+                         :account-id (:id ira)
+                         :shares 10M
+                         :value 100M})
+        p3 (trading/buy {:trade-date (t/local-date 2017 1 15)
+                         :commodity-id (:id ge)
+                         :account-id (:id ira)
+                         :shares 10M
+                         :value 100M})
+        s1 (trading/sell {:trade-date (t/local-date 2017 1 31)
+                          :commodity-id (:id aapl)
+                          :account-id (:id ira)
+                          :shares 5M
+                          :value 55M
+                          :lt-capital-gains-account-id (:id lt-gains)
+                          :st-capital-gains-account-id (:id st-gains)
+                          :lt-capital-loss-account-id (:id lt-losses)
+                          :st-capital-loss-account-id (:id st-losses)})
         actual (map (fn [record]
                       (update-in record [:transactions] (fn [transactions]
                                                               (map #(dissoc % :lot-id)
                                                                    transactions))))
-                    (reports/lot-report storage-spec (:id ira)))
+                    (reports/lot-report (:id ira)))
         expected [{:caption "Apple, Inc. (AAPL)"
                    :commodity-id (:id aapl)
                    :purchase-date (t/local-date 2017 1 15)
@@ -1023,7 +1013,7 @@
     :gain-loss-percent 0.0M}])
 
 (deftest get-a-portfolio-report-by-account
-  (let [ctx (realize (env :db) portfolio-context)
+  (let [ctx (realize portfolio-context)
         entity (find-entity ctx "Personal")
         actual (map #(select-keys % [:caption
                                      :style
@@ -1033,13 +1023,13 @@
                                      :current-value
                                      :gain-loss
                                      :gain-loss-percent])
-                    (reports/portfolio (env :db) (:id entity) {:aggregate :by-account}))]
+                    (reports/portfolio (:id entity) {:aggregate :by-account}))]
     (pprint-diff expected-portfolio-by-account actual)
     (is (= expected-portfolio-by-account actual)
         "The correct report data is generated")))
 
 (deftest get-a-portfolio-report-by-commodity
-  (let [ctx (realize (env :db) portfolio-context)
+  (let [ctx (realize portfolio-context)
         entity (find-entity ctx "Personal")
         actual (map #(select-keys % [:caption
                                      :style
@@ -1049,7 +1039,7 @@
                                      :current-value
                                      :gain-loss
                                      :gain-loss-percent])
-                    (reports/portfolio (env :db) (:id entity) {:aggregate :by-commodity}))]
+                    (reports/portfolio (:id entity) {:aggregate :by-commodity}))]
     (pprint-diff expected-portfolio-by-commodity actual)
     (is (= expected-portfolio-by-commodity actual)
         "The correct report data is generated")))

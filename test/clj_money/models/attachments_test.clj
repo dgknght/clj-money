@@ -1,6 +1,5 @@
 (ns clj-money.models.attachments-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.validation :as validation]
@@ -11,9 +10,7 @@
                                             find-attachment]]
             [clj-money.test-helpers :refer [reset-db]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def ^:private attach-context
   {:users [(factory :user, {:email "john@doe.com"})]
@@ -47,31 +44,30 @@
    :caption "receipt"})
 
 (deftest create-an-attachment
-  (let [context (realize storage-spec attach-context)
-        result (attachments/create storage-spec (attributes context))
+  (let [context (realize attach-context)
+        result (attachments/create (attributes context))
         transaction (-> context :transactions first)
-        retrieved (->> {:transaction-id (:id transaction)
-                        :transaction-date (:transaction-date transaction)}
-                       (attachments/search storage-spec)
-                       first)]
+        retrieved (first
+                    (attachments/search {:transaction-id (:id transaction)
+                                         :transaction-date (:transaction-date transaction)}))]
     (is (empty? (validation/error-messages result))
         "The attachment is saved successfully")
     (is retrieved "The value can be retreived from the database")
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")))
 
 (deftest transaction-id-is-required
-  (let [context (realize storage-spec attach-context)
-        result (attachments/create storage-spec (dissoc (attributes context)
-                                                        :transaction-id))]
+  (let [context (realize attach-context)
+        result (attachments/create (dissoc (attributes context)
+                                           :transaction-id))]
     (is (not (validation/valid? result))
         "The value can be retreived from the database")
     (is (seq (validation/error-messages result :transaction-id))
         "The transaction-id attribute has an error message")))
 
 (deftest image-id-is-required
-  (let [context (realize storage-spec attach-context)
-        result (attachments/create storage-spec (dissoc (attributes context)
-                                                        :image-id))]
+  (let [context (realize attach-context)
+        result (attachments/create (dissoc (attributes context)
+                                           :image-id))]
     (is (not (validation/valid? result))
         "The value can be retreived from the database")
     (is (seq (validation/error-messages result :image-id))
@@ -85,19 +81,18 @@
                           :caption "receipt"}]))
 
 (deftest update-an-attachment
-  (let [ctx (realize (env :db) update-context)
+  (let [ctx (realize update-context)
         attachment (find-attachment ctx "receipt")
-        result (attachments/update (env :db)
-                                   (assoc attachment
+        result (attachments/update (assoc attachment
                                           :caption "Updated caption"))
-        retrieved (attachments/find-by-id (env :db) (:id result))]
+        retrieved (attachments/find attachment)]
     (is (empty? (validation/error-messages result)) "There are no validation errors")
     (is (= "Updated caption" (:caption result)) "The updated value is returned")
     (is (= "Updated caption" (:caption retrieved)) "The correct value is retrieved")))
 
 (deftest delete-an-attachment
-  (let [context (realize storage-spec update-context)
+  (let [context (realize update-context)
         attachment (-> context :attachments first)
-        _ (attachments/delete storage-spec attachment)
-        retrieved (attachments/find-by-id storage-spec (:id attachment))]
+        _ (attachments/delete attachment)
+        retrieved (attachments/find attachment)]
     (is (nil? retrieved) "The value cannot be retrieved after delete")))

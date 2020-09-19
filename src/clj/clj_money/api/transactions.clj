@@ -1,25 +1,23 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
-            [environ.core :refer [env]]
             [stowaway.core :as storage]
             [clj-money.util :refer [uuid
                                     update-in-if
                                     unserialize-date]]
-            [clj-money.api :refer [->response]]
+            [clj-money.api :refer [->response
+                                   creation-response]]
             [clj-money.models :as models]
             [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
             [clj-money.models.transactions :as trans]
-            [clj-money.validation :as v]
             [clj-money.authorization.transactions]))
 
 (defn- index
   [{:keys [params authenticated]}]
   (->response
-    (trans/search (env :db)
-                  (-> params
+    (trans/search (-> params
                       (assoc :transaction-date [:between
                                                 (unserialize-date (:start params))
                                                 (unserialize-date (:end params))])
@@ -28,9 +26,8 @@
 
 (defn- show
   [{{:keys [id transaction-date]} :params authenticated :authenticated}]
-  (->response (authorize (trans/find-by-id (env :db)
-                                           id
-                                           (unserialize-date transaction-date))
+  (->response (authorize (trans/find id
+                                     (unserialize-date transaction-date))
                          ::authorization/show
                          authenticated)))
 
@@ -52,17 +49,14 @@
 
 (defn- create
   [{:keys [params body authenticated]}]
-  (let [result (trans/create (env :db)
-                             (-> body
-                                 (update-in-if [:transaction-date] unserialize-date)
-                                 (update-in-if [:items] #(map parse-item %))
-                                 (select-keys attribute-keys)
-                                 (assoc :entity-id (:entity-id params))
-                                 (storage/tag ::models/transaction)
-                                 (authorize ::authorization/create authenticated)))]
-    (->response result (if (v/has-error? result)
-                         400
-                         201))))
+  (creation-response (-> body
+                         (update-in-if [:transaction-date] unserialize-date)
+                         (update-in-if [:items] #(map parse-item %))
+                         (select-keys attribute-keys)
+                         (assoc :entity-id (:entity-id params))
+                         (storage/tag ::models/transaction)
+                         (authorize ::authorization/create authenticated)
+                         trans/create)))
 
 (defn- apply-to-existing
   [updated-item items]
@@ -89,22 +83,18 @@
 (defn- update
   [{:keys [params body authenticated]}]
   (let [trans-date (some #(params %) [:original-transaction-date :transaction-date])
-        transaction (authorize (trans/find-by-id (env :db)
-                                                 (:id params)
-                                                 trans-date)
+        transaction (authorize (trans/find (:id params) trans-date)
                                ::authorization/update
                                authenticated)]
-    (->response (trans/update (env :db) (apply-update transaction body)))))
+    (->response (trans/update (apply-update transaction body)))))
 
 (defn- delete
   [{:keys [params authenticated]}]
-  (let [transaction (authorize (trans/find-by-id (env :db)
-                                                 (:id params)
-                                                 (:transaction-date params))
-                               ::authorization/destroy
-                               authenticated)]
-    (trans/delete (env :db) transaction)
-    (->response)))
+  (-> (trans/find (:id params)
+                  (:transaction-date params))
+      (authorize ::authorization/destroy authenticated)
+      trans/delete)
+  (->response))
 
 (defroutes routes
   (GET "/api/entities/:entity-id/:start/:end/transactions" req (index req))

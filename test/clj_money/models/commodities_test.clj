@@ -1,7 +1,5 @@
 (ns clj-money.models.commodities-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [environ.core :refer [env]]
-            [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
@@ -9,12 +7,9 @@
             [clj-money.validation :as validation]
             [clj-money.test-helpers :refer [reset-db
                                             pprint-diff]]
-            [clj-money.models.commodities :as commodities]
-            [clj-money.models.prices :as prices]))
+            [clj-money.models.commodities :as commodities]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def ^:private commodity-context
   {:users [(factory :user)]
@@ -30,11 +25,11 @@
    :symbol "AAPL"})
 
 (deftest create-a-commodity
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (attributes context)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})
         expected [{:name "Apple"
                    :type :stock
                    :symbol "AAPL"
@@ -50,11 +45,11 @@
         "The commodity can be retrieved after create")))
 
 (deftest entity-id-is-required
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :entity-id)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (= ["Entity id is required"]
            (validation/error-messages result :entity-id))
         "The result has an error messages")
@@ -63,11 +58,11 @@
         "The commodity is not retrieved after create")))
 
 (deftest type-is-required
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :type)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (= ["Type is required"]
            (validation/error-messages result :type))
         "The result has an error messages")
@@ -76,11 +71,11 @@
         "The commodity is not retrieved after create")))
 
 (deftest type-can-be-currency
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :currency)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
@@ -88,11 +83,11 @@
         "The commodity is retrieved after create")))
 
 (deftest type-can-be-stock
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :stock)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
@@ -100,11 +95,11 @@
         "The commodity is retrieved after create")))
 
 (deftest type-can-be-fund
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :fund)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (empty?  (validation/error-messages result :type))
         "The result has no error messages")
     (is (seq (->> commodities
@@ -112,11 +107,11 @@
         "The commodity is retrieved after create")))
 
 (deftest type-cannot-be-invalid
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :not-a-valid-type)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (= ["Type must be one of: fund, currency, stock"]
            (validation/error-messages result :type))
         "The result has an error messages")
@@ -125,11 +120,11 @@
         "The commodity is not retrieved after create")))
 
 (deftest name-is-required
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :name)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (= ["Name is required"]
            (validation/error-messages result :name))
         "The result has an error messages")
@@ -138,12 +133,12 @@
         "The commodity is not retrieved after create")))
 
 (deftest name-is-unique-for-an-entity-and-exchange
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (attributes context) 
-        result-1 (commodities/create storage-spec commodity)
-        result-2 (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result-1 (commodities/create commodity)
+        result-2 (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (empty? (validation/error-messages result-1))
         "The first is created successfully")
     (is (= ["Name must be unique for a given exchange"]
@@ -155,15 +150,15 @@
         "The commodity exists only once after both calls to create")))
 
 (deftest name-can-be-duplicated-between-exchanges
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-1-id (-> context :entities first :id)
         entity-2-id (-> context :entities second :id)
         commodity-1 (assoc (attributes context) :entity-id entity-1-id)
         commodity-2 (assoc (attributes context) :entity-id entity-2-id)
-        result-1 (commodities/create storage-spec commodity-1)
-        result-2 (commodities/create storage-spec commodity-2)
-        commodities-1 (commodities/search storage-spec {:entity-id entity-1-id})
-        commodities-2 (commodities/search storage-spec {:entity-id entity-2-id})]
+        result-1 (commodities/create commodity-1)
+        result-2 (commodities/create commodity-2)
+        commodities-1 (commodities/search {:entity-id entity-1-id})
+        commodities-2 (commodities/search {:entity-id entity-2-id})]
     (is (empty? (validation/error-messages result-1))
         "The first is created successfully")
     (is (empty? (validation/error-messages result-2))
@@ -178,19 +173,19 @@
         "The second commodity can be retrieved after create")))
 
 (deftest name-can-be-duplicated-between-entities
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-1 (-> context :entities first)
         entity-2 (-> context :entities second)
-        _ (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
-        c2 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-2)))]
+        _ (commodities/create (assoc (attributes context) :entity-id (:id entity-1)))
+        c2 (commodities/create (assoc (attributes context) :entity-id (:id entity-2)))]
     (is (empty? (validation/error-messages c2)))))
 
 (deftest symbol-is-required
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :symbol)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (= ["Symbol is required"]
            (validation/error-messages result :symbol))
         "The result has an error message")
@@ -199,12 +194,12 @@
         "The commodity is not retrieved after create")))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (attributes context) 
-        result-1 (commodities/create storage-spec commodity)
-        result-2 (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result-1 (commodities/create commodity)
+        result-2 (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (empty? (validation/error-messages result-1))
         "The first is created successfully")
     (is (= ["Symbol must be unique for a given exchange"]
@@ -216,25 +211,25 @@
         "The commodity exists only once after both calls to create")))
 
 (deftest symbol-can-be-duplicated-between-exchanges
-  (let [context (realize storage-spec commodity-context)
-        _ (commodities/create storage-spec (assoc (attributes context) :exchange :nasdaq))
-        c2 (commodities/create storage-spec (assoc (attributes context) :exchange :nyse))]
+  (let [context (realize commodity-context)
+        _ (commodities/create (assoc (attributes context) :exchange :nasdaq))
+        c2 (commodities/create (assoc (attributes context) :exchange :nyse))]
     (is (empty? (validation/error-messages c2)))))
 
 (deftest symbol-can-be-duplicated-between-entities
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-1 (-> context :entities first)
         entity-2 (-> context :entities second)
-        _ (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-1)))
-        c2 (commodities/create storage-spec (assoc (attributes context) :entity-id (:id entity-2)))]
+        _ (commodities/create (assoc (attributes context) :entity-id (:id entity-1)))
+        c2 (commodities/create (assoc (attributes context) :entity-id (:id entity-2)))]
     (is (empty? (validation/error-messages c2)))))
 
 (deftest exchange-is-required-for-stocks
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :exchange)
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        commodities (commodities/search {:entity-id entity-id})]
     (is (= ["Exchange is required"]
            (validation/error-messages result :exchange))
         "The result has an error message")
@@ -243,47 +238,47 @@
         "The commodity is not retrieved after create")))
 
 (deftest exchange-is-not-required-for-currencies
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity {:entity-id entity-id
                    :name "US Dollar"
                    :symbol "USD"
                    :type :currency}
-        result (commodities/create storage-spec commodity)
-        commodities (commodities/search storage-spec {:entity-id entity-id})]
+        result (commodities/create commodity)
+        retrieved (commodities/find-by {:entity-id entity-id
+                                        :symbol "USD"})]
     (is (empty?  (validation/error-messages result :exchange))
         "The result has no error messages")
-    (is (seq (->> commodities
-                  (filter #(= "USD" (:symbol %)))))
+    (is retrieved
         "The commodity is retrieved after create")))
 
 (deftest exchange-can-be-nasdaq
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         commodity (assoc (attributes context)
                          :exchange :nasdaq
                          :symbol "AAPL"
                          :name "Apple")
-        result (commodities/create storage-spec commodity)]
+        result (commodities/create commodity)]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")))
 
 (deftest exchange-can-be-nyse
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         commodity (assoc (attributes context)
                          :exchange :nyse
                          :symbol "HD"
                          :name "Home Depot")
-        result (commodities/create storage-spec commodity)]
+        result (commodities/create commodity)]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")))
 
 (deftest exchange-must-be-valid
-  (let [context (realize storage-spec commodity-context)
+  (let [context (realize commodity-context)
         commodity (assoc (attributes context)
                          :exchange :not-a-valid-exchange
                          :symbol "NUNYA"
                          :name "None of your business")
-        result (commodities/create storage-spec commodity)]
+        result (commodities/create commodity)]
     (is (= ["Exchange must be one of: amex, nasdaq, nyse"]
            (validation/error-messages result :exchange))
         "The result has an error messages")))
@@ -295,45 +290,22 @@
                                           :exchange :nasdaq}]))
 
 (deftest a-commodity-can-be-updated
-  (let [context (realize storage-spec existing-commodity-context)
+  (let [context (realize existing-commodity-context)
         commodity (-> context :commodities first)
-        result (commodities/update storage-spec (assoc commodity :name "New name"))
-        retrieved (commodities/find-by-id storage-spec (:id commodity))]
+        result (commodities/update (assoc commodity :name "New name"))
+        retrieved (commodities/find commodity)]
     (is (empty? (validation/error-messages result))
         "The result has no validation errors")
     (is (= "New name" (:name result)) "The return value has the correct name")
     (is (= "New name" (:name retrieved)) "The retrieved value has the correct name")))
 
 (deftest a-commodity-can-be-deleted
-  (let [context (realize storage-spec existing-commodity-context)
+  (let [context (realize existing-commodity-context)
         commodity (-> context :commodities first)
-        _ (commodities/delete storage-spec commodity)
-        retrieved (commodities/find-by-id storage-spec (:id commodity))]
+        _ (commodities/delete commodity)
+        retrieved (commodities/find commodity)]
     (is (not retrieved)
         "The commodity cannot be retrieved after delete")))
-
-(def ^:private commodity-with-prices-context
-  (assoc existing-commodity-context :prices [{:commodity-id "AAPL"
-                                              :trade-date (t/local-date 2016 2 27)
-                                              :price 10.00M}
-                                             {:commodity-id "AAPL"
-                                              :trade-date (t/local-date 2016 3 2)
-                                              :price 10.50M}]))
-
-(deftest deleting-a-commodity-deletes-the-prices
-  (let [context (realize storage-spec commodity-with-prices-context)
-        commodity (-> context :commodities first)
-        criteria {:commodity-id (:id commodity)
-                  :trade-date [:between
-                               (t/local-date 2016 1 1)
-                               (t/local-date 2016 12 31)]}
-        prices-before (prices/search storage-spec criteria)
-        _ (commodities/delete storage-spec commodity)
-        prices-after (prices/search storage-spec criteria)]
-    (is (seq prices-before)
-        "The commodity prices exist before delete")
-    (is (empty? prices-after)
-        "The commodity prices are absent after delete")))
 
 (def ^:private count-context
   (assoc commodity-context :commodities [{:name "Microsoft, Inc."
@@ -356,7 +328,7 @@
                                           :type :currency}]))
 
 (deftest get-a-count-of-commodities
-  (let [ctx (realize storage-spec count-context)
+  (let [ctx (realize count-context)
         entity (find-entity ctx "Personal")
-        result (commodities/count storage-spec {:entity-id (:id entity)})]
+        result (commodities/count {:entity-id (:id entity)})]
     (is  (= 3 result))))

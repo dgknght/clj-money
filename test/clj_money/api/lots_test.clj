@@ -1,6 +1,5 @@
 (ns clj-money.api.lots-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
@@ -18,7 +17,7 @@
                                             pprint-diff]]
             [clj-money.web.server :refer [app]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private list-context
   {:users [(factory :user {:email "john@doe.com"})
@@ -71,7 +70,7 @@
 
 (defn- get-lots-for-an-account
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         account (find-account ctx "IRA")
         commodity (find-commodity ctx "FND")
         user (find-user ctx email)
@@ -118,7 +117,7 @@
 
 (defn- get-lots-for-multiple-accounts
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         ira (find-account ctx "IRA")
         opening (find-account ctx "Opening Balances")
         user (find-user ctx email)

@@ -1,6 +1,5 @@
 (ns clj-money.api.accounts-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
@@ -19,9 +18,7 @@
             [clj-money.web.server :refer [app]]
             [clj-money.models.accounts :as accounts]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def ^:private context
   {:users (->> ["john@doe.com" "jane@doe.com"]
@@ -38,20 +35,21 @@
 
 (defn- create-an-account
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         usd (find-commodity ctx "USD")
-        response (app (-> (req/request :post (path :api
-                                                   :entities
-                                                   (:id entity)
-                                                   :accounts))
-                          (req/json-body {:name "Savings"
-                                          :type "asset"
-                                          :commodity-id (:id usd)})
-                          (add-auth user)))
+        response (-> (req/request :post (path :api
+                                              :entities
+                                              (:id entity)
+                                              :accounts))
+                     (req/json-body {:name "Savings"
+                                     :type "asset"
+                                     :commodity-id (:id usd)})
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)
-        retrieved (accounts/search (env :db) {:entity-id (:id entity)})]
+        retrieved (accounts/search {:entity-id (:id entity)})]
     [response body retrieved]))
 
 (defn- assert-successful-create
@@ -78,14 +76,15 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize  context)
         entity (find-entity ctx "Personal")
         user (find-user ctx email)
-        response (app (-> (req/request :get (path :api
-                                                  :entities
-                                                  (:id entity)
-                                                  :accounts))
-                          (add-auth user)))
+        response (-> (req/request :get (path :api
+                                             :entities
+                                             (:id entity)
+                                             :accounts))
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)]
     [response body]))
 
@@ -111,13 +110,14 @@
 
 (defn- get-an-account
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize  context)
         checking (find-account ctx "Checking")
         user (find-user ctx email)
-        response (app (-> (req/request :get (path :api
-                                                  :accounts
-                                                  (:id checking)))
-                          (add-auth user)))
+        response (-> (req/request :get (path :api
+                                             :accounts
+                                             (:id checking)))
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)]
     [response body]))
 
@@ -141,18 +141,19 @@
 
 (defn- update-an-account
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize  context)
         account (find-account ctx "Checking")
         user (find-user ctx email)
-        response (app (-> (req/request :patch (path :api
-                                                    :accounts
-                                                    (:id account)))
-                          (req/json-body (-> account
-                                             (assoc :name "New Name")
-                                             (select-keys [:name :type :commodity-id :parent-id])))
-                          (add-auth user)))
+        response (-> (req/request :patch (path :api
+                                               :accounts
+                                               (:id account)))
+                     (req/json-body (-> account
+                                        (assoc :name "New Name")
+                                        (select-keys [:name :type :commodity-id :parent-id])))
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)
-        retrieved (accounts/find-by-id (env :db)  (:id account))]
+        retrieved (accounts/find account)]
     [response body retrieved]))
 
 (defn- assert-successful-update
@@ -180,14 +181,15 @@
 
 (defn- delete-an-account
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         account (find-account ctx "Checking")
         user (find-user ctx email)
-        response (app (-> (req/request :delete (path :api
-                                                    :accounts
-                                                    (:id account)))
-                          (add-auth user)))
-        retrieved (accounts/find-by-id (env :db)  (:id account))]
+        response (-> (req/request :delete (path :api
+                                                :accounts
+                                                (:id account)))
+                     (add-auth user)
+                     app)
+        retrieved (accounts/find account)]
     [response retrieved]))
 
 (defn- assert-successful-delete

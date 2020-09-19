@@ -1,7 +1,6 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer [deftest use-fixtures testing is]]
             [clojure.set :refer [rename-keys]]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.validation :as validation]
@@ -23,26 +22,23 @@
                                             pprint-diff
                                             assert-validation-error]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (defn- assert-account-quantities
   [& args]
   (->> args
        (partition 2)
        (map (fn [[account balance]]
-              (is (= balance (:quantity (accounts/reload storage-spec account)))
+              (is (= balance (:quantity (accounts/reload account)))
                   (format "%s should have the quantity %s"
                           (:name account)
                           balance))))
        dorun))
 
 (defn items-by-account
-  [account-id]
+  [account]
   (transactions/items-by-account
-    storage-spec
-    account-id
+    account
     [(t/local-date 2015 1 1)
      (t/local-date 2017 12 31)]))
 
@@ -76,15 +72,16 @@
               :quantity 1000M}]}))
 
 (deftest create-a-transaction
-  (let [context (realize storage-spec base-context)
-        transaction (transactions/create storage-spec (attributes context))]
+  (let [context (realize base-context)
+        transaction (transactions/create (attributes context))]
+
+    (assert transaction "A transaction must be returned")
+
     (testing "return value includes the new id"
       (is (empty? (validation/error-messages transaction)))
       (is (:id transaction) "A map with the new ID is returned"))
     (testing "transaction can be retrieved"
-      (let [actual (-> (transactions/find-by-id storage-spec
-                                                (:id transaction)
-                                                (:transaction-date transaction))
+      (let [actual (-> (transactions/find transaction)
                        (dissoc :id :created-at :updated-at)
                        (update-in
                          [:items]
@@ -134,104 +131,96 @@
                                                     (do
                                                       (swap! call-count inc)
                                                       (update-in item [:action] name))))]
-      (let [context (realize storage-spec base-context)
+      (let [context (realize base-context)
             [checking
              salary] (:accounts context)
             _ (try
-                (transactions/create storage-spec (attributes context))
+                (transactions/create (attributes context))
                 (catch RuntimeException _
                   nil))]
         (testing "records are not created"
           (is (= 0 (count (transactions/search
-                            storage-spec
                             {:entity-id (-> context :entities first :id)
                              :transaction-date "2016"})))
               "The transaction should not be saved")
-          (is (= 0 (count (items-by-account (:id checking))))
+          (is (= 0 (count (items-by-account checking)))
               "The transaction item for checking should not be created")
-          (is (= 0 (count (items-by-account (:id salary))))
+          (is (= 0 (count (items-by-account salary)))
               "The transaction item for salary should not be created"))
         (assert-account-quantities checking 0M salary 0M)))))
 
 (deftest transaction-date-is-required
-  (let [context (realize storage-spec base-context)
-        transaction (transactions/create storage-spec (-> (attributes context)
-                                                          (dissoc :transaction-date)))]
+  (let [context (realize base-context)
+        transaction (transactions/create (dissoc (attributes context)
+                                                 :transaction-date))]
     (is (validation/has-error? transaction :transaction-date))))
 
 (deftest entity-id-is-required
-  (let [context (realize storage-spec base-context)
-        transaction (transactions/create storage-spec (-> (attributes context)
-                                                          (dissoc :entity-id)))]
+  (let [context (realize base-context)
+        transaction (transactions/create (dissoc (attributes context)
+                                                 :entity-id))]
     (is (validation/has-error? transaction :entity-id))))
 
 (deftest items-are-required
-  (let [context (realize storage-spec base-context)]
+  (let [context (realize base-context)]
     (assert-validation-error :items "Count must be greater than or equal to 1"
                              (transactions/create
-                               storage-spec
                                (-> context
                                    attributes
                                    (assoc :items []))))))
 
 (deftest item-account-id-is-required
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         transaction (transactions/create
-                      storage-spec
-                      (-> (attributes context)
-                          (update-in
-                            [:items 0]
-                            #(dissoc % :account-id))))]
+                      (update-in
+                        (attributes context)
+                        [:items 0]
+                        #(dissoc % :account-id)))]
     (is (validation/has-error? transaction :items))))
 
 (deftest item-quantity-is-required
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         transaction (transactions/create
-                      storage-spec
-                      (-> (attributes context)
-                          (update-in
-                            [:items 0]
-                            #(dissoc % :quantity))))]
+                      (update-in
+                        (attributes context)
+                        [:items 0]
+                        #(dissoc % :quantity)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-quantity-must-be-greater-than-zero
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         transaction (transactions/create
-                      storage-spec
-                      (-> (attributes context)
-                          (update-in
-                            [:items 0]
-                            #(assoc % :quantity -1000M))))]
+                      (update-in
+                        (attributes context)
+                        [:items 0]
+                        #(assoc % :quantity -1000M)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-is-required
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         transaction (transactions/create
-                      storage-spec
-                      (-> (attributes context)
-                          (update-in
-                            [:items 0]
-                            #(dissoc % :action))))]
+                      (update-in
+                        (attributes context)
+                        [:items 0]
+                        #(dissoc % :action)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-must-be-debit-or-created
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         transaction (transactions/create
-                      storage-spec
-                      (-> (attributes context)
-                          (update-in
-                            [:items 0]
-                            #(assoc % :action :not-valid))))]
+                      (update-in
+                        (attributes context)
+                        [:items 0]
+                        #(assoc % :action :not-valid)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest sum-of-debits-must-equal-sum-of-credits
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         transaction (transactions/create
-                      storage-spec
-                      (-> (attributes context)
-                          (update-in
-                            [:items 0]
-                            #(assoc % :quantity 1001M))))]
+                      (update-in
+                        (attributes context)
+                        [:items 0]
+                        #(assoc % :quantity 1001M)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (def balance-context
@@ -257,7 +246,7 @@
 
 
 (deftest item-balances-are-set-when-saved
-  (let [context (realize storage-spec balance-context)
+  (let [context (realize balance-context)
         [checking-items
          salary-items
          groceries-items] (map #(items-by-account (:id %))
@@ -272,17 +261,17 @@
           "The groceries account balances are correct")))
 
 (deftest item-indexes-are-set-when-saved
-  (let [context (realize storage-spec balance-context)
+  (let [context (realize balance-context)
         [checking-items
          salary-items
-         groceries-items] (map #(items-by-account (:id %))
+         groceries-items] (map items-by-account
                                (:accounts context))]
     (is (= [1 0] (map :index checking-items)) "The checking transaction items have correct indexes")
     (is (= [0] (map :index salary-items)) "The salary transaction items have the correct indexes")
     (is (= [0] (map :index groceries-items)) "The groceries transaction items have the correct indexes")))
 
 (deftest account-balances-are-set-when-saved
-  (let [context (realize storage-spec balance-context)
+  (let [context (realize balance-context)
         [checking
          salary
          groceries] (find-accounts context "Checking"
@@ -292,38 +281,38 @@
 
 (def insert-context
   (merge base-context
-  {:transactions [{:transaction-date (t/local-date 2016 3 2)
-                   :entity-id "Personal"
-                   :description "Paycheck"
-                   :items [{:action :debit
-                            :account-id "Checking"
-                            :quantity 1000}
-                           {:action :credit
-                            :account-id "Salary"
-                            :quantity 1000}]}
-                  {:transaction-date (t/local-date 2016 3 10)
-                   :entity-id "Personal"
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :quantity 100}
-                           {:action :credit
-                            :account-id "Checking"
-                            :quantity 100}]}
-                  {:transaction-date (t/local-date 2016 3 3)
-                   :entity-id "Personal"
-                   :description "Kroger"
-                   :items [{:action :debit
-                            :account-id "Groceries"
-                            :quantity 99}
-                           {:action :credit
-                            :account-id "Checking"
-                            :quantity 99}]}]}))
+         {:transactions [{:transaction-date (t/local-date 2016 3 2)
+                          :entity-id "Personal"
+                          :description "Paycheck"
+                          :items [{:action :debit
+                                   :account-id "Checking"
+                                   :quantity 1000}
+                                  {:action :credit
+                                   :account-id "Salary"
+                                   :quantity 1000}]}
+                         {:transaction-date (t/local-date 2016 3 10)
+                          :entity-id "Personal"
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :quantity 100}
+                                  {:action :credit
+                                   :account-id "Checking"
+                                   :quantity 100}]}
+                         {:transaction-date (t/local-date 2016 3 3)
+                          :entity-id "Personal"
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :quantity 99}
+                                  {:action :credit
+                                   :account-id "Checking"
+                                   :quantity 99}]}]}))
 
 (deftest insert-transaction-before-the-end
-  (let [context (realize storage-spec insert-context)
-        [checking-items] (map #(items-by-account (:id %))
-                              (:accounts context))]
+  (let [ctx (realize insert-context)
+        checking (find-account ctx "Checking")
+        items (items-by-account (:id checking))]
     (is (= [{:index 2
              :quantity 100M
              :balance 801M}
@@ -333,11 +322,13 @@
             {:index 0
              :quantity 1000M
              :balance 1000M}]
-           (map #(select-keys % [:index :quantity :balance]) checking-items))
+           (map #(select-keys % [:index :quantity :balance]) items))
         "The checking item balances should be correct")
     (is (= [801M 1000M 199M]
-           (map #(:quantity (accounts/find-by-id storage-spec (:id %))) (:accounts context)))
-        "The checking account has the correct balance")))
+           (map (comp :quantity
+                      accounts/find)
+                (:accounts ctx)))
+        "The accounts have the correct balances")))
 
 (def multi-context
   (-> base-context
@@ -371,7 +362,7 @@
                                        :quantity 100}]}]})))
 
 (deftest create-a-transaction-with-multiple-items-for-one-account
-  (let [context (realize storage-spec multi-context)
+  (let [context (realize multi-context)
         checking (find-account context "Checking")
         checking-items (items-by-account (:id checking))
         expected-checking-items #{{:transaction-date (t/local-date 2016 3 10) :quantity  100M}
@@ -416,7 +407,7 @@
                                    :quantity 102}]}]}))
 
 (deftest delete-a-transaction
-  (let [context (realize storage-spec delete-context)
+  (let [context (realize delete-context)
         [checking
          _
          groceries] (:accounts context)
@@ -424,7 +415,7 @@
         trans (-> context
                   :transactions
                   second)
-        _ (transactions/delete storage-spec trans)
+        _ (transactions/delete trans)
         checking-items-after (items-by-account (:id checking))]
     (testing "transaction item balances are adjusted"
       (let [expected-before [{:index 2 :quantity 102M :balance 797M}
@@ -442,8 +433,8 @@
         (is (= expected-after actual-after)
             "Checking should have the correct items after delete")))
     (testing "account balances are adjusted"
-      (let [checking-after (accounts/find-by-id storage-spec (:id checking))
-            groceries-after (accounts/find-by-id storage-spec (:id groceries))]
+      (let [checking-after (accounts/find checking)
+            groceries-after (accounts/find groceries)]
         (is (= 898M (:quantity checking-after))
             "Checking should have the correct balance after delete")
         (is (= 102M (:quantity groceries-after))
@@ -481,18 +472,16 @@
                               :quantity 102}]}]}))
 
 (deftest get-a-transaction
-  (let [context (realize storage-spec update-context)
+  (let [context (realize update-context)
         {:keys [id transaction-date]} (find-transaction context (t/local-date 2016 3 2) "Paycheck")]
     (testing "items are not included if not specified"
-      (let [transaction (first (transactions/search storage-spec
-                                                    {:id id
+      (let [transaction (first (transactions/search {:id id
                                                      :transaction-date transaction-date}))]
         (is transaction "The transaction is retrieved successfully")
         (is (nil? (:items transaction)) "The items are not included")
         (is (= 1000M (:value transaction)) "The correct value is returned")))
     (testing "items are included if specified"
-      (let [transaction (first (transactions/search storage-spec
-                                                    {:id id
+      (let [transaction (first (transactions/search {:id id
                                                      :transaction-date transaction-date}
                                                     {:include-items? true}))]
         (is transaction "The transaction is retrieved successfully")
@@ -533,55 +522,55 @@
                      :credit-account-id "Salary"}]}))
 
 (deftest search-by-year
-  (let [context (realize storage-spec search-context)
+  (let [context (realize search-context)
         entity (find-entity context "Personal")
-        actual (transactions/search storage-spec {:transaction-date "2016"
-                                                  :entity-id (:id entity)})]
+        actual (transactions/search {:transaction-date "2016"
+                                     :entity-id (:id entity)})]
     (is (= [(t/local-date 2016 1 1)
             (t/local-date 2016 6 1)]
            (map :transaction-date actual))
         "The transactions from the specified year are returned")))
 
 (deftest search-by-month
-  (let [context (realize storage-spec search-context)
+  (let [context (realize search-context)
         entity (find-entity context "Personal")
-        actual (transactions/search storage-spec {:transaction-date "2017-06"
-                                                  :entity-id (:id entity)})]
+        actual (transactions/search {:transaction-date "2017-06"
+                                     :entity-id (:id entity)})]
     (is (= [(t/local-date 2017 6 1)
             (t/local-date 2017 6 15)]
            (map :transaction-date actual))
         "The transactions from the specified month are returned")))
 
 (deftest search-by-date-string
-  (let [context (realize storage-spec search-context)
+  (let [context (realize search-context)
         entity (find-entity context "Personal")
-        actual (transactions/search storage-spec {:transaction-date "2017-06-01"
-                                                  :entity-id (:id entity)})]
+        actual (transactions/search {:transaction-date "2017-06-01"
+                                     :entity-id (:id entity)})]
     (is (= [(t/local-date 2017 6 1)] (map :transaction-date actual))
         "The transactions from the specified day are returned")))
 
 (deftest search-by-date
-  (let [context (realize storage-spec search-context)
+  (let [context (realize search-context)
         entity (find-entity context "Personal")
-        actual (transactions/search storage-spec {:transaction-date (t/local-date 2017 6 15)
-                                                  :entity-id (:id entity)})]
+        actual (transactions/search {:transaction-date (t/local-date 2017 6 15)
+                                     :entity-id (:id entity)})]
     (is (= [(t/local-date 2017 6 15)] (map :transaction-date actual))
         "The transactions from the specified day are returned")))
 
 (deftest search-by-date-vector
-  (let [context (realize storage-spec search-context)
+  (let [context (realize search-context)
         entity (find-entity context "Personal")
-        actual (transactions/search storage-spec {:transaction-date [:between
-                                                                     (t/local-date 2017 6 1)
-                                                                     (t/local-date 2017 6 30)]
-                                                  :entity-id (:id entity)})]
+        actual (transactions/search {:transaction-date [:between
+                                                        (t/local-date 2017 6 1)
+                                                        (t/local-date 2017 6 30)]
+                                     :entity-id (:id entity)})]
     (is (= [(t/local-date 2017 6 1)
             (t/local-date 2017 6 15)]
            (map :transaction-date actual))
         "The transactions from the specified day are returned")))
 
 (deftest update-a-transaction-change-quantity
-  (let [context (realize storage-spec update-context)
+  (let [context (realize update-context)
         [checking
          _
          groceries] (:accounts context)
@@ -590,7 +579,7 @@
         updated (-> t2
                     (assoc-in [:items 0 :quantity] 99.99M)
                     (assoc-in [:items 1 :quantity] 99.99M))
-        result (transactions/update storage-spec updated)
+        result (transactions/update updated)
         expected-checking [{:index 2 :quantity 102M   :balance 798.01M}
                            {:index 1 :quantity 99.99M :balance 900.01M}
                            {:index 0 :quantity 1000M  :balance 1000M}]
@@ -614,7 +603,7 @@
 (deftest rollback-a-failed-update
   (let [real-reload transactions/reload
         call-count (atom 0)
-        context (realize storage-spec update-context)
+        context (realize update-context)
         [checking
          _
          groceries] (:accounts context)
@@ -622,39 +611,33 @@
         updated (-> t2
                     (assoc-in [:items 0 :quantity] 99.99M)
                     (assoc-in [:items 1 :quantity] 99.99M))
-        _ (with-redefs [transactions/reload (fn [storage-spec transaction]
+        _ (with-redefs [transactions/reload (fn [transaction]
                                               (swap! call-count inc)
                                               (if (= 2 @call-count)
                                                 (throw (RuntimeException. "Induced exception"))
-                                                (real-reload storage-spec transaction)))]
+                                                (real-reload transaction)))]
             (try
-              (transactions/update storage-spec updated)
+              (transactions/update updated)
               (catch RuntimeException _ nil)))]
     (testing "transaction items are not updated"
-      (is (= #{101M} (->> t2
-                          (transactions/reload storage-spec)
-                          :items
+      (is (= #{101M} (->> (:items (transactions/reload t2))
                           (map :quantity)
                           (into #{})))))
     (testing "account balances are not updated"
-      (is (= 797M (->> checking
-                       (accounts/reload storage-spec)
-                       :quantity))
+      (is (= 797M (:quantity (accounts/reload checking)))
           "The checkout account balance should not be changed")
-      (is (= 203M (->> groceries
-                       (accounts/reload storage-spec)
-                       :quantity))
+      (is (= 203M (:quantity (accounts/reload groceries)))
           "The groceries account balance should not be changed"))))
 
 (deftest update-a-transaction-change-date
-  (let [context (realize storage-spec update-context)
+  (let [context (realize update-context)
         [checking
          _
          groceries] (:accounts context)
         [_t1 _t2 t3] (:transactions context)
         updated (assoc t3 :transaction-date (t/local-date 2016 3 10)
                           :original-transaction-date (:transaction-date t3))
-        result (transactions/update storage-spec updated)
+        result (transactions/update updated)
         expected-checking [{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
                            {:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}
                            {:index 0 :transaction-date (t/local-date 2016 3 2)  :quantity 1000M :balance 1000M}]
@@ -678,18 +661,18 @@
     (assert-account-quantities checking 797M groceries 203M)
     (testing "transaction is updated"
       (is (= (t/local-date 2016 3 10)
-             (:transaction-date (transactions/reload storage-spec updated)))
+             (:transaction-date (transactions/reload updated)))
           "The transaction should be updated"))))
 
 ; TODO: Uncomment this test
 #_(deftest update-a-transaction-cross-partition-boundary
-  (let [context (realize storage-spec update-context)
+  (let [context (realize update-context)
         [checking
          salary
          groceries] (:accounts context)
         [t1 t2 t3] (:transactions context)
         updated (assoc t2 :transaction-date (t/local-date 2016 4 12))
-        result (transactions/update storage-spec updated)
+        result (transactions/update updated)
         expected-checking [{:index 2 :quantity 101M :balance 797M}
                            {:index 1 :quantity 102M :balance 898M}
                            {:index 0 :quantity 1000M :balance 1000M}]
@@ -712,7 +695,7 @@
     (assert-account-quantities checking 1797M groceries 203M)
     (testing "transaction is updated"
       (is (= (t/local-date 2016 4 12)
-             (:transaction-date (transactions/reload storage-spec t2)))
+             (:transaction-date (transactions/reload t2)))
           "The transaction should be updated"))))
 
 (def short-circuit-context
@@ -780,7 +763,7 @@
 ; 2016-03-23     103  Groceries Checking
 ; 2016-03-30     104  Groceries Checking
 (deftest update-a-transaction-short-circuit-updates
-  (let [context (realize storage-spec short-circuit-context)
+  (let [context (realize short-circuit-context)
         [checking] (:accounts context)
         [_t1 _t2 t3] (:transactions context)
         updated (-> t3
@@ -788,11 +771,11 @@
                     (assoc :transaction-date (t/local-date 2016 3 8)))
         update-calls (atom {})]
     (binding [update-item transactions/update-item-index-and-balance]
-      (with-redefs [transactions/update-item-index-and-balance (fn [storage item]
+      (with-redefs [transactions/update-item-index-and-balance (fn [item]
                                                                  (swap! update-calls
                                                                         (partial record-update-call item))
-                                                                 (update-item storage item))]
-        (let [result (transactions/update storage-spec updated)
+                                                                 (update-item item))]
+        (let [result (transactions/update updated)
               expected #{{:index 1
                           :quantity 102M
                           :balance 898M}
@@ -853,11 +836,11 @@
                                   :quantity 103}]}]})))
 
 (deftest update-a-transaction-change-account
-  (let [context (realize storage-spec change-account-context)
+  (let [context (realize change-account-context)
         [rent
          groceries] (find-accounts context "Rent" "Groceries")
         t3 (find-transaction context (t/local-date 2016 3 16) "Kroger")
-        _ (transactions/update storage-spec (assoc-in t3 [:items 0 :account-id] (:id rent)))
+        _ (transactions/update (assoc-in t3 [:items 0 :account-id] (:id rent)))
         actual-groceries (map #(select-keys % [:index :quantity :balance])
                               (items-by-account (:id groceries)))
         actual-rent (map #(select-keys % [:index :quantity :balance])
@@ -921,12 +904,12 @@
                               :quantity 101}]}]}))
 
 (deftest update-a-transaction-change-action
-  (let [context (realize storage-spec change-action-context)
+  (let [context (realize change-action-context)
         [checking _ groceries] (:accounts context)
         transaction (find-transaction context (t/local-date 2016 3 16) "Kroger")
-        result (transactions/update storage-spec (-> transaction
-                                                (assoc-in [:items 0 :action] :credit)
-                                                (assoc-in [:items 1 :action] :debit)))
+        result (transactions/update (-> transaction
+                                        (assoc-in [:items 0 :action] :credit)
+                                        (assoc-in [:items 1 :action] :debit)))
         expected-items [{:index 2
                          :quantity 101M
                          :balance 192M}
@@ -991,7 +974,7 @@
                                        :quantity 101}]}]})))
 
 (deftest update-a-transaction-remove-item
-  (let [context (realize storage-spec add-remove-item-context)
+  (let [context (realize add-remove-item-context)
         [checking
          pets
          groceries] (find-accounts context "Checking" "Pets" "Groceries")
@@ -1003,7 +986,7 @@
                                                      (= (:account-id item)
                                                         (:id pets)))
                                                    %)))
-        _ (transactions/update storage-spec to-update)
+        _ (transactions/update to-update)
         expected-items [{:index 2
                          :quantity 101M
                          :balance 306M}
@@ -1022,7 +1005,7 @@
     (assert-account-quantities pets 0M groceries 306M checking 694M)))
 
 (deftest update-a-transaction-add-item
-  (let [context (realize storage-spec add-remove-item-context)
+  (let [context (realize add-remove-item-context)
         [pets
          groceries
          checking] (find-accounts context "Pets" "Groceries" "Checking")
@@ -1034,7 +1017,7 @@
                                                     :account-id (:id pets)
                                                     :quantity 13M
                                                     :value 13M})))
-        _ (transactions/update storage-spec to-update)
+        _ (transactions/update to-update)
         expected-items [{:index 1
                          :quantity 12M
                          :balance 25M}
@@ -1094,39 +1077,35 @@
                               :quantity 1200M}]}]}))
 
 (deftest get-a-balance-delta
-  (let [context (realize storage-spec balance-delta-context)
+  (let [context (realize balance-delta-context)
         [_ salary] (:accounts context)
-        january (transactions/balance-delta storage-spec
-                                            salary
+        january (transactions/balance-delta salary
                                             (t/local-date 2016 1 1)
                                             (t/local-date 2016 1 31))
-        february (transactions/balance-delta storage-spec
-                                            salary
-                                            (t/local-date 2016 2 1)
-                                            (t/local-date 2016 2 29))]
+        february (transactions/balance-delta salary
+                                             (t/local-date 2016 2 1)
+                                             (t/local-date 2016 2 29))]
     (is (= 2001M january) "The January value is the sum of polarized quantitys for the period")
     (is (= 2202M february) "The February value is the sum of the polarized quantitys for the period")))
 
 (deftest get-a-balance-as-of
-  (let [context (realize storage-spec balance-delta-context)
+  (let [context (realize balance-delta-context)
         [checking] (:accounts context)
-        january (transactions/balance-as-of storage-spec
-                                            checking
+        january (transactions/balance-as-of checking
                                             (t/local-date 2016 1 31))
-        february (transactions/balance-as-of storage-spec
-                                            checking
-                                            (t/local-date 2016 2 29))]
+        february (transactions/balance-as-of checking
+                                             (t/local-date 2016 2 29))]
     (is (= 2001M january) "The January value is the balance for the last item in the period")
     (is (= 4203M february) "The February value is the balance for the last item in the period")))
 
 (deftest create-multiple-transactions-then-recalculate-balances
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         entity (-> context :entities first)
         [checking
          salary
          groceries] (:accounts context)]
-    (transactions/with-delayed-balancing storage-spec (:id entity)
-      (transactions/create storage-spec {:entity-id (:id entity)
+    (transactions/with-delayed-balancing (:id entity)
+      (transactions/create {:entity-id (:id entity)
                                          :transaction-date (t/local-date 2017 1 1)
                                          :description "Paycheck"
                                          :items [{:action :debit
@@ -1135,39 +1114,39 @@
                                                  {:action :credit
                                                   :account-id (:id salary)
                                                   :quantity 1000M}]})
-      (transactions/create storage-spec {:entity-id (:id entity)
-                                         :transaction-date (t/local-date 2017 1 15)
-                                         :description "Market Street"
-                                         :items [{:action :debit
-                                                  :account-id (:id groceries)
-                                                  :quantity 100M}
-                                                 {:action :credit
-                                                  :account-id (:id checking)
-                                                  :quantity 100M}]})
-      (transactions/create storage-spec {:entity-id (:id entity)
-                                         :transaction-date (t/local-date 2017 2 1)
-                                         :description "Paycheck"
-                                         :items [{:action :debit
-                                                  :account-id (:id checking)
-                                                  :quantity 1000M}
-                                                 {:action :credit
-                                                  :account-id (:id salary)
-                                                  :quantity 1000M}]})
-      (is (= 0M (:quantity (accounts/reload storage-spec checking)))
+      (transactions/create {:entity-id (:id entity)
+                            :transaction-date (t/local-date 2017 1 15)
+                            :description "Market Street"
+                            :items [{:action :debit
+                                     :account-id (:id groceries)
+                                     :quantity 100M}
+                                    {:action :credit
+                                     :account-id (:id checking)
+                                     :quantity 100M}]})
+      (transactions/create {:entity-id (:id entity)
+                            :transaction-date (t/local-date 2017 2 1)
+                            :description "Paycheck"
+                            :items [{:action :debit
+                                     :account-id (:id checking)
+                                     :quantity 1000M}
+                                    {:action :credit
+                                     :account-id (:id salary)
+                                     :quantity 1000M}]})
+      (is (= 0M (:quantity (accounts/reload checking)))
           "The account balance is not recalculated before the form exits"))
-    (is (= 1900M (:quantity (accounts/reload storage-spec checking)))
+    (is (= 1900M (:quantity (accounts/reload checking)))
         "The account balance is recalculated after the form exits")))
 
 (deftest use-simplified-items
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         entity (find-entity context "Personal")
         [checking salary] (find-accounts context "Checking" "Salary")
-        trx (transactions/create storage-spec {:entity-id (:id entity)
-                                               :transaction-date (t/local-date 2017 3 2)
-                                               :description "Paycheck"
-                                               :quantity 1000M
-                                               :debit-account-id (:id checking)
-                                               :credit-account-id (:id salary)})
+        trx (transactions/create {:entity-id (:id entity)
+                                  :transaction-date (t/local-date 2017 3 2)
+                                  :description "Paycheck"
+                                  :quantity 1000M
+                                  :debit-account-id (:id checking)
+                                  :credit-account-id (:id salary)})
         actual-items (map #(select-keys % [:account-id :quantity :action]) (:items trx))
         expected-items [{:account-id (:id checking)
              :action :debit
@@ -1180,7 +1159,7 @@
     (is (= expected-items actual-items) "The items are created correctly")))
 
 (deftest set-account-boundaries
-  (let [context (realize storage-spec base-context)
+  (let [context (realize base-context)
         entity (find-entity context "Personal")
         [checking
          salary
@@ -1196,11 +1175,10 @@
                  :debit-account-id (:id groceries)
                  :credit-account-id (:id checking)}]
                (map #(assoc % :entity-id (:id entity)))
-               (mapv #(transactions/create storage-spec %)))
+               (mapv transactions/create))
         [checking
          salary
-         groceries] (map #(accounts/reload storage-spec %)
-                         [checking salary groceries])]
+         groceries] (map accounts/reload [checking salary groceries])]
     (is (= (t/local-date 2017 2 27) (:earliest-transaction-date checking))
         "The checking account's earliest is the paycheck")
     (is (= (t/local-date 2017 3 2) (:latest-transaction-date checking))
@@ -1215,7 +1193,7 @@
         "The groceries account's latest is the grocery purchase")))
 
 (deftest simplify-a-transaction
-  (let [ctx (realize (env :db) base-context)
+  (let [ctx (realize base-context)
         checking (find-account ctx "Checking")
         groceries (find-account ctx "Groceries")
         transaction {:transaction-date (t/local-date 2016 3 2)
@@ -1240,7 +1218,7 @@
     (is (= expected actual))))
 
 (deftest fullify-a-transaction
-  (let [ctx (realize (env :db) base-context)
+  (let [ctx (realize base-context)
         checking (find-account ctx "Checking")
         groceries (find-account ctx "Groceries")
         expected {:transaction-date (t/local-date 2016 3 2)

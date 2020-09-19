@@ -1,7 +1,10 @@
 (ns clj-money.models.grants
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [stowaway.core :as storage :refer [with-storage]]
+            [environ.core :refer [env]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage]]
+            [clj-money.util :refer [->id]]
             [clj-money.models :as models]
             [clj-money.validation :refer [with-validation]]))
 
@@ -32,51 +35,57 @@
        (merge (reduce #(assoc %1 %2 actions) {} resource-types))))
 
 (defn- before-save
-  [grant & _]
+  [grant]
   (-> grant
-      (storage/tag ::models/grant)
+      (tag ::models/grant)
       (update-in [:permissions] prn-str)))
 
 (defn- after-read
-  [grant & _]
+  [grant]
   (when grant
     (-> grant
         (update-in [:permissions] read-string)
-        (storage/tag ::models/grant))))
+        (tag ::models/grant))))
 
 (defn create
-  [storage grant]
-  (with-storage [s storage]
+  [grant]
+  (with-storage (env :db)
     (with-validation grant ::new-grant []
-      (as-> grant g
-        (before-save g)
-        (storage/create s g)
-        (after-read g)))))
+      (-> grant
+          before-save
+          storage/create
+          after-read))))
 
 (defn search
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
-     (map after-read (storage/select s
-                                     (storage/tag criteria ::models/grant)
+  ([criteria]
+   (search criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
+     (map after-read (storage/select (tag criteria ::models/grant)
                                      options)))))
 
-(defn find-by-id
-  [storage-spec id]
-  (first (search storage-spec {:id id} {:limit 1})))
+(defn find-by
+  ([criteria] (find-by criteria {}))
+  ([criteria options]
+   (first (search criteria (assoc options :limit 1)))))
+
+(defn find
+  [grant-or-id]
+  (find-by {:id (->id grant-or-id)}))
 
 (defn update
-  [storage grant]
-  (with-storage [s storage]
+  [grant]
+  (with-storage (env :db)
     (with-validation grant ::existing-grant []
-      (storage/update s (before-save grant))
-      (find-by-id s (:id grant)))))
+      (-> grant
+          before-save
+          storage/update)
+      (find grant))))
 
 (defn delete
-  [storage-spec grant]
-  (with-storage [s storage-spec]
-    (storage/delete s grant)))
+  [grant]
+  (with-storage (env :db)
+    (storage/delete grant)))
 
 (defn has-permission?
   [grant resource-type action]

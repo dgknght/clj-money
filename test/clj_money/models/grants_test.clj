@@ -1,6 +1,5 @@
 (ns clj-money.models.grants-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [environ.core :refer [env]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clj-factory.core :refer [factory]]
@@ -13,9 +12,7 @@
             [clj-money.models.grants :as grants]
             [clj-money.test-helpers :refer [reset-db]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def ^:private grant-context
   {:users (map #(factory :user {:email %})
@@ -27,15 +24,15 @@
                   :symbol "USD"}]})
 
 (deftest create-a-grant
-  (let [context (realize storage-spec grant-context)
+  (let [context (realize grant-context)
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant {:entity-id (:id entity)
                :user-id (:id user)
                :permissions {:account #{:index :show}}}
-        result (grants/create storage-spec grant)
+        result (grants/create grant)
         grant-list (map #(dissoc % :updated-at :created-at :id)
-                        (grants/search storage-spec {:entity-id (:id entity)}))
+                        (grants/search {:entity-id (:id entity)}))
         expected-grant-list [{:entity-id (:id entity)
                               :user-id (:id user)
                               :permissions {:account #{:index :show}}}]]
@@ -56,15 +53,15 @@
                                  :permissions {:account #{:index :show}}}]))
 
 (deftest update-a-grant
-  (let [context (realize storage-spec existing-grant-context)
+  (let [context (realize existing-grant-context)
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant (find-grant context (:id entity) (:id user))
-        updated (update-in grant
-                           [:permissions]
-                           #(assoc % :transactions #{:index :show}))
-        result (grants/update storage-spec updated)
-        retrieved (grants/find-by-id storage-spec (:id result))]
+        result (grants/update
+                 (update-in grant
+                            [:permissions]
+                            #(assoc % :transactions #{:index :show})))
+        retrieved (grants/find result)]
     (is (empty? (validation/error-messages result))
         "The result has not validation errors")
     (is (= {:account #{:index :show}
@@ -73,11 +70,11 @@
         "The retrieved record should have the correct content")))
 
 (deftest delete-a-grant
-  (let [context (realize storage-spec existing-grant-context)
+  (let [context (realize existing-grant-context)
         entity (find-entity context "Business")
         user (find-user context "jane@doe.com")
         grant (find-grant context (:id entity) (:id user))
-        _ (grants/delete storage-spec grant)
-        grant-list (grants/search storage-spec {:entity-id (:id entity)})]
+        _ (grants/delete grant)
+        grant-list (grants/search {:entity-id (:id entity)})]
     (is (empty? (filter #(= (:id grant) (:id %)) grant-list))
         "The grant is not present after delete")))

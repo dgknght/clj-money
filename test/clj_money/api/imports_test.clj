@@ -1,7 +1,6 @@
 (ns clj-money.api.imports-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.java.io :as io]
-            [environ.core :refer [env]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
@@ -20,7 +19,7 @@
             [clj-money.models.imports :as imports]
             [clj-money.api.imports :as imports-api]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private create-context
   {:users [(factory :user {:email "john@doe.com"})]})
@@ -35,7 +34,7 @@
               :user-id (:user-id imp)}}))
 
 (deftest a-user-can-create-an-import
-  (let [ctx (realize (env :db) create-context)
+  (let [ctx (realize create-context)
         user (find-user ctx "john@doe.com")
         source-file (io/file (io/resource "fixtures/sample.gnucash"))
         calls (atom [])
@@ -47,7 +46,7 @@
                        (add-auth user)
                        app))
         body (json/parse-string (:body response) true)
-        retrieved (imports/search (env :db) {:user-id (:id user)})]
+        retrieved (imports/search {:user-id (:id user)})]
     (assert-successful response)
     (is (selective= {:name "Personal"
                      :user-id (:id user)}
@@ -71,7 +70,7 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         response (-> (req/request :get (path :api :imports))
                      (add-auth user)
@@ -104,7 +103,7 @@
 
 (defn- get-an-import
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         imp (find-import ctx "Personal")
         response (-> (req/request :get (path :api :imports (:id imp)))
@@ -131,13 +130,13 @@
 
 (defn- delete-import
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         imp (find-import ctx "Personal")
         response (-> (req/request :delete (path :api :imports (:id imp)))
                      (add-auth user)
                      app)
-        retrieved (imports/find-by-id (env :db) (:id imp))]
+        retrieved (imports/find imp)]
     [response retrieved]))
 
 (defn- assert-successful-delete
@@ -160,7 +159,7 @@
 
 (defn- start-import
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         imp (find-import ctx "Personal")
         calls (atom [])

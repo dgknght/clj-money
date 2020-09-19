@@ -1,6 +1,5 @@
 (ns clj-money.api.commodities-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [environ.core :refer [env]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
@@ -22,9 +21,7 @@
             [clj-money.validation :as v]
             [clj-money.web.server :refer [app]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private context
   {:users (->> ["john@doe.com" "jane@doe.com"]
@@ -45,7 +42,7 @@
 
 (defn- get-a-count-of-commodities
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -76,7 +73,7 @@
 
 (defn- get-a-list-of-commodities
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -114,7 +111,7 @@
 
 (defn- get-a-commodity
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         msft (find-commodity ctx "MSFT")
         response (-> (req/request :get (path :api
@@ -153,7 +150,7 @@
 
 (defn- create-a-commodity
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :post (path :api
@@ -164,7 +161,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (coms/search (env :db) {:entity-id (:id entity)})]
+        retrieved (coms/search {:entity-id (:id entity)})]
     [response body retrieved]))
 
 (defn- assert-successful-create
@@ -197,7 +194,7 @@
   (assert-blocked-create (create-a-commodity "jane@doe.com")))
 
 (deftest attempt-to-create-an-invalid-commodity
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx "john@doe.com")
         entity (find-entity ctx "Personal")
         response (-> (req/request :post (path :api
@@ -208,7 +205,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (coms/search (env :db) {:entity-id (:id entity)})]
+        retrieved (coms/search {:entity-id (:id entity)})]
     (assert-bad-request response)
     (is (= ["Exchange must be one of: amex, nasdaq, nyse"]
            (get-in body [::v/errors :exchange]))
@@ -217,7 +214,7 @@
 
 (defn- update-a-commodity
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         msft (find-commodity ctx "MSFT")
         response (-> (req/request :patch (path :api
@@ -227,7 +224,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (coms/find-by-id (env :db) (:id msft))]
+        retrieved (coms/find msft)]
     [response body retrieved]))
 
 (defn- assert-successful-update
@@ -255,7 +252,7 @@
 
 (defn- delete-a-commodity
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         msft (find-commodity ctx "MSFT")
         response (-> (req/request :delete (path :api
@@ -263,7 +260,7 @@
                                                 (:id msft)))
                      (add-auth user)
                      app)
-        retrieved (coms/find-by-id (env :db) (:id msft))]
+        retrieved (coms/find msft)]
     [response retrieved]))
 
 (defn- assert-successful-delete

@@ -1,6 +1,5 @@
 (ns clj-money.api.reconciliations-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [ring.mock.request :as req]
             [clj-time.core :as t]
             [cheshire.core :as json]
@@ -21,7 +20,7 @@
             [clj-money.web.server :refer [app]]
             [clj-money.models.reconciliations :as recs]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private recon-context
   (assoc basic-context
@@ -62,7 +61,7 @@
 
 (defn- get-reconciliations
   [email]
-  (let [ctx (realize (env :db) recon-context)
+  (let [ctx (realize recon-context)
         user (find-user ctx email)
         account (find-account ctx "Checking")
         response (-> (req/request :get (path :api
@@ -97,7 +96,7 @@
 
 (defn- create-reconciliation
   [email complete?]
-  (let [ctx (realize (env :db) recon-context)
+  (let [ctx (realize recon-context)
         user (find-user ctx email)
         account (find-account ctx "Checking")
         item-refs (if complete?
@@ -120,7 +119,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (recs/search (env :db) {:account-id (:id account)})]
+        retrieved (recs/search {:account-id (:id account)})]
     [response body retrieved]))
 
 (defn- assert-create-succeeded
@@ -172,7 +171,7 @@
 
 (defn- update-reconciliation
   [email]
-  (let [ctx (realize (env :db) update-context)
+  (let [ctx (realize update-context)
         recon (find-recon ctx "Checking" (t/local-date 2015 2 4))
         user (find-user ctx email)
         response (-> (req/request :patch (path :api
@@ -184,7 +183,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (recs/find-by-id (env :db) (:id recon))]
+        retrieved (recs/find recon)]
     [response body retrieved]))
 
 (defn- assert-successful-update

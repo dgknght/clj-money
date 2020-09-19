@@ -1,6 +1,6 @@
 (ns clj-money.test-context
-  (:require [stowaway.core :refer [with-storage]]
-            [clj-factory.core :refer [factory]]
+  (:require [clj-factory.core :refer [factory]]
+            [stowaway.core :as storage]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
@@ -160,20 +160,22 @@
 (defn- throw-on-invalid
   [model]
   (if (validation/has-error? model)
-    (throw (ex-info (format "Unable to create the model. %s"
-                            (prn-str model))
+    (throw (ex-info (format "Unable to create the model. %s %s"
+                            (or (storage/tag model)
+                                (keys model))
+                            (prn-str (validation/error-messages model)))
                     model))
     model))
 
 (defn- create-users
-  [storage users]
+  [users]
   (mapv (fn [attributes]
-         (throw-on-invalid (users/create storage attributes)))
+         (throw-on-invalid (users/create attributes)))
        users))
 
 (defn- realize-users
-  [context storage]
-  (update-in context [:users] #(create-users storage %)))
+  [context]
+  (update-in context [:users] #(create-users %)))
 
 (defn- resolve-user
   [model context]
@@ -182,17 +184,17 @@
                                (-> context :users first)))))
 
 (defn- create-entities
-  [entities storage context]
+  [entities context]
   (mapv (fn [attributes]
           (if (:id attributes)
             attributes
             (throw-on-invalid
-              (entities/create storage (resolve-user attributes context)))))
+              (entities/create (resolve-user attributes context)))))
         entities))
 
 (defn- realize-entities
-  [context storage]
-  (update-in context [:entities] create-entities storage context))
+  [context]
+  (update-in context [:entities] create-entities context))
 
 (defn- resolve-entity
   [model context]
@@ -202,21 +204,21 @@
                                     (-> context :entities first :id)))))
 
 (defn create-grants
-  [storage context grants]
+  [context grants]
   (mapv (fn [attributes]
-          (grants/create storage (-> attributes
-                                     (resolve-user context)
-                                     (resolve-entity context))))
+          (grants/create (-> attributes
+                             (resolve-user context)
+                             (resolve-entity context))))
         grants))
 
 (defn- realize-grants
-  [context storage]
-  (update-in context [:grants] #(create-grants storage context %)))
+  [context]
+  (update-in context [:grants] #(create-grants context %)))
 
 (defn- resolve-parent
-  [account storage]
+  [account]
   (if (:parent-id account)
-    (let [parent (accounts/find-by-name storage (:entity-id account) (:parent-id account))]
+    (let [parent (accounts/find-by-name (:entity-id account) (:parent-id account))]
       (assoc account :parent-id (:id parent)))
     account))
 
@@ -230,13 +232,13 @@
                                             first)))))
 
 (defn- create-account
-  [storage context attributes]
+  [context attributes]
   (if (:id attributes)
     attributes
-    (accounts/create storage (-> attributes
-                                 (resolve-entity context)
-                                 (resolve-commodity context)
-                                 (resolve-parent storage)))))
+    (accounts/create (-> attributes
+                         (resolve-entity context)
+                         (resolve-commodity context)
+                         resolve-parent))))
 
 (defn- create-accounts
   "Creates the specified accounts.
@@ -244,22 +246,23 @@
   Accounts can be a sequence of maps containing account properties,
   or a map where the keys are account types and the values
   are vectors of account properties"
-  [storage context accounts]
+  [context accounts]
   (let [account-list (if (map? accounts)
                        (mapcat (fn [[account-type acct-list]]
                                  (map #(assoc % :type account-type)
                                       acct-list))
                                accounts)
                        accounts)]
-    (mapv #(create-account storage context %) account-list)))
+    (mapv #(create-account context %) account-list)))
 
 (defn- realize-accounts
-  [context storage]
-  (update-in context [:accounts] #(create-accounts storage context %)))
+  [context]
+  (update-in context [:accounts] #(create-accounts context %)))
 
 (defn- resolve-account
-  [model context]
-  (update-in model [:account-id] #(:id (find-account context %))))
+  ([model context] (resolve-account model context :account-id))
+  ([model context k]
+  (update-in model [k] #(:id (find-account context %)))))
 
 (defn- coerce-quantity
   [item]
@@ -291,19 +294,19 @@
         (dissoc :quantity :debit-account-id :credit-account-id))))
 
 (defn- create-transaction
-  [transaction storage context]
-  (transactions/create storage (-> transaction
-                                   (resolve-entity context)
-                                   expand-items
-                                   (prepare-items context))))
+  [transaction context]
+  (transactions/create (-> transaction
+                           (resolve-entity context)
+                           expand-items
+                           (prepare-items context))))
 
 (defn- create-transactions
-  [storage context transactions]
-  (mapv #(create-transaction % storage context) transactions))
+  [context transactions]
+  (mapv #(create-transaction % context) transactions))
 
 (defn- realize-transactions
-  [context storage]
-  (update-in context [:transactions] #(create-transactions storage context %)))
+  [context]
+  (update-in context [:transactions] #(create-transactions context %)))
 
 (defn- resolve-transaction
   [model context]
@@ -328,28 +331,24 @@
                                   (map (comp :id #(find-image context %))
                                        file-names))))
 
-(defn- create-attachment
-  [model storage]
-  (attachments/create storage model))
-
 (defn- rearrange-transaction-attributes
   [attachment]
   (assoc attachment :transaction-id (-> attachment :transaction-id first)
                     :transaction-date (-> attachment :transaction-id second)))
 
 (defn- create-attachments
-  [storage context attachments]
+  [context attachments]
   (mapv #(-> %
              (resolve-transaction context)
              rearrange-transaction-attributes
              (resolve-image context)
-             (create-attachment storage)
+             attachments/create
              throw-on-invalid)
         attachments))
 
 (defn- realize-attachments
-  [context storage]
-  (update-in context [:attachments] #(create-attachments storage context %)))
+  [context]
+  (update-in context [:attachments] #(create-attachments context %)))
 
 (defn- resolve-budget-items
   [budget context]
@@ -358,72 +357,57 @@
              (fn [items]
                (map #(resolve-account % context) items))))
 
-(defn- create-budget
-  [model storage]
-  (budgets/create storage model))
-
 (defn- create-budgets
-  [storage context budgets]
+  [context budgets]
   (mapv (fn [attributes]
           (-> attributes
               (resolve-entity context)
               (resolve-budget-items context)
-              (create-budget storage)))
+              budgets/create))
         budgets))
 
 (defn- realize-budgets
-  [context storage]
-  (update-in context [:budgets] #(create-budgets storage context %)))
-
-(defn- create-commodity
-  [model storage]
-  (commodities/create storage model))
+  [context]
+  (update-in context [:budgets] #(create-budgets context %)))
 
 (defn- create-commodities
-  [storage context commodities]
+  [context commodities]
   (mapv (fn [attributes]
           (-> attributes
               (resolve-entity context)
-              (create-commodity storage)
+              commodities/create
               throw-on-invalid))
         commodities))
 
 (defn- realize-commodities
-  [context storage]
-  (update-in context [:commodities] #(create-commodities storage context %)))
-
-(defn- create-price
-  [model storage]
-  (prices/create storage model))
+  [context]
+  (update-in context [:commodities] #(create-commodities context %)))
 
 (defn- create-prices
-  [storage context prices]
+  [context prices]
   (mapv (fn [attributes]
           (-> attributes
               (resolve-commodity context)
-              (create-price storage)))
+              prices/create))
         prices))
 
 (defn- realize-prices
-  [context storage]
-  (update-in context [:prices] #(create-prices storage context %)))
-
-(defn- create-lot
-  [model storage]
-  (lots/create storage model))
+  [context]
+  (update-in context [:prices] #(create-prices context %)))
 
 (defn- create-lots
-  [storage context lots]
+  [context lots]
   (mapv (fn [attributes]
           (-> attributes
               (resolve-commodity context)
               (resolve-account context)
-              (create-lot storage)))
+              (lots/create)
+              throw-on-invalid))
         lots))
 
 (defn- realize-lots
-  [context storage]
-  (update-in context [:lots] #(create-lots storage context %)))
+  [context]
+  (update-in context [:lots] #(create-lots context %)))
 
 (defn- resolve-item-ref
   [{:keys [transaction-date quantity]} context account-id]
@@ -446,94 +430,91 @@
                (mapv #(resolve-item-ref % context (:account-id model))
                      item-refs))))
 
-(defn- create-reconciliation
-  [model storage]
-  (reconciliations/create storage model))
-
 (defn- create-reconciliations
-  [storage context reconciliations]
+  [context reconciliations]
   (mapv (fn [attributes]
           (-> attributes
               (resolve-account context)
               (resolve-item-refs context)
-              (create-reconciliation storage)
+              reconciliations/create
               throw-on-invalid))
         reconciliations))
 
 (defn- realize-reconciliations
-  [context storage]
-  (update-in context [:reconciliations] #(create-reconciliations storage context %)))
+  [context]
+  (update-in context [:reconciliations] #(create-reconciliations context %)))
 
 (defn- read-file
   [image]
   (update-in image [:body] #(read-bytes %)))
 
 (defn- create-image-from-file
-  [model storage]
-  (images/create storage (read-file model)))
+  [model]
+  (images/create (read-file model)))
 
 (defn- create-images
-  [storage context images]
+  [context images]
   (mapv (fn [attributes]
           (-> attributes
               (resolve-user context)
-              (create-image-from-file storage)
+              create-image-from-file
               throw-on-invalid))
         images))
 
 (defn- realize-images
-  [context storage]
-  (update-in context [:images] #(create-images storage context %)))
-
-(defn- create-import
-  [model storage]
-  (imports/create storage model))
+  [context]
+  (update-in context [:images] #(create-images context %)))
 
 (defn- create-imports
-  [storage context imports]
+  [context imports]
   (mapv (fn [attributes]
           (-> attributes
               (resolve-user context)
               (resolve-images context)
-              (create-import storage)
+              imports/create
               throw-on-invalid))
         imports))
 
 (defn- realize-imports
-  [context storage]
-  (update-in context [:imports] #(create-imports storage context %)))
+  [context]
+  (update-in context [:imports] #(create-imports context %)))
 
 (defn- execute-trade
-  [trade storage context]
+  [trade context]
   (let [f (case (:type trade)
-            :buy      (partial trading/buy storage)
-            :purchase (partial trading/buy storage)
-            :sell     (partial trading/sell storage)
-            :sale     (partial trading/sell storage))]
+            :buy      trading/buy
+            :purchase trading/buy
+            :sell     trading/sell
+            :sale     trading/sell)]
     (-> trade
         (resolve-entity context)
         (resolve-account context)
+        (resolve-account context :lt-capital-gains-account-id)
+        (resolve-account context :st-capital-gains-account-id)
+        (resolve-account context :lt-capital-loss-account-id)
+        (resolve-account context :st-capital-loss-account-id)
         (resolve-commodity context)
-        f)))
+        f
+        throw-on-invalid)))
 
 (defn- execute-trades
-  [trades storage context]
-  (mapv #(execute-trade % storage context) trades))
+  [trades context]
+  (mapv #(execute-trade % context) trades))
 
 (defn- realize-trades
-  [context storage]
-  (update-in context [:trades] execute-trades storage context))
+  [context]
+  (update-in context [:trades] execute-trades context))
 
 (defn- create-identities
-  [idents storage context]
+  [idents context]
   {:pre [(sequential? idents)]}
 
-  (mapv #(idents/create storage (resolve-user % context))
+  (mapv #(idents/create (resolve-user % context))
         idents))
 
 (defn- realize-identities
-  [context storage]
-  (update-in context [:identities] (fnil create-identities []) storage context))
+  [context]
+  (update-in context [:identities] (fnil create-identities []) context))
 
 (defn- extract-monitored-account-ids
   [entities]
@@ -545,50 +526,49 @@
        (into {})))
 
 (defn- stash-monitored-account-ids
-  [{:keys [entities] :as context} _]
+  [{:keys [entities] :as context}]
   (-> context
       (assoc :monitored-account-ids (extract-monitored-account-ids entities))
       (assoc :entities (map #(update-in % [:settings] dissoc :monitored-account-ids)
                             entities))))
 
 (defn- apply-monitored-account-ids
-  [entity {:keys [monitored-account-ids] :as context} storage]
+  [entity {:keys [monitored-account-ids] :as context}]
   (if-let [account-ids (get-in monitored-account-ids[(:name entity)])]
-    (entities/update storage (assoc-in entity [:settings :monitored-account-ids]
-                                       (->> account-ids
-                                            (map (comp :id
-                                                       #(find-account context %)))
-                                            set)))
+    (entities/update (assoc-in entity [:settings :monitored-account-ids]
+                               (->> account-ids
+                                    (map (comp :id
+                                               #(find-account context %)))
+                                    set)))
     entity))
 
 (defn- update-monitored-account-ids
-  [context storage]
+  [context]
   (-> context
       (update-in [:entities]
                  (fn [entities]
-                   (map #(apply-monitored-account-ids % context storage)
+                   (map #(apply-monitored-account-ids % context)
                         entities)))
       (dissoc :monitored-account-ids)))
 
 (defn realize
   "Realizes a test context"
-  [storage-spec input]
-  (with-storage [s storage-spec]
-    (-> input
-        (realize-users s)
-        (realize-images s)
-        (realize-imports s)
-        (stash-monitored-account-ids s)
-        (realize-entities s)
-        (realize-grants s)
-        (realize-commodities s)
-        (realize-accounts s)
-        (update-monitored-account-ids s)
-        (realize-prices s)
-        (realize-lots s)
-        (realize-budgets s)
-        (realize-transactions s)
-        (realize-trades s)
-        (realize-attachments s)
-        (realize-reconciliations s)
-        (realize-identities s))))
+  [input]
+  (-> input
+      realize-users
+      realize-images
+      realize-imports
+      stash-monitored-account-ids
+      realize-entities
+      realize-grants
+      realize-commodities
+      realize-accounts
+      update-monitored-account-ids
+      realize-prices
+      realize-lots
+      realize-budgets
+      realize-transactions
+      realize-trades
+      realize-attachments
+      realize-reconciliations
+      realize-identities))

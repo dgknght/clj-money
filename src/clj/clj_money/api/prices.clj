@@ -1,7 +1,6 @@
 (ns clj-money.api.prices
   (:refer-clojure :exclude [update])
-  (:require [environ.core :refer [env]]
-            [compojure.core :refer [defroutes GET DELETE POST PATCH]]
+  (:require [compojure.core :refer [defroutes GET DELETE POST PATCH]]
             [stowaway.core :as storage]
             [clj-money.models :as models]
             [clj-money.authorization :refer [+scope
@@ -39,8 +38,7 @@
   {:pre [(or (:trade-date params)
              (and (:start-date params)
                   (:end-date params)))]}
-  (->response (prices/search (env :db)
-                             (->  params
+  (->response (prices/search (->  params
                                  (handle-start-end-dates)
                                  (select-keys [:commodity-id :entity-id :trade-date])
                                  (+scope ::models/price authenticated))
@@ -54,15 +52,14 @@
                      (update-in [:trade-date] unserialize-date)
                      (storage/tag ::models/price)
                      (authorize ::authorization/create authenticated))]
-    (->response (prices/create (env :db) price)
+    (->response (prices/create price)
                 201)
     (not-found)))
 
 (defn- scoped-find
   [{:keys [params authenticated]} action]
-  (authorize (prices/find-by-id (env :db)
-                                (uuid (:id params))
-                                (unserialize-date (:trade-date params)))
+  (authorize (prices/find (uuid (:id params))
+                          (unserialize-date (:trade-date params)))
              action
              authenticated))
 
@@ -70,7 +67,6 @@
   [{:keys [body] :as req}]
   (if-let [price (scoped-find req ::authorization/update)]
     (->response (prices/update
-                  (env :db)
                   (merge price (-> body
                                    (select-keys [:price :trade-date])
                                    (update-in-if [:price] bigdec)
@@ -81,7 +77,7 @@
   [req]
   (if-let [price (scoped-find req ::authorization/destroy)]
     (do
-      (prices/delete (env :db) price)
+      (prices/delete price)
       (->response))
     (not-found)))
 

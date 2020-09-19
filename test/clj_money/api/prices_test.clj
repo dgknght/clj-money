@@ -1,6 +1,5 @@
 (ns clj-money.api.prices-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
@@ -21,7 +20,7 @@
             [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private context
   {:users [(factory :user {:email "john@doe.com"})
@@ -40,7 +39,7 @@
 
 (defn- create-a-price
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         commodity (find-commodity ctx "AAPL")
         response (-> (req/request :post (path :api
@@ -52,8 +51,8 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (prices/search (env :db) {:commodity-id (:id commodity)
-                                            :trade-date (t/local-date 2016 3 2)})]
+        retrieved (prices/search {:commodity-id (:id commodity)
+                                  :trade-date (t/local-date 2016 3 2)})]
     [response body retrieved]))
 
 (defn- assert-successful-create
@@ -95,7 +94,7 @@
 
 (defn- get-a-list-by-commodity
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         commodity (find-commodity ctx "AAPL")
         response (-> (req/request :get (str (path :api :prices)
@@ -132,7 +131,7 @@
 
 (defn- update-a-price
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :patch (path :api
@@ -144,7 +143,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (prices/find-by-id (env :db) (:id price) (:trade-date price))]
+        retrieved (prices/find price)]
     [response body retrieved]))
 
 (defn- assert-successful-update
@@ -175,7 +174,7 @@
 
 (defn- delete-a-price
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :delete (path :api
@@ -184,7 +183,7 @@
                                                 (:id price)))
                      (add-auth user)
                      app)
-        retrieved (prices/find-by-id (env :db) (:id price) (:trade-date price))]
+        retrieved (prices/find price)]
     [response retrieved]))
 
 (defn- assert-successful-delete

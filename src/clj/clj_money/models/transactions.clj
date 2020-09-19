@@ -1,10 +1,12 @@
 (ns clj-money.models.transactions
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.set :refer [difference]]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
-            [stowaway.core :as storage :refer [with-storage with-transacted-storage]]
+            [environ.core :refer [env]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
             [clj-money.validation :as validation]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
@@ -12,8 +14,11 @@
             [clj-money.models.prices :as prices]
             [clj-money.models.lot-transactions :as l-t]
             [clj-money.models.date-helpers :refer [parse-date-range
-                                                   available-date-range]]
+                                                   available-date-range
+                                                   earliest
+                                                   latest]]
             [clj-money.util :refer [uuid
+                                    ->id
                                     deep-update-in-if
                                     deep-contains?]]
             [clj-money.accounts :refer [polarize-quantity]])
@@ -82,7 +87,7 @@
   "Makes pre-save adjustments for a transaction item"
   [item]
   (-> item
-      (storage/tag ::models/transaction-item)
+      (tag ::models/transaction-item)
       (update-in [:value] (fnil identity (:quantity item))) ; TODO need to calculate the correct value
       (update-in [:action] name)
       (remove-empty-strings :memo)))
@@ -93,7 +98,7 @@
   [{:keys [quantity negative reconciliation-status] :as item}]
   (if (map? item)
     (-> item
-        (storage/tag ::models/transaction-item)
+        (tag ::models/transaction-item)
         (update-in [:action] keyword)
         (assoc :reconciled? (= "completed" reconciliation-status)
                :polarized-quantity (if negative
@@ -184,7 +189,7 @@
   database"
   [transaction]
   (-> transaction
-      (storage/tag ::models/transaction)
+      (tag ::models/transaction)
       (dissoc :items)
       (assoc :value (->> (:items transaction)
                          (filter #(= :credit (:action %)))
@@ -196,109 +201,108 @@
                                       %)))))
 
 (defn- fetch-lot-items
-  [storage transaction-id]
-  (l-t/search storage {:transaction-id transaction-id}))
+  [transaction-id]
+  (l-t/search {:transaction-id transaction-id}))
 
 (defn- prepare-criteria
-  [criteria tag]
+  [criteria tg]
   {:pre [(deep-contains? criteria :transaction-date)]}
   (-> criteria
       (deep-update-in-if :id #(if (sequential? %)
                                 (map uuid %)
                                 (uuid %)))
       (deep-update-in-if :transaction-date parse-date-range)
-      (storage/tag tag)))
+      (tag tg)))
 
 (defn search-items
   "Returns transaction items matching the specified criteria"
-  ([storage-spec criteria]
-   (search-items storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
+  ([criteria]
+   (search-items criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
      (map after-item-read
-          (storage/select s
-                          (prepare-criteria criteria ::models/transaction-item)
+          (storage/select (prepare-criteria criteria ::models/transaction-item)
                           options)))))
 
 (defn- append-items
-  [{:keys [id transaction-date] :as transaction} storage]
+  [{:keys [id transaction-date] :as transaction}]
   (when transaction
     (assoc transaction
            :items
-           (vec (search-items storage {:transaction-id id
-                                       :transaction-date transaction-date}
+           (vec (search-items {:transaction-id id
+                               :transaction-date transaction-date}
                               {:sort [[:action :desc] [:quantity :desc]]})))))
 
 (defn- append-lot-items
-  [transaction storage]
-  (if transaction
-    (let [lot-items (fetch-lot-items storage (:id transaction))]
-      (if (seq lot-items)
-        (assoc transaction
-               :lot-items
-               (->> lot-items
-                    (map #(-> %
-                              (dissoc :transaction-id)
-                              (update-in [:lot-action] keyword)))))
-        transaction))
-    transaction))
+  [transaction]
+  (when transaction
+    (if-let [lot-items (seq (fetch-lot-items (:id transaction)))]
+      (assoc transaction
+             :lot-items
+             (->> lot-items
+                  (map #(-> %
+                            (dissoc :transaction-id)
+                            (update-in [:lot-action] keyword)))))
+      transaction)))
 
 (defn- after-read
   "Returns a transaction that is ready for public use"
-  ([storage transaction]
-   (after-read storage transaction {}))
-  ([storage transaction options]
+  ([transaction]
+   (after-read transaction {}))
+  ([transaction options]
    (when transaction
      (cond-> transaction
        (:include-items? options)
-       (append-items storage)
+       append-items
 
        (:include-lot-items? options)
-       (append-lot-items storage)
+       append-lot-items
 
        true
-       (storage/tag ::models/transaction)))))
+       (tag ::models/transaction)))))
+
+(defn find-item-by
+  "Returns the first item matching the specified criteria"
+  ([criteria]
+   (find-item-by criteria {}))
+  ([criteria options]
+   (first (search-items criteria (merge options {:limit 1})))))
 
 (defn find-item
-  "Returns the first item matching the specified criteria"
-  ([storage-spec criteria]
-   (find-item storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (first (search-items storage-spec criteria (merge options {:limit 1})))))
-
-(defn find-item-by-id
-  [storage-spec id transaction-date]
-  (find-item storage-spec
-             {:id id
-              :transaction-date transaction-date}))
+  ([{:keys [id transaction-date]}]
+   (find-item id transaction-date))
+  ([id transaction-date]
+   (find-item-by {:id id
+                  :transaction-date transaction-date})))
 
 ; This is public to support the unit test
 (defn upsert-item
   "Updates the specified transaction item"
-  [storage {:keys [id transaction-date] :as item}]
+  [{:keys [id transaction-date] :as item}]
   (let [to-save (before-save-item item)]
-    (if (:id to-save)
+    (if id
       (do
-        (storage/update storage to-save)
-        (find-item-by-id storage id transaction-date))
-      (storage/create storage to-save))))
+        (storage/update to-save)
+        (find-item id transaction-date))
+      (storage/create to-save))))
 
 (defn update-items
-  [storage-spec attr criteria]
-  (with-storage [s storage-spec]
-    (storage/update s (storage/tag attr ::models/transaction-item) criteria)))
+  [attr criteria]
+  (with-storage (env :db)
+    (storage/update (tag attr ::models/transaction-item) criteria)))
 
 (defn update-item-index-and-balance
   "Updates only the index and balance of an item, returning true if
   the values where changed as a result of the update, or false if the specified
   values match the existing values"
-  [storage-spec item]
-  (with-storage [s storage-spec]
+  [item]
+  (with-storage (env :db)
     (let [records-affected (storage/update
-                             s
-                             (select-keys (before-save-item item) [:balance
-                                                                   :index
-                                                                   :negative])
+                             (-> item
+                                 before-save-item
+                                 (select-keys [:balance
+                                               :index
+                                               :negative]))
                              [:and
                               {:id (:id item)
                                :transaction-date (some #(% item)  [:original-transaction-date
@@ -310,11 +314,10 @@
 
 (declare reload)
 (defn- no-reconciled-items-changed?
-  [storage transaction]
+  [transaction]
   (if (:id transaction)
-    (let [existing (reload storage transaction)
-          reconciled (->> existing
-                          :items
+    (let [existing (reload transaction)
+          reconciled (->> (:items existing)
                           (filter :reconciled?)
                           (map #(select-keys % [:id :quantity :account-id :action]))
                           set)
@@ -329,47 +332,41 @@
       (= incoming reconciled))
     true))
 
-(defn- validation-rules
-  [storage]
+(def ^:private validation-rules
   [#'sum-of-credits-must-equal-sum-of-debits
    #'transaction-dates-must-match
-   (validation/create-rule (partial no-reconciled-items-changed? storage)
+   (validation/create-rule no-reconciled-items-changed?
                            [:items]
                            "A reconciled transaction item cannot be changed")])
 
 (defn- validate
-  [storage spec transaction]
+  [transaction spec]
   (-> transaction
       before-validation
-      (validation/validate spec (validation-rules storage))
+      (validation/validate spec validation-rules)
       after-validation))
-
-(s/def ::page validation/positive-integer?)
-(s/def ::per-page validation/positive-integer?)
-(s/def ::select-options (s/keys :req-un [::page ::per-page]))
 
 (defn search
   "Returns the transactions that belong to the specified entity"
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (let [parsed-options (if (s/valid? ::select-options options)
-                          options
-                          {:page 1
-                           :per-page 10})]
-     (with-storage [s storage-spec]
-       (map #(after-read s % options)
-            (storage/select s
-                            (prepare-criteria criteria ::models/transaction)
-                            parsed-options))))))
+  ([criteria]
+   (search criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
+     (map #(after-read % options)
+          (storage/select (prepare-criteria criteria ::models/transaction)
+                          options)))))
+
+(defn find-by
+  ([criteria] (find-by criteria {}))
+  ([criteria options]
+   (first (search criteria (assoc options :limit 1)))))
 
 (defn select-items-by-reconciliation
   "Returns the transaction items associated with the specified reconciliation"
-  [storage-spec reconciliation]
-  (with-storage [s storage-spec]
+  [reconciliation]
+  (with-storage (env :db)
     (map after-item-read
-         (search-items s
-                       {:reconciliation-id (:id reconciliation)
+         (search-items {:reconciliation-id (:id reconciliation)
                         :transaction-date [:between
                                            (t/minus (:end-of-period reconciliation) (t/years 1))
                                            (t/plus (:end-of-period reconciliation) (t/months 1))]}
@@ -377,34 +374,20 @@
 
 (defn record-count
   "Returns the number of transactions that match the specified criteria"
-  [storage-spec criteria]
-  (with-storage [s storage-spec]
-    (search s criteria {:count true})))
+  [criteria]
+  (with-storage (env :db)
+    (search criteria {:count true})))
 
 (defn- create-transaction-item*
-  [storage item]
+  [item]
   (->> item
        before-save-item
-       (storage/create storage)
+       storage/create
        after-item-read))
 
-(defn- earlier
-  [d1 d2]
-  (->> [d1 d2]
-       (filter identity)
-       sort
-       first))
-
-(defn- later
-  [d1 d2]
-  (->> [d1 d2]
-       (filter identity)
-       (sort #(compare %2 %1))
-       first))
-
 (defn- link-lots
-  [storage {:keys [id transaction-date]} lot-items]
-  (mapv (comp #(l-t/create storage %)
+  [{:keys [id transaction-date]} lot-items]
+  (mapv (comp l-t/create
               #(assoc %
                       :transaction-id id
                       :transaction-date transaction-date))
@@ -413,17 +396,15 @@
 (defn- find-base-item
   "Given an account ID and a date, finds the transaction item for that
   account that immediately precents the given date"
-  [storage account-id as-of]
+  [account-id as-of]
   ; TODO If no item is found, we need to know if it's because
   ; there is no item in this partition, or no item at all.
   ; I'm not sure of the storage layer is already walking back,
   ; but I'm guessing it is not.
-  (find-item storage
-             {:transaction-date [:< as-of]
-              :account-id account-id}
-             {:sort [[:transaction-date :desc]
-                     [:index :desc]]
-              :limit 1}))
+  (find-item-by {:transaction-date [:< as-of]
+                 :account-id account-id}
+                {:sort [[:transaction-date :desc]
+                        [:index :desc]]}))
 
 (defn- process-items
   "Recalculates and updates statistics in the specifed items.
@@ -441,8 +422,7 @@
       and that the item that has been changed may not be the first
       item that day (based on index)."
 
-  [storage
-   account
+  [account
    {:keys [index balance]
     :or {index -1 balance 0M}}
    items
@@ -461,10 +441,10 @@
                (= new-balance (:balance item)))
         nil
         (do
-          (update-item-index-and-balance storage (assoc item
-                                                        :negative (> 0 polarized-quantity)
-                                                        :balance new-balance
-                                                        :index new-index))
+          (update-item-index-and-balance (assoc item
+                                                :negative (> 0 polarized-quantity)
+                                                :balance new-balance
+                                                :index new-index))
           (if (seq remaining)
             (recur (first remaining)
                    (rest remaining)
@@ -474,20 +454,19 @@
             [new-index new-balance (:transaction-date item)]))))))
 
 (defmulti ^:private account-value
-  (fn [_storage _balance {:keys [tags]}]
+  (fn [_balance {:keys [tags]}]
     (get-in tags [:tradable])))
 
 (defmethod ^:private account-value :default
-  [_storage balance _account]
+  [balance _account]
   balance)
 
 (defmethod ^:private account-value :tradable
-  [storage balance {:keys [commodity-id
-                           earliest-transaction-date
-                           latest-transaction-date]}]
+  [balance {:keys [commodity-id
+                   earliest-transaction-date
+                   latest-transaction-date]}]
   (let [[earliest latest] (available-date-range)]
-    (if-let [price (first (prices/search storage
-                                         {:commodity-id commodity-id
+    (if-let [price (first (prices/search {:commodity-id commodity-id
                                           :trade-date [:between
                                                        (or earliest-transaction-date earliest)
                                                        (or latest-transaction-date latest)]}
@@ -500,61 +479,59 @@
 (defn recalculate-account
   "Recalculates statistics for items in the the specified account
   as of the specified date"
-  ([storage account-or-id as-of]
-   (recalculate-account storage account-or-id as-of {}))
-  ([storage account-or-id as-of options]
+  ([account-or-id as-of]
+   (recalculate-account account-or-id as-of {}))
+  ([account-or-id as-of options]
    {:pre [account-or-id]}
 
    (let [account (if (map? account-or-id)
                    account-or-id
-                   (accounts/find-by-id storage account-or-id))
+                   (accounts/find account-or-id))
          _ (assert account "Unable to find the account.")
-         base-item (find-base-item storage (:id account) as-of)
-         items (search-items storage
-                             {:account-id (:id account)
+         base-item (find-base-item (:id account) as-of)
+         items (search-items {:account-id (:id account)
                               :transaction-date [:>= as-of]}
                              {:sort [:transaction-date :index]})
          [last-index
           balance
           last-date] (if (seq items)
-                       (process-items storage account base-item items options)
+                       (process-items account base-item items options)
                        (if base-item
                          ((juxt :index :quantity) base-item )
                          [0 0M]))]
      (when (not (nil? last-index))
-       (let [value (account-value storage balance account)]
+       (let [value (account-value balance account)]
          (log/debugf "update account summary data for \"%s\": quantity=%s, value=%s, earliest-transaction-date=%s, latest-transaction-date=%s"
                      (:name account)
                      balance
                      value
-                     (earlier (:earliest-transaction-date account) as-of)
-                     (later (:latest-transaction-date account) last-date))
-         (accounts/update storage (-> account
-                                      (assoc :quantity balance)
-                                      (assoc :value value)
-                                      (update-in [:earliest-transaction-date] earlier as-of)
-                                      (update-in [:latest-transaction-date] later last-date))))))))
+                     (earliest (:earliest-transaction-date account) as-of)
+                     (latest (:latest-transaction-date account) last-date))
+         (accounts/update (-> account
+                              (assoc :quantity balance
+                                     :value value)
+                              (update-in [:earliest-transaction-date] earliest as-of)
+                              (update-in [:latest-transaction-date] latest last-date))))))))
 
 (defn migrate-account
   "Moves all transaction items from from-account to to-account and recalculates the accounts"
-  [storage from-account to-account]
+  [from-account to-account]
   (let [as-of (or (->> [from-account to-account]
                        (map :earliest-transaction-date)
                        (filter identity)
                        sort
                        first)
-                  (settings/get storage :earliest-partition-date))]
+                  (settings/get (env :db) :earliest-partition-date))]
     (assert as-of "Unable to find the earliest transaction date.")
-    (with-transacted-storage [s storage]
-      (storage/update s
-                      (storage/tag {:account-id (:id to-account)
+    (with-transacted-storage (env :db)
+      (storage/update (tag {:account-id (:id to-account)
                                     :index 0
                                     :balance nil}
                                    ::models/transaction-item)
                       {:account-id (:id from-account)
                        :transaction-date [:>= as-of]})
       (doseq [account [from-account to-account]]
-        (recalculate-account s account as-of {:force true})))))
+        (recalculate-account account as-of {:force true})))))
 
 (defn- extract-account-ids
   [transaction]
@@ -568,25 +545,26 @@
       (update-in [entity-id :delayed-account-ids]
                  into
                  account-ids)
-      (update-in [entity-id :earliest-date] earlier transaction-date)))
+      (update-in [entity-id :earliest-date] earliest transaction-date)))
 
 (defn create
   "Creates a new transaction"
-  [storage-spec transaction]
-  (with-transacted-storage [s storage-spec]
-    (let [validated (validate s ::new-transaction transaction)]
+  [transaction]
+  (with-transacted-storage (env :db)
+    (let [validated (validate transaction ::new-transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [created (storage/create s (before-save validated))
-              _  (link-lots s created (:lot-items validated))
+        (let [created (storage/create (before-save validated))
+              _  (link-lots created (:lot-items validated))
               account-ids (extract-account-ids validated)]
-          (mapv (comp #(create-transaction-item* s %)
-                      before-save-item
-                      #(assoc %
-                              :transaction-id (:id created)
-                              :transaction-date (:transaction-date created)
-                              :index -1))
-                (:items validated))
+          (doseq [item (:items validated)]
+            (-> item
+                (assoc
+                  :transaction-id (:id created)
+                  :transaction-date (:transaction-date created)
+                  :index -1)
+                before-save-item
+                create-transaction-item*))
           (if (delay-balances? (:entity-id validated))
             (swap! ambient-settings
                    save-delayed-info
@@ -594,37 +572,36 @@
                    account-ids
                    (:transaction-date validated))
             (doseq [account-id account-ids]
-              (recalculate-account s account-id (:transaction-date validated))))
-          (reload s created))))))
+              (recalculate-account account-id (:transaction-date validated))))
+          (reload created))))))
 
-(defn find-by-id
+(defn find
   "Returns the specified transaction"
-  [storage-spec id transaction-date]
-  (first (search storage-spec
-                 {:id id
-                  :transaction-date transaction-date}
-                 {:limit 1
-                  :include-items? true
-                  :include-lot-items? true})))
+  ([{:keys [id transaction-date]}]
+   (find id transaction-date))
+  ([id transaction-date]
+   {:pre [id transaction-date]}
+   (find-by {:id id
+             :transaction-date transaction-date}
+            {:include-items? true
+             :include-lot-items? true})))
 
 (defn find-by-item-id
   "Returns the transaction that has the specified transaction item"
-  [storage-spec item-id transaction-date]
-  (with-storage [s storage-spec]
+  [item-id transaction-date]
+  (with-storage (env :db)
     (when-let [{:keys [transaction-id
-                       transaction-date]} (find-item-by-id
-                                            s
+                       transaction-date]} (find-item
                                             item-id
                                             transaction-date)]
-      (find-by-id s transaction-id transaction-date))))
+      (find transaction-id transaction-date))))
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
-  ([storage-spec account-id date-spec]
-   (items-by-account storage-spec account-id date-spec {}))
-  ([storage-spec account-id date-spec options]
-   (search-items storage-spec
-                 {:account-id account-id
+  ([account-or-id date-spec]
+   (items-by-account account-or-id date-spec {}))
+  ([account-or-id date-spec options]
+   (search-items {:account-id (->id account-or-id)
                   :transaction-date (if (coll? date-spec)
                                       [:between
                                        (first date-spec)
@@ -636,21 +613,21 @@
 
 (defn unreconciled-items-by-account
   "Returns the unreconciled transaction items for the specified account"
-  [storage-spec account-id]
-  (search storage-spec {:account-id account-id
-                        :reconciliation-id nil}))
+  [account-id]
+  (search {:account-id account-id
+           :reconciliation-id nil}))
 
 (defn reload
   "Returns an updated copy of the transaction"
-  [storage-spec {:keys [id transaction-date]}]
-  (find-by-id storage-spec id transaction-date))
+  [transaction]
+  (find transaction))
 
 (defn- find-existing-transaction
   "Given a transaction that has been updated, find the existing
   transaction in storage. If none can be found, throw an exception."
-  [storage {:keys [id transaction-date original-transaction-date]}]
+  [{:keys [id transaction-date original-transaction-date]}]
   (let [search-date (or original-transaction-date transaction-date)]
-    (or (find-by-id storage id search-date)
+    (or (find id search-date)
         (throw (ex-info
                  (format "Unable to find transaction with id %s and date %s"
                          id
@@ -659,19 +636,19 @@
                   :search-date search-date})))))
 
 (defn- update-transaction*
-  [storage transaction]
+  [transaction]
   (->> transaction
        before-save
-       (storage/update storage)))
+       storage/update))
 
 (defn- update-full-transaction
   "Update the transaction and associated items."
-  [storage transaction]
-  (update-transaction* storage transaction)
+  [transaction]
+  (update-transaction* transaction)
   (doseq [item (:items transaction)]
     (as-> item i
       (assoc i :transaction-id (:id transaction))
-      (upsert-item storage i))))
+      (upsert-item i))))
 
 ; Processing a transaction
 ; 1. Save the transaction and item records
@@ -690,12 +667,12 @@
 
 (defn update
   "Updates the specified transaction"
-  [storage-spec transaction]
-  (with-transacted-storage [storage storage-spec]
-    (let [validated (validate storage ::existing-transaction transaction)]
+  [transaction]
+  (with-transacted-storage (env :db)
+    (let [validated (validate transaction ::existing-transaction)]
       (if (validation/has-error? validated)
         validated
-        (let [existing (find-existing-transaction storage transaction)
+        (let [existing (find-existing-transaction transaction)
               dereferenced-items (->> (:items existing)
                                       (remove #(some (fn [i] (= (:id i)
                                                                 (:id %)))
@@ -706,18 +683,18 @@
                                                    (->> (:items validated)
                                                         (map :account-id)
                                                         (into #{})))
-              recalc-base-date (earlier (:transaction-date existing)
-                                        (:transaction-date validated))
+              recalc-base-date (earliest (:transaction-date existing)
+                                         (:transaction-date validated))
               recalc-account-ids (->> (:items validated)
                                       (map :account-id)
                                       (concat dereferenced-account-ids)
                                       (into #{}))]
-          (update-full-transaction storage validated)
+          (update-full-transaction validated)
           (doseq [item dereferenced-items]
-            (storage/delete storage item))
+            (storage/delete item))
           (doseq [account-id recalc-account-ids]
-            (recalculate-account storage account-id recalc-base-date))
-          (reload storage validated))))))
+            (recalculate-account account-id recalc-base-date))
+          (reload validated))))))
 
 (defn can-delete?
   [transaction]
@@ -738,54 +715,50 @@
 
 (defn delete
   "Removes the specified transaction from the system"
-  [storage-spec {:keys [id transaction-date]}]
-  (with-storage [s storage-spec]
-    (let [transaction (find-by-id s id transaction-date)]
+  [{:keys [id transaction-date]}]
+  (with-storage (env :db)
+    (let [transaction (find id transaction-date)]
       (ensure-deletable transaction)
-      (storage/delete s transaction)
+      (storage/delete transaction)
       (doseq [account-id (extract-account-ids transaction)]
-        (recalculate-account s account-id (:transaction-date transaction))))))
+        (recalculate-account account-id (:transaction-date transaction))))))
 
 (defn- find-last-item-before
-  [storage-spec account date]
-  (find-item storage-spec
-             {:account-id (:id account)
-              :transaction-date [:between (:earliest-transaction-date account) (t/minus date (t/days 1))]}
-             {:sort [[:transactions.transaction-date :desc] [:transaction_items.index :desc]]}))
+  [account date]
+  (find-item-by {:account-id (:id account)
+                 :transaction-date [:between (:earliest-transaction-date account) (t/minus date (t/days 1))]}
+                {:sort [[:transactions.transaction-date :desc] [:transaction_items.index :desc]]}))
 
 (defn- find-last-item-on-or-before
-  [storage-spec account date]
-  (find-item storage-spec
-             {:account-id (:id account)
-              :transaction-date [:between (:earliest-transaction-date account) date]}
-             {:sort [[:transactions.transaction-date :desc]
-                     [:transaction_items.index :desc]]}))
+  [account date]
+  (find-item-by {:account-id (:id account)
+                 :transaction-date [:between (:earliest-transaction-date account) date]}
+                {:sort [[:transactions.transaction-date :desc]
+                        [:transaction_items.index :desc]]}))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
-  [storage-spec account start end]
-  (let [t1 (find-last-item-before storage-spec account start)
-        t2 (find-last-item-on-or-before storage-spec account end)]
+  [account start end]
+  (let [t1 (find-last-item-before account start)
+        t2 (find-last-item-on-or-before account end)]
     (- (or (:balance t2) 0M)
        (or (:balance t1) 0M))))
 
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
-  [storage-spec account as-of]
+  [account as-of]
   (or (:balance
-        (find-last-item-on-or-before storage-spec
-                                     account as-of))
+        (find-last-item-on-or-before account as-of))
       0M))
 
 (defn find-items-by-ids
-  [storage-spec ids date-range]
+  [ids date-range]
   (search-items
-    storage-spec
     {:id ids
      :transaction-date (vec (concat [:between] date-range))}))
 
 (defmacro with-delayed-balancing
-  [storage-spec entity-id & body]
+  [entity-id & body]
   `(do
      ; Make a note that balances should not be calculated
      ; for this entity
@@ -798,9 +771,9 @@
        ; Recalculate balances for affected accounts
        (let [{account-ids# :delayed-account-ids
               as-of# :earliest-date} (get @ambient-settings ~entity-id)]
-         (with-transacted-storage [s# ~storage-spec]
+         (with-transacted-storage (env :db)
            (doseq [account-id# account-ids#]
-             (recalculate-account s# account-id# as-of#))))
+             (recalculate-account account-id# as-of#))))
 
        ; clean up the ambient settings as if we were never here
        (swap! ambient-settings dissoc ~entity-id)

@@ -3,7 +3,9 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
-            [stowaway.core :as storage :refer [with-storage]]
+            [environ.core :refer [env]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage]]
             [clj-money.models :as models]
             [clj-money.validation :refer [with-validation]]
             [clj-money.models.users :as users]))
@@ -15,31 +17,30 @@
 
 (defn- before-save
   [ident]
-  (storage/tag ident ::models/identity))
+  (tag ident ::models/identity))
 
 (defn- after-read
   [ident]
-  (storage/tag ident ::models/identity))
+  (tag ident ::models/identity))
 
 (defn create
-  [storage ident]
-  (with-storage [s storage]
+  [ident]
+  (with-storage (env :db)
     (with-validation ident ::identity []
-      (as-> ident i
-        (before-save i)
-        (storage/create s i)
-        (after-read i)))))
+      (-> ident
+          before-save
+          storage/create
+          after-read))))
 
 (defn select
-  [storage-spec criteria options]
-  (with-storage [s storage-spec]
-    (storage/select s
-                    (storage/tag criteria ::models/identity)
+  [criteria options]
+  (with-storage (env :db)
+    (storage/select (tag criteria ::models/identity)
                     options)))
 
-(defn find
-  [storage-spec criteria]
-  (first (select storage-spec criteria {:limit 1})))
+(defn find-by
+  [criteria]
+  (first (select criteria {:limit 1})))
 
 (defn- identity->user
   [ident]
@@ -52,37 +53,37 @@
         (dissoc :provider :provider-id))))
 
 (defn- find-by-identity
-  [storage provider {:keys [id]}]
-  (identity->user (find storage
-                        {:provider provider
-                         :provider-id id})))
+  [provider {:keys [id]}]
+  (identity->user (find-by
+                    {:provider provider
+                     :provider-id id})))
 
 (defn- find-by-email
-  [storage provider {:keys [email id]}]
-  (when-let [user (users/find storage {:email email})]
-    (create storage {:provider provider
-                     :provider-id id
-                     :user-id (:id user)})
+  [provider {:keys [email id]}]
+  (when-let [user (users/find-by {:email email})]
+    (create {:provider provider
+             :provider-id id
+             :user-id (:id user)})
     user))
 
 (defn- create-from-profile
-  [storage provider {:keys [email id given_name family_name]}]
-  (let [user (users/create storage {:email email
-                                    :first-name given_name
-                                    :last-name family_name
-                                    :password "please001!"
-                                    :password-confirmation "please001!"})
-        ident (create storage {:provider provider
-                               :provider-id id
-                               :user-id (:id user)})]
+  [provider {:keys [email id given_name family_name]}]
+  (let [user (users/create {:email email
+                            :first-name given_name
+                            :last-name family_name
+                            :password "please001!"
+                            :password-confirmation "please001!"})
+        ident (create {:provider provider
+                       :provider-id id
+                       :user-id (:id user)})]
     (log/debugf "created user from profile %s" (prn-str user))
     (log/debugf "created identity from profile %s" (prn-str ident))
     user))
 
 (defn find-or-create-from-profile
-  [storage-spec provider profile]
-  (with-storage [s storage-spec]
-    (some #(% s provider profile)
+  [provider profile]
+  (with-storage (env :db)
+    (some #(% provider profile)
           [find-by-identity
            find-by-email
            create-from-profile])))

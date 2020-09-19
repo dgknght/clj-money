@@ -2,10 +2,11 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
+            [environ.core :refer [env]]
             [clj-time.core :as t]
-            [stowaway.core :refer [with-transacted-storage]]
+            [stowaway.implicit :refer [with-transacted-storage]]
             [clj-money.util :refer [format-decimal]]
-            [clj-money.validation :as validation]
+            [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
@@ -57,32 +58,29 @@
 
 (defn- create-price
   "Given a context, calculates and appends the share price"
-  [{:keys [storage shares value commodity trade-date] :as context}]
-  (assoc context :price (prices/create storage
-                                       {:commodity-id (:id commodity)
+  [{:keys [shares value commodity trade-date] :as context}]
+  (assoc context :price (prices/create {:commodity-id (:id commodity)
                                         :trade-date trade-date
                                         :price (with-precision 4 (/ value shares))})))
 
 (defn- ensure-tag
   "Appends the :trading tag to the account if it isn't there already"
-  [{:keys [tags] :as account} tag storage]
+  [{:keys [tags] :as account} tag]
   (when account
     (if (contains? tags tag)
       account
-      (accounts/update storage
-                       (update-in account [:tags] conj tag)))))
+      (accounts/update (update-in account [:tags] conj tag)))))
 
 (defn- append-commodity-account
   "If the argument contains a commodity-account-id, append
   that account and :account-id and :commodity-id to the map
   and return it."
-  [{:keys [storage commodity-account-id] :as context}]
+  [{:keys [commodity-account-id] :as context}]
   (if commodity-account-id
     (let [{:keys [parent-id commodity-id]
            :as account} (ensure-tag
-                          (accounts/find-by-id storage commodity-account-id)
-                          :tradable
-                          storage)]
+                          (accounts/find commodity-account-id)
+                          :tradable)]
       (assert account (str "Unable to load the commodity account: " commodity-account-id))
       (assoc context
              :commodity-account account
@@ -92,43 +90,41 @@
 
 (defn- append-commodity
   "Given a context, appends the commodity"
-  [{:keys [commodity-id storage] :as context}]
+  [{:keys [commodity-id] :as context}]
   {:pre [commodity-id]}
 
-  (assoc context :commodity (commodities/find-by-id storage commodity-id)))
+  (assoc context :commodity (commodities/find commodity-id)))
 
 (defn- find-commodity-account
-  [storage parent commodity]
-  (when-let [result (accounts/find-by storage {:parent-id (:id parent)
-                                               :commodity-id (:id commodity)})]
-    (ensure-tag result :tradable storage)))
+  [parent commodity]
+  (when-let [result (accounts/find-by {:parent-id (:id parent)
+                                       :commodity-id (:id commodity)})]
+    (ensure-tag result :tradable)))
 
 (defn- create-commodity-account
-  [storage parent commodity]
-  (accounts/create storage {:name (:symbol commodity)
-                            :type :asset
-                            :commodity-id (:id commodity)
-                            :parent-id (:id parent)
-                            :entity-id (:entity-id parent)
-                            :tags #{:tradable}}))
+  [parent commodity]
+  (accounts/create {:name (:symbol commodity)
+                    :type :asset
+                    :commodity-id (:id commodity)
+                    :parent-id (:id parent)
+                    :entity-id (:entity-id parent)
+                    :tags #{:tradable}}))
 
 (defn- find-or-create-commodity-account
-  [storage parent commodity]
-  (some #(% storage parent commodity)
+  [parent commodity]
+  (some #(% parent commodity)
         [find-commodity-account
          create-commodity-account]))
 
 (defn- append-accounts
   "Give a purchase context, acquires the accounts
   necessary to complete the purchase"
-  [{:keys [account-id storage commodity]
+  [{:keys [account-id commodity]
     :as context}]
   {:pre [(and account-id commodity)]}
-  (let [account (ensure-tag (accounts/find-by-id storage account-id)
-                            :trading
-                            storage)
-        commodity-account (find-or-create-commodity-account storage
-                                                            account
+  (let [account (ensure-tag (accounts/find account-id)
+                            :trading)
+        commodity-account (find-or-create-commodity-account account
                                                             commodity)]
     (assert account (str "Unable to resolve the account "
                          (prn-str (select-keys context [:account-id]))))
@@ -139,10 +135,9 @@
            :commodity-account commodity-account)))
 
 (defn- append-entity
-  [{storage :storage
-    {entity-id :entity-id} :account
+  [{{entity-id :entity-id} :account
     :as context}]
-  (assoc context :entity (entities/find-by-id storage entity-id)))
+  (assoc context :entity (entities/find entity-id)))
 
 (defn- sale-transaction-description
   [{:keys [shares]
@@ -165,8 +160,7 @@
 (defn- create-purchase-transaction
   "Given a purchase context, creates the general currency
   transaction"
-  [{:keys [storage
-           trade-date
+  [{:keys [trade-date
            value
            shares
            fee-account-id
@@ -189,7 +183,6 @@
     (assoc context
            :transaction
            (transactions/create
-             storage
              {:entity-id (-> context :account :entity-id)
               :transaction-date trade-date
               :description (purchase-transaction-description context)
@@ -241,10 +234,9 @@
 (defn- create-sale-transaction
   "Given a purchase context, creates the general currency
   transaction"
-  [{:keys [storage trade-date] :as context}]
+  [{:keys [trade-date] :as context}]
   (let [items (create-sale-transaction-items context)
         transaction (transactions/create
-                      storage
                       {:entity-id (-> context :account :entity-id)
                        :transaction-date trade-date
                        :description (sale-transaction-description context)
@@ -258,17 +250,16 @@
 
 (defn- create-lot
   "Given a purchase context, creates and appends the commodity lot"
-  [{:keys [storage
-           trade-date
+  [{:keys [trade-date
            shares
            commodity
            account
            price] :as context}]
-  (let [lot (lots/create storage {:account-id (:id account)
-                                  :commodity-id (:id commodity)
-                                  :purchase-date trade-date
-                                  :purchase-price (:price price)
-                                  :shares-purchased shares})]
+  (let [lot (lots/create {:account-id (:id account)
+                          :commodity-id (:id commodity)
+                          :purchase-date trade-date
+                          :purchase-price (:price price)
+                          :shares-purchased shares})]
     (assoc context :lot lot)))
 
 ; expect
@@ -281,32 +272,30 @@
 ; :shares
 ; :value
 (defn buy
-  [storage-spec purchase]
-  (with-transacted-storage [s storage-spec]
-    (let [validated (validation/validate purchase ::purchase)]
-      (if (validation/valid? validated)
-        (->> (assoc validated :storage s)
-             append-commodity-account
-             append-commodity
-             append-accounts
-             append-entity
-             create-price
-             create-lot
-             create-purchase-transaction)
-        validated))))
+  [purchase]
+  (with-transacted-storage (env :db)
+    (with-validation purchase ::purchase []
+      (->> purchase
+           append-commodity-account
+           append-commodity
+           append-accounts
+           append-entity
+           create-price
+           create-lot
+           create-purchase-transaction))))
 
 (defn unbuy
   "Reverses a commodity purchase"
-  [storage-spec {transaction-id :id transaction-date :transaction-date}]
-  (with-transacted-storage [s storage-spec]
-    (let [transaction (transactions/find-by-id s transaction-id transaction-date)
-          lot (lots/find-by-id s (-> transaction :lot-items first :lot-id))
-          commodity (commodities/find-by-id s (:commodity-id lot))]
+  [{transaction-id :id transaction-date :transaction-date}]
+  (with-transacted-storage (env :db)
+    (let [transaction (transactions/find transaction-id transaction-date)
+          lot (lots/find (-> transaction :lot-items first :lot-id))
+          commodity (commodities/find (:commodity-id lot))]
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.
                  "Cannot undo a purchase if shares have been sold from the lot")))
-      (transactions/delete s transaction)
-      (lots/delete s lot)
+      (transactions/delete transaction)
+      (lots/delete lot)
       {:transaction transaction
        :lot lot
        :commodity commodity})))
@@ -314,10 +303,9 @@
 (defn- acquire-lots
   "Given a sell context, finds the next lot containing
   shares that can be sold"
-  [{:keys [storage inventory-method commodity account] :as context}]
+  [{:keys [inventory-method commodity account] :as context}]
   (assoc context
-         :lots (lots/search storage
-                            {:commodity-id (:id commodity)
+         :lots (lots/search {:commodity-id (:id commodity)
                              :account-id (:id account)
                              :shares-owned [:!= 0M]}
                             {:sort [[:purchase-date
@@ -339,8 +327,7 @@
                              0M])
         sale-price (-> context :price :price)
         purchase-price (:purchase-price lot)
-        adj-lot (lots/update (:storage context)
-                             (assoc lot :shares-owned new-lot-balance))
+        adj-lot (lots/update (assoc lot :shares-owned new-lot-balance))
         _ (when (validation/has-error? adj-lot)
             (log/errorf "Unable to update lot for sale %s" adj-lot))
         gain (- (* shares-sold sale-price)
@@ -381,14 +368,13 @@
           adj-context
           (recur adj-context shares-to-be-sold (first remaining-lots)  (rest remaining-lots))))
       (do
-        (log/error "Unable to find a lot to sell shares " (prn-str (dissoc context :storage)))
+        (log/error "Unable to find a lot to sell shares " (prn-str context))
         (throw (ex-info "Unable to find a lot to sell the shares"
-                        {:context (dissoc context :storage)}))))))
+                        {:context context}))))))
 
 (defn- update-entity-settings
-  [{:keys [entity storage] :as context}]
-  (entities/update storage
-                   (update-in entity
+  [{:keys [entity] :as context}]
+  (entities/update (update-in entity
                               [:settings]
                               #(merge % (select-keys context
                                                      [:lt-capital-gains-account-id
@@ -399,14 +385,14 @@
   context)
 
 (defn- find-or-create-account
-  [storage account]
-  (or (accounts/find-by storage account)
-      (accounts/create storage account)))
+  [account]
+  (some #(% account)
+        [accounts/find-by
+         accounts/create]))
 
 (defn- find-or-create-gains-account
-  [{:keys [storage entity]} term result]
+  [{:keys [entity]} term result]
   (find-or-create-account
-    storage
     {:entity-id (:id entity)
      :type (if (= "gains" result)
              :income
@@ -435,41 +421,38 @@
        (reduce ensure-gains-account context)))
 
 (defn sell
-  [storage-spec sale]
-  (with-transacted-storage [s storage-spec]
-    (let [validated (validation/validate sale ::sale)]
-      (if (validation/has-error? validated)
-        validated
-        (->> (assoc validated :storage s)
-             append-commodity-account
-             append-commodity
-             append-accounts
-             append-entity
-             acquire-lots
-             ensure-gains-accounts
-             update-entity-settings
-             create-price
-             process-lot-sales
-             create-sale-transaction)))))
+  [sale]
+  (with-transacted-storage (env :db)
+    (with-validation sale ::sale []
+      (->> sale
+           append-commodity-account
+           append-commodity
+           append-accounts
+           append-entity
+           acquire-lots
+           ensure-gains-accounts
+           update-entity-settings
+           create-price
+           process-lot-sales
+           create-sale-transaction))))
 
 (defn unsell
-  [storage-spec {transaction-id :id transaction-date :transaction-date}]
-  (with-transacted-storage [s storage-spec]
-    (let [transaction (transactions/find-by-id s transaction-id transaction-date)]
+  [{transaction-id :id transaction-date :transaction-date}]
+  (with-transacted-storage (env :db)
+    (let [transaction (transactions/find transaction-id transaction-date)]
       (doseq [lot-item (:lot-items transaction)]
-        (let [lot (lots/find-by-id s (:lot-id lot-item))]
-          (lots/update s (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
-      (transactions/delete s transaction))))
+        (let [lot (lots/find (:lot-id lot-item))]
+          (lots/update (update-in lot [:shares-owned] #(+ % (:shares lot-item))))))
+      (transactions/delete transaction))))
 
 (defn- append-transfer-accounts
-  [{:keys  [storage from-account-id to-account-id commodity] :as context}]
+  [{:keys  [from-account-id to-account-id commodity] :as context}]
   (let [[from-account
-         to-account] (map (comp #(ensure-tag % :trading storage)
-                                #(accounts/find-by-id storage %))
+         to-account] (map (comp #(ensure-tag % :trading)
+                                accounts/find)
                           [from-account-id to-account-id])
         [from-commodity-account
          to-commodity-account] (map #(find-or-create-commodity-account
-                                       storage
                                        %
                                        commodity)
                                     [from-account to-account])]
@@ -480,13 +463,12 @@
            :to-commodity-account to-commodity-account)))
 
 (defn- process-transfer-lots
-  [{:keys [storage commodity from-account to-account] :as context}]
-  (let [to-move (lots/search storage {:commodity-id (:id commodity)
-                                      :account-id (:id from-account)
-                                      :shares-owned [:> 0M]})]
+  [{:keys [commodity from-account to-account] :as context}]
+  (let [to-move (lots/search {:commodity-id (:id commodity)
+                              :account-id (:id from-account)
+                              :shares-owned [:> 0M]})]
     (log/warnf "No lots found to transfer %s" (prn-str context))
     (assoc context :lots (mapv #(lots/update
-                                  storage
                                   (assoc % :account-id (:id to-account)))
                                to-move))))
 
@@ -496,32 +478,30 @@
            to-commodity-account
            transfer-date
            shares]
-    s :storage
     :as context}]
-  (let [price (prices/most-recent s commodity transfer-date)
+  (let [price (prices/most-recent commodity transfer-date)
         value (* shares (:price price))
-        transaction (transactions/create s {:entity-id (:entity-id commodity)
-                                            :transaction-date transfer-date
-                                            :description (format "Transfer %s shares of %s"
-                                                                 shares
-                                                                 (:symbol commodity))
-                                            :items [{:action :credit
-                                                     :quantity shares
-                                                     :value value
-                                                     :account-id (:id from-commodity-account)}
-                                                    {:action :debit
-                                                     :quantity shares
-                                                     :value value
-                                                     :account-id (:id to-commodity-account)}]})]
+        transaction (transactions/create {:entity-id (:entity-id commodity)
+                                          :transaction-date transfer-date
+                                          :description (format "Transfer %s shares of %s"
+                                                               shares
+                                                               (:symbol commodity))
+                                          :items [{:action :credit
+                                                   :quantity shares
+                                                   :value value
+                                                   :account-id (:id from-commodity-account)}
+                                                  {:action :debit
+                                                   :quantity shares
+                                                   :value value
+                                                   :account-id (:id to-commodity-account)}]})]
     (assoc context :transaction transaction)))
 
 (defn transfer
-  [storage-spec transfer]
+  [transfer]
   (let [validated (validation/validate transfer ::transfer)]
     (if (validation/valid? validated)
-      (with-transacted-storage [s storage-spec]
+      (with-transacted-storage (env :db)
         (-> validated
-            (assoc :storage s)
             append-commodity
             append-transfer-accounts
             process-transfer-lots
@@ -530,18 +510,17 @@
       validated)))
 
 (defn- apply-split-to-lot
-  [storage ratio lot]
-  (let [updated (-> lot
-                    (update-in [:shares-purchased] #(* % ratio))
-                    (update-in [:shares-owned] #(* % ratio))
-                    (update-in [:purchase-price] #(with-precision 4 (/ % ratio))))]
-    (lots/update storage updated)))
+  [ratio lot]
+  (lots/update (-> lot
+                   (update-in [:shares-purchased] #(* % ratio))
+                   (update-in [:shares-owned] #(* % ratio))
+                   (update-in [:purchase-price] #(with-precision 4 (/ % ratio))))))
 
 (defn- append-split-lots
-  [{:keys [storage commodity-id account-id] :as context}]
-  (assoc context :lots (lots/search storage {:commodity-id commodity-id
-                                             :account-id account-id
-                                             :shares-owned [:!= 0M]})))
+  [{:keys [commodity-id account-id] :as context}]
+  (assoc context :lots (lots/search {:commodity-id commodity-id
+                                     :account-id account-id
+                                     :shares-owned [:!= 0M]})))
 
 (defn- append-split-ratio
   [{:keys [shares-gained lots] :as context}]
@@ -554,10 +533,10 @@
                                shares-owned)))))
 
 (defn- process-split-lots
-  [{:keys [storage lots ratio] :as context}]
+  [{:keys [lots ratio] :as context}]
   (assoc context
          :lots
-          (mapv #(apply-split-to-lot storage ratio %) lots)))
+          (mapv #(apply-split-to-lot ratio %) lots)))
 
 (defn- ratio->words
   [ratio]
@@ -570,16 +549,14 @@
     (format "%s for %s" n d)))
 
 (defn- create-split-transaction
-  [{:keys [storage
-           commodity
+  [{:keys [commodity
            split-date
            ratio
            commodity-account
            shares-gained] :as context}]
   (assoc context
          :transaction
-         (transactions/create storage
-                              {:entity-id (:entity-id commodity)
+         (transactions/create {:entity-id (:entity-id commodity)
                                :transaction-date split-date
                                :description (format "Split shares of %s %s"
                                                     (:symbol commodity)
@@ -603,15 +580,15 @@
   :shares-gained - the difference in the number of shares held before and after the split
   :account-id    - the trading account through which the commodity was purchased"
 
-  [storage-spec split]
+  [split]
   (let [validated (validate-split split)]
     (if (validation/valid? validated)
-      (with-transacted-storage [s storage-spec]
-        (-> (assoc validated :storage s)
+      (with-transacted-storage (env :db)
+        (-> validated
             append-commodity
             append-accounts
             append-split-lots
             append-split-ratio
             process-split-lots
-            create-split-transaction
-            (dissoc :storage))) validated)))
+            create-split-transaction))
+      validated)))

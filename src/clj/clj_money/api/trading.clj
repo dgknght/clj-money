@@ -1,6 +1,5 @@
 (ns clj-money.api.trading
-  (:require [environ.core :refer [env]]
-            [compojure.core :refer [defroutes POST]]
+  (:require [compojure.core :refer [defroutes POST]]
             [stowaway.core :as storage]
             [clj-money.api :refer [->response]]
             [clj-money.models :as models]
@@ -25,7 +24,7 @@
                   (select-keys create-attributes)
                   (storage/tag ::models/trade)
                   (authorize ::authorization/create authenticated))
-        result (f (env :db) trade) ]
+        result (f trade) ]
     (->response (select-keys result [:transaction :lot :lots]) 201)))
 
 (defroutes routes

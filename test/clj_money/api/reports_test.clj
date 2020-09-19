@@ -1,6 +1,5 @@
 (ns clj-money.api.reports-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-time.core :as t]
@@ -17,14 +16,14 @@
                                             find-budget]]
             [clj-money.web.server :refer [app]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private report-context
   basic-context)
 
 (defn- get-income-statement
   [email]
-  (let [ctx (realize (env :db) report-context)
+  (let [ctx (realize report-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -58,7 +57,7 @@
 
 (defn- get-balance-sheet
   [email]
-  (let [ctx (realize (env :db) report-context)
+  (let [ctx (realize report-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -98,7 +97,7 @@
 
 (defn- get-budget-report
   [email]
-  (let [ctx (realize (env :db) budget-context)
+  (let [ctx (realize budget-context)
         user (find-user ctx email)
         budget (find-budget ctx "2016")
         response (-> (req/request :get (path :api
@@ -138,7 +137,7 @@
 
 (defn- get-monitor-list
   [email]
-  (let [ctx (realize (env :db) monitor-context)
+  (let [ctx (realize monitor-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (t/do-at (t/date-time 2016 1 7)
@@ -205,7 +204,7 @@
 
 (defn- get-portfolio-report
   [email]
-  (let [ctx (realize (env :db) portfolio-context)
+  (let [ctx (realize portfolio-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (str (path :api

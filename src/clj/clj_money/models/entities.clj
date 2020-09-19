@@ -1,8 +1,12 @@
 (ns clj-money.models.entities
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [stowaway.core :as storage :refer [with-storage]]
-            [clj-money.util :refer [update-in-if]]
+            [environ.core :refer [env]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage]]
+            [clj-money.util :refer [update-in-if
+                                    assoc-if
+                                    ->id]]
             [clj-money.models :as models]
             [clj-money.validation :as validation :refer [with-validation]]))
 
@@ -20,28 +24,43 @@
   [entity]
   (when entity
     (-> entity
-        (storage/tag ::models/entity)
+        (tag ::models/entity)
         (update-in-if [:settings] read-string))))
 
 (defn select
   "Returns entities for the specified user"
-  ([storage-spec criteria]
-   (select storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
+  ([criteria]
+   (select criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
      (map after-read
-          (storage/select s
-                          (storage/tag criteria ::models/entity)
+          (storage/select (tag criteria ::models/entity)
                           options)))))
 
+(defn find-by
+  "Returns the first entity that matches the specified criteria"
+  ([criteria]
+   (find-by criteria {}))
+  ([criteria options]
+  (first (select criteria (merge options {:limit 1})))))
+
+(defn find
+  "Finds the entity with the specified ID"
+  [id-or-entity]
+  (find-by {:id (->id id-or-entity)}))
+
+(defn reload
+  "Reloads the specified entity"
+  [entity]
+  (find entity))
+
 (defn- name-is-unique?
-  [storage {entity-name :name
-            user-id :user-id
-            entity-id :id}]
-  (->> (select storage {:user-id user-id} {})
-       (remove #(= (:id %) entity-id))
-       (filter #(= (:name %) entity-name))
-       empty?))
+  [{:keys [name id user-id]}]
+  (-> {:name name
+       :user-id user-id}
+      (assoc-if :id (when id [:!= id]))
+      find-by
+      nil?))
 
 (defn- before-validation
   [entity]
@@ -50,67 +69,51 @@
 (defn- before-save
   [entity]
   (-> entity
-      (storage/tag ::models/entity)
+      (tag ::models/entity)
       (update-in-if [:settings :monitored-account-ids] set)
       (update-in-if [:settings] pr-str)))
 
-(defn- validation-rules
-  [storage]
-  [(validation/create-rule (partial name-is-unique? storage)
+(def ^:private validation-rules
+  [(validation/create-rule name-is-unique?
                            [:name]
                            "Name is already in use")])
 
 (defn create
-  [storage entity]
-  (with-storage [s storage]
+  [entity]
+  (with-storage (env :db)
     (let [entity (before-validation entity)]
-      (with-validation entity ::new-entity (validation-rules s)
-        (as-> entity e
-          (before-save e)
-          (storage/create s e)
-          (after-read e))))))
-
-(defn find-by
-  "Returns the first entity that matches the specified criteria"
-  ([storage-spec criteria]
-   (find-by storage-spec criteria {}))
-  ([storage-spec criteria options]
-  (first (select storage-spec criteria (merge options {:limit 1})))))
-
-(defn find-by-id
-  "Finds the entity with the specified ID"
-  [storage-spec id]
-  (find-by storage-spec {:id id}))
-
-(defn reload
-  "Reloads the specified entity"
-  [storage-spec entity]
-  (find-by-id storage-spec (:id entity)))
+      (with-validation entity ::new-entity validation-rules
+        (-> entity
+            before-save
+            storage/create
+            after-read)))))
 
 (defn find-or-create
   "Finds the entity with the specified name for the
   specified user, or creates it if it is not found."
-  [storage-spec user entity-name]
+  [user entity-name]
   (or
-    (find-by storage-spec {:user-id (:id user)
-                           :name entity-name})
-    (create storage-spec {:user-id (:id user)
-                          :name entity-name})))
+    (find-by {:user-id (:id user)
+              :name entity-name})
+    (create {:user-id (:id user)
+             :name entity-name})))
 
 (defn update
-  [storage entity]
-  (with-storage [s storage]
+  [entity]
+  (with-storage (env :db)
     (let [entity (before-validation entity)]
-      (with-validation entity ::existing-entity (validation-rules s)
-        (storage/update s (before-save entity))
-        (find-by-id s (:id entity))))))
+      (with-validation entity ::existing-entity validation-rules
+        (-> entity
+            before-save
+            storage/update)
+        (find entity)))))
 
 (defn delete
   "Removes the specifiedy entity and all related records from storage"
-  [storage-spec entity]
-  (with-storage [s storage-spec]
-    (storage/delete s entity)))
+  [entity]
+  (with-storage (env :db)
+    (storage/delete entity)))
 
 (defn entity?
   [model]
-  (= ::models/entity (storage/tag model)))
+  (= ::models/entity (tag model)))

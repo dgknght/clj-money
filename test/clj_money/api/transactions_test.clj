@@ -1,6 +1,5 @@
 (ns clj-money.api.transactions-test
   (:require [clojure.test :refer [use-fixtures deftest is]]
-            [environ.core :refer [env]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-time.core :as t]
@@ -21,7 +20,7 @@
             [clj-money.models.transactions :as trans]
             [clj-money.web.server :refer [app]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private context
   {:users (->> ["john@doe.com" "jane@doe.com"]
@@ -51,7 +50,7 @@
 
 (defn- get-a-list
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -92,7 +91,7 @@
 
 (defn- get-a-transaction
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :get (path :api
@@ -126,7 +125,7 @@
 
 (defn- create-a-transaction
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         checking (find-account ctx "Checking")
@@ -149,8 +148,8 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (trans/search (env :db) {:entity-id (:id entity)
-                                           :transaction-date (t/local-date 2016 3 2)})]
+        retrieved (trans/search {:entity-id (:id entity)
+                                 :transaction-date (t/local-date 2016 3 2)})]
     [response body retrieved]))
 
 (defn- assert-successful-create
@@ -191,7 +190,7 @@
 
 (defn- update-a-transaction
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :patch (path :api
@@ -205,7 +204,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (trans/find-by-id (env :db) (:id transaction) (:transaction-date transaction))]
+        retrieved (trans/find (:id transaction) (:transaction-date transaction))]
     [response body retrieved]))
 
 (defn- assert-successful-update
@@ -239,7 +238,7 @@
 
 (defn- delete-a-transaction
   [email]
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx email)
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :delete (path :api
@@ -248,7 +247,7 @@
                                                 (:id transaction)))
                      (add-auth user)
                      app)
-        retrieved (trans/find-by-id (env :db) (:id transaction) (:transaction-date transaction))]
+        retrieved (trans/find (:id transaction) (:transaction-date transaction))]
     [response retrieved]))
 
 (defn- assert-successful-delete

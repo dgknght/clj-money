@@ -1,6 +1,5 @@
 (ns clj-money.api.lots
   (:require [compojure.core :refer [defroutes GET]]
-            [environ.core :refer [env]]
             [clj-money.util :refer [update-in-if
                                     parse-float]]
             [clj-money.api :refer [->response]]
@@ -11,8 +10,7 @@
 
 (defn index
   [{:keys [params authenticated]}]
-  (->response (lots/search (env :db)
-                           (-> (:criteria params)
+  (->response (lots/search (-> (:criteria params)
                                (merge (dissoc params :criteria))
                                (select-keys [:account-id :commodity-id :shares-owned])
                                (update-in-if [:shares-owned 0] keyword)

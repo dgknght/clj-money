@@ -1,6 +1,5 @@
 (ns clj-money.api.budgets-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [cheshire.core :as json]
             [ring.mock.request :as req]
@@ -21,14 +20,14 @@
             [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private create-context
   basic-context)
 
 (defn- create-budget
   [email]
-  (let [ctx (realize (env :db) create-context)
+  (let [ctx (realize create-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :post (path :api
@@ -42,7 +41,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (budgets/search (env :db)  {:entity-id (:id entity)})]
+        retrieved (budgets/search {:entity-id (:id entity)})]
     [response body retrieved]))
 
 (defn- assert-successful-create
@@ -101,7 +100,7 @@
 
 (defn- get-budgets
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
@@ -136,7 +135,7 @@
 
 (defn- get-budget
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         budget (find-budget ctx "2016")
         response (-> (req/request :get (path :api
@@ -174,7 +173,7 @@
 
 (defn- update-budget
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         budget (find-budget ctx "2016")
         response (-> (req/request :patch (path :api
@@ -184,7 +183,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (budgets/find-by-id (env :db) (:id budget))]
+        retrieved (budgets/find budget)]
     [response body retrieved]))
 
 (defn- assert-successful-update
@@ -213,7 +212,7 @@
 
 (defn- delete-budget
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         budget (find-budget ctx "2016")
         response (-> (req/request :delete (path :api
@@ -221,7 +220,7 @@
                                                (:id budget)))
                      (add-auth user)
                      app)
-        retrieved (budgets/find-by-id (env :db) (:id budget))]
+        retrieved (budgets/find budget)]
     [response retrieved]))
 
 (defn- assert-successful-delete

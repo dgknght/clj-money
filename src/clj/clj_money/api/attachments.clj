@@ -1,7 +1,6 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
-            [environ.core :refer [env]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
             [clj-money.util :refer [uuid
@@ -42,8 +41,7 @@
 
 (defn- index
   [req]
-  (->response (att/search (env :db)
-                          (extract-criteria req))))
+  (->response (att/search (extract-criteria req))))
 
 (defn- create
   [{:keys [params authenticated]}]
@@ -54,14 +52,12 @@
     (authorize (stow/tag attr ::models/attachment)
                ::auth/create
                authenticated)
-    (let [image (img/find-or-create (env :db)
-                                    {:user-id (:id authenticated)
+    (let [image (img/find-or-create {:user-id (:id authenticated)
                                      :content-type (:content-type (:file params))
                                      :original-filename (:filename (:file params))
                                      :body (read-bytes (:tempfile (:file params)))})
           attachment (when (:id image)
-                       (att/create (env :db)
-                                   (assoc attr :image-id (:id image))))]
+                       (att/create (assoc attr :image-id (:id image))))]
       (if attachment
         (->response attachment
                     (if (v/has-error? attachment)
@@ -71,8 +67,7 @@
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (when-let [attachment (att/find-by (env :db)
-                                     (-> params
+  (when-let [attachment (att/find-by (-> params
                                          (select-keys [:id])
                                          (+scope ::models/attachment authenticated)))]
     (authorize
@@ -84,8 +79,7 @@
   [{:keys [body] :as req}]
   (if-let [attachment (find-and-auth req ::auth/update)]
     (->response
-      (att/update (env :db)
-                  (merge attachment
+      (att/update (merge attachment
                          (select-keys body [:caption]))))
     (not-found)))
 
@@ -93,7 +87,7 @@
   [req]
   (if-let [attachment (find-and-auth req ::auth/destroy)]
     (do
-      (att/delete (env :db) attachment)
+      (att/delete attachment)
       (->response))
     (not-found)))
 

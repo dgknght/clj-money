@@ -5,8 +5,12 @@
             [slingshot.slingshot :refer [throw+]]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date]]
+            [environ.core :refer [env]]
             [buddy.hashers :as hashers]
-            [stowaway.core :as storage :refer [with-storage]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage]]
+            [clj-money.util :refer [assoc-if
+                                    ->id]]
             [clj-money.models.sql-storage-ref]
             [clj-money.models :as models]
             [clj-money.validation :as validation :refer [with-validation]])
@@ -15,12 +19,12 @@
 (defn- before-save
   [user]
   (-> user
-      (storage/tag ::models/user)
+      (tag ::models/user)
       (update-in [:password] hashers/derive)))
 
 (defn- after-read
   [user]
-  (storage/tag user ::models/user))
+  (tag user ::models/user))
 
 (s/def ::first-name validation/non-empty-string?)
 (s/def ::last-name validation/non-empty-string?)
@@ -30,78 +34,74 @@
 (s/def ::existing-user (s/keys :req-un [::id ::first-name ::last-name ::email] :opt-un [::password]))
 
 (defn search
-  [storage criteria options]
-  (with-storage [s storage]
+  [criteria options]
+  (with-storage (env :db)
     (map after-read
-         (storage/select s
-                         (storage/tag criteria ::models/user)
+         (storage/select (tag criteria ::models/user)
                          options))))
 
-(defn find
-  ([storage-spec criteria]
-   (find storage-spec criteria {}))
-  ([storage-spec criteria options]
+(defn find-by
+  ([criteria]
+   (find-by criteria {}))
+  ([criteria options]
    {:pre [(map? criteria) (map? options)]}
-   (first (search storage-spec
-                  criteria
+   (first (search criteria
                   (merge options {:limit 1})))))
 
 (defn find-by-email
   "Returns the user having the specified email"
-  [storage-spec email]
-  (find storage-spec {:email email}))
+  [email]
+  (find-by {:email email}))
 
 (defn- email-is-unique?
-  [storage user]
-  (let [query (select-keys user [:email])
-        query (if-let [id (:id user)]
-                (assoc query :id [:!= id])
-                query)]
-    (nil? (find storage query))))
+  [{:keys [email id]}]
+  (-> {:email email}
+      (assoc-if :id (when id [:!= id]))
+      find-by
+      nil?))
 
-(defn- validation-rules
-  [storage]
-  [(validation/create-rule (partial email-is-unique? storage)
+(def validation-rules
+  [(validation/create-rule email-is-unique?
                            [:email]
                            "Email is already taken")])
 
 (defn create
-  [storage user]
-  (with-storage [s storage]
-    (with-validation user ::new-user (validation-rules s)
-      (as-> user u
-        (before-save u)
-        (storage/create s u)
-        (after-read u)))))
+  [user]
+  (with-storage (env :db)
+    (with-validation user ::new-user validation-rules
+      (-> user
+          before-save
+          storage/create
+          after-read))))
 
 (defn select
   "Lists the users in the database"
-  ([storage-spec]
-   (select storage-spec {}))
-  ([storage-spec criteria]
-   (select storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
-     (storage/select s (storage/tag criteria ::models/user) options))))
+  ([]
+   (select {}))
+  ([criteria]
+   (select criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
+     (storage/select (tag criteria ::models/user) options))))
 
-(defn find-by-id
+(defn find
   "Returns the user having the specified id"
-  [storage-spec id]
-  (find storage-spec {:id id}))
+  [id-or-entity]
+  (find-by {:id (->id id-or-entity)}))
 
 (defn find-by-token
   "Returns the user having the specified, unexpired password reset token"
-  [storage-spec token]
-  (find storage-spec {:password-reset-token token
-                      :token-expires-at [:> (to-sql-date (t/now))]}))
+  [token]
+  (find-by {:password-reset-token token
+            :token-expires-at [:> (to-sql-date (t/now))]}))
 
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
   needs to operate"
-  [storage-spec {:keys [username password]}]
-  (with-storage [s storage-spec]
-    (when-let [user (find s {:email username} {:include-password? true})]
+  [{:keys [username password]}]
+  (with-storage (env :db)
+    (when-let [user (find-by {:email username} {:include-password? true})]
       (when (hashers/check password (:password user))
         (-> user
             (dissoc :password)
@@ -115,36 +115,38 @@
   (format "%s %s" (:first-name user) (:last-name user)))
 
 (defn update
-  [storage user]
-  (with-storage [s storage]
-    (with-validation user ::existing-user (validation-rules s)
-      (as-> user u
-        (before-save u)
-        (storage/update s u))
-      (find-by-id s (:id user)))))
+  [user]
+  (with-storage (env :db)
+    (with-validation user ::existing-user validation-rules
+      (-> user
+          before-save
+          storage/update)
+      (find user))))
 
 (defn create-password-reset-token
   "Creates and sets the user's password reset token and expiration,
   and returns the token"
-  [storage-spec user]
+  [user]
   (let [token (string/replace (.toString (UUID/randomUUID)) "-" "")]
-    (update storage-spec
-            (assoc user :password-reset-token token
-                   :token-expires-at (-> 24 t/hours t/from-now to-sql-date)))
+    (-> user
+        (tag ::models/user)
+        (assoc :password-reset-token token
+               :token-expires-at (-> 24 t/hours t/from-now to-sql-date))
+        update) 
     token))
 
 (defn reset-password
   "Changes the user's password to the specified value
   and invalidates the token"
-  [storage-spec token password]
-  (with-storage [s storage-spec]
-    (if-let [user (find-by-token s token)]
-      (update s (assoc user  :password password
-                       :password-reset-token nil
-                       :token-expires-at nil))
-      (throw+ {:type ::models/not-found}))))
+  [token password]
+  (if-let [user (find-by-token token)]
+    (-> user
+        (assoc :password password
+               :password-reset-token nil
+               :token-expires-at nil)
+        update)
+    (throw+ {:type ::models/not-found})))
 
 (defn find-or-create-from-profile
-  [storage-spec profile]
-  (let [user (find storage-spec (select-keys profile [:email]))]
-    user))
+  [profile]
+  (find-by (select-keys profile [:email])))

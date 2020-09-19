@@ -1,7 +1,6 @@
 (ns clj-money.web.images
   (:require [clojure.java.io :as io]
             [compojure.core :refer [defroutes GET]]
-            [environ.core :refer [env]]
             [ring.util.response :refer [response content-type]]
             [clj-money.models.images :as images]
             [clj-money.authorization.images]
@@ -9,7 +8,7 @@
 
 (defn show
   [{:keys [params authenticated]}]
-  (if-let [image (images/find-by-id (env :db) (:id params))]
+  (if-let [image (images/find (:id params))]
     (do
       (authorize image ::authorization/show authenticated)
       (-> (io/input-stream (:body image))

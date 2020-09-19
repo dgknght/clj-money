@@ -1,7 +1,6 @@
 (ns clj-money.api.attachments-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.java.io :as io]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [cheshire.core :as json]
             [ring.mock.request :as req]
@@ -23,7 +22,7 @@
             [clj-money.validation :as v]
             [clj-money.web.server :refer [app]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private att-context
   (assoc basic-context :transactions [{:transaction-date (t/local-date 2015 1 1)
@@ -34,7 +33,7 @@
 
 (defn- create-attachment
   [email]
-  (let [ctx (realize (env :db) att-context)
+  (let [ctx (realize att-context)
         transaction (find-transaction ctx (t/local-date 2015 1 1) "Paycheck")
         user (find-user ctx email)
         file (io/file (io/resource "fixtures/attachment.jpg"))
@@ -48,7 +47,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (att/search (env :db) {:transaction-id (:id transaction)})]
+        retrieved (att/search {:transaction-id (:id transaction)})]
     [response body retrieved]))
 
 (defn- assert-successful-create
@@ -86,7 +85,7 @@
 
 (defn- list-attachments
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         transaction (find-transaction ctx (t/local-date 2015 1 1) "Paycheck")
         response (-> (req/request :get (str (path :api
@@ -121,7 +120,7 @@
 
 (defn- update-attachment
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         attachment (find-attachment ctx "Receipt")
         user (find-user ctx email)
         response (-> (req/request :patch (path :api
@@ -131,7 +130,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (att/find-by-id (env :db) (:id attachment))]
+        retrieved (att/find attachment)]
     [response body retrieved]))
 
 (defn- assert-successful-update
@@ -159,7 +158,7 @@
 
 (defn- delete-attachment
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         attachment (find-attachment ctx "Receipt")
         user (find-user ctx email)
         response (-> (req/request :delete (path :api
@@ -168,7 +167,7 @@
                      (req/json-body (assoc attachment :caption "Updated caption"))
                      (add-auth user)
                      app)
-        retrieved (att/find-by-id (env :db) (:id attachment))]
+        retrieved (att/find attachment)]
     [response retrieved]))
 
 (defn- assert-successful-delete

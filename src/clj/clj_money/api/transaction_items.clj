@@ -1,7 +1,6 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET]]
-            [environ.core :refer [env]]
             [clj-money.authorization :refer [+scope]]
             [clj-money.util :refer [uuid
                                     presence
@@ -37,7 +36,6 @@
   [{:keys [account-id] :as criteria} include-children?]
   (if include-children?
     (merge criteria (->criteria (acts/search
-                                  (env :db)
                                   {:id account-id}
                                   {:include-children? true})))
     criteria))
@@ -46,7 +44,7 @@
   [{:keys [account-id] :as criteria}]
   (if (:transaction-date criteria)
     criteria
-    (merge criteria (->criteria (acts/find-by-id (env :db) account-id)))))
+    (merge criteria (->criteria (acts/find account-id)))))
 
 (defn- apply-unreconciled
   [{:keys [unreconciled] :as criteria}]
@@ -84,8 +82,7 @@
 
 (defn index
   [req]
-  (->response (transactions/search-items (env :db)
-                                         (extract-criteria req)
+  (->response (transactions/search-items (extract-criteria req)
                                          (extract-options req))))
 
 (defroutes routes

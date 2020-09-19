@@ -19,9 +19,9 @@
 
 (defn- index
   [{:keys [authenticated params]}]
-  (->response (entities/select (env :db) (-> params
-                                             (select-keys [:name])
-                                             (+scope ::models/entity authenticated)))))
+  (->response (entities/select (-> params
+                                   (select-keys [:name])
+                                   (+scope ::models/entity authenticated)))))
 
 (defn- extract-entity
   [{:keys [body authenticated]}]
@@ -35,7 +35,7 @@
   [req]
   (let [entity (extract-entity req) ]
     (try
-      (let [result (entities/create (env :db) entity)]
+      (let [result (entities/create entity)]
         (if (validation/has-error? result)
           (invalid->response result)
           (->response result 201)))
@@ -45,14 +45,14 @@
 
 (defn- update
   [{:keys [params body authenticated]}]
-  (let [entity (authorize (entities/find-by-id (env :db) (:id params))
+  (let [entity (authorize (entities/find (:id params))
                           ::authorization/update
                           authenticated)
         updated (merge entity (-> body
                                   (update-in-if [:settings :monitored-account-ids] set)
                                   (select-keys [:name :settings])))]
     (try
-      (let [result (entities/update (env :db) updated)]
+      (let [result (entities/update updated)]
         (if (validation/has-error? result)
           (-> {:message (validation/error-messages result)}
               json/generate-string
@@ -74,13 +74,11 @@
 
 (defn- delete
   [{:keys [params authenticated]}]
-  (if-let [entity (first (entities/select (env :db)
-                                          (-> params
+  (if-let [entity (first (entities/select (-> params
                                               (select-keys [:id])
                                               (+scope ::models/entity authenticated))))]
     (do
-      (entities/delete (env :db)
-                       (authorize entity
+      (entities/delete (authorize entity
                                   ::authorization/destroy
                                   authenticated))
       (->response))

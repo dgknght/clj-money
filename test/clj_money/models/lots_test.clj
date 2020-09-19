@@ -1,6 +1,5 @@
 (ns clj-money.models.lots-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
@@ -11,9 +10,7 @@
             [clj-money.validation :as validation]
             [clj-money.models.lots :as lots]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def ^:private lot-context
   {:users [(factory :user)]
@@ -44,10 +41,10 @@
    :shares-purchased 100M})
 
 (deftest create-a-lot
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (find-commodity context "AAPL")
-        result (lots/create storage-spec (attributes context))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (attributes context))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (:id result) "The result receives an ID value")
     (is (empty? (validation/error-messages result)) "The result contains no validation errors")
     (is (= [{:purchase-date (t/local-date 2017 3 2)
@@ -60,79 +57,79 @@
         "The value is retrieved after create")))
 
 (deftest commodity-id-is-required
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (-> context :commodities first)
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (dissoc :commodity-id)))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (-> context
+                                attributes
+                                (dissoc :commodity-id)))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (seq (validation/error-messages result :commodity-id)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest account-id-is-required
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (-> context :commodities first)
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (dissoc :account-id)))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (-> context
+                                attributes
+                                (dissoc :account-id)))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (seq (validation/error-messages result :account-id)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-price-is-required
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (-> context :commodities first)
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (dissoc :purchase-price)))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (-> context
+                                attributes
+                                (dissoc :purchase-price)))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (seq (validation/error-messages result :purchase-price)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest account-id-must-reference-an-asset-account
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (-> context :commodities first)
         dining (find-account context "Dining")
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (assoc :account-id (:id dining))))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (-> context
+                                attributes
+                                (assoc :account-id (:id dining))))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (seq (validation/error-messages result :account-id)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-date-is-required
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (-> context :commodities first)
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (dissoc :purchase-date)))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (-> context
+                                attributes
+                                (dissoc :purchase-date)))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (seq (validation/error-messages result :purchase-date)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-date-must-be-a-date
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (find-commodity context "IRA")
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (assoc :purchase-date "not-a-date")))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (-> context
+                                attributes
+                                (assoc :purchase-date "not-a-date")))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (seq (validation/error-messages result :purchase-date)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest shares-purchased-is-required
-  (let [context (realize storage-spec lot-context)
+  (let [context (realize lot-context)
         commodity (find-commodity context "IRA")
-        result (lots/create storage-spec (-> context
-                                             attributes
-                                             (dissoc :shares-purchased)))
-        lots (lots/select-by-commodity-id storage-spec (:id commodity))]
+        result (lots/create (-> context
+                                attributes
+                                (dissoc :shares-purchased)))
+        lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
     (is (seq (validation/error-messages result :shares-purchased)) "The result contains a validation error")
     (is (empty? lots) "The value is not retrieved after create")))
@@ -146,25 +143,25 @@
                              :purchase-date (t/local-date 2016 3 2)}]))
 
 (deftest update-a-lot
-  (let [context (realize storage-spec existing-lot-context)
+  (let [context (realize existing-lot-context)
         lot (-> context :lots first)
         updated (update-in lot [:shares-owned] #(- % 30M))
-        result (lots/update storage-spec updated)
-        retrieved (lots/find-by-id storage-spec (:id lot))]
+        result (lots/update updated)
+        retrieved (lots/find lot)]
     (is (empty? (validation/error-messages result))
         "The result contains no validation errors")
     (is (= 70M (:shares-owned retrieved))
         "The retrieved map contains the updated value")))
 
 (deftest search-lots-by-account
-  (let [context (realize storage-spec existing-lot-context)
+  (let [context (realize existing-lot-context)
         ira (find-account context "IRA")
         commodity (->> context
                        :commodities
                        (filter #(= "AAPL" (:symbol %)))
                        first)
         actual (map #(dissoc % :updated-at :created-at :id)
-                    (lots/search storage-spec {:account-id (:id ira)}))
+                    (lots/search {:account-id (:id ira)}))
         expected [{:commodity-id (:id commodity)
                    :account-id (:id ira)
                    :purchase-date (t/local-date 2016 3 2)

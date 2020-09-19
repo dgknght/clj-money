@@ -1,6 +1,5 @@
 (ns clj-money.api.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [environ.core :refer [env]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
@@ -17,21 +16,21 @@
             [clj-money.models.entities :as entities]
             [clj-money.util :refer [path]]))
 
-(use-fixtures :each (partial h/reset-db (env :db)))
+(use-fixtures :each h/reset-db)
 
 (def ^:private create-context
   {:users [(factory :user {:email "john@doe.com"})
            (factory :user {:email "jane@doe.com"})]})
 
 (deftest a-user-can-create-an-entity
-  (let [ctx (realize (env :db) create-context)
+  (let [ctx (realize create-context)
         user (find-user ctx "john@doe.com")
         response (-> (req/request :post (path :api :entities))
                      (req/json-body {:name "Personal"
                                      :settings {:inventory-method :fifo}})
                      (add-auth user)
                      app)
-        retrieved (entities/select (env :db) {:user-id (:id user)})]
+        retrieved (entities/select {:user-id (:id user)})]
     (assert-successful response)
     (is (selective= {:user-id (:id user)
                      :name "Personal"
@@ -46,7 +45,7 @@
 
 (defn- edit-an-entity
   [email]
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :patch (path :api :entities (:id entity)))
@@ -57,7 +56,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (entities/find-by-id (env :db) (:id entity))]
+        retrieved (entities/find entity)]
     [response body retrieved]))
 
 (defn- assert-successful-edit
@@ -84,14 +83,14 @@
   (assert-blocked-edit (edit-an-entity "jane@doe.com")))
 
 (deftest an-unauthenticated-user-cannot-edit-an-entity
-  (let [ctx (realize (env :db) list-context)
+  (let [ctx (realize list-context)
         entity (find-entity ctx "Personal")
         response (-> (req/request :patch (path :api :entities (:id entity)))
                      (req/json-body (-> entity
                                         (assoc :name "New Name")
                                         (select-keys [:name :settings])))
                      app)
-        retrieved (entities/find-by-id (env :db) (:id entity))]
+        retrieved (entities/find entity)]
     (assert-unauthorized response)
     (is (selective= {:name "Personal"}
                     retrieved)
@@ -99,7 +98,7 @@
 
 (defn- get-a-list
   [email]
-  (let  [ctx (realize (env :db) list-context)
+  (let  [ctx (realize list-context)
          user (find-user ctx email)
          response (-> (req/request :get (path :api :entities))
                       (add-auth user)
@@ -126,13 +125,13 @@
 
 (defn- delete-an-entity
   [email]
-  (let  [ctx (realize (env :db) list-context)
+  (let  [ctx (realize list-context)
          user (find-user ctx email)
          entity (find-entity ctx "Personal")
          response (-> (req/request :delete (path :api :entities (:id entity)))
                       (add-auth user)
                       app)
-         retrieved (entities/find-by-id (env :db) (:id entity))]
+         retrieved (entities/find entity)]
     [response retrieved]))
 
 (defn- assert-successful-delete

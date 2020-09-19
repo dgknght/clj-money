@@ -5,7 +5,6 @@
             [clojure.core.async :refer [go-loop <! chan]]
             [clojure.string :as s]
             [clj-time.core :as t]
-            [environ.core :refer [env]]
             [clj-factory.core :refer [factory]]
             [clj-money.io :refer [read-bytes
                                   file-ext
@@ -29,9 +28,7 @@
             [clj-money.import.gnucash]
             [clj-money.import.edn]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (defn- nil-chan []
   (let [c (chan)]
@@ -183,7 +180,7 @@
         _ (go-loop [p (<! progress-chan)]
                    (swap! updates #(conj % p))
                    (recur (<! progress-chan)))
-        {:keys [entity wait]} (import-data storage-spec imp progress-chan {:atomic? true})]
+        {:keys [entity wait]} (import-data imp progress-chan {:atomic? true})]
     @wait
     {:entity entity
      :updates updates}))
@@ -192,7 +189,7 @@
   [context]
   (let [imp (find-import context "Personal")
         {:keys [entity updates]} (execute-import imp)
-        all-accounts (accounts/search storage-spec {:entity-id (:id entity)})]
+        all-accounts (accounts/search {:entity-id (:id entity)})]
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (pprint-diff expected-updates @updates)
     (is (= expected-updates @updates)
@@ -212,7 +209,6 @@
                                (update-in [:commodity-id]
                                           (fn [sym]
                                             (:id (commodities/find-by
-                                                   storage-spec
                                                    {:entity-id (:id entity)
                                                     :symbol sym})))))
                           expected-accounts)]
@@ -221,8 +217,7 @@
 
     (testing "a correct income statement is produced"
       (let [actual (strip-account-ids
-                     (reports/income-statement storage-spec
-                                               entity
+                     (reports/income-statement entity
                                                (t/local-date 2015 1 1)
                                                (t/local-date 2017 12 31)))]
         (pprint-diff expected-inc-stmt actual)
@@ -230,8 +225,7 @@
 
     (testing "a correct balance sheet is produced"
       (let [actual (strip-account-ids
-                     (reports/balance-sheet storage-spec
-                                            entity
+                     (reports/balance-sheet entity
                                             (t/local-date 2017 12 31)))]
         (pprint-diff expected-bal-sheet actual)
         (is (= expected-bal-sheet actual))))
@@ -248,29 +242,23 @@
                                          :end-of-period
                                          :status
                                          :balance])
-                        (recs/search
-                          (env :db)
-                          {[:account :entity-id] (:id entity)}))]
+                        (recs/search {[:account :entity-id] (:id entity)}))]
         (pprint-diff expected actual)
         (is (= expected actual))))))
 
 (deftest import-a-simple-gnucash-file
   (test-import
-    (realize
-      storage-spec
-      (import-context :gnucash))))
+    (realize (import-context :gnucash))))
 
 (deftest import-a-simple-edn-file
   (test-import
-    (realize
-      storage-spec
-      (import-context :edn))))
+    (realize (import-context :edn))))
 
 (deftest import-with-entity-settings
-  (let [ctx (realize (env :db) (import-context :ext))
+  (let [ctx (realize (import-context :ext))
         imp (find-import ctx "Personal")
         {:keys [entity]} (execute-import imp)
-        entity (entities/find-by-id (env :db) (:id entity))] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
+        entity (entities/find entity)] ; the entity is returned immediately with the promise which the import goes on in the background, so we have to look it up again to get the latest version
     (is (integer? (get-in entity [:settings :lt-capital-gains-account-id]))
         "The long-term capital gains account id is set correctly")
     (is (integer? (get-in entity [:settings :st-capital-gains-account-id]))
@@ -292,35 +280,32 @@
               :image-ids ["budget_sample.gnucash"]}]})
 
 (deftest receive-updates-asynchronously
-  (let [context (realize
-                  storage-spec
-                  (import-context :gnucash))
+  (let [context (realize (import-context :gnucash))
         imp (-> context :imports first)
         channel (chan)
         updates (atom [])]
     (go-loop [p (<! channel)]
              (swap! updates #(conj % p))
              (recur (<! channel)))
-    (import-data storage-spec imp channel {:atomic? true})
+    (import-data imp channel {:atomic? true})
     (pprint-diff (set expected-updates) (set @updates))
     (is (= (set expected-updates) (set @updates))
         "The import record is updated at each insert")
     (shutdown-agents)))
 
 (deftest import-a-budget
-  (let [context (realize storage-spec import-budget-context)
+  (let [context (realize import-budget-context)
         user (find-user context "john@doe.com")
         imp (find-import context "Personal")
-        _ (import-data storage-spec imp (nil-chan) {:atomic? true})
-        entity (entities/find-by (env :db) {:user-id (:id user)})
-        salary (accounts/find-by (env :db) {:name "Salary"
-                                            :entity_id (:id entity)})
-        groceries (accounts/find-by (env :db) {:name "Groceries"
-                                               :entity_id (:id entity)})
-        bonus (accounts/find-by (env :db) {:name "Bonus"
-                                           :entity_id (:id entity)})
-        actual (-> (budgets/find-by storage-spec
-                                    {:entity-id (:id entity)})
+        _ (import-data imp (nil-chan) {:atomic? true})
+        entity (entities/find-by {:user-id (:id user)})
+        salary (accounts/find-by {:name "Salary"
+                                  :entity_id (:id entity)})
+        groceries (accounts/find-by {:name "Groceries"
+                                     :entity_id (:id entity)})
+        bonus (accounts/find-by {:name "Bonus"
+                                 :entity_id (:id entity)})
+        actual (-> (budgets/find-by {:entity-id (:id entity)})
                    (dissoc :id :updated-at :created-at)
                    (update-in [:items] (fn [items]
                                          (->> items
@@ -371,28 +356,25 @@
      :price 12M}})
 
 (deftest import-commodities
-  (let [context (realize storage-spec commodities-context)
+  (let [context (realize commodities-context)
         imp (-> context :imports first)
-        {:keys [entity]} (import-data storage-spec imp (nil-chan) {:atomic? true})
-        account (->> {:entity-id (:id entity)}
-                     (accounts/search storage-spec)
-                     (filter #(= "401k" (:name %)))
-                     first)
-        lots (lots/search storage-spec {:account-id (:id account)})
+        {:keys [entity]} (import-data imp (nil-chan) {:atomic? true})
+        account (accounts/find-by {:entity-id (:id entity)
+                                   :name "401k"})
+        lots (lots/search {:account-id (:id account)})
         actual-lots (map #(dissoc % :id
                                     :commodity-id
                                     :account-id
                                     :created-at
                                     :updated-at)
                          lots)
-        aapl (first (commodities/search storage-spec
-                                        {:entity-id (:id entity)
-                                         :symbol "AAPL"}
-                                        {:limit 1}))
-        prices  (prices/search storage-spec {:commodity-id (:id aapl)
-                                             :trade-date [:between
-                                                          (t/local-date 2015 1 1)
-                                                          (t/local-date 2015 12 31)]})
+        aapl (commodities/find-by {:entity-id (:id entity)
+                                   :symbol "AAPL"}
+                                  {:limit 1})
+        prices  (prices/search {:commodity-id (:id aapl)
+                                :trade-date [:between
+                                             (t/local-date 2015 1 1)
+                                             (t/local-date 2015 12 31)]})
         actual-prices (->> prices
                            (map #(dissoc % :id
                                            :commodity-id
@@ -416,21 +398,19 @@
               :image-ids ["sample_with_commodities_ext.gnucash"]}]})
 
 (deftest import-commodities-with-extended-actions
-  (let [context (realize storage-spec ext-commodities-context)
-        {:keys [entity]} (import-data storage-spec
-                                      (-> context :imports first)
+  (let [context (realize ext-commodities-context)
+        {:keys [entity]} (import-data (-> context :imports first)
                                       (nil-chan)
                                       {:atomic? true})
-        [ira four-o-one-k] (map #(accounts/find-by storage-spec
-                                                   {:name %
+        [ira four-o-one-k] (map #(accounts/find-by {:name %
                                                     :entity-id (:id entity)})
                                 ["IRA" "401k"])
-        aapl (commodities/find-by storage-spec {:entity-id (:id entity)
-                                                :symbol "AAPL"})]
+        aapl (commodities/find-by {:entity-id (:id entity)
+                                   :symbol "AAPL"})]
 
     (testing "lots are adjusted"
       (let [
-            lots (lots/search storage-spec {:commodity-id (:id aapl)})
+            lots (lots/search {:commodity-id (:id aapl)})
             expected-lots [{:purchase-date (t/local-date 2015 1 17)
                             :shares-purchased 200M
                             :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
@@ -449,10 +429,10 @@
           "The 401k account has the correct tags"))
 
     (testing "transactions are created correctly"
-      (let [ira-aapl (accounts/find-by storage-spec {:parent-id (:id ira)
-                                                     :commodity-id (:id aapl)})
-            inv-exp (accounts/find-by storage-spec {:name "Investment Expenses"
-                                                    :entity-id (:id entity)})
+      (let [ira-aapl (accounts/find-by {:parent-id (:id ira)
+                                        :commodity-id (:id aapl)})
+            inv-exp (accounts/find-by {:name "Investment Expenses"
+                                       :entity-id (:id entity)})
             expected-ira-items [{:transaction-date (t/local-date 2015 3 2)
                                  :description "Transfer 100 shares of AAPL"
                                  :index 0
@@ -488,7 +468,6 @@
                                            :reconciliation-id
                                            :reconciled?)
                                   (transactions/search-items
-                                    storage-spec
                                     {:account-id (:id ira-aapl)
                                      :transaction-date "2015"}
                                     {:sort [:index]}))
@@ -502,7 +481,7 @@
                                  :index 0}]
             actual-fee-items (->> {:account-id (:id inv-exp)
                                    :transaction-date "2015"}
-                                  (transactions/search-items storage-spec)
+                                  transactions/search-items
                                   (map #(dissoc %
                                                 :created-at
                                                 :updated-at

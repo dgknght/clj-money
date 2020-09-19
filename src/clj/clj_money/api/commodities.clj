@@ -1,7 +1,6 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count])
-  (:require [environ.core :refer [env]]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [clj-money.api :refer [->response]]
             [clj-money.models :as models]
@@ -21,18 +20,16 @@
 (defn- count
   [req]
   (->response
-    {:count (coms/count (env :db)
-                        (scoped-params req))}))
+    {:count (coms/count (scoped-params req))}))
 
 (defn- index
   [req]
   (->response
-    (coms/search (env :db)
-                 (scoped-params req))))
+    (coms/search (scoped-params req))))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
-  (authorize (coms/find-by-id (env :db) (:id params))
+  (authorize (coms/find (:id params))
              action
              authenticated))
 
@@ -64,7 +61,7 @@
                       (ensure-keyword :exchange :type)
                       (storage/tag ::models/commodity)
                       (authorize ::authorization/create authenticated))
-        result (coms/create (env :db) commodity)]
+        result (coms/create commodity)]
     (->response result
                 (if (v/has-error? result)
                   400
@@ -73,14 +70,14 @@
 (defn- update
   [{:keys [body] :as req}]
   (let [commodity (find-and-authorize req ::authorization/update)]
-    (->response (coms/update (env :db) (merge commodity (-> body
-                                                            (select-keys attribute-keys)
-                                                            (ensure-keyword :exchange :type)))))))
+    (->response (coms/update (merge commodity (-> body
+                                                  (select-keys attribute-keys)
+                                                  (ensure-keyword :exchange :type)))))))
 
 (defn- delete
   [req]
   (let [commodity (find-and-authorize req ::authorization/destroy)]
-    (coms/delete (env :db) commodity)
+    (coms/delete commodity)
     (->response)))
 
 (defroutes routes

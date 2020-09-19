@@ -1,6 +1,5 @@
 (ns clj-money.web.images-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [environ.core :refer [env]]
             [ring.mock.request :as req]
             [clj-time.core :as t]
             [clj-money.test-helpers :refer [reset-db]]
@@ -12,9 +11,7 @@
             [clj-money.web.auth :as auth]
             [clj-money.web.server :refer [app]]))
 
-(def storage-spec (env :db))
-
-(use-fixtures :each (partial reset-db storage-spec))
+(use-fixtures :each reset-db)
 
 (def image-context
   (assoc basic-context
@@ -36,7 +33,7 @@
 
 (defn- get-image
   [email]
-  (let [ctx (realize (env :db) image-context)
+  (let [ctx (realize image-context)
         image (find-image ctx "attachment.jpg")
         user (when email (find-user ctx email))]
     (-> (req/request :get (path :images

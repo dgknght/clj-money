@@ -1,6 +1,5 @@
 (ns clj-money.models.auth-helpers
-  (:require [environ.core :refer [env]]
-            [stowaway.core :as storage]
+  (:require [stowaway.core :as storage]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -27,47 +26,46 @@
 (defmethod ^:private lookup-entity-id ::models/attachment
   [{:keys [transaction-id transaction-date]}]
   (lookup-entity-id
-    (transactions/find-by-id (env :db)
-                             transaction-id
-                             transaction-date)))
+    (transactions/find transaction-id
+                       transaction-date)))
 
 (defmethod ^:private lookup-entity-id ::models/budget-item
   [{:keys [budget-id]}]
   (lookup-entity-id
-    (budgets/find-by-id (env :db) budget-id)))
+    (budgets/find budget-id)))
 
 (defmethod ^:private lookup-entity-id ::models/price
   [{:keys [commodity-id]}]
   (lookup-entity-id
-    (commodities/find-by-id (env :db) commodity-id)))
+    (commodities/find commodity-id)))
 
 (defmethod ^:private lookup-entity-id ::models/reconciliation
   [{:keys [account-id]}]
   (lookup-entity-id
-    (accounts/find-by-id (env :db) account-id)))
+    (accounts/find account-id)))
 
 (defmethod ^:private lookup-entity-id ::models/image
   [{:keys [id]}]
   (lookup-entity-id
-    (attachments/find-by (env :db) {:image-id id})))
+    (attachments/find-by {:image-id id})))
 
 (defn- lookup-entity
   [resource]
   (if (entities/entity? resource)
     resource
-    (entities/find-by-id (env :db) (lookup-entity-id resource))))
+    (entities/find (lookup-entity-id resource))))
 
 (defn user-entity-ids
-  ([user context]
-   (user-entity-ids user context {}))
-  ([user context options]
-   (->> (entities/select (:storage-spec context) {:user-id (:id user)} options)
+  ([user]
+   (user-entity-ids user {}))
+  ([user options]
+   (->> (entities/select {:user-id (:id user)} options)
         (map :id)
         (into #{}))))
 
 (defn all-user-entity-ids
-  [user context]
-  (user-entity-ids user context {:include-grants? true}))
+  [user]
+  (user-entity-ids user {:include-grants? true}))
 
 (defn user-owns-entity?
   [resource user]
@@ -77,11 +75,8 @@
 (defn find-grant
   [user resource]
   (let [entity-id (lookup-entity-id resource)]
-    (-> (grants/search (env :db)
-                       {:user-id (:id user)
-                        :entity-id entity-id}
-                       {:limit 1})
-        first)))
+    (grants/find-by {:user-id (:id user)
+                     :entity-id entity-id})))
 
 (defn user-granted-access?
   [resource user action]

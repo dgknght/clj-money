@@ -1,10 +1,9 @@
 (ns clj-money.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.tools.logging :refer [with-logs]]
             [clojure.string :as string]
             [environ.core :refer [env]]
             [clj-time.core :as t]
-            [stowaway.core :refer [with-transacted-storage]]
+            [stowaway.implicit :refer [with-transacted-storage]]
             [clj-money.util :refer [presence]]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -52,17 +51,16 @@
       (println summary)
 
       :else
-      (with-transacted-storage [s (env :db)]
-        (let [user (users/find-by-email s (:user options))
-              entity (entities/find-by s {:user-id (:id user)
-                                          :name (:entity options)})
-              accounts (accounts/search s (cond-> {:entity-id (:id entity)}
-                                            (not= :all (:account options))
-                                            (assoc :name (:account options))))]
+      (with-transacted-storage (env :db)
+        (let [user (users/find-by-email (:user options))
+              entity (entities/find-by {:user-id (:id user)
+                                        :name (:entity options)})
+              accounts (accounts/search (cond-> {:entity-id (:id entity)}
+                                          (not= :all (:account options))
+                                          (assoc :name (:account options))))]
           (doseq [account accounts]
             (println (format "Processing account \"%s\"..." (:name account)))
             (transactions/recalculate-account
-              s
               (:id account)
               (or (:earliest-transaction-date account)
                   (t/local-date 2006 1 1))
@@ -89,18 +87,16 @@
       (println summary)
 
       :else
-      (with-transacted-storage [s (env :db)]
-        (let [user (users/find-by-email s (:user options))
-              entity (entities/find-by s {:user-id (:id user)
-                                          :name (:entity options)})
-              commodities (commodities/search s (cond-> {:entity-id (:id entity)}
-                                                  (not= :all (:commodity options))
-                                                  (assoc :symbol (:commodity options))))]
+      (with-transacted-storage (env :db)
+        (let [user (users/find-by-email (:user options))
+              entity (entities/find-by {:user-id (:id user)
+                                        :name (:entity options)})
+              commodities (commodities/search (cond-> {:entity-id (:id entity)}
+                                                (not= :all (:commodity options))
+                                                (assoc :symbol (:commodity options))))]
           (doseq [commodity commodities]
             (println (format "Processing commodity \"%s\"..." (:symbol commodity)))
-            (prices/rebound-commodity
-              s
-              commodity)
+            (prices/rebound-commodity commodity)
             (println ""))
           (println "Done."))))))
 
@@ -132,14 +128,14 @@
                migrate-account-cli-options
                {:title "MIGRATE ACCOUNT"
                 :validate validate-migrate-account-options})]
-    (let [user (users/find (env :db) {:email (:user opts)})
-          entity (entities/find-by (env :db) {:user-id (:id user)
-                                              :name (:entity opts)})
+    (let [user (users/find {:email (:user opts)})
+          entity (entities/find-by {:user-id (:id user)
+                                    :name (:entity opts)})
           _ (assert entity "Entity not found")
-          from-account (accounts/find-by (env :db) {:entity-id (:id entity)
-                                                    :name (:from-account opts)})
+          from-account (accounts/find-by {:entity-id (:id entity)
+                                          :name (:from-account opts)})
           _ (assert from-account "\"From\" account not found")
-          to-account (accounts/find-by (env :db) {:entity-id (:id entity)
-                                                  :name (:to-account opts)})]
+          to-account (accounts/find-by {:entity-id (:id entity)
+                                        :name (:to-account opts)})]
       (assert to-account "\"To\" account not found")
-      (transactions/migrate-account (env :db) from-account to-account))))
+      (transactions/migrate-account from-account to-account))))

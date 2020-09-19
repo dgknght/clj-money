@@ -2,7 +2,6 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
-            [environ.core :refer [env]]
             [clj-money.test-helpers :refer [reset-db
                                             selective=]]
             [clj-money.web.test-helpers :refer [assert-unauthorized
@@ -13,7 +12,7 @@
             [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]))
 
-(use-fixtures :each (partial reset-db (env :db)))
+(use-fixtures :each reset-db)
 
 (def ^:private context
   {:users [{:email "john@doe.com"
@@ -23,7 +22,7 @@
             :password-confirmation "please01"}]})
 
 (deftest a-user-gets-his-own-info
-  (let [ctx (realize (env :db) context)
+  (let [ctx (realize context)
         user (find-user ctx "john@doe.com")
         response (app (-> (req/request :get (path :api
                                                   :users

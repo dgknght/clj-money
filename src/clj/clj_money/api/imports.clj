@@ -3,14 +3,12 @@
   (:require [clojure.string :as string]
             [clojure.core.async :refer [go-loop <! chan]]
             [cheshire.core :as json]
-            [ring.util.response :refer [response
-                                        status]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
-            [environ.core :refer [env]]
             [clj-money.util :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
-            [clj-money.api :refer [delete-resource]]
+            [clj-money.api :refer [->response
+                                   not-found]]
             [clj-money.models :as models]
             [clj-money.models.images :as images]
             [clj-money.import :refer [import-data]]
@@ -25,10 +23,9 @@
   (let [progress-chan (chan)]
     (go-loop [progress (<! progress-chan)]
              (when progress
-               (imports/update (env :db)
-                               (assoc imp :progress progress))
+               (imports/update (assoc imp :progress progress))
                (recur (<! progress-chan))))
-    (import-data (env :db) imp progress-chan)))
+    (import-data imp progress-chan)))
 
 (defn- infer-content-type
   [source-file]
@@ -48,14 +45,15 @@
 (defn- create-images
   [params user]
   (let [content-type (infer-content-type (:source-file-0 params))]
-    (->> (range 10)
-         (map #(format "source-file-%s" %))
-         (map (comp params keyword))
+    (->> (range)
+         (map (comp params
+                    keyword
+                    #(format "source-file-%s" %)))
          (take-while map?)
-         (map #(images/find-or-create (env :db) {:user-id (:id user)
-                                                 :content-type content-type
-                                                 :original-filename (:filename %)
-                                                 :body (read-bytes (:tempfile %))})))))
+         (map #(images/find-or-create {:user-id (:id user)
+                                       :content-type content-type
+                                       :original-filename (:filename %)
+                                       :body (read-bytes (:tempfile %))})))))
 
 (defn- extract-import
   [{:keys [params authenticated]} images]
@@ -65,58 +63,71 @@
       (assoc :user-id (:id authenticated)
              :image-ids (mapv :id images))))
 
-(defn- create
+(defn- step-2
+  [req images]
+  (let [imp (imports/create (extract-import req images))]
+    (if (empty? (validation/error-messages imp))
+      (let [{:keys [entity]} (launch-and-track-import imp)]
+        (->response {:entity entity
+                     :import imp}
+                    201))
+      (->response {:error (format "Unable to save the import record. %s"
+                                  (->> (validation/error-messages imp)
+                                       vals
+                                       (string/join ", ")))}
+                  422))))
+
+(defn- step-1
   [{:keys [params authenticated] :as req}]
   (let [images (create-images params authenticated)]
     (if (not-any? #(validation/error-messages %) images)
-      (let [imp (imports/create (env :db) (extract-import req images))]
-        (if (empty? (validation/error-messages imp))
-          (let [{:keys [entity]} (launch-and-track-import imp)]
-            (-> {:entity entity
-                 :import imp}
-                response
-                (status 201)))
-          (-> {:error (format "Unable to save the impport record. %s"
-                              (->> imp
-                                   validation/error-messages
-                                   vals
-                                   flatten
-                                   (string/join ", ")))}
-              response
-              (status 422))))
-      (-> {:error (format "Unable to save the source file(s). %s"
-                          (->> images
-                               (map validation/error-messages)
-                               (map vals)
-                               flatten
-                               (string/join ", ")))}
-          response
-          (status 422)))))
+      (step-2 req images)
+      (->response {:error (format "Unable to save the source file(s). %s"
+                                  (->> images
+                                       (mapcat validation/error-messages)
+                                       (mapcat vals)
+                                       (string/join ", ")))}
+                  422))))
+
+(defn- create
+  [req]
+  (step-1 req))
+
+(defn- find-and-authorize
+  [{:keys [params authenticated]} action]
+  (some-> params
+          (select-keys [:id])
+          (+scope ::models/import authenticated)
+          imports/find-by
+          (authorize action authenticated)))
 
 (defn- show
-  [{:keys [params authenticated]}]
-  (let [imp (authorize (imports/find-by-id (env :db) (:id params))
-                       ::authorization/show
-                       authenticated)]
-    (response imp)))
+  [req]
+  (if-let [imp (find-and-authorize req ::authorization/show)]
+    (->response imp)
+    (not-found)))
 
 (defn- index
   [{:keys [authenticated params]}]
-  (response (imports/search (env :db) (-> params
-                                          (select-keys [:entity-name])
-                                          (+scope ::models/import authenticated)))))
+  (->response (imports/search (-> params
+                                  (select-keys [:entity-name])
+                                  (+scope ::models/import authenticated)))))
 
 (defn- delete
-  [{:keys [params authenticated]}]
-  (delete-resource (:id params) authenticated imports/find-by-id imports/delete))
+  [req]
+  (if-let [imp (find-and-authorize req ::authorization/show)]
+    (do
+      (imports/delete imp)
+      (->response))
+    (not-found)))
 
 (defn- start
   [{:keys [params authenticated]}]
-  (let [imp (authorize (imports/find-by-id (env :db) (:id params))
+  (let [imp (authorize (imports/find (:id params))
                        ::authorization/update
                        authenticated)]
     (launch-and-track-import imp)
-    (-> imp response (status 200))))
+    (->response imp)))
 
 (defroutes routes
   (GET "/api/imports" req (index req))

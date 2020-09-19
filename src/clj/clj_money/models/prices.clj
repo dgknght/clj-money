@@ -1,11 +1,14 @@
 (ns clj-money.models.prices
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
+            [environ.core :refer [env]]
             [clj-time.core :as t]
-            [stowaway.core :as storage :refer [with-storage
-                                               with-transacted-storage]]
-            [clj-money.util :refer [deep-update-in-if]]
+            [stowaway.core :refer [tag]]
+            [stowaway.implicit :as storage :refer [with-storage
+                                                   with-transacted-storage]]
+            [clj-money.util :refer [deep-update-in-if
+                                    assoc-if]]
             [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
@@ -22,39 +25,55 @@
 (defn- after-read
   [price & _]
   (when price
-    (storage/tag price ::models/price)))
+    (tag price ::models/price)))
 
 (defn- prepare-criteria
   [criteria]
   (-> criteria
       (deep-update-in-if :trade-date parse-date-range)
-      (storage/tag ::models/price)))
+      (tag ::models/price)))
 
 (defn search
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
-     (->> (storage/select s (prepare-criteria criteria) options)
+  ([criteria]
+   (search criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
+     (->> (storage/select (prepare-criteria criteria) options)
           (map after-read)))))
 
-(defn- trade-date-exists?
-  [storage {:keys [id commodity-id trade-date]}]
-  (seq (remove #(and id (= id (:id %)))
-               (search
-                 storage
-                 {:commodity-id commodity-id
-                  :trade-date [:between trade-date trade-date]}))))
+(defn find-by
+  ([criteria]
+   (find-by criteria {}))
+  ([criteria options]
+   (first (search criteria (assoc options :limit 1)))))
 
-(defn- validation-rules
-  [storage]
-  [(validation/create-rule (complement (partial trade-date-exists? storage))
+(defn find
+  ([{:keys [id trade-date]}]
+   (find id trade-date))
+  ([id trade-date]
+   (find-by {:id id
+             :trade-date trade-date})))
+
+(defn reload
+  [price]
+  (find price))
+
+(defn- trade-date-unique?
+  [{:keys [id commodity-id trade-date]}]
+  (-> {:commodity-id commodity-id
+       :trade-date [:between trade-date trade-date]}
+      (assoc-if :id (when id [:!= id]))
+      find-by
+      nil?))
+
+(def ^:private validation-rules
+  [(validation/create-rule trade-date-unique?
                            [:trade-date]
                            "Trade date must be unique")])
 
 (defn- before-save
-  [price & _]
-  (storage/tag price ::models/price))
+  [price]
+  (tag price ::models/price))
 
 (defn- apply-date-to-commodity
   [{:keys [earliest-price latest-price] :as commodity} trade-date]
@@ -68,47 +87,38 @@
     (assoc :earliest-price trade-date)))
 
 (defn create
-  [storage-spec {:keys [trade-date commodity-id] :as price}]
-  (with-transacted-storage [s storage-spec]
-    (with-validation price ::new-price (validation-rules s)
-      (when-let [commodity (commodities/find-by-id s commodity-id)]
-        (commodities/update s (apply-date-to-commodity commodity trade-date)))
-      (after-read (storage/create s (before-save price))))))
-
-(defn find-by
-  ([storage-spec criteria]
-   (find-by storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (first (search storage-spec criteria (assoc options :limit 1)))))
-
-(defn find-by-id
-  [storage-spec id trade-date]
-  (find-by storage-spec {:id id
-                         :trade-date trade-date}))
-
-(defn reload
-  [storage-spec price]
-  (find-by-id storage-spec (:id price) (:trade-date price)))
+  [{:keys [trade-date commodity-id] :as price}]
+  (with-transacted-storage (env :db)
+    (with-validation price ::new-price validation-rules
+      (when-let [commodity (commodities/find commodity-id)]
+        (commodities/update (apply-date-to-commodity commodity trade-date)))
+      (-> price
+          before-save
+          storage/create
+          after-read))))
 
 (defn update
-  [storage price]
-  (with-storage [s storage]
-    (with-validation price ::existing-price (validation-rules s)
-      (storage/update s (before-save price)) ; TODO: might need to delete from the old location
-      (find-by-id s (:id price) (:trade-date price)))))
+  [price]
+  (with-storage (env :db)
+    (with-validation price ::existing-price validation-rules
+      (-> price
+          before-save
+          storage/update) ; TODO: might need to delete from the old location
+      (find price))))
 
 (defn delete
-  [storage-spec price]
-  (with-storage [s storage-spec]
-    (storage/delete s price)))
+  [price]
+  (with-storage (env :db)
+    (storage/delete price)))
 
 (defn most-recent
-  ([storage-spec commodity]
-   (most-recent storage-spec commodity nil))
-  ([storage-spec {:keys [earliest-price latest-price] :as commodity} as-of]
+  ([commodity]
+   (most-recent commodity nil))
+  ([{:keys [earliest-price latest-price] :as commodity} as-of]
    {:pre [(map? commodity)]}
+
    (cond
-     (every? #(nil? %) [earliest-price latest-price])
+     (every? nil? [earliest-price latest-price])
      (log/warnf
        "No price bounding for commodity %s %s"
        (:id commodity)
@@ -124,8 +134,7 @@
        earliest-price)
 
      :else
-     (find-by storage-spec
-              {:commodity-id (:id commodity)
+     (find-by {:commodity-id (:id commodity)
                :trade-date [:between
                             earliest-price
                             (or as-of
@@ -140,9 +149,9 @@
                   :trade-date [:between
                                (settings/get storage :earliest-partition-date)
                                (settings/get storage :latest-partition-date)]}
-        earliest (find-by storage criteria {:sort [[:trade-date :asc]]})
-        latest (find-by storage criteria {:sort [[:trade-date :desc]]})]
+        earliest (find-by criteria {:sort [[:trade-date :asc]]})
+        latest (find-by criteria {:sort [[:trade-date :desc]]})]
     (when (and earliest latest)
-      (commodities/update storage (assoc commodity
-                                         :earliest-price (:trade-date earliest)
-                                         :latest-price (:trade-date latest))))))
+      (commodities/update (assoc commodity
+                                 :earliest-price (:trade-date earliest)
+                                 :latest-price (:trade-date latest))))))

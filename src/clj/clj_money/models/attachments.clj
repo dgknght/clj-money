@@ -1,10 +1,14 @@
 (ns clj-money.models.attachments
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [environ.core :refer [env]]
             [stowaway.core
+             :refer [tag]]
+            [stowaway.implicit
              :as storage
              :refer [with-storage
                      with-transacted-storage]]
+            [clj-money.util :refer [->id]]
             [clj-money.models :as models]
             [clj-money.validation :refer [with-validation]]
             [clj-money.models.images :as images])
@@ -23,56 +27,57 @@
                                      :opt-un [::caption]))
 
 (defn- after-read
-  [attachment & _]
+  [attachment]
   (when attachment
-    (storage/tag attachment ::models/attachment)))
+    (tag attachment ::models/attachment)))
 
 (defn- before-save
-  [attachment & _]
-  (storage/tag attachment ::models/attachment))
+  [attachment]
+  (tag attachment ::models/attachment))
 
 (defn create
-  [storage attachment]
-  (with-storage [s storage]
+  [attachment]
+  (with-storage (env :db)
     (with-validation attachment ::new-attachment []
-      (as-> attachment a
-        (before-save a)
-        (storage/create s a)
-        (after-read a)))))
+      (-> attachment
+          before-save
+          storage/create
+          after-read))))
 
 (defn search
-  ([storage-spec criteria]
-   (search storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (with-storage [s storage-spec]
+  ([criteria]
+   (search criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
      (map after-read
-          (storage/select s
-                          (storage/tag criteria ::models/attachment)
+          (storage/select (tag criteria ::models/attachment)
                           options)))))
 
 (defn find-by
-  ([storage-spec criteria]
-   (find-by storage-spec criteria {}))
-  ([storage-spec criteria options]
-   (first (search storage-spec criteria (assoc options :limit 1)))))
+  ([criteria]
+   (find-by criteria {}))
+  ([criteria options]
+   (first (search criteria (assoc options :limit 1)))))
 
-(defn find-by-id
-  [storage-spec id]
-  (find-by storage-spec {:id id}))
+(defn find
+  [attachment-or-id]
+  (find-by {:id (->id attachment-or-id)}))
 
 (defn update
-  [storage-spec attachment]
-  (with-storage [s storage-spec]
+  [attachment]
+  (with-storage (env :db)
     (with-validation attachment ::existing-attachment []
-      (storage/update s attachment)
-      (find-by-id s (:id attachment)))))
+      (-> attachment
+          before-save
+          storage/update)
+      (find attachment))))
 
 (defn delete
-  [storage-spec id-or-attachment]
-  (with-transacted-storage [s storage-spec]
+  [id-or-attachment]
+  (with-transacted-storage (env :db)
     (let [attachment (if (integer? id-or-attachment)
-                       (find-by-id s id-or-attachment)
+                       (find id-or-attachment)
                        id-or-attachment)
-          image (images/find-by s {:id (:image-id attachment)})]
-      (images/delete s image)
-      (storage/delete s attachment))))
+          image (images/find (:image-id attachment))]
+      (images/delete image)
+      (storage/delete attachment))))

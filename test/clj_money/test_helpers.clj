@@ -3,13 +3,14 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
+            [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-money.validation :as validation]))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"
-  [db-spec f]
-  (jdbc/with-db-connection [db db-spec]
+  [f]
+  (jdbc/with-db-connection [db (env :db)]
     (jdbc/execute! db "truncate table users cascade"))
   (f))
 

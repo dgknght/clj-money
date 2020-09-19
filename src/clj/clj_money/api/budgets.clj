@@ -1,7 +1,6 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
-  (:require [environ.core :refer [env]]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
             [clj-money.util :refer [update-in-if
                                     unserialize-date]]
@@ -17,8 +16,7 @@
 
 (defn- index
   [{:keys [params authenticated]}]
-  (->response (budgets/search (env :db)
-                              (-> params
+  (->response (budgets/search (-> params
                                   (select-keys [:entity-id])
                                   (+scope ::models/budget authenticated))
                               {:sort [[:start-date :desc]]})))
@@ -35,18 +33,17 @@
 
 (defn- create
   [{:keys [authenticated params] :as req}]
-  (as-> req b
-    (extract-budget b)
-    (assoc b :entity-id (:entity-id params))
-    (stow/tag b ::models/budget)
-    (authorize b ::auth/create authenticated)
-    (budgets/create (env :db) b)
-    (->response b 201)))
+  (-> req
+    extract-budget
+    (assoc :entity-id (:entity-id params))
+    (stow/tag ::models/budget)
+    (authorize ::auth/create authenticated)
+    budgets/create
+    (->response 201)))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (when-let [budget (budgets/find-by (env :db)
-                                     (+scope {:id (:id params)}
+  (when-let [budget (budgets/find-by (+scope {:id (:id params)}
                                              ::models/budget
                                              authenticated))]
     (authorize budget action authenticated)))
@@ -61,16 +58,16 @@
   [req]
   (if-let [budget (find-and-auth req ::auth/update)]
     (->response
-      (as-> budget b
-        (merge b (extract-budget req))
-        (budgets/update (env :db) b)))
+      (-> budget
+        (merge (extract-budget req))
+        budgets/update))
     (not-found)))
 
 (defn- delete
   [req]
   (if-let [budget (find-and-auth req ::auth/destroy)]
     (do
-      (budgets/delete (env :db) budget)
+      (budgets/delete budget)
       (->response))
     (not-found)))
 

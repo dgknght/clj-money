@@ -3,8 +3,9 @@
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<!! >!! chan go] :as async]
-            [stowaway.core :refer [with-storage
-                                   with-transacted-storage]]
+            [environ.core :refer [env]]
+            [stowaway.implicit :refer [with-storage
+                                       with-transacted-storage]]
             [clj-money.validation :as validation]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->criteria]]
@@ -27,15 +28,13 @@
     source-type))
 
 (defn- import-price
-  [{:keys [storage entity] :as context} price]
-  (let [commodity (->> {:exchange (name (:exchange price))
-                        :symbol (:symbol price)
-                        :entity-id (:id entity)}
-                       (commodities/search storage)
-                       first)]
-    (prices/create storage (-> price
-                               (assoc :commodity-id (:id commodity))
-                               (dissoc :exchange :symbol))))
+  [{:keys [entity] :as context} price]
+  (let [commodity (commodities/find-by {:exchange (name (:exchange price))
+                                        :symbol (:symbol price)
+                                        :entity-id (:id entity)})]
+    (prices/create (-> price
+                       (assoc :commodity-id (:id commodity))
+                       (dissoc :exchange :symbol))))
   context)
 
 (defn- find-commodity
@@ -54,22 +53,21 @@
     context))
 
 (defn- build-path
-  [account {:keys [storage]}]
+  [account]
   (loop [a account
          path (:name account)]
     (if-let [parent (when (:parent-id a)
-                      (accounts/find-by-id storage (:parent-id a)))]
+                      (accounts/find (:parent-id a)))]
       (recur parent (str (:name parent) "/" path))
       path)))
 
 (defn- update-entity-settings
-  [{:keys [storage] :as context} account]
-  (let [path (build-path account context)]
+  [context account]
+  (let [path (build-path account)]
     (if-let [setting (->> (get-in context [:import :options])
                           (filter #(= path (second %)))
                           ffirst)]
       (update-in context [:entity] #(entities/update
-                                      storage
                                       (assoc-in %
                                                 [:settings setting]
                                                 (:id account))))
@@ -86,7 +84,7 @@
                              :commodity-id (:id commodity))
                       (dissoc :id :commodity)
                       (assoc :parent-id parent-id))
-        result (accounts/create (:storage context) to-create)]
+        result (accounts/create to-create)]
     (when-not (:id result)
       (throw (ex-info (str
                         "Unable to create the account "
@@ -99,12 +97,12 @@
         (update-entity-settings result))))
 
 (defn import-reconciliation
-  [{:keys [accounts storage] :as context} reconciliation]
-  (let [created (as-> reconciliation r
-                  (update-in r [:account-id] accounts)
-                  (dissoc r :id)
-                  (assoc r :balance 0M)
-                  (recs/create storage r))]
+  [{:keys [accounts] :as context} reconciliation]
+  (let [created (-> reconciliation
+                    (update-in [:account-id] accounts)  
+                    (dissoc :id)
+                    (assoc :balance 0M)
+                    recs/create)]
     (update-in context [:account-recons]
                (fnil assoc {})
                (:account-id created) (:id created))))
@@ -129,13 +127,12 @@
       (assoc :entity-id (:id entity))))
 
 (defn- import-budget
-  [{:keys [storage ] :as context} budget]
+  [context budget]
   (log/debugf "importing budget %s" (prn-str budget))
   (let [to-create (prepare-budget budget context)]
     (try
       (log/infof "imported budget %s"
-                 (:name (budgets/create storage
-                                        to-create)))
+                 (:name (budgets/create to-create)))
       (catch Exception e
         (log/errorf "error importing budget %s - %s: %s"
                     (.getClass e)
@@ -144,9 +141,9 @@
   context)
 
 (defn- import-commodity
-  [{:keys [entity storage] :as context} commodity]
+  [{:keys [entity] :as context} commodity]
   (let [to-create (assoc commodity :entity-id (:id entity))
-        {:keys [exchange symbol] :as created} (commodities/create storage to-create)]
+        {:keys [exchange symbol] :as created} (commodities/create to-create)]
     (if (validation/has-error? created)
       (throw (ex-info (format "Unable to create commodity %s (%s): %s"
                               (:name created)
@@ -189,13 +186,12 @@
 (defmethod ^:private import-transaction :default
   [context transaction]
   (let [to-create (prepare-transaction transaction context)
-        created (transactions/create (:storage context)
-                                    to-create)]
+        created (transactions/create to-create)]
     (log-transaction created "standard"))
   context)
 
 (defn- inv-transaction-fee-info
-  [{:keys [accounts storage]} transaction trans-type]
+  [{:keys [accounts]} transaction trans-type]
   (when-not (= 2 (count (:items transaction)))
     (let [non-commodity-items (filter #(= (if (= :buy trans-type)
                                             :credit
@@ -204,7 +200,7 @@
                                       (:items transaction))
           account-ids (map #(get-in accounts [(:account-id %)])
                            non-commodity-items)
-          accounts-map (->> (accounts/search storage {:id account-ids})
+          accounts-map (->> (accounts/search {:id account-ids})
                         (map (juxt :id identity))
                         (into {}))
           fee-items (filter #(= :expense (get-in accounts-map [(accounts (:account-id %)) :type]))
@@ -214,7 +210,7 @@
          (accounts (:account-id (first fee-items)))]))))
 
 (defmethod ^:private import-transaction :buy
-  [{:keys [accounts storage] :as context} transaction]
+  [{:keys [accounts] :as context} transaction]
   (log/debug "import buy transaction " (prn-str transaction))
   (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
         purchase {:commodity-id (->> context
@@ -233,7 +229,7 @@
                                       (filter #(= :debit (:action %)))
                                       first))}
         {result :transaction
-         errors ::validation/errors} (trading/buy storage purchase)]
+         errors ::validation/errors} (trading/buy purchase)]
     (when (seq errors)
       (log/errorf "Unable to import purchase transaction %s: %s"
                   (prn-str purchase)
@@ -242,7 +238,7 @@
   context)
 
 (defmethod ^:private import-transaction :sell
-  [{:keys [accounts storage] :as context} transaction]
+  [{:keys [accounts] :as context} transaction]
   (log/debug "import sell transaction " (prn-str transaction))
   (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
         sale {:commodity-id (->> context
@@ -260,19 +256,18 @@
               :value (:value (->> (:items transaction)
                                   (filter #(= :credit (:action %)))
                                   first))}
-        {result :transaction} (trading/sell storage sale)]
+        {result :transaction} (trading/sell sale)]
     (log-transaction result "commodity sale"))
   context)
 
 (defmethod ^:private import-transaction :transfer
-  [{:keys [storage accounts] :as context}
+  [{:keys [accounts] :as context}
    {:keys [from-account-id to-account-id] :as transaction}]
   (log/debug "import transfer transaction " (prn-str transaction))
-  (let [from-commodity-account (accounts/find-by-id storage (accounts from-account-id))
-        from-account (accounts/find-by-id storage (:parent-id from-commodity-account))
-        to-commodity-account (accounts/find-by-id storage (accounts to-account-id))
-        {result :transaction} (trading/transfer (:storage context)
-                                                (assoc transaction
+  (let [from-commodity-account (accounts/find (accounts from-account-id))
+        from-account (accounts/find (:parent-id from-commodity-account))
+        to-commodity-account (accounts/find (accounts to-account-id))
+        {result :transaction} (trading/transfer (assoc transaction
                                                        :transfer-date (:transaction-date transaction)
                                                        :commodity-id (:commodity-id from-commodity-account)
                                                        :from-account-id (:id from-account)
@@ -284,12 +279,10 @@
 ; gnucash namespace did these lookups
 (defn- ensure-split-ids
   [{:keys [commodity-account-id commodity-id account-id] :as transaction}
-   {:keys [accounts storage]}]
+   {:keys [accounts]}]
   (if (and account-id commodity-id)
     transaction
-    (let  [commodity-account (accounts/find-by-id
-                               storage
-                               (accounts commodity-account-id))]
+    (let  [commodity-account (accounts/find (accounts commodity-account-id))]
       (assoc transaction :commodity-id (:commodity-id commodity-account)
                          :account-id (:parent-id commodity-account)))))
 
@@ -298,7 +291,7 @@
   (let  [split (-> transaction
                    (ensure-split-ids context)
                    (dissoc :items))
-         {result :transaction} (trading/split (:storage context) split)]
+         {result :transaction} (trading/split split)]
     (log-transaction result "commodity split"))
   context)
 
@@ -312,8 +305,8 @@
 (defn- prepare-input
   "Returns the input data and source type based
   on the specified image"
-  [storage image-ids]
-  (let [images (map #(images/find-by storage {:id %} {:include-body? true})
+  [image-ids]
+  (let [images (map #(images/find-by {:id %} {:include-body? true})
                     image-ids)
         source-type (-> images first get-source-type)]
     [(map #(io/input-stream (byte-array (:body %)))
@@ -439,20 +432,19 @@
                   (account-children account-id))))
 
 (defn- process-reconciliation
-  [{:keys [account-id id] :as recon} {:keys [storage account-children]}]
-  (let [accounts (accounts/search storage
-                                  {:id (if account-children
+  [{:keys [account-id id] :as recon} {:keys [account-children]}]
+  (let [accounts (accounts/search {:id (if account-children
                                          (append-child-ids account-id account-children)
                                          account-id)})]
     (if (every? :earliest-transaction-date accounts)
       (let [criteria (assoc (->criteria accounts)
                             :reconciliation-id id)
-            balance (->> (transactions/search-items storage criteria)
+            balance (->> (transactions/search-items criteria)
                          (map :polarized-quantity)
                          (reduce + 0M))
-            result (recs/update storage (assoc recon
-                                               :balance balance
-                                               :status :completed))]
+            result (recs/update (assoc recon
+                                       :balance balance
+                                       :status :completed))]
         (when (validation/has-error? result)
           (log/errorf "Unable to finalize reconciliation: %s" (prn-str (select-keys result [:id :account-id :balance :end-of-period ::validation/errors])))))
       (log/errorf "Unable to finalized reconciliation because date range is unspecified: %s %s"
@@ -465,31 +457,29 @@
                                 accounts))))))
 
 (defn- process-reconciliations
-  [{:keys [entity storage] :as ctx}]
-  (doseq [recon (recs/search storage {[:account :entity-id] (:id entity)})]
+  [{:keys [entity] :as ctx}]
+  (doseq [recon (recs/search {[:account :entity-id] (:id entity)})]
     (process-reconciliation recon ctx)))
 
 (defn- import-data*
-  [s import-spec progress-chan]
-  (let [user (users/find-by-id s (:user-id import-spec))
-        [inputs source-type] (prepare-input s (:image-ids import-spec))
-        entity (entities/find-or-create s
-                                        user
+  [import-spec progress-chan]
+  (let [user (users/find (:user-id import-spec))
+        [inputs source-type] (prepare-input (:image-ids import-spec))
+        entity (entities/find-or-create user
                                         (:entity-name import-spec))
         wait-promise (promise)
         out-chan (chan)
         result-chan (async/transduce (comp import-record
                                            inc-progress)
                                      (notify-progress progress-chan)
-                                     {:storage s
-                                      :import import-spec
+                                     {:import import-spec
                                       :progress {}
                                       :accounts {}
                                       :entity entity}
                                      out-chan)]
     (go
       (try
-        (let [result (transactions/with-delayed-balancing s (:id entity)
+        (let [result (transactions/with-delayed-balancing (:id entity)
                        (read-source source-type inputs out-chan)
                        (<!! result-chan))]
           (process-reconciliations result)
@@ -504,13 +494,13 @@
   the information using the specified storage. If an entity
   with the specified name is found, it is used, otherwise it
   is created"
-  ([storage-spec import-spec progress-chan]
-   (import-data storage-spec import-spec progress-chan {}))
-  ([storage-spec import-spec progress-chan options]
+  ([import-spec progress-chan]
+   (import-data import-spec progress-chan {}))
+  ([import-spec progress-chan options]
    (if (:atomic? options)
-     (with-transacted-storage [s storage-spec]
-       (let [result (import-data* s import-spec progress-chan)]
+     (with-transacted-storage (env :db)
+       (let [result (import-data* import-spec progress-chan)]
          (-> result :wait deref)
          result))
-     (with-storage [s storage-spec]
-       (import-data* s import-spec progress-chan)))))
+     (with-storage (env :db)
+       (import-data* import-spec progress-chan)))))
