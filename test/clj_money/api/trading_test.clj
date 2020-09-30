@@ -43,6 +43,7 @@
                :entity-id "Personal"
                :currency-id "USD"}]
    :transactions [{:transaction-date (t/local-date 2016 1 1)
+                   :description "Opening balances"
                    :debit-account-id "IRA"
                    :credit-account-id "Opening Balances"
                    :quantity 1000M}]})

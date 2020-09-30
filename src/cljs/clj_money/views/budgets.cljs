@@ -3,8 +3,7 @@
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
-            [clj-money.state :refer [app-state
-                                     current-entity]]
+            [clj-money.state :refer [app-state]]
             [clj-money.html :as html]
             [clj-money.util :refer [format-decimal]]
             [clj-money.bootstrap :as bs]
@@ -151,7 +150,7 @@
 
 (defn- budget-item-row
   [item detail? page-state]
-  ^{:key (str "budget-item-row-" (:id item))}
+  ^{:key (str "budget-item-row-" (get-in item [:item :id]))}
   [:tr
    [:td (:caption item)]
    (when detail?
@@ -387,7 +386,9 @@
            [budget-item-form page-state]])]
        [:button.btn.btn-primary {:on-click #(swap! page-state assoc
                                                    :selected-item {:id (random-uuid)
-                                                                   :periods []
+                                                                   :periods (->> (range (:period-count @budget))
+                                                                                 (map (constantly 0M))
+                                                                                 (into []))
                                                                    ::entry-mode :per-total})
                                  :disabled (boolean @selected-item)
                                  :title "Click here to add a new budget line item"}
@@ -399,12 +400,12 @@
 
 (defn- load-accounts
   [page-state]
-  (accounts-api/select (:id @current-entity)
-                       (fn [result]
+  (accounts-api/select (fn [result]
                          (->> result
                               accounts/nest
                               accounts/unnest
-                              (reduce #(assoc %1 (:id %2) %2) {})
+                              (map (juxt :id identity))
+                              (into {})
                               (swap! page-state assoc :accounts)))
                        (notify/danger-fn "Unable to load the accounts: %s")))
 

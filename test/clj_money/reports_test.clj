@@ -282,7 +282,7 @@
                    :value 249M
                    :style :header}
                   {:caption "Retained Earnings"
-                   :value 249M
+                   :value 249M ;  2,003 - 1,754
                    :style :data
                    :depth 0}
                   #_{:caption "Unrealized Gains"
@@ -292,6 +292,7 @@
                   {:caption "Liabilities + Equity"
                    :value 749M
                    :style :summary}]]
+    (pprint-diff expected actual)
     (is (= expected actual) "The report data is correct")))
 
 (def ^:private commodities-context
@@ -381,6 +382,7 @@
                   {:caption "Liabilities + Equity"
                    :value 3279M
                    :style :summary}]]
+    (pprint-diff expected report)
     (is (= expected report) "The report contains the correct data")))
 
 (def commodities-account-summary-context
@@ -500,160 +502,121 @@
                           :description "Paycheck"
                           :items [{:action :debit
                                    :account-id "Checking"
-                                   :quantity (bigdec 724)}
+                                   :quantity 724M}
                                   {:action :debit
                                    :account-id "FIT"
-                                   :quantity (bigdec 200)}
+                                   :quantity 200M}
                                   {:action :debit
                                    :account-id "Social Security"
-                                   :quantity (bigdec 62)}
+                                   :quantity 62M}
                                   {:action :debit
                                    :account-id "Medicare"
-                                   :quantity (bigdec 15)}
+                                   :quantity 15M}
                                   {:action :credit
                                    :account-id "Salary"
-                                   :quantity (bigdec 1001)}]}
+                                   :quantity 1001M}]}
                          {:transaction-date (t/local-date 2016 1 15)
                           :description "Paycheck"
                           :items [{:action :debit
                                    :account-id "Checking"
-                                   :quantity (bigdec 725)}
+                                   :quantity 725M}
                                   {:action :debit
                                    :account-id "FIT"
-                                   :quantity (bigdec 200)}
+                                   :quantity 200M}
                                   {:action :debit
                                    :account-id "Social Security"
-                                   :quantity (bigdec 62)}
+                                   :quantity 62M}
                                   {:action :debit
                                    :account-id "Medicare"
-                                   :quantity (bigdec 15)}
+                                   :quantity 15M}
                                   {:action :credit
                                    :account-id "Salary"
-                                   :quantity (bigdec 1002)}]}
+                                   :quantity 1002M}]}
                          {:transaction-date (t/local-date 2016 2 1)
                           :description "Paycheck"
                           :items [{:action :debit
                                    :account-id "Checking"
-                                   :quantity (bigdec 726)}
+                                   :quantity 726M}
                                   {:action :debit
                                    :account-id "FIT"
-                                   :quantity (bigdec 200)}
+                                   :quantity 200M}
                                   {:action :debit
                                    :account-id "Social Security"
-                                   :quantity (bigdec 62)}
+                                   :quantity 62M}
                                   {:action :debit
                                    :account-id "Medicare"
-                                   :quantity (bigdec 15)}
+                                   :quantity 15M}
                                   {:action :credit
                                    :account-id "Salary"
-                                   :quantity (bigdec 1003)}]}
+                                   :quantity 1003M}]}
                          {:transaction-date (t/local-date 2016 2 15)
                           :description "Paycheck"
-                          :items [{:action :debit
-                                   :account-id "Checking"
-                                   :quantity (bigdec 1004)}
-                                  {:action :credit
-                                   :account-id "Salary"
-                                   :quantity (bigdec 1004)}]}
+                          :quantity 1004M
+                          :debit-account-id "Checking"
+                          :credit-account-id "Salary"}
 
                          ; groceries
                          {:transaction-date (t/local-date 2016 1 3)
                           :description "Kroger"
-                          :items [{:action :debit
-                                   :account-id "Groceries"
-                                   :quantity (bigdec 100)}
-                                  {:action :credit
-                                   :account-id "Credit Card"
-                                   :quantity (bigdec 100)}]}
+                          :quantity 100M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
                          {:transaction-date (t/local-date 2016 1 10)
                           :description "Kroger"
-                          :items [{:action :debit
-                                   :account-id "Groceries"
-                                   :quantity (bigdec 100)}
-                                  {:action :credit
-                                   :account-id "Credit Card"
-                                   :quantity (bigdec 100)}]}
+                          :quantity 100M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
                          {:transaction-date (t/local-date 2016 1 17)
                           :description "Kroger"
-                          :items [{:action :debit
-                                   :account-id "Groceries"
-                                   :quantity (bigdec 100)}
-                                  {:action :credit
-                                   :account-id "Credit Card"
-                                   :quantity (bigdec 100)}]}
+                          :quantity 100M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
                          {:transaction-date (t/local-date 2016 1 24)
                           :description "Kroger"
-                          :items [{:action :debit
-                                   :account-id "Groceries"
-                                   :quantity (bigdec 100)}
-                                  {:action :credit
-                                   :account-id "Credit Card"
-                                   :quantity (bigdec 100)}]}
+                          :quantity 100M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
                          {:transaction-date (t/local-date 2016 1 31)
                           :description "Kroger"
-                          :items [{:action :debit
-                                   :account-id "Groceries"
-                                   :quantity (bigdec 100)}
-                                  {:action :credit
-                                   :account-id "Credit Card"
-                                   :quantity (bigdec 100)}]}
-                                        {:transaction-date (t/local-date 2016 2 7)
-                                        :description "Kroger"
-                                        :items [{:action :debit
-                                                  :account-id "Groceries"
-                                                  :quantity (bigdec 101)}
-                                                {:action :credit
-                                                  :account-id "Credit Card"
-                                                  :quantity (bigdec 101)}]}
-                                        {:transaction-date (t/local-date 2016 2 14)
-                                        :description "Kroger"
-                                        :items [{:action :debit
-                                                  :account-id "Groceries"
-                                                  :quantity (bigdec 101)}
-                                                {:action :credit
-                                                  :account-id "Credit Card"
-                                                  :quantity (bigdec 101)}]}
-                                        {:transaction-date (t/local-date 2016 2 21)
-                                        :description "Kroger"
-                                        :items [{:action :debit
-                                                  :account-id "Groceries"
-                                                  :quantity (bigdec 101)}
-                                                {:action :credit
-                                                  :account-id "Credit Card"
-                                                  :quantity (bigdec 101)}]}
-                                        {:transaction-date (t/local-date 2016 2 28)
-                                        :description "Kroger"
-                                        :items [{:action :debit
-                                                  :account-id "Groceries"
-                                                  :quantity (bigdec 101)}
-                                                {:action :credit
-                                                  :account-id "Credit Card"
-                                                  :quantity (bigdec 101)}]}
-                                        ; rent
-                                        {:transaction-date (t/local-date 2016 1 4)
-                                        :description "Landlord"
-                                        :items [{:action :debit
-                                                  :account-id "Rent"
-                                                  :quantity (bigdec 700)}
-                                                {:action :credit
-                                                  :account-id "Checking"
-                                                  :quantity (bigdec 700)}]}
-                                        {:transaction-date (t/local-date 2016 1 7)
-                                        :description "Trunk Club"
-                                        :items [{:action :debit
-                                                  :account-id "Clothes"
-                                                  :quantity (bigdec 321)}
-                                                {:action :credit
-                                                  :account-id "Checking"
-                                                  :quantity (bigdec 700)}]}
-                                        {:transaction-date (t/local-date 2016 2 4)
-                                        :description "Landlord"
-                                        :items [{:action :debit
-                                                  :account-id "Rent"
-                                                  :quantity (bigdec 700)}
-                                                {:action :credit
-                                                  :account-id "Checking"
-                                                  :quantity (bigdec 700)}]}]}))
+                          :quantity 100M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
+                         {:transaction-date (t/local-date 2016 2 7)
+                          :description "Kroger"
+                          :quantity 101M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
+                         {:transaction-date (t/local-date 2016 2 14)
+                          :description "Kroger"
+                          :quantity 101M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
+                         {:transaction-date (t/local-date 2016 2 21)
+                          :description "Kroger"
+                          :quantity 101M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
+                         {:transaction-date (t/local-date 2016 2 28)
+                          :description "Kroger"
+                          :quantity 101M
+                          :debit-account-id "Groceries"
+                          :credit-account-id "Credit Card"}
+                         ; rent
+                         {:transaction-date (t/local-date 2016 1 4)
+                          :description "Landlord"
+                          :quantity 700M
+                          :debit-account-id "Rent"
+                          :credit-account-id "Checking"}
+                         {:transaction-date (t/local-date 2016 1 7)
+                          :description "Trunk Club"
+                          :quantity 321M
+                          :debit-account-id "Clothes"
+                          :credit-account-id "Checking"}
+                         {:transaction-date (t/local-date 2016 2 4)
+                          :description "Landlord"
+                          :quantity 700M
+                          :debit-account-id "Rent"
+                          :credit-account-id "Checking"}]}))
 
 (def ^:private  expected-budget
   {:title "2016: January to February"
@@ -675,11 +638,19 @@
            {:caption "Expense"
             :style :header
             :budget 3828M
-            :actual 3135M
-            :difference 693M
-            :percent-difference 0.1810344828M
-            :actual-per-period 1567.5M
-            :items [{:caption "Groceries"
+            :actual 3456M
+            :difference 372M
+            :percent-difference 0.09717868339M
+            :actual-per-period 1728M
+            :items [{:caption "Clothes"
+                     :style :data
+                     :depth 0
+                     :budget 0M
+                     :actual 321M
+                     :difference -321M
+                     :percent-difference nil
+                     :actual-per-period 160.50M}
+                    {:caption "Groceries"
                      :style :data
                      :depth 0
                      :budget 900M
@@ -743,10 +714,10 @@
            {:caption "Net"
             :style :summary
             :budget 172M
-            :actual 875M
-            :difference 703M
-            :percent-difference 4.087209302M
-            :actual-per-period 437.50M}]})
+            :actual 554M
+            :difference 382M
+            :percent-difference 2.220930233M
+            :actual-per-period 277M}]})
 
 (deftest create-a-budget-report
   (let [context (realize budget-report-context)
@@ -904,13 +875,13 @@
       (assoc :transactions [{:transaction-date (t/local-date 2015 1 1)
                              :description "Begining balance"
                              :quantity 10000M
-                             :debit-account "401k"
-                             :credit-account "Opening Balances"}
+                             :debit-account-id "401k"
+                             :credit-account-id "Opening Balances"}
                             {:transaction-date (t/local-date 2015 1 1)
                              :description "Begining balance"
                              :quantity 10000M
-                             :debit-account "IRA"
-                             :credit-account "Opening Balances"}]
+                             :debit-account-id "IRA"
+                             :credit-account-id "Opening Balances"}]
              :trades [{:trade-date (t/local-date 2015 2 1)
                        :type :purchase
                        :account-id "IRA"
@@ -927,10 +898,15 @@
 (def ^:private expected-portfolio-by-account
   [{:caption "401k"
     :style :header
-    :cost-basis 2000M
-    :current-value 2000M
+    :cost-basis 10000M
+    :current-value 10000M
     :gain-loss 0M
     :gain-loss-percent 0.0M}
+   {:caption "Cash"
+    :style :subheader
+    :current-value 8000M
+    :cost-basis 8000M
+    :gain-loss 0M}
    {:caption "Microsoft, Inc."
     :style :subheader
     :shares-owned 400M
@@ -948,10 +924,15 @@
     :gain-loss-percent 0.0M}
    {:caption "IRA"
     :style :header
-    :cost-basis 2000M
-    :current-value 2000M
+    :cost-basis 10000M
+    :current-value 10000M
     :gain-loss 0M
     :gain-loss-percent 0.0M}
+   {:caption "Cash"
+    :style :subheader
+    :current-value 8000M
+    :cost-basis 8000M
+    :gain-loss 0M}
    {:caption "Apple, Inc."
     :style :subheader
     :shares-owned 200M
@@ -969,13 +950,20 @@
     :gain-loss-percent 0.0M}
    {:caption "Total"
     :style :summary
-    :cost-basis 4000M
-    :current-value 4000M
+    :current-value 20000M
+    :cost-basis 20000M
     :gain-loss 0M
     :gain-loss-percent 0.0M}])
 
 (def ^:private expected-portfolio-by-commodity
-  [{:caption "Apple, Inc."
+  [{:caption "Cash"
+    :style :subheader
+    :shares-owned 16000M
+    :cost-basis 16000M
+    :current-value 16000M
+    :gain-loss 0M
+    :gain-loss-percent 0.0M}
+   {:caption "Apple, Inc."
     :style :subheader
     :shares-owned 200M
     :cost-basis 2000M
@@ -1007,8 +995,8 @@
     :gain-loss-percent 0.0M}
    {:caption "Total"
     :style :summary
-    :cost-basis 4000M
-    :current-value 4000M
+    :cost-basis 20000M
+    :current-value 20000M
     :gain-loss 0M
     :gain-loss-percent 0.0M}])
 

@@ -160,10 +160,8 @@
 (defn- throw-on-invalid
   [model]
   (if (validation/has-error? model)
-    (throw (ex-info (format "Unable to create the model. %s %s"
-                            (or (storage/tag model)
-                                (keys model))
-                            (prn-str (validation/error-messages model)))
+    (throw (ex-info (format "Unable to create the model. %s"
+                            model)
                     model))
     model))
 
@@ -295,10 +293,11 @@
 
 (defn- create-transaction
   [transaction context]
-  (transactions/create (-> transaction
-                           (resolve-entity context)
-                           expand-items
-                           (prepare-items context))))
+  (throw-on-invalid
+    (transactions/create (-> transaction
+                             (resolve-entity context)
+                             expand-items
+                             (prepare-items context)))))
 
 (defn- create-transactions
   [context transactions]

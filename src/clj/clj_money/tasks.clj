@@ -128,7 +128,7 @@
                migrate-account-cli-options
                {:title "MIGRATE ACCOUNT"
                 :validate validate-migrate-account-options})]
-    (let [user (users/find {:email (:user opts)})
+    (let [user (users/find-by {:email (:user opts)})
           entity (entities/find-by {:user-id (:id user)
                                     :name (:entity opts)})
           _ (assert entity "Entity not found")

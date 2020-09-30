@@ -42,7 +42,9 @@
   [[response body]]
   (assert-successful response)
   (is (= ["Income" "Expense" "Net"]
-         (map :caption body))
+         (->> body
+              (filter #(#{"header" "summary"} (:style %)))
+              (map :caption )))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-income-statement
@@ -75,7 +77,9 @@
   [[response body]]
   (assert-successful response)
   (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
-         (map :caption body))
+         (->> body
+              (filter #(#{"summary" "header"} (:style %)))
+              (map :caption)))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-balance-sheet
@@ -193,8 +197,8 @@
       (assoc :transactions [{:transaction-date (t/local-date 2015 1 1)
                              :description "Begining balance"
                              :quantity 1000M
-                             :debit-account "IRA"
-                             :credit-account "Opening Balances"}]
+                             :debit-account-id "IRA"
+                             :credit-account-id "Opening Balances"}]
              :trades [{:trade-date (t/local-date 2015 2 1)
                        :type :purchase
                        :account-id "IRA"
@@ -221,8 +225,10 @@
 (defn- assert-successful-portfolio-report
   [[response body]]
   (assert-successful response)
-  (is (= ["IRA" "Apple, Inc." "2/1/2015" "Total"]
-         (map :caption body))
+  (is (= ["IRA" "Total"]
+         (->> body
+              (filter #(#{"header" "summary"} (:style %)))
+              (map :caption)))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-portfolio-report

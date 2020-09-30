@@ -133,4 +133,8 @@
   {:pre [(:select sql)]}
   (let [formatted (sql/format sql)]
     (log/debug "query" (prn-str formatted))
-    (map ->clojure-keys (jdbc/query db-spec formatted))))
+    (try
+      (map ->clojure-keys (jdbc/query db-spec formatted))
+      (catch Exception e
+        (log/errorf e "Unable to complete query: %s" formatted)
+        (throw (Exception. "Unable to complete the query" e))))))

@@ -144,11 +144,11 @@
 (defn rebound-commodity
   "Given a commodity, look up the earliest and latest prices and update the
   commodity record"
-  [storage commodity]
+  [commodity]
   (let [criteria {:commodity-id (:id commodity)
                   :trade-date [:between
-                               (settings/get storage :earliest-partition-date)
-                               (settings/get storage :latest-partition-date)]}
+                               (settings/get :earliest-partition-date)
+                               (settings/get :latest-partition-date)]}
         earliest (find-by criteria {:sort [[:trade-date :asc]]})
         latest (find-by criteria {:sort [[:trade-date :desc]]})]
     (when (and earliest latest)
