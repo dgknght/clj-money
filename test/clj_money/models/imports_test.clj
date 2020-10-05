@@ -6,7 +6,6 @@
                                             find-user
                                             find-imports]]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
                                             selective=]]
             [clj-money.validation :as validation]
             [clj-money.models.imports :as imports]
@@ -36,7 +35,6 @@
                    :options nil
                    :image-ids (map :id (:images context))
                    :entity-exists? false}]]
-    (pprint-diff expected actual)
     (is (= expected actual))))
 
 (defn attributes

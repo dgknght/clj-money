@@ -1,7 +1,6 @@
 (ns clj-money.util-test
   (:require [clojure.test :refer [deftest testing is]]
             [clj-time.core :as t]
-            [clj-money.test-helpers :refer [pprint-diff]]
             [clj-money.util :as util])
   (:import java.util.UUID))
 
@@ -45,13 +44,11 @@
     (let [expected {:first-name "John"
                     :last-name "Doe"}
           actual (util/query-string->map "first-name=John&last-name=Doe")]
-      (pprint-diff expected actual)
       (is (= expected actual))))
   (testing "a map with map values"
     (let [expected {:user {:first-name "John"
                            :last-name "Doe"}}
           actual (util/query-string->map "user[first-name]=John&user[last-name]=Doe")]
-      (pprint-diff expected actual)
       (is (= expected actual))))
   (testing "a map with vector values"
     (is (= {:names ["john" "jane"]}
@@ -61,7 +58,6 @@
                     :options {:sort ["transaction-date" "desc"]
                               :limit "50"}}
           actual (util/query-string->map "criteria[transaction-date][]=between&criteria[transaction-date][]=2018-02-27&criteria[transaction-date][]=2018-03-02&options[sort][]=transaction-date&options[sort][]=desc&options[limit]=50")]
-      (pprint-diff expected actual)
       (is (= expected actual)))))
 
 (deftest get-a-descending-list-of-time-periods

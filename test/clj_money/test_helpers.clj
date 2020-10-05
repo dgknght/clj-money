@@ -1,7 +1,5 @@
 (ns clj-money.test-helpers
   (:require [clojure.test :refer [is]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
             [clojure.java.jdbc :as jdbc]
             [environ.core :refer [env]]
             [clj-time.core :as t]
@@ -106,15 +104,6 @@
   [at-time & body]
   `(with-redefs [t/now (fn [] ~at-time)]
      ~@body))
-
-(defn pprint-diff
-  [expected actual]
-  (let [d (diff expected actual)]
-    (when (or (first d)
-              (second d))
-      (pprint {:expected expected
-               :actual actual
-               :diff d}))))
 
 (defn selective=
   [expected actual & attributes]

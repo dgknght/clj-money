@@ -5,8 +5,7 @@
             [clj-money.test-context :refer [realize
                                             find-entity]]
             [clj-money.validation :as validation]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.commodities :as commodities]))
 
 (use-fixtures :each reset-db)
@@ -40,7 +39,6 @@
                     commodities)]
     (is (empty? (validation/error-messages result))
         "The result has no error messages")
-    (pprint-diff expected actual)
     (is (= expected actual)
         "The commodity can be retrieved after create")))
 

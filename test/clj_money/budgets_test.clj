@@ -1,7 +1,6 @@
 (ns clj-money.budgets-test
   (:require [clojure.test :refer [deftest is testing]]
             [clj-time.core :as t]
-            [clj-money.test-helpers :refer [pprint-diff]]
             [clj-money.budgets :as budgets]))
 
 (deftest get-a-period-description
@@ -70,5 +69,4 @@
                    :periods [250M 250M 250M 250M 250M 250M 250M 250M 250M 250M 250M 1250M]}]
         actual (budgets/render budget
                                     #(get-in accounts [%]))]
-    (pprint-diff expected actual)
     (is (= expected actual))))

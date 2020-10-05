@@ -12,8 +12,7 @@
                                             realize
                                             find-account
                                             find-user]]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
 
 
@@ -154,7 +153,6 @@
                                       :polarized-quantity
                                       :action])
                      body)]
-    (pprint-diff expected actual)
     (is (= expected actual)
         "The correct transaction items are returned in the response")))
 

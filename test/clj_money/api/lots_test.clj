@@ -13,8 +13,7 @@
                                             find-user
                                             find-account
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -101,7 +100,6 @@
                                       :shares-owned
                                       :purchase-price])
                      body)]
-    (pprint-diff expected actual)
     (is (= expected actual))))
 
 (defn- assert-blocked-get

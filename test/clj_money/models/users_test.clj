@@ -3,7 +3,6 @@
             [clj-time.core :as t]
             [clj-money.models.users :as users]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
                                             assert-validation-error
                                             selective=]]))
 
@@ -83,7 +82,6 @@
                                                  :password "please01"})
 
                             (keys expected))]
-    (pprint-diff expected actual)
     (is (= expected actual) "The returned value should be the user information")))
 
 (deftest set-a-password-reset-token

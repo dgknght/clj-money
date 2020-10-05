@@ -5,7 +5,6 @@
             [clojure.core.async :refer [chan <!!] :as async]
             [clj-money.util :refer [uuid]]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [pprint-diff]]
             [clj-money.import :refer [read-source]]
             [clj-money.import.gnucash]))
 
@@ -37,9 +36,7 @@
         result (execute-import input)]
     (doall (for [[k expected] expectations
                  :let [actual (get-in result [k])]]
-             (do
-               (pprint-diff expected actual)
-               (is (= expected actual) (str "Incorrect results for " k)))))))
+             (is (= expected actual) (str "Incorrect results for " k))))))
 
 (deftest read-gnucash-source-with-budget
   (execute-test "resources/fixtures/gnucash_test/budget.edn"))

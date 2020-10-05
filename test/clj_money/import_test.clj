@@ -13,8 +13,7 @@
                                             find-user
                                             find-import]]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
@@ -191,7 +190,6 @@
         {:keys [entity updates]} (execute-import imp)
         all-accounts (accounts/search {:entity-id (:id entity)})]
     (is (= "Personal" (:name entity)) "It returns the new entity")
-    (pprint-diff expected-updates @updates)
     (is (= expected-updates @updates)
         "The import record is updated at each insert")
 
@@ -212,7 +210,6 @@
                                                    {:entity-id (:id entity)
                                                     :symbol sym})))))
                           expected-accounts)]
-        (pprint-diff expected actual)
         (is (= expected actual))))
 
     (testing "a correct income statement is produced"
@@ -220,14 +217,12 @@
                      (reports/income-statement entity
                                                (t/local-date 2015 1 1)
                                                (t/local-date 2017 12 31)))]
-        (pprint-diff expected-inc-stmt actual)
         (is (= expected-inc-stmt actual))))
 
     (testing "a correct balance sheet is produced"
       (let [actual (strip-account-ids
                      (reports/balance-sheet entity
                                             (t/local-date 2017 12 31)))]
-        (pprint-diff expected-bal-sheet actual)
         (is (= expected-bal-sheet actual))))
 
     (testing "reconciliations are imported correctly"
@@ -243,7 +238,6 @@
                                          :status
                                          :balance])
                         (recs/search {[:account :entity-id] (:id entity)}))]
-        (pprint-diff expected actual)
         (is (= expected actual))))))
 
 (deftest import-a-simple-gnucash-file
@@ -288,7 +282,6 @@
              (swap! updates #(conj % p))
              (recur (<! channel)))
     (import-data imp channel {:atomic? true})
-    (pprint-diff (set expected-updates) (set @updates))
     (is (= (set expected-updates) (set @updates))
         "The import record is updated at each insert")
     (shutdown-agents)))
@@ -329,7 +322,6 @@
                                       250M 275M 275M
                                       200M 200M 250M
                                       250M 275M 275M]}}}]
-    (pprint-diff expected actual)
     (is (= expected actual) "The budget exists after import with correct values")))
 
 (def gnucash-commodities-sample
@@ -381,9 +373,7 @@
                                            :created-at
                                            :updated-at))
                            (into #{}))]
-    (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots) "The correct lots are present after import")
-    (pprint-diff expected-prices actual-prices)
     (is (= expected-prices, actual-prices) "The correct prices are present after import")))
 
 (def gnucash-ext-commodities-sample
@@ -418,7 +408,6 @@
                             :commodity-id (:id aapl)
                             :account-id (:id ira)}]
             actual-lots (map #(dissoc % :updated-at :created-at :id) lots)]
-        (pprint-diff expected-lots actual-lots)
         (is (= expected-lots actual-lots)
             "The commodity has the correct lots after import")))
 
@@ -493,10 +482,8 @@
                                                 :reconciliation-status
                                                 :reconciliation-id
                                                 :reconciled?)))]
-        (pprint-diff expected-fee-items actual-fee-items)
         (is (= expected-fee-items actual-fee-items)
             "The Investment Expenses account has the correct items")
-        (pprint-diff expected-ira-items actual-ira-items)
         (is (= expected-ira-items actual-ira-items)
             "The IRA account has the correct items")))
 

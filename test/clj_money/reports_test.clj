@@ -16,8 +16,7 @@
             [clj-money.factories.user-factory]
             [clj-money.trading :as trading]
             [clj-money.reports :as reports]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -256,7 +255,6 @@
                   {:caption "Net"
                    :value 249M
                    :style :summary}]]
-    (pprint-diff expected actual)
     (is (= expected actual) "The report renders the corect data")))
 
 (deftest create-a-balance-sheet-report
@@ -292,7 +290,6 @@
                   {:caption "Liabilities + Equity"
                    :value 749M
                    :style :summary}]]
-    (pprint-diff expected actual)
     (is (= expected actual) "The report data is correct")))
 
 (def ^:private commodities-context
@@ -382,7 +379,6 @@
                   {:caption "Liabilities + Equity"
                    :value 3279M
                    :style :summary}]]
-    (pprint-diff expected report)
     (is (= expected report) "The report contains the correct data")))
 
 (def commodities-account-summary-context
@@ -448,7 +444,6 @@
                    :value 2250M
                    :gain 250M
                    :style :summary}]]
-    (pprint-diff expected actual)
     (is (= expected actual) "The report contains the correct data")))
 
 (def ^:private budget-report-context
@@ -726,7 +721,6 @@
                                  {:as-of (t/local-date 2016 2 29)})
                  [:items]
                  strip-account-ids)]
-    (pprint-diff expected-budget actual)
     (is (= expected-budget actual) "The function products the correct data")))
 
 (deftest create-a-budget-monitor
@@ -748,7 +742,6 @@
                            :percentage 15/366
                            :actual 200M
                            :actual-percent 0.037037M}}]
-    (pprint-diff expected actual)
     (is (= expected actual) "The correct information is returned")))
 
 (deftest get-a-lot-report
@@ -1012,7 +1005,6 @@
                                      :gain-loss
                                      :gain-loss-percent])
                     (reports/portfolio (:id entity) {:aggregate :by-account}))]
-    (pprint-diff expected-portfolio-by-account actual)
     (is (= expected-portfolio-by-account actual)
         "The correct report data is generated")))
 
@@ -1028,6 +1020,5 @@
                                      :gain-loss
                                      :gain-loss-percent])
                     (reports/portfolio (:id entity) {:aggregate :by-commodity}))]
-    (pprint-diff expected-portfolio-by-commodity actual)
     (is (= expected-portfolio-by-commodity actual)
         "The correct report data is generated")))

@@ -2,7 +2,6 @@
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.java.jdbc :as jdbc]
             [clj-time.core :as t]
-            [clj-money.test-helpers :refer [pprint-diff]]
             [clj-money.partitioning :as prt]))
 
 (defmacro ^:private with-cmd-intercept
@@ -27,7 +26,6 @@
                    {:silent true
                     :intervals {:default {:interval-type :year
                                           :interval-count 1}}}))]
-      (pprint-diff expected cmds)
       (is (= expected cmds))))
   (testing "start on a non-anchor year"
     (let [expected #{"create table if not exists prices_y2002 partition of prices for values from ('2002-01-01') to ('2003-01-01');"
@@ -41,7 +39,6 @@
                    {:silent true
                     :intervals {:default {:interval-type :year
                                           :interval-count 1}}}))]
-      (pprint-diff expected cmds)
       (is (= expected cmds)))))
 
 (deftest partition-by-month
@@ -67,7 +64,6 @@
                                                 :interval-count 1}
                             :reconciliations   {:interval-type :month
                                                 :interval-count 1}}}))]
-      (pprint-diff expected cmds)
       (is (= expected cmds))))
   (testing "start on a non-anchor month"
     (let [expected #{"create table if not exists prices_y2020_m01_m02 partition of prices for values from ('2020-01-01') to ('2020-03-01');"
@@ -91,5 +87,4 @@
                                                 :interval-count 2}
                             :reconciliations   {:interval-type :month
                                                 :interval-count 2}}}))]
-      (pprint-diff expected cmds)
       (is (= expected cmds)))))

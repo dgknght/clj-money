@@ -10,7 +10,6 @@
                                             find-accounts
                                             find-commodity]]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
                                             selective=]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
@@ -167,7 +166,6 @@
                                                              :quantity])]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
-    (pprint-diff expected-transaction actual-transaction)
     (is (= expected-transaction actual-transaction)
         "The resulting transaction has the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
@@ -181,7 +179,6 @@
         "The lot is valid")
     (is (empty? (-> result :lot-transaction validation/error-messages))
         "The lot transaction is valud")
-    (pprint-diff expected-commodity-account actual-commodity-account)
     (is (= expected-commodity-account
            actual-commodity-account)
         "The commodity account is created")
@@ -434,7 +431,6 @@
                                      :lt-capital-loss-account-id
                                      :st-capital-loss-account-id
                                      :inventory-method]))]
-        (pprint-diff expected actual)
         (is (= expected actual)
             "The entity settings are updated with default account ids")))))
 
@@ -615,7 +611,6 @@
                    :memo "Sell 25 shares of AAPL at 15.000"
                    :balance 125M
                    :index 0}]]
-    (pprint-diff expected gains-items)
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
@@ -638,7 +633,6 @@
                    :memo "Sell 25 shares of AAPL at 15.000"
                    :balance 125M
                    :index 0}]]
-    (pprint-diff expected gains-items)
     (is (= expected gains-items) "The capital gains account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
@@ -871,10 +865,8 @@
     (is result "A non-nil result is returned")
     (is (empty? (validation/error-messages result))
         "The result does not contain validation errors")
-    (pprint-diff expected-transaction actual-transaction)
     (is (= expected-transaction actual-transaction)
         "The correct transaction is returned")
-    (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
         "The lots are adjusted correctly.")
     ; Original account balance was 2,000, we bought 1,000 worth of
@@ -933,10 +925,8 @@
         "The result has no validation errors")
     (is (= 2M (:ratio result))
         "The correct split ratio is returned")
-    (pprint-diff expected-transaction actual-transaction)
     (is (= expected-transaction actual-transaction)
         "The result contains the transaction that was created")
-    (pprint-diff expected-lots actual-lots)
     (is (= expected-lots actual-lots)
         "The lots are adjusted correctly")
     #_(is (= 200M (:quantity (accounts/reload ira)))

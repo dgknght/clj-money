@@ -9,8 +9,7 @@
                                             find-account
                                             find-accounts
                                             find-budget]]
-            [clj-money.test-helpers :refer [pprint-diff
-                                            reset-db
+            [clj-money.test-helpers :refer [reset-db
                                             selective=
                                             assert-validation-error]]))
 
@@ -392,7 +391,6 @@
             actual (map :periods (budgets/find-items-by-account
                                    budget
                                    account))]
-        (pprint-diff expected actual)
         (is (= expected actual) "The correct period values are returned")))
     (testing "a parent account"
       (let [account (find-account ctx "Groceries")
@@ -401,5 +399,4 @@
             actual (map :periods (budgets/find-items-by-account
                                    budget
                                    account))]
-        (pprint-diff expected actual)
         (is (= expected actual) "The correct period values are returned")))))

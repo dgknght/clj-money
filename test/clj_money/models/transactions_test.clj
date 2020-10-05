@@ -19,7 +19,6 @@
                                             find-accounts
                                             find-transaction]]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
                                             assert-validation-error]]))
 
 (use-fixtures :each reset-db)
@@ -119,7 +118,6 @@
                                :reconciliation-status nil
                                :reconciliation-id nil
                                :reconciled? false}]}]
-        (pprint-diff expected actual)
         (is (= expected actual)
             "The correct data is retreived")))))
 
@@ -371,7 +369,6 @@
         actual-checking-items (->> checking-items
                                    (map #(select-keys % [:transaction-date :quantity]))
                                    set)]
-    (pprint-diff expected-checking-items actual-checking-items)
     (is (= expected-checking-items
            actual-checking-items)
         "The checking account items are correct")))
@@ -426,10 +423,8 @@
             expected-after[{:index 1 :quantity 102M :balance 898M}
                            {:index 0 :quantity 1000M :balance 1000M}]
             actual-after (map #(select-keys % [:index :quantity :balance]) checking-items-after)]
-        (pprint-diff expected-before actual-before)
         (is (= expected-before actual-before)
             "Checking should have the correct items before delete")
-        (pprint-diff expected-after actual-after)
         (is (= expected-after actual-after)
             "Checking should have the correct items after delete")))
     (testing "account balances are adjusted"
@@ -592,10 +587,8 @@
     (is (empty? (validation/error-messages result))
         "The transaction is updated successfully.")
     (testing "transaction item balances are correct"
-      (pprint-diff expected-checking actual-checking)
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
-      (pprint-diff expected-groceries actual-groceries)
       (is (= expected-groceries actual-groceries)
           "Groceries items should have the correct values after update"))
     (assert-account-quantities checking 798.01M groceries 201.99M)))
@@ -652,10 +645,8 @@
     (is (empty? (validation/error-messages result))
         "The record is saved successfully")
     (testing "transaction item balances are correct"
-      (pprint-diff expected-checking actual-checking)
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
-      (pprint-diff expected-groceries actual-groceries)
       (is (= expected-groceries actual-groceries)
           "Groceries items should have the correct values after update"))
     (assert-account-quantities checking 797M groceries 203M)
@@ -687,7 +678,6 @@
     (is (empty? (validation/error-messages result))
         "The transaction is saved successfully")
     (testing "transaction item balances are correct"
-      (pprint-diff expected-checking actual-checking)
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
       (is (= expected-groceries actual-groceries)
@@ -786,7 +776,6 @@
           (is (empty? (validation/error-messages result))
               "The transaction is saved successfully")
           (testing "the expected transactions are updated"
-            (pprint-diff expected actual)
             (is (= expected actual)
                 "Only items with changes are updated")
             (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
@@ -855,10 +844,8 @@
                         :quantity 102M
                         :balance 102M}]]
     (testing "Accounts have the correct items"
-      (pprint-diff expected-groceries actual-groceries)
       (is (= expected-groceries actual-groceries)
           "Groceries should have the correct items after update")
-      (pprint-diff expected-rent actual-rent)
       (is (= expected-rent actual-rent)
           "Rent chould have the correct items after update"))
     (assert-account-quantities groceries 204M rent 102M)))
@@ -923,7 +910,6 @@
                           (items-by-account (:id groceries)))]
     (is (empty? (validation/error-messages result)) "There are no validation errors")
     (testing "items are updated correctly"
-      (pprint-diff expected-items actual-items)
       (is (= expected-items actual-items)
           "Groceries should have the correct items after update"))
     (assert-account-quantities groceries 192M checking 808M)))
@@ -998,7 +984,6 @@
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id groceries)))]
-    (pprint-diff expected-items actual-items)
     (testing "item values are correct"
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))
@@ -1027,7 +1012,6 @@
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id pets)))]
     (testing "item values are correct"
-      (pprint-diff expected-items actual-items)
       (is (= expected-items actual-items)
           "The Pets account should have the correct items"))
     (assert-account-quantities pets 25M groceries 281M checking 694M)))
@@ -1155,7 +1139,6 @@
              :action :credit
              :quantity 1000M}]]
     (is (empty? (validation/error-messages trx)) "The transaction is created successfully")
-    (pprint-diff expected-items actual-items)
     (is (= expected-items actual-items) "The items are created correctly")))
 
 (deftest set-account-boundaries
@@ -1214,7 +1197,6 @@
                   :other-account-id (:id groceries)
                   :quantity -10M}
         actual (simplify transaction checking)]
-    (pprint-diff expected actual)
     (is (= expected actual))))
 
 (deftest fullify-a-transaction
@@ -1240,7 +1222,6 @@
                                  (->> (:accounts ctx)
                                       (filter #(= (:id %) id))
                                       first)))]
-    (pprint-diff expected actual)
     (is (= expected actual))))
 
 (deftest entryfy-a-transaction
@@ -1267,7 +1248,6 @@
                            :credit-quantity nil
                            :debit-quantity 10M}]}
         actual (entryfy transaction)]
-    (pprint-diff expected actual)
     (is (= expected actual))))
 
 (deftest unentryfy-a-transaction
@@ -1294,7 +1274,6 @@
                            :credit-quantity nil
                            :debit-quantity 10M}]}
         actual (unentryfy transaction)]
-    (pprint-diff expected actual)
     (is (= expected actual))))
 
 (deftest simplifiability

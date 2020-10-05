@@ -16,7 +16,6 @@
                                         polarize-quantity
                                         derive-action]]
             [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff
                                             assert-validation-error
                                             simplify-account-groups]]))
 
@@ -175,7 +174,6 @@
                    :value 0M}]]
     (is (empty? (v/error-messages result))
         "The result has no validation errors.")
-    (pprint-diff expected accounts)
     (is (= expected accounts) "The account can be retrieved")))
 
 (def ^:private duplicate-name-context

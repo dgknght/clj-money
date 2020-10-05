@@ -2,8 +2,7 @@
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [clojure.pprint :refer [pprint]]
             [clj-time.core :as t]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [realize
                                             basic-context
                                             find-account
@@ -348,7 +347,6 @@
                        :reconciliation-id nil}]
             actual (map #(select-keys % [:transaction-date :quantity :reconciliation-id])
                         checking-items)]
-        (pprint-diff expected actual)
         (is (= expected actual)
             "The correct transaction items are associated with the reconciliation")))))
 

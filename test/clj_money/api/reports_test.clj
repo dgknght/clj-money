@@ -3,8 +3,7 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-time.core :as t]
-            [clj-money.test-helpers :refer [reset-db
-                                            pprint-diff]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.test-helpers :refer [assert-successful
                                                 assert-not-found]]
             [clj-money.api.test-helper :refer [add-auth]]
@@ -171,7 +170,6 @@
                             :actual-percent 0.035417}}]
         actual (when (sequential? body)
                  (map #(dissoc % :account-id) body))]
-    (pprint-diff expected actual)
     (is (= expected actual))))
 
 (defn- assert-blocked-monitor-list
