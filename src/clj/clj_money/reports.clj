@@ -164,22 +164,7 @@
 (defn- fetch-prices
   ([commodity-ids] (fetch-prices commodity-ids (t/today)))
   ([commodity-ids as-of]
-   (ch/find commodity-ids {:start-date as-of
-                           :time-step (t/years 1)
-                           :fetch-fn #(prices/search
-                                        {:commodity-id %1
-                                         :trade-date [:and
-                                                      [:> (t/minus %2 (t/years 1))]
-                                                      [:<= %2]]})
-                           :transform-fn :price
-                           :id-fn :commodity-id
-                           :earliest-date (earliest-date)
-                           :find-one-fn (fn [prices]
-                                          (apply max-key
-                                                 (comp tc/to-long :trade-date)
-                                                 (filter #(or (= as-of (:trade-date %))
-                                                              (t/before? (:trade-date %) as-of))
-                                                         prices)))})))
+   (prices/batch-fetch commodity-ids as-of)))
 
 (defn- append-retained-earnings
   [mapped-accounts]

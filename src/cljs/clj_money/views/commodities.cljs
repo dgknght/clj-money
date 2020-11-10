@@ -77,7 +77,7 @@
        "...")]))
 
 (defn- commodity-row
-  [commodity page-state]
+  [{price :most-recent-price :as commodity} page-state]
   (let  [default? (= (:id commodity)
                      (get-in @current-entity [:settings :default-commodity-id]))]
     ^{:key (:id commodity)}
@@ -85,7 +85,7 @@
      [:td (truncate (:name commodity))]
      [:td (:symbol commodity)]
      [:td (:exchange commodity)]
-     [:td "coming soon..."]
+     [:td.text-right {:title (format-date (:trade-date price))} (currency-format (:price price))]
      [:td
       [:div.btn-group
        [:button.btn.btn-info.btn-sm {:title "Click here to edit this commodity."
@@ -124,7 +124,7 @@
          [:th "Name"]
          [:th "Symbol"]
          [:th "Exchange"]
-         [:th "Latest Price"]
+         [:th.text-right "Latest Price"]
          [:th (html/space)]]]
        [:tbody
         (if @commodities

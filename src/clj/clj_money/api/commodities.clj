@@ -9,6 +9,7 @@
              :as authorization]
             [clj-money.validation :as v]
             [clj-money.models.commodities :as coms]
+            [clj-money.models.prices :as prices]
             [clj-money.authorization.commodities]))
 
 (defn- scoped-params
@@ -22,10 +23,20 @@
   (->response
     {:count (coms/count (scoped-params req))}))
 
+(defn- append-current-prices
+  [commodities]
+  (if (seq commodities)
+    (let [prices (prices/batch-fetch (set (map :id commodities))
+                                     {:transform-fn identity})]
+      (map #(assoc % :most-recent-price (get-in prices [(:id %)]))
+           commodities))
+    commodities))
+
 (defn- index
   [req]
   (->response
-    (coms/search (scoped-params req))))
+    (append-current-prices
+      (coms/search (scoped-params req)))))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]

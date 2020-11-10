@@ -4,16 +4,19 @@
             [clojure.tools.logging :as log]
             [environ.core :refer [env]]
             [clj-time.core :as t]
+            [clj-time.coerce :as tc]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
             [clj-money.util :refer [deep-update-in-if
                                     assoc-if]]
+            [clj-money.find-in-chunks :as ch]
             [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.commodities :as commodities]
-            [clj-money.models.date-helpers :refer [parse-date-range]]))
+            [clj-money.models.date-helpers :refer [earliest-date
+                                                   parse-date-range]]))
 
 (s/def ::commodity-id integer?)
 (s/def ::trade-date validation/local-date?)
@@ -155,3 +158,27 @@
       (commodities/update (assoc commodity
                                  :earliest-price (:trade-date earliest)
                                  :latest-price (:trade-date latest))))))
+
+(defn batch-fetch
+  ([commodity-ids] (batch-fetch commodity-ids {}))
+  ([commodity-ids opts]
+   (let [as-of (or (:as-of opts (t/today)))]
+     (ch/find commodity-ids
+              (merge
+                {:start-date as-of
+                 :time-step (t/years 1)
+                 :fetch-fn #(search
+                              {:commodity-id %1
+                               :trade-date [:and
+                                            [:> (t/minus %2 (t/years 1))]
+                                            [:<= %2]]})
+                 :transform-fn :price
+                 :id-fn :commodity-id
+                 :earliest-date (earliest-date)
+                 :find-one-fn (fn [prices]
+                                (apply max-key
+                                       (comp tc/to-long :trade-date)
+                                       (filter #(or (= as-of (:trade-date %))
+                                                    (t/before? (:trade-date %) as-of))
+                                               prices)))}
+                opts)))))
