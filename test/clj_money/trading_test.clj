@@ -21,7 +21,7 @@
 
 (use-fixtures :each reset-db)
 
-(defn items-by-account
+(defn- items-by-account
   [account-id]
   (map #(dissoc %
                 :id
@@ -38,7 +38,7 @@
          [(t/local-date 2015 1 1)
           (t/local-date 2017 12 31)])))
 
-(defn item-by-account
+(defn- item-by-account
   [acc-or-id transaction]
   {:pre [acc-or-id transaction]}
 
@@ -304,68 +304,6 @@
      :trade-date (t/local-date 2017 3 2)
      :shares 25M
      :value 375M})) ; Sell at $15/share or $125 gain
-
-(defn sale-exp-trans
-  [context]
-  (let [ltcg (find-account context "Long-term Capital Gains")
-        ira (find-account context "IRA")
-        commodity (find-commodity context "AAPL")
-        commodity-account (accounts/find-by {:entity-id (-> context :entities first :id)
-                                             :commodity-id (:id commodity)})
-        lot (lots/find-by {:commodity-id (:id commodity)
-                           :account-id (:id ira)
-                           :purchase-date (t/local-date 2016 3 2)})]
-    {:transaction-date (t/local-date 2017 3 2)
-     :description "Sell 25 shares of AAPL at 15.000"
-     :entity-id (-> context :entities first :id)
-     :memo nil
-     :value 375M
-     :items [{:action :debit
-              :account-id (:id ira)
-              :transaction-date (t/local-date 2017 3 2)
-              :description "Sell 25 shares of AAPL at 15.000"
-              :quantity 375M
-              :negative false
-              :polarized-quantity 375M
-              :value 375M
-              :balance 1375M
-              :reconciliation-status nil
-              :reconciled? false
-              :reconciliation-id nil
-              :memo nil
-              :index 2}
-             {:action :credit
-              :account-id (:id ltcg)
-              :memo "Sell 25 shares of AAPL at 15.000"
-              :transaction-date (t/local-date 2017 3 2)
-              :description "Sell 25 shares of AAPL at 15.000"
-              :quantity 125M
-              :negative false
-              :polarized-quantity 125M
-              :value 125M
-              :balance 125M
-              :reconciliation-status nil
-              :reconciled? false
-              :reconciliation-id nil
-              :index 0}
-             {:action :credit
-              :account-id (:id commodity-account)
-              :transaction-date (t/local-date 2017 3 2)
-              :description "Sell 25 shares of AAPL at 15.000"
-              :quantity 25M
-              :negative false
-              :polarized-quantity 25M
-              :balance 75M
-              :value 250M
-              :reconciliation-status nil
-              :reconciled? false
-              :reconciliation-id nil
-              :memo nil
-              :index 1}]
-     :lot-items [{:lot-id (:id lot)
-                  :lot-action :sell
-                  :shares 25M
-                  :price 15M}]}))
 
 (def ^:private sale-context
   (assoc purchase-context

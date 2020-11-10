@@ -38,10 +38,11 @@
 (defn- portfolio
   [{:keys [params] :as req}]
   (if-let [entity (fetch-entity req)]
-    (api/->response (rpt/portfolio (:id entity)
-                                   (-> params
-                                       (select-keys [:aggregate])
-                                       (update-in-if [:aggregate] keyword))))
+    (api/->response (rpt/portfolio (-> params
+                                       (select-keys [:aggregate :as-of])
+                                       (update-in-if [:aggregate] keyword)
+                                       (update-in-if [:as-of] unserialize-date)
+                                       (assoc :entity entity))))
     (api/not-found)))
 
 (defn- budget

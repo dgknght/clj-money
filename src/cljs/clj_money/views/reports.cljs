@@ -257,11 +257,19 @@
                  doall)]]])])))
 
 (defn- load-portfolio
-  [aggregate page-state]
-  (rpt/portfolio {:aggregate aggregate}
-                 (fn [result]
-                   (swap! page-state assoc-in [aggregate :report] result))
-                 (notify/danger-fn "Unable to load the accounts report")))
+  [page-state]
+  (swap! page-state assoc :loading? true)
+  (let [{:keys [current-nav] :as state} (get-in @page-state [:portfolio])]
+    (rpt/portfolio {:aggregate current-nav
+                    :as-of (get-in state [:filter :as-of])}
+                   (fn [result]
+                     (swap! page-state #(-> %
+                                            (assoc-in [:portfolio
+                                                       current-nav
+                                                       :report]
+                                                      result)
+                                            (dissoc :loading?))))
+                   (notify/danger-fn "Unable to load the accounts report"))))
 
 (defn- visible?
   [record visible-ids]
@@ -271,7 +279,7 @@
 (defn- toggle-visibility
   [state id]
   (update-in state
-             [(:current-nav state) :visible-ids]
+             [:portfolio (get-in state [:portfolio :current-nav]) :visible-ids]
              #(if (% id)
                    (disj % id)
                    (conj % id))))
@@ -316,11 +324,12 @@
                              "text-danger"
                              "text-success")}
     (format-percent gain-loss-percent)]])
+
 (defn- render-portfolio
   [page-state]
-  (let [current-nav (r/cursor page-state [:current-nav])
-        report (make-reaction #(get-in @page-state [@current-nav :report]))
-        visible-ids (make-reaction #(get-in @page-state [@current-nav :visible-ids]))]
+  (let [current-nav (r/cursor page-state [:portfolio :current-nav])
+        report (make-reaction #(get-in @page-state [:portfolio @current-nav :report]))
+        visible-ids (make-reaction #(get-in @page-state [:portfolio @current-nav :visible-ids]))]
     (fn []
       [:table.table.table-hover.table-borderless.portfolio
        [:thead
@@ -344,25 +353,33 @@
           [:tr [:td.inline-status {:col-span 4} "No investment accounts found."]])]])))
 
 (defn- portfolio
-  []
-  (let [page-state (r/atom {:current-nav :by-account
-                            :by-account {:visible-ids #{}}
-                            :by-commodity {:visible-ids #{}}})
-        current-nav (r/cursor page-state [:current-nav])
-        by-commodity (r/cursor page-state [:by-commodity :report])]
-    (load-portfolio :by-account  page-state)
+  [page-state]
+  (let [current-nav (r/cursor page-state [:portfolio :current-nav])
+        report-filter (r/cursor page-state [:portfolio :filter])
+        loading? (r/cursor page-state [:loading?])]
+    (load-portfolio page-state)
     (fn []
       [:div
-       (bs/nav-pills (map (fn [id]
-                           {:elem-key id
-                            :caption (humanize id)
-                            :on-click (fn []
-                                        (when (and (= id :by-commodity)
-                                                   (nil? @by-commodity))
-                                          (load-portfolio :by-commodity page-state))
-                                        (reset! current-nav id))
-                            :active? (= id @current-nav)})
-                         [:by-account :by-commodity]))
+       [:div.row
+        [:div.col
+         (bs/nav-pills (map (fn [id]
+                              {:elem-key id
+                               :caption (humanize id)
+                               :on-click (fn []
+                                           (reset! current-nav id)
+                                           (load-portfolio page-state))
+                               :active? (= id @current-nav)})
+                            [:by-account :by-commodity]))]
+        [:div.col
+         [forms/date-input report-filter [:as-of]]]
+        [:div.col
+         [:button.btn.btn-info {:on-click (fn []
+                                            (load-portfolio page-state))
+                                :title "Click here to refresh the report."}
+          (if @loading?
+            [:div.spinner-border.spinner-border-sm.text-light
+             [:span.sr-only "Loading..."]]
+            (bs/icon :arrow-repeat))]]]
        [:div.mt-2
         [render-portfolio page-state]]])))
 
@@ -372,7 +389,11 @@
                             :income-statement {:start-date (start-of-year)
                                                :end-date (t/today)}
                             :balance-sheet {:as-of (t/today)}
-                            :budget {:depth 0}})
+                            :budget {:depth 0}
+                            :portfolio {:current-nav :by-account
+                                        :filter {:as-of (t/today)}
+                                        :by-account {:visible-ids #{}}
+                                        :by-commodity {:visible-ids #{}}}})
         selected (r/cursor page-state [:selected])]
     (fn []
       [:div.mt-5

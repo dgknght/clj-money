@@ -559,7 +559,7 @@
       (update-in [:reconciled] #(= "y" %))))
 
 (def ^:private ignore-transaction-patterns
-  [#"^closing( year)? \d{4}"]) ; TODO: Maybe this should be entered in the UI?
+  [#"(?i)^closing( year)? \d{4}"]) ; TODO: Maybe this should be entered in the UI?
 
 (defmethod ^:private process-record :transaction
   [transaction _]

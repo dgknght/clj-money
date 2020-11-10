@@ -9,6 +9,7 @@
             [clj-money.validation :as validation]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->criteria]]
+            [clj-money.models.settings :as settings]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -73,33 +74,10 @@
                                                 (:id account))))
       context)))
 
-(defn- import-account
-  [context account]
-  (let [original-id (:id account)
-        original-parent-id (:parent-id account)
-        parent-id (get-in context [:accounts original-parent-id])
-        commodity (find-commodity context (:commodity account))
-        to-create (-> account
-                      (assoc :entity-id (-> context :entity :id)
-                             :commodity-id (:id commodity))
-                      (dissoc :id :commodity)
-                      (assoc :parent-id parent-id))
-        result (accounts/create to-create)]
-    (when-not (:id result)
-      (throw (ex-info (str
-                        "Unable to create the account "
-                        (validation/error-messages result))
-                      {:result result})))
-    (log/info (format "imported account \"%s\"" (:name result)))
-    (-> context
-        (assoc-in [:accounts original-id] (:id result))
-        (update-account-relationships result)
-        (update-entity-settings result))))
-
 (defn import-reconciliation
   [{:keys [accounts] :as context} reconciliation]
   (let [created (-> reconciliation
-                    (update-in [:account-id] accounts)  
+                    (update-in [:account-id] accounts)
                     (dissoc :id)
                     (assoc :balance 0M)
                     recs/create)]
@@ -111,9 +89,8 @@
   [item {:keys [accounts]}]
   (if-let [account-id (accounts (:account-id item))]
     (assoc item :account-id account-id)
-    (do
-      (log/errorf "Unable to resolve account id %s" (:account-id item))
-      item)))
+    (log/errorf "Unable to resolve account id s for budget item %s"
+                item)))
 
 (defn- prepare-budget
   [budget {:keys [entity] :as context}]
@@ -122,7 +99,7 @@
                  (fn [items]
                    (->> items
                         (map #(prepare-budget-item % context))
-                        (filter :account-id)
+                        (filter identity)
                         (remove #(= 0M (reduce + (:periods %)))))))
       (assoc :entity-id (:id entity))))
 
@@ -270,7 +247,7 @@
         {result :transaction} (trading/transfer (assoc transaction
                                                        :transfer-date (:transaction-date transaction)
                                                        :commodity-id (:commodity-id from-commodity-account)
-                                                       :from-account-id (:id from-account)
+                                                       :from-account from-account
                                                        :to-account-id (:parent-id to-commodity-account)))]
     (log-transaction result "commodity transfer"))
   context)
@@ -348,8 +325,25 @@
             record-count))
 
 (defmethod import-record* :account
-  [context account]
-  (import-account context account))
+  [{:keys [accounts] :as context}
+   {:keys [parent-id commodity] :as account}]
+  (let [result (accounts/create (-> account
+                                    (assoc :entity-id (-> context :entity :id)
+                                           :commodity-id (:id (find-commodity
+                                                                context
+                                                                commodity))
+                                           :parent-id (accounts parent-id))
+                                    (dissoc :id :commodity)))]
+    (when-not (:id result)
+      (throw (ex-info (str
+                        "Unable to create the account "
+                        (validation/error-messages result))
+                      {:result result})))
+    (log/info (format "imported account \"%s\"" (:name result)))
+    (-> context
+        (assoc-in [:accounts (:id account)] (:id result))
+        (update-account-relationships result)
+        (update-entity-settings result))))
 
 (defmethod import-record* :reconciliation
   [context reconciliation]
@@ -427,34 +421,37 @@
 
 (defn- append-child-ids
   [account-id account-children]
-  (concat [account-id]
-          (mapcat #(append-child-ids % account-children)
-                  (account-children account-id))))
+  (cons account-id
+        (mapcat #(append-child-ids % account-children)
+                (account-children account-id))))
+
+(defn- fetch-reconciled-items
+  [{:keys [account-id id]} {:keys [account-children earliest-date latest-date]}]
+  (let [accounts (accounts/search {:id (if account-children
+                                         (append-child-ids
+                                           account-id
+                                           account-children)
+                                         account-id)})]
+    (transactions/search-items (assoc (->criteria accounts
+                                                  {:earliest-date earliest-date
+                                                   :latest-date latest-date})
+                                      :reconciliation-id id))))
 
 (defn- process-reconciliation
-  [{:keys [account-id id] :as recon} {:keys [account-children]}]
-  (let [accounts (accounts/search {:id (if account-children
-                                         (append-child-ids account-id account-children)
-                                         account-id)})]
-    (if (every? :earliest-transaction-date accounts)
-      (let [criteria (assoc (->criteria accounts)
-                            :reconciliation-id id)
-            balance (->> (transactions/search-items criteria)
-                         (map :polarized-quantity)
-                         (reduce + 0M))
-            result (recs/update (assoc recon
-                                       :balance balance
-                                       :status :completed))]
-        (when (validation/has-error? result)
-          (log/errorf "Unable to finalize reconciliation: %s" (prn-str (select-keys result [:id :account-id :balance :end-of-period ::validation/errors])))))
-      (log/errorf "Unable to finalized reconciliation because date range is unspecified: %s %s"
-                  (prn-str (select-keys recon [:id :account-id :balance :end-of-period]))
-                  (prn-str (map #(select-keys % [:id
-                                                 :name
-                                                 :parent-id
-                                                 :earliest-transaction-date
-                                                 :latest-trasaction-date])
-                                accounts))))))
+  [recon ctx]
+  (let [result (recs/update (assoc recon
+                                   :balance (->> (fetch-reconciled-items recon ctx)
+                                                 (map :polarized-quantity)
+                                                 (reduce + 0M))
+                                   :status :completed))]
+    (when (validation/has-error? result)
+      (log/errorf "Unable to finalize reconciliation: %s"
+                  (prn-str (select-keys result
+                                        [:id
+                                         :account-id
+                                         :balance
+                                         :end-of-period
+                                         ::validation/errors]))))))
 
 (defn- process-reconciliations
   [{:keys [entity] :as ctx}]
@@ -482,7 +479,9 @@
         (let [result (transactions/with-delayed-balancing (:id entity)
                        (read-source source-type inputs out-chan)
                        (<!! result-chan))]
-          (process-reconciliations result)
+          (process-reconciliations (assoc result
+                                          :earliest-date (settings/get :earliest-partition-date)
+                                          :latest-date (settings/get :latest-partition-date)))
           (>!! progress-chan (assoc (:progress result) :finished true)))
         (finally
           (deliver wait-promise true))))

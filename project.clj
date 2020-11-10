@@ -60,7 +60,7 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [stowaway "0.1.7"]]
+                 [stowaway "0.1.8"]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
@@ -98,7 +98,9 @@
 
   :aliases {"migrate"                       ["run" "-m" "clj-money.db/migrate"]
             "rollback"                      ["run" "-m" "clj-money.db/rollback"]
+            "remigrate"                     ["run" "-m" "clj-money.db/remigrate"]
             "partition"                     ["run" "-m" "clj-money.db/create-partitions"]
+            "check-trans"                   ["run" "-m" "clj-money.db/check-transaction-balances"]
             "chunk-file"                    ["run" "-m" "clj-money.import.gnucash/chunk-file"]
             "seed"                          ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions"         ["run" "-m" "clj-money.seed/generate-transactions"]

@@ -15,47 +15,51 @@
                                         left-side?]]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.lot-transactions :as lot-trans]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.lots :as lots]))
+
+(defn- last-item
+  [inclusion date items]
+  (let [pred (case inclusion
+               :on-or-before #(or (= (:transaction-date %) date)
+                                  (t/before? (:transaction-date %) date))
+               :before #(t/before? (:transaction-date %) date)
+               inclusion)]
+    (when-let [filtered (->> items
+                             (filter pred)
+                             seq)]
+      (apply max-key :index filtered))))
+
+(defn- fetch-balances
+  ([account-ids as-of] (fetch-balances account-ids as-of {}))
+  ([account-ids as-of opts]
+   (ch/find account-ids
+            (merge
+              {:start-date as-of
+               :time-step (t/years 1)
+               :fetch-fn (fn [ids date]
+                           (transactions/search-items
+                             {:account-id ids
+                              :transaction-date [:between
+                                                 (t/minus date (t/years 1))
+                                                 date]}))
+               :earliest-date (earliest-date) ; TODO: Get earliest date for the entity
+               :id-fn :account-id
+               :find-one-fn (partial last-item :on-or-before as-of)}
+              opts))))
 
 (defn- append-deltas
   [start end accounts]
   (let [account-ids (->> accounts
                          (map :id)
                          (into #{}))
-        start-balances (ch/find account-ids
-                                {:start-date start
-                                 :time-step (t/years 1)
-                                 :fetch-fn #(transactions/search-items
-                                              {:account-id %1
-                                               :transaction-date [:between
-                                                                  (t/minus %2 (t/years 1))
-                                                                  %2]})
-                                 :earliest-date (earliest-date)
-                                 :id-fn :account-id
-                                 :find-one-fn (fn [items]
-                                                (when-let [filtered (->> items
-                                                                         (filter #(t/before? (:transaction-date %) start))
-                                                                         seq)]
-                                                  (apply max-key :index filtered)))})
-        end-balances (ch/find account-ids
-                              {:start-date end
-                               :time-step (t/years 1)
-                               :fetch-fn (fn [ids date]
-                                           (transactions/search-items
-                                             {:account-id ids
-                                              :transaction-date [:between
-                                                                 (t/minus date (t/years 1))
-                                                                 date]}))
-                               :earliest-date (earliest-date)
-                               :id-fn :account-id
-                               :find-one-fn (fn [items]
-                                              (when-let [filtered (->> items
-                                                                       (filter #(or (= (:transaction-date %) end)
-                                                                                    (t/before? (:transaction-date %) end)))
-                                                                       seq)]
-                                                (apply max-key :index filtered)))})]
+        start-balances (fetch-balances
+                         account-ids
+                         start
+                         {:find-one-fn (partial last-item :before start)})
+        end-balances (fetch-balances account-ids end)]
     (map #(assoc % :value (- (get-in end-balances [(:id %) :balance] 0M)
                              (get-in start-balances [(:id %) :balance] 0M)))
          accounts)))
@@ -117,49 +121,45 @@
         (mapcat summarize-group)
         summarize-income-statement)))
 
-(defn- fetch-balances
-  [accounts as-of]
-  (ch/find (->> accounts
-                (map :id)
-                (into #{}))
-           {:start-date as-of
-            :time-step (t/years 1)
-            :fetch-fn (fn [ids date]
-                        (transactions/search-items
-                          {:account-id ids
-                           :transaction-date [:between
-                                              (t/minus date (t/years 1))
-                                              date]}))
-            :earliest-date (earliest-date) ; TODO: Get earliest date for the entity
-            :id-fn :account-id
-            :find-one-fn (fn [items]
-                           (when-let [filtered (->> items
-                                                    (filter #(or (= (:transaction-date %) as-of)
-                                                                 (t/before? (:transaction-date %) as-of)))
-                                                    seq)]
-                             (apply max-key :index filtered)))}))
+(defn- summarize-lots
+  [lots]
+  (.setScale
+    (->> lots
+         (map :current-value)
+         (reduce + 0M))
+    2
+    BigDecimal/ROUND_HALF_UP))
 
-(defn- apply-balance
-  [{:keys [parent-id commodity-id] :as account} {:keys [lots prices balances]}]
-  (if-let [lots (get-in lots [[parent-id commodity-id]])]
-    (if (zero? (:quantity account))
-      (assoc account :value 0M)
-      (let [shares (->> lots
-                        (map :shares-owned)
-                        (reduce + 0M))
-            price (or (get-in prices [commodity-id])
-                      (:purchase-price (first lots)))]
-        (when (zero? shares) (log/warnf "Lot found with zero shares for commodity-id %s" commodity-id))
-        (assoc account :value (* price shares))))
-    (assoc account :value (get-in balances [(:id account) :balance]))))
+(defn- summarize-commodity-value
+  [entry]
+  (update-in entry [1] summarize-lots))
 
 (defn- apply-balances
-  [ctx]
-  (update-in ctx [:accounts] #(map (fn [a] (apply-balance a ctx)) %)))
+  [{:keys [balances lots] :as ctx}]
+  (let [values (->> lots
+                    (group-by (juxt :account-id :commodity-id))
+                    (map summarize-commodity-value)
+                    (into {}))]
+    (update-in ctx
+               [:accounts]
+               (fn [accounts]
+                 (map #(assoc % :value (or (get-in values [[(:parent-id %) (:commodity-id %)]])
+                                           (get-in balances [(:id %) :balance])))
+                      accounts)))))
 
 (defn- append-balances
   [{:keys [accounts as-of] :as ctx}]
-  (assoc ctx :balances (fetch-balances accounts as-of)))
+  {:pre [(:accounts ctx)]}
+
+  (let [accounts (if (map? accounts)
+                   (vals accounts)
+                   accounts)]
+    (assoc ctx :balances (if (seq accounts)
+                           (fetch-balances (->> accounts
+                                                (map :id)
+                                                set)
+                                           as-of)
+                           {}))))
 
 (defn- fetch-prices
   ([commodity-ids] (fetch-prices commodity-ids (t/today)))
@@ -168,9 +168,9 @@
                            :time-step (t/years 1)
                            :fetch-fn #(prices/search
                                         {:commodity-id %1
-                                         :trade-date [:between
-                                                      (t/minus %2 (t/years 1))
-                                                      %2]})
+                                         :trade-date [:and
+                                                      [:> (t/minus %2 (t/years 1))]
+                                                      [:<= %2]]})
                            :transform-fn :price
                            :id-fn :commodity-id
                            :earliest-date (earliest-date)
@@ -180,17 +180,6 @@
                                                  (filter #(or (= as-of (:trade-date %))
                                                               (t/before? (:trade-date %) as-of))
                                                          prices)))})))
-
-(defn- append-prices
-  [{:keys [lots as-of] :as ctx}]
-  (let [commodity-ids (->> (if (map? lots)
-                             (flatten (vals lots))
-                             lots)
-                           (map :commodity-id)
-                           set)]
-    (assoc ctx :prices (if (seq commodity-ids)
-                         (fetch-prices commodity-ids as-of)
-                         {}))))
 
 (defn- append-retained-earnings
   [mapped-accounts]
@@ -202,22 +191,24 @@
                                       (into {}))]
     (update-in mapped-accounts [:equity] (fnil conj []) {:name "Retained Earnings"
                                                          :value (- income expense)})))
+(defn- calc-unrealized-gains
+  [{:keys [lots]}]
+  (when (seq lots)
+    (.setScale
+      (->> lots
+           (map :gains)
+           (reduce + 0M))
+      2
+      BigDecimal/ROUND_HALF_UP)))
+
 (defn- append-unrealized-gains
-  [mapped-accounts {:keys [lots prices]}]
-  (if (seq lots)
+  [mapped-accounts ctx]
+  (if-let [gains (calc-unrealized-gains ctx)]
     (update-in mapped-accounts
                [:equity]
                (fnil conj [])
                {:name "Unrealized Gains"
-                :value (->> (flatten (vals lots))
-                            (map #(assoc % :current-price (get-in prices [(:commodity-id %)])))
-                            (map (fn [{:keys [current-price purchase-price shares-owned]}]
-                                   (if current-price
-                                     (* shares-owned
-                                        (- current-price
-                                           purchase-price))
-                                     0M)))
-                            (reduce + 0M))})
+                :value gains})
     mapped-accounts))
 
 (defn- summarize-balance-sheet
@@ -256,18 +247,53 @@
       :explicit)))
 
 (defmethod append-lots :explicit
-  [{:keys [commodity-ids] :as ctx}]
+  [{:keys [commodity-ids as-of] :as ctx}]
   (assoc ctx :lots (if (seq commodity-ids)
-                     (->> (lots/search {:commodity-id commodity-ids
-                                        :shares-owned [:!= 0]})
-                          (group-by (juxt :account-id :commodity-id))
-                          (into {}))
-                     {})))
+                     (lots/search {:commodity-id commodity-ids
+                                   :purchase-date [:<= as-of]})
+                     [])))
 
 (defmethod append-lots :implicit
-  [{:keys [entity-id] :as ctx}]
-  (assoc ctx :lots (lots/search {[:commodity :entity-id] entity-id
-                                 :shares-owned [:!= 0M] })))
+  [{:keys [entity as-of] :as ctx}]
+  (assoc ctx :lots (lots/search {[:commodity :entity-id] (:id entity)
+                                 :purchase-date [:<= as-of]})))
+
+(defn- fetch-lot-transactions
+  [{:keys [entity as-of]}]
+  (group-by :lot-id
+            (lot-trans/search {[:transaction :entity-id] (:id entity)
+                               :lot-action "sell"
+                               :transaction-date [:<= as-of]})))
+
+(defn- update-lot
+  [lot-transactions prices {:keys [commodity-id id shares-purchased purchase-price] :as lot}]
+  (let [current-price (get-in prices [commodity-id])
+        current-shares (- shares-purchased
+                  (->> (get-in lot-transactions [id])
+                       (map :shares)
+                       (reduce + 0M)))
+        cost-basis (* current-shares purchase-price)
+        current-value (* current-price current-shares)]
+    (assoc lot
+           :cost-basis cost-basis
+           :current-price current-price
+           :current-shares current-shares
+           :current-value current-value
+           :gains (- current-value cost-basis))))
+
+(defn- update-lots
+  [{:keys [lots as-of] :as ctx}]
+  (let [lot-transactions (fetch-lot-transactions ctx)
+        prices (if (seq lots)
+                 (fetch-prices (->> lots
+                                    (map :commodity-id)
+                                    set)
+                               as-of)
+                 {})]
+    (update-in ctx
+               [:lots]
+               #(map (partial update-lot lot-transactions prices)
+                     %))))
 
 (defn- check-balance
   [report]
@@ -297,7 +323,7 @@
         :accounts (accounts/search {:entity-id (:id entity)})}
        extract-commodity-ids
        append-lots
-       append-prices
+       update-lots
        append-balances
        apply-balances
        summarize-balance-sheet
@@ -334,7 +360,7 @@
   [attr col]
   (->> col
        (map attr)
-       (reduce +)))
+       (reduce + 0M)))
 
 (defn- budget-group-header
   [period-count account-type records]
@@ -685,25 +711,20 @@
                             {})))
 
 (defn- calc-gains
-  [{:keys [commodity-id shares-owned purchase-price] :as lot}
-   {:keys [prices]}]
-  (let [current-price (get-in prices [commodity-id])
-        cost-basis (* shares-owned purchase-price)
-        current-value (* shares-owned current-price)
+  [{:keys [current-value current-shares purchase-price] :as lot}]
+  (let [cost-basis (* current-shares purchase-price)
         gain-loss (- current-value cost-basis)]
     (assoc lot
-           :current-price current-price
            :cost-basis cost-basis
-           :current-value current-value
            :gain-loss gain-loss
            :gain-loss-percent (when-not (zero? cost-basis)
                                 (with-precision 2
                                   (/ gain-loss cost-basis))))))
 
 (defn- dispatch-portfolio-fn
-  [{:keys [options]}]
-  {:pre [(:aggregate options)]}
-  (:aggregate options))
+  [ctx]
+  {:pre [(:aggregate ctx)]}
+  (:aggregate ctx))
 
 (defmulti calc-portfolio-values dispatch-portfolio-fn)
 
@@ -712,7 +733,7 @@
   (assoc ctx
          :report
          (->> lots
-              (map #(calc-gains % ctx))
+              (map calc-gains)
               (group-by :account-id)
               (map #(update-in % [1] (fn [lots] (group-by :commodity-id lots)))))))
 
@@ -721,7 +742,7 @@
   (assoc ctx
          :report
          (->> lots
-              (map #(calc-gains % ctx))
+              (map calc-gains)
               (group-by :commodity-id))))
 
 (defn- sum-fields
@@ -759,15 +780,16 @@
        (cons (summarize-gains {:caption (get-in commodities [commodity-id :name])
                                :id commodity-id
                                :style :subheader}
-                              [:shares-owned
+                              [:current-shares
                                :cost-basis
                                :current-value
                                :gain-loss]
                               lots))))
 
 (defn- flatten-and-summarize-account
-  [[account-id groups] {:keys [accounts] :as ctx}]
-  (let [cash-value (get-in accounts [account-id :quantity])
+  [[account-id groups] {:keys [accounts balances] :as ctx}]
+  (let [cash-value (or (get-in balances [account-id :balance])
+                       0M)
         children (cons
                    {:caption "Cash"
                     :style :subheader
@@ -795,9 +817,9 @@
 (defmulti flatten-and-summarize-portfolio dispatch-portfolio-fn)
 
 (defmethod flatten-and-summarize-portfolio :by-commodity
-  [{:keys [commodities accounts] :as ctx}]
-  (let [cash-value (->> (vals accounts)
-                        (map :quantity)
+  [{:keys [commodities balances] :as ctx}]
+  (let [cash-value (->> (vals balances)
+                        (map :balance)
                         (reduce + 0M))]
     (update-in ctx
                [:report]
@@ -807,12 +829,14 @@
                       (mapcat #(flatten-and-summarize-commodity % ctx))
                       (cons {:caption "Cash"
                              :style :subheader
-                             :shares-owned cash-value
+                             :current-shares cash-value
                              :cost-basis cash-value
                              :current-value cash-value
                              :gain-loss 0M
                              :gain-loss-percent 0M})
+                      (remove #(zero? (:current-value %)))
                       append-portfolio-summary
+                      (map #(rename-keys % {:current-shares :shares-owned}))
                       (map #(select-keys % [:caption
                                             :style
                                             :shares-purchased
@@ -832,7 +856,9 @@
                (->> report
                     (sort-by #(get-in accounts [(first %) :name]))
                     (mapcat #(flatten-and-summarize-account % ctx))
+                    (remove #(zero? (:current-value %)))
                     append-portfolio-summary
+                    (map #(rename-keys % {:current-shares :shares-owned}))
                     (map #(select-keys % [:caption
                                           :style
                                           :shares-purchased
@@ -845,15 +871,20 @@
                                           :parents]))))))
 
 (defn portfolio
-  ([entity-id] (portfolio entity-id {}))
-  ([entity-id options]
-   (-> {:entity-id entity-id
-        :as-of (t/today) ; TODO: add support for historical portfolio report
-        :options (merge {:aggregate :by-commodity} options)}
-       append-lots
-       append-portfolio-accounts
-       append-commodities
-       append-prices
-       calc-portfolio-values
-       flatten-and-summarize-portfolio
-       :report)))
+  "Returns a portfolio report based on the options:
+    entity-id - Identifies the entity for which a report is to be generated (required)
+    as-of     - The date for which a report is to be generated. Defaults to today
+    aggregate - The method, :by-commodity or :by-account, defaults to :by-commodity"
+  [options]
+  {:pre [(:entity options)]}
+  (-> (merge {:as-of (t/today)
+              :aggregate :by-commodity}
+             options)
+      append-lots
+      update-lots
+      append-portfolio-accounts
+      append-balances
+      append-commodities
+      calc-portfolio-values
+      flatten-and-summarize-portfolio
+      :report))

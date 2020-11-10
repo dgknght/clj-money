@@ -1,5 +1,5 @@
 (ns clj-money.reports-test
-  (:require [clojure.test :refer [deftest is use-fixtures]]
+  (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clj-time.core :as t]
@@ -880,145 +880,69 @@
                        :account-id "IRA"
                        :commodity-id "AAPL"
                        :shares 200M
-                       :value  2000M}
+                       :value 2000M}
+                      {:trade-date (t/local-date 2015 3 1)
+                       :type :purchase
+                       :account-id "IRA"
+                       :commodity-id "AAPL"
+                       :shares 100M
+                       :value 1100M}
+                      {:trade-date (t/local-date 2015 4 1)
+                       :type :sale
+                       :account-id "IRA"
+                       :commodity-id "AAPL"
+                       :shares 100M
+                       :value 1200M}
                       {:trade-date (t/local-date 2015 2 1)
                        :type :purchase
                        :account-id "401k"
                        :commodity-id "MSFT"
                        :shares 400M
-                       :value  2000M}])))
+                       :value 2000M}
+                      {:trade-date (t/local-date 2015 3 1)
+                       :type :purchase
+                       :account-id "401k"
+                       :commodity-id "MSFT"
+                       :shares 200M
+                       :value 800M}
+                      {:trade-date (t/local-date 2015 4 1)
+                       :type :purchase
+                       :account-id "401k"
+                       :commodity-id "MSFT"
+                       :shares 100M
+                       :value 300M}])))
 
-(def ^:private expected-portfolio-by-account
-  [{:caption "401k"
-    :style :header
-    :cost-basis 10000M
-    :current-value 10000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "Cash"
-    :style :subheader
-    :current-value 8000M
-    :cost-basis 8000M
-    :gain-loss 0M}
-   {:caption "Microsoft, Inc."
-    :style :subheader
-    :shares-owned 400M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "2/1/2015"
-    :style :data
-    :shares-purchased 400M
-    :shares-owned 400M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "IRA"
-    :style :header
-    :cost-basis 10000M
-    :current-value 10000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "Cash"
-    :style :subheader
-    :current-value 8000M
-    :cost-basis 8000M
-    :gain-loss 0M}
-   {:caption "Apple, Inc."
-    :style :subheader
-    :shares-owned 200M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "2/1/2015"
-    :style :data
-    :shares-purchased 200M
-    :shares-owned 200M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "Total"
-    :style :summary
-    :current-value 20000M
-    :cost-basis 20000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}])
+(def portfolio-fixture
+  (read-string (slurp "resources/fixtures/reports_test/portfolio.edn")))
 
-(def ^:private expected-portfolio-by-commodity
-  [{:caption "Cash"
-    :style :subheader
-    :shares-owned 16000M
-    :cost-basis 16000M
-    :current-value 16000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "Apple, Inc."
-    :style :subheader
-    :shares-owned 200M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "2/1/2015"
-    :style :data
-    :shares-purchased 200M
-    :shares-owned 200M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "Microsoft, Inc."
-    :style :subheader
-    :shares-owned 400M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "2/1/2015"
-    :style :data
-    :shares-purchased 400M
-    :shares-owned 400M
-    :cost-basis 2000M
-    :current-value 2000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}
-   {:caption "Total"
-    :style :summary
-    :cost-basis 20000M
-    :current-value 20000M
-    :gain-loss 0M
-    :gain-loss-percent 0.0M}])
+(defn- test-portfolio
+  [ctx as-of grouping]
+  (let [entity (find-entity ctx "Personal")
+        expected (get-in portfolio-fixture [:expected grouping as-of])
+        actual (map #(select-keys % [:caption
+                                     :style
+                                     :shares-purchased
+                                     :shares-owned
+                                     :cost-basis
+                                     :current-value
+                                     :gain-loss
+                                     :gain-loss-percent])
+                    (reports/portfolio {:aggregate grouping
+                                        :entity entity
+                                        :as-of as-of}))]
+    (is (= expected actual)
+        "The correct report data is generated")))
 
 (deftest get-a-portfolio-report-by-account
-  (let [ctx (realize portfolio-context)
-        entity (find-entity ctx "Personal")
-        actual (map #(select-keys % [:caption
-                                     :style
-                                     :shares-purchased
-                                     :shares-owned
-                                     :cost-basis
-                                     :current-value
-                                     :gain-loss
-                                     :gain-loss-percent])
-                    (reports/portfolio (:id entity) {:aggregate :by-account}))]
-    (is (= expected-portfolio-by-account actual)
-        "The correct report data is generated")))
+  (let [ctx (realize portfolio-context)]
+    (testing "most recent"
+      (test-portfolio ctx (t/local-date 2015 4 30) :by-account))
+    (testing "1 month ago"
+      (test-portfolio ctx (t/local-date 2015 3 31) :by-account))))
 
 (deftest get-a-portfolio-report-by-commodity
-  (let [ctx (realize portfolio-context)
-        entity (find-entity ctx "Personal")
-        actual (map #(select-keys % [:caption
-                                     :style
-                                     :shares-purchased
-                                     :shares-owned
-                                     :cost-basis
-                                     :current-value
-                                     :gain-loss
-                                     :gain-loss-percent])
-                    (reports/portfolio (:id entity) {:aggregate :by-commodity}))]
-    (is (= expected-portfolio-by-commodity actual)
-        "The correct report data is generated")))
+  (let [ctx (realize portfolio-context)]
+    (testing "most recent"
+      (test-portfolio ctx (t/local-date 2015 4 30) :by-commodity))
+    (testing "1 month ago"
+      (test-portfolio ctx (t/local-date 2015 3 31) :by-commodity))))

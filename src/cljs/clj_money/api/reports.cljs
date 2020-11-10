@@ -52,14 +52,17 @@
   (map #(update-in-if % [:parents] set) report))
 
 (defn portfolio
-  ([success-fn error-fn] (portfolio {:aggregate :by-account} success-fn error-fn))
+  ([success-fn error-fn]
+   (portfolio {:aggregate :by-account} success-fn error-fn))
   ([options success-fn error-fn]
    (api/get-resources (str (api/path :entities
                                 (:id @current-entity)
                                 :reports
                                 :portfolio)
                            "?"
-                           (map->query-string options))
+                           (-> options
+                               (update-in-if [:as-of] serialize-date)
+                               map->query-string))
                       (comp success-fn
                             after-portfolio-read)
                       error-fn)))

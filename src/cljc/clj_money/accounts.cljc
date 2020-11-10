@@ -121,21 +121,23 @@
 
 (defn ->criteria
   ([account] (->criteria account {}))
-  ([account {:keys [date-field]
+  ([account {:keys [date-field earliest-date latest-date]
              :or {date-field :transaction-date}}]
    (if (sequential? account)
      {:account-id (set (map :id account))
       :transaction-date [:between
-                         (->> account
-                              (map :earliest-transaction-date)
-                              (filter identity)
-                              (sort-by tc/to-long)
-                              first)
-                         (->> account
-                              (map :latest-transaction-date)
-                              (filter identity)
-                              (sort-by tc/to-long >)
-                              first)]}
+                         (or (->> account
+                                  (map :earliest-transaction-date)
+                                  (filter identity)
+                                  (sort-by tc/to-long)
+                                  first)
+                             earliest-date)
+                         (or (->> account
+                                  (map :latest-transaction-date)
+                                  (filter identity)
+                                  (sort-by tc/to-long >)
+                                  first)
+                             latest-date)]}
      {:account-id (:id account)
       date-field [:between
                   (:earliest-transaction-date account)

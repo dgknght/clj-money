@@ -10,8 +10,9 @@
   the end date in the second position"
   (fn [range-value]
     (if (sequential? range-value)
-      (if (= :between (first range-value))
-        :ternary
+      (case (first range-value)
+        :between :ternary
+        :and :as-is
         :binary)
       :scalar)))
 
@@ -20,6 +21,10 @@
 
 (defn- latest-date []
   (settings/get :latest-partition-date))
+
+(defmethod date-range :as-is ; This is kind of a hack, but I don't expect to receive a value like this if date-range is used directly
+  [_]
+  nil)
 
 (defmethod date-range :scalar
   [range-value]
@@ -55,8 +60,9 @@
 
 (defmethod parse-date-range :default
   [value]
-  (let [[start end] (date-range value)]
-    [:between start end]))
+  (if-let [[start end] (date-range value)]
+    [:between start end]
+    value))
 
 (defmethod parse-date-range String
   [value]

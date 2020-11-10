@@ -1,7 +1,13 @@
 (ns clj-money.models.sql-storage.lot-transactions
-  (:require [clojure.java.jdbc :as jdbc]
+  (:refer-clojure :exclude [update])
+  (:require [clojure.tools.logging :as log]
+            [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
+                                      sset
+                                      update
+                                      where
                                       from]]
+            [honeysql.core :as sql]
             [stowaway.sql :refer [apply-limit]]
             [clj-money.models :as models]
             [clj-money.models.sql-storage :as stg]
@@ -26,6 +32,21 @@
                 :shares
                 :price
                 :action))
+
+(defmethod stg/update ::models/lot-transaction
+  [{:keys [lot-id
+           transaction-id]
+    :as lot-transaction}
+   db-spec]
+  (let [sql (-> (update :lots_transactions)
+                (sset (select-keys lot-transaction [:shares :price]))
+                (where [:and [:= :lot-id lot-id]
+                        [:= :transaction-id transaction-id]])
+                sql/format)]
+    (log/debugf "update lot-transaction %s: %s"
+                lot-transaction
+                sql)
+    (jdbc/execute! db-spec sql)))
 
 (defmethod stg/delete ::models/lot-transaction
   [{:keys [lot-id transaction-id]} db-spec]

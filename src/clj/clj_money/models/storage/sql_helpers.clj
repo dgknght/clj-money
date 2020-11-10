@@ -10,6 +10,7 @@
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
                                      to-local-date]]
+            [stowaway.core :refer [tag]]
             [stowaway.sql :as storage])
   (:import java.sql.Date
            [org.joda.time LocalDate DateTime]
@@ -73,7 +74,11 @@
                             ->sql-keys))
                 (h/where criteria)
                 sql/format)]
-    (log/debug "update-model" (prn-str model) "in" table ": " (prn-str sql))
+    (log/debugf "update-model %s in table %s: %s - %s"
+                (tag model)
+                table
+                (prn-str model)
+                (prn-str sql))
     (jdbc/execute! db-spec sql)))
 
 (def ^:private relationships

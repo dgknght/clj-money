@@ -48,14 +48,16 @@
         ignore (->> existing-items
                     (map :id)
                     set)
-        all-items (resolve-item-refs item-refs)]
+        new-items (->> item-refs
+                       (remove #(ignore (first %)))
+                       resolve-item-refs
+                       (into []))
+        all-items (concat existing-items new-items)]
     (-> reconciliation
         (update-in [:status] (fnil identity :new))
-        (assoc ::new-items (->> all-items
-                                (remove #(ignore (:id %)))
-                                (into [])))
-        (assoc ::all-items all-items)
-        (assoc ::existing-items existing-items))))
+        (assoc ::new-items new-items
+               ::all-items all-items
+               ::existing-items existing-items))))
 
 (defn- before-save
   [reconciliation]

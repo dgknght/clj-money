@@ -97,7 +97,11 @@
                          :value @text-value
                          :on-change (fn [e]
                                       (let [new-value (.-value (.-target e))
-                                            parsed (parse-fn new-value)]
+                                            parsed (try
+                                                     (parse-fn new-value)
+                                                     (catch js/Error e
+                                                       (.log js/console (str "Error parsing \"" new-value "\", " (.getMessage e)))
+                                                       nil))]
                                         (when parsed
                                           (swap! model assoc-in field parsed)
                                           (on-accept))

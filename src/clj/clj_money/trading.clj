@@ -12,13 +12,14 @@
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.lots :as lots]))
+            [clj-money.models.lots :as lots]
+            [clj-money.models.lot-transactions :as lot-trans])
+  (:import java.math.BigDecimal))
 
 (s/def ::commodity-id (s/nilable integer?))
 (s/def ::account-id (s/nilable integer?))
 (s/def ::commodity-account-id (s/nilable integer?))
 (s/def ::to-account-id integer?)
-(s/def ::from-account-id integer?)
 (s/def ::inventory-method #{:fifo :lifo})
 (s/def ::lt-capital-gains-account-id (s/nilable integer?))
 (s/def ::lt-capital-loss-account-id  (s/nilable integer?))
@@ -48,7 +49,6 @@
                                ::st-capital-loss-account-id]))
 (s/def ::transfer (s/keys :req-un [::transfer-date
                                    ::shares
-                                   ::from-account-id
                                    ::to-account-id
                                    ::commodity-id]))
 (s/def ::split (s/keys :req-un [::split-date
@@ -214,7 +214,9 @@
 
 (defn- create-sale-transaction-items
   [{:keys [shares value] :as context}]
-  (let [total-gains (reduce + (map :quantity (:gains context)))
+  (let [total-gains (->> (:gains context)
+                         (map :quantity)
+                         (reduce +))
         fee (or (:fee context) 0M)
         items (-> (create-capital-gains-items context)
                   (conj {:action :debit
@@ -226,10 +228,10 @@
                          :quantity shares
                          :value (- value total-gains)}))]
     (cond-> items
-      (not= 0M fee) (conj {:action :debit
-                           :account-id (:fee-account-id context)
-                           :quantity fee
-                           :value fee}))))
+      (not (zero? fee)) (conj {:action :debit
+                               :account-id (:fee-account-id context)
+                               :quantity fee
+                               :value fee}))))
 
 (defn- create-sale-transaction
   "Given a purchase context, creates the general currency
@@ -328,13 +330,16 @@
         sale-price (-> context :price :price)
         purchase-price (:purchase-price lot)
         adj-lot (lots/update (assoc lot :shares-owned new-lot-balance))
-        _ (when (validation/has-error? adj-lot)
-            (log/errorf "Unable to update lot for sale %s" adj-lot))
-        gain (- (* shares-sold sale-price)
-                (* shares-sold purchase-price))
+        gain (.setScale
+               (- (* shares-sold sale-price)
+                  (* shares-sold purchase-price))
+               2
+               BigDecimal/ROUND_HALF_UP)
         cut-off-date (t/plus (:purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
                                   (:trade-date context)))]
+    (when (validation/has-error? adj-lot)
+      (log/errorf "Unable to update lot for sale %s" adj-lot))
     [(-> context
          (update-in [:lot-items] #(conj % {:lot-id (:id adj-lot)
                                            :lot-action :sell
@@ -352,7 +357,13 @@
 (defn- process-lot-sales
   "Given a sell context, processes the lot changes and appends
   the new lot transactions and the affected lots"
-  [{:keys [lots] :as context}]
+  [{:keys [lots shares] :as context}]
+
+  (when (> shares (->> lots
+                       (map :shares-owned)
+                       (reduce + 0M)))
+    (log/warnf "Attempt to sell more shares when owned: %s" context))
+
   (loop [context (assoc context :lots []
                                 :gains []
                                 :lot-items [])
@@ -446,11 +457,13 @@
       (transactions/delete transaction))))
 
 (defn- append-transfer-accounts
-  [{:keys  [from-account-id to-account-id commodity] :as context}]
-  (let [[from-account
-         to-account] (map (comp #(ensure-tag % :trading)
-                                accounts/find)
-                          [from-account-id to-account-id])
+  [{:keys  [from-account from-account-id to-account to-account-id commodity] :as context}]
+  (let [to-account (ensure-tag (or to-account
+                                   (accounts/find to-account-id))
+                               :trading)
+        from-account (ensure-tag (or from-account
+                                     (accounts/find from-account-id))
+                                 :trading)
         [from-commodity-account
          to-commodity-account] (map #(find-or-create-commodity-account
                                        %
@@ -463,14 +476,25 @@
            :to-commodity-account to-commodity-account)))
 
 (defn- process-transfer-lots
-  [{:keys [commodity from-account to-account] :as context}]
-  (let [to-move (lots/search {:commodity-id (:id commodity)
-                              :account-id (:id from-account)
-                              :shares-owned [:> 0M]})]
-    (log/warnf "No lots found to transfer %s" (prn-str context))
-    (assoc context :lots (mapv #(lots/update
-                                  (assoc % :account-id (:id to-account)))
-                               to-move))))
+  [{:keys [commodity from-account to-account shares] :as context}]
+  (let [to-move (->> (lots/search {:commodity-id (:id commodity)
+                                          :account-id (:id from-account)
+                                          :shares-owned [:> 0M]}
+                                         {:sort [:purchase-date]})
+                     (reduce (fn [acc {:keys [shares-owned] :as lot}]
+                               (if (>= (:shares acc) shares)
+                                 (reduced acc)
+                                 (-> acc
+                                     (update-in [:lots] conj lot)
+                                     (update-in [:shares] + shares-owned))))
+                             {:shares 0M
+                              :lots []})
+                     :lots)]
+    (if (empty? to-move)
+      (log/warnf "No lots found to transfer %s" (prn-str context))
+      (assoc context :lots (mapv #(lots/update
+                                    (assoc % :account-id (:id to-account)))
+                                 to-move)))))
 
 (defn- create-transfer-transaction
   [{:keys [commodity
@@ -497,20 +521,34 @@
     (assoc context :transaction transaction)))
 
 (defn transfer
+  "Transfers a commodity from one account to another
+
+  :commodity-id     - identifies the commodity to be moved
+  :shares           - the number of shares of the commodity to be transfered
+  :transaction-date - the date on which the transfer takes place
+  :from-account-id  - identifies the account from which the commodity is to be moved
+  :from-account     - the account from which the commodity is to be moved. Supplying this instead of :from-account-id bypasses the database lookup for the account.
+  :to-account-id    - identifies the account to which the commodity is to be moved
+  :to-account       - the account to which the commodity is to be moved. Supplying this instead of :to-account-id bypasses the database lookup for the account."
   [transfer]
   (let [validated (validation/validate transfer ::transfer)]
     (if (validation/valid? validated)
       (with-transacted-storage (env :db)
-        (-> validated
-            append-commodity
-            append-transfer-accounts
-            process-transfer-lots
-            create-transfer-transaction
-            (select-keys [:lots :transaction])))
+        (some-> validated
+                append-commodity
+                append-transfer-accounts
+                process-transfer-lots
+                create-transfer-transaction
+                (select-keys [:lots :transaction])))
       validated)))
 
+; TODO: Simplify this by updating stowaway to allow operators in mass update
 (defn- apply-split-to-lot
   [ratio lot]
+  (doseq [trx (lot-trans/search {:lot-id (:id lot)})]
+    (lot-trans/update (-> trx
+                          (update-in [:price] #(with-precision 4 (/ % ratio)))
+                          (update-in [:shares] #(* % ratio)))))
   (lots/update (-> lot
                    (update-in [:shares-purchased] #(* % ratio))
                    (update-in [:shares-owned] #(* % ratio))
