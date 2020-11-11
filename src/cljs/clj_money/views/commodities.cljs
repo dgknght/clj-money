@@ -68,13 +68,14 @@
                         notify/danger)))
 
 (defn- truncate
-  [value]
-  (if (> 20 (count value))
-    value
-    [:span {:title value}
-     (str
-       (apply str (take 17 value))
-       "...")]))
+  ([value] (truncate value 30))
+  ([value length]
+   (if (> length (count value))
+     value
+     [:span {:title value}
+      (str
+        (apply str (take (- length 3) value))
+        "...")])))
 
 (defn- commodity-row
   [{price :most-recent-price :as commodity} page-state]
@@ -112,11 +113,24 @@
                                        :on-click #(delete commodity page-state)}
         (bs/icon :x-circle)]]]]))
 
+(defn- match-commodity
+  [pattern]
+  (if pattern
+    (fn [commodity]
+      (some #(re-find pattern (% commodity))
+            [:name :symbol]))
+    (constantly true)))
+
 (defn- commodity-list
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
         page-size (r/cursor page-state [:page-size])
-        page-index (r/cursor page-state [:page-index])]
+        page-index (r/cursor page-state [:page-index])
+        search-term (r/cursor page-state [:search-term])
+        pattern (make-reaction #(when (and @search-term
+                                           (< 2
+                                              (count @search-term)))
+                                  (re-pattern @search-term)))]
     (fn []
       [:table.table.table-striped.table-hover
        [:thead
@@ -129,6 +143,7 @@
        [:tbody
         (if @commodities
           (->> @commodities
+               (filter (match-commodity @pattern))
                (drop (* @page-size @page-index))
                (take @page-size)
                (map #(commodity-row % page-state))
@@ -274,6 +289,7 @@
                             :prices-ctl-chan (chan)})
         selected (r/cursor page-state [:selected])
         commodities (r/cursor page-state [:commodities])
+        search-term (r/cursor page-state [:search-term])
         total (r/cursor page-state [:total])
         page-size (r/cursor page-state [:page-size])
         prices-commodity (r/cursor page-state [:prices-commodity])
@@ -282,12 +298,25 @@
     
     (fn []
       [:div.mt-5
-       [:h1 "Commodities"]
        [:div.row
         [:div.col
+         [:h1 "Commodities"]]
+        [:div.col
+         [:div.input-group
+          [:div.input-group-prepend
+           [:span.input-group-text
+            (bs/icon :search)]]
+          [forms/text-input page-state [:search-term]]
+          [:div.input-group-append {:class (when-not @search-term "d-none")
+                                    :on-click #(swap! page-state dissoc :search-term)}
+           [:button.btn.btn-secondary
+            (bs/icon :x)]]]]]
+       [:div.row
+        [:div.col-md-8
          [commodity-list page-state]
          (when (and (seq @commodities)
-                    (> @total @page-size))
+                    (> @total @page-size)
+                    (not @search-term))
            [bs/pagination page-state])
          [:button.btn.btn-primary
           {:title "Click here to add a new commodity."
@@ -302,7 +331,7 @@
            :disabled (boolean @selected)}
           (bs/icon-with-text :plus "Add")]]
         (when @prices-commodity
-          [:div.col
+          [:div.col-md-4
            [price-list page-state]
            (when @selected-price
              [price-form page-state])])
