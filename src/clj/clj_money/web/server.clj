@@ -4,6 +4,7 @@
             [compojure.core :refer [defroutes
                                     wrap-routes
                                     routes
+                                    GET
                                     ANY]]
             [cheshire.generate]
             [ring.util.response :refer [header] :as res]
@@ -127,6 +128,7 @@
               web-auth/routes
               api-routes
               protected-web-routes
+              (GET "*" [] (apps/index))
               (ANY "*" req
                    (do
                      (log/debugf "unable to match route for \"%s\"." (:uri req))

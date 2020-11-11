@@ -31,7 +31,7 @@
    [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]
    [:link {:rel "stylesheet" :href "/css/clj-money.css"}]])
 
-(defn- index []
+(defn index []
   (html5
     [:html {:lang "en"}
      (head)
