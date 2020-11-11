@@ -161,11 +161,6 @@
                                            as-of)
                            {}))))
 
-(defn- fetch-prices
-  ([commodity-ids] (fetch-prices commodity-ids (t/today)))
-  ([commodity-ids as-of]
-   (prices/batch-fetch commodity-ids as-of)))
-
 (defn- append-retained-earnings
   [mapped-accounts]
   (let [{:keys [income expense]} (->> (select-keys mapped-accounts [:income :expense])
@@ -270,10 +265,10 @@
   [{:keys [lots as-of] :as ctx}]
   (let [lot-transactions (fetch-lot-transactions ctx)
         prices (if (seq lots)
-                 (fetch-prices (->> lots
-                                    (map :commodity-id)
-                                    set)
-                               as-of)
+                 (prices/batch-fetch (->> lots
+                                          (map :commodity-id)
+                                          set)
+                                     {:as-of as-of})
                  {})]
     (update-in ctx
                [:lots]
