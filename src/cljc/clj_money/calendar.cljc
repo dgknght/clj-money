@@ -36,6 +36,17 @@
    {:abbreviation "Sun"
     :name "Sunday"}])
 
+(def ^:private days-of-the-week
+  (->> [:monday
+        :tuesday
+        :wednesday
+        :thursday
+        :friday
+        :saturday
+        :sunday]
+       (map-indexed #(vector %2 (+ 1 %1)))
+       (into {})))
+
 ; Library day-of-week values
 ; 1 - Monday
 ; 2 - Tuesday
@@ -51,9 +62,12 @@
 (defn- start-offset
   [first-dom {:keys [first-day-of-week]}]
   {:pre [(contains? offsets first-day-of-week)]}
-  (+ (- (t/day-of-week first-dom)
-        1)
-     (get-in offsets [first-day-of-week])))
+  (if (= (t/day-of-week first-dom)
+         (days-of-the-week first-day-of-week))
+    0
+    (+ (- (t/day-of-week first-dom)
+          1)
+       (get-in offsets [first-day-of-week]))))
 
 (defn- day-info
   [{:keys [first-day-of-week]}]
@@ -66,7 +80,8 @@
   [date month opts]
   {:date date
    :today? (t/equal? date (t/today))
-   :selected? (t/equal? date (:selected opts))
+   :selected? (and (:selected opts)
+                   (t/equal? date (:selected opts)))
    :in-month? (= month (t/month date))})
 
 (defn- ensure-year-month
@@ -87,7 +102,7 @@
              :month (t/month today)))))
 
 (def ^:private defaults
-  {:first-day-of-week :monday})
+  {:first-day-of-week :sunday})
 
 (defn- prepare-opts
   [opts]
@@ -98,7 +113,7 @@
   ([]
    (let [today (t/today)]
      (init {:year (t/year today)
-           :month (t/month today)})))
+            :month (t/month today)})))
   ([options]
    (let [{:keys [year month] :as opts} (prepare-opts options)
          first-dom (t/first-day-of-the-month year month)
