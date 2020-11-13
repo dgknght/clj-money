@@ -128,7 +128,7 @@
               web-auth/routes
               api-routes
               protected-web-routes
-              (GET "*" [] (apps/index))
+              (GET "*" _ (res/redirect "/"))
               (ANY "*" req
                    (do
                      (log/debugf "unable to match route for \"%s\"." (:uri req))
