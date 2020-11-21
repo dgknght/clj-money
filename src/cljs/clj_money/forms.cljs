@@ -91,7 +91,7 @@
       (let [attr (merge (select-keys options [:placeholder
                                               :class])
                         {:type input-type
-                         :autocomplete :off
+                         :auto-complete :off
                          :name (->name field)
                          :id (->id field)
                          :value @text-value
