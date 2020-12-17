@@ -19,10 +19,13 @@
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
                                                       org.clojure/tools.reader]]
-                 [honeysql "0.9.10" :exclusions [org.clojure/tools.reader]]
+                 [honeysql "0.9.10" :exclusions [org.clojure/spec.alpha
+                                                 org.clojure/clojure
+                                                 org.clojure/core.specs.alpha
+                                                 org.clojure/tools.reader]]
                  [clj-time "0.14.3" :exclusions [org.clojure/tools.reader]]
                  [compojure "1.6.1" :exclusions [org.clojure/tools.reader]]
-                 [ring/ring-core "1.8.0"]
+                 [ring/ring-core "1.8.0" :exclusions [ring/ring-codec]]
                  [ring/ring-jetty-adapter "1.6.3" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
@@ -55,12 +58,23 @@
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
                  [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
-                 [buddy/buddy-sign "3.1.0"]
-                 [buddy/buddy-hashers "1.4.0"]
+                 [buddy/buddy-sign "3.1.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                                                        com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
+                                                        cheshire
+                                                        commons-codec
+                                                        com.fasterxml.jackson.core/jackson-core]]
+                 [buddy/buddy-hashers "1.4.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
+                                                           com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
+                                                           cheshire
+                                                           commons-codec
+                                                           com.fasterxml.jackson.core/jackson-core]]
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [stowaway "0.1.8"]]
+                 [stowaway "0.1.8" :exclusions [org.clojure/spec.alpha
+                                                org.clojure/clojure
+                                                org.clojure/core.specs.alpha
+                                                org.clojure/tools.logging]]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
