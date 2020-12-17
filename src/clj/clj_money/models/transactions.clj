@@ -111,7 +111,6 @@
   the specified action"
   [transaction action]
   (reduce + 0M (->> (:items transaction)
-
                     (filter #(= action (:action %)))
                     (map :value))))
 

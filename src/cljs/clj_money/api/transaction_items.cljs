@@ -4,7 +4,7 @@
             [clj-money.decimal :refer [->decimal]]
             [clj-money.util :refer [serialize-date unserialize-date]]))
 
-(defn- after-read
+(defn after-read
   [item]
   (-> item
       (update-in [:quantity] ->decimal)

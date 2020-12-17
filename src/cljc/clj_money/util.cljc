@@ -1,20 +1,24 @@
 (ns clj-money.util
   (:require [clojure.string :as string]
-            #?(:clj [clojure.tools.logging :as log])
             #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])
             #?(:clj [clj-time.format :as f]
-               :cljs [cljs-time.format :as f]))
+               :cljs [cljs-time.format :as f])
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]]))
   #?(:clj (:import java.util.UUID
                    java.text.NumberFormat
                    java.text.DecimalFormat)
      :cljs (:import goog.i18n.NumberFormat)))
 
 (defn trace
-  ([msg] (trace :debug msg))
-  ([level msg]
-   #?(:clj (log/log level msg)
-      :cljs (.log js/console (prn-str {level msg})))))
+  [msg]
+  (pprint msg))
+
+(defn abs
+  [value]
+  #?(:clj (.abs value) ; we're assuming BigDecimal here
+     :cljs (Math/abs value)))
 
 #?(:clj
    (defn uuid

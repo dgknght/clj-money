@@ -45,7 +45,10 @@
 
 (defn- parse-item
   [item]
-  (update-in-if item [:action] keyword))
+  (-> item
+      (update-in-if [:quantity] bigdec)
+      (update-in-if [:value] bigdec)
+      (update-in-if [:action] keyword)))
 
 (defn- create
   [{:keys [params body authenticated]}]

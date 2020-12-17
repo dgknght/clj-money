@@ -3,7 +3,8 @@
             [clojure.string :as string]
             [cljs-time.core :as t]
             [cljs-time.format :as tf]
-            [clj-money.util :refer [->id]]
+            [clj-money.util :refer [->id
+                                    presence]]
             [clj-money.bootstrap :as bs]
             [clj-money.decimal :refer [->decimal]]
             [clj-money.calendar :as cal]
@@ -49,17 +50,26 @@
              (->caption field))]]))))
 
 (defn text-input
-  [model field {input-type :type
-                :or {input-type :text}}]
+  [model field {:keys [id on-key-up]
+                input-type :type
+                :or {input-type :text
+                     on-key-up identity}}]
   (let [value (r/cursor model field)]
     (fn []
       [:input.form-control {:type input-type
                             :name (->name field)
-                            :id (->id field)
+                            :id (or id (->id field))
                             :value @value
                             :on-change (fn [e]
                                          (let [new-value (.-value (.-target e))]
-                                           (swap! model assoc-in field new-value)))}])))
+                                           (swap! model assoc-in field new-value)))
+                            :on-key-up on-key-up}])))
+
+(defn- nilify
+  [model field]
+  (if (= 1 (count field))
+    (swap! model dissoc (first field))
+    (swap! model assoc-in (butlast field) dissoc (last field))))
 
 (defn text-field
   [model field options]
@@ -75,7 +85,9 @@
                        equals-fn
                        icon
                        on-icon-click
-                       on-accept]
+                       on-accept
+                       on-key-up
+                       id]
                 :or {input-type :text
                      equals-fn =
                      unparse-fn str
@@ -93,8 +105,13 @@
                         {:type input-type
                          :auto-complete :off
                          :name (->name field)
-                         :id (->id field)
+                         :id (or id (->id field))
                          :value @text-value
+                         :on-key-down #(when on-key-up
+                                         (.preventDefault %))
+                         :on-key-up #(when on-key-up
+                                       (.preventDefault %)
+                                       (on-key-up %))
                          :on-change (fn [e]
                                       (let [new-value (.-value (.-target e))
                                             parsed (try
@@ -102,9 +119,11 @@
                                                      (catch js/Error e
                                                        (.log js/console (str "Error parsing \"" new-value "\", " (.getMessage e)))
                                                        nil))]
-                                        (when parsed
-                                          (swap! model assoc-in field parsed)
-                                          (on-accept))
+                                        (if (presence new-value)
+                                          (when parsed
+                                            (swap! model assoc-in field parsed)
+                                            (on-accept))
+                                          (nilify model field))
                                         (reset! text-value new-value)))})]
         (if icon
           [:div.input-group
@@ -159,7 +178,7 @@
           {:icon :calendar
            :unparse-fn unparse-date
            :parse-fn parse-date
-           :equals-fn t/equal?
+           :equals-fn #(when (and %1 %2) (t/equal? %1 %2))
            :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
        [:div.shadow.rounded {:class (when-not @visible? "d-none")
                              :style {:position :absolute
@@ -266,7 +285,7 @@
   (fn []
     [:select.form-control {:id field
                            :name field
-                           :value (get-in @model field)
+                           :value (or (get-in @model field) "")
                            :on-change (fn [e]
                                         (let [value (.-value (.-target e))]
                                           (swap! model assoc-in field (if (empty? value)
@@ -291,8 +310,13 @@
                        find-fn
                        caption-fn
                        value-fn
-                       max-items]
-                :or {max-items 10}}]
+                       on-change
+                       on-key-up
+                       max-items
+                       id]
+                :or {max-items 10
+                     on-change identity
+                     on-key-up identity}}]
   (let [text-value (r/atom "")
         items (r/atom nil)
         index (r/atom nil)
@@ -305,6 +329,7 @@
                               assoc-in
                               field
                               value)
+                       (on-change)
                        (reset! text-value caption))
         handle-key-down (fn [e]
                           (when @items
@@ -348,10 +373,11 @@
       [:span
        [:input.form-control {:type :text
                              :auto-complete :off
-                             :id (->id field)
+                             :id (or id (->id field))
                              :name (->name field)
                              :value @text-value
                              :on-key-down handle-key-down
+                             :on-key-up #(when-not @items (on-key-up %))
                              :on-change handle-change}]
        [:div.list-group {:style {:z-index 99}}
         (doall (map-indexed (fn [i item]

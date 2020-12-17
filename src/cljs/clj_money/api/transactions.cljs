@@ -1,25 +1,41 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require [clj-money.util :refer [serialize-date
+  (:require [clj-money.util :refer [update-in-if
+                                    serialize-date
                                     unserialize-date]]
-            [clj-money.api :as api]))
+            [clj-money.api :as api]
+            [clj-money.api.transaction-items :as items]))
+
+(defn- after-read
+  [{:keys [transaction-date] :as transaction}]
+  (let [transaction-date (unserialize-date transaction-date)]
+    (-> transaction
+        (assoc :original-transaction-date transaction-date
+               :transaction-date transaction-date)
+        (update-in [:items] #(map items/after-read %)))))
+
+(def ^:private working-date
+  (some-fn :original-transaction-date
+           :transaction-date))
 
 (defn- transaction-path
-  [{:keys [id transaction-date]}]
+  [{:keys [id] :as transaction}]
   (api/path :transactions
-            (serialize-date transaction-date)
+            (serialize-date (working-date transaction))
             id))
 
 (defn search
   [criteria success-fn error-fn]
   (api/get-resources (api/path :transactions)
                      criteria
-                     success-fn
+                     #(success-fn (map after-read %))
                      error-fn))
 
 (defn- serialize
   [transaction]
-  (update-in transaction [:transaction-date] serialize-date))
+  (-> transaction
+      (update-in-if [:original-transaction-date] serialize-date)
+      (update-in [:transaction-date] serialize-date)))
 
 (defn create
   [transaction success-fn error-fn]
@@ -42,18 +58,6 @@
   (if (:id transaction)
     (update transaction success-fn error-fn)
     (create transaction success-fn error-fn)))
-
-(defn- after-item-read
-  [item]
-  (update-in item [:action] keyword))
-
-(defn- after-read
-  [{:keys [transaction-date] :as transaction}]
-  (let [transaction-date (unserialize-date transaction-date)]
-    (-> transaction
-        (assoc :original-transaction-date transaction-date
-               :transaction-date transaction-date)
-        (update-in [:items] #(map after-item-read %)))))
 
 (defn get-one
   [tkey success-fn error-fn]

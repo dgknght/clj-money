@@ -1,6 +1,7 @@
 (ns clj-money.accounts
   (:require #?(:clj [clj-time.coerce :as tc]
-               :cljs [cljs-time.coerce :as tc])))
+               :cljs [cljs-time.coerce :as tc])
+            [clj-money.util :refer [abs]]))
 
 (def account-types
   "The list of valid account types in standard presentation order"
@@ -71,6 +72,8 @@
 (defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
   [account]
+  {:pre [(:type account)]}
+
   (#{:asset :expense} (:type account)))
 
 (def right-side? (comp left-side?))
@@ -105,11 +108,6 @@
     (if (left-side? account)
       :debit
       :credit)))
-
-(defn- abs
-  [value]
-  #?(:clj (.abs value) ; we're assuming BigDecimal here
-     :cljs (Math/abs value)))
 
 (defn derive-item
   "Given a quantity and an account, returns a transaction item

@@ -4,6 +4,8 @@
 
 (defn create
   [{:keys [entity-id] :as trade} success-fn error-fn]
+  {:pre [(:entity-id trade)]}
+
   (api/create-resource (api/path :entities entity-id :trades)
                        (-> trade
                            (dissoc :entity-id)

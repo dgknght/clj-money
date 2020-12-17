@@ -6,6 +6,11 @@
   (when value
     (js/window.Decimal. value)))
 
+(defn abs
+  [value]
+  (when value
+    (.abs (->decimal value))))
+
 (defn zero []
   (->decimal 0))
 

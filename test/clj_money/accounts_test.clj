@@ -30,3 +30,39 @@
     (is (= {:transaction-date [:between earliest latest]
               :account-id #{101 102}}
              (accounts/->criteria accounts)))))
+
+(deftest derive-an-item
+  (testing "from a positive quantity"
+    (let [quantity 10M]
+      (is (= {:quantity 10M :action :debit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :asset}))
+          "The action is :debit")
+      (is (= {:quantity 10M :action :credit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :liability}))
+          "The action is :credit")
+      (is (= {:quantity 10M :action :credit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :equity}))
+          "The action is :credit")
+      (is (= {:quantity 10M :action :credit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :income}))
+          "The action is :credit")
+      (is (= {:quantity 10M :action :debit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :expense}))
+          "The action is :debit")))
+  (testing "from a negative quantity"
+    (let [quantity -10M]
+      (is (= {:quantity 10M :action :credit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :asset}))
+          "The action is :credit")
+      (is (= {:quantity 10M :action :debit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :liability}))
+          "The action is :debit")
+      (is (= {:quantity 10M :action :debit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :equity}))
+          "The action is :debit")
+      (is (= {:quantity 10M :action :debit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :income}))
+          "The action is :debit")
+      (is (= {:quantity 10M :action :credit :account-id 1}
+             (accounts/derive-item quantity {:id 1 :type :expense}))
+          "The action is :credit"))))

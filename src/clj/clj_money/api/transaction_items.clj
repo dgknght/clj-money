@@ -78,7 +78,7 @@
   (-> params
       (update-in-if [:limit] parse-int)
       (update-in-if [:skip] parse-int)
-      (assoc :sort [[:transaction-date :desc]])))
+      (assoc :sort [[:index :desc]])))
 
 (defn index
   [req]

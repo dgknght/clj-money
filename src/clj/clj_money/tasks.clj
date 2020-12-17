@@ -31,9 +31,26 @@
       validation-error (print-fn)
       :else            options)))
 
+(defn- account-criteria
+  [options entity]
+  (let [parent (->> (:account options)
+                    butlast
+                    (reduce (fn [p n]
+                              (accounts/find-by {:entity-id (:id entity)
+                                                 :name n
+                                                 :parent-id (:id p)}))
+                            nil))]
+    (cond-> {:entity-id (:id entity)}
+      parent
+      (assoc :parent-id (:id parent))
+
+      (not= :all (:account options))
+      (assoc :name (last (:account options))))))
+
 (def ^:private recalc-options
   [["-a" "--account" "Account name"
     :default :all
+    :parse-fn #(string/split % #"/")
     :required "The name of the account to be recalculated"]
    ["-u" "--user" "Username (email address)"
     :required "Identifies the user account for which accounts are to be recalculated"]
@@ -55,9 +72,7 @@
         (let [user (users/find-by-email (:user options))
               entity (entities/find-by {:user-id (:id user)
                                         :name (:entity options)})
-              accounts (accounts/search (cond-> {:entity-id (:id entity)}
-                                          (not= :all (:account options))
-                                          (assoc :name (:account options))))]
+              accounts (accounts/search (account-criteria options entity))]
           (doseq [account accounts]
             (println (format "Processing account \"%s\"..." (:name account)))
             (transactions/recalculate-account

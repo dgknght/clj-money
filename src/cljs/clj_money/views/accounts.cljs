@@ -1,6 +1,5 @@
 (ns clj-money.views.accounts
-  (:require [clojure.set :refer [rename-keys]]
-            [clojure.string :as string]
+  (:require [clojure.string :as string]
             [goog.string :as gstr]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
@@ -15,15 +14,9 @@
             [clj-money.bootstrap :as bs :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
-            [clj-money.api.transactions :as transactions]
             [clj-money.api.lots :as lots]
             [clj-money.api.prices :as prices]
-            [clj-money.api.trading :as trading]
-            [clj-money.transactions :refer [simplify
-                                            fullify
-                                            can-simplify?
-                                            entryfy
-                                            unentryfy]]
+            [clj-money.transactions :refer [can-simplify?]]
             [clj-money.accounts :refer [account-types
                                         nest
                                         unnest]]
@@ -44,13 +37,18 @@
    (accounts/select (fn [result]
                       (swap! page-state
                              (fn [s]
-                               (cond-> (assoc s :accounts (->> result
-                                                               (nest {:plus decimal/+})
-                                                               unnest))
-                                 (empty? (:accounts s))
-                                 (assoc :hide-zero-balances? (->> result
-                                                                  (map :value)
-                                                                  (not-every? #(= 0 %)))))))
+                               (let [accounts (->> result
+                                                   (nest {:plus decimal/+})
+                                                   unnest)]
+                                 (cond-> (assoc s
+                                                :accounts accounts
+                                                :mapped-accounts (->> accounts
+                                                                      (map (juxt :id identity))
+                                                                      (into {})))
+                                   (empty? (:accounts s))
+                                   (assoc :hide-zero-balances? (->> result
+                                                                    (map :value)
+                                                                    (not-every? #(= 0 %))))))))
                       (callback))
                     notify/danger)))
 
@@ -70,11 +68,18 @@
 
 
 
+(defn- recently-created?
+  [{:keys [created-at]}]
+  (t/before?
+    (t/minus (t/now) (-> 1 t/hours))
+    created-at))
+
 (defn- account-hidden?
   [{:keys [parents] :as account} expanded hide-zero-balances?]
   (or (and @hide-zero-balances?
            (decimal/zero? (decimal/+ (:value account)
-                                     (:children-value account))))
+                                     (:children-value account)))
+           (not (recently-created? account)))
       (not (@expanded (:type account)))
       (and parents
            (not-every? @expanded parents))))
@@ -196,6 +201,7 @@
          {:search-fn (fn [input callback]
                        (let [term (string/lower-case input)]
                          (->> @commodities
+                              vals
                               (filter #(or (string/includes? (string/lower-case (:name %))
                                                              term)
                                            (string/includes? (string/lower-case (:symbol %))
@@ -204,10 +210,7 @@
           :caption-fn :name
           :value-fn :id
           :find-fn (fn [id callback]
-                     (->> @commodities
-                          (filter #(= id (:id %)))
-                          first
-                          callback))})
+                     (callback (get-in @commodities [id])))})
        (forms/checkbox-field
          account
          [:trading]
@@ -238,22 +241,15 @@
                                  :title "Click here to return to the list of accounts."}
          (bs/icon-with-text :x "Cancel")]]])))
 
-(defn- find-account-fn
-  [page-state]
-  (fn [id]
-    (->> (:accounts @page-state)
-         (filter #(=  (:id %) id))
-         first)))
-
 (defn- new-transaction
   [page-state]
   (let [account-id (get-in @page-state [:view-account :id])]
     (swap! page-state assoc
-           :transaction {:entity-id (get-in @app-state [:current-entity :id])
-                         :transaction-date (t/today)
-                         :account-id account-id}
-           :transaction-entry-mode :simple
-           :unprep-fn #(fullify % (find-account-fn page-state))))
+           :transaction (trns/mode
+                          {:entity-id (get-in @app-state [:current-entity :id])
+                           :transaction-date (t/today)
+                           :account-id account-id}
+                          ::trns/simple)))
   (html/set-focus "transaction-date"))
 
 (defn- account-buttons
@@ -286,194 +282,50 @@
 
 (defn- post-transaction-save
   [page-state]
-  (load-accounts page-state #(trns/reset-item-loading page-state)))
-
-(defmulti ^:private save-transaction
-  (fn [page-state]
-    (let [transaction (:transaction @page-state)]
-      (cond
-        (:trade-date transaction) :buy))))
-
-(defmethod ^:private save-transaction :default
-  [page-state]
-  (let  [unprep-fn (get-in @page-state [:unprep-fn] identity)]
-    (-> (:transaction @page-state)
-        (unprep-fn (:account @page-state))
-        (transactions/save #(post-transaction-save page-state)
-                           notify/danger))))
-
-(defmethod ^:private save-transaction :buy
-  [page-state]
-  (trading/create (:transaction @page-state)
-                  #(post-transaction-save page-state)
-                  (notify/danger-fn "Unable to create the trade: %s")))
-
-(defn- simple-transaction-form
-  [page-state]
-  (let [transaction (r/cursor page-state [:transaction])
-        accounts (r/cursor page-state [:accounts])]
-    (fn []
-      [:form {:class (when (or (:items @transaction)
-                               (:trade-date @transaction))
-                       "d-none")}
-       (forms/date-field transaction [:transaction-date] {:validate [:required]})
-       (forms/text-field transaction [:description] {:validate [:required]})
-       (forms/decimal-field transaction [:quantity] {:validate [:required]})
-       [forms/typeahead-field
-         transaction
-         [:other-account-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> @accounts
-                              (filter #(string/includes? (string/lower-case (:path %))
-                                                         term))
-                              callback)))
-          :caption-fn :path
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (->> @accounts
-                          (filter #(= id (:id %)))
-                          first
-                          callback))}]])))
-
-(defn- trade-transaction-form
-  [page-state]
-  (let [transaction (r/cursor page-state [:transaction])
-        commodities (r/cursor page-state [:commodities])]
-    (fn []
-      [:form {:class (when-not (:trade-date @transaction) "d-none")}
-       (forms/date-field transaction [:trade-date] {:validate [:required]})
-       (forms/select-field transaction [:action] (map (juxt name humanize) [:buy :sell]) {})
-       (forms/decimal-field transaction [:shares] {:validate [:required]})
-       (forms/decimal-field transaction [:value] {:validate [:required]})
-       [forms/typeahead-field
-         transaction
-         [:commodity-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> @commodities
-                              (filter #(or (string/includes? (string/lower-case (:name %))
-                                                             term)
-                                           (string/includes? (string/lower-case (:symbol %))
-                                                             term)))
-                              callback)))
-          :caption-fn :symbol
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (->> @commodities
-                          (filter #(= id (:id %)))
-                          first
-                          callback))}]])))
-
-(defn- item-input-row
-  [item index page-state]
-  ^{:key (str "item-form-" index)}
-  [:tr
-   [:td [forms/typeahead-input
-         item
-         [:account-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> (:accounts @page-state)
-                              (filter #(string/includes? (string/lower-case (:path %))
-                                                         term))
-                              callback)))
-          :caption-fn :path
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (->> (:accounts @page-state)
-                          (filter #(= id (:id %)))
-                          first
-                          callback))}]]
-   [:td [forms/text-input item [:memo] {}]]
-   [:td [forms/decimal-input item [:credit-quantity] {}]]
-   [:td [forms/decimal-input item [:debit-quantity] {}]]])
-
-(defn- full-transaction-form
-  [page-state]
-  (let [transaction (r/cursor page-state [:transaction])]
-    (fn []
-      [:form {:class (when-not (and (:transaction-date @transaction)
-                                    (:items @transaction))
-                       "d-none")}
-       (forms/date-field transaction [:transaction-date] {:validate [:required]})
-       (forms/text-field transaction [:description] {:validate [:required]})
-       [:table.table
-        [:thead
-         [:tr
-          [:td "Account"]
-          [:td "Memo"]
-          [:td "Credit Amount"]
-          [:td "Debit Amount"]]]
-        [:tbody
-         (doall (for [index (range (count (:items @transaction)))]
-                  (item-input-row (r/cursor page-state [:transaction :items index])
-                                  index
-                                  page-state)))]]])))
-
-(defmulti ^:private nav-to-mode
-  (fn [_ mode]
-    mode))
-
-(defmethod ^:private nav-to-mode :full
-  [page-state m]
-  (-> page-state
-      (update-in [:transaction] fullify (find-account-fn page-state))
-      (assoc :transaction-entry-mode m)))
-
-(defmethod ^:private nav-to-mode :simple
-  [page-state m]
-  (-> page-state
-      (update-in [:transaction] simplify (:view-account page-state))
-      (assoc :transaction-entry-mode m)))
-
-(defn- tradify
-  "Accepts a regular transaction and converts it into a trade transaction"
-  [transaction account]
-  (-> transaction
-      (rename-keys {:transaction-date :trade-date})
-      (assoc :account-id (:id account)
-             :shares (->> (:items transaction)
-                          (map :quantity)
-                          first))
-      (dissoc :items)))
-
-(defn- transaction-form-nav-items
-  [page-state]
-  (let [account (r/cursor page-state [:view-account])
-        transaction (r/cursor page-state [:transaction])]
-    {:simple {:disabled? (not (can-simplify? @transaction))
-              :prep-fn #(simplify % @account)
-              :unprep-fn #(fullify % (find-account-fn page-state))}
-     :full   {:prep-fn entryfy
-              :unprep-fn unentryfy}
-     :trade  {:prep-fn #(tradify % @account)
-              :unprep-fn tradify
-              :hidden? (not (contains? (:tags @account) :trading))}}))
+  (fn []
+    (load-accounts page-state #(trns/reset-item-loading page-state))))
 
 (defn- do-tab-nav
   [mode page-state]
-  (let [current-unprep-fn (get-in @page-state [:unprep-fn] identity)
-        nav-items (transaction-form-nav-items page-state)
-        {:keys [prep-fn unprep-fn]} (get-in nav-items [mode])]
-    (swap! page-state #(-> %
-                          (assoc :transaction-entry-mode mode
-                                 :unprep-fn unprep-fn)
-                          (update-in [:transaction] (comp prep-fn current-unprep-fn))))))
+  (let [{:keys [mapped-accounts view-account commodities transaction]} @page-state
+        unprep-fn (get-in (trns/untransformations mapped-accounts)
+                          [(trns/mode transaction)])
+        prep-fn (get-in (trns/transformations view-account
+                                              mapped-accounts
+                                              commodities)
+                        [mode])]
+    (swap! page-state
+           (fn [state]
+             (update-in state
+                        [:transaction]
+                        (comp #(trns/mode % mode)
+                              prep-fn
+                              unprep-fn))))))
 
 (defn- transaction-form-nav-tab
-  [mode {:keys [disabled? hidden?]} page-state]
-  (let [current-mode (r/cursor page-state [:transaction-entry-mode])]
-    {:caption (humanize mode)
+  [{:keys [mode disabled?]} page-state]
+  (let [current-mode (trns/mode (:transaction @page-state))]
+    {:caption (humanize (name mode))
      :disabled? disabled?
-     :hidden? hidden?
      :elem-key (str "entry-mode-" (name mode))
-     :active? (= @current-mode mode)
+     :active? (= current-mode mode)
      :on-click #(do-tab-nav mode page-state)}))
+
+(defn- neutralize
+  [transaction mode accounts]
+  (let [f (get-in (trns/untransformations accounts)
+                     [mode])]
+    (f transaction)))
 
 (defn- transaction-form
   [page-state]
-  (let [transaction (r/cursor page-state [:transaction])]
+  (let [transaction (r/cursor page-state [:transaction])
+        mode (make-reaction #(trns/mode @transaction))
+        accounts (r/cursor page-state [:mapped-accounts])
+        neutralized (make-reaction #(neutralize @transaction @mode @accounts))
+        tags (r/cursor page-state [:view-account :tags])
+        disable-trade? (make-reaction #(or (:id @transaction)
+                                           (not (:trading @tags))))]
     (fn []
       [:div.card
        [:div.card-header
@@ -481,14 +333,24 @@
                    "Edit Transaction"
                    "New Transaction")]]
        [:div.card-body
-        (nav-tabs (map #(transaction-form-nav-tab (first %) (second %) page-state)
-                       (transaction-form-nav-items page-state)))
+        (nav-tabs (map #(transaction-form-nav-tab % page-state)
+                       [{:mode ::trns/simple
+                         :disabled? (not (can-simplify? @neutralized))}
+                        {:mode ::trns/full
+                         :disabled? false}
+                        {:mode ::trns/trade
+                         :disabled? @disable-trade?}
+                        {:mode ::trns/dividend
+                         :disabled? @disable-trade?}]))
         [:div.mt-3
-         [full-transaction-form page-state]
-         [simple-transaction-form page-state]
-         [trade-transaction-form page-state]]]
+         [trns/full-transaction-form page-state]
+         [:div.row
+          [:div.col-md-4
+           [trns/simple-transaction-form page-state]
+           [trns/trade-transaction-form page-state]
+           [trns/dividend-transaction-form page-state]]]]]
        [:div.card-footer
-        [:button.btn.btn-primary {:on-click #(save-transaction page-state)
+        [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
                                   :title "Click here to save the transaction"}
          (bs/icon-with-text :check "Save")]
 
@@ -497,39 +359,40 @@
                                  :title "Click here to cancel this transaction"}
          (bs/icon-with-text :x "Cancel")]]])))
 
-(defn- currency-account-details
+(defn- transaction-item-list
   [page-state]
   (let [ctl-chan (r/cursor page-state [:ctl-chan])
-        all-items-fetched? (r/cursor page-state [:all-items-fetched?])
-        transaction (r/cursor page-state [:transaction])
+        all-items-fetched? (r/cursor page-state [:all-items-fetched?])]
+    (trns/init-item-loading page-state)
+    (fn []
+      [:div.card
+       [:div.card-header [:strong "Transaction Items"]]
+       [:div#items-container {:style {:max-height "40em" :overflow "auto"}}
+        [trns/items-table page-state]]
+       [:div.card-footer.d-flex.align-items-center
+        [account-buttons page-state]
+        [:span.ml-auto
+         [load-on-scroll {:target "items-container"
+                          :all-items-fetched? all-items-fetched?
+                          :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
+
+(defn- currency-account-details
+  [page-state]
+  (let [transaction (r/cursor page-state [:transaction])
         reconciliation (r/cursor page-state [:reconciliation])
         attachments-item (r/cursor page-state [:attachments-item])
         selected-attachment (r/cursor page-state [:selected-attachment])]
-    (trns/init-item-loading page-state)
     (fn []
-      [:div.row
-       [:div.col {:style {:max-width "50em"
-                          :flex-grow 3}}
-        [:div.card
-         [:div.card-header [:strong "Transaction Items"]]
-         [:div#items-container {:style {:max-height "40em" :overflow "auto"}}
-          [trns/items-table page-state]]
-         [:div.card-footer.d-flex.align-items-center
-          [account-buttons page-state]
-          [:span.ml-auto
-           [load-on-scroll {:target "items-container"
-                            :all-items-fetched? all-items-fetched?
-                            :load-fn #(go (>! @ctl-chan :fetch))}]]]]]
-       (when (or @transaction @reconciliation @attachments-item)
-         [:div.col {:style {:flex-grow 2}}
-          (when @selected-attachment
-            [atts/attachment-form page-state])
-          (when @attachments-item
-            [atts/attachments-card page-state])
-          (when @transaction
-            [transaction-form page-state])
-          (when @reconciliation
-            [recs/reconciliation-form page-state])])])))
+      (cond
+        @transaction         [transaction-form page-state]
+        @reconciliation      [:div.row
+                              [:div.col
+                               [transaction-item-list page-state]]
+                              [:div.col
+                               [recs/reconciliation-form page-state]]]
+        @selected-attachment [atts/attachment-form page-state]
+        @attachments-item    [atts/attachments-card page-state]
+        :else                [transaction-item-list page-state]))))
 
 (defn- lots-table
   [page-state]
@@ -601,11 +464,12 @@
                                   @total-cost)
                                3)]]]])))
 
-(defn- tradable-account-details
+(defn- tradable-account-items
   [page-state]
   (let [current-nav (r/atom :lots)
         account (r/cursor page-state [:view-account])
         {:keys [parent-id
+                entity-id
                 commodity-id
                 earliest-transaction-date
                 latest-transaction-date]} @account]
@@ -636,12 +500,46 @@
        [:div.row
         [:div.col-md-6
          [:button.btn.btn-primary {:title "Click here to buy or sell this commodity."
-                                   :on-click #(js/alert "Not implemented")}
+                                   :on-click (fn []
+                                               (swap! page-state
+                                                      assoc
+                                                      :transaction
+                                                      {:trade-date (t/today)
+                                                       :entity-id entity-id
+                                                       :account-id parent-id
+                                                       :commodity-id commodity-id
+                                                       :commodity-account-id (:id @account)})
+                                               (html/set-focus "trade-date"))}
           (bs/icon-with-text :plus "Buy/Sell")]
          (html/space)
          [:button.btn.btn-info {:title "Click here to return the the account list."
                                 :on-click #(swap! page-state dissoc :view-account)}
           (bs/icon-with-text :arrow-left-short "Back")]]]])))
+
+(defn- tradable-account-details
+  [page-state]
+  (let [transaction (r/cursor page-state [:transaction])]
+    (fn []
+      (if @transaction
+        [:div.mt-3
+         [:div.row
+          [:div.col-md-4
+           [:div.card
+            [:div.card-header
+             [:strong (if (:id @transaction)
+                        "Edit Transaction"
+                        "New Transaction")]]
+            [:div.card-body
+             [trns/trade-transaction-form page-state]]
+            [:div.card-footer
+             [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
+                                       :title "Click here to save the transaction"}
+              (bs/icon-with-text :check "Save")]
+             (html/space)
+             [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :transaction)
+                                      :title "Click here to cancel this transaction"}
+              (bs/icon-with-text :x "Cancel")]]]]]]
+        [tradable-account-items page-state]))))
 
 (defn- account-details
   [page-state]
@@ -653,13 +551,14 @@
 
 (defn- load-commodities
   [page-state]
-  (commodities/select #(swap! page-state assoc :commodities %)
+  (commodities/select #(swap! page-state assoc :commodities (->> %
+                                                                 (map (juxt :id identity))
+                                                                 (into {})))
                       notify/danger))
 
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
-                            :ctl-chan (chan)
-                            :transaction-entry-mode :simple})
+                            :ctl-chan (chan)})
         selected (r/cursor page-state [:selected])
         view-account (r/cursor page-state [:view-account])]
     (load-accounts page-state)

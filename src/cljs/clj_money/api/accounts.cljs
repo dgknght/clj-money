@@ -1,6 +1,7 @@
 (ns clj-money.api.accounts
   (:refer-clojure :exclude [update])
-  (:require [clj-money.util :refer [unserialize-date]]
+  (:require [clj-money.util :refer [unserialize-date
+                                    unserialize-date-time]]
             [clj-money.state :refer [current-entity]]
             [clj-money.decimal :as decimal :refer [->decimal]]
             [clj-money.api :as api]))
@@ -19,6 +20,7 @@
       (update-in [:value] ->decimal)
       (update-in [:quantity] ->decimal)
       set-flags
+      (update-in [:created-at] unserialize-date-time)
       (update-in [:commodity :type] keyword)
       (update-in [:earliest-transaction-date] unserialize-date)
       (update-in [:latest-transaction-date] unserialize-date)))

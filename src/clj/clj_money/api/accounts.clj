@@ -4,6 +4,7 @@
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [clj-money.api :refer [->response
+                                   creation-response
                                    not-found]]
             [clj-money.util :refer [update-in-if
                                     parse-bool
@@ -71,9 +72,9 @@
   (let [account (-> body
                     (assoc :entity-id (:entity-id params))
                     before-save
-                    (authorize ::authorization/create authenticated))]
-    (->response (accounts/create account)
-                201)))
+                    (authorize ::authorization/create authenticated)
+                    accounts/create)]
+    (creation-response account)))
 
 (defn- update
   [{:keys [body] :as req}]
