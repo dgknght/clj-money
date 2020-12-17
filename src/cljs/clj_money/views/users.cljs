@@ -7,7 +7,7 @@
   [:div.mt-5
    [:h1 "Login"]
    [:a#login.btn.btn-light {:href "/auth/google/start"
-                              :title "Click here to sign in with a Google account"}
+                            :title "Click here to sign in with a Google account"}
     (google-g)
     [:span "Sign in with Google"]]])
 

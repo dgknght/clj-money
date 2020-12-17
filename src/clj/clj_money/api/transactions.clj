@@ -17,12 +17,12 @@
 (defn- index
   [{:keys [params authenticated]}]
   (->response
-    (trans/search (-> params
-                      (assoc :transaction-date [:between
-                                                (unserialize-date (:start params))
-                                                (unserialize-date (:end params))])
-                      (select-keys [:entity-id :transaction-date])
-                      (+scope ::models/transaction authenticated)))))
+   (trans/search (-> params
+                     (assoc :transaction-date [:between
+                                               (unserialize-date (:start params))
+                                               (unserialize-date (:end params))])
+                     (select-keys [:entity-id :transaction-date])
+                     (+scope ::models/transaction authenticated)))))
 
 (defn- show
   [{{:keys [id transaction-date]} :params authenticated :authenticated}]

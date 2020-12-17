@@ -37,18 +37,18 @@
   ([account-ids as-of opts]
    (ch/find account-ids
             (merge
-              {:start-date as-of
-               :time-step (t/years 1)
-               :fetch-fn (fn [ids date]
-                           (transactions/search-items
-                             {:account-id ids
-                              :transaction-date [:between
-                                                 (t/minus date (t/years 1))
-                                                 date]}))
-               :earliest-date (earliest-date) ; TODO: Get earliest date for the entity
-               :id-fn :account-id
-               :find-one-fn (partial last-item :on-or-before as-of)}
-              opts))))
+             {:start-date as-of
+              :time-step (t/years 1)
+              :fetch-fn (fn [ids date]
+                          (transactions/search-items
+                           {:account-id ids
+                            :transaction-date [:between
+                                               (t/minus date (t/years 1))
+                                               date]}))
+              :earliest-date (earliest-date) ; TODO: Get earliest date for the entity
+              :id-fn :account-id
+              :find-one-fn (partial last-item :on-or-before as-of)}
+             opts))))
 
 (defn- append-deltas
   [start end accounts]
@@ -56,9 +56,9 @@
                          (map :id)
                          (into #{}))
         start-balances (fetch-balances
-                         account-ids
-                         start
-                         {:find-one-fn (partial last-item :before start)})
+                        account-ids
+                        start
+                        {:find-one-fn (partial last-item :before start)})
         end-balances (fetch-balances account-ids end)]
     (map #(assoc % :value (- (get-in end-balances [(:id %) :balance] 0M)
                              (get-in start-balances [(:id %) :balance] 0M)))
@@ -68,17 +68,17 @@
 (defn- summarize-account
   [account depth]
   (let [children (summarize-accounts (inc depth) (:children account))]
-      (cons (-> account
-                (select-keys [:name :value])
-                (rename-keys {:name :caption})
-                (update-in [:value] (fn [value]
-                                      (->> children
-                                           (filter #(= (inc depth) (:depth %)))
-                                           (map :value)
-                                           (reduce + (or value 0M)))))
-                (assoc :style :data
-                       :depth depth))
-            children)))
+    (cons (-> account
+              (select-keys [:name :value])
+              (rename-keys {:name :caption})
+              (update-in [:value] (fn [value]
+                                    (->> children
+                                         (filter #(= (inc depth) (:depth %)))
+                                         (map :value)
+                                         (reduce + (or value 0M)))))
+              (assoc :style :data
+                     :depth depth))
+          children)))
 
 (defn- summarize-accounts
   ([accounts] (summarize-accounts 0 accounts))
@@ -124,11 +124,11 @@
 (defn- summarize-lots
   [lots]
   (.setScale
-    (->> lots
-         (map :current-value)
-         (reduce + 0M))
-    2
-    BigDecimal/ROUND_HALF_UP))
+   (->> lots
+        (map :current-value)
+        (reduce + 0M))
+   2
+   BigDecimal/ROUND_HALF_UP))
 
 (defn- summarize-commodity-value
   [entry]
@@ -175,11 +175,11 @@
   [{:keys [lots]}]
   (when (seq lots)
     (.setScale
-      (->> lots
-           (map :gains)
-           (reduce + 0M))
-      2
-      BigDecimal/ROUND_HALF_UP)))
+     (->> lots
+          (map :gains)
+          (reduce + 0M))
+     2
+     BigDecimal/ROUND_HALF_UP)))
 
 (defn- append-unrealized-gains
   [mapped-accounts ctx]
@@ -249,9 +249,9 @@
   [lot-transactions prices {:keys [commodity-id id shares-purchased purchase-price] :as lot}]
   (let [current-price (get-in prices [commodity-id])
         current-shares (- shares-purchased
-                  (->> (get-in lot-transactions [id])
-                       (map :shares)
-                       (reduce + 0M)))
+                          (->> (get-in lot-transactions [id])
+                               (map :shares)
+                               (reduce + 0M)))
         cost-basis (* current-shares purchase-price)
         current-value (* current-price current-shares)]
     (assoc lot
@@ -515,8 +515,8 @@
                                 (map (comp inc
                                            t/in-days
                                            #(t/interval
-                                              (tc/to-date-time (:start-date budget))
-                                              %)
+                                             (tc/to-date-time (:start-date budget))
+                                             %)
                                            tc/to-date-time))
                                 (apply /)))]
     (with-precision 5
@@ -539,9 +539,9 @@
 (defn- append-account-children
   [{:keys [account] :as ctx}]
   (let [children (remove
-                   #(= (:id %)  (:id account))
-                   (accounts/search {:id (:id account)}
-                                    {:include-children? true}))]
+                  #(= (:id %)  (:id account))
+                  (accounts/search {:id (:id account)}
+                                   {:include-children? true}))]
     (-> ctx
         (update-in [:account] assoc :child-ids (map :id children))
         (assoc :children children))))
@@ -602,8 +602,8 @@
                     {:caption "Cash"
                      :style :data
                      :value (transactions/balance-as-of
-                              account
-                              as-of)})
+                             account
+                             as-of)})
          summary (reduce (fn [result record]
                            (reduce (fn [r k]
                                      (update-in r [k] #(+ % (or (k record) 0M))))
@@ -641,9 +641,9 @@
          :transactions
          (mapcat transform-lot-transactions
                  (transactions/search
-                   {[:lot-transaction :lot-id] (:id lot)
-                    :transaction-date [:>= (:purchase-date lot)]}
-                   {:include-lot-items? true}))))
+                  {[:lot-transaction :lot-id] (:id lot)
+                   :transaction-date [:>= (:purchase-date lot)]}
+                  {:include-lot-items? true}))))
 
 (defn- append-lot-calculated-values
   [lot]
@@ -663,11 +663,11 @@
                        commodity-id
                        (assoc :commodity-id commodity-id)))
         (map #(-> %
-                   append-commodity
-                   append-current-price
-                   (dissoc :commodity)
-                   append-lot-transactions
-                   append-lot-calculated-values))
+                  append-commodity
+                  append-current-price
+                  (dissoc :commodity)
+                  append-lot-transactions
+                  append-lot-calculated-values))
         (sort-by :caption)
         (map #(dissoc % :id :shares-purchased :updated-at :created-at :account-id)))))
 
@@ -683,9 +683,9 @@
   [{:keys [lots] :as ctx}]
   (assoc ctx :commodities (if (seq lots)
                             (->> (commodities/search
-                                   {:id (->> lots
-                                             (map :commodity-id)
-                                             set)})
+                                  {:id (->> lots
+                                            (map :commodity-id)
+                                            set)})
                                  (map (juxt :id identity))
                                  (into {}))
                             {})))
@@ -728,8 +728,8 @@
 (defn- sum-fields
   [target fields coll]
   (reduce #(assoc %1 %2 (sum %2 coll))
-           target
-           fields))
+          target
+          fields))
 
 (defn- calc-gain-loss-percent
   [{:keys [cost-basis gain-loss] :as target}]
@@ -771,13 +771,13 @@
   (let [cash-value (or (get-in balances [account-id :balance])
                        0M)
         children (cons
-                   {:caption "Cash"
-                    :style :subheader
-                    :current-value cash-value
-                    :cost-basis cash-value
-                    :gain-loss 0M}
-                   (mapcat #(flatten-and-summarize-commodity % ctx)
-                           groups))]
+                  {:caption "Cash"
+                   :style :subheader
+                   :current-value cash-value
+                   :cost-basis cash-value
+                   :gain-loss 0M}
+                  (mapcat #(flatten-and-summarize-commodity % ctx)
+                          groups))]
     (->> children
          (map #(update-in % [:parents] (fnil conj #{}) account-id))
          (cons (summarize-gains {:caption (get-in accounts [account-id :name])
@@ -789,10 +789,10 @@
   [records]
   (concat records
           [(summarize-gains
-             {:caption "Total"
-              :style :summary
-              :id :summary}
-             (remove :parents records))]))
+            {:caption "Total"
+             :style :summary
+             :id :summary}
+            (remove :parents records))]))
 
 (defmulti flatten-and-summarize-portfolio dispatch-portfolio-fn)
 

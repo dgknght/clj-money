@@ -56,7 +56,6 @@
               (.setMinimumFractionDigits fraction-digits))
             value)))
 
-
 (defmulti presence
   #(cond
      (string? %) :string
@@ -98,8 +97,8 @@
   (str (name primary)
        (->> remaining
             (map #(if (= ::index %)
-                   "[]"
-                   (str "[" (name %) "]")))
+                    "[]"
+                    (str "[" (name %) "]")))
             (string/join ""))))
 
 (defn- prepare-value
@@ -174,7 +173,7 @@
   ([start end period-like]
    (take-while #(or (t/after? % start)
                     (t/equal? % start))
-                 (desc-periodic-seq end period-like))))
+               (desc-periodic-seq end period-like))))
 
 (defn serialize-date [d]
   (when d
@@ -330,26 +329,26 @@
                "at"
                "on")]
     (keyword
-      (str
-        key-base
-        "-"
-        (case oper
-          :>  "after"
-          :>= (str prep "-or-after")
-          :<  "before"
-          :<= (str prep "-or-before"))))))
+     (str
+      key-base
+      "-"
+      (case oper
+        :>  "after"
+        :>= (str prep "-or-after")
+        :<  "before"
+        :<= (str prep "-or-before"))))))
 
 (defn- apply-to-dynamic-keys
   [m {:keys [key-base suffixes update-fn]}]
   (let [str-k (name key-base)]
     (->> suffixes
-         (mapv #(keyword (str str-k %)) )
+         (mapv #(keyword (str str-k %)))
          (reduce (fn [result k]
-                    (if-let [value (get-in m [k])]
-                      (-> result
-                          (dissoc k)
-                          (update-fn str-k k value))
-                      result))
+                   (if-let [value (get-in m [k])]
+                     (-> result
+                         (dissoc k)
+                         (update-fn str-k k value))
+                     result))
                  m))))
 
 (defn- between->nominal
@@ -380,11 +379,11 @@
   (-> m
       (between->nominal key-base)
       (apply-to-dynamic-keys
-        {:key-base key-base
-         :suffixes ["-on" "-at" nil]
-         :update-fn (fn [result str-k _ value]
-                      (assoc result (nominal-key str-k value)
-                             (second value)))})))
+       {:key-base key-base
+        :suffixes ["-on" "-at" nil]
+        :update-fn (fn [result str-k _ value]
+                     (assoc result (nominal-key str-k value)
+                            (second value)))})))
 
 (def ^:private suffix-keys
   {"before"       :<
@@ -409,9 +408,9 @@
   [key-base k value]
   (let [key-suffix (string/replace (name k) (str key-base "-") "")
         final-key (keyword
-                    (str key-base
-                         (when-not (string/ends-with? key-base "-date")
-                           (if (includes-time? value) "-at" "-on"))))
+                   (str key-base
+                        (when-not (string/ends-with? key-base "-date")
+                          (if (includes-time? value) "-at" "-on"))))
         oper (get-in suffix-keys [key-suffix])]
     [final-key [oper value]]))
 
@@ -440,16 +439,16 @@
   (-> m
       (nominal->between key-base)
       (apply-to-dynamic-keys
-        {:key-base key-base
-         :suffixes ["-before"
-                    "-on-or-before"
-                    "-at-or-before"
-                    "-after"
-                    "-on-or-after"
-                    "-at-or-after"]
-         :update-fn (fn [result str-k k value]
-                      (let [[new-key value-with-oper] (symbolic-key str-k k value)]
-                        (assoc result new-key value-with-oper)))})))
+       {:key-base key-base
+        :suffixes ["-before"
+                   "-on-or-before"
+                   "-at-or-before"
+                   "-after"
+                   "-on-or-after"
+                   "-at-or-after"]
+        :update-fn (fn [result str-k k value]
+                     (let [[new-key value-with-oper] (symbolic-key str-k k value)]
+                       (assoc result new-key value-with-oper)))})))
 
 #?(:cljs
    (defn debounce

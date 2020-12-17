@@ -66,13 +66,11 @@
                                               (disj expanded id)
                                               (conj expanded id)))))
 
-
-
 (defn- recently-created?
   [{:keys [created-at]}]
   (t/before?
-    (t/minus (t/now) (-> 1 t/hours))
-    created-at))
+   (t/minus (t/now) (-> 1 t/hours))
+   created-at))
 
 (defn- account-hidden?
   [{:keys [parents] :as account} expanded hide-zero-balances?]
@@ -126,10 +124,9 @@
                                    [:tr.account-type {:id (str "account-type-" account-type)}
                                     [:td
                                      [:span.toggle-ctl {:aria-hidden true
-                                                        :on-click #(toggle-account account-type page-state)
-                                                        }
+                                                        :on-click #(toggle-account account-type page-state)}
                                       (bs/icon (if (@expanded account-type)
-                                                 :arrows-collapse 
+                                                 :arrows-collapse
                                                  :arrows-expand))]
                                      (name account-type)]
                                     [:td.text-right (currency-format (->> group
@@ -137,7 +134,7 @@
                                                                           (reduce decimal/+)))]
                                     [:td (html/space)]]]
                                   (doall (map #(account-row % expanded hide-zero-balances? page-state) group))))
-                     grouped))]))))
+                        grouped))]))))
 
 (defn- account-list
   [page-state]
@@ -175,46 +172,46 @@
     (fn []
       [:form
        (forms/typeahead-field
-         account
-         [:parent-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> @accounts
-                              (filter #(string/includes? (string/lower-case (:path %))
-                                                         term))
-                              callback)))
-          :caption-fn :path
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (->> @accounts
-                          (filter #(= id (:id %)))
-                          first
-                          callback))})
+        account
+        [:parent-id]
+        {:search-fn (fn [input callback]
+                      (let [term (string/lower-case input)]
+                        (->> @accounts
+                             (filter #(string/includes? (string/lower-case (:path %))
+                                                        term))
+                             callback)))
+         :caption-fn :path
+         :value-fn :id
+         :find-fn (fn [id callback]
+                    (->> @accounts
+                         (filter #(= id (:id %)))
+                         first
+                         callback))})
        (forms/select-field account
                            [:type]
                            (map (juxt name humanize) account-types)
                            {:class (when (:parent-id @account) "hidden")})
        (forms/text-field account [:name] {:validate [:required]})
        (forms/typeahead-field
-         account
-         [:commodity-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> @commodities
-                              vals
-                              (filter #(or (string/includes? (string/lower-case (:name %))
-                                                             term)
-                                           (string/includes? (string/lower-case (:symbol %))
-                                                             term)))
-                              callback)))
-          :caption-fn :name
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (callback (get-in @commodities [id])))})
+        account
+        [:commodity-id]
+        {:search-fn (fn [input callback]
+                      (let [term (string/lower-case input)]
+                        (->> @commodities
+                             vals
+                             (filter #(or (string/includes? (string/lower-case (:name %))
+                                                            term)
+                                          (string/includes? (string/lower-case (:symbol %))
+                                                            term)))
+                             callback)))
+         :caption-fn :name
+         :value-fn :id
+         :find-fn (fn [id callback]
+                    (callback (get-in @commodities [id])))})
        (forms/checkbox-field
-         account
-         [:trading]
-         {:caption "Check here if this account is used to trade commodities"})])))
+        account
+        [:trading]
+        {:caption "Check here if this account is used to trade commodities"})])))
 
 (defn- save-account
   [page-state]
@@ -235,7 +232,7 @@
         [:button.btn.btn-primary {:on-click #(save-account page-state)
                                   :title "Click here to save the account."}
          (bs/icon-with-text :check "Save")]
-        
+
         (html/space)
         [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :selected)
                                  :title "Click here to return to the list of accounts."}
@@ -246,10 +243,10 @@
   (let [account-id (get-in @page-state [:view-account :id])]
     (swap! page-state assoc
            :transaction (trns/mode
-                          {:entity-id (get-in @app-state [:current-entity :id])
-                           :transaction-date (t/today)
-                           :account-id account-id}
-                          ::trns/simple)))
+                         {:entity-id (get-in @app-state [:current-entity :id])
+                          :transaction-date (t/today)
+                          :account-id account-id}
+                         ::trns/simple)))
   (html/set-focus "transaction-date"))
 
 (defn- account-buttons
@@ -314,7 +311,7 @@
 (defn- neutralize
   [transaction mode accounts]
   (let [f (get-in (trns/untransformations accounts)
-                     [mode])]
+                  [mode])]
     (f transaction)))
 
 (defn- transaction-form
@@ -399,11 +396,11 @@
   (let [lots (r/cursor page-state [:lots])
         prices (r/cursor page-state [:prices])
         latest-price (make-reaction #(->> @prices
-                                           (sort-by (comp serialize-date :trade-date))
-                                           last))
+                                          (sort-by (comp serialize-date :trade-date))
+                                          last))
         total-shares (make-reaction #(->> @lots
-                                           (map :shares-owned)
-                                           (reduce decimal/+)))
+                                          (map :shares-owned)
+                                          (reduce decimal/+)))
         total-value (make-reaction #(decimal/* (or @total-shares
                                                    (decimal/zero))
                                                (or (:price @latest-price)
@@ -445,9 +442,9 @@
                                "text-success"
                                "text-danger")}
                      (format-percent (/ g-l
-                                             (* (:shares-purchased lot)
-                                                (:purchase-price lot)))
-                                          3)]])))]
+                                        (* (:shares-purchased lot)
+                                           (:purchase-price lot)))
+                                     3)]])))]
        [:tfoot
         [:tr
          [:td.text-right {:col-span 2}
@@ -461,8 +458,8 @@
           (currency-format @gain-loss)]
          [:td.text-right {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
           (format-percent (/ @gain-loss
-                                  @total-cost)
-                               3)]]]])))
+                             @total-cost)
+                          3)]]]])))
 
 (defn- tradable-account-items
   [page-state]
@@ -563,12 +560,12 @@
         view-account (r/cursor page-state [:view-account])]
     (load-accounts page-state)
     (load-commodities page-state)
-    
+
     (fn []
       [:div.mt-5
        [:div.accounts-header
         [:h1.accounts-title (str "Accounts" (when @view-account
-                                              (str " - " (:name @view-account) )))]]
+                                              (str " - " (:name @view-account))))]]
        (when-not (or @selected @view-account)
          [account-list page-state])
        (when @selected

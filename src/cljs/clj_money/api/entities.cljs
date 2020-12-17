@@ -21,8 +21,8 @@
   (api/create-resource (api/path :entities)
                        entity
                        (comp
-                         success-fn
-                         after-read)
+                        success-fn
+                        after-read)
                        error-fn))
 
 (defn update
@@ -30,8 +30,8 @@
   (api/update-resource (api/path :entities (:id entity))
                        entity
                        (comp
-                         success-fn
-                         after-read)
+                        success-fn
+                        after-read)
                        error-fn))
 
 (defn save

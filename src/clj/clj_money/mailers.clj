@@ -7,13 +7,13 @@
 (defn- alt-body
   [parts context]
   (concat
-    [:alternative]
-    (map #(-> %
-              (assoc :content (-> (:template-path %)
-                                  slurp ; will this work on heroku?
-                                  (render context)))
-              (dissoc :template-path))
-         parts)))
+   [:alternative]
+   (map #(-> %
+             (assoc :content (-> (:template-path %)
+                                 slurp ; will this work on heroku?
+                                 (render context)))
+             (dissoc :template-path))
+        parts)))
 
 (def ^:private invite-user-parts
   [{:type "text/plain"

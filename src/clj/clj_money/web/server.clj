@@ -48,9 +48,9 @@
 
 ; make sure we can handle joda types in json serialization
 (cheshire.generate/add-encoder
-  org.joda.time.LocalDate
-  (fn [local-date gen]
-    (.writeString gen (serialize-date local-date))))
+ org.joda.time.LocalDate
+ (fn [local-date gen]
+   (.writeString gen (serialize-date local-date))))
 
 (defroutes api-routes
   (-> (routes users-api/routes
@@ -68,9 +68,9 @@
               prices-api/routes
               trading-api/routes
               (ANY "/api/*" req
-                   (do
-                     (log/debugf "unable to match API route for %s \"%s\"." (:request-method req) (:uri req))
-                     (api/not-found))))
+                (do
+                  (log/debugf "unable to match API route for %s \"%s\"." (:request-method req) (:uri req))
+                  (api/not-found))))
       (wrap-routes wrap-integer-id-params)
       (wrap-json-body {:keywords? true :bigdecimals? true})
       wrap-authentication
@@ -93,16 +93,16 @@
   [handler]
   (fn [req]
     (try+
-      (handler req)
-      (catch [:type :clj-money.models/not-found] error-data
-        (not-found))
-      (catch [:type :clj-money.authorization/no-rules] error-data
-        (internal-error))
-      (catch [:type :clj-money.authorization/unauthorized] error-data
-        (not-found))
-      (catch Exception e
-        (api/log-error e "unexpected error")
-        (internal-error)))))
+     (handler req)
+     (catch [:type :clj-money.models/not-found] error-data
+       (not-found))
+     (catch [:type :clj-money.authorization/no-rules] error-data
+       (internal-error))
+     (catch [:type :clj-money.authorization/unauthorized] error-data
+       (not-found))
+     (catch Exception e
+       (api/log-error e "unexpected error")
+       (internal-error)))))
 
 (defroutes protected-web-routes
   (-> images/routes
@@ -130,9 +130,9 @@
               protected-web-routes
               (GET "*" _ (res/redirect "/"))
               (ANY "*" req
-                   (do
-                     (log/debugf "unable to match route for \"%s\"." (:uri req))
-                     (not-found))))
+                (do
+                  (log/debugf "unable to match route for \"%s\"." (:uri req))
+                  (not-found))))
       (wrap-resource "public")
       wrap-cookies
       wrap-keyword-params

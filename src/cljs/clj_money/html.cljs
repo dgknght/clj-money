@@ -4,7 +4,7 @@
 (defn special-char
   ([k] (special-char k {}))
   ([k options]
-  [:span (merge options {:dangerouslySetInnerHTML {:__html (str "&" (name k) ";")}})]))
+   [:span (merge options {:dangerouslySetInnerHTML {:__html (str "&" (name k) ";")}})]))
 
 (defn space
   "Renders an HTML non-breakable space."

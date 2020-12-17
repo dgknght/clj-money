@@ -59,13 +59,13 @@
   [path success-fn error-fn]
   (go (let [response (<! (http/get path
                                    (append-auth (request))))]
-         (if (= 200 (:status response))
-           (success-fn (:body response))
-           (do
-             (.log js/console
-                   (str "Unable to get from " path)
-                   (prn-str (:body response)))
-             (error-fn (extract-error response)))))))
+        (if (= 200 (:status response))
+          (success-fn (:body response))
+          (do
+            (.log js/console
+                  (str "Unable to get from " path)
+                  (prn-str (:body response)))
+            (error-fn (extract-error response)))))))
 
 (defn get-resources
   ([path success-fn error-fn]

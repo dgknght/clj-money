@@ -33,11 +33,11 @@
 
 (defn index []
   (html5
-    [:html {:lang "en"}
-     (head)
-     [:body
-      [:div#app]
-      (include-js "/js/app/main.js")]]))
+   [:html {:lang "en"}
+    (head)
+    [:body
+     [:div#app]
+     (include-js "/js/app/main.js")]]))
 
 (defroutes routes
   (GET "/" [] (index)))

@@ -74,8 +74,8 @@
      value
      [:span {:title value}
       (str
-        (apply str (take (- length 3) value))
-        "...")])))
+       (apply str (take (- length 3) value))
+       "...")])))
 
 (defn- commodity-row
   [{price :most-recent-price :as commodity} page-state]
@@ -184,17 +184,17 @@
   [page-state]
   (let [end (t/local-date (inc (t/year (t/today))) 1 1)]
     (load-in-chunks
-      {:start (t/minus- end (t/years 10))
-       :end end
-       :interval (t/years 1)
-       :ctl-chan (:prices-ctl-chan @page-state)
-       :fetch-fn (fn [date-range callback-fn]
-                   (prices/search {:trade-date date-range
-                                   :commodity-id (get-in @page-state [:prices-commodity :id])}
-                                  callback-fn
-                                  (notify/danger-fn "Unable to fetch prices: %s")))
-       :receive-fn #(swap! page-state update-in [:prices] (fnil into []) %)
-       :finish-fn #(swap! page-state assoc :all-prices-fetched? true)})))
+     {:start (t/minus- end (t/years 10))
+      :end end
+      :interval (t/years 1)
+      :ctl-chan (:prices-ctl-chan @page-state)
+      :fetch-fn (fn [date-range callback-fn]
+                  (prices/search {:trade-date date-range
+                                  :commodity-id (get-in @page-state [:prices-commodity :id])}
+                                 callback-fn
+                                 (notify/danger-fn "Unable to fetch prices: %s")))
+      :receive-fn #(swap! page-state update-in [:prices] (fnil into []) %)
+      :finish-fn #(swap! page-state assoc :all-prices-fetched? true)})))
 
 (defn- price-list
   [page-state]
@@ -212,7 +212,7 @@
           [:tr
            [:th.text-right "Trade Date"]
            [:th.text-right "Price"]
-           [:th (html/space)]] ]
+           [:th (html/space)]]]
          [:tbody
           (if @prices
             (doall (map #(price-row % page-state) @prices))
@@ -295,7 +295,7 @@
         prices-commodity (r/cursor page-state [:prices-commodity])
         selected-price (r/cursor page-state [:selected-price])]
     (load-commodities page-state)
-    
+
     (fn []
       [:div.mt-5
        [:div.row

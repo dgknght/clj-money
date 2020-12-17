@@ -163,10 +163,10 @@
 (defn- refresh-button
   [page-state]
   (let [attr (if @auto-refresh
-                  {:class "btn-danger"
-                   :title "Click here to stop the auto-refresh."}
-                  {:class "btn-success"
-                   :title "Click here to auto-refresh the page."})]
+               {:class "btn-danger"
+                :title "Click here to stop the auto-refresh."}
+               {:class "btn-success"
+                :title "Click here to auto-refresh the page."})]
     [:button.btn (assoc attr :on-click (fn []
                                          (swap! auto-refresh not)
                                          (when @auto-refresh

@@ -15,6 +15,6 @@
 (defmethod read-source :edn
   [_ inputs out-chan]
   (<!! (onto-chan
-         out-chan
-         (mapcat read-input inputs)
-         true)))
+        out-chan
+        (mapcat read-input inputs)
+        true)))

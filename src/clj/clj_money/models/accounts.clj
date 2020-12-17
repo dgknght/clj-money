@@ -27,12 +27,12 @@
 (defn- default-commodity-id
   [entity-id]
   (let [entity (entities/find entity-id)]
-      (or (-> entity :settings :default-commodity-id)
-          (->> {:entity-id entity-id
-                :type :currency}
-               commodities/search
-               first
-               :id))))
+    (or (-> entity :settings :default-commodity-id)
+        (->> {:entity-id entity-id
+              :type :currency}
+             commodities/search
+             first
+             :id))))
 
 (declare find)
 (defn- before-validation
@@ -110,14 +110,13 @@
   (find-by {:entity-id entity-id
             :name account-name}))
 
-
 (defn- name-is-unique?
   [{:keys [id parent-id name entity-id type]}]
   (nil? (find-by (assoc-if {:entity-id entity-id
-                                    :parent-id parent-id
-                                    :name name
-                                    :type type}
-                                   :id [:!= id]))))
+                            :parent-id parent-id
+                            :name name
+                            :type type}
+                           :id [:!= id]))))
 
 (defn- parent-has-same-type?
   "Validation rule that ensure an account

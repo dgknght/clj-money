@@ -68,8 +68,8 @@
   (transactions/get-one (item->tkey item)
                         (fn [result]
                           (let [prepared (prepare-transaction-for-edit
-                                           result
-                                           (:view-account @page-state))]
+                                          result
+                                          (:view-account @page-state))]
                             (swap! page-state assoc :transaction prepared))
                           (set-focus "transaction-date"))
                         notify/danger))
@@ -83,11 +83,11 @@
   [page-state]
   (let [account (:view-account @page-state)]
     (transaction-items/search
-      {:account-id (:id account)
-       :unreconciled true
-       :include-children (:include-children? @page-state)}
-      #(swap! page-state assoc :items %)
-      (notify/danger-fn "Unable to load the unreconciled items: %s"))))
+     {:account-id (:id account)
+      :unreconciled true
+      :include-children (:include-children? @page-state)}
+     #(swap! page-state assoc :items %)
+     (notify/danger-fn "Unable to load the unreconciled items: %s"))))
 
 (defn- load-attachments
   [page-state items]
@@ -98,35 +98,35 @@
     (att/search {:transaction-date [:between start end]
                  :transaction-id ids}
                 #(swap! page-state
-                       update-in
-                       [:attachments]
-                       (fnil (partial merge-with conj) {})
-                       (group-by :transaction-id %))
+                        update-in
+                        [:attachments]
+                        (fnil (partial merge-with conj) {})
+                        (group-by :transaction-id %))
                 (notify/danger-fn "Unable to load the attachments: %s"))))
 
 (defn init-item-loading
   [page-state]
   (let [account (:view-account @page-state)
         end (t/last-day-of-the-month (or (:latest-transaction-date account)
-                                          (t/today))) ; This is probably only nil for newly imported entities
+                                         (t/today))) ; This is probably only nil for newly imported entities
         start (t/first-day-of-the-month (or (:earliest-transaction-date account)
-                                                 (t/minus- end (t/months 6))))]
+                                            (t/minus- end (t/months 6))))]
     (swap! page-state dissoc :items :all-items-fetched?)
     (load-in-chunks
-      {:start start
-       :end end
-       :ctl-chan (:ctl-chan @page-state)
-       :fetch-fn (fn [date-range callback-fn]
-                   (transaction-items/search
-                     {:account-id (:id account)
-                      :transaction-date date-range}
-                     (fn [result]
-                       (when (seq result)
-                         (load-attachments page-state result))
-                       (callback-fn result))
-                     (notify/danger-fn "Unable to fetch transaction items: %s")))
-       :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
-       :finish-fn #(swap! page-state assoc :all-items-fetched? true)})))
+     {:start start
+      :end end
+      :ctl-chan (:ctl-chan @page-state)
+      :fetch-fn (fn [date-range callback-fn]
+                  (transaction-items/search
+                   {:account-id (:id account)
+                    :transaction-date date-range}
+                   (fn [result]
+                     (when (seq result)
+                       (load-attachments page-state result))
+                     (callback-fn result))
+                   (notify/danger-fn "Unable to fetch transaction items: %s")))
+      :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
+      :finish-fn #(swap! page-state assoc :all-items-fetched? true)})))
 
 (defn reset-item-loading
   [page-state]
@@ -179,10 +179,10 @@
       (if @reconciliation
         [forms/checkbox-input reconciliation [:item-refs (:id item)]]
         (bs/icon
-          (case (:reconciliation-status item)
-            :completed :check-box
-            :new       :dot
-            :unchecked-box)))]
+         (case (:reconciliation-status item)
+           :completed :check-box
+           :new       :dot
+           :unchecked-box)))]
      (when-not @reconciliation
        [:td.text-right (currency-format (:balance item))])
      (when-not @reconciliation
@@ -392,21 +392,21 @@
        (forms/text-field transaction [:description] {:validate [:required]})
        (forms/decimal-field transaction [:quantity] {:validate [:required]})
        [forms/typeahead-field
-         transaction
-         [:other-account-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> @accounts
-                              (filter #(string/includes? (string/lower-case (:path %))
-                                                         term))
-                              callback)))
-          :caption-fn :path
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (->> @accounts
-                          (filter #(= id (:id %)))
-                          first
-                          callback))}]])))
+        transaction
+        [:other-account-id]
+        {:search-fn (fn [input callback]
+                      (let [term (string/lower-case input)]
+                        (->> @accounts
+                             (filter #(string/includes? (string/lower-case (:path %))
+                                                        term))
+                             callback)))
+         :caption-fn :path
+         :value-fn :id
+         :find-fn (fn [id callback]
+                    (->> @accounts
+                         (filter #(= id (:id %)))
+                         first
+                         callback))}]])))
 
 (defn dividend-transaction-form
   [page-state]
@@ -419,21 +419,21 @@
                                                      :caption "Dividend"})
        (forms/decimal-field transaction [:shares] {:validate [:required]})
        [forms/typeahead-field
-         transaction
-         [:commodity-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> @commodities
-                              vals
-                              (filter #(or (string/includes? (string/lower-case (:name %))
-                                                             term)
-                                           (string/includes? (string/lower-case (:symbol %))
-                                                             term)))
-                              callback)))
-          :caption-fn #(str (:name %) " (" (:symbol %) ")")
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (callback (get-in @commodities [id])))}]])))
+        transaction
+        [:commodity-id]
+        {:search-fn (fn [input callback]
+                      (let [term (string/lower-case input)]
+                        (->> @commodities
+                             vals
+                             (filter #(or (string/includes? (string/lower-case (:name %))
+                                                            term)
+                                          (string/includes? (string/lower-case (:symbol %))
+                                                            term)))
+                             callback)))
+         :caption-fn #(str (:name %) " (" (:symbol %) ")")
+         :value-fn :id
+         :find-fn (fn [id callback]
+                    (callback (get-in @commodities [id])))}]])))
 
 (defn trade-transaction-form
   [page-state]
@@ -446,21 +446,21 @@
        [forms/decimal-field transaction [:shares] {:validate [:required]}]
        [forms/decimal-field transaction [:value] {:validate [:required]}]
        [forms/typeahead-field
-         transaction
-         [:commodity-id]
-         {:search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> @commodities
-                              vals
-                              (filter #(or (string/includes? (string/lower-case (:name %))
-                                                             term)
-                                           (string/includes? (string/lower-case (:symbol %))
-                                                             term)))
-                              callback)))
-          :caption-fn :symbol
-          :value-fn :id
-          :find-fn (fn [id callback]
-                     (callback (get-in @commodities [id])))}]])))
+        transaction
+        [:commodity-id]
+        {:search-fn (fn [input callback]
+                      (let [term (string/lower-case input)]
+                        (->> @commodities
+                             vals
+                             (filter #(or (string/includes? (string/lower-case (:name %))
+                                                            term)
+                                          (string/includes? (string/lower-case (:symbol %))
+                                                            term)))
+                             callback)))
+         :caption-fn :symbol
+         :value-fn :id
+         :find-fn (fn [id callback]
+                    (callback (get-in @commodities [id])))}]])))
 
 (defn transformations
   [account accounts commodities]

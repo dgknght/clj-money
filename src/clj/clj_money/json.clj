@@ -6,6 +6,6 @@
 (add-encoder org.joda.time.DateTime
              (fn [date-time json-generator]
                (.writeString
-                 json-generator
-                 (tf/unparse (:ordinal-date-time tf/formatters)
-                             date-time))))
+                json-generator
+                (tf/unparse (:ordinal-date-time tf/formatters)
+                            date-time))))

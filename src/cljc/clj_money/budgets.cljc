@@ -59,10 +59,10 @@
         income (render-income (:items with-accounts))
         expense (render-expense (:items with-accounts))
         net-periods (->> [income expense]
-                           (map :periods)
-                           (apply interleave)
-                           (partition 2)
-                           (map #(apply - %)))
+                         (map :periods)
+                         (apply interleave)
+                         (partition 2)
+                         (map #(apply - %)))
         net {:caption "Net"
              :periods net-periods
              :total (reduce + net-periods)}]

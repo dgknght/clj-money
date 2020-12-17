@@ -22,9 +22,9 @@
   [imp]
   (let [progress-chan (chan)]
     (go-loop [progress (<! progress-chan)]
-             (when progress
-               (imports/update (assoc imp :progress progress))
-               (recur (<! progress-chan))))
+      (when progress
+        (imports/update (assoc imp :progress progress))
+        (recur (<! progress-chan))))
     (import-data imp progress-chan)))
 
 (defn- infer-content-type
@@ -37,8 +37,8 @@
     (if (#{"gnucash" "edn"} ext)
       (format "application/%s" ext)
       (throw (ex-info (format
-                        "Unable to infer the content type from the source file: %s"
-                        (:filename source-file))
+                       "Unable to infer the content type from the source file: %s"
+                       (:filename source-file))
                       {:extension ext
                        :source-file source-file})))))
 

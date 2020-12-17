@@ -109,8 +109,8 @@
          [forms/text-field selected [:name] {:validate [:required]}]
          [forms/date-field selected [:start-date] {:validate [:required]}]
          [forms/select-field selected [:period] (->> budgets/periods
-                                             (map name)
-                                             sort)]
+                                                     (map name)
+                                                     sort)]
          [forms/integer-field selected [:period-count]]]]
        [:div.card-footer
         [:button.btn.btn-primary {:on-click #(save-budget page-state)
@@ -155,11 +155,11 @@
    [:td (:caption item)]
    (when detail?
      (doall
-       (map-indexed
-         (fn [index value]
-           ^{:key (str "period-value-" (:id item) "-" index)}
-           [:td.text-right (format-decimal value)])
-         (:periods (:item item)))))
+      (map-indexed
+       (fn [index value]
+         ^{:key (str "period-value-" (:id item) "-" index)}
+         [:td.text-right (format-decimal value)])
+       (:periods (:item item)))))
    [:td.text-right (format-decimal (:total item))]
    [:td
     [:div.btn-group
@@ -177,11 +177,11 @@
    [:td (:caption item-group)]
    (when detail?
      (doall
-       (map-indexed
-         (fn [index _value]
-           ^{:key (str "period-value-" (:caption item-group) "-" index)}
-           [:td (html/space)])
-         (:periods item-group))))
+      (map-indexed
+       (fn [index _value]
+         ^{:key (str "period-value-" (:caption item-group) "-" index)}
+         [:td (html/space)])
+       (:periods item-group))))
    [:td {:col-span 2} (html/space)]])
 
 (defn- budget-item-group-footer-row
@@ -191,11 +191,11 @@
    [:td (html/space)]
    (when detail?
      (doall
-       (map-indexed
-         (fn [index value]
-           ^{:key (str "period-value-" (:caption item-group) "-" index)}
-           [:td.text-right (format-decimal value)])
-         (:periods item-group))))
+      (map-indexed
+       (fn [index value]
+         ^{:key (str "period-value-" (:caption item-group) "-" index)}
+         [:td.text-right (format-decimal value)])
+       (:periods item-group))))
    [:td.text-right (format-decimal (:total item-group))]
    [:td (html/space)]])
 
@@ -203,7 +203,7 @@
   [item-group detail? page-state]
   (concat [(budget-item-group-header-row item-group detail?)]
           (map #(budget-item-row % detail? page-state)
-               (:items item-group))  
+               (:items item-group))
           [(budget-item-group-footer-row item-group detail?)]))
 
 (defn- budget-items-table
@@ -226,10 +226,10 @@
          [:th "Account"]
          (when @detail?
            (doall
-             (map (fn [index]
-                    ^{:key (str "period-header-" index)}
-                    [:th.text-right (budgets/period-description index @budget)])
-                  (range @period-count))))
+            (map (fn [index]
+                   ^{:key (str "period-header-" index)}
+                   [:th.text-right (budgets/period-description index @budget)])
+                 (range @period-count))))
          [:th.text-right "Total"]
          [:th (html/space)]]]
        [:tbody
@@ -267,14 +267,14 @@
                        item
                        %)
                     items)))]
-  (update-in budget [:items] f)))
+    (update-in budget [:items] f)))
 
 (defn- save-budget-item
   [page-state]
   (let [budget (get-in @page-state [:detailed-budget])
         item (apply-budget-item-updates
-               (get-in @page-state [:selected-item])
-               budget)]
+              (get-in @page-state [:selected-item])
+              budget)]
     (api/save (update-budget-item budget item)
               (fn [saved]
                 (swap! page-state

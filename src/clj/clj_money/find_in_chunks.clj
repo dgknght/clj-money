@@ -8,15 +8,16 @@
 ; For finding batches of records in partitioned tables in multiple queries
 ; spanning multiple dates in order to avoid many one-record queries
 
+
 (defn- fetch-records
   [{:keys [fetch-fn] :as opts} xf]
   {:pre [(:fetch-fn opts)]}
   (completing
-    (fn [{:keys [ids] :as acc} date]
-      (let [records (fetch-fn ids date)]
-        (if (seq records)
-          (xf acc records)
-          (xf acc))))))
+   (fn [{:keys [ids] :as acc} date]
+     (let [records (fetch-fn ids date)]
+       (if (seq records)
+         (xf acc records)
+         (xf acc))))))
 
 (defn- integrate-records
   [{:keys [id-fn
@@ -28,29 +29,29 @@
   {:pre [(:id-fn opts) (:find-one-fn opts)]}
 
   (completing
-    (fn [acc fetched]
-      (xf
-        (update-in acc
-                   [:results]
-                   (fn [records]
-                     (->> fetched
-                          (group-by id-fn)
-                          (map #(update-in % [1] (comp transform-fn
-                                                       find-one-fn)))
-                          (into records))))
-        fetched))))
+   (fn [acc fetched]
+     (xf
+      (update-in acc
+                 [:results]
+                 (fn [records]
+                   (->> fetched
+                        (group-by id-fn)
+                        (map #(update-in % [1] (comp transform-fn
+                                                     find-one-fn)))
+                        (into records))))
+      fetched))))
 
 (defn- remove-satisfied
   [{:keys [id-fn] :as opts} xf]
   {:pre [(:id-fn opts)]}
 
   (completing
-    (fn [acc fetched]
-      (xf (update-in acc
-                     [:ids]
-                     #(apply disj % (map id-fn
-                                         fetched)))
-          fetched))))
+   (fn [acc fetched]
+     (xf (update-in acc
+                    [:ids]
+                    #(apply disj % (map id-fn
+                                        fetched)))
+         fetched))))
 
 (defn find
   "Given a list of ids, find a list of matching values from the database,

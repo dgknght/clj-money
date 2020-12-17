@@ -68,8 +68,8 @@
 
 (def ^:private empty-item?
   (complement
-    (some-fn :debit-quantity
-             :credit-quantity)))
+   (some-fn :debit-quantity
+            :credit-quantity)))
 
 (defn- unentryfy-item
   [{:keys [debit-quantity credit-quantity] :as item}]
@@ -132,7 +132,7 @@
                    (partition 2)
                    (map #(hash-map :account-id (first %)
                                    :action (second %)
-                                   :quantity shares))) ]
+                                   :quantity shares)))]
     (-> transaction
         (rename-keys {:trade-date :transaction-date})
         (assoc :items items)

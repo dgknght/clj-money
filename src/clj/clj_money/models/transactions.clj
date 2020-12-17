@@ -133,23 +133,23 @@
 (defn- before-item-validation
   [item]
   (cond->
-    (-> item
-        (update-in [:value] #(or % (:quantity item)))
-        (assoc :balance (bigdec 0))
-        (update-in [:index] (fnil identity (Integer/MAX_VALUE))))
+   (-> item
+       (update-in [:value] #(or % (:quantity item)))
+       (assoc :balance (bigdec 0))
+       (update-in [:index] (fnil identity (Integer/MAX_VALUE))))
 
     (string? (:account-id item))
     (update-in [:account-id] #(Integer. %))
 
     (or (nil? (:id item))
         (and
-          (string? (:id item))
-          (empty? (:id item))))
+         (string? (:id item))
+         (empty? (:id item))))
     (dissoc :id)
 
     (and
-      (string? (:id item))
-      (seq (:id item)))
+     (string? (:id item))
+     (seq (:id item)))
     (update-in [:id] uuid)))
 
 (defn- expand-simplified-items
@@ -173,9 +173,9 @@
       (update-in [:items] (fn [items]
                             (->> items
                                  (map #(merge % (select-keys
-                                                  transaction
-                                                  [:transaction-date
-                                                   :origin-transaction-date])))
+                                                 transaction
+                                                 [:transaction-date
+                                                  :origin-transaction-date])))
                                  (map before-item-validation))))))
 
 (defn- after-validation
@@ -297,18 +297,18 @@
   [item]
   (with-storage (env :db)
     (let [records-affected (storage/update
-                             (-> item
-                                 before-save-item
-                                 (select-keys [:balance
-                                               :index
-                                               :negative]))
-                             [:and
-                              {:id (:id item)
-                               :transaction-date (some #(% item)  [:original-transaction-date
-                                                                   :transaction-date])}
-                              [:or
-                               {:balance [:!= (:balance item)]}
-                               {:index [:!= (:index item)]}]])]
+                            (-> item
+                                before-save-item
+                                (select-keys [:balance
+                                              :index
+                                              :negative]))
+                            [:and
+                             {:id (:id item)
+                              :transaction-date (some #(% item)  [:original-transaction-date
+                                                                  :transaction-date])}
+                             [:or
+                              {:balance [:!= (:balance item)]}
+                              {:index [:!= (:index item)]}]])]
       (> records-affected 0))))
 
 (declare reload)
@@ -335,8 +335,8 @@
   [#'sum-of-credits-must-equal-sum-of-debits
    #'transaction-dates-must-match
    (v/create-rule no-reconciled-items-changed?
-                           [:items]
-                           "A reconciled transaction item cannot be changed")])
+                  [:items]
+                  "A reconciled transaction item cannot be changed")])
 
 (defn- validate
   [transaction spec]
@@ -475,7 +475,6 @@
       (* (:price price) balance)
       0M)))
 
-
 (defn recalculate-account
   "Recalculates statistics for items in the the specified account
   as of the specified date"
@@ -497,7 +496,7 @@
           last-date] (if (seq items)
                        (process-items account base-item items options)
                        (if base-item
-                         ((juxt :index :quantity) base-item )
+                         ((juxt :index :quantity) base-item)
                          [0 0M]))]
      (when (not (nil? last-index))
        (let [value (account-value balance account)]
@@ -525,9 +524,9 @@
     (assert as-of "Unable to find the earliest transaction date.")
     (with-transacted-storage (env :db)
       (storage/update (tag {:account-id (:id to-account)
-                                    :index 0
-                                    :balance nil}
-                                   ::models/transaction-item)
+                            :index 0
+                            :balance nil}
+                           ::models/transaction-item)
                       {:account-id (:id from-account)
                        :transaction-date [:>= as-of]})
       (doseq [account [from-account to-account]]
@@ -563,14 +562,14 @@
 (defn- process-item-creation
   [trans items]
   (assoc trans :items (mapv
-                        #(-> %
-                             (assoc
-                               :transaction-id (:id trans)
-                               :transaction-date (:transaction-date trans)
-                               :index -1)
-                             before-save-item
-                             create-transaction-item*)
-                        items)))
+                       #(-> %
+                            (assoc
+                             :transaction-id (:id trans)
+                             :transaction-date (:transaction-date trans)
+                             :index -1)
+                            before-save-item
+                            create-transaction-item*)
+                       items)))
 
 (defn create
   "Creates a new transaction"
@@ -604,8 +603,8 @@
   (with-storage (env :db)
     (when-let [{:keys [transaction-id
                        transaction-date]} (find-item
-                                            item-id
-                                            transaction-date)]
+                                           item-id
+                                           transaction-date)]
       (find transaction-id transaction-date))))
 
 (defn items-by-account
@@ -641,11 +640,11 @@
   (let [search-date (or original-transaction-date transaction-date)]
     (or (find id search-date)
         (throw (ex-info
-                 (format "Unable to find transaction with id %s and date %s"
-                         id
-                         search-date)
-                 {:id id
-                  :search-date search-date})))))
+                (format "Unable to find transaction with id %s and date %s"
+                        id
+                        search-date)
+                {:id id
+                 :search-date search-date})))))
 
 (defn- update-transaction*
   [transaction]
@@ -760,14 +759,14 @@
   "Returns the balance for the specified account as of the specified date"
   [account as-of]
   (or (:balance
-        (find-last-item-on-or-before account as-of))
+       (find-last-item-on-or-before account as-of))
       0M))
 
 (defn find-items-by-ids
   [ids date-range]
   (search-items
-    {:id ids
-     :transaction-date (vec (concat [:between] date-range))}))
+   {:id ids
+    :transaction-date (vec (concat [:between] date-range))}))
 
 (defmacro with-delayed-balancing
   [entity-id & body]

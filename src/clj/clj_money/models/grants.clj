@@ -91,6 +91,6 @@
   [grant resource-type action]
   (when grant ; TODO: change this not to tolerate nil values
     (action
-      (->> grant
+     (->> grant
           :permissions
           resource-type))))

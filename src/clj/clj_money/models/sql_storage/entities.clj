@@ -14,8 +14,8 @@
 (defmethod stg/insert ::models/entity
   [entity db-spec]
   (insert-model db-spec :entities entity :name
-                                     :user-id
-                                     :settings))
+                :user-id
+                :settings))
 
 (defmethod stg/select ::models/entity
   [criteria options db-spec]

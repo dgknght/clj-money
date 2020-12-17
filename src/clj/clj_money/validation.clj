@@ -99,7 +99,7 @@
              (= 'clojure.core/instance? (second pred)))
     (let [humanized (-> path last humanize)
           message (if (:val problem)
-                    (format "%s must be an instance of %s" humanized (nth pred 2))   
+                    (format "%s must be an instance of %s" humanized (nth pred 2))
                     (format "%s is required" humanized))]
       [path message])))
 

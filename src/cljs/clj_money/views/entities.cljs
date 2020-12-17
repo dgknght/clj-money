@@ -7,7 +7,7 @@
             [clj-money.notifications :as notify]
             [clj-money.state :as state :refer [app-state]]
             [clj-money.forms :refer [text-field
-                                           #_radio-buttons]]))
+                                     #_radio-buttons]]))
 
 (defn- delete
   [entity page-state]
@@ -117,7 +117,7 @@
          (bs/icon-with-text :plus "Add")]
         (html/space)
         [:button.btn.btn-light {:on-click #(secretary/dispatch! "/imports")
-                                  :title "Click here to import an entity from another accounting system"}
+                                :title "Click here to import an entity from another accounting system"}
          (bs/icon-with-text :file-arrow-up "Import")]]
        (when @selected
          [:div.col-md-6

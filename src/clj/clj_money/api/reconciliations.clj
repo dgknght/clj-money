@@ -39,8 +39,8 @@
 (defn- index
   [req]
   (->response
-    (recs/search (extract-criteria req)
-                 (extract-options req))))
+   (recs/search (extract-criteria req)
+                (extract-options req))))
 
 (defn- unserialize-item-ref
   [item-ref]
@@ -70,7 +70,7 @@
   (-> body
       (dissoc :id)
       (update-in-if [:status] keyword)
-      (update-in-if [:balance ] bigdec)
+      (update-in-if [:balance] bigdec)
       (update-in-if [:end-of-period] unserialize-date)
       (update-in-if [:item-refs] (fn [item-refs]
                                    (map #(-> %

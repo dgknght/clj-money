@@ -21,12 +21,12 @@
 (defmethod stg/select ::models/identity
   [criteria options db-spec]
   (let [sql (-> (select :i.*
-                            [:u.first_name :user_first_name]
-                            [:u.last_name :user_last_name]
-                            [:u.email :user_email])
-                  (from [:identities :i])
-                  (join [:users :u] [:= :u.id :i.user_id])
-                  (apply-criteria criteria {:prefix "i"})
-                  (apply-limit options))]
-      (log/debugf "select-identities %s - %s" (prn-str criteria) (prn-str (sql/format sql)))
-      (query db-spec sql)))
+                        [:u.first_name :user_first_name]
+                        [:u.last_name :user_last_name]
+                        [:u.email :user_email])
+                (from [:identities :i])
+                (join [:users :u] [:= :u.id :i.user_id])
+                (apply-criteria criteria {:prefix "i"})
+                (apply-limit options))]
+    (log/debugf "select-identities %s - %s" (prn-str criteria) (prn-str (sql/format sql)))
+    (query db-spec sql)))

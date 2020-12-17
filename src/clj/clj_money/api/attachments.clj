@@ -71,16 +71,16 @@
                                          (select-keys [:id])
                                          (+scope ::models/attachment authenticated)))]
     (authorize
-      attachment
-      action
-      authenticated)))
+     attachment
+     action
+     authenticated)))
 
 (defn- update
   [{:keys [body] :as req}]
   (if-let [attachment (find-and-auth req ::auth/update)]
     (->response
-      (att/update (merge attachment
-                         (select-keys body [:caption]))))
+     (att/update (merge attachment
+                        (select-keys body [:caption]))))
     (not-found)))
 
 (defn- delete

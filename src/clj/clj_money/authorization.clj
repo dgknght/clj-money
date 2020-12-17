@@ -23,10 +23,10 @@
   [model action user]
   {:pre [model action user]}
   (if (allowed? model action user)
-      model
-      (throw+ {:type ::unauthorized
-               :action action
-               :model (storage/tag model)})))
+    model
+    (throw+ {:type ::unauthorized
+             :action action
+             :model (storage/tag model)})))
 
 (defmulti scope
   "Returns a criteria structure limiting the scope

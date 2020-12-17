@@ -90,12 +90,12 @@
                                                                       (reduce + 0M)))))
                                     (into {}))]
     (when (and credit
-             debit
-             (not= credit debit))
+               debit
+               (not= credit debit))
       (assoc transaction
-               :items items
-               :total-credits credit
-               :total-debits debit))))
+             :items items
+             :total-credits credit
+             :total-debits debit))))
 
 (defn- resolve-account-fn
   [query]
@@ -103,11 +103,11 @@
     (fn [{:keys [account_id] :as item}]
       (assoc item :account (or (get-in @accounts [account_id])
                                (let [account (first
-                                               (query
-                                                 (-> (select :*)
-                                                     (from :accounts)
-                                                     (where [:= :id account_id])
-                                                     (limit 1))))]
+                                              (query
+                                               (-> (select :*)
+                                                   (from :accounts)
+                                                   (where [:= :id account_id])
+                                                   (limit 1))))]
                                  (swap! accounts assoc account_id account)
                                  account))))))
 
@@ -115,31 +115,31 @@
   [out-of-balance query]
   (let [resolve-account (resolve-account-fn query)]
     (pprint
-      (map (fn [trns]
-             (-> trns
-                 (select-keys [:id
-                               :transaction_date
-                               :description
-                               :items
-                               :total-credits
-                               :total-debits])
-                 (update-in [:items] (fn [items]
-                                       (map (comp #(select-keys % [:account-name
-                                                                   :action
-                                                                   :quantity
-                                                                   :value])
-                                                  #(assoc % :account-name (get-in % [:account :name]))
-                                                  resolve-account)
-                                            items)))))
-           out-of-balance)
-      (io/writer "./target/out-of-balance.edn"))))
+     (map (fn [trns]
+            (-> trns
+                (select-keys [:id
+                              :transaction_date
+                              :description
+                              :items
+                              :total-credits
+                              :total-debits])
+                (update-in [:items] (fn [items]
+                                      (map (comp #(select-keys % [:account-name
+                                                                  :action
+                                                                  :quantity
+                                                                  :value])
+                                                 #(assoc % :account-name (get-in % [:account :name]))
+                                                 resolve-account)
+                                           items)))))
+          out-of-balance)
+     (io/writer "./target/out-of-balance.edn"))))
 
 (defn- trace
   [progress f]
   (completing
-    (fn [acc trns]
-      (go (>! progress (if trns "X" ".")))
-      (f acc trns))))
+   (fn [acc trns]
+     (go (>! progress (if trns "X" ".")))
+     (f acc trns))))
 
 (defn- check-transactions
   [{:keys [user-email entity-name]}]
@@ -149,19 +149,19 @@
     (let [query #(jdbc/query db (sql/format %))
           _ (println "get the entity")
           entity (first
-                   (query (-> (select :*)
-                              (from :entities)
-                              (where [:= :name entity-name])
-                              (limit 1))))
+                  (query (-> (select :*)
+                             (from :entities)
+                             (where [:= :name entity-name])
+                             (limit 1))))
           _ (println "get the transactions")
           transactions (query (-> (select :*)
                                   (from :transactions)
                                   (where [:= :entity_id (:id entity)])))
           progress (chan (buffer 100))
           _ (go-loop []
-                     (print (<! progress))
-                     (flush)
-                     (recur))
+              (print (<! progress))
+              (flush)
+              (recur))
           _ (println "check the transactions")
           out-of-balance (<!! (go (->> transactions
                                        (map #(out-of-balance? % query))
@@ -176,8 +176,8 @@
 (defn check-transaction-balances
   [& args]
   (let [{:keys [options errors summary]} (parse-opts
-                                           args
-                                           check-transaction-balances-options)]
+                                          args
+                                          check-transaction-balances-options)]
     (try
       (check-transactions options)
       (catch AssertionError _

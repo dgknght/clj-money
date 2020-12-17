@@ -33,7 +33,7 @@
 
 (defn- create
   [req]
-  (let [entity (extract-entity req) ]
+  (let [entity (extract-entity req)]
     (try
       (let [result (entities/create entity)]
         (if (validation/has-error? result)
@@ -68,9 +68,9 @@
         (->  (if (env :show-error-messages?)
                (.getMessage e)
                "Unable to save the entity.")
-            response
-            (header "Content-Type" "application/json")
-            (status 500))))))
+             response
+             (header "Content-Type" "application/json")
+             (status 500))))))
 
 (defn- delete
   [{:keys [params authenticated]}]

@@ -22,17 +22,17 @@
   [{{:keys [start-date end-date]} :params :as req}]
   (if-let [entity (fetch-entity req)]
     (api/->response
-      (rpt/income-statement entity
-                            (unserialize-date start-date)
-                            (unserialize-date end-date)))
+     (rpt/income-statement entity
+                           (unserialize-date start-date)
+                           (unserialize-date end-date)))
     (api/not-found)))
 
 (defn- balance-sheet
   [{:keys [params] :as req}]
   (if-let [entity (fetch-entity req)]
     (api/->response
-      (rpt/balance-sheet entity
-                         (unserialize-date (:as-of params))))
+     (rpt/balance-sheet entity
+                        (unserialize-date (:as-of params))))
     (api/not-found)))
 
 (defn- portfolio
@@ -51,9 +51,9 @@
                                             ::models/budget
                                             authenticated))]
     (api/->response
-      (rpt/budget budget (-> params
-                             (select-keys [:as-of])
-                             (update-in-if [:as-of] unserialize-date))))
+     (rpt/budget budget (-> params
+                            (select-keys [:as-of])
+                            (update-in-if [:as-of] unserialize-date))))
     (api/not-found)))
 
 (defn- flatten-ratio
@@ -84,17 +84,17 @@
 
 (defroutes routes
   (GET "/api/entities/:entity-id/reports/income-statement/:start-date/:end-date"
-       req
-       (income-statement req))
+    req
+    (income-statement req))
   (GET "/api/entities/:entity-id/reports/balance-sheet/:as-of"
-       req
-       (balance-sheet req))
+    req
+    (balance-sheet req))
   (GET "/api/entities/:entity-id/reports/budget-monitors"
-       req
-       (monitors req))
+    req
+    (monitors req))
   (GET "/api/entities/:entity-id/reports/portfolio"
-       req
-       (portfolio req))
+    req
+    (portfolio req))
   (GET "/api/reports/budget/:budget-id"
-       req
-       (budget req)))
+    req
+    (budget req)))

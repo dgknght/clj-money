@@ -55,8 +55,8 @@
 (defn- normalize-collection-param
   [param]
   (update-in param [0] #(if-let [match (re-find #"^(.+)\[\]$" %)]
-                           (keyword (second match))
-                           %)))
+                          (keyword (second match))
+                          %)))
 
 (defn- normalize-collection-params
   [params]
@@ -76,20 +76,20 @@
   [handler]
   (fn [request]
     (try+
-      (handler request)
-      (catch [:type :clj-money.models/not-found] error-data
-        (api/not-found))
-      (catch [:type :clj-money.authorization/no-rules] error-data
-        (-> {:message "no authorization rules"}
-            response
-            (status 500)
-            (header "Content-Type" "application/json")))
-      (catch [:type :clj-money.authorization/unauthorized] error-data
-        (api/not-found))
-      (catch Exception e
-        (api/log-error e "unexpected error")
-        (-> {:message (str "unexpected error: " (or (.getMessage e)
-                                                    (.getClass e)))}
-            response
-            (status 500)
-            (header "Content-Type" "application/json"))))))
+     (handler request)
+     (catch [:type :clj-money.models/not-found] error-data
+       (api/not-found))
+     (catch [:type :clj-money.authorization/no-rules] error-data
+       (-> {:message "no authorization rules"}
+           response
+           (status 500)
+           (header "Content-Type" "application/json")))
+     (catch [:type :clj-money.authorization/unauthorized] error-data
+       (api/not-found))
+     (catch Exception e
+       (api/log-error e "unexpected error")
+       (-> {:message (str "unexpected error: " (or (.getMessage e)
+                                                   (.getClass e)))}
+           response
+           (status 500)
+           (header "Content-Type" "application/json"))))))

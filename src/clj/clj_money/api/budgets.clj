@@ -34,12 +34,12 @@
 (defn- create
   [{:keys [authenticated params] :as req}]
   (-> req
-    extract-budget
-    (assoc :entity-id (:entity-id params))
-    (stow/tag ::models/budget)
-    (authorize ::auth/create authenticated)
-    budgets/create
-    (->response 201)))
+      extract-budget
+      (assoc :entity-id (:entity-id params))
+      (stow/tag ::models/budget)
+      (authorize ::auth/create authenticated)
+      budgets/create
+      (->response 201)))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
@@ -58,9 +58,9 @@
   [req]
   (if-let [budget (find-and-auth req ::auth/update)]
     (->response
-      (-> budget
-        (merge (extract-budget req))
-        budgets/update))
+     (-> budget
+         (merge (extract-budget req))
+         budgets/update))
     (not-found)))
 
 (defn- delete

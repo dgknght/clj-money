@@ -55,8 +55,8 @@
 (defn- find-by-identity
   [provider {:keys [id]}]
   (identity->user (find-by
-                    {:provider provider
-                     :provider-id id})))
+                   {:provider provider
+                    :provider-id id})))
 
 (defn- find-by-email
   [provider {:keys [email id]}]

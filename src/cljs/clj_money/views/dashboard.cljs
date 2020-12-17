@@ -43,10 +43,10 @@
         {:search-fn (fn [input callback]
                       (let [term (string/lower-case input)]
                         (->> @accounts
-                                        vals
-                                        (filter #(string/includes? (string/lower-case (:path %))
-                                                                     term))
-                                        callback)))
+                             vals
+                             (filter #(string/includes? (string/lower-case (:path %))
+                                                        term))
+                             callback)))
          :caption-fn :path
          :value-fn :id
          :find-fn (fn [id callback]

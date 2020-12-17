@@ -36,8 +36,8 @@
   [{:keys [account-id] :as criteria} include-children?]
   (if include-children?
     (merge criteria (->criteria (acts/search
-                                  {:id account-id}
-                                  {:include-children? true})))
+                                 {:id account-id}
+                                 {:include-children? true})))
     criteria))
 
 (defn- ensure-dates

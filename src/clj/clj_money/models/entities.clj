@@ -42,7 +42,7 @@
   ([criteria]
    (find-by criteria {}))
   ([criteria options]
-  (first (select criteria (merge options {:limit 1})))))
+   (first (select criteria (merge options {:limit 1})))))
 
 (defn find
   "Finds the entity with the specified ID"
@@ -93,10 +93,10 @@
   specified user, or creates it if it is not found."
   [user entity-name]
   (or
-    (find-by {:user-id (:id user)
-              :name entity-name})
-    (create {:user-id (:id user)
-             :name entity-name})))
+   (find-by {:user-id (:id user)
+             :name entity-name})
+   (create {:user-id (:id user)
+            :name entity-name})))
 
 (defn update
   [entity]

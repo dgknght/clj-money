@@ -39,9 +39,9 @@
              (and (:start-date params)
                   (:end-date params)))]}
   (->response (prices/search (->  params
-                                 (handle-start-end-dates)
-                                 (select-keys [:commodity-id :entity-id :trade-date])
-                                 (+scope ::models/price authenticated))
+                                  (handle-start-end-dates)
+                                  (select-keys [:commodity-id :entity-id :trade-date])
+                                  (+scope ::models/price authenticated))
                              {:sort [[:trade-date :desc]]})))
 
 (defn- create
@@ -67,10 +67,10 @@
   [{:keys [body] :as req}]
   (if-let [price (scoped-find req ::authorization/update)]
     (->response (prices/update
-                  (merge price (-> body
-                                   (select-keys [:price :trade-date])
-                                   (update-in-if [:price] bigdec)
-                                   (update-in [:trade-date] unserialize-date)))))
+                 (merge price (-> body
+                                  (select-keys [:price :trade-date])
+                                  (update-in-if [:price] bigdec)
+                                  (update-in [:trade-date] unserialize-date)))))
     (not-found)))
 
 (defn- delete

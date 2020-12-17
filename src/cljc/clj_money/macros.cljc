@@ -17,12 +17,12 @@
                         :max-attempts 3}
                        options)]
     `(a/go-loop [attempt# 1]
-                (let [result# (try
-                                ~@body
-                                true ; assuming that the caller doesn't care about the return value
-                                (catch js/Error e#
-                                  false))]
-                  (when (and (not result#)
-                             (< attempt# (:max-attempts ~options)))
-                    (a/<! (a/timeout (:timeout ~options)))
-                    (recur (inc attempt#)))))))
+       (let [result# (try
+                       ~@body
+                       true ; assuming that the caller doesn't care about the return value
+                       (catch js/Error e#
+                         false))]
+         (when (and (not result#)
+                    (< attempt# (:max-attempts ~options)))
+           (a/<! (a/timeout (:timeout ~options)))
+           (recur (inc attempt#)))))))

@@ -64,7 +64,7 @@
   ([criteria]
    (find-by criteria {}))
   ([criteria options]
-  (first (search criteria (merge options {:limit 1})))))
+   (first (search criteria (merge options {:limit 1})))))
 
 (defn find
   "Returns the commodity having the specified ID"

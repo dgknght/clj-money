@@ -85,10 +85,10 @@
       (dissoc :selected-attachment)
       (update-in [:attachments (:transaction-id attachment)]
                  (fn [attachments]
-                      (map #(if (= (:id attachment) (:id %))
-                              attachment
-                              %)
-                           attachments)))))
+                   (map #(if (= (:id attachment) (:id %))
+                           attachment
+                           %)
+                        attachments)))))
 
 (defn- save-attachment
   [page-state]

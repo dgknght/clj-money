@@ -50,14 +50,14 @@
                                    (.addEventListener targetElem "scroll" (partial debounced-scroll-listener this))))
         detach-scroll-listener identity]
     (r/create-class
-      {:component-did-mount (fn [this]
+     {:component-did-mount (fn [this]
+                             (attach-scroll-listener this))
+      :component-did-update (fn [this]
                               (attach-scroll-listener this))
-       :component-did-update (fn [this]
-                               (attach-scroll-listener this))
-       :component-will-unmount (fn [this]
-                                 (detach-scroll-listener this))
-       :reagent-render (fn [_]
-                         [:span.text-muted @message])})))
+      :component-will-unmount (fn [this]
+                                (detach-scroll-listener this))
+      :reagent-render (fn [_]
+                        [:span.text-muted @message])})))
 
 (defn- ensure-range
   [start end ranges]
@@ -83,9 +83,9 @@
 
     ; handle items received on the items channel
     (go-loop [call-count 0]
-             (when-let [received (<! items-chan)]
-               (receive-fn received)
-               (recur (inc call-count))))
+      (when-let [received (<! items-chan)]
+        (receive-fn received)
+        (recur (inc call-count))))
 
     ; respond to requests for more items by querying
     ; the service and putting the retrieved items
@@ -98,21 +98,21 @@
                                (take-while #(t/before? start (second %)))
                                (ensure-range start end)
                                (map #(apply vector :between %)))]
-             (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause
-                   count-needed (if (number? action)
-                                  action
-                                  50)]
-               (when (not= :quit action)
-                 (fetch-fn (first date-ranges)
-                           #(go
-                              (>! items-chan %)
-                              (when (< (count %)
-                                       count-needed)
-                                (>! ctl-chan (- count-needed (count %)))))))
-               (if (and (not= :quit action)
-                        (seq (rest date-ranges)))
-                 (recur (rest date-ranges))
-                 (finish-fn))))
+      (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause
+            count-needed (if (number? action)
+                           action
+                           50)]
+        (when (not= :quit action)
+          (fetch-fn (first date-ranges)
+                    #(go
+                       (>! items-chan %)
+                       (when (< (count %)
+                                count-needed)
+                         (>! ctl-chan (- count-needed (count %)))))))
+        (if (and (not= :quit action)
+                 (seq (rest date-ranges)))
+          (recur (rest date-ranges))
+          (finish-fn))))
 
     ; Get the first batch
     (go (>! ctl-chan :fetch))))

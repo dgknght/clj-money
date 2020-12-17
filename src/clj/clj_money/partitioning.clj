@@ -11,11 +11,11 @@
 (defmethod ^:private suffix :year
   [{:keys [interval-count] [start-date next-start-date] :dates}]
   (if (= 1 interval-count)
-      (format "_y%s" (t/year start-date))
-      (format "_y%s_y%s"
-              (t/year start-date)
-              (t/year (t/minus next-start-date
-                               (t/days 1))))))
+    (format "_y%s" (t/year start-date))
+    (format "_y%s_y%s"
+            (t/year start-date)
+            (t/year (t/minus next-start-date
+                             (t/days 1))))))
 
 (defmethod ^:private suffix :month
   [{:keys [interval-count] [start-date next-start-date] :dates}]
@@ -65,12 +65,12 @@
 (defn- create-table-cmd
   [{:keys [table-name dates suffix]}]
   (format
-    "create table if not exists %s%s partition of %s for values from ('%s') to ('%s');"
-    table-name
-    suffix
-    table-name
-    (first dates)
-    (second dates)))
+   "create table if not exists %s%s partition of %s for values from ('%s') to ('%s');"
+   table-name
+   suffix
+   table-name
+   (first dates)
+   (second dates)))
 
 (defmulti ^:private anchor
   "Given a date and an interval count, return the first valid starting date for

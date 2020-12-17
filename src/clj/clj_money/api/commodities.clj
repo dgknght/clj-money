@@ -21,7 +21,7 @@
 (defn- count
   [req]
   (->response
-    {:count (coms/count (scoped-params req))}))
+   {:count (coms/count (scoped-params req))}))
 
 (defn- append-current-prices
   [commodities]
@@ -35,8 +35,8 @@
 (defn- index
   [req]
   (->response
-    (append-current-prices
-      (coms/search (scoped-params req)))))
+   (append-current-prices
+    (coms/search (scoped-params req)))))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]

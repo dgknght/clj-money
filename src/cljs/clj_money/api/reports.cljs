@@ -56,9 +56,9 @@
    (portfolio {:aggregate :by-account} success-fn error-fn))
   ([options success-fn error-fn]
    (api/get-resources (str (api/path :entities
-                                (:id @current-entity)
-                                :reports
-                                :portfolio)
+                                     (:id @current-entity)
+                                     :reports
+                                     :portfolio)
                            "?"
                            (-> options
                                (update-in-if [:as-of] serialize-date)

@@ -4,7 +4,7 @@
             [clj-money.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
-(defmethod authorization/allowed? [::models/account ::authorization/manage] 
+(defmethod authorization/allowed? [::models/account ::authorization/manage]
   [account action user]
   (owner-or-granted? account user action))
 

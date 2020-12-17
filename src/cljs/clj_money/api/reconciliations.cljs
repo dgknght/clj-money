@@ -38,25 +38,25 @@
 (defn create
   [{:keys [account-id] :as reconciliation} success-fn error-fn]
   (api/create-resource
-    (api/path :accounts
-              account-id
-              :reconciliations)
-    (-> reconciliation
-        (dissoc :account-id)
-        before-save)
-    success-fn
-    error-fn))
+   (api/path :accounts
+             account-id
+             :reconciliations)
+   (-> reconciliation
+       (dissoc :account-id)
+       before-save)
+   success-fn
+   error-fn))
 
 (defn update
   [{:keys [id] :as reconciliation} success-fn error-fn]
   (api/update-resource
-    (api/path :reconciliations
-              id)
-    (-> reconciliation
-        (dissoc :id :account-id)
-        before-save)
-    success-fn
-    error-fn))
+   (api/path :reconciliations
+             id)
+   (-> reconciliation
+       (dissoc :id :account-id)
+       before-save)
+   success-fn
+   error-fn))
 
 (defn save
   [reconciliation success-fn error-fn]

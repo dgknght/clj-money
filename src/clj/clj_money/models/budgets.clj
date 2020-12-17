@@ -223,9 +223,9 @@
   the specified date is in the specified period"
   [period date]
   (t/within?
-    (to-date-time (:start period))
-    (to-date-time (:end period))
-    (to-date-time date)))
+   (to-date-time (:start period))
+   (to-date-time (:end period))
+   (to-date-time date)))
 
 (defn period-containing
   "Returns the budget period containing the specified date

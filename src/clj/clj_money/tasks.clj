@@ -17,8 +17,8 @@
                          title]
                   :or {validate (constantly true)}}]
   (let [{:keys [options
-                 summary
-                 errors]} (parse-opts args cli-opts)
+                summary
+                errors]} (parse-opts args cli-opts)
         validation-error (when-not (:help? options)
                            (validate options))
         print-fn (fn []
@@ -76,10 +76,10 @@
           (doseq [account accounts]
             (println (format "Processing account \"%s\"..." (:name account)))
             (transactions/recalculate-account
-              (:id account)
-              (or (:earliest-transaction-date account)
-                  (t/local-date 2006 1 1))
-              {:force true})
+             (:id account)
+             (or (:earliest-transaction-date account)
+                 (t/local-date 2006 1 1))
+             {:force true})
             (println ""))
           (println "Done."))))))
 
@@ -125,7 +125,7 @@
    ["-e" "--entity" "Entity name"
     :required "Identifies the entity for which accounts are to be recalculated"]
    ["-h" "--help"
-    :id :help? ]])
+    :id :help?]])
 
 (defn- validate-migrate-account-options
   [options]
@@ -139,10 +139,10 @@
 (defn migrate-account
   [& args]
   (when-let [opts (read-args
-               args
-               migrate-account-cli-options
-               {:title "MIGRATE ACCOUNT"
-                :validate validate-migrate-account-options})]
+                   args
+                   migrate-account-cli-options
+                   {:title "MIGRATE ACCOUNT"
+                    :validate validate-migrate-account-options})]
     (let [user (users/find-by {:email (:user opts)})
           entity (entities/find-by {:user-id (:id user)
                                     :name (:entity opts)})

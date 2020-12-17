@@ -61,7 +61,7 @@
               (map (comp #(with-meta (vector :th.text-center {:scope "col"
                                                               :width "14%"}
                                              %)
-                                     {:key (str "day-of-week-" %)})
+                            {:key (str "day-of-week-" %)})
                          :abbreviation))
               doall)]]
        [:tbody

@@ -12,8 +12,8 @@
     (-> price
         (update-in [:price] ->decimal)
         (assoc
-          :trade-date trade-date
-          :original-trade-date trade-date))))
+         :trade-date trade-date
+         :original-trade-date trade-date))))
 
 (defn- adjust-trade-date
   [{:keys [trade-date] :as criteria}]

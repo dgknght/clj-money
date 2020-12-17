@@ -80,9 +80,9 @@
   [{:keys [body] :as req}]
   (if-let [account (find-and-auth req ::authorization/update)]
     (->response (accounts/update
-                  (merge account (-> body
-                                     (select-keys attribute-keys)
-                                     before-save))))
+                 (merge account (-> body
+                                    (select-keys attribute-keys)
+                                    before-save))))
     (not-found)))
 
 (defn- delete

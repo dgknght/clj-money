@@ -21,8 +21,8 @@
                                         (reduce #(assoc %1 (first %2) true)
                                                 {}
                                                 item-refs)))
-                             {:account-id (get-in @page-state
-                                                  [:view-account :id])})))
+                           {:account-id (get-in @page-state
+                                                [:view-account :id])})))
 
 (defn load-working-reconciliation
   [page-state]
@@ -74,7 +74,7 @@
   (swap! page-state assoc-in [:reconciliation :status] :completed)
   (save-reconciliation* page-state))
 
-(defn reconciliation-form 
+(defn reconciliation-form
   [page-state]
   (let [reconciliation (r/cursor page-state [:reconciliation])
         previous-balance (r/cursor page-state [:previous-reconciliation :balance])
@@ -85,15 +85,15 @@
         items (r/cursor page-state [:items])
         reconciled-total (make-reaction (fn []
                                           (->> @items
-                                              (filter #(@item-ids (:id %)))
-                                              (map :polarized-quantity)
-                                              (reduce decimal/+ 0))))
+                                               (filter #(@item-ids (:id %)))
+                                               (map :polarized-quantity)
+                                               (reduce decimal/+ 0))))
         working-balance (make-reaction #(decimal/+ @previous-balance
-                                         @reconciled-total))
+                                                   @reconciled-total))
         difference (make-reaction #(decimal/- (:balance @reconciliation)
-                                      @working-balance))
+                                              @working-balance))
         balanced? (make-reaction #(and (decimal/zero? @difference)
-                                       (seq @item-ids))) ]
+                                       (seq @item-ids)))]
     (load-previous-balance page-state)
     (fn []
       [:div.card

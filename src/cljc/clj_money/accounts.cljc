@@ -23,11 +23,11 @@
                       (sort-by :name)
                       vec)]
     (assoc account :children children
-                   :children-value (reduce #(plus %1
-                                                  (or (:value %2) 0M)
-                                                  (or (:children-value %2) 0M))
-                                             0M
-                                             children))))
+           :children-value (reduce #(plus %1
+                                          (or (:value %2) 0M)
+                                          (or (:children-value %2) 0M))
+                                   0M
+                                   children))))
 
 (defn nest
   "Accepts a list of accounts and nests
@@ -44,10 +44,10 @@
                                  #(assoc % :path (:name %))))
                       (group-by :type))]
      (mapv #(hash-map :type % :accounts (or
-                                          (->> (get-in grouped [%])
-                                               (sort-by :name)
-                                               vec)
-                                          []))
+                                         (->> (get-in grouped [%])
+                                              (sort-by :name)
+                                              vec)
+                                         []))
            (:account-types options)))))
 
 (defn- unnest*

@@ -30,14 +30,14 @@
    [:h1.display-5 "clj-money"]
    [:p "This is a double-entry accounting application that aims to be available anywhere."]
    [:a#login.btn.btn-light {:href "/auth/google/start"
-                              :title "Click here to sign in with a Google account"}
+                            :title "Click here to sign in with a Google account"}
     (html/google-g)
     [:span "Sign in with Google"]]])
 
 (secretary/defroute "/" []
-    (swap! app-state assoc :page (if @current-user
-                                   #'dashboard
-                                   #'home-page)))
+  (swap! app-state assoc :page (if @current-user
+                                 #'dashboard
+                                 #'home-page)))
 
 (defn- nil-page []
   (html/space))
@@ -50,10 +50,10 @@
                (let [page (get-in @app-state [:page])]
                  (swap! app-state assoc :page #'nil-page)
                  (js/setTimeout
-                     #(swap! app-state assoc
-                             :current-entity entity
-                             :page page)
-                     5)))})
+                  #(swap! app-state assoc
+                          :current-entity entity
+                          :page page)
+                  5)))})
 
 (def authenticated-nav-items
   [{:id :commodities}
@@ -125,10 +125,10 @@
       (let [items (nav-items @current-user @current-entity @active-nav)
             secondary-items (secondary-nav-items @current-user @entities @current-entity)]
         (bootstrap/navbar
-          {:title "clj-money"
-           :title-url "/"
-           :items items
-           :secondary-items secondary-items})))))
+         {:title "clj-money"
+          :title-url "/"
+          :items items
+          :secondary-items secondary-items})))))
 
 (defn- alerts []
   (fn []
@@ -163,23 +163,23 @@
     (when-let [auth-token (cookies/get :auth-token)]
       (swap! app-state assoc :auth-token auth-token)
       (users/me
-        #(swap! app-state assoc :current-user %)
-        (notify/danger-fn "Unable to get information for the user: %s"))
+       #(swap! app-state assoc :current-user %)
+       (notify/danger-fn "Unable to get information for the user: %s"))
       (entities/select
-        (fn [[entity :as result]]
-          (swap! app-state (fn [s]
-                             (-> s
-                                 (assoc :entities result)
-                                 (set-default-entity entity))))
-          (if entity
-            (secretary/dispatch! "/")
-            (secretary/dispatch! "/entities")))
-        (notify/danger-fn "Unable to get the entities: %s")))))
+       (fn [[entity :as result]]
+         (swap! app-state (fn [s]
+                            (-> s
+                                (assoc :entities result)
+                                (set-default-entity entity))))
+         (if entity
+           (secretary/dispatch! "/")
+           (secretary/dispatch! "/entities")))
+       (notify/danger-fn "Unable to get the entities: %s")))))
 
 (defn init! []
   (accountant/configure-navigation!
-    {:nav-handler #(secretary/dispatch! %)
-     :path-exists? #(secretary/locate-route %)})
+   {:nav-handler #(secretary/dispatch! %)
+    :path-exists? #(secretary/locate-route %)})
   (accountant/dispatch-current!)
   (sign-in-from-cookie)
   (mount-root))

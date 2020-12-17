@@ -75,7 +75,7 @@
   [model field options]
   [:div.form-group
    [:label {:for (->id field)} (or (:caption options)
-                            (->caption field))]
+                                   (->caption field))]
    [text-input model field options]])
 
 (defn- specialized-text-input
@@ -169,17 +169,17 @@
         model
         field
         (merge
-          date-input-defaults
-          {:on-accept (fn [d]
-                        (swap! ctl-state #(-> %
-                                              (update-in [:calendar] cal/select d)
-                                              (dissoc :visible?))))}
-          options
-          {:icon :calendar
-           :unparse-fn unparse-date
-           :parse-fn parse-date
-           :equals-fn #(when (and %1 %2) (t/equal? %1 %2))
-           :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
+         date-input-defaults
+         {:on-accept (fn [d]
+                       (swap! ctl-state #(-> %
+                                             (update-in [:calendar] cal/select d)
+                                             (dissoc :visible?))))}
+         options
+         {:icon :calendar
+          :unparse-fn unparse-date
+          :parse-fn parse-date
+          :equals-fn #(when (and %1 %2) (t/equal? %1 %2))
+          :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
        [:div.shadow.rounded {:class (when-not @visible? "d-none")
                              :style {:position :absolute
                                      :border "1px solid var(--dark)"

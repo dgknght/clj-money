@@ -79,8 +79,8 @@
   (let [hash (sha-1 (:body image))]
     (with-storage (env :db)
       (or
-        (find-by-hash (:user-id image) hash)
-        (create image)))))
+       (find-by-hash (:user-id image) hash)
+       (create image)))))
 
 (defn delete
   [image]

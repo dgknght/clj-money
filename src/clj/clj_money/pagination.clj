@@ -12,9 +12,9 @@
 (defn- validate-options
   [options]
   (if (s/valid? ::pagination-options options)
-      (merge {:page 1 :per-page 10 :max-pages 10} options)
-      (throw (RuntimeException. (str "Invalid pagination options: "
-                                     (s/explain-data ::pagination-options options))))))
+    (merge {:page 1 :per-page 10 :max-pages 10} options)
+    (throw (RuntimeException. (str "Invalid pagination options: "
+                                   (s/explain-data ::pagination-options options))))))
 
 (defn nav
   "Renders pagination navigation for the specified options
@@ -61,7 +61,7 @@
          [:a.btn.btn-default {:href (-> url
                                         (url/query {:page (if (= page-count page)
                                                             page-count
-                                                    (+ page 1))
+                                                            (+ page 1))
                                                     :per-page per-page})
                                         url/format-url)}
           [:span.glyphicon.glyphicon-step-forward {:aria-hidden true}]]

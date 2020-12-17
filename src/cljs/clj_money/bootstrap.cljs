@@ -147,7 +147,7 @@
    remove-fn]
   ^{:key (str "alert-" (:id alert))}
   [:div.alert.alert-dismissible.fade.show {:class (str "alert-" (name severity))
-         :role "alert"}
+                                           :role "alert"}
    [:button.btn-sm.close {:type :button
                           :aria-label "Close"
                           :on-click (fn [_] (remove-fn alert))}

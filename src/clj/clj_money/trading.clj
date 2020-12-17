@@ -79,8 +79,8 @@
   (if commodity-account-id
     (let [{:keys [parent-id commodity-id]
            :as account} (ensure-tag
-                          (accounts/find commodity-account-id)
-                          :tradable)]
+                         (accounts/find commodity-account-id)
+                         :tradable)]
       (assert account (str "Unable to load the commodity account: " commodity-account-id))
       (assoc context
              :commodity-account account
@@ -183,14 +183,14 @@
     (assoc context
            :transaction
            (transactions/create
-             {:entity-id (-> context :account :entity-id)
-              :transaction-date trade-date
-              :description (purchase-transaction-description context)
-              :items items
-              :lot-items [{:lot-id (:id lot)
-                           :lot-action :buy
-                           :price (with-precision 4 (/ value shares))
-                           :shares shares}]}))))
+            {:entity-id (-> context :account :entity-id)
+             :transaction-date trade-date
+             :description (purchase-transaction-description context)
+             :items items
+             :lot-items [{:lot-id (:id lot)
+                          :lot-action :buy
+                          :price (with-precision 4 (/ value shares))
+                          :shares shares}]}))))
 
 (defn- create-capital-gains-item
   [{:keys [quantity description long-term?]} context]
@@ -198,9 +198,9 @@
                           [:debit "loss"]
                           [:credit "gains"])
         account-key (keyword
-                      (format "%s-capital-%s-account-id"
-                              (if long-term? "lt" "st")
-                              effect))
+                     (format "%s-capital-%s-account-id"
+                             (if long-term? "lt" "st")
+                             effect))
         account-id (account-key context)]
     {:action action
      :account-id account-id
@@ -239,11 +239,11 @@
   [{:keys [trade-date] :as context}]
   (let [items (create-sale-transaction-items context)
         transaction (transactions/create
-                      {:entity-id (-> context :account :entity-id)
-                       :transaction-date trade-date
-                       :description (sale-transaction-description context)
-                       :items items
-                       :lot-items (:lot-items context)})]
+                     {:entity-id (-> context :account :entity-id)
+                      :transaction-date trade-date
+                      :description (sale-transaction-description context)
+                      :items items
+                      :lot-items (:lot-items context)})]
     (if (validation/has-error? transaction)
       (do
         (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
@@ -295,7 +295,7 @@
           commodity (commodities/find (:commodity-id lot))]
       (when (not= (:shares-purchased lot) (:shares-owned lot))
         (throw (IllegalStateException.
-                 "Cannot undo a purchase if shares have been sold from the lot")))
+                "Cannot undo a purchase if shares have been sold from the lot")))
       (transactions/delete transaction)
       (lots/delete lot)
       {:transaction transaction
@@ -331,10 +331,10 @@
         purchase-price (:purchase-price lot)
         adj-lot (lots/update (assoc lot :shares-owned new-lot-balance))
         gain (.setScale
-               (- (* shares-sold sale-price)
-                  (* shares-sold purchase-price))
-               2
-               BigDecimal/ROUND_HALF_UP)
+              (- (* shares-sold sale-price)
+                 (* shares-sold purchase-price))
+              2
+              BigDecimal/ROUND_HALF_UP)
         cut-off-date (t/plus (:purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
                                   (:trade-date context)))]
@@ -349,7 +349,7 @@
          (update-in [:gains] #(conj % {:description (format "Sell %s shares of %s at %s"
                                                             shares-sold
                                                             (-> context :commodity :symbol)
-                                                            (format-decimal sale-price {:fraction-digits 3}) )
+                                                            (format-decimal sale-price {:fraction-digits 3}))
                                        :quantity gain
                                        :long-term? long-term?})))
      remaining-shares-to-sell]))
@@ -365,8 +365,8 @@
     (log/warnf "Attempt to sell more shares when owned: %s" context))
 
   (loop [context (assoc context :lots []
-                                :gains []
-                                :lot-items [])
+                        :gains []
+                        :lot-items [])
          shares-remaining (:shares context)
          lot (first lots)
          remaining-lots (rest lots)]
@@ -404,13 +404,13 @@
 (defn- find-or-create-gains-account
   [{:keys [entity]} term result]
   (find-or-create-account
-    {:entity-id (:id entity)
-     :type (if (= "gains" result)
-             :income
-             :expense)
-     :name (str (if (= "lt" term) "Long-term" "Short-term")
-                " Capital "
-                (if (= "gains" result) "Gains" "Losses"))}))
+   {:entity-id (:id entity)
+    :type (if (= "gains" result)
+            :income
+            :expense)
+    :name (str (if (= "lt" term) "Long-term" "Short-term")
+               " Capital "
+               (if (= "gains" result) "Gains" "Losses"))}))
 
 (defn- ensure-gains-account
   [{:keys [entity] :as context} [term result]]
@@ -466,8 +466,8 @@
                                  :trading)
         [from-commodity-account
          to-commodity-account] (map #(find-or-create-commodity-account
-                                       %
-                                       commodity)
+                                      %
+                                      commodity)
                                     [from-account to-account])]
     (assoc context
            :from-account from-account
@@ -478,9 +478,9 @@
 (defn- process-transfer-lots
   [{:keys [commodity from-account to-account shares] :as context}]
   (let [to-move (->> (lots/search {:commodity-id (:id commodity)
-                                          :account-id (:id from-account)
-                                          :shares-owned [:> 0M]}
-                                         {:sort [:purchase-date]})
+                                   :account-id (:id from-account)
+                                   :shares-owned [:> 0M]}
+                                  {:sort [:purchase-date]})
                      (reduce (fn [acc {:keys [shares-owned] :as lot}]
                                (if (>= (:shares acc) shares)
                                  (reduced acc)
@@ -493,7 +493,7 @@
     (if (empty? to-move)
       (log/warnf "No lots found to transfer %s" (prn-str context))
       (assoc context :lots (mapv #(lots/update
-                                    (assoc % :account-id (:id to-account)))
+                                   (assoc % :account-id (:id to-account)))
                                  to-move)))))
 
 (defn- create-transfer-transaction
@@ -574,7 +574,7 @@
   [{:keys [lots ratio] :as context}]
   (assoc context
          :lots
-          (mapv #(apply-split-to-lot ratio %) lots)))
+         (mapv #(apply-split-to-lot ratio %) lots)))
 
 (defn- ratio->words
   [ratio]

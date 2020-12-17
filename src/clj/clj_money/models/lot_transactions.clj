@@ -31,8 +31,8 @@
 
   (with-storage (env :db)
     (after-read
-      (storage/create (tag lot-transaction
-                           ::models/lot-transaction)))))
+     (storage/create (tag lot-transaction
+                          ::models/lot-transaction)))))
 
 (defn update
   [lot-transaction]

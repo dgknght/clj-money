@@ -132,7 +132,7 @@
         (tag ::models/user)
         (assoc :password-reset-token token
                :token-expires-at (-> 24 t/hours t/from-now to-sql-date))
-        update) 
+        update)
     token))
 
 (defn reset-password

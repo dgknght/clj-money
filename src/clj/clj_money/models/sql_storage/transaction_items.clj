@@ -65,19 +65,19 @@
   [item db-spec]
   {:pre [(:transaction-date item)]}
   (insert-model db-spec
-                  :transaction_items
-                  item
-                  :transaction-id
-                  :transaction-date
-                  :account-id
-                  :reconciliation-id
-                  :action
-                  :quantity
-                  :negative
-                  :value
-                  :index
-                  :balance
-                  :memo))
+                :transaction_items
+                item
+                :transaction-id
+                :transaction-date
+                :account-id
+                :reconciliation-id
+                :action
+                :quantity
+                :negative
+                :value
+                :index
+                :balance
+                :memo))
 
 (defn- update-item
   [item db-spec]

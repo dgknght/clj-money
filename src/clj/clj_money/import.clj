@@ -69,9 +69,9 @@
                           (filter #(= path (second %)))
                           ffirst)]
       (update-in context [:entity] #(entities/update
-                                      (assoc-in %
-                                                [:settings setting]
-                                                (:id account))))
+                                     (assoc-in %
+                                               [:settings setting]
+                                               (:id account))))
       context)))
 
 (defn import-reconciliation
@@ -127,7 +127,7 @@
                               (:symbol created)
                               (validation/error-messages created))
                       created))
-    (log/infof "imported commodity %s (%s)" (:name created)  (:symbol created)))
+      (log/infof "imported commodity %s (%s)" (:name created)  (:symbol created)))
     (-> context
         (update-in [:commodities] #((fnil conj []) % created))
         (update-in [:commodities-by-symbol] #((fnil assoc {}) % symbol created))
@@ -178,8 +178,8 @@
           account-ids (map #(get-in accounts [(:account-id %)])
                            non-commodity-items)
           accounts-map (->> (accounts/search {:id account-ids})
-                        (map (juxt :id identity))
-                        (into {}))
+                            (map (juxt :id identity))
+                            (into {}))
           fee-items (filter #(= :expense (get-in accounts-map [(accounts (:account-id %)) :type]))
                             non-commodity-items)]
       (when (seq fee-items)
@@ -261,7 +261,7 @@
     transaction
     (let  [commodity-account (accounts/find (accounts commodity-account-id))]
       (assoc transaction :commodity-id (:commodity-id commodity-account)
-                         :account-id (:parent-id commodity-account)))))
+             :account-id (:parent-id commodity-account)))))
 
 (defmethod ^:private import-transaction :split
   [context transaction]
@@ -307,11 +307,11 @@
     ([context record]
      (if (report-progress? record)
        (xf
-         (update-in context [:progress
-                             (-> record meta :record-type)
-                             :imported]
-                    (fnil inc 0))
-         record)
+        (update-in context [:progress
+                            (-> record meta :record-type)
+                            :imported]
+                   (fnil inc 0))
+        record)
        (xf context record)))))
 
 (defmulti import-record*
@@ -330,14 +330,14 @@
   (let [result (accounts/create (-> account
                                     (assoc :entity-id (-> context :entity :id)
                                            :commodity-id (:id (find-commodity
-                                                                context
-                                                                commodity))
+                                                               context
+                                                               commodity))
                                            :parent-id (accounts parent-id))
                                     (dissoc :id :commodity)))]
     (when-not (:id result)
       (throw (ex-info (str
-                        "Unable to create the account "
-                        (validation/error-messages result))
+                       "Unable to create the account "
+                       (validation/error-messages result))
                       {:result result})))
     (log/info (format "imported account \"%s\"" (:name result)))
     (-> context
@@ -429,8 +429,8 @@
   [{:keys [account-id id]} {:keys [account-children earliest-date latest-date]}]
   (let [accounts (accounts/search {:id (if account-children
                                          (append-child-ids
-                                           account-id
-                                           account-children)
+                                          account-id
+                                          account-children)
                                          account-id)})]
     (transactions/search-items (assoc (->criteria accounts
                                                   {:earliest-date earliest-date

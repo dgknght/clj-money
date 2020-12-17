@@ -53,8 +53,8 @@
   (rpt/income-statement (select-keys (:income-statement @page-state) [:start-date :end-date])
                         (fn [result]
                           (swap! page-state #(-> %
-                                                (assoc-in [:income-statement :report] result)
-                                                (dissoc :loading?))))
+                                                 (assoc-in [:income-statement :report] result)
+                                                 (dissoc :loading?))))
                         (notify/danger-fn "Unable to fetch the report: %s")))
 
 (defn- income-statement-filter
@@ -281,8 +281,8 @@
   (update-in state
              [:portfolio (get-in state [:portfolio :current-nav]) :visible-ids]
              #(if (% id)
-                   (disj % id)
-                   (conj % id))))
+                (disj % id)
+                (conj % id))))
 
 (defn- format-shares
   [shares]

@@ -24,7 +24,7 @@
                   (select-keys create-attributes)
                   (storage/tag ::models/trade)
                   (authorize ::authorization/create authenticated))
-        result (f trade) ]
+        result (f trade)]
     (->response (select-keys result [:transaction :lot :lots]) 201)))
 
 (defroutes routes

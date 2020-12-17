@@ -22,12 +22,12 @@
             [clj-money.core]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream
-                          GZIPOutputStream]
+            GZIPOutputStream]
            [java.io File FileInputStream
-                         FileOutputStream]
+            FileOutputStream]
            [clojure.data.xml.event StartElementEvent
-                                   CharsEvent
-                                   EndElementEvent]))
+            CharsEvent
+            EndElementEvent]))
 
 (defn- blank-string?
   [v]
@@ -166,13 +166,13 @@
 (defmethod ^:private process-elem ::gnc/commodity
   [{:keys [out-chan child-content]} _]
   (>!! out-chan (with-meta (into {} (peek child-content))
-                           {:record-type :commodity}))
+                  {:record-type :commodity}))
   nil)
 
 (defmethod ^:private process-elem :price
   [{:keys [out-chan child-content]} _]
   (>!! out-chan (with-meta (into {} (peek child-content))
-                           {:record-type :price}))
+                  {:record-type :price}))
   nil)
 
 (defmethod ^:private process-elem ::gnc/account
@@ -184,7 +184,7 @@
                             (filter map?)
                             first)]
     (>!! out-chan (with-meta account
-                             {:record-type :account}))
+                    {:record-type :account}))
     (when reconciliation
       (>!! out-chan (assoc reconciliation :account-id (:id account)))))
   nil)
@@ -207,7 +207,7 @@
                                          (assoc r k v))))
                                    {:items []}
                                    (peek child-content))
-                           {:record-type :budget}))
+                  {:record-type :budget}))
   nil)
 
 (defmethod ^:private process-elem ::bgt/slots
@@ -266,7 +266,7 @@
                                              (filter map?)
                                              (map (juxt (comp keyword :key) :value))
                                              (into {}))
-                                        {:record-type :reconciliation})]
+                               {:record-type :reconciliation})]
 
       (= (take-last 5 tag-stack) ; include-children or last-date
          [::gnc/account
@@ -285,7 +285,7 @@
                                          (assoc r k v))))
                                    {:splits []}
                                    (peek child-content))
-                           {:record-type :transaction}))
+                  {:record-type :transaction}))
   nil)
 
 (defmethod ^:private process-elem ::trn/splits
@@ -392,8 +392,8 @@
         interval (t/months 1)
         last-trade-date (get-in @state [k])
         ignore? (when last-trade-date
-                 (t/before? trade-date
-                            (t/minus last-trade-date interval)))]
+                  (t/before? trade-date
+                             (t/minus last-trade-date interval)))]
     (if ignore?
       (with-meta {} (merge (meta price) {:ignore? true}))
       (do
@@ -495,10 +495,10 @@
     (-> transaction
         abs-items
         (assoc
-          :action :buy
-          :shares (:quantity commodity-item)
-          :value (:value commodity-item)
-          :commodity-account-id (:account-id commodity-item))
+         :action :buy
+         :shares (:quantity commodity-item)
+         :value (:value commodity-item)
+         :commodity-account-id (:account-id commodity-item))
         (update-in [:items] adjust-trade-actions))))
 
 (defmethod ^:private refine-trading-transaction :sell
@@ -509,10 +509,10 @@
     (-> transaction
         abs-items
         (assoc
-          :trade-date (:transaction-date transaction)
-          :action :sell
-          :shares (.abs (:quantity commodity-item))
-          :commodity-account-id (:account-id commodity-item))
+         :trade-date (:transaction-date transaction)
+         :action :sell
+         :shares (.abs (:quantity commodity-item))
+         :commodity-account-id (:account-id commodity-item))
         (update-in [:items] adjust-trade-actions))))
 
 (defmethod ^:private refine-trading-transaction :transfer
@@ -576,8 +576,8 @@
       (vary-meta assoc
                  :ignore?
                  (boolean
-                   (some #(re-find % (get-in transaction [:description] ""))
-                         ignore-transaction-patterns)))
+                  (some #(re-find % (get-in transaction [:description] ""))
+                        ignore-transaction-patterns)))
       refine-trading-transaction))
 
 (defn- process-budget-item
@@ -619,13 +619,13 @@
 (defn- log-records
   [xf]
   (completing
-    (fn [acc record]
-      (let [record-type (-> record meta :record-type)]
-        (when (reporting-types record-type)
-          (log/debugf "reporting %s: %s"
-                      (name record-type)
-                      (prn-str record))))
-      (xf acc record))))
+   (fn [acc record]
+     (let [record-type (-> record meta :record-type)]
+       (when (reporting-types record-type)
+         (log/debugf "reporting %s: %s"
+                     (name record-type)
+                     (prn-str record))))
+     (xf acc record))))
 
 (defmethod read-source :gnucash
   [_ inputs out-chan]

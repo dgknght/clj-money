@@ -28,8 +28,8 @@
     (let [ids (map first item-refs)
           date-range ((juxt first last) (sort (map second item-refs)))]
       (transactions/find-items-by-ids
-        ids
-        date-range))
+       ids
+       date-range))
     []))
 
 (defn- fetch-items
@@ -72,7 +72,7 @@
            :item-refs
            (mapv (juxt :id :transaction-date)
                  (transactions/select-items-by-reconciliation
-                       reconciliation)))))
+                  reconciliation)))))
 
 (defn- after-read
   [reconciliation]
@@ -119,7 +119,7 @@
   [{:keys [account-id balance] :as reconciliation}]
   (or (= :new (:status reconciliation))
       (let [starting-balance (or (:balance (find-last-completed
-                                             account-id))
+                                            account-id))
                                  0M)
             new-balance (->> (::all-items reconciliation)
                              (map :polarized-quantity)
@@ -130,8 +130,8 @@
   [{:keys [account-id] :as reconciliation}]
   (or (empty? (::new-items reconciliation))
       (let [account-ids (->> (accounts/search
-                               {:id account-id}
-                               {:include-children? true})
+                              {:id account-id}
+                              {:include-children? true})
                              (map :id)
                              set)]
         (->> (::new-items reconciliation)
@@ -203,7 +203,7 @@
   [{:keys [id] :as reconciliation}]
   (when (seq (::existing-items reconciliation))
     (let [[start end] (->date-range (::existing-items reconciliation)
-                                   :transaction-date)]
+                                    :transaction-date)]
       (transactions/update-items {:reconciliation-id nil}
                                  {:reconciliation-id id
                                   :transaction-date [:between start end]}))))

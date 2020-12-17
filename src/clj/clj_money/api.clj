@@ -49,12 +49,12 @@
 (defn error->response
   [error safe-error-message]
   (->response
-    (if (env :show-error-messages?)
-      {:message (.getMessage error)
-       :type (.getName (.getClass error))
-       :stack (.getStackTrace error)}
-      {:message safe-error-message})
-    500))
+   (if (env :show-error-messages?)
+     {:message (.getMessage error)
+      :type (.getName (.getClass error))
+      :stack (.getStackTrace error)}
+     {:message safe-error-message})
+   500))
 
 (defn invalid->response
   [model]

@@ -48,7 +48,7 @@
       (func (SqlStorage. trans)))))
 
 (storage/register-strategy
-  (fn [storage-spec]
-    (when (and (string? storage-spec)
-               (re-find #"\Apostgres" storage-spec))
-      (SqlStorage. storage-spec))))
+ (fn [storage-spec]
+   (when (and (string? storage-spec)
+              (re-find #"\Apostgres" storage-spec))
+     (SqlStorage. storage-spec))))

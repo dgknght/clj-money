@@ -50,8 +50,8 @@
 (defn- entity-exists?
   [imp]
   (boolean
-    (entities/find-by {:user-id (:user-id imp)
-                       :name (:entity-name imp)})))
+   (entities/find-by {:user-id (:user-id imp)
+                      :name (:entity-name imp)})))
 
 (defn- after-read
   [imp]

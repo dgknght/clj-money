@@ -13,7 +13,6 @@
   {:LastPrice :price
    :Timestamp :trade-date})
 
-
 (def ^:private timestamp-pattern
   #"^(\w+) (\w+) (\d+) (\d{2}:\d{2}:\d{2}) \w{3}(\S+) (\d{4})$")
 

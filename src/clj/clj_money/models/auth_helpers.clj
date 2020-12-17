@@ -26,28 +26,28 @@
 (defmethod ^:private lookup-entity-id ::models/attachment
   [{:keys [transaction-id transaction-date]}]
   (lookup-entity-id
-    (transactions/find transaction-id
-                       transaction-date)))
+   (transactions/find transaction-id
+                      transaction-date)))
 
 (defmethod ^:private lookup-entity-id ::models/budget-item
   [{:keys [budget-id]}]
   (lookup-entity-id
-    (budgets/find budget-id)))
+   (budgets/find budget-id)))
 
 (defmethod ^:private lookup-entity-id ::models/price
   [{:keys [commodity-id]}]
   (lookup-entity-id
-    (commodities/find commodity-id)))
+   (commodities/find commodity-id)))
 
 (defmethod ^:private lookup-entity-id ::models/reconciliation
   [{:keys [account-id]}]
   (lookup-entity-id
-    (accounts/find account-id)))
+   (accounts/find account-id)))
 
 (defmethod ^:private lookup-entity-id ::models/image
   [{:keys [id]}]
   (lookup-entity-id
-    (attachments/find-by {:image-id id})))
+   (attachments/find-by {:image-id id})))
 
 (defn- lookup-entity
   [resource]
