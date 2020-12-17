@@ -6,7 +6,7 @@
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-money.util :refer [update-in-if]]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.validation :as validation]
+            [clj-money.validation :as v]
             [clj-money.api :refer [->response
                                    not-found]]
             [clj-money.models :as models]
@@ -56,38 +56,41 @@
                                        :body (read-bytes (:tempfile %))})))))
 
 (defn- extract-import
-  [{:keys [params authenticated]} images]
+  [{:keys [params authenticated]}]
   (-> params
       (select-keys [:entity-name :options])
       (update-in-if [:options] #(json/parse-string % true))
-      (assoc :user-id (:id authenticated)
-             :image-ids (mapv :id images))))
+      (assoc :user-id (:id authenticated))))
 
 (defn- step-2
   [req images]
-  (let [imp (imports/create (extract-import req images))]
-    (if (empty? (validation/error-messages imp))
+  (let [imp (-> req
+                extract-import
+                (assoc :image-ids (mapv :id images))
+                imports/create)]
+    (if-let [errors  (-> imp
+                         v/flat-error-messages
+                         seq)]
+      (->response {:error (format "Unable to save the import record. %s"
+                                  (string/join ", " errors))}
+                  422)
       (let [{:keys [entity]} (launch-and-track-import imp)]
         (->response {:entity entity
                      :import imp}
-                    201))
-      (->response {:error (format "Unable to save the import record. %s"
-                                  (->> (validation/error-messages imp)
-                                       vals
-                                       (string/join ", ")))}
-                  422))))
+                    201)))))
 
 (defn- step-1
   [{:keys [params authenticated] :as req}]
   (let [images (create-images params authenticated)]
-    (if (not-any? #(validation/error-messages %) images)
-      (step-2 req images)
+    (if-let [errors (->> images
+                         (mapcat v/error-messages)
+                         seq)]
       (->response {:error (format "Unable to save the source file(s). %s"
-                                  (->> images
-                                       (mapcat validation/error-messages)
+                                  (->> errors
                                        (mapcat vals)
                                        (string/join ", ")))}
-                  422))))
+                  422)
+      (step-2 req images))))
 
 (defn- create
   [req]

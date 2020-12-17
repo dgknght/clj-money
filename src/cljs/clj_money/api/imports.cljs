@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [clj-money.api :as api]
-            [clj-money.util :refer [unserialize-date-time]]
+            [clj-money.util :refer [unserialize-date-time
+                                    update-in-if]]
             [cljs.core.async :refer [<!]]
             [cljs-http.client :as http]))
 
@@ -26,7 +27,7 @@
   [import-data success-fn error-fn]
   (let [params (-> import-data
                    ->multipart-params
-                   (update-in [:options] (comp #(.stringify js/JSON %)
+                   (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                clj->js)))]
     (go (let [response (<! (http/post "/api/imports"
                                       (-> {}
