@@ -1,7 +1,6 @@
 (ns clj-money.db
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.tools.logging :as log]
             [clojure.core.async :as a :refer [go chan go-loop >! <! <!! buffer]]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
