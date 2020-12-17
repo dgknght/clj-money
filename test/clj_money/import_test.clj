@@ -32,7 +32,7 @@
 (defn- nil-chan []
   (let [c (chan)]
     (go-loop [_ (<! c)]
-             (recur (<! c)))
+      (recur (<! c)))
     c))
 
 (defn- strip-account-ids
@@ -54,7 +54,7 @@
   {:gnucash (mapv path->image ["resources/fixtures/sample.gnucash"])
    :ext     (mapv path->image ["resources/fixtures/sample_with_commodities_ext.gnucash"])
    :edn     (mapv path->image ["resources/fixtures/sample_0.edn.gz"
-                              "resources/fixtures/sample_1.edn.gz"])})
+                               "resources/fixtures/sample_1.edn.gz"])})
 
 (defn- import-context
   [source-type]
@@ -122,33 +122,33 @@
 
 (def ^:private expected-bal-sheet
   [{:caption "Asset"
-                             :value 1810.00M
-                             :style :header}
-                            {:caption "Checking"
-                             :value 1810.00M
-                             :style :data
-                             :depth 0}
-                            {:caption "Liability"
-                             :value 100.00M
-                             :style :header}
-                            {:caption "Credit Card"
-                             :value 100.00M
-                             :style :data
-                             :depth 0}
-                            {:caption "Equity"
-                             :value 1710.00M
-                             :style :header}
-                            {:caption "Retained Earnings"
-                             :value 1710.00M
-                             :style :data
-                             :depth 0}
-                            #_{:caption "Unrealized Gains"
-                             :value 0M
-                             :style :data
-                             :depth 0}
-                            {:caption "Liabilities + Equity"
-                             :value 1810.00M
-                             :style :summary}])
+    :value 1810.00M
+    :style :header}
+   {:caption "Checking"
+    :value 1810.00M
+    :style :data
+    :depth 0}
+   {:caption "Liability"
+    :value 100.00M
+    :style :header}
+   {:caption "Credit Card"
+    :value 100.00M
+    :style :data
+    :depth 0}
+   {:caption "Equity"
+    :value 1710.00M
+    :style :header}
+   {:caption "Retained Earnings"
+    :value 1710.00M
+    :style :data
+    :depth 0}
+   #_{:caption "Unrealized Gains"
+      :value 0M
+      :style :data
+      :depth 0}
+   {:caption "Liabilities + Equity"
+    :value 1810.00M
+    :style :summary}])
 
 (def ^:private expected-accounts
   [{:name "Checking"
@@ -177,8 +177,8 @@
   (let [updates (atom [])
         progress-chan (chan)
         _ (go-loop [p (<! progress-chan)]
-                   (swap! updates #(conj % p))
-                   (recur (<! progress-chan)))
+            (swap! updates #(conj % p))
+            (recur (<! progress-chan)))
         {:keys [entity wait]} (import-data imp progress-chan {:atomic? true})]
     @wait
     {:entity entity
@@ -207,22 +207,22 @@
                                (update-in [:commodity-id]
                                           (fn [sym]
                                             (:id (commodities/find-by
-                                                   {:entity-id (:id entity)
-                                                    :symbol sym})))))
+                                                  {:entity-id (:id entity)
+                                                   :symbol sym})))))
                           expected-accounts)]
         (is (= expected actual))))
 
     (testing "a correct income statement is produced"
       (let [actual (strip-account-ids
-                     (reports/income-statement entity
-                                               (t/local-date 2015 1 1)
-                                               (t/local-date 2017 12 31)))]
+                    (reports/income-statement entity
+                                              (t/local-date 2015 1 1)
+                                              (t/local-date 2017 12 31)))]
         (is (= expected-inc-stmt actual))))
 
     (testing "a correct balance sheet is produced"
       (let [actual (strip-account-ids
-                     (reports/balance-sheet entity
-                                            (t/local-date 2017 12 31)))]
+                    (reports/balance-sheet entity
+                                           (t/local-date 2017 12 31)))]
         (is (= expected-bal-sheet actual))))
 
     (testing "reconciliations are imported correctly"
@@ -242,11 +242,11 @@
 
 (deftest import-a-simple-gnucash-file
   (test-import
-    (realize (import-context :gnucash))))
+   (realize (import-context :gnucash))))
 
 (deftest import-a-simple-edn-file
   (test-import
-    (realize (import-context :edn))))
+   (realize (import-context :edn))))
 
 (deftest import-with-entity-settings
   (let [ctx (realize (import-context :ext))
@@ -279,8 +279,8 @@
         channel (chan)
         updates (atom [])]
     (go-loop [p (<! channel)]
-             (swap! updates #(conj % p))
-             (recur (<! channel)))
+      (swap! updates #(conj % p))
+      (recur (<! channel)))
     (import-data imp channel {:atomic? true})
     (is (= (set expected-updates) (set @updates))
         "The import record is updated at each insert")
@@ -355,10 +355,10 @@
                                    :name "401k"})
         lots (lots/search {:account-id (:id account)})
         actual-lots (map #(dissoc % :id
-                                    :commodity-id
-                                    :account-id
-                                    :created-at
-                                    :updated-at)
+                                  :commodity-id
+                                  :account-id
+                                  :created-at
+                                  :updated-at)
                          lots)
         aapl (commodities/find-by {:entity-id (:id entity)
                                    :symbol "AAPL"}
@@ -369,9 +369,9 @@
                                              (t/local-date 2015 12 31)]})
         actual-prices (->> prices
                            (map #(dissoc % :id
-                                           :commodity-id
-                                           :created-at
-                                           :updated-at))
+                                         :commodity-id
+                                         :created-at
+                                         :updated-at))
                            (into #{}))]
     (is (= expected-lots actual-lots) "The correct lots are present after import")
     (is (= expected-prices, actual-prices) "The correct prices are present after import")))
@@ -399,8 +399,7 @@
                                    :symbol "AAPL"})]
 
     (testing "lots are adjusted"
-      (let [
-            lots (lots/search {:commodity-id (:id aapl)})
+      (let [lots (lots/search {:commodity-id (:id aapl)})
             expected-lots [{:purchase-date (t/local-date 2015 1 17)
                             :shares-purchased 200M
                             :shares-owned 100M ; originally purchased 100 shares, they split 2 for 1, then we sold 100
@@ -457,9 +456,9 @@
                                            :reconciliation-id
                                            :reconciled?)
                                   (transactions/search-items
-                                    {:account-id (:id ira-aapl)
-                                     :transaction-date "2015"}
-                                    {:sort [:index]}))
+                                   {:account-id (:id ira-aapl)
+                                    :transaction-date "2015"}
+                                   {:sort [:index]}))
             expected-fee-items [{:transaction-date (t/local-date 2015 5 1)
                                  :description "Sell 100 shares of AAPL at 6.000"
                                  :value 10M
@@ -488,5 +487,5 @@
             "The IRA account has the correct items")))
 
     #_(testing "account balances are calculated correctly"
-      (is (= 0M (:balance four-o-one-k)) "All shares have been transfered out of 401k")
-      (is (= 200M (:balance ira)) "Shares have been transfered into IRA")))) ; TODO Adjust this to account for value, not shares
+        (is (= 0M (:balance four-o-one-k)) "All shares have been transfered out of 401k")
+        (is (= 200M (:balance ira)) "Shares have been transfered into IRA")))) ; TODO Adjust this to account for value, not shares

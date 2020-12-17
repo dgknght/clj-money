@@ -15,7 +15,6 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.web.server :refer [app]]))
 
-
 (use-fixtures :each reset-db)
 
 (def ^:private context
@@ -216,5 +215,5 @@
         body (json/parse-string (:body response) true)]
     (assert-successful response)
     (is (= #{101.0 102.0 103.0}
-       (transduce (map :quantity) conj #{} body))
+           (transduce (map :quantity) conj #{} body))
         "The items in the specified account and the children accounts are returned.")))

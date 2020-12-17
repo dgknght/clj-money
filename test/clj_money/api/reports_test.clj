@@ -26,14 +26,14 @@
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
-                                           :entities
-                                           (:id entity)
-                                           :reports
-                                           :income-statement
-                                           "2016-01-01"
-                                           "2016-01-31"))
-                   (add-auth user)
-                   app)
+                                             :entities
+                                             (:id entity)
+                                             :reports
+                                             :income-statement
+                                             "2016-01-01"
+                                             "2016-01-31"))
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)]
     [response body]))
 
@@ -43,7 +43,7 @@
   (is (= ["Income" "Expense" "Net"]
          (->> body
               (filter #(#{"header" "summary"} (:style %)))
-              (map :caption )))
+              (map :caption)))
       "The body contains the correct captions"))
 
 (defn- assert-blocked-income-statement
@@ -62,13 +62,13 @@
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
         response (-> (req/request :get (path :api
-                                           :entities
-                                           (:id entity)
-                                           :reports
-                                           :balance-sheet
-                                           "2016-01-31"))
-                   (add-auth user)
-                   app)
+                                             :entities
+                                             (:id entity)
+                                             :reports
+                                             :balance-sheet
+                                             "2016-01-31"))
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)]
     [response body]))
 
@@ -107,8 +107,8 @@
                                              :reports
                                              :budget
                                              (:id budget)))
-                   (add-auth user)
-                   app)
+                     (add-auth user)
+                     app)
         body (json/parse-string (:body response) true)]
     [response body]))
 

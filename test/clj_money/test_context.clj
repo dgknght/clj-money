@@ -168,8 +168,8 @@
 (defn- create-users
   [users]
   (mapv (fn [attributes]
-         (throw-on-invalid (users/create attributes)))
-       users))
+          (throw-on-invalid (users/create attributes)))
+        users))
 
 (defn- realize-users
   [context]
@@ -187,7 +187,7 @@
           (if (:id attributes)
             attributes
             (throw-on-invalid
-              (entities/create (resolve-user attributes context)))))
+             (entities/create (resolve-user attributes context)))))
         entities))
 
 (defn- realize-entities
@@ -260,7 +260,7 @@
 (defn- resolve-account
   ([model context] (resolve-account model context :account-id))
   ([model context k]
-  (update-in model [k] #(:id (find-account context %)))))
+   (update-in model [k] #(:id (find-account context %)))))
 
 (defn- coerce-quantity
   [item]
@@ -294,10 +294,10 @@
 (defn- create-transaction
   [transaction context]
   (throw-on-invalid
-    (transactions/create (-> transaction
-                             (resolve-entity context)
-                             expand-items
-                             (prepare-items context)))))
+   (transactions/create (-> transaction
+                            (resolve-entity context)
+                            expand-items
+                            (prepare-items context)))))
 
 (defn- create-transactions
   [context transactions]
@@ -313,10 +313,10 @@
     (assoc model :transaction-id (->> context
                                       :transactions
                                       (filter #(and
-                                                 (= (:transaction-date %)
-                                                    (:transaction-date trans-ref))
-                                                 (= (:description %)
-                                                    (:description trans-ref))))
+                                                (= (:transaction-date %)
+                                                   (:transaction-date trans-ref))
+                                                (= (:description %)
+                                                   (:description trans-ref))))
                                       (map (juxt :id :transaction-date))
                                       first))))
 
@@ -333,7 +333,7 @@
 (defn- rearrange-transaction-attributes
   [attachment]
   (assoc attachment :transaction-id (-> attachment :transaction-id first)
-                    :transaction-date (-> attachment :transaction-id second)))
+         :transaction-date (-> attachment :transaction-id second)))
 
 (defn- create-attachments
   [context attachments]
@@ -533,7 +533,7 @@
 
 (defn- apply-monitored-account-ids
   [entity {:keys [monitored-account-ids] :as context}]
-  (if-let [account-ids (get-in monitored-account-ids[(:name entity)])]
+  (if-let [account-ids (get-in monitored-account-ids [(:name entity)])]
     (entities/update (assoc-in entity [:settings :monitored-account-ids]
                                (->> account-ids
                                     (map (comp :id

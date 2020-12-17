@@ -34,9 +34,9 @@
                 :updated-at
                 :reconciliation-status)
        (transactions/items-by-account
-         account-id
-         [(t/local-date 2015 1 1)
-          (t/local-date 2017 12 31)])))
+        account-id
+        [(t/local-date 2015 1 1)
+         (t/local-date 2017 12 31)])))
 
 (defn- item-by-account
   [acc-or-id transaction]
@@ -330,7 +330,7 @@
                            :account-id (:id ira)
                            :purchase-date (t/local-date 2016 3 2)})]
     (is price "The result contains a price")
-    (is (empty? (validation/error-messages price ))
+    (is (empty? (validation/error-messages price))
         "The price is valid")
     (is lots "The result contains the lots affected")
     (doseq [lot lots]
@@ -339,7 +339,7 @@
     (is (= 75M (:shares-owned lot))
         "The shares-owned value of the original lot is updated")
     (is transaction "The result contains the transaction record")
-    (is (empty? (validation/error-messages transaction ))
+    (is (empty? (validation/error-messages transaction))
         "The transaction is valid")
     (is (selective= {:action :debit
                      :value 375M
@@ -638,9 +638,9 @@
 
 (deftest fifo-sale
   (let [context (realize
-                  (update-in purchase-context
-                             [:entities 0]
-                             #(assoc-in % [:settings :inventory-method] :fifo)))
+                 (update-in purchase-context
+                            [:entities 0]
+                            #(assoc-in % [:settings :inventory-method] :fifo)))
         commodity (find-commodity context "AAPL")
         [ira
          lt-gains
@@ -760,8 +760,8 @@
          ira-2-commodity-account] (->> [ira ira-2]
                                        (map :id)
                                        (map #(accounts/search
-                                               {:parent-id %
-                                                :commodity-id (:id commodity)}))
+                                              {:parent-id %
+                                               :commodity-id (:id commodity)}))
                                        (map first))
         actual-lots (map #(dissoc % :created-at :updated-at :id)
                          (lots/search {:commodity-id (:id commodity)}))
@@ -792,13 +792,13 @@
                                (update-in [:items]
                                           (fn [items]
                                             (map #(select-keys
-                                                    %
-                                                    [:action
-                                                     :account-id
-                                                     :quantity
-                                                     :action
-                                                     :value
-                                                     :balance])
+                                                   %
+                                                   [:action
+                                                    :account-id
+                                                    :quantity
+                                                    :action
+                                                    :value
+                                                    :balance])
                                                  items))))]
     (is result "A non-nil result is returned")
     (is (empty? (validation/error-messages result))

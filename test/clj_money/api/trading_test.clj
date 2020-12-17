@@ -103,28 +103,28 @@
   (assert-blocked-purchase (buy-a-commodity "jane@doe.com")))
 
 {:users [(factory :user {:email "john@doe.com"})
-           (factory :user {:email "jane@doe.com"})]
-   :entities [{:name "Personal"
-               :user-id "john@doe.com"}]
-   :commodities [{:symbol "AAPL"
-                  :name "Apple, Inc."
-                  :type :stock
-                  :exchange :nasdaq}
-                 {:symbol "USD"
-                  :name "US Dollar"
-                  :type :currency}]
-   :accounts [{:name "IRA"
-               :type :asset
-               :entity-id "Personal"
-               :currency-id "USD"}
-              {:name "Opening Balances"
-               :type :equity
-               :entity-id "Personal"
-               :currency-id "USD"}]
-   :transactions [{:transaction-date (t/local-date 2016 1 1)
-                   :debit-account-id "IRA"
-                   :credit-account-id "Opening Balances"
-                   :quantity 1000M}]}
+         (factory :user {:email "jane@doe.com"})]
+ :entities [{:name "Personal"
+             :user-id "john@doe.com"}]
+ :commodities [{:symbol "AAPL"
+                :name "Apple, Inc."
+                :type :stock
+                :exchange :nasdaq}
+               {:symbol "USD"
+                :name "US Dollar"
+                :type :currency}]
+ :accounts [{:name "IRA"
+             :type :asset
+             :entity-id "Personal"
+             :currency-id "USD"}
+            {:name "Opening Balances"
+             :type :equity
+             :entity-id "Personal"
+             :currency-id "USD"}]
+ :transactions [{:transaction-date (t/local-date 2016 1 1)
+                 :debit-account-id "IRA"
+                 :credit-account-id "Opening Balances"
+                 :quantity 1000M}]}
 (def ^:private sell-context
   (assoc buy-context
          :trades [{:entity-id "Personal"
@@ -176,7 +176,7 @@
             transactions)
       "The created transaction can be retrieved")
   (is  (= 0M (:shares-owned (first lots)))
-            "The shares are not longer owned"))
+       "The shares are not longer owned"))
 
 (defn- assert-blocked-sale
   [[response _ transactions lots]]
@@ -187,7 +187,7 @@
                 transactions)
       "The no transaction is created")
   (is  (= 100M (:shares-owned (first lots)))
-            "The shares are still owned"))
+       "The shares are still owned"))
 
 (deftest a-user-can-sell-a-commodity-in-his-entity
   (assert-successful-sale (sell-a-commodity "john@doe.com")))

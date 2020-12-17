@@ -69,9 +69,9 @@
 (defn- simplify-accounts
   [accounts additional-attributes]
   (map #(if (seq (:children %))
-          ( -> %
-               (select-keys (concat [:name :path :children] additional-attributes))
-               (update-in [:children] simplify-accounts additional-attributes))
+          (-> %
+              (select-keys (concat [:name :path :children] additional-attributes))
+              (update-in [:children] simplify-accounts additional-attributes))
           (select-keys % [:name :path]))
        accounts))
 
@@ -80,11 +80,11 @@
   drill down into each account, filtering out every attribute of the
   account except the name"
   ([groups]
-    (simplify-account-groups groups []))
+   (simplify-account-groups groups []))
   ([groups additional-attributes]
-  (map #(update-in % [:accounts] (fn [accounts]
-                                   (simplify-accounts accounts additional-attributes)))
-       groups)))
+   (map #(update-in % [:accounts] (fn [accounts]
+                                    (simplify-accounts accounts additional-attributes)))
+        groups)))
 
 (defn context-errors
   [context]

@@ -133,7 +133,7 @@
 (deftest name-is-unique-for-an-entity-and-exchange
   (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
-        commodity (attributes context) 
+        commodity (attributes context)
         result-1 (commodities/create commodity)
         result-2 (commodities/create commodity)
         commodities (commodities/search {:entity-id entity-id})]
@@ -194,7 +194,7 @@
 (deftest symbol-is-unique-for-an-entity-and-exchange
   (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
-        commodity (attributes context) 
+        commodity (attributes context)
         result-1 (commodities/create commodity)
         result-2 (commodities/create commodity)
         commodities (commodities/search {:entity-id entity-id})]

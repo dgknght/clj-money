@@ -32,9 +32,9 @@
 (defn items-by-account
   [account]
   (transactions/items-by-account
-    account
-    [(t/local-date 2015 1 1)
-     (t/local-date 2017 12 31)]))
+   account
+   [(t/local-date 2015 1 1)
+    (t/local-date 2017 12 31)]))
 
 (def base-context
   {:users [(factory :user, {:email "john@doe.com"})]
@@ -43,7 +43,7 @@
                   :symbol "USD"
                   :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset }
+               :type :asset}
               {:name "Salary"
                :type :income}
               {:name "Groceries"
@@ -78,8 +78,8 @@
       (let [actual (-> (transactions/find transaction)
                        (dissoc :id :created-at :updated-at)
                        (update-in
-                         [:items]
-                         (partial map #(dissoc % :transaction-id :id :created-at :updated-at))))
+                        [:items]
+                        (partial map #(dissoc % :transaction-id :id :created-at :updated-at))))
             expected {:transaction-date (t/local-date 2016 3 2)
                       :description "Paycheck"
                       :memo "final, partial"
@@ -133,8 +133,8 @@
                   nil))]
         (testing "records are not created"
           (is (= 0 (count (transactions/search
-                            {:entity-id (-> context :entities first :id)
-                             :transaction-date "2016"})))
+                           {:entity-id (-> context :entities first :id)
+                            :transaction-date "2016"})))
               "The transaction should not be saved")
           (is (= 0 (count (items-by-account checking)))
               "The transaction item for checking should not be created")
@@ -158,62 +158,62 @@
   (let [context (realize base-context)]
     (assert-validation-error :items "Count must be greater than or equal to 1"
                              (transactions/create
-                               (-> context
-                                   attributes
-                                   (assoc :items []))))))
+                              (-> context
+                                  attributes
+                                  (assoc :items []))))))
 
 (deftest item-account-id-is-required
   (let [context (realize base-context)
         transaction (transactions/create
-                      (update-in
-                        (attributes context)
-                        [:items 0]
-                        #(dissoc % :account-id)))]
+                     (update-in
+                      (attributes context)
+                      [:items 0]
+                      #(dissoc % :account-id)))]
     (is (validation/has-error? transaction :items))))
 
 (deftest item-quantity-is-required
   (let [context (realize base-context)
         transaction (transactions/create
-                      (update-in
-                        (attributes context)
-                        [:items 0]
-                        #(dissoc % :quantity)))]
+                     (update-in
+                      (attributes context)
+                      [:items 0]
+                      #(dissoc % :quantity)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-quantity-must-be-greater-than-zero
   (let [context (realize base-context)
         transaction (transactions/create
-                      (update-in
-                        (attributes context)
-                        [:items 0]
-                        #(assoc % :quantity -1000M)))]
+                     (update-in
+                      (attributes context)
+                      [:items 0]
+                      #(assoc % :quantity -1000M)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-is-required
   (let [context (realize base-context)
         transaction (transactions/create
-                      (update-in
-                        (attributes context)
-                        [:items 0]
-                        #(dissoc % :action)))]
+                     (update-in
+                      (attributes context)
+                      [:items 0]
+                      #(dissoc % :action)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest item-action-must-be-debit-or-created
   (let [context (realize base-context)
         transaction (transactions/create
-                      (update-in
-                        (attributes context)
-                        [:items 0]
-                        #(assoc % :action :not-valid)))]
+                     (update-in
+                      (attributes context)
+                      [:items 0]
+                      #(assoc % :action :not-valid)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (deftest sum-of-debits-must-equal-sum-of-credits
   (let [context (realize base-context)
         transaction (transactions/create
-                      (update-in
-                        (attributes context)
-                        [:items 0]
-                        #(assoc % :quantity 1001M)))]
+                     (update-in
+                      (attributes context)
+                      [:items 0]
+                      #(assoc % :quantity 1001M)))]
     (is (validation/has-error? transaction :items) "Validation error should be present")))
 
 (def balance-context
@@ -237,7 +237,6 @@
                                    :account-id "Checking"
                                    :quantity 100}]}]}))
 
-
 (deftest item-balances-are-set-when-saved
   (let [context (realize balance-context)
         [checking-items
@@ -249,9 +248,9 @@
            (map :balance checking-items))
         "The checking account balances are correct")
     (is (= [1000M] (map :balance salary-items))
-          "The salary account balances are correct")
+        "The salary account balances are correct")
     (is (= [100M] (map :balance groceries-items))
-          "The groceries account balances are correct")))
+        "The groceries account balances are correct")))
 
 (deftest item-indexes-are-set-when-saved
   (let [context (realize balance-context)
@@ -268,8 +267,8 @@
         [checking
          salary
          groceries] (find-accounts context "Checking"
-                                           "Salary"
-                                           "Groceries")]
+                                   "Salary"
+                                   "Groceries")]
     (assert-account-quantities checking 900M salary 1000M groceries 100M)))
 
 (def insert-context
@@ -415,8 +414,8 @@
                              {:index 0 :quantity 1000M :balance 1000M}]
             actual-before (map #(select-keys % [:index :quantity :balance])
                                checking-items-before)
-            expected-after[{:index 1 :quantity 102M :balance 898M}
-                           {:index 0 :quantity 1000M :balance 1000M}]
+            expected-after [{:index 1 :quantity 102M :balance 898M}
+                            {:index 0 :quantity 1000M :balance 1000M}]
             actual-after (map #(select-keys % [:index :quantity :balance]) checking-items-after)]
         (is (= expected-before actual-before)
             "Checking should have the correct items before delete")
@@ -432,34 +431,34 @@
 
 (def update-context
   (merge
-    base-context
-    {:transactions [{:transaction-date (t/local-date 2016 3 2)
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1000}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1000}]}
-                    {:transaction-date (t/local-date 2016 3 12)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 101}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 101}]}
-                    {:transaction-date (t/local-date 2016 3 22)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 102}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 102}]}]}))
+   base-context
+   {:transactions [{:transaction-date (t/local-date 2016 3 2)
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1000}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1000}]}
+                   {:transaction-date (t/local-date 2016 3 12)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 101}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 101}]}
+                   {:transaction-date (t/local-date 2016 3 22)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 102}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 102}]}]}))
 
 (deftest get-a-transaction
   (let [context (realize update-context)
@@ -479,37 +478,37 @@
 
 (def search-context
   (merge
-    base-context
-    {:transactions [{:transaction-date #local-date "2016-01-01"
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :quantity 160101M
-                     :debit-account-id "Checking"
-                     :credit-account-id "Salary"}
-                    {:transaction-date #local-date "2016-06-01"
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :quantity 160601M
-                     :debit-account-id "Checking"
-                     :credit-account-id "Salary"}
-                    {:transaction-date #local-date "2017-01-01"
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :quantity 170101M
-                     :debit-account-id "Checking"
-                     :credit-account-id "Salary"}
-                    {:transaction-date #local-date "2017-06-01"
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :quantity 170601M
-                     :debit-account-id "Checking"
-                     :credit-account-id "Salary"}
-                    {:transaction-date #local-date "2017-06-15"
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :quantity 170615
-                     :debit-account-id "Checking"
-                     :credit-account-id "Salary"}]}))
+   base-context
+   {:transactions [{:transaction-date #local-date "2016-01-01"
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :quantity 160101M
+                    :debit-account-id "Checking"
+                    :credit-account-id "Salary"}
+                   {:transaction-date #local-date "2016-06-01"
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :quantity 160601M
+                    :debit-account-id "Checking"
+                    :credit-account-id "Salary"}
+                   {:transaction-date #local-date "2017-01-01"
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :quantity 170101M
+                    :debit-account-id "Checking"
+                    :credit-account-id "Salary"}
+                   {:transaction-date #local-date "2017-06-01"
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :quantity 170601M
+                    :debit-account-id "Checking"
+                    :credit-account-id "Salary"}
+                   {:transaction-date #local-date "2017-06-15"
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :quantity 170615
+                    :debit-account-id "Checking"
+                    :credit-account-id "Salary"}]}))
 
 (deftest search-by-year
   (let [context (realize search-context)
@@ -624,7 +623,7 @@
          groceries] (:accounts context)
         [_t1 _t2 t3] (:transactions context)
         updated (assoc t3 :transaction-date (t/local-date 2016 3 10)
-                          :original-transaction-date (:transaction-date t3))
+                       :original-transaction-date (:transaction-date t3))
         result (transactions/update updated)
         expected-checking [{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
                            {:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}
@@ -652,93 +651,93 @@
 
 ; TODO: Uncomment this test
 #_(deftest update-a-transaction-cross-partition-boundary
-  (let [context (realize update-context)
-        [checking
-         salary
-         groceries] (:accounts context)
-        [t1 t2 t3] (:transactions context)
-        updated (assoc t2 :transaction-date (t/local-date 2016 4 12))
-        result (transactions/update updated)
-        expected-checking [{:index 2 :quantity 101M :balance 797M}
-                           {:index 1 :quantity 102M :balance 898M}
-                           {:index 0 :quantity 1000M :balance 1000M}]
-        actual-checking (->> (:id checking)
-                             items-by-account
-                             (map #(select-keys % [:index :quantity :balance])))
-        expected-groceries [{:index 1 :quantity 101M :balance 203M}
-                            {:index 0 :quantity 102M :balance 102M}]
-        actual-groceries (->> (:id groceries)
-                              items-by-account
-                              (map #(select-keys % [:index :quantity :balance])))]
-    (is (empty? (validation/error-messages result))
-        "The transaction is saved successfully")
-    (testing "transaction item balances are correct"
-      (is (= expected-checking actual-checking)
-          "Checking items should have the correct values after update")
-      (is (= expected-groceries actual-groceries)
-          "Groceries items should have the correct values after update"))
-    (assert-account-quantities checking 1797M groceries 203M)
-    (testing "transaction is updated"
-      (is (= (t/local-date 2016 4 12)
-             (:transaction-date (transactions/reload t2)))
-          "The transaction should be updated"))))
+    (let [context (realize update-context)
+          [checking
+           salary
+           groceries] (:accounts context)
+          [t1 t2 t3] (:transactions context)
+          updated (assoc t2 :transaction-date (t/local-date 2016 4 12))
+          result (transactions/update updated)
+          expected-checking [{:index 2 :quantity 101M :balance 797M}
+                             {:index 1 :quantity 102M :balance 898M}
+                             {:index 0 :quantity 1000M :balance 1000M}]
+          actual-checking (->> (:id checking)
+                               items-by-account
+                               (map #(select-keys % [:index :quantity :balance])))
+          expected-groceries [{:index 1 :quantity 101M :balance 203M}
+                              {:index 0 :quantity 102M :balance 102M}]
+          actual-groceries (->> (:id groceries)
+                                items-by-account
+                                (map #(select-keys % [:index :quantity :balance])))]
+      (is (empty? (validation/error-messages result))
+          "The transaction is saved successfully")
+      (testing "transaction item balances are correct"
+        (is (= expected-checking actual-checking)
+            "Checking items should have the correct values after update")
+        (is (= expected-groceries actual-groceries)
+            "Groceries items should have the correct values after update"))
+      (assert-account-quantities checking 1797M groceries 203M)
+      (testing "transaction is updated"
+        (is (= (t/local-date 2016 4 12)
+               (:transaction-date (transactions/reload t2)))
+            "The transaction should be updated"))))
 
 (def short-circuit-context
   (merge
-    base-context
-    {:transactions [{:transaction-date (t/local-date 2016 3 2)
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1000}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1000}]}
-                    {:transaction-date (t/local-date 2016 3 9)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 101}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 101}]}
-                    {:transaction-date (t/local-date 2016 3 16)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 102}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 102}]}
-                    {:transaction-date (t/local-date 2016 3 23)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 103}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 103}]}
-                    {:transaction-date (t/local-date 2016 3 30)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 104}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 104}]}]}))
+   base-context
+   {:transactions [{:transaction-date (t/local-date 2016 3 2)
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1000}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1000}]}
+                   {:transaction-date (t/local-date 2016 3 9)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 101}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 101}]}
+                   {:transaction-date (t/local-date 2016 3 16)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 102}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 102}]}
+                   {:transaction-date (t/local-date 2016 3 23)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 103}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 103}]}
+                   {:transaction-date (t/local-date 2016 3 30)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 104}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 104}]}]}))
 
 (defn- record-update-call
   [item result]
   (update-in result
              [(:account-id item)]
              #((fnil conj #{}) % (select-keys item [:index
-                                                   :quantity
-                                                   :balance]))))
+                                                    :quantity
+                                                    :balance]))))
 (def ^:dynamic update-item nil)
 
 ; Trans. Date quantity  Debit     Credit
@@ -782,42 +781,42 @@
                                        :type :expense
                                        :commodity-id "USD"}))
       (merge
-        {:transactions [{:transaction-date (t/local-date 2016 3 2)
-                         :entity-id "Personal"
-                         :description "Paycheck"
-                         :items [{:action :debit
-                                  :account-id "Checking"
-                                  :quantity 1000}
-                                 {:action :credit
-                                  :account-id "Salary"
-                                  :quantity 1000}]}
-                        {:transaction-date (t/local-date 2016 3 9)
-                         :entity-id "Personal"
-                         :description "Kroger"
-                         :items [{:action :debit
-                                  :account-id "Groceries"
-                                  :quantity 101}
-                                 {:action :credit
-                                  :account-id "Checking"
-                                  :quantity 101}]}
-                        {:transaction-date (t/local-date 2016 3 16)
-                         :entity-id "Personal"
-                         :description "Kroger"
-                         :items [{:action :debit
-                                  :account-id "Groceries"
-                                  :quantity 102}
-                                 {:action :credit
-                                  :account-id "Checking"
-                                  :quantity 102}]}
-                        {:transaction-date (t/local-date 2016 3 23)
-                         :entity-id "Personal"
-                         :description "Kroger"
-                         :items [{:action :debit
-                                  :account-id "Groceries"
-                                  :quantity 103}
-                                 {:action :credit
-                                  :account-id "Checking"
-                                  :quantity 103}]}]})))
+       {:transactions [{:transaction-date (t/local-date 2016 3 2)
+                        :entity-id "Personal"
+                        :description "Paycheck"
+                        :items [{:action :debit
+                                 :account-id "Checking"
+                                 :quantity 1000}
+                                {:action :credit
+                                 :account-id "Salary"
+                                 :quantity 1000}]}
+                       {:transaction-date (t/local-date 2016 3 9)
+                        :entity-id "Personal"
+                        :description "Kroger"
+                        :items [{:action :debit
+                                 :account-id "Groceries"
+                                 :quantity 101}
+                                {:action :credit
+                                 :account-id "Checking"
+                                 :quantity 101}]}
+                       {:transaction-date (t/local-date 2016 3 16)
+                        :entity-id "Personal"
+                        :description "Kroger"
+                        :items [{:action :debit
+                                 :account-id "Groceries"
+                                 :quantity 102}
+                                {:action :credit
+                                 :account-id "Checking"
+                                 :quantity 102}]}
+                       {:transaction-date (t/local-date 2016 3 23)
+                        :entity-id "Personal"
+                        :description "Kroger"
+                        :items [{:action :debit
+                                 :account-id "Groceries"
+                                 :quantity 103}
+                                {:action :credit
+                                 :account-id "Checking"
+                                 :quantity 103}]}]})))
 
 (deftest update-a-transaction-change-account
   (let [context (realize change-account-context)
@@ -847,43 +846,43 @@
 
 (def change-action-context
   (merge
-    base-context
-    {:transactions [{:transaction-date (t/local-date 2016 3 2)
-                     :entity-id "Personal"
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1000}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1000}]}
-                    {:transaction-date (t/local-date 2016 3 9)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 103}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 103}]}
-                    {:transaction-date (t/local-date 2016 3 16)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 12}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 12}]}
-                    {:transaction-date (t/local-date 2016 3 23)
-                     :entity-id "Personal"
-                     :description "Kroger"
-                     :items [{:action :debit
-                              :account-id "Groceries"
-                              :quantity 101}
-                             {:action :credit
-                              :account-id "Checking"
-                              :quantity 101}]}]}))
+   base-context
+   {:transactions [{:transaction-date (t/local-date 2016 3 2)
+                    :entity-id "Personal"
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1000}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1000}]}
+                   {:transaction-date (t/local-date 2016 3 9)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 103}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 103}]}
+                   {:transaction-date (t/local-date 2016 3 16)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 12}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 12}]}
+                   {:transaction-date (t/local-date 2016 3 23)
+                    :entity-id "Personal"
+                    :description "Kroger"
+                    :items [{:action :debit
+                             :account-id "Groceries"
+                             :quantity 101}
+                            {:action :credit
+                             :account-id "Checking"
+                             :quantity 101}]}]}))
 
 (deftest update-a-transaction-change-action
   (let [context (realize change-action-context)
@@ -1013,47 +1012,47 @@
 
 (def balance-delta-context
   (merge
-    base-context
-    {:transactions [{:transaction-date (t/local-date 2016 1 1)
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1000M}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1000M}]}
-                    {:transaction-date (t/local-date 2016 1 15)
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1001M}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1001M}]}
-                    {:transaction-date (t/local-date 2016 2 1)
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1100M}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1100M}]}
-                    {:transaction-date (t/local-date 2016 2 15)
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1102M}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1102M}]}
-                    {:transaction-date (t/local-date 2016 3 1)
-                     :description "Paycheck"
-                     :items [{:action :debit
-                              :account-id "Checking"
-                              :quantity 1200M}
-                             {:action :credit
-                              :account-id "Salary"
-                              :quantity 1200M}]}]}))
+   base-context
+   {:transactions [{:transaction-date (t/local-date 2016 1 1)
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1000M}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1000M}]}
+                   {:transaction-date (t/local-date 2016 1 15)
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1001M}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1001M}]}
+                   {:transaction-date (t/local-date 2016 2 1)
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1100M}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1100M}]}
+                   {:transaction-date (t/local-date 2016 2 15)
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1102M}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1102M}]}
+                   {:transaction-date (t/local-date 2016 3 1)
+                    :description "Paycheck"
+                    :items [{:action :debit
+                             :account-id "Checking"
+                             :quantity 1200M}
+                            {:action :credit
+                             :account-id "Salary"
+                             :quantity 1200M}]}]}))
 
 (deftest get-a-balance-delta
   (let [context (realize balance-delta-context)
@@ -1085,14 +1084,14 @@
          groceries] (:accounts context)]
     (transactions/with-delayed-balancing (:id entity)
       (transactions/create {:entity-id (:id entity)
-                                         :transaction-date (t/local-date 2017 1 1)
-                                         :description "Paycheck"
-                                         :items [{:action :debit
-                                                  :account-id (:id checking)
-                                                  :quantity 1000M}
-                                                 {:action :credit
-                                                  :account-id (:id salary)
-                                                  :quantity 1000M}]})
+                            :transaction-date (t/local-date 2017 1 1)
+                            :description "Paycheck"
+                            :items [{:action :debit
+                                     :account-id (:id checking)
+                                     :quantity 1000M}
+                                    {:action :credit
+                                     :account-id (:id salary)
+                                     :quantity 1000M}]})
       (transactions/create {:entity-id (:id entity)
                             :transaction-date (t/local-date 2017 1 15)
                             :description "Market Street"
@@ -1128,11 +1127,11 @@
                                   :credit-account-id (:id salary)})
         actual-items (map #(select-keys % [:account-id :quantity :action]) (:items trx))
         expected-items [{:account-id (:id checking)
-             :action :debit
-             :quantity 1000M}
-            {:account-id (:id salary)
-             :action :credit
-             :quantity 1000M}]]
+                         :action :debit
+                         :quantity 1000M}
+                        {:account-id (:id salary)
+                         :action :credit
+                         :quantity 1000M}]]
     (is (empty? (validation/error-messages trx)) "The transaction is created successfully")
     (is (= expected-items actual-items) "The items are created correctly")))
 

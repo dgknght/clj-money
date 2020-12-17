@@ -80,17 +80,17 @@
 
 (def ^:private list-context
   (assoc context :prices [{:commodity-id "AAPL"
-             :trade-date (t/local-date 2016 2 27)
-             :price 10M}
-            {:commodity-id "AAPL"
-             :trade-date (t/local-date 2016 3 2)
-             :price 11M}
-            {:commodity-id "FND"
-             :trade-date (t/local-date 2016 2 27)
-             :price 10.01M}
-            {:commodity-id "FND"
-             :trade-date (t/local-date 2016 3 2)
-             :price 9.99M}]))
+                           :trade-date (t/local-date 2016 2 27)
+                           :price 10M}
+                          {:commodity-id "AAPL"
+                           :trade-date (t/local-date 2016 3 2)
+                           :price 11M}
+                          {:commodity-id "FND"
+                           :trade-date (t/local-date 2016 2 27)
+                           :price 10.01M}
+                          {:commodity-id "FND"
+                           :trade-date (t/local-date 2016 3 2)
+                           :price 9.99M}]))
 
 (defn- get-a-list-by-commodity
   [email]
@@ -135,9 +135,9 @@
         user (find-user ctx email)
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :patch (path :api
-                                                :prices
-                                                (serialize-date (:trade-date price))
-                                                (:id price)))
+                                               :prices
+                                               (serialize-date (:trade-date price))
+                                               (:id price)))
                      (req/json-body {:trade-date "2016-02-27"
                                      :price 9.99})
                      (add-auth user)

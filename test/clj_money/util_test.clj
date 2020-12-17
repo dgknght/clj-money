@@ -24,19 +24,19 @@
   (testing "a single-level map"
     (is (= "first-name=John&last-name=Doe"
            (util/map->query-string {:first-name "John"
-                               :last-name "Doe"}))))
+                                    :last-name "Doe"}))))
   (testing "a map with map values"
     (is (= "user[first-name]=John&user[last-name]=Doe"
            (util/map->query-string {:user {:first-name "John"
-                                      :last-name "Doe"}}))))
+                                           :last-name "Doe"}}))))
   (testing "a map with vector values"
     (is (= "names[]=john&names[]=jane"
            (util/map->query-string {:names ["john" "jane"]}))))
   (testing "a deep nested map"
     (let [expected "criteria[transaction-date][]=between&criteria[transaction-date][]=2018-02-27&criteria[transaction-date][]=2018-03-02&options[sort][]=transaction-date&options[sort][]=desc&options[limit]=50"
           actual (util/map->query-string {:criteria {:transaction-date [:between (t/local-date 2018 2 27) (t/local-date 2018 3 2)]}
-                                     :options {:sort [:transaction-date :desc]
-                                               :limit 50}})]
+                                          :options {:sort [:transaction-date :desc]
+                                                    :limit 50}})]
       (is (= expected actual)))))
 
 (deftest create-a-map-from-a-query-string

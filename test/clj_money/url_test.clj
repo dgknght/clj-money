@@ -28,7 +28,7 @@
              (url/protocol "http")
              (url/path "somepath" "somepage.html")
              (url/query {:min 1
-                     :max 10})
+                         :max 10})
              url/format-url))
       "The correct URL should be returned"))
 

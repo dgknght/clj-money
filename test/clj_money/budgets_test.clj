@@ -68,5 +68,5 @@
                    :total 4000M
                    :periods [250M 250M 250M 250M 250M 250M 250M 250M 250M 250M 250M 1250M]}]
         actual (budgets/render budget
-                                    #(get-in accounts [%]))]
+                               #(get-in accounts [%]))]
     (is (= expected actual))))

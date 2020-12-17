@@ -22,9 +22,9 @@
   (with-redefs [uuid (constantly "00000000000000000000000000000001")]
     (let [records-chan (chan)
           result (async/reduce
-                   track-record
-                   {}
-                   records-chan)]
+                  track-record
+                  {}
+                  records-chan)]
       (read-source :gnucash
                    [(io/input-stream input-path)]
                    records-chan)

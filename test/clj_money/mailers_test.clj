@@ -31,9 +31,9 @@
                  :email "jane@doe.com"}]
     (with-redefs [send-message (fn [_ message]
                                  (swap! messages conj message))]
-     (mailers/invite-user {:from-user inviter
-                           :to-user invitee
-                           :url "http://clj-money.com/users/abcdef"}))
+      (mailers/invite-user {:from-user inviter
+                            :to-user invitee
+                            :url "http://clj-money.com/users/abcdef"}))
 
     (if-not (= expected-messages @messages)
       (pprint {:expected expected-messages

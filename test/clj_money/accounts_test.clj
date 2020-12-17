@@ -28,8 +28,8 @@
                    :earliest-transaction-date earliest
                    :latest-transaction-date (t/local-date 2020 11 30)}]]
     (is (= {:transaction-date [:between earliest latest]
-              :account-id #{101 102}}
-             (accounts/->criteria accounts)))))
+            :account-id #{101 102}}
+           (accounts/->criteria accounts)))))
 
 (deftest derive-an-item
   (testing "from a positive quantity"

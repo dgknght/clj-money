@@ -42,15 +42,15 @@
   (let [context (realize entity-context)]
     (testing "Name is required"
       (assert-validation-error
-        :name
-        "Name is required"
-        (entities/create (dissoc (attributes context) :name))))
+       :name
+       "Name is required"
+       (entities/create (dissoc (attributes context) :name))))
     (testing "Name must be unique"
       (entities/create (attributes context))
       (assert-validation-error
-        :name
-        "Name is already in use"
-        (entities/create (attributes context))))))
+       :name
+       "Name is already in use"
+       (entities/create (attributes context))))))
 
 (def ^:private list-context
   (-> entity-context

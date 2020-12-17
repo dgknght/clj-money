@@ -203,18 +203,18 @@
 (deftest tradify-an-partial-transaction
   (let [date (t/local-date 2020 3 2)
         tradified (trx/tradify {:transaction-date date
-                         :items [{:account-id "401k"
-                                  :action :credit}]}
-                        {:find-account (->> (:accounts trading-context)
-                                            (map (juxt :id identity))
-                                            (into {}))
-                         :find-commodity (->> :commodities trading-context
-                                              (map (juxt :id identity))
-                                              (into {}))})]
+                                :items [{:account-id "401k"
+                                         :action :credit}]}
+                               {:find-account (->> (:accounts trading-context)
+                                                   (map (juxt :id identity))
+                                                   (into {}))
+                                :find-commodity (->> :commodities trading-context
+                                                     (map (juxt :id identity))
+                                                     (into {}))})]
     (is (= date (:trade-date tradified)) "The trade-date is taken from transaction-date")
     (is (= "401k" (:account-id tradified)) "The account-id is taken from the item for the trading account")
     (is (= :buy (:action tradified)) "The action defauls to buy")
-    (is (nil? (:commodity-id tradified)) "The commodity id is nil" )
+    (is (nil? (:commodity-id tradified)) "The commodity id is nil")
     (is (nil? (:shares tradified)) "The shares is nil")))
 
 (deftest tradify-a-buy-transaction

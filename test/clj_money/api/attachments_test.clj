@@ -92,9 +92,9 @@
                                                   :attachments)
                                             "?"
                                             (map->query-string
-                                              {:transaction-date-on-or-after "2015-01-01"
-                                               :transaction-date-on-or-before "2015-01-31"
-                                               :transaction-id (:id transaction)})))
+                                             {:transaction-date-on-or-after "2015-01-01"
+                                              :transaction-date-on-or-before "2015-01-31"
+                                              :transaction-id (:id transaction)})))
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)]

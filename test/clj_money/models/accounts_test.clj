@@ -263,9 +263,9 @@
                                  :parent-id (:id savings)
                                  :entity-id (:id entity)})]
     (assert-validation-error
-      :type
-      "Type must match the parent type"
-      result)))
+     :type
+     "Type must match the parent type"
+     result)))
 
 (deftest name-is-required
   (let [context (realize account-context)
@@ -284,17 +284,17 @@
                     :entity-id (:id entity)
                     :type :expense}]
     (assert-validation-error
-      :name
-      "Name is already in use"
-      (accounts/create attributes))))
+     :name
+     "Name is already in use"
+     (accounts/create attributes))))
 
 (deftest correct-account-type
   (let [context (realize account-context)
         attr (assoc (attributes context) :type :invalidtype)]
     (assert-validation-error
-      :type
-      "Type must be one of: expense, equity, liability, income, asset"
-      (accounts/create attr))))
+     :type
+     "Type must be one of: expense, equity, liability, income, asset"
+     (accounts/create attr))))
 
 (deftest commodity-id-defaults-to-entity-default
   (let [context (realize account-context)
@@ -313,7 +313,7 @@
         retrieved (accounts/find account)]
     (is (not (v/has-error? result))
         (format "Unexpected validation error: %s"
-                (v/error-messages result)) )
+                (v/error-messages result)))
     (is (= "New name" (:name result)) "The updated account is returned")
     (is (= "New name" (:name retrieved)) "The updated account is retreived")))
 
@@ -344,7 +344,7 @@
         "The returned account has the correct parent-id value")
     (is (= (:id fixed)
            (:parent-id retrieved))
-        "The retrieved account has the correct parent-id value")) )
+        "The retrieved account has the correct parent-id value")))
 
 (deftest delete-an-account
   (let [context (realize select-context)

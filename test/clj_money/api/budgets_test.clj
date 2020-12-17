@@ -216,8 +216,8 @@
         user (find-user ctx email)
         budget (find-budget ctx "2016")
         response (-> (req/request :delete (path :api
-                                               :budgets
-                                               (:id budget)))
+                                                :budgets
+                                                (:id budget)))
                      (add-auth user)
                      app)
         retrieved (budgets/find budget)]

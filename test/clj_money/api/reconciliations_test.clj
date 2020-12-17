@@ -141,9 +141,9 @@
   [[response _ retrieved]]
   (assert-not-found response)
   (is (not-any? #(selective= {:end-of-period (t/local-date 2015 2 4)
-                          :balance 300M}
-                         %)
-            retrieved)
+                              :balance 300M}
+                             %)
+                retrieved)
       "The reconciliation is not created"))
 
 (deftest a-user-can-create-a-completed-reconciliation-in-his-entity

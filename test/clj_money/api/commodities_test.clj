@@ -95,7 +95,7 @@
                         {:name "US Dollar"
                          :symbol "USD"
                          :type "currency"}]
-         body)
+                       body)
       "The body contains the list of commodities"))
 
 (defn- assert-blocked-list
@@ -181,9 +181,9 @@
   [[response _ retrieved]]
   (assert-not-found response)
   (is (not-any? #(selective= (-> commodity-attributes
-                             (update-in [:type] keyword)
-                             (update-in [:exchange] keyword))
-                         %)
+                                 (update-in [:type] keyword)
+                                 (update-in [:exchange] keyword))
+                             %)
                 retrieved)
       "The commodity is not created"))
 
@@ -218,8 +218,8 @@
         user (find-user ctx email)
         msft (find-commodity ctx "MSFT")
         response (-> (req/request :patch (path :api
-                                              :commodities
-                                              (:id msft)))
+                                               :commodities
+                                               (:id msft)))
                      (req/json-body (assoc msft :name "Microsoft, Ltd."))
                      (add-auth user)
                      app)
@@ -234,7 +234,7 @@
                   body)
       "The updated commodity is returned in the body")
   (is (selective= {:name "Microsoft, Ltd."}
-                 retrieved)
+                  retrieved)
       "The record is updated in the database"))
 
 (defn- assert-blocked-update

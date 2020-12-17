@@ -16,7 +16,7 @@
 
 (def ^:private grant-context
   {:users (map #(factory :user {:email %})
-                ["john@doe.com" "jane@doe.com"])
+               ["john@doe.com" "jane@doe.com"])
    :entities [{:name "Business"
                :user-id "john@doe.com"}]
    :commodities [{:name "US Dollar"
@@ -58,9 +58,9 @@
         user (find-user context "jane@doe.com")
         grant (find-grant context (:id entity) (:id user))
         result (grants/update
-                 (update-in grant
-                            [:permissions]
-                            #(assoc % :transactions #{:index :show})))
+                (update-in grant
+                           [:permissions]
+                           #(assoc % :transactions #{:index :show})))
         retrieved (grants/find result)]
     (is (empty? (validation/error-messages result))
         "The result has not validation errors")

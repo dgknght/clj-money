@@ -58,8 +58,7 @@
                      {:name "Medicare"
                       :type :expense
                       :parent-id "Taxes"}]
-          :transactions [
-                         ; salary
+          :transactions [; salary
                          {:transaction-date (t/local-date 2016 1 1)
                           :description "Paycheck"
                           :items [{:action :debit
@@ -161,63 +160,63 @@
                                   {:action :credit
                                    :account-id "Credit Card"
                                    :quantity 100M}]}
-                                {:transaction-date (t/local-date 2016 2 7)
-                                :description "Kroger"
-                                :items [{:action :debit
-                                          :account-id "Groceries"
-                                          :quantity 101M}
-                                        {:action :credit
-                                          :account-id "Credit Card"
-                                          :quantity 101M}]}
-                                {:transaction-date (t/local-date 2016 2 14)
-                                :description "Kroger"
-                                :items [{:action :debit
-                                          :account-id "Groceries"
-                                          :quantity 101M}
-                                        {:action :credit
-                                          :account-id "Credit Card"
-                                          :quantity 101M}]}
-                                {:transaction-date (t/local-date 2016 2 21)
-                                :description "Kroger"
-                                :items [{:action :debit
-                                          :account-id "Groceries"
-                                          :quantity 101M}
-                                        {:action :credit
-                                          :account-id "Credit Card"
-                                          :quantity 101M}]}
-                                {:transaction-date (t/local-date 2016 2 28)
-                                :description "Kroger"
-                                :items [{:action :debit
-                                          :account-id "Groceries"
-                                          :quantity 101M}
-                                        {:action :credit
-                                          :account-id "Credit Card"
-                                          :quantity 101M}]}
+                         {:transaction-date (t/local-date 2016 2 7)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :quantity 101M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :quantity 101M}]}
+                         {:transaction-date (t/local-date 2016 2 14)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :quantity 101M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :quantity 101M}]}
+                         {:transaction-date (t/local-date 2016 2 21)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :quantity 101M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :quantity 101M}]}
+                         {:transaction-date (t/local-date 2016 2 28)
+                          :description "Kroger"
+                          :items [{:action :debit
+                                   :account-id "Groceries"
+                                   :quantity 101M}
+                                  {:action :credit
+                                   :account-id "Credit Card"
+                                   :quantity 101M}]}
                                 ; rent
-                                {:transaction-date (t/local-date 2016 1 4)
-                                :description "Landlord"
-                                :items [{:action :debit
-                                          :account-id "Rent"
-                                          :quantity 700M}
-                                        {:action :credit
-                                          :account-id "Checking"
-                                          :quantity 700M}]}
-                                {:transaction-date (t/local-date 2016 2 4)
-                                :description "Landlord"
-                                :items [{:action :debit
-                                          :account-id "Rent"
-                                          :quantity 700M}
-                                        {:action :credit
-                                          :account-id "Checking"
-                                          :quantity 700M}]}]}))
+                         {:transaction-date (t/local-date 2016 1 4)
+                          :description "Landlord"
+                          :items [{:action :debit
+                                   :account-id "Rent"
+                                   :quantity 700M}
+                                  {:action :credit
+                                   :account-id "Checking"
+                                   :quantity 700M}]}
+                         {:transaction-date (t/local-date 2016 2 4)
+                          :description "Landlord"
+                          :items [{:action :debit
+                                   :account-id "Rent"
+                                   :quantity 700M}
+                                  {:action :credit
+                                   :account-id "Checking"
+                                   :quantity 700M}]}]}))
 
 (deftest create-an-income-statement
   (let [context (realize report-context)
         entity (find-entity context "Personal")
         actual (strip-account-ids
-                 (reports/income-statement entity
-                                           (t/local-date 2016 1 1)
-                                           (t/local-date 2016 1 31)))
+                (reports/income-statement entity
+                                          (t/local-date 2016 1 1)
+                                          (t/local-date 2016 1 31)))
         expected [{:caption "Income"
                    :value 2003M
                    :style :header}
@@ -260,8 +259,8 @@
 (deftest create-a-balance-sheet-report
   (let [context (realize report-context)
         actual (strip-account-ids
-                 (reports/balance-sheet (-> context :entities first)
-                                        (t/local-date 2016 1 31)))
+                (reports/balance-sheet (-> context :entities first)
+                                       (t/local-date 2016 1 31)))
         expected [{:caption "Asset"
                    :value 749M
                    :style :header}
@@ -284,9 +283,9 @@
                    :style :data
                    :depth 0}
                   #_{:caption "Unrealized Gains"
-                   :value 0M
-                   :style :data
-                   :depth 0}
+                     :value 0M
+                     :style :data
+                     :depth 0}
                   {:caption "Liabilities + Equity"
                    :value 749M
                    :style :summary}]]
@@ -341,8 +340,8 @@
                         :value 500M
                         :trade-date (t/local-date 2016 3 2)})
         report (strip-account-ids
-                 (reports/balance-sheet (-> context :entities first)
-                                        (t/local-date 2017 3 2)))
+                (reports/balance-sheet (-> context :entities first)
+                                       (t/local-date 2017 3 2)))
         expected [{:caption "Asset"
                    :value 3279M
                    :style :header}
@@ -491,8 +490,7 @@
                               :periods (repeat 12 200M)}
                              {:account-id "Groceries"
                               :periods (repeat 12 450M)}]}]
-          :transactions [
-                         ; salary
+          :transactions [; salary
                          {:transaction-date (t/local-date 2016 1 1)
                           :description "Paycheck"
                           :items [{:action :debit
@@ -717,10 +715,10 @@
 (deftest create-a-budget-report
   (let [context (realize budget-report-context)
         actual (update-in
-                 (reports/budget (-> context :budgets first)
-                                 {:as-of (t/local-date 2016 2 29)})
-                 [:items]
-                 strip-account-ids)]
+                (reports/budget (-> context :budgets first)
+                                {:as-of (t/local-date 2016 2 29)})
+                [:items]
+                strip-account-ids)]
     (is (= expected-budget actual) "The function products the correct data")))
 
 (deftest create-a-budget-monitor
@@ -751,15 +749,15 @@
          st-gains
          lt-losses
          st-losses] (find-accounts context "IRA"
-                                           "LT Gains"
-                                           "ST Gains"
-                                           "LT Losses"
-                                           "ST Losses")
+                                   "LT Gains"
+                                   "ST Gains"
+                                   "LT Losses"
+                                   "ST Losses")
         [aapl
          msft
          ge] (find-commodities context "AAPL"
-                                       "MSFT"
-                                       "GE")
+                               "MSFT"
+                               "GE")
         p1 (trading/buy {:trade-date (t/local-date 2017 1 15)
                          :commodity-id (:id aapl)
                          :account-id (:id ira)
@@ -786,8 +784,8 @@
                           :st-capital-loss-account-id (:id st-losses)})
         actual (map (fn [record]
                       (update-in record [:transactions] (fn [transactions]
-                                                              (map #(dissoc % :lot-id)
-                                                                   transactions))))
+                                                          (map #(dissoc % :lot-id)
+                                                               transactions))))
                     (reports/lot-report (:id ira)))
         expected [{:caption "Apple, Inc. (AAPL)"
                    :commodity-id (:id aapl)

@@ -19,7 +19,7 @@
                   :symbol "USD"
                   :type :currency}]
    :accounts [{:name "Checking"
-               :type :asset }
+               :type :asset}
               {:name "Salary"
                :type :income}
               {:name "Groceries"
@@ -48,8 +48,8 @@
         result (attachments/create (attributes context))
         transaction (-> context :transactions first)
         retrieved (first
-                    (attachments/search {:transaction-id (:id transaction)
-                                         :transaction-date (:transaction-date transaction)}))]
+                   (attachments/search {:transaction-id (:id transaction)
+                                        :transaction-date (:transaction-date transaction)}))]
     (is (empty? (validation/error-messages result))
         "The attachment is saved successfully")
     (is retrieved "The value can be retreived from the database")
@@ -75,10 +75,10 @@
 
 (def ^:private update-context
   (assoc attach-context :attachments
-                        [{:transaction-id {:transaction-date (t/local-date 2017 1 1)
-                                           :description "Paycheck"}
-                          :image-id "sample_receipt.jpg"
-                          :caption "receipt"}]))
+         [{:transaction-id {:transaction-date (t/local-date 2017 1 1)
+                            :description "Paycheck"}
+           :image-id "sample_receipt.jpg"
+           :caption "receipt"}]))
 
 (deftest update-an-attachment
   (let [ctx (realize update-context)

@@ -305,7 +305,7 @@
   (let [context (realize working-reconciliation-context)
         recon (-> context :reconciliations last)
         result (reconciliations/update
-                 (assoc recon :balance 1499M))
+                (assoc recon :balance 1499M))
         retrieved (reconciliations/find recon)]
     (is (empty? (validation/error-messages result))
         "The item has no validation errors")

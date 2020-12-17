@@ -35,40 +35,40 @@
 (deftest email-is-unique
   (users/create attributes)
   (assert-validation-error
-    :email
-    "Email is already taken"
-    (users/create attributes)))
+   :email
+   "Email is already taken"
+   (users/create attributes)))
 
 (deftest try-to-create-with-invalid-data
   (testing "Email is required"
     (assert-validation-error
-      :email
-      "Email is required"
-      (users/create (dissoc attributes :email))))
+     :email
+     "Email is required"
+     (users/create (dissoc attributes :email))))
   (testing "Email must be a valid email address"
     (assert-validation-error
-      :email
-      "Email must be a valid email"
-      (users/create (assoc attributes :email "notavalidemail"))))
+     :email
+     "Email must be a valid email"
+     (users/create (assoc attributes :email "notavalidemail"))))
   (testing "First name is required"
     (assert-validation-error
-      :first-name
-      "First name is required"
-      (users/create (dissoc attributes :first-name))))
+     :first-name
+     "First name is required"
+     (users/create (dissoc attributes :first-name))))
   (testing "First name cannot be empty"
     (assert-validation-error
-      :first-name
-      "First name cannot be empty"
-      (users/create (assoc attributes :first-name "")))
+     :first-name
+     "First name cannot be empty"
+     (users/create (assoc attributes :first-name "")))
     (assert-validation-error
-      :last-name
-      "Last name is required"
-      (users/create (dissoc attributes :last-name))))
+     :last-name
+     "Last name is required"
+     (users/create (dissoc attributes :last-name))))
   (testing "Last name cannot be empty"
     (assert-validation-error
-      :last-name
-      "Last name cannot be empty"
-      (users/create (assoc attributes :last-name "")))))
+     :last-name
+     "Last name cannot be empty"
+     (users/create (assoc attributes :last-name "")))))
 
 (deftest authenticate-a-user
   (let [user (users/create attributes)
@@ -96,9 +96,9 @@
 (deftest cannot-retrieve-a-user-with-an-expired-token
   (let [user (users/create attributes)
         token (t/do-at (t/date-time 2017 3 2 12 0 0)
-                (users/create-password-reset-token user))
+                       (users/create-password-reset-token user))
         retrieved (t/do-at (t/date-time 2017 3 3 12 0 0)
-                    (users/find-by-token token))]
+                           (users/find-by-token token))]
     (is (nil? retrieved)
         "The user is not returned if the token has expired")))
 

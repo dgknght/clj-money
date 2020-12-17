@@ -63,8 +63,8 @@
   (let [ctx (realize find-context)
         user (find-user ctx "john@doe.com")
         retrieved (idents/find-or-create-from-profile
-                    :google
-                    profile)]
+                   :google
+                   profile)]
     (is (selective= user retrieved :id :email :first-name :last-name)
         "The correct user record is returned")))
 
@@ -72,15 +72,15 @@
   (let [ctx (realize create-context)
         user (find-user ctx "john@doe.com")
         retrieved (idents/find-or-create-from-profile
-                    :google
-                    profile)]
+                   :google
+                   profile)]
     (is (selective= user retrieved :id :email :first-name :last-name)
         "The correct user record is returned")))
 
 (deftest create-a-user-from-a-profile
   (let [retrieved (idents/find-or-create-from-profile
-                    :google
-                    profile)]
+                   :google
+                   profile)]
     (is (selective= {:email "john@doe.com"
                      :first-name "John"
                      :last-name "Doe"}
