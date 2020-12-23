@@ -4,7 +4,8 @@
             #?(:clj [clj-time.format :as tf]
                :cljs [cljs-time.format :as tf])
             #?(:clj [clj-time.coerce :as tc]
-               :cljs [cljs-time.coerce :as tc])))
+               :cljs [cljs-time.coerce :as tc])
+            #?(:cljs [clj-money.decimal :as decimal])))
 
 (def periods #{:month :quarter :year})
 
@@ -21,6 +22,11 @@
   [index {:keys [start-date]}]
   (str "Q" (inc index) " " (t/year start-date)))
 
+(defn- sum
+  [coll]
+  #?(:clj (reduce + coll)
+     :cljs (decimal/sum coll)))
+
 (defn- render-items
   [items caption filter-fn]
   (let [rendered-items (->> items
@@ -29,17 +35,17 @@
                             (map (fn [item]
                                    {:item (dissoc item :account) ; TODO: should I remove this here? It simplifies testing, but is it better?
                                     :caption (-> item :account :path)
-                                    :total (reduce + (:periods item))})))]
+                                    :total (sum (:periods item))})))]
     {:caption caption
      :items rendered-items
      :total (->> rendered-items
                  (map :total)
-                 (reduce +))
+                 sum)
      :periods (->> rendered-items
                    (map (comp :periods :item))
                    (apply interleave)
                    (partition (count rendered-items))
-                   (map #(reduce + %)))}))
+                   (map #(sum %)))}))
 
 (defn- render-income
   [items]
@@ -65,7 +71,7 @@
                          (map #(apply - %)))
         net {:caption "Net"
              :periods net-periods
-             :total (reduce + net-periods)}]
+             :total (sum net-periods)}]
     [income
      expense
      net]))

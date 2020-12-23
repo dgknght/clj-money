@@ -3,6 +3,7 @@
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
+            [clj-money.decimal :as decimal]
             [clj-money.state :refer [app-state]]
             [clj-money.html :as html]
             [clj-money.util :refer [format-decimal]]
@@ -105,7 +106,8 @@
        [:div.card-header
         [:strong (str (if (:id @selected) "Edit" "New") " Budget")]]
        [:div.card-body
-        [:form
+        [:form {:on-submit #(.preventDefault %)
+                :no-validate true}
          [forms/text-field selected [:name] {:validate [:required]}]
          [forms/date-field selected [:start-date] {:validate [:required]}]
          [forms/select-field selected [:period] (->> budgets/periods
@@ -136,7 +138,7 @@
 
 (defn- select-budget-item
   [item page-state]
-  (let [total (reduce + (:periods item))
+  (let [total (decimal/sum (:periods item))
         average (/ total (-> item :periods count))
         mode (if (apply = (:periods item))
                :per-average
@@ -323,16 +325,18 @@
                       :active? (= :per-average @entry-mode)
                       :on-click #(swap! item assoc ::entry-mode :per-average)}])
        [:div.mt-2
-        (case @entry-mode
-          :per-period
-          [period-fields-per-period item @budget]
-          :per-total
-          (period-fields-per-total item @budget)
-          :per-average
-          (period-fields-per-average item @budget)
+        [:form {:on-submit #(.preventDefault %)
+                :no-validate true}
+         (case @entry-mode
+           :per-period
+           [period-fields-per-period item @budget]
+           :per-total
+           (period-fields-per-total item @budget)
+           :per-average
+           (period-fields-per-average item @budget)
 
-          [:div.alert.alert-danger
-           (str "Unknown entry mode " @entry-mode)])]])))
+           [:div.alert.alert-danger
+            (str "Unknown entry mode " @entry-mode)])]]])))
 
 (defn- budget-item-form
   [page-state]

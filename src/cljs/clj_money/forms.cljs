@@ -65,11 +65,25 @@
                                            (swap! model assoc-in field new-value)))
                             :on-key-up on-key-up}])))
 
-(defn- nilify
+(defmulti ^:private nilify
+  (fn [model _field]
+    (type model)))
+
+(defn- one?
+  [coll]
+  (= 1 (count coll)))
+
+(defmethod nilify PersistentVector
   [model field]
-  (if (= 1 (count field))
-    (swap! model dissoc (first field))
-    (swap! model assoc-in (butlast field) dissoc (last field))))
+  (if (one? field)
+    (assoc-in model field nil)
+    (update-in model (take 1 field) nilify (rest field))))
+
+(defmethod nilify :default
+  [model field]
+  (if (one? field) 
+    (dissoc model (first field))
+    (update-in model (take 1 field) nilify (rest field))))
 
 (defn text-field
   [model field options]
@@ -123,7 +137,7 @@
                                           (when parsed
                                             (swap! model assoc-in field parsed)
                                             (on-accept))
-                                          (nilify model field))
+                                          (swap! model nilify field))
                                         (reset! text-value new-value)))})]
         (if icon
           [:div.input-group

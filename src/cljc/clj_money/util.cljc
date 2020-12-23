@@ -460,3 +460,10 @@
                                     (reset! t nil)
                                     (apply f args))
                                   timeout))))))
+
+(defn ->indexed-map
+  ([coll] (->indexed-map coll :id))
+  ([coll k]
+   (->> coll
+        (map (juxt k identity))
+        (into {}))))

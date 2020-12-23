@@ -1,13 +1,20 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
   (:require [clj-money.api :as api]
-            [clj-money.util :refer [serialize-date
+            [clj-money.decimal :refer [->decimal]]
+            [clj-money.util :refer [update-in-if
+                                    serialize-date
                                     unserialize-date]]
             [clj-money.state :refer [current-entity]]))
+
+(defn- after-item-read
+  [item]
+  (update-in item [:periods] #(mapv ->decimal %)))
 
 (defn- after-read
   [budget]
   (-> budget
+      (update-in-if [:items] #(map after-item-read %))
       (update-in [:period] keyword)
       (update-in [:start-date] unserialize-date)
       (update-in [:end-date] unserialize-date)))

@@ -158,3 +158,13 @@
            (util/nominal-comparatives {:start-on [:between date other-date]}
                                       :start-on))
         "between generates to keys in the result")))
+
+(deftest make-an-indexed-map
+  (let [coll [{:id 1 :name "One"}
+              {:id 2 :name "Two"}]]
+    (is (= {1 {:id 1 :name "One"}
+            2 {:id 2 :name "Two"}}
+           (util/->indexed-map coll)))
+    (is (= {"One" {:id 1 :name "One"}
+            "Two" {:id 2 :name "Two"}}
+           (util/->indexed-map coll :name)))))

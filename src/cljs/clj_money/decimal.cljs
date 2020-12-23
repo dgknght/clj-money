@@ -37,3 +37,9 @@
 (defn *
   [v1 v2]
   (.times (->decimal v1) v2))
+
+(defn sum
+  [coll]
+  (->> coll
+       (filter identity)
+       (reduce + 0M )))

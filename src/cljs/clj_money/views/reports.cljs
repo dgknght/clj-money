@@ -4,14 +4,21 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
+            [clj-money.decimal :as decimal]
+            [clj-money.html :as html]
             [clj-money.util :refer [format-decimal
-                                    format-percent]]
+                                    format-percent
+                                    ->indexed-map]]
             [clj-money.inflection :refer [humanize
                                           title-case]]
             [clj-money.bootstrap :as bs]
             [clj-money.state :refer [app-state]]
             [clj-money.forms :as forms]
             [clj-money.notifications :as notify]
+            [clj-money.accounts :refer [nest
+                                        unnest]]
+            [clj-money.budgets :refer [period-description]]
+            [clj-money.api.accounts :as act]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
 
@@ -168,14 +175,17 @@
               (fn [result]
                 (swap! page-state #(-> %
                                        (assoc-in [:budget :report] result)
-                                       (dissoc :loading?))))
+                                       (dissoc :loading?)
+                                       (update-in [:budget] dissoc :apply-info))))
               (notify/danger-fn "Unable to fetch the budget report: %s")))
 
 (defn- budget-filter
   [page-state]
   (let [budgets (r/cursor page-state [:budget :budgets])
         loading? (r/cursor page-state [:loading?])
-        options (make-reaction #(map (juxt :id :name) @budgets))]
+        options (make-reaction #(->> (vals @budgets)
+                                     (sort-by :start-date t/after?)
+                                     (map (juxt :id :name))))]
     (fn []
       [:form.form-inline.d-print-none {:on-submit (fn [e]
                                                     (.preventDefault e)
@@ -193,25 +203,89 @@
            [:span.sr-only "Loading..."]]
           (bs/icon :arrow-repeat))]])))
 
+(defn- receive-budget
+  [budget
+   {account-id :id
+    :keys [actual-per-period]
+    :as report-item}
+   page-state]
+  (let [budget (update-in budget
+                          [:items]
+                          ->indexed-map
+                          :account-id)
+        budget-item (or (get-in budget [:items account-id])
+                        {:account-id account-id
+                         :periods []})
+        periods (vec
+                  (repeat (:period-count budget)
+                          actual-per-period))]
+    (swap! page-state
+           assoc-in
+           [:budget :apply-info]
+           {:budget budget
+            :budget-item (assoc budget-item :periods periods)
+            :report-item report-item})))
+
+(defn- apply-to-budget
+  [report-item
+   page-state]
+  (let [{{:keys [budget-id]} :budget} @page-state]
+    (bdt/find budget-id
+              #(receive-budget % report-item page-state)
+              (notify/danger-fn "Unable to load the budget: %s"))))
+
 (defn- budget-report-row
-  [{:keys [id caption style budget actual difference percent-difference actual-per-period]}]
+  [{:keys [id
+           caption
+           style
+           budget
+           actual
+           difference
+           percent-difference
+           actual-per-period]
+    :as item}
+   page-state]
   ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (str "report-" (name style))}
    [:td caption]
    [:td.text-right (format-decimal budget)]
    [:td.text-right (format-decimal actual)]
-   [:td.text-right {:class (when (> 0 difference) "text-light bg-danger")} (format-decimal difference)]
+   [:td.d-flex.justify-content-between {:class (when (> 0 difference) "text-light bg-danger")}
+    (when-not (or (= :header style)
+                  (zero? difference))
+      [:span.d-print-none
+       {:on-click #(apply-to-budget item page-state)
+        :title "Click here to update the budget with recorded actual values."
+        :style {:cursor :pointer}}
+       (bs/icon :gear {:size :small})])
+    [:span.flex-fill.text-right (format-decimal difference)]]
    [:td.text-right (format-percent percent-difference)]
    [:td.text-right (format-decimal actual-per-period)]])
 
 (defn- load-budgets
   [page-state]
-  (bdt/search (fn [result]
+  (bdt/search (fn [budgets]
                 (swap! page-state
-                       #(-> %
-                            (assoc-in [:budget :budgets] result)
-                            (assoc-in [:budget :budget-id] (:id (first result))))))
+                       (fn [state]
+                         (-> state
+                             (assoc-in [:budget :budgets] (->> budgets
+                                                               (map (juxt :id identity))
+                                                               (into {})))
+                             (assoc-in [:budget :budget-id] (-> budgets first :id))))))
               (notify/danger-fn "Unable to load the budgets: %s")))
+
+(defn- load-accounts
+  [page-state]
+  (act/select (fn [accounts]
+                (swap! page-state
+                       assoc
+                       :accounts
+                       (->> accounts
+                            nest
+                            unnest
+                            (map (juxt :id identity))
+                            (into {}))))
+              (notify/danger-fn "Unable to load the accounts: %s")))
 
 (defn- refine-items
   [depth items]
@@ -229,14 +303,87 @@
                    (refine-items depth (:items %)))
           groups))
 
+(defn- save-budget
+  [page-state]
+  (let [{:keys [budget budget-item]} (get-in @page-state [:budget :apply-info])]
+    (swap! page-state assoc :loading? true)
+    (bdt/save (update-in budget [:items] (fn [items]
+                                           (-> items
+                                              (assoc (:account-id budget-item)
+                                                     (update-in budget-item
+                                                                [:periods]
+                                                                #(mapv (fnil identity (decimal/zero))
+                                                                       %)))
+                                              vals)))
+              #(fetch-budget-report page-state)
+              (notify/danger-fn "Unable to save the budget: %s"))))
+
+(defn- apply-budget-item-form
+  [page-state]
+  (let [apply-info (r/cursor page-state [:budget :apply-info])
+        report-item (r/cursor apply-info [:report-item])
+        account (r/cursor report-item [:account])
+        budget (r/cursor apply-info [:budget])
+        original-budget-item (make-reaction #(get-in @budget [:items (:id @account)]))
+        loading? (r/cursor page-state [:loading?])
+        budget-item (r/cursor apply-info [:budget-item])
+        original-total (make-reaction
+                         #(decimal/sum (:periods @original-budget-item)))
+        item-total (make-reaction
+                     #(decimal/sum (:periods @budget-item)))]
+    (fn []
+      [:div.background.fixed-top {:class (when-not @apply-info "d-none")}
+       [:div.card
+        [:div.card-header (str "Apply Budget Item: " (:path @account))]
+        [:div.card-body
+         [:form {:on-submit #(.preventDefault %)
+                 :no-validate true}
+          [:table.table.table-hover
+           [:thead
+            [:tr
+             [:th "Period"]
+             [:th.text-right "Current"]
+             [:th "New"]]]
+           [:tbody
+            (->> (range (:period-count @budget))
+                 (map-indexed (fn [index]
+                                ^{:key (str "budget-item-period-" index)}
+                                [:tr
+                                 [:td (period-description index @budget)]
+                                 [:td.text-right (format-decimal
+                                                   (get-in @original-budget-item
+                                                           [:periods index]))]
+                                 [:td [forms/decimal-input budget-item [:periods index]]]]))
+                 doall)]
+           [:tfoot
+            [:tr
+             [:td.text-right {:col-span 2} (format-decimal @original-total)]
+             [:td.text-right (format-decimal @item-total)]]]]]]
+        [:div.card-footer
+         [:button.btn.btn-primary {:title "Click here to save this budget item."
+                                   :on-click #(save-budget page-state)}
+          (if @loading?
+            [:div
+             [:div.spinner-border.spinner-border-sm.text-light
+              [:span.sr-only "Loading..."]]
+             "Save"]
+            (bs/icon-with-text :check "Save"))]
+         (html/space)
+         [:button.btn.btn-info {:title "Click here to cancel this edit."
+                                :on-click #(swap! page-state update-in [:budget] dissoc :apply-info)}
+          (bs/icon-with-text :x "Cancel")]]]])))
+
 (defn- budget
   [page-state]
   (let [report (r/cursor page-state [:budget :report])
-        depth (r/cursor page-state [:budget :depth])]
+        depth (r/cursor page-state [:budget :depth])
+        accounts (r/cursor page-state [:accounts])]
+    (load-accounts page-state)
     (load-budgets page-state)
     (fn []
       [:div
        [:h2 "Budget"]
+       [apply-budget-item-form page-state]
        [budget-filter page-state]
        (when @report
          [:div
@@ -253,7 +400,9 @@
            [:tbody
             (->> (:items @report)
                  (refine-and-flatten @depth)
-                 (map budget-report-row)
+                 (map (comp
+                        #(budget-report-row % page-state)
+                        #(assoc % :account (get-in @accounts [(:id %)]))))
                  doall)]]])])))
 
 (defn- load-portfolio

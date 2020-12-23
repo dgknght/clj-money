@@ -197,3 +197,12 @@ table tfoot td {
 .out-of-month {
   background-color: var(--gray);
 }
+
+.background {
+  height: 100%;
+  width: 100%;
+  background-color: #99999999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
