@@ -2,8 +2,10 @@
   (:require [reagent.core :as r]
             [cljs-time.core :as t]
             [cljs.core.async :refer [chan <! >! go-loop go]]
-            [clj-money.util :refer [debounce
-                                    desc-periodic-seq]]))
+            [clj-money.util
+             :as util
+             :refer [debounce
+                     desc-periodic-seq]]))
 
 (defn load-on-scroll
   "Adds load-on-scroll behavior to a component.
@@ -71,6 +73,7 @@
 
   :start      - the start of the time period for which data is to be loaded
   :end        - the end of the time period for which data is to be loaded
+  :interval   - a clj-time period indicating the duration of the chunked time. Defaults to 6 months
   :ctl-chan   - an async channel used to trigger the loading of more items
   :fetch-fn   - a fn that will fetch more items based on a date range
   :receive-fn - a fn that will handle the items that were fetched
@@ -92,7 +95,7 @@
     ; on the items channel
     (go-loop [date-ranges (->> (desc-periodic-seq end interval)
                                (partition 2 1)
-                               (map (comp #(update-in % [1] t/minus (t/days 1))
+                               (map (comp #(update-in % [0] t/plus (t/days 1))
                                           vec
                                           reverse))
                                (take-while #(t/before? start (second %)))

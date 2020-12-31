@@ -1,6 +1,7 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
-  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+  (:require [clojure.set :refer [rename-keys]]
+            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [clj-money.util :refer [uuid
                                     update-in-if
@@ -14,15 +15,25 @@
             [clj-money.models.transactions :as trans]
             [clj-money.authorization.transactions]))
 
-(defn- index
+(defn- ->criteria
   [{:keys [params authenticated]}]
+  (-> params
+      (assoc :transaction-date [:between
+                                (unserialize-date (:start params))
+                                (unserialize-date (:end params))])
+      (select-keys [:entity-id :transaction-date])
+      (+scope ::models/transaction authenticated)))
+
+(defn- ->options
+  [{:keys [params]}]
+  (-> params
+      (select-keys [:include-items])
+      (rename-keys {:include-items :include-items?})))
+
+(defn- index
+  [req]
   (->response
-   (trans/search (-> params
-                     (assoc :transaction-date [:between
-                                               (unserialize-date (:start params))
-                                               (unserialize-date (:end params))])
-                     (select-keys [:entity-id :transaction-date])
-                     (+scope ::models/transaction authenticated)))))
+   (trans/search (->criteria req) (->options req))))
 
 (defn- show
   [{{:keys [id transaction-date]} :params authenticated :authenticated}]

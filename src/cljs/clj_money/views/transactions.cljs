@@ -14,7 +14,8 @@
             [clj-money.bootstrap :as bs]
             [clj-money.html :refer [set-focus
                                     space
-                                    special-char]]
+                                    special-char
+                                    key-code]]
             [clj-money.util :as util :refer [parse-int
                                              debounce
                                              format-date
@@ -291,21 +292,15 @@
 
 (defn- item-navigate
   [e item-count]
+  (.preventDefault e)
   (let [target-id (.-id (.-target e))
         [_ field raw-index] (re-find #"(.*)-(\d)" target-id)
         index (parse-int raw-index)
-        [to-field to-index] (case (.-keyCode e)
-                              ; up
-                              38 [field (mod (dec index) item-count)]
-
-                              ; down
-                              40 [field (mod (inc index) item-count)]
-
-                              ; left
-                              37 [(prev-item-nav-field field) index]
-
-                              ; right
-                              39 [(next-item-nav-field field) index]
+        [to-field to-index] (case (key-code e)
+                              :up    [field (mod (dec index) item-count)]
+                              :down  [field (mod (inc index) item-count)]
+                              :left  [(prev-item-nav-field field) index]
+                              :right [(next-item-nav-field field) index]
                               nil)]
     (when to-field
       (set-focus (str to-field "-" to-index)))))
@@ -338,9 +333,11 @@
                                         :id (str "memo-" index)}]]
    [:td [forms/decimal-input item [:credit-quantity] {:on-accept #(ensure-entry-state page-state)
                                                       :on-key-up #(item-navigate % item-count)
+                                                      :on-key-down #(.preventDefault %)
                                                       :id (str "credit-quantity-" index)}]]
    [:td [forms/decimal-input item [:debit-quantity] {:on-accept #(ensure-entry-state page-state)
                                                      :on-key-up #(item-navigate % item-count)
+                                                      :on-key-down #(.preventDefault %)
                                                      :id (str "debit-quantity-" index)}]]])
 
 (defn full-transaction-form

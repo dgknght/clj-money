@@ -1,5 +1,5 @@
 (ns clj-money.decimal
-  (:refer-clojure :exclude [+ - * zero?]))
+  (:refer-clojure :exclude [+ - * / zero?]))
 
 (defn ->decimal
   [value]
@@ -37,6 +37,10 @@
 (defn *
   [v1 v2]
   (.times (->decimal v1) v2))
+
+(defn /
+  [v1 v2]
+  (.div (->decimal v1) v2))
 
 (defn sum
   [coll]

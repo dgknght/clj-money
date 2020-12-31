@@ -168,3 +168,42 @@
     (is (= {"One" {:id 1 :name "One"}
             "Two" {:id 2 :name "Two"}}
            (util/->indexed-map coll :name)))))
+
+(deftest evaluate-a-math-statement
+  (testing "simple numbers"
+      (is (= 1M (util/eval-math "1"))
+          "A simple number is returned as a decimal")
+      (is (= 1.05M (util/eval-math "1.05"))
+          "A decimal value is parsed")
+      (is (= 1.05M (util/eval-math " 1.05 "))
+          "Spaces are ignored"))
+  (testing "partial statements"
+    (is (nil? (util/eval-math "1 +"))
+        "An unbalanced expression returns nil"))
+  (testing "simple operations"
+    (is (= 2M (util/eval-math "1+1"))
+        "A simple addition is calculated")
+    (is (= 2M (util/eval-math "1 + 1"))
+        "Spaces are optional in addition")
+    (is (= 2.1M (util/eval-math "1.0 + 1.1"))
+        "Decimals can be used in calculations")
+    (is (= 1M (util/eval-math "2 - 1"))
+        "A simple subtraction is calculated")
+    (is (= 10M (util/eval-math "2 * 5"))
+        "A simple multiplcation is calculated")
+    (is (= 10M (util/eval-math "2*5"))
+        "Spaces are optional")
+    (is (= 2M (util/eval-math "10 / 5"))
+        "A simple division is calculated"))
+  (testing "multi-step operations"
+    (is (= 6M (util/eval-math "1 + 2 + 3"))
+        "Addition is performed left to right")
+    (is (= 7M (util/eval-math "1 + 2 * 3"))
+        "Multiplication is performed before addition")
+    (is (= 4M (util/eval-math "1 + 6 / 2"))
+        "Division is performed before addition")
+    (is (= 11M (util/eval-math "1 + 2 * 3 + 4"))
+        "4 part expressions are supported"))
+  (testing "with parentheses"
+    (is (= 9M (util/eval-math "3 * (2 + 1)"))
+        "Parentheses are calculated first")))

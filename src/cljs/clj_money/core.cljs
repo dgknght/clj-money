@@ -18,6 +18,7 @@
             [clj-money.views.transactions]
             [clj-money.views.users]
             [clj-money.views.budgets]
+            [clj-money.views.receipts]
             [clj-money.views.reports]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.api.entities :as entities]
@@ -59,6 +60,8 @@
   [{:id :commodities}
    {:id :accounts}
    {:id :budgets}
+   {:id :receipts
+    :tool-tip "Click here to enter receipts"}
    {:id :reports
     :tool-tip "Click here to view reports"}])
 

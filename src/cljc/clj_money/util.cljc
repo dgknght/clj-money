@@ -1,5 +1,6 @@
 (ns clj-money.util
   (:require [clojure.string :as string]
+            #?(:cljs [clj-money.decimal :as decimal])
             #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])
             #?(:clj [clj-time.format :as f]
@@ -467,3 +468,132 @@
    (->> coll
         (map (juxt k identity))
         (into {}))))
+
+(defn parse-decimal
+  [input]
+  #?(:cljs (decimal/->decimal input)
+     :clj (bigdec input)))
+
+(defn- conj-to-last
+  [lists x]
+  (conj (pop lists)
+        (conj (peek lists) x)))
+
+(defn- nest-parens
+  [elems]
+  (first
+    (reduce (fn [lists elem]
+              (case elem
+                "(" (conj lists [])
+                ")" (conj-to-last (pop lists)
+                                  (peek lists))
+                (conj-to-last lists elem)))
+            '([])
+            elems)))
+
+#?(:cljs (def ^:private operations
+           {"+" decimal/+
+            "-" decimal/-
+            "*" decimal/*
+            "/" decimal//}))
+
+(declare eval-math*)
+
+(defn- eval-statement
+  "Evaluates a traditional, simple math operation.
+
+  E.g.:
+  (eval-statement [1 \"+\" 1]) => 2"
+  [[o1 oper o2]]
+  (let [args (map eval-math* [o1 o2])]
+    #?(:clj (eval (apply
+                    list (symbol "clojure.core" oper)
+                    args))
+       :cljs (apply (operations oper)
+                    args))))
+
+(defn- eval-one
+  "Takes a sequence describing a mathematical expression and
+  evaluates one subexpression, returning the original expression
+  with the one evaluated subexpression resolved"
+  [elems opers]
+  (->> elems
+       (partition-all 3 2)
+       (reduce
+         (fn [result [o1 oper :as stm]]
+           (if (:processed? result)
+             (update-in result [:result] concat (rest stm))
+             (if (= 3 (count stm))
+               (if (opers oper)
+                 (-> result
+                     (assoc :processed? true) ; the one sub expression has been evaluated, don't evalute more this pass
+                     (update-in [:result] conj (eval-statement stm)))
+                 (update-in result [:result] conj o1 oper))
+               (update-in result [:result] concat stm))))
+         {:result []})
+       :result))
+
+(defn- until-same
+  "Performs the function f on the initial value init,
+  plus any additional arguments, comparing the result
+  to the initial value. If they match, the result is
+  returned. If not, the function is applied to the result
+  until the result matches the input."
+  [f init & args]
+  (let [last-result (atom init)]
+    (loop [result (apply f init args)]
+      (if (= @last-result result)
+        result
+        (do
+          (reset! last-result result)
+          (recur (apply f result args)))))))
+
+(defn- perform-opers
+  [elems opers]
+  (until-same eval-one elems opers))
+
+(defn- mdas
+  [elems]
+  (loop [elems elems
+         oper-sets [#{"*" "/"}
+                    #{"+" "-"}]]
+    (if (= 1 (count elems))
+      (eval-math* (first elems))
+      (when (odd? (count elems))
+        (recur (perform-opers elems (first oper-sets))
+               (rest oper-sets))))))
+
+; make mulitple passes for each operator to enforce pemdas
+; perform one calculation per operater set pass
+; when an operator set pass returns the same result 2 times, move to the next operator set
+; e.g.
+; apply #{"*" "/"} to 1 + 2 + 3 => 1 + 2 + 3 (will return the unchanged input)
+; apply #{"+" "-"} to 1 + 2 + 3 => 3 + 3
+; apply #{"+" "-"} to 3 + 3     => 6
+;
+; apply #{"*" "/"} to 1 + 2 * 3 => 1 + 6    (when processing the result of the 1st pass will return the result of the 1st pass)
+; apply #{"+" "-"} to 1 + 6     => 7
+
+
+(defmulti eval-math*
+  #(cond
+     (vector? %) :vector
+     (string? %) :scalar))
+
+(defmethod eval-math* :default
+  [elem]
+  elem)
+
+(defmethod eval-math* :vector
+  [elems]
+  (mdas elems))
+
+(defmethod eval-math* :scalar
+  [elem]
+  (parse-decimal elem))
+
+(defn eval-math
+  [input]
+  (->> (re-seq #"\d+(?:\.\d+)?|[)(*+/-]" input)
+       nest-parens
+       eval-math*))

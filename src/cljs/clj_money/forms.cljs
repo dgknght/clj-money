@@ -1,12 +1,14 @@
 (ns clj-money.forms
   (:require [reagent.core :as r]
             [clojure.string :as string]
+            [goog.string :as gstr]
             [cljs-time.core :as t]
             [cljs-time.format :as tf]
-            [clj-money.util :refer [->id
-                                    presence]]
+            [clj-money.html :refer [key-code
+                                    ctrl-key?]]
+            [clj-money.util :as util :refer [->id
+                                             presence]]
             [clj-money.bootstrap :as bs]
-            [clj-money.decimal :refer [->decimal]]
             [clj-money.calendar :as cal]
             [clj-money.views.calendar :as calview]
             [clj-money.inflection :refer [humanize]]))
@@ -50,20 +52,21 @@
              (->caption field))]]))))
 
 (defn text-input
-  [model field {:keys [id on-key-up]
+  [model field {:keys [id on-key-up attr]
                 input-type :type
                 :or {input-type :text
                      on-key-up identity}}]
   (let [value (r/cursor model field)]
     (fn []
-      [:input.form-control {:type input-type
-                            :name (->name field)
-                            :id (or id (->id field))
-                            :value @value
-                            :on-change (fn [e]
-                                         (let [new-value (.-value (.-target e))]
-                                           (swap! model assoc-in field new-value)))
-                            :on-key-up on-key-up}])))
+      [:input.form-control (merge attr
+                                  {:type input-type
+                                   :name (->name field)
+                                   :id (or id (->id field))
+                                   :value @value
+                                   :on-change (fn [e]
+                                                (let [new-value (.-value (.-target e))]
+                                                  (swap! model assoc-in field new-value)))
+                                   :on-key-up on-key-up})])))
 
 (defmulti ^:private nilify
   (fn [model _field]
@@ -87,10 +90,14 @@
 
 (defn text-field
   [model field options]
-  [:div.form-group
+  [:div.form-group (merge {} (:form-group-attr options))
    [:label {:for (->id field)} (or (:caption options)
                                    (->caption field))]
-   [text-input model field options]])
+   (if (:prepend options)
+     [:div.input-group
+      [:div.input-group-prepend (:prepend options)]
+      [text-input model field options]]
+     [text-input model field options])])
 
 (defn- specialized-text-input
   [model field {input-type :type
@@ -101,11 +108,14 @@
                        on-icon-click
                        on-accept
                        on-key-up
+                       on-key-down
                        id]
                 :or {input-type :text
                      equals-fn =
                      unparse-fn str
-                     on-accept identity}
+                     on-accept identity
+                     on-key-up identity
+                     on-key-down identity}
                 :as options}]
   (let [text-value (r/atom (unparse-fn (get-in @model field)))]
     (add-watch model field (fn [_field _sender before after]
@@ -121,17 +131,18 @@
                          :name (->name field)
                          :id (or id (->id field))
                          :value @text-value
-                         :on-key-down #(when on-key-up
-                                         (.preventDefault %))
-                         :on-key-up #(when on-key-up
-                                       (.preventDefault %)
-                                       (on-key-up %))
+                         :on-key-down on-key-down
+                         :on-key-up on-key-up
                          :on-change (fn [e]
                                       (let [new-value (.-value (.-target e))
                                             parsed (try
                                                      (parse-fn new-value)
                                                      (catch js/Error e
-                                                       (.log js/console (str "Error parsing \"" new-value "\", " (.getMessage e)))
+                                                       (.log js/console
+                                                             (gstr/format "Error parsing \"%s\": (%s) %s"
+                                                                          new-value
+                                                                          (.-name e)
+                                                                          (.-message e)))
                                                        nil))]
                                         (if (presence new-value)
                                           (when parsed
@@ -183,17 +194,27 @@
         model
         field
         (merge
-         date-input-defaults
-         {:on-accept (fn [d]
-                       (swap! ctl-state #(-> %
-                                             (update-in [:calendar] cal/select d)
-                                             (dissoc :visible?))))}
-         options
-         {:icon :calendar
-          :unparse-fn unparse-date
-          :parse-fn parse-date
-          :equals-fn #(when (and %1 %2) (t/equal? %1 %2))
-          :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
+          date-input-defaults
+          {:on-accept (fn [d]
+                        (swap! ctl-state #(-> %
+                                              (update-in [:calendar] cal/select d)
+                                              (dissoc :visible?))))}
+          options
+          {:icon :calendar
+           :on-key-down (fn [e]
+                          (when (ctrl-key? e)
+                            (.preventDefault e)
+                            (when-let [[oper value] (case (key-code e)
+                                                      :left  [t/minus (t/days 1)]
+                                                      :right [t/plus  (t/days 1)]
+                                                      :up    [t/minus (t/months 1)]
+                                                      :down  [t/plus  (t/months 1)]
+                                                      nil)]
+                              (swap! model update-in field oper value))))
+           :unparse-fn unparse-date
+           :parse-fn parse-date
+           :equals-fn #(when (and %1 %2) (t/equal? %1 %2))
+           :on-icon-click #(swap! ctl-state update-in [:visible?] not)})]
        [:div.shadow.rounded {:class (when-not @visible? "d-none")
                              :style {:position :absolute
                                      :border "1px solid var(--dark)"
@@ -254,16 +275,10 @@
                             (->caption field))]
    [float-input model field options]])
 
-(defn- parse-decimal
-  [value]
-  (when (and value
-             (re-find #"^-?\d+(\.\d+)?$" value))
-    (->decimal value)))
-
 (defn decimal-input
   [model field options]
-  [specialized-text-input model field (merge options {:type :number
-                                                      :parse-fn parse-decimal})])
+  [specialized-text-input model field (merge options {:type :text
+                                                      :parse-fn util/eval-math})])
 
 (defn decimal-field
   [model field options]
@@ -320,49 +335,64 @@
     [select-elem model field items options]]))
 
 (defn typeahead-input
+  "Renders an input field with typeahead search capability
+
+  model - an atom wrapping a map which contains an attribute to be updated
+  field - a vector of fields identifying the attribute to be updated (as is get-in/update-in)
+  options -
+  search-fn       - a fn that takes a single string argument and returns matching data records
+  find-fn         - a fn that takes the stored values and finds the corrsponding data record
+  caption-fn      - accepts a data record and returns the value to display in the field
+  list-caption-fn - like caption-fn, but used to render a data record in the list. Uses caption-fn if not supplied
+  value-fn        - accepts a data record and returns the value to be stored in the attribute
+  on-change       - callback invoked when the value of the attribute changes
+  on-key-up       - callback invoked on key-up
+  max-items       - the maximum number of matching data records to show in the list
+  list-attr       - attributes to be applied to the list HTML element"
   [model field {:keys [search-fn
                        find-fn
                        caption-fn
+                       list-caption-fn
                        value-fn
                        on-change
                        on-key-up
+                       list-attr
                        max-items
                        id]
                 :or {max-items 10
                      on-change identity
-                     on-key-up identity}}]
+                     on-key-up identity}
+                :as options}]
   (let [text-value (r/atom "")
         items (r/atom nil)
         index (r/atom nil)
-        select-item #(let [item (when % (nth @items %))
-                           [value caption] (if item
-                                             ((juxt value-fn caption-fn) item)
-                                             [nil ""])]
-                       (reset! items nil)
-                       (swap! model
-                              assoc-in
-                              field
-                              value)
-                       (on-change)
-                       (reset! text-value caption))
+        list-caption-fn (or list-caption-fn caption-fn)
+        select-item (fn [index]
+                      (let [item (when index (nth @items index))
+                            [value caption] (if item
+                                              ((juxt value-fn caption-fn) item)
+                                              [nil ""])]
+                        (reset! items nil)
+                        (swap! model
+                               assoc-in
+                               field
+                               value)
+                        (on-change item)
+                        (reset! text-value caption)))
         handle-key-down (fn [e]
                           (when @items
-                            (case (.-keyCode e)
-                              ; up -> 38
-                              38 (swap! index (fnil dec (count @items)))
-
-                              ; down -> 40
-                              40 (swap! index (fnil inc -1))
-
-                              ; enter -> 13
-                              ; tab -> 9
-                              (13 9) (select-item @index)
-
-                              ; escape -> 27
-                              27 (do
-                                   (find-fn (get-in @model field)
-                                            #(reset! text-value (caption-fn %)))
-                                   (reset! items nil))
+                            (case (key-code e)
+                              :up           (swap! index #(-> (or % (count @items))
+                                                              dec
+                                                              (mod (count @items))))
+                              :down         (swap! index #(-> (or % -1)
+                                                              inc
+                                                              (mod (count @items))))
+                              (:enter :tab) (select-item @index)
+                              :escape       (do
+                                              (find-fn (get-in @model field)
+                                                       #(reset! text-value (caption-fn %)))
+                                              (reset! items nil))
 
                               nil)))
         handle-change (fn [e]
@@ -379,32 +409,44 @@
     (add-watch model field (fn [_field _sender before after]
                              (let [v-before (get-in before field)
                                    v-after (get-in after field)]
-                               (when (and v-after
-                                          (nil? v-before))
-                                 (find-fn v-after #(reset! text-value (caption-fn %)))))))
+                               (if v-after
+                                 (when (nil? v-before)
+                                   (find-fn v-after #(reset! text-value (caption-fn %))))
+                                 (reset! text-value "")))))
 
     (fn []
-      [:span
-       [:input.form-control {:type :text
-                             :auto-complete :off
-                             :id (or id (->id field))
-                             :name (->name field)
-                             :value @text-value
-                             :on-key-down handle-key-down
-                             :on-key-up #(when-not @items (on-key-up %))
-                             :on-change handle-change}]
-       [:div.list-group {:style {:z-index 99}}
-        (doall (map-indexed (fn [i item]
-                              ^{:key (str "option-" (value-fn item))}
-                              [:button.list-group-item.list-group-item-action {:type :button
-                                                                               :on-click #(select-item i)
-                                                                               :class (when (= @index i) "active")}
-                               (caption-fn item)])
-                            @items))]])))
+      (let [input [:input.form-control {:type :text
+                                        :auto-complete :off
+                                        :id (or id (->id field))
+                                        :name (->name field)
+                                        :value @text-value
+                                        :on-key-down handle-key-down
+                                        :on-key-up #(when-not @items (on-key-up %))
+                                        :on-change handle-change}]
+            result-list [:div.list-group (merge-with merge
+                                                     {:style {:z-index 99
+                                                              :position "absolute"}}
+                                                     list-attr)
+                         (doall (map-indexed (fn [i item]
+                                               ^{:key (str (string/join field "-") "option-" i)}
+                                               [:button.list-group-item.list-group-item-action {:type :button
+                                                                                                :on-click #(select-item i)
+                                                                                                :class (when (= @index i) "active")}
+                                                (list-caption-fn item)])
+                                             @items))]]
+        (if (:prepend options)
+          [:div.input-group
+           [:div.input-group-prepend
+            (:prepend options)]
+           input
+           result-list]
+          [:span
+           input
+           result-list])))))
 
 (defn typeahead-field
   [model field options]
-  [:div.form-group
+  [:div.form-group (merge {} (:form-group-attr options))
    [:label {:for (->id field)} (or (:caption options)
                                    (->caption field))]
    [typeahead-input model field options]])

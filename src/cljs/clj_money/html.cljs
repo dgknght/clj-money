@@ -1,6 +1,23 @@
 (ns clj-money.html
   (:require [clj-money.macros :refer-macros [with-retry]]))
 
+(def ^:private key-codes
+  {9  :tab
+   13 :enter
+   27 :escape
+   37 :left
+   38 :up
+   39 :right
+   40 :down})
+
+(defn key-code
+  [event]
+  (get-in key-codes [(.-keyCode event)]))
+
+(defn ctrl-key?
+  [event]
+  (.-ctrlKey event))
+
 (defn special-char
   ([k] (special-char k {}))
   ([k options]
