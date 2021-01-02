@@ -7,7 +7,11 @@
 
 (defn- after-read
   [report]
-  (map #(update-in % [:style] keyword) report))
+  (map (fn [item]
+         (-> item
+             (update-in [:style] keyword)
+             (update-in-if [:items] after-read)))
+       report))
 
 (defn income-statement
   [{:keys [start-date end-date]} success-fn error-fn]

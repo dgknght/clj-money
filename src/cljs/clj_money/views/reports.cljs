@@ -6,9 +6,8 @@
             [cljs-time.core :as t]
             [clj-money.decimal :as decimal]
             [clj-money.html :as html]
-            [clj-money.util :refer [format-decimal
-                                    format-percent
-                                    ->indexed-map]]
+            [clj-money.util :as util :refer [format-decimal
+                                             format-percent]]
             [clj-money.inflection :refer [humanize
                                           title-case]]
             [clj-money.bootstrap :as bs]
@@ -211,7 +210,7 @@
    page-state]
   (let [budget (update-in budget
                           [:items]
-                          ->indexed-map
+                          util/->indexed-map
                           :account-id)
         budget-item (or (get-in budget [:items account-id])
                         {:account-id account-id
@@ -251,8 +250,7 @@
    [:td.text-right (format-decimal budget)]
    [:td.text-right (format-decimal actual)]
    [:td.d-flex.justify-content-between {:class (when (> 0 difference) "text-light bg-danger")}
-    (when-not (or (= :header style)
-                  (zero? difference))
+    (when (= :data style)
       [:span.d-print-none
        {:on-click #(apply-to-budget item page-state)
         :title "Click here to update the budget with recorded actual values."
