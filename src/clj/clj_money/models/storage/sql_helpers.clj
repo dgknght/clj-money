@@ -1,6 +1,8 @@
 (ns clj-money.models.storage.sql-helpers
   (:require [clojure.tools.logging :as log]
             [clojure.java.jdbc :as jdbc]
+            [clojure.string :as string]
+            [cheshire.core :as json]
             [camel-snake-kebab.core :refer [->kebab-case
                                             ->snake_case]]
             [camel-snake-kebab.extras :refer [transform-keys]]
@@ -10,11 +12,11 @@
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
                                      to-local-date]]
-            [stowaway.core :refer [tag]]
             [stowaway.sql :as storage])
-  (:import java.sql.Date
+  (:import [java.sql Date PreparedStatement]
+           org.postgresql.util.PGobject
            [org.joda.time LocalDate DateTime]
-           [clojure.lang PersistentVector Keyword]))
+           [clojure.lang PersistentArrayMap PersistentVector Keyword]))
 
 (extend-protocol jdbc/IResultSetReadColumn
   Date
@@ -37,6 +39,21 @@
   DateTime
   (sql-value [v]
     (to-sql-time v)))
+
+(defn- ->json
+  [value type-name]
+  (doto (PGobject.)
+    (.setType type-name)
+    (.setValue (json/generate-string value))))
+
+(extend-protocol jdbc/ISQLParameter
+  PersistentArrayMap
+  (set-parameter [value ^PreparedStatement stmt ^long index]
+    (if-let [type-name (.getParameterTypeName
+                         (.getParameterMetaData stmt)
+                         index)]
+      (.setObject stmt index (->json value type-name))
+      (.setObject stmt index value))))
 
 (defn ->sql-keys
   "Accepts a hash and replaces hyphens in key names
@@ -63,23 +80,19 @@
   "Updates a record in the specified table"
   [db-spec table {:keys [id] :as model} & options]
   {:pre [id]}
-
   (let [[criteria allowed-keys] (if (keyword? (first options))
                                   [[:= :id id] options]
-                                  [(first options) (rest options)])
-        sql (-> (h/update table)
-                (h/sset (-> model
-                            (select-keys allowed-keys)
-                            (assoc :updated-at (t/now))
-                            ->sql-keys))
-                (h/where criteria)
-                sql/format)]
-    (log/debugf "update-model %s in table %s: %s - %s"
-                (tag model)
-                table
-                (prn-str model)
-                (prn-str sql))
-    (jdbc/execute! db-spec sql)))
+                                  [(first options) (rest options)])]
+    (jdbc/update! db-spec table
+                  (-> model
+                      (select-keys allowed-keys)
+                      (assoc :updated-at (t/now))
+                      ->sql-keys)
+                  (update-in (sql/format (h/where criteria))
+                             [0]
+                             string/replace
+                             #"^WHERE "
+                             ""))))
 
 (def ^:private relationships
   {#{:transaction :lot-transaction}     {:primary-table :transactions
@@ -92,6 +105,9 @@
                                          :foreign-id    [:transaction_date :transaction_id]}
    #{:entity :transaction}              {:primary-table :entities
                                          :foreign-table :transactions
+                                         :foreign-id    :entity_id}
+   #{:entity :scheduled-transaction}    {:primary-table :entities
+                                         :foreign-table :scheduled_transactions
                                          :foreign-id    :entity_id}
    #{:attachment :transaction}          {:primary-table :transactions
                                          :primary-id    [:transaction_date :id]

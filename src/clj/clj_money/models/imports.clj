@@ -41,11 +41,12 @@
       (json/parse-string true)
       (select-keys [:account
                     :transaction
+                    :scheduled-transaction
                     :budget
                     :commodity
                     :price
                     :finished
-                    :error])))
+                    :errors])))
 
 (defn- entity-exists?
   [imp]

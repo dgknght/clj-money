@@ -93,13 +93,11 @@
 
 (declare load-import)
 (defn- receive-import
-  [{{:keys [error finished]} :progress :as received} page-state]
+  [{{:keys [errors finished]} :progress :as received} page-state]
   (swap! page-state assoc :active received)
-  (when error
-    (notify/danger (:message error))
-    (.log js/console "error" (prn-str error)))
-  (when (or finished
-            error)
+  (when (seq errors)
+    (util/trace {:errors errors}))
+  (when finished
     (reset! auto-refresh false))
   (when @auto-refresh
     (go
@@ -175,7 +173,7 @@
                 :stop
                 :arrow-repeat))]))
 
-(defn- import-activity
+(defn- progress-card
   [page-state]
   (fn []
     [:div.card
@@ -187,6 +185,26 @@
        (bs/icon-with-text :x "Cancel")]
       (html/space)
       [refresh-button page-state]]]))
+
+(defn- errors-card
+  [page-state]
+  (let [errors (r/cursor page-state [:active :progress :errors])]
+    (fn []
+      (when (seq @errors)
+        [:div.card
+         [:div.card-header "Errors"]
+         [:div.card-body
+          (->> @errors
+               (map-indexed (fn [index error]
+                              ^{:key (str "import-error-" index)}
+                              [:div.alert.alert-danger (:message error)])))]]))))
+
+(defn- import-activity
+  [page-state]
+  (fn []
+    [:div
+     [progress-card page-state]
+     [errors-card page-state]]))
 
 (defn- import-click
   [event page-state]

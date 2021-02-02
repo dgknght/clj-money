@@ -5,13 +5,21 @@
             [cljs-time.core :as t]
             [cljs-time.format :as tf]
             [clj-money.html :refer [key-code
-                                    ctrl-key?]]
-            [clj-money.util :as util :refer [->id
-                                             presence]]
+                                    ctrl-key?
+                                    checked?]]
+            [clj-money.util :as util :refer [presence]]
             [clj-money.bootstrap :as bs]
             [clj-money.calendar :as cal]
             [clj-money.views.calendar :as calview]
             [clj-money.inflection :refer [humanize]]))
+
+(defn- ->id
+  [field]
+  (->> field
+       (map #(if (keyword? %)
+               (name %)
+               (str %)))
+       (string/join "-")))
 
 (defn- ->caption
   [field]
@@ -36,7 +44,7 @@
                                       {:type :checkbox
                                        :checked @checked
                                        :on-click (fn [e]
-                                                   (reset! checked (.-checked (.-target e)))
+                                                   (reset! checked (checked? e))
                                                    (on-change @model))})])))
 
 (defn checkbox-field
@@ -45,17 +53,44 @@
   ([model field options]
    (fn []
      (let [id (str (->id field) "-checkbox")]
-       [:div.form-check
-        [:label.form-check-label {:for id}
-         [checkbox-input model field (assoc options :id id)]
-         (or (:caption options)
-             (->caption field))]]))))
+       [:div.form-group
+        [:div.form-check {:class (when (:inline? options) "form-check-inline")}
+         [:label.form-check-label {:for id}
+          [checkbox-input model field (assoc options :id id)]
+          (or (:caption options)
+              (->caption field))]]]))))
+
+(defn checkboxes-field
+  "Renders a list of checkboxes that behavior like a multi-select select element."
+  ([model field items] (checkboxes-field model field items {}))
+  ([model field items options]
+   (fn []
+     [:div.form-group
+      [:label.control-label (or (:caption options)
+                                (->caption field))]
+      [:br]
+      (doall
+        (map-indexed (fn [index [value label]]
+                       (let [id (str (->id field) "-checkbox-" index)]
+                         ^{:key id}
+                         [:div.form-check.form-check-inline
+                          [:input.form-check-input {:type :checkbox
+                                                    :id id
+                                                    :checked (contains? (get-in @model field) value)
+                                                    :on-click (fn [e]
+                                                                (if (checked? e)
+                                                                  (swap! model update-in field (fnil conj #{}) value)
+                                                                  (swap! model update-in field disj value)))
+                                                    :value value}]
+                          [:label.form-check-label {:for id} label]]))
+                     items))])))
 
 (defn text-input
-  [model field {:keys [id on-key-up attr]
+  [model field {:keys [id on-key-up attr on-change]
                 input-type :type
                 :or {input-type :text
-                     on-key-up identity}}]
+                     on-key-up identity
+                     on-change identity}}]
   (let [value (r/cursor model field)]
     (fn []
       [:input.form-control (merge attr
@@ -65,7 +100,8 @@
                                    :value @value
                                    :on-change (fn [e]
                                                 (let [new-value (.-value (.-target e))]
-                                                  (swap! model assoc-in field new-value)))
+                                                  (swap! model assoc-in field new-value)
+                                                  (on-change new-value)))
                                    :on-key-up on-key-up})])))
 
 (defmulti ^:private nilify
@@ -84,7 +120,7 @@
 
 (defmethod nilify :default
   [model field]
-  (if (one? field) 
+  (if (one? field)
     (dissoc model (first field))
     (update-in model (take 1 field) nilify (rest field))))
 
@@ -281,18 +317,20 @@
                                                       :parse-fn util/eval-math})])
 
 (defn decimal-field
-  [model field options]
-  [:div.form-group
-   [:label {:for field} (or (:caption options)
-                            (->caption field))]
-   [decimal-input model field options]])
+  ([model field] (decimal-field model field {}))
+  ([model field options]
+   [:div.form-group
+    [:label {:for field} (or (:caption options)
+                             (->caption field))]
+    [decimal-input model field options]]))
 
 (defmulti ^:private select-option
-  #(if (vector? %)
-     :compound
-     (if (keyword? %)
-       :keyword
-       :simple)))
+  (fn [v]
+    (if (vector? v)
+      :compound
+      (if (keyword? v)
+        :keyword
+        :simple))))
 
 (defmethod ^:private select-option :keyword
   [item field]
@@ -310,16 +348,25 @@
   [:option {:value value} caption])
 
 (defn select-elem
-  [model field items _options]
+  "Renders a select element.
+
+  model - An atom that will contain data entered into the form
+  field - a vector describing the location in the model where the value for this field is to be saved. (As in get-in)
+  items - The items to be rendered in the list. Each item in the list is a tuple with the value in the 1st position and the label in the 2nd."
+  [model field items {:keys [transform-fn]
+                      :or {transform-fn identity}}]
   (fn []
     [:select.form-control {:id field
                            :name field
                            :value (or (get-in @model field) "")
                            :on-change (fn [e]
                                         (let [value (.-value (.-target e))]
-                                          (swap! model assoc-in field (if (empty? value)
-                                                                        nil
-                                                                        value))))}
+                                          (swap! model
+                                                 assoc-in
+                                                 field
+                                                 (if (empty? value)
+                                                   nil
+                                                   (transform-fn value)))))}
      (->> (if (coll? items)
             items
             @items)
@@ -327,6 +374,11 @@
           doall)]))
 
 (defn select-field
+  "Renders a select element within a bootstrap field-group with a label.
+
+  model - An atom that will contain data entered into the form
+  field - a vector describing the location in the model where the value for this field is to be saved. (As in get-in)
+  items - The items to be rendered in the list. Each item in the list is a tuple with the value in the 1st position and the label in the 2nd."
   ([model field items] (select-field model field items {}))
   ([model field items options]
    [:div.form-group (select-keys options [:class])

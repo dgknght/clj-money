@@ -1,5 +1,6 @@
 (ns clj-money.macros
   (:require [cljs.core.async :as a]
+            [camel-snake-kebab.core :refer [->camelCaseString]]
             #?(:clj [clojure.pprint :refer [pprint]])))
 
 (defn log
@@ -26,3 +27,9 @@
                     (< attempt# (:max-attempts ~options)))
            (a/<! (a/timeout (:timeout ~options)))
            (recur (inc attempt#)))))))
+
+(defmacro call
+  [obj method & args]
+  `(.call (goog.object/get ~obj (->camelCaseString ~method))
+          ~obj
+          ~@args))

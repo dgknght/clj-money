@@ -41,6 +41,7 @@
             [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
+            [clj-money.api.scheduled-transactions :as sched-trans-api]
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
@@ -61,6 +62,7 @@
               reports-api/routes
               transactions-api/routes
               transaction-items-api/routes
+              sched-trans-api/routes
               att-api/routes
               recs-api/routes
               commodities-api/routes

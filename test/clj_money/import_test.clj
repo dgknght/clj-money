@@ -6,6 +6,7 @@
             [clojure.string :as s]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
+            [stowaway.core :as storage]
             [clj-money.io :refer [read-bytes
                                   file-ext
                                   file-name]]
@@ -14,11 +15,13 @@
                                             find-import]]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.reconciliations :as recs]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.lots :as lots]
             [clj-money.models.prices :as prices]
@@ -54,7 +57,8 @@
   {:gnucash (mapv path->image ["resources/fixtures/sample.gnucash"])
    :ext     (mapv path->image ["resources/fixtures/sample_with_commodities_ext.gnucash"])
    :edn     (mapv path->image ["resources/fixtures/sample_0.edn.gz"
-                               "resources/fixtures/sample_1.edn.gz"])})
+                               "resources/fixtures/sample_1.edn.gz"])
+   :sched   (mapv path->image ["resources/fixtures/scheduled_transactions.gnucash"])})
 
 (defn- import-context
   [source-type]
@@ -182,7 +186,7 @@
         {:keys [entity wait]} (import-data imp progress-chan {:atomic? true})]
     @wait
     {:entity entity
-     :updates updates}))
+     :updates @updates}))
 
 (defn- test-import
   [context]
@@ -190,7 +194,7 @@
         {:keys [entity updates]} (execute-import imp)
         all-accounts (accounts/search {:entity-id (:id entity)})]
     (is (= "Personal" (:name entity)) "It returns the new entity")
-    (is (= expected-updates @updates)
+    (is (= expected-updates updates)
         "The import record is updated at each insert")
 
     (testing "the correct accounts are created"
@@ -489,3 +493,57 @@
     #_(testing "account balances are calculated correctly"
         (is (= 0M (:balance four-o-one-k)) "All shares have been transfered out of 401k")
         (is (= 200M (:balance ira)) "Shares have been transfered into IRA")))) ; TODO Adjust this to account for value, not shares
+
+(defmulti comparable
+  (fn [x]
+    (if (sequential? x)
+      :collection
+      (storage/tag x))))
+
+(defmethod comparable :collection
+  [coll]
+  (map comparable coll))
+
+(defn- strip-db-attr
+  [m]
+  (dissoc m :id :created-at :updated-at))
+
+(defmethod comparable ::models/scheduled-transaction
+  [sched-tran]
+  (-> sched-tran
+      strip-db-attr
+      (update-in [:items] (fn [items]
+                            (map (comp strip-db-attr
+                                       #(dissoc % :scheduled-transaction-id))
+                                 items)))))
+
+(deftest import-scheduled-transactions
+  (let [ctx (realize (import-context :sched))
+        imp (find-import ctx "Personal")
+        {:keys [entity updates]} (execute-import imp)
+        checking (accounts/find-by {:entity-id (:id entity)
+                                    :name "Checking"})
+        salary (accounts/find-by {:entity-id (:id entity)
+                                  :name "Salary"})]
+    (is (= {:total 1 :imported 1}
+           (:scheduled-transaction (last updates)))
+        "The progress is updated for the scheduled transactions")
+    (is (= [{:entity-id (:id entity)
+             :description "Paycheck"
+             :memo nil
+             :start-date (t/local-date 2016 1 15)
+             :end-date (t/local-date 2018 12 31)
+             :enabled true
+             :date-spec {:days [:friday]}
+             :last-occurrence nil
+             :interval-type :week
+             :interval-count 2
+             :items [{:action :debit
+                      :account-id (:id checking)
+                      :quantity 1000M
+                      :memo nil}
+                     {:action :credit
+                      :account-id (:id salary)
+                      :quantity 1000M
+                      :memo nil}]}]
+           (comparable (sched-trans/search {:entity-id (:id entity)}))))))

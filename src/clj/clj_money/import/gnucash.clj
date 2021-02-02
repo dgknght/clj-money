@@ -18,7 +18,9 @@
             [clj-time.coerce :as tc]
             [clj-money.util :refer [uuid
                                     update-in-if
-                                    parse-bool]]
+                                    parse-bool
+                                    parse-int
+                                    presence]]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream
@@ -34,16 +36,21 @@
   (and (string? v)
        (s/blank? v)))
 
-(defn- parse-integer
-  [string-integer]
-  (Integer/parseInt string-integer))
+(defmulti ^:private parse-date
+  #(if (map? %)
+     :elem
+     :string))
 
-(defn- parse-date
+(defmethod ^:private parse-date :elem
+  [{:keys [gdate]}]
+  (parse-date gdate))
+
+(defmethod ^:private  parse-date :string
   [string-date]
   (when-let [match (re-find #"^(\d{4})-(\d{2})-(\d{2})" string-date)]
     (apply t/local-date (->> match
                              rest
-                             (map parse-integer)))))
+                             (map parse-int)))))
 
 (defn- parse-decimal
   [string-decimal]
@@ -70,17 +77,19 @@
 
 (def ^:private ignored-accounts #{"Root Account" "Assets" "Liabilities" "Equity" "Income" "Expenses"})
 
-(xml/alias-uri :gnc   "http://www.gnucash.org/XML/gnc"
-               :slot  "http://www.gnucash.org/XML/slot"
-               :cd    "http://www.gnucash.org/XML/cd"
-               :act   "http://www.gnucash.org/XML/act"
-               :cmdty "http://www.gnucash.org/XML/cmdty"
-               :price "http://www.gnucash.org/XML/price"
-               :bgt   "http://www.gnucash.org/XML/bgt"
-               :trn   "http://www.gnucash.org/XML/trn"
-               :ts    "http://www.gnucash.org/XML/ts"
-               :split "http://www.gnucash.org/XML/split"
-               :rec   "http://www.gnucash.org/XML/recurrence")
+(xml/alias-uri :gnc          "http://www.gnucash.org/XML/gnc"
+               :slot         "http://www.gnucash.org/XML/slot"
+               :cd           "http://www.gnucash.org/XML/cd"
+               :act          "http://www.gnucash.org/XML/act"
+               :cmdty        "http://www.gnucash.org/XML/cmdty"
+               :price        "http://www.gnucash.org/XML/price"
+               :bgt          "http://www.gnucash.org/XML/bgt"
+               :trn          "http://www.gnucash.org/XML/trn"
+               :ts           "http://www.gnucash.org/XML/ts"
+               :split        "http://www.gnucash.org/XML/split"
+               :schedxaction "http://www.gnucash.org/XML/schedxaction"
+               :sx           "http://www.gnucash.org/XML/sx"
+               :rec          "http://www.gnucash.org/XML/recurrence")
 
 (defn- agg-text-content
   [values]
@@ -112,7 +121,10 @@
     ::split/quantity
     ::split/value
     ::split/account
-    ::split/action})
+    ::split/action
+    ::sx/name
+    ::sx/enabled
+    ::sx/templ-acct})
 
 (def ^:private compound-attribute-elements
   #{::bgt/recurrence
@@ -120,7 +132,30 @@
     ::price/commodity
     ::price/currency
     ::price/time
-    ::trn/date-posted})
+    ::trn/date-posted
+    ::sx/schedule
+    ::sx/start
+    ::sx/end
+    ::sx/last
+    ::gnc/recurrence})
+
+(defn- push-child-content
+  [existing-content new-content]
+  (->> new-content
+       (filter seq)
+       (reduce (fn [all-content new-part]
+                 (conj (pop all-content)
+                       (conj (peek all-content) new-part)))
+               existing-content)))
+
+(defn- pop-elem
+  ([state] (pop-elem state nil))
+  ([state child-content]
+   (-> state
+       (update-in [:elems] pop)
+       (update-in [:content] pop)
+       (update-in [:child-content] pop)
+       (update-in [:child-content] push-child-content child-content))))
 
 (defmulti ^:private process-elem
   (fn [_ {:keys [tag]}]
@@ -130,10 +165,10 @@
       :else                             tag)))
 
 (defmethod ^:private process-elem :default
-  [_ elem]
+  [state elem]
   (when (env :detailed-import-logging?)
     (log/debug "Encountered unhandled element " (prn-str (:tag elem))))
-  nil)
+  (pop-elem state))
 
 (defn- tag->keyword
   [tag]
@@ -143,62 +178,86 @@
 ; containing elemen, return a name/value pair that will
 ; later be turned into a map representing the record
 (defmethod ^:private process-elem :attribute
-  [{:keys [content]} {tag :tag}]
-  [[(tag->keyword tag)
-    (agg-text-content (peek content))]])
+  [{:keys [content] :as state} {tag :tag}]
+  (pop-elem state
+            [[(tag->keyword tag)
+              (agg-text-content (peek content))]]))
 
 (defmethod ^:private process-elem :compound-attribute
-  [{:keys [child-content]} {:keys [tag]}]
-  [[(tag->keyword tag)
-    (into {} (peek child-content))]])
+  [{:keys [child-content] :as state} {:keys [tag]}]
+  (pop-elem state
+            [[(tag->keyword tag)
+              (into {} (peek child-content))]]))
+
+(def ^:private record-type-subs
+  {:schedxaction :scheduled-transaction})
 
 (defmethod ^:private process-elem ::gnc/count-data
-  [{:keys [out-chan content]} {:keys [attrs]}]
-  (let [record-type (keyword (::cd/type attrs))
-        record-count (parse-integer (agg-text-content (peek content)))
-        record (-> {:record-type record-type
-                    :record-count (+ record-count
-                                     (if (= :commodity record-type) 1 0))}
-                   (with-meta {:record-type :declaration}))]
-    (>!! out-chan record)
-    nil))
+  [{:keys [out-chan content] :as state} {:keys [attrs]}]
+  (let [raw-type (keyword (::cd/type attrs))
+        record-type (get-in record-type-subs [raw-type] raw-type)
+        record-count (parse-int (agg-text-content (peek content)))
+        record (with-meta {:record-type record-type
+                           :record-count (+ record-count
+                                            (if (= :commodity record-type) 1 0))}
+                          {:record-type :declaration})]
+    (>!! out-chan record))
+  (pop-elem state))
 
 (defmethod ^:private process-elem ::gnc/commodity
-  [{:keys [out-chan child-content]} _]
+  [{:keys [out-chan child-content] :as state} _]
   (>!! out-chan (with-meta (into {} (peek child-content))
                   {:record-type :commodity}))
-  nil)
+  (pop-elem state))
 
 (defmethod ^:private process-elem :price
-  [{:keys [out-chan child-content]} _]
+  [{:keys [out-chan child-content] :as state} _]
   (>!! out-chan (with-meta (into {} (peek child-content))
                   {:record-type :price}))
-  nil)
+  (pop-elem state))
+
+(defn- template?
+  [elems]
+  (let [tag-set (set (map :tag elems))]
+    (tag-set ::gnc/template-transactions)))
 
 (defmethod ^:private process-elem ::gnc/account
-  [{:keys [out-chan child-content]} _]
-  (let [account (->> (peek child-content)
-                     (remove map?)
-                     (into {}))
-        reconciliation (->> (peek child-content)
-                            (filter map?)
-                            first)]
-    (>!! out-chan (with-meta account
-                    {:record-type :account}))
-    (when reconciliation
-      (>!! out-chan (assoc reconciliation :account-id (:id account)))))
-  nil)
+  [{:keys [out-chan child-content elems] :as state} _]
+  (when-not (template? elems)
+    (let [account (->> (peek child-content)
+                       (remove map?)
+                       (into {}))
+          reconciliation (->> (peek child-content)
+                              (filter map?)
+                              (remove #(#{"placeholder"
+                                          "color"
+                                          "code"
+                                          "last-num"
+                                          "notes"
+                                          "hidden"
+                                          "copy-number"
+                                          "tax-related"
+                                          "payer-name-source"} (:key %))) ; TODO: probably should catch this earlier in the process
+                              first)]
+      (>!! out-chan (with-meta account
+                               {:record-type :account}))
+      (when reconciliation
+        (>!! out-chan (-> reconciliation
+                          (assoc :account-id (:id account))
+                          (with-meta {:record-type :reconciliation}))))))
+  (pop-elem state))
 
 (defmethod ^:private process-elem ::act/slots
-  [{:keys [child-content]} _]
-  (peek child-content))
+  [{:keys [child-content] :as state} _]
+  (pop-elem state (peek child-content)))
 
 (defmethod ^:private process-elem ::act/commodity
-  [{:keys [child-content]} _]
-  [[:commodity (into {} (peek child-content))]])
+  [{:keys [child-content] :as state} _]
+  (pop-elem state
+            [[:commodity (into {} (peek child-content))]]))
 
 (defmethod ^:private process-elem ::gnc/budget
-  [{:keys [out-chan child-content]} _]
+  [{:keys [out-chan child-content] :as state} _]
   (>!! out-chan (with-meta (reduce (fn [r [k v]]
                                      (if (= :item k)
                                        (update-in r [:items] conj v)
@@ -208,93 +267,197 @@
                                    {:items []}
                                    (peek child-content))
                   {:record-type :budget}))
-  nil)
+  (pop-elem state))
 
 (defmethod ^:private process-elem ::bgt/slots
-  [{:keys [child-content]} _]
-  (peek child-content))
+  [{:keys [child-content] :as state} _]
+  (pop-elem state
+            (peek child-content)))
+
+(defn- match-tag-stack?
+  [tag-stack & ks]
+  (= ks
+     (take-last (count ks) tag-stack)))
+
+(defn- budget-period-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/budget
+                    ::bgt/slots
+                    :slot
+                    ::slot/value))
+
+(defn- budget-item-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/budget
+                    ::bgt/slots
+                    :slot))
+
+(defn- reconciliation-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/account
+                    ::act/slots
+                    :slot
+                    ::slot/value))
+
+(defn- reconcile-info-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/account
+                    ::act/slots
+                    :slot))
+
+(defn- template-quantity-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/template-transactions
+                    ::gnc/transaction
+                    ::trn/splits
+                    ::trn/split
+                    ::split/slots
+                    :slot
+                    ::slot/value
+                    :slot
+                    ::slot/value))
+
+(defn- template-detail-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/template-transactions
+                    ::gnc/transaction
+                    ::trn/splits
+                    ::trn/split
+                    ::split/slots
+                    :slot
+                    ::slot/value))
+
+(defn- template-details-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/template-transactions
+                    ::gnc/transaction
+                    ::trn/splits
+                    ::trn/split
+                    ::split/slots
+                    :slot))
 
 (defmethod ^:private process-elem ::slot/value
-  [{:keys [content child-content elems]} {:keys [tag]}]
-  (let [tag-stack (map :tag elems)]
-    (cond
+  [{:keys [content child-content elems] :as state} {:keys [tag]}]
+  (let [tag-stack (map :tag elems)
+        result (cond
+                 (budget-period-stack? tag-stack) [[:periods (peek child-content)]]
+                 (reconciliation-stack? tag-stack) (peek child-content)
+                 (template-quantity-stack? tag-stack) [[:value (->> content
+                                                                    flatten
+                                                                    (remove empty?)
+                                                                    (s/join ""))]]
+                 (template-detail-stack? tag-stack) (let [m (->> (peek child-content)
+                                                                 (map (juxt (comp keyword :key)
+                                                                            :value))
+                                                                 (into {}))]
+                                                      (if (:credit-formula m)
+                                                        [[:action :credit]
+                                                         [:quantity (:credit-formula m)]
+                                                         [:account-id (:account m)]]
+                                                        [[:action :debit]
+                                                         [:quantity (:debit-formula m)]
+                                                         [:account-id (:account m)]]))
 
-      (= (take-last 4 tag-stack) ; budget periods
-         [::gnc/budget
-          ::bgt/slots
-          :slot
-          ::slot/value]) [[:periods (peek child-content)]]
+                 :else
+                 [[(tag->keyword tag)
+                   (agg-text-content (peek content))]])]
+    (pop-elem state result)))
 
-      (= (take-last 4 tag-stack) ; reconciliation
-         [::gnc/account
-          ::act/slots
-          :slot
-          ::slot/value]) (peek child-content)
+(defmethod ^:private process-elem ::split/slots
+  [{:keys [child-content] :as state} _]
+  (pop-elem state (peek child-content)))
 
-      :else
-      [[(tag->keyword tag)
-        (agg-text-content (peek content))]])))
+(defn- reconcile-info-content?
+  [child-content]
+  (= "reconcile-info"
+     (-> child-content
+         peek
+         first
+         second)))
 
 ; slot elements are used as generic key-value pair containers
 ; in the gnucash XML. It's necessary to inspect the parent
 ; chain in order to know how to handle the content
 (defmethod ^:private process-elem :slot
-  [{:keys [elems child-content]} _]
-  (let [tag-stack (map :tag elems)]
-    (cond
-      (= (take-last 3 tag-stack) ; budget period
-         [::gnc/budget
-          ::bgt/slots
-          :slot]) [[:item (into {} (peek child-content))]]
+  [{:keys [elems child-content] :as state} _]
+  (let [tag-stack (map :tag elems)
+        result (cond
+                 (budget-item-stack? tag-stack)
+                 [[:item (into {} (peek child-content))]]
 
-      (= (take-last 5 tag-stack) ; budget period item
-         [::gnc/budget
-          ::bgt/slots
-          :slot
-          ::slot/value
-          :slot]) [(into {} (peek child-content))]
+                 (and (reconcile-info-stack? tag-stack) 
+                      (reconcile-info-content? child-content))
+                 [(with-meta (->> (peek child-content)
+                                  (filter map?)
+                                  (map (juxt (comp keyword :key) :value))
+                                  (into {}))
+                             {:record-type :reconciliation})]
 
-      (and (= (take-last 3 tag-stack) ; reconcile info
-              [::gnc/account
-               ::act/slots
-               :slot])
-           (= "reconcile-info"
-              (-> child-content
-                  peek
-                  first
-                  second))) [(with-meta (->> (peek child-content)
-                                             (filter map?)
-                                             (map (juxt (comp keyword :key) :value))
-                                             (into {}))
-                               {:record-type :reconciliation})]
+                 (template-details-stack? tag-stack)
+                 (peek child-content)
 
-      (= (take-last 5 tag-stack) ; include-children or last-date
-         [::gnc/account
-          ::act/slots
-          :slot
-          ::slot/value
-          :slot]) [(into {} (peek child-content))])))
+                 :else [(into {} (peek child-content))])]
+    (pop-elem state result)))
 
 (defmethod ^:private process-elem ::gnc/transaction
-  [{:keys [out-chan child-content]} _]
-  (>!! out-chan (with-meta (reduce (fn [r [k v]]
-                                     (if (= :split k)
-                                       (update-in r [:splits] conj v)
-                                       (if (blank-string? v)
-                                         r
-                                         (assoc r k v))))
-                                   {:splits []}
-                                   (peek child-content))
-                  {:record-type :transaction}))
-  nil)
+  [{:keys [out-chan child-content elems] :as state} _]
+  (if (template? elems)
+    (let [content (->> (peek child-content)
+                       (group-by first)
+                       (map (fn [entry]
+                              (update-in entry [1] #(map second %))))
+                       (into {}))
+          template {:id (:account (first (:split content)))
+                    :description (first (:description content))
+                    :items (map #(select-keys % [:action
+                                                 :quantity
+                                                 :account-id])
+                                (:split content))}]
+
+      (-> state
+          (update-in [:templates] (fnil assoc {}) (:id template) template)
+          pop-elem))
+    (do
+      (>!! out-chan (with-meta (reduce (fn [r [k v]]
+                                         (if (= :split k)
+                                           (update-in r [:splits] conj v)
+                                           (if (blank-string? v)
+                                             r
+                                             (assoc r k v))))
+                                       {:splits []}
+                                       (peek child-content))
+                               {:record-type :transaction}))
+      (pop-elem state))))
 
 (defmethod ^:private process-elem ::trn/splits
-  [{:keys [child-content]} _]
-  (peek child-content))
+  [{:keys [child-content] :as state} _]
+  (pop-elem state (peek child-content)))
 
 (defmethod ^:private process-elem ::trn/split
-  [{:keys [child-content]} _]
-  [[:split (into {} (peek child-content))]])
+  [{:keys [child-content] :as state} _]
+  (pop-elem state [[:split (into {} (peek child-content))]]))
+
+(defmethod ^:private process-elem ::gnc/schedxaction
+  [{:keys [out-chan child-content templates] :as state} _]
+  (let [record (->> child-content
+                    flatten
+                    (partition 2)
+                    (map vec)
+                    (into {}))
+        template (get-in templates [(:templ-acct record)])
+        sched-tran (-> record
+                       (dissoc :templ-acct)
+                       (assoc :items (:items template))
+                       (with-meta {:record-type :scheduled-transaction}))]
+    (>!! out-chan sched-tran))
+  (pop-elem state))
 
 (defmulti ^:private process-event
   (fn [_ event]
@@ -318,31 +481,9 @@
     (update-in state [:content] #(conj (pop %)
                                        (conj (peek %) (:str event))))))
 
-; TODO: This can probably be simplified
-(defn- push-child-content
-  [lst content-coll]
-  (reduce #(if (seq %2)
-             (conj (pop %1)
-                   (conj (peek %1) %2))
-             %1)
-          lst
-          content-coll))
-
-(defn- template?
-  [elems]
-  (let [tag-set (set (map :tag elems))]
-    (tag-set ::gnc/template-transactions)))
-
 (defmethod ^:private process-event EndElementEvent
   [{:keys [elems] :as state} _]
-  (let [child-content (if (template? elems)
-                        nil ; don't process templates
-                        (process-elem state (peek elems)))]
-    (-> state
-        (update-in [:elems] pop)
-        (update-in [:content] pop)
-        (update-in [:child-content] pop)
-        (update-in [:child-content] push-child-content child-content))))
+  (process-elem state (peek elems)))
 
 (defn- dispatch-record-type
   [record & _]
@@ -439,7 +580,7 @@
       (assoc :id (s/replace (str (uuid)) #"-" ""))
       (update-in-if [:include-children] parse-bool)
       (update-in [:end-of-period] (comp seconds-to-date
-                                        parse-integer))))
+                                        parse-int))))
 
 (defmulti ^:private refine-trading-transaction
   (fn [transaction]
@@ -465,11 +606,17 @@
    (update-in transaction
               [:items]
               (fn [items]
-                (map #(if (pred %)
-                        (-> %
-                            (update-in [:quantity] abs)
-                            (update-in [:value] abs))
-                        %)
+                (map (comp #(if (pred %)
+                              (-> %
+                                  (update-in [:quantity] abs)
+                                  (update-in [:value] (fnil abs 0M)))
+                              %)
+                           #(select-keys % [:value ; TODO: This probably belongs somewhere more general
+                                            :quantity
+                                            :account-id
+                                            :action
+                                            :reconciled
+                                            :memo]))
                      items)))))
 
 (defmethod ^:private refine-trading-transaction :default
@@ -584,7 +731,7 @@
   [item period-count]
   (let [periods (->> (:periods item)
                      (map (comp #(update-in % [1] parse-decimal)
-                                #(update-in % [0] parse-integer)
+                                #(update-in % [0] parse-int)
                                 (juxt :key :value)))
                      (into {}))]
     (-> item
@@ -594,7 +741,7 @@
 
 (defmethod ^:private process-record :budget
   [{:keys [num-periods] :as record} _]
-  (let [period-count (parse-integer num-periods)]
+  (let [period-count (parse-int num-periods)]
     (-> record
         (assoc :period (-> record :recurrence :period_type keyword)
                :start-date (-> record :recurrence :start :gdate parse-date)
@@ -603,6 +750,37 @@
                               (map #(process-budget-item % period-count)
                                    items)))
         (select-keys [:period :period-count :start-date :items :id :name]))))
+
+(defn- parse-readable-number
+  [value]
+  (when (presence value)
+    (-> value
+        (s/replace "," "")
+        bigdec)))
+
+(defmethod ^:private process-record :scheduled-transaction
+  [{:keys [schedule] :as record} _]
+  (-> record
+      (dissoc :schedule)
+      (update-in [:start] parse-date)
+      (update-in [:end] #(when % (parse-date %)))
+      (update-in [:last] #(when % (parse-date %)))
+      (update-in [:enabled] parse-bool)
+      (update-in [:items]
+                 (fn [items]
+                   (map (fn [item]
+                          (update-in-if item [:quantity] parse-readable-number))
+                        items)))
+      (rename-keys {:start :start-date
+                    :end :end-date
+                    :last :last-occurrence
+                    :name :description})
+      (assoc :interval-type (-> schedule
+                                (get-in [:recurrence :period_type])
+                                keyword)
+             :interval-count (-> schedule
+                                 (get-in [:recurrence :mult])
+                                 parse-int))))
 
 (defn- process-records
   [xf]
@@ -669,7 +847,7 @@
 
 (def ^:private chunk-file-options
   [["-m" "--maximum MAXIMUM" "The maximum number of records to include in each output file"
-    :parse-fn parse-integer
+    :parse-fn parse-int
     :default 10000]])
 
 (defn- parse-chunk-file-opts

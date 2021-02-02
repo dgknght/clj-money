@@ -5,7 +5,8 @@
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
             [clj-money.find-in-chunks :as ch]
-            [clj-money.util :refer [format-date]]
+            [clj-money.util :refer [format-date
+                                    earliest]]
             [clj-money.inflection :refer [humanize]]
             [clj-money.models.date-helpers :refer [available-date-range
                                                    earliest-date]]
@@ -439,13 +440,6 @@
                                               (/ difference budget))
                         :actual-per-period (/ actual period-count)}]))))
 
-(defn- earlier
-  [d1 d2]
-  (->> [d1 d2]
-       (filter identity)
-       sort
-       first))
-
 (defn- end-of-last-month []
   (-> (t/today)
       (t/minus (t/months 1))
@@ -453,7 +447,7 @@
 
 (defn- default-budget-end-date
   [bdg]
-  (earlier (end-of-last-month) (:end-date bdg)))
+  (earliest (end-of-last-month) (:end-date bdg)))
 
 (defn budget
   "Returns a budget report"

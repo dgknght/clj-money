@@ -14,7 +14,7 @@
                  [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
                  [ch.qos.logback/logback-classic "1.2.3" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/java.jdbc "0.7.6" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/java.jdbc "0.7.11" :exclusions [org.clojure/tools.reader]]
                  [org.postgresql/postgresql "42.2.2" :exclusions [org.clojure/tools.reader]]
                  [clj-postgresql "0.7.0" :exclusions [org.slf4j/slf4j-api
                                                       org.postgresql/postgresql
@@ -51,7 +51,7 @@
                                                             org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
-                 [environ "1.1.0" :exclusions [org.clojure/tools.reader]]
+                 [environ "1.2.0" :exclusions [org.clojure/tools.reader]]
                  [ragtime "0.7.2" :exclusions [org.clojure/tools.reader]]
                  [clj-factory "0.2.1" :exclusions [org.clojure/tools.reader]]
                  [digest "1.4.8" :exclusions [org.clojure/tools.reader]]

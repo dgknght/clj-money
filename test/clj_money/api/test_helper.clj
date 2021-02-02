@@ -1,6 +1,7 @@
 (ns clj-money.api.test-helper
   (:require [clojure.java.io :as io]
             [ring.mock.request :as req]
+            [cheshire.core :as json]
             [clj-money.web.auth :as auth])
   (:import [java.io File ByteArrayOutputStream]
            [org.apache.http.entity ContentType]
@@ -48,3 +49,7 @@
      :content-type content-type
      :headers {"content-type" content-type
                "content-length" (str content-length)}}))
+
+(defn parse-json-body
+  [{:keys [body] :as res}]
+  (assoc res :json-body (json/parse-string body true)))

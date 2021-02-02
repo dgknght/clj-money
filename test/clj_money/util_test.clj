@@ -207,3 +207,8 @@
   (testing "with parentheses"
     (is (= 9M (util/eval-math "3 * (2 + 1)"))
         "Parentheses are calculated first")))
+
+(deftest get-the-earliest-date
+  (let [d1 (t/local-date 2020 3 2)
+        d2 (t/local-date 2020 2 27)]
+    (is (= d2 (util/earliest d1 d2)))))

@@ -11,7 +11,7 @@
                                    query
                                    format-url]]
             [clj-money.models.identities :as idents])
-  (:import [java.util UUID]))
+  #_(:import [java.util UUID]))
 
 (defn- callback-url []
   {:pre [(env :site-protocol)
@@ -36,7 +36,7 @@
   [user]
   (jwt/sign {:user-id (:id user)} (env :secret)))
 
-(defn- random-state []
+#_(defn- random-state []
   (str (UUID/randomUUID)))
 
 (defn- make-json-request

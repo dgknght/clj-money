@@ -19,6 +19,14 @@
       (dissoc state :current-entity))
     state))
 
+(defn set-entities
+  [[entity :as entities]]
+  (swap! app-state #(assoc (if entity
+                             (assoc % :current-entity entity)
+                             (dissoc % :current-entity))
+                           :entities
+                           entities)))
+
 (defn remove-entity
   [entity]
   (swap! app-state #(-> %

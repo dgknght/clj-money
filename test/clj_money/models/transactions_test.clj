@@ -14,7 +14,8 @@
                                             find-accounts
                                             find-transaction]]
             [clj-money.test-helpers :refer [reset-db
-                                            assert-validation-error]]))
+                                            assert-validation-error
+                                            assert-comparable]]))
 
 (use-fixtures :each reset-db)
 
@@ -75,11 +76,7 @@
       (is (empty? (validation/error-messages transaction)))
       (is (:id transaction) "A map with the new ID is returned"))
     (testing "transaction can be retrieved"
-      (let [actual (-> (transactions/find transaction)
-                       (dissoc :id :created-at :updated-at)
-                       (update-in
-                        [:items]
-                        (partial map #(dissoc % :transaction-id :id :created-at :updated-at))))
+      (let [actual (transactions/find transaction)
             expected {:transaction-date (t/local-date 2016 3 2)
                       :description "Paycheck"
                       :memo "final, partial"
@@ -113,8 +110,7 @@
                                :reconciliation-status nil
                                :reconciliation-id nil
                                :reconciled? false}]}]
-        (is (= expected actual)
-            "The correct data is retreived")))))
+        (assert-comparable expected actual "The correct data is retrieved")))))
 
 (deftest rollback-on-failure
   (let [call-count (atom 0)]

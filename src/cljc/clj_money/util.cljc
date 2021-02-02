@@ -57,6 +57,15 @@
               (.setMinimumFractionDigits fraction-digits))
             value)))
 
+(defmulti present?
+  #(cond
+     (string? %) :string
+     (coll? %) :collection))
+
+(defmethod present? :string
+  [value]
+  (and value (seq value)))
+
 (defmulti presence
   #(cond
      (string? %) :string
@@ -248,7 +257,7 @@
     #?(:clj (Float/parseFloat value)
        :cljs (js/parseFloat value))))
 
-(def boolean-values #{"true" "1"})
+(def boolean-values #{"true" "1" "y" "yes" "t"})
 
 (defn parse-bool
   [value]
@@ -279,6 +288,13 @@
   (if v
     (assoc m k v)
     m))
+
+(defn assoc-unless
+  "Performs an assoc if the specified key is not already present in the map."
+  [m k v]
+  (if (get-in m [k])
+    m
+    (assoc m k v)))
 
 (defn deep-contains?
   [data k]
@@ -597,3 +613,10 @@
   (->> (re-seq #"\d+(?:\.\d+)?|[)(*+/-]" input)
        nest-parens
        eval-math*))
+
+(defn earliest
+  [& ds]
+  (->> ds
+       (filter identity)
+       sort
+       first))

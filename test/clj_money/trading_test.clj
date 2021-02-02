@@ -10,7 +10,8 @@
                                             find-accounts
                                             find-commodity]]
             [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+                                            selective=
+                                            assert-comparable]]
             [clj-money.validation :as validation]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
@@ -134,20 +135,6 @@
                                        :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil}]}
-        actual-transaction (-> (:transaction result)
-                               (dissoc :updated-at :created-at :id)
-                               (update-in [:items]
-                                          #(map (fn [i]
-                                                  (dissoc i
-                                                          :transaction-id
-                                                          :updated-at
-                                                          :created-at
-                                                          :id))
-                                                %))
-                               (update-in [:lot-items]
-                                          #(map (fn [i]
-                                                  (dissoc i :lot-id))
-                                                %)))
         expected-commodity-account {:name "AAPL"
                                     :commodity-id (:id commodity)
                                     :entity-id (-> context :entities first :id)
@@ -166,8 +153,9 @@
                                                              :quantity])]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
-    (is (= expected-transaction actual-transaction)
-        "The resulting transaction has the correct attributes")
+    (assert-comparable expected-transaction
+                       (:transaction result)
+                       "The resulting transaction has the correct attributes")
     (is (empty? (-> result :transaction validation/error-messages))
         "The transaction is valid")
     (is (= "Purchase 100 shares of AAPL at 10.000"
@@ -844,27 +832,13 @@
                                        :polarized-quantity 100M
                                        :balance 200M
                                        :value 0M
-                                       :description "Split shares of AAPL 2 for 1"}]}
-        actual-transaction (update-in (dissoc (:transaction result)
-                                              :memo
-                                              :id
-                                              :updated-at
-                                              :created-at)
-                                      [:items]
-                                      #(map (fn [i] (select-keys i [:action
-                                                                    :account-id
-                                                                    :quantity
-                                                                    :polarized-quantity
-                                                                    :balance
-                                                                    :value
-                                                                    :description]))
-                                            %))]
+                                       :description "Split shares of AAPL 2 for 1"}]}]
     (is (empty? (validation/error-messages result))
         "The result has no validation errors")
     (is (= 2M (:ratio result))
         "The correct split ratio is returned")
-    (is (= expected-transaction actual-transaction)
-        "The result contains the transaction that was created")
+    (assert-comparable expected-transaction (:transaction result)
+                       "The result contains the transaction that was created")
     (is (= expected-lots actual-lots)
         "The lots are adjusted correctly")
     #_(is (= 200M (:quantity (accounts/reload ira)))

@@ -4,9 +4,11 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [<!! >!! chan go] :as async]
             [environ.core :refer [env]]
+            [clj-time.core :as t]
+            [clj-time.predicates :refer [last-day-of-the-month?]]
             [stowaway.implicit :refer [with-storage
                                        with-transacted-storage]]
-            [clj-money.validation :as validation]
+            [clj-money.validation :as v]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.models.settings :as settings]
@@ -16,6 +18,7 @@
             [clj-money.models.reconciliations :as recs]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.models.images :as images]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
@@ -89,8 +92,11 @@
   [item {:keys [accounts]}]
   (if-let [account-id (accounts (:account-id item))]
     (assoc item :account-id account-id)
-    (log/errorf "Unable to resolve account id s for budget item %s"
-                item)))
+    (throw
+      (ex-info
+        (format "Unable to resolve account id %s for the budget item."
+                (:account-id item))
+        {:item item}))))
 
 (defn- prepare-budget
   [budget {:keys [entity] :as context}]
@@ -121,11 +127,11 @@
   [{:keys [entity] :as context} commodity]
   (let [to-create (assoc commodity :entity-id (:id entity))
         {:keys [exchange symbol] :as created} (commodities/create to-create)]
-    (if (validation/has-error? created)
+    (if (v/has-error? created)
       (throw (ex-info (format "Unable to create commodity %s (%s): %s"
                               (:name created)
                               (:symbol created)
-                              (validation/error-messages created))
+                              (v/error-messages created))
                       created))
       (log/infof "imported commodity %s (%s)" (:name created)  (:symbol created)))
     (-> context
@@ -151,7 +157,7 @@
 
 (defn- log-transaction
   [transaction transaction-type]
-  (if (validation/has-error? transaction)
+  (if (v/has-error? transaction)
     (log/errorf "error importing %s transaction %s"
                 transaction-type
                 transaction)
@@ -206,7 +212,7 @@
                                       (filter #(= :debit (:action %)))
                                       first))}
         {result :transaction
-         errors ::validation/errors} (trading/buy purchase)]
+         errors ::v/errors} (trading/buy purchase)]
     (when (seq errors)
       (log/errorf "Unable to import purchase transaction %s: %s"
                   (prn-str purchase)
@@ -291,7 +297,7 @@
      source-type]))
 
 (def ^:private reportable-record-types
-  #{:commodity :price :account :transaction :budget})
+  #{:commodity :price :account :transaction :scheduled-transaction :budget})
 
 (defn- report-progress?
   [record]
@@ -307,11 +313,12 @@
     ([context record]
      (if (report-progress? record)
        (xf
-        (update-in context [:progress
-                            (-> record meta :record-type)
-                            :imported]
-                   (fnil inc 0))
-        record)
+         (update-in context [:progress
+                             (-> record meta :record-type)
+                             :imported]
+                    (fnil inc 0))
+
+         record)
        (xf context record)))))
 
 (defmulti import-record*
@@ -336,8 +343,8 @@
                                     (dissoc :id :commodity)))]
     (when-not (:id result)
       (throw (ex-info (str
-                       "Unable to create the account "
-                       (validation/error-messages result))
+                       "Unable to create the account: "
+                       (v/error-messages result))
                       {:result result})))
     (log/info (format "imported account \"%s\"" (:name result)))
     (-> context
@@ -376,6 +383,47 @@
                                  [:items]
                                  #(refine-recon-info context %))))
 
+(def ^:private day-keys
+  [:sunday
+   :monday
+   :tuesday
+   :wednesday
+   :thursday
+   :friday
+   :saturday])
+
+(defn- infer-date-spec-day
+  [date]
+  (if (last-day-of-the-month? date)
+    :last
+    (t/day date)))
+
+(defn- infer-date-spec
+  [{:keys [start-date last-occurrence interval-type]}]
+  (let [date (or last-occurrence start-date)]
+    (case interval-type
+      :year {:day (infer-date-spec-day date)
+             :month (t/month date)}
+      :month {:day (infer-date-spec-day date)}
+      :week {:days [(nth day-keys (t/day-of-week date))]})))
+
+(defmethod import-record* :scheduled-transaction
+  [{:keys [entity accounts] :as context} sched-tran]
+  (let [result (sched-trans/create
+                 (-> sched-tran
+                     (assoc :entity-id (:id entity)
+                            :date-spec (infer-date-spec sched-tran))
+                     (update-in [:items]
+                                (fn [items]
+                                  (map #(update-in % [:account-id] accounts)
+                                       items)))))]
+    (when (v/has-error? result)
+      (throw (ex-info (format "Unable to create the scheduled transaction: %s"
+                              (v/error-messages result))
+                      {:result result}))))
+
+  context)
+
 (defmethod import-record* :budget
   [context budget]
   (import-budget context budget))
@@ -388,6 +436,14 @@
   [context commodity]
   (import-commodity context commodity))
 
+(defn- report-error
+  [ctx msg data]
+  (update-in ctx
+             [:progress :errors]
+             (fnil conj [])
+             {:message msg
+              :data data}))
+
 (defn- import-record
   [xf]
   (fn
@@ -399,8 +455,7 @@
        (xf (try (import-record* context record)
                 (catch Exception e
                   (log/errorf e "unable to import record %s" record)
-                  (assoc-in context [:progress :error] {:message (.getMessage e)
-                                                        :data (ex-data e)})))
+                  (report-error context (.getMessage e) (ex-data e))))
            record)))))
 
 (defn- notify-progress
@@ -444,14 +499,14 @@
                                                  (map :polarized-quantity)
                                                  (reduce + 0M))
                                    :status :completed))]
-    (when (validation/has-error? result)
+    (when (v/has-error? result)
       (log/errorf "Unable to finalize reconciliation: %s"
                   (prn-str (select-keys result
                                         [:id
                                          :account-id
                                          :balance
                                          :end-of-period
-                                         ::validation/errors]))))))
+                                         ::v/errors]))))))
 
 (defn- process-reconciliations
   [{:keys [entity] :as ctx}]

@@ -46,3 +46,6 @@
 
 (deftest read-gnucash-source-with-trading-actions
   (execute-test "resources/fixtures/gnucash_test/commodities_ext.edn"))
+
+(deftest read-gnucash-source-with-scheduled-transactions
+  (execute-test "resources/fixtures/gnucash_test/scheduled_transactions.edn"))

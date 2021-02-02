@@ -47,3 +47,7 @@
   (->> coll
        (filter identity)
        (reduce + 0M )))
+
+(defn equal?
+  [d1 d2]
+  (.equals (->decimal d1) d2))

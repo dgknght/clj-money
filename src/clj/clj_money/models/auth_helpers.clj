@@ -15,9 +15,9 @@
 
 (defmethod ^:private lookup-entity-id :default
   [resource]
-  (or (:entity-id resource)
-      (throw (ex-info "No :entity-id value present" {:resource resource
-                                                     :meta (meta resource)}))))
+  {:pre [(:entity-id resource)]}
+
+  (:entity-id resource))
 
 (defmethod ^:private lookup-entity-id ::models/entity
   [resource]

@@ -34,6 +34,7 @@
                 :description
                 :transaction-date
                 :memo
+                :scheduled-transaction-id
                 :value))
 
 (defmethod stg/update ::models/transaction
@@ -45,6 +46,7 @@
                 :description
                 :transaction-date
                 :memo
+                :scheduled-transaction-id
                 :value))
 
 (defmethod stg/delete ::models/transaction

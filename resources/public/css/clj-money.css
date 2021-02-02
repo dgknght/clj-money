@@ -206,3 +206,17 @@ table tfoot td {
   justify-content: center;
   align-items: center;
 }
+
+.toast-container {
+  position: absolute;
+  top: 2em;
+  left: 2em;
+  z-index: 10;
+}
+
+.sched-tran-disabled {
+  text-decoration-line: line-through;
+}
+.sched-tran-expired {
+  background-color: #CCC;
+}

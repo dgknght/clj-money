@@ -121,3 +121,40 @@
     (->> actual
          (zipmap expected)
          (every? (fn [[e a]] (apply selective= e a attributes))))))
+
+(defmacro assert-contains
+  [expected actual msg]
+  `(is (= ~expected
+          (select-keys ~actual (keys ~expected)))
+       ~msg))
+
+(defmulti ^:private prune-to
+  (fn [target _]
+    (cond
+      (map? target) :map
+      (sequential? target) :seq)))
+
+(defmethod prune-to :map
+  [target model]
+  (->> (select-keys target (keys model))
+       (map (fn [entry]
+              (update-in entry
+                         [1]
+                         prune-to
+                         (get-in model (take 1 entry)))))
+       (into {})))
+
+(defmethod prune-to :seq
+  [target model]
+  (map #(prune-to % (first model))
+       target))
+
+(defmethod prune-to :default
+  [target _]
+  target)
+
+(defn assert-comparable
+  [expected actual msg]
+  (is (= expected
+         (prune-to actual expected))
+      msg))

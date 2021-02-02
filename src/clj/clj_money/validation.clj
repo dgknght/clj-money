@@ -17,6 +17,11 @@
   [value]
   (instance? LocalDate value))
 
+(defn nilable-local-date?
+  [value]
+  (or (nil? value)
+      (local-date? value)))
+
 (defn non-empty-string?
   [value]
   (and (string? value)

@@ -1,5 +1,6 @@
 (ns clj-money.web.test-helpers
   (:require [clojure.test :refer [is]]
+            [clojure.string :as string]
             [clj-http.client :as http]
             [cheshire.core :as json]
             [ring.util.response :as res]))
@@ -17,13 +18,23 @@
              (> 300 s))
         (str "Expected successful response, but got " s))))
 
+(defn- create-msg
+  [res]
+  (format "Expected creation success, but got %s%s"
+          (:status res)
+          (if-let [errors (get-in res [:json-body :clj-money.validation/errors])]
+            (str ": " (->> (vals errors)
+                           flatten
+                           (string/join ", ")))
+            "")))
+
 (defn assert-successful-create
   [res]
   {:pre [(valid-response? res)]}
 
   (let [s (:status res)]
     (is (= 201 s)
-        (str "Expected creation success response, but got " s))))
+        (create-msg res))))
 
 (defn assert-successful-no-content
   [res]

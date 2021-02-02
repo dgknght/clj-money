@@ -4,11 +4,11 @@
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
+            [clj-money.j-query :as jq]
             [clj-money.inflection :refer [humanize]]
-            [clj-money.state :refer [app-state
-                                     current-user
-                                     current-entity
-                                     logout]]
+            [clj-money.state :as state :refer [app-state
+                                               current-user
+                                               current-entity]]
             [clj-money.notifications :as notify]
             [clj-money.html :as html]
             [clj-money.views.entities]
@@ -20,6 +20,7 @@
             [clj-money.views.budgets]
             [clj-money.views.receipts]
             [clj-money.views.reports]
+            [clj-money.views.scheduled]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.api.entities :as entities]
             [clj-money.dom :refer [app-element]]
@@ -63,7 +64,9 @@
    {:id :receipts
     :tool-tip "Click here to enter receipts"}
    {:id :reports
-    :tool-tip "Click here to view reports"}])
+    :tool-tip "Click here to view reports"}
+   {:id :scheduled
+    :tool-tip "Click here to manage schedule transactions"}])
 
 (defn- assoc-if-nil
   [m k v]
@@ -117,7 +120,7 @@
                {:id :logout
                 :caption "Logout"
                 :on-click (fn []
-                            (logout)
+                            (state/logout)
                             (cookies/remove! :auth-token)
                             (secretary/dispatch! "/"))}]))))
 
@@ -140,6 +143,29 @@
        (doall (for [n @notify/notifications]
                 (bootstrap/alert n #(notify/unnotify n))))])))
 
+(defn- render-toasts []
+  (when (seq @notify/toasts)
+    (.setTimeout js/window #(jq/toast ".toast") 100)
+    [:div.toast-container
+     (for [toast @notify/toasts
+           :let [elem-id (str "toast-" (:id toast))]]
+       ^{:key elem-id}
+       [:div.toast {:id elem-id
+                    :data-animation true
+                    :data-autohide true
+                    :data-delay notify/toast-delay
+                    :role "alert"
+                    :aria-live "assertive"
+                    :aria-atomic true}
+        [:div.toast-header
+         [:strong.mr-auto (:title toast)]
+         [:button.ml-2.mb-1.close {:type :button
+                                   :data-dismiss :toast
+                                   :aria-label "Close"}
+          [:span {:aria-hidden true} (html/special-char :times)]]]
+        [:div.toast-body
+         (:body toast)]])]))
+
 (defn- current-page []
   (let [page (r/cursor app-state [:page])]
     (fn []
@@ -147,6 +173,7 @@
        [nav]
        [:div.container
         [alerts]
+        [render-toasts]
         [@page]]])))
 
 (defn mount-root []
@@ -155,29 +182,29 @@
       (swap! app-state assoc :mounted? true :page #'home-page)
       (r/render [current-page] (app-element)))))
 
-(defn- set-default-entity
-  [state entity]
+(defn- receive-entities
+  [[entity :as entities]]
+  (state/set-entities entities)
   (if entity
-    (assoc state :current-entity entity)
-    (dissoc state :current-entity)))
+    (secretary/dispatch! "/scheduled/autorun")
+    (secretary/dispatch! "/entities")))
+
+(defn- fetch-entities []
+  (entities/select
+    receive-entities
+    (notify/danger-fn "Unable to get the entities: %s")))
+
+(defn- fetch-current-user []
+  (users/me
+    #(swap! app-state assoc :current-user %)
+    (notify/danger-fn "Unable to get information for the user: %s")))
 
 (defn- sign-in-from-cookie []
   (when-not @current-user
     (when-let [auth-token (cookies/get :auth-token)]
       (swap! app-state assoc :auth-token auth-token)
-      (users/me
-       #(swap! app-state assoc :current-user %)
-       (notify/danger-fn "Unable to get information for the user: %s"))
-      (entities/select
-       (fn [[entity :as result]]
-         (swap! app-state (fn [s]
-                            (-> s
-                                (assoc :entities result)
-                                (set-default-entity entity))))
-         (if entity
-           (secretary/dispatch! "/")
-           (secretary/dispatch! "/entities")))
-       (notify/danger-fn "Unable to get the entities: %s")))))
+      (fetch-current-user)
+      (fetch-entities))))
 
 (defn init! []
   (accountant/configure-navigation!

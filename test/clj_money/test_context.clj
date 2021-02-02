@@ -1,6 +1,5 @@
 (ns clj-money.test-context
   (:require [clj-factory.core :refer [factory]]
-            [stowaway.core :as storage]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
             [clj-money.validation :as validation]
@@ -13,6 +12,7 @@
             [clj-money.models.lots :as lots]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.models.attachments :as attachments]
             [clj-money.models.reconciliations :as reconciliations]
             [clj-money.models.images :as images]
@@ -51,6 +51,17 @@
               {:name "Groceries"
                :entity-id "Personal"
                :type :expense}
+              {:name "Tax"
+               :entity-id "Personal"
+               :type :expense}
+              {:name "FIT"
+               :type :expense
+               :entity-id "Personal"
+               :parent-id "Tax"}
+              {:name "Medicare"
+               :type :expense
+               :entity-id "Personal"
+               :parent-id "Tax"}
               {:name "Sales"
                :entity-id "Business"
                :type :income}]})
@@ -149,6 +160,10 @@
                      (= quantity (:quantity %))))
        first))
 
+(defn find-scheduled-transaction
+  [context description]
+  (find-in-context context :scheduled-transactions :description description))
+
 (defn find-recon
   [{:keys [reconciliations] :as ctx} account-name end-of-period]
   (let [account (find-account ctx account-name)]
@@ -186,8 +201,10 @@
   (mapv (fn [attributes]
           (if (:id attributes)
             attributes
-            (throw-on-invalid
-             (entities/create (resolve-user attributes context)))))
+            (-> attributes
+                (resolve-user context)
+                entities/create
+                throw-on-invalid)))
         entities))
 
 (defn- realize-entities
@@ -293,11 +310,12 @@
 
 (defn- create-transaction
   [transaction context]
-  (throw-on-invalid
-   (transactions/create (-> transaction
-                            (resolve-entity context)
-                            expand-items
-                            (prepare-items context)))))
+  (-> transaction
+      (resolve-entity context)
+      expand-items
+      (prepare-items context)
+      transactions/create
+      throw-on-invalid))
 
 (defn- create-transactions
   [context transactions]
@@ -306,6 +324,22 @@
 (defn- realize-transactions
   [context]
   (update-in context [:transactions] #(create-transactions context %)))
+
+(defn- create-scheduled-transaction
+  [sched-tran context]
+  (-> sched-tran
+      (resolve-entity context)
+      (prepare-items context)
+      sched-trans/create
+      throw-on-invalid))
+
+(defn- create-scheduled-transactions
+  [context sched-trans]
+  (mapv #(create-scheduled-transaction % context) sched-trans))
+
+(defn- realize-scheduled-transactions
+  [context]
+  (update-in context [:scheduled-transactions] #(create-scheduled-transactions context %)))
 
 (defn- resolve-transaction
   [model context]
@@ -566,6 +600,7 @@
       realize-prices
       realize-lots
       realize-budgets
+      realize-scheduled-transactions
       realize-transactions
       realize-trades
       realize-attachments

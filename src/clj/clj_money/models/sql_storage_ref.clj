@@ -10,6 +10,8 @@
             [clj-money.models.sql-storage.lots]
             [clj-money.models.sql-storage.transactions]
             [clj-money.models.sql-storage.transaction-items]
+            [clj-money.models.sql-storage.scheduled-transactions]
+            [clj-money.models.sql-storage.scheduled-transaction-items]
             [clj-money.models.sql-storage.lot-transactions]
             [clj-money.models.sql-storage.reconciliations]
             [clj-money.models.sql-storage.budgets]

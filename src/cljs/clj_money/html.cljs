@@ -18,6 +18,10 @@
   [event]
   (.-ctrlKey event))
 
+(defn checked?
+  [event]
+  (.-checked (.-target event)))
+
 (defn special-char
   ([k] (special-char k {}))
   ([k options]
