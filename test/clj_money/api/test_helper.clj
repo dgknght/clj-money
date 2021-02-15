@@ -1,5 +1,6 @@
 (ns clj-money.api.test-helper
-  (:require [clojure.java.io :as io]
+  (:require [clojure.tools.logging :as log]
+            [clojure.java.io :as io]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-money.web.auth :as auth])
@@ -52,4 +53,13 @@
 
 (defn parse-json-body
   [{:keys [body] :as res}]
-  (assoc res :json-body (json/parse-string body true)))
+  (if-let [parsed (try
+                    (json/parse-string body true)
+                    (catch Exception e
+                      (log/warnf "Unable to parse json body because of %s (%s): %s"
+                                 (.getMessage e)
+                                 (.getClass e)
+                                 body)
+                      nil))]
+    (assoc res :json-body parsed)
+    res))

@@ -4,6 +4,13 @@
             [cljs-http.client :as http]
             [clj-money.api :as api]))
 
+(defn authenticate
+  [credentials success-fn error-fn]
+  (api/create-resource (api/path :users :authenticate)
+                       credentials
+                       success-fn
+                       error-fn))
+
 (defn me
   [success-fn error-fn]
   (go (let [response (<! (http/get "/api/users/me"

@@ -5,8 +5,10 @@
             [clj-money.test-helpers :refer [reset-db
                                             selective=]]
             [clj-money.web.test-helpers :refer [assert-unauthorized
-                                                assert-successful]]
-            [clj-money.api.test-helper :refer [add-auth]]
+                                                assert-successful
+                                                assert-successful-create]]
+            [clj-money.api.test-helper :refer [add-auth
+                                               parse-json-body]]
             [clj-money.test-context :refer [realize
                                             find-user]]
             [clj-money.util :refer [path]]
@@ -39,3 +41,15 @@
                                               :users
                                               :me)))]
     (assert-unauthorized response)))
+
+(deftest a-user-signs-in-directly
+  (realize context)
+  (let [response (-> (req/request :post (path :api
+                                              :users
+                                              :authenticate))
+                     (req/json-body {:email "john@doe.com"
+                                     :password "please01"})
+                     app
+                     parse-json-body)]
+    (assert-successful-create response)
+    (is (:auth-token (:json-body response)))))

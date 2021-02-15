@@ -128,6 +128,9 @@
 (defroutes app
   (-> (routes apps/routes
               web-auth/routes
+              (-> users-api/unauthenticated-routes
+                  (wrap-json-body {:keywords? true})
+                  wrap-json-response)
               api-routes
               protected-web-routes
               (GET "*" _ (res/redirect "/"))
