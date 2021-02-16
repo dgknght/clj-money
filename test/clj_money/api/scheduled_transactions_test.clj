@@ -379,7 +379,8 @@
                          parse-json-body))
         retrieved (trans/search {:transaction-date "2016"
                                  :entity-id (:id entity)}
-                                {:include-items? true})]
+                                {:include-items? true
+                                 :sort [:transaction-date]})]
     [res retrieved]))
 
 (defn- comparable-trans

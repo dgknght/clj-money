@@ -128,16 +128,17 @@
 (defroutes app
   (-> (routes apps/routes
               web-auth/routes
-              (-> users-api/unauthenticated-routes
-                  (wrap-json-body {:keywords? true})
-                  wrap-json-response)
+              (wrap-routes users-api/unauthenticated-routes
+                           #(-> %
+                                (wrap-json-body {:keywords? true})
+                                wrap-json-response))
               api-routes
               protected-web-routes
               (GET "*" _ (res/redirect "/"))
               (ANY "*" req
-                (do
-                  (log/debugf "unable to match route for \"%s\"." (:uri req))
-                  (not-found))))
+                   (do
+                     (log/debugf "unable to match route for \"%s\"." (:uri req))
+                     (not-found))))
       (wrap-resource "public")
       wrap-cookies
       wrap-keyword-params
