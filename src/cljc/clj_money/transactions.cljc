@@ -1,6 +1,9 @@
 (ns clj-money.transactions
   (:require [clojure.set :refer [rename-keys]]
+            #?(:clj [clj-time.core :as t]
+               :cljs [cljs-time.core :as t])
             [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.accounts :refer [polarize-quantity
                                         derive-item]]))
 
@@ -137,3 +140,20 @@
         (rename-keys {:trade-date :transaction-date})
         (assoc :items items)
         (dissoc :account-id :shares :action :commodity-id))))
+
+(defn- summarize-period
+  [[start-date end-date] items]
+  {:start-date start-date
+   :end-date end-date
+   :quantity (->> items
+                  (filter #(t/within? start-date end-date (:transaction-date %)))
+                  (map :polarized-quantity)
+                  (reduce + 0M))})
+
+(defn summarize-items
+  [{:keys [interval-type interval-count start-date end-date]
+    :or {interval-count 1}}
+   items]
+  (->> (dates/ranges start-date (dates/period interval-type interval-count))
+       (take-while #(apply t/overlaps? start-date end-date %))
+       (map #(summarize-period % items))))

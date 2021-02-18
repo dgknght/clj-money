@@ -4,12 +4,15 @@
             [ring.mock.request :as req]
             [clj-time.core :as t]
             [clj-money.util :refer [path
+                                    make-series
                                     map->query-string]]
-            [clj-money.api.test-helper :refer [add-auth]]
+            [clj-money.api.test-helper :refer [add-auth
+                                               parse-json-body]]
             [clj-money.web.test-helpers :refer [assert-successful]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [basic-context
                                             realize
+                                            find-entity
                                             find-account
                                             find-user]]
             [clj-money.test-helpers :refer [reset-db]]
@@ -217,3 +220,86 @@
     (is (= #{101.0 102.0 103.0}
            (transduce (map :quantity) conj #{} body))
         "The items in the specified account and the children accounts are returned.")))
+
+(def ^:private summary-context
+  (assoc basic-context
+         :transactions (concat (make-series
+                                 {:description "Kroger"
+                                  :entity-id "Personal"
+                                  :debit-account-id "Groceries"
+                                  :credit-account-id "Checking"}
+                                 {:quantity 100M
+                                  :transaction-date (t/local-date 2016 1 2)}
+                                 {:quantity 101M
+                                  :transaction-date (t/local-date 2016 1 16)}
+                                 {:quantity 102M
+                                  :transaction-date (t/local-date 2016 3 1)})
+                               (make-series
+                                 {:description "Paycheck"
+                                  :entity-id "Personal"
+                                  :debit-account-id "Checking"
+                                  :credit-account-id "Salary"}
+                                 {:quantity 1000M
+                                  :transaction-date (t/local-date 2016 1 1)}
+                                 {:quantity 1000M
+                                  :transaction-date (t/local-date 2016 1 15)}
+                                 {:quantity 1000M
+                                  :transaction-date (t/local-date 2016 2 1)}))))
+
+(defn- summarize-items
+  [user-email]
+  (let [ctx (realize summary-context)
+        entity (find-entity ctx "Personal")
+        user (find-user ctx user-email)
+        groceries (find-account ctx "Groceries")
+        path (format "%s?account-id=%s&transaction-date=2016-01-01&transaction-date=2016-04-30&interval-type=month&interval-count=1"
+                     (path :api
+                           :entities
+                           (:id entity)
+                           :transaction-items
+                           :summarize)
+                     (:id groceries))]
+    (-> (req/request :get path)
+        (add-auth user)
+        app
+        parse-json-body)))
+
+(defn- assert-successful-summary
+  [{:keys [json-body] :as response}]
+  (assert-successful response)
+  (is (= [{:start-date "2016-01-01"
+           :end-date "2016-01-31"
+           :quantity 201.0}
+          {:start-date "2016-02-01"
+           :end-date "2016-02-29"
+           :quantity 0}
+          {:start-date "2016-03-01"
+           :end-date "2016-03-31"
+           :quantity 102.0}
+          {:start-date "2016-04-01"
+           :end-date "2016-04-30"
+           :quantity 0}]
+         json-body)))
+
+(defn- assert-blocked-summary
+  [{:keys [json-body] :as response}]
+  (assert-successful response)
+  (is (= [{:start-date "2016-01-01"
+           :end-date "2016-01-31"
+           :quantity 0}
+          {:start-date "2016-02-01"
+           :end-date "2016-02-29"
+           :quantity 0}
+          {:start-date "2016-03-01"
+           :end-date "2016-03-31"
+           :quantity 0}
+          {:start-date "2016-04-01"
+           :end-date "2016-04-30"
+           :quantity 0}]
+         json-body)))
+
+(deftest a-user-can-summarize-items-in-his-entity
+  (assert-successful-summary (summarize-items "john@doe.com")))
+
+(deftest a-user-cannot-summarize-items-in-anothers-entity
+  (assert-blocked-summary (summarize-items "jane@doe.com")))

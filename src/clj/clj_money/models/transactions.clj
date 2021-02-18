@@ -13,7 +13,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]
             [clj-money.models.lot-transactions :as l-t]
-            [clj-money.models.date-helpers :refer [parse-date-range
+            [clj-money.models.date-helpers :refer [parse-date-criterion
                                                    available-date-range
                                                    earliest
                                                    latest]]
@@ -210,7 +210,7 @@
       (deep-update-in-if :id #(if (sequential? %)
                                 (map uuid %)
                                 (uuid %)))
-      (deep-update-in-if :transaction-date parse-date-range)
+      (deep-update-in-if :transaction-date parse-date-criterion)
       (tag tg)))
 
 (defn search-items

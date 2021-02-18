@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
+            [clj-time.core :as t]
             [clj-money.util :refer [update-in-if
                                     unserialize-date]]
             [clj-money.api :refer [->response
@@ -11,6 +12,9 @@
              :as auth
              :refer [+scope
                      authorize]]
+            [clj-money.transactions :refer [summarize-items]]
+            [clj-money.validation :as v]
+            [clj-money.models.transactions :as trans]
             [clj-money.models.budgets :as budgets]
             [clj-money.authorization.budgets]))
 
@@ -20,6 +24,10 @@
                                   (select-keys [:entity-id])
                                   (+scope ::models/budget authenticated))
                               {:sort [[:start-date :desc]]})))
+(defn- prepare-item
+  [item]
+  (update-in-if item [:spec :start-date] unserialize-date))
+
 (defn- extract-budget
   [{:keys [body]}]
   (-> body
@@ -28,17 +36,61 @@
                     :period
                     :period-count
                     :items])
+      (update-in-if [:items] #(map prepare-item %))
       (update-in-if [:period] keyword)
       (update-in-if [:start-date] unserialize-date)))
 
+(defn- ->budget-item
+  [[account-id tran-items]
+   {:keys [period]}
+   start-date
+   end-date]
+  {:account-id account-id
+   :periods (->> tran-items
+                 (summarize-items {:interval-type period
+                                   :interval-count 1
+                                   :start-date start-date
+                                   :end-date end-date})
+                 (map :quantity))})
+
+(defn- create-items-from-history
+  [{:keys [entity-id period period-count] :as budget} start-date]
+  (let [end-date (t/minus
+                   (t/plus start-date
+                           ((case period
+                              :month t/months
+                              :year t/years
+                              :week t/weeks)
+                            period-count))
+                   (t/days 1))]
+    (->> (trans/search-items {[:transaction :entity-id] entity-id
+                              [:account :type] [:in #{:income :expense}]
+                              :transaction-date [:between start-date end-date]})
+         (group-by :account-id)
+         (map #(->budget-item % budget start-date end-date)))))
+
+(defn- auto-create-items
+  [budget start-date]
+  (if (and (not (v/has-error? budget))
+           start-date)
+    (-> budget
+        (assoc :items (create-items-from-history
+                        budget
+                        start-date))
+        budgets/update)
+    budget))
+
 (defn- create
-  [{:keys [authenticated params] :as req}]
+  [{:keys [authenticated params body] :as req}]
   (-> req
       extract-budget
       (assoc :entity-id (:entity-id params))
       (stow/tag ::models/budget)
       (authorize ::auth/create authenticated)
-      budgets/create
+      budgets/create ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
+      (auto-create-items (-> body
+                             :auto-create-start-date
+                             unserialize-date))
       (->response 201)))
 
 (defn- find-and-auth

@@ -1,6 +1,7 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
-  (:require [clj-money.api :as api]
+  (:require [clojure.walk :refer [keywordize-keys]]
+            [clj-money.api :as api]
             [clj-money.decimal :refer [->decimal]]
             [clj-money.util :refer [update-in-if
                                     serialize-date
@@ -9,7 +10,12 @@
 
 (defn- after-item-read
   [item]
-  (update-in item [:periods] #(mapv ->decimal %)))
+  (-> item
+      (update-in [:periods] #(mapv ->decimal %))
+      (update-in-if [:spec] keywordize-keys)
+      (update-in-if [:spec :start-date] unserialize-date)
+      (update-in-if [:spec :entry-mode] keyword)
+      (update-in-if [:spec :amount-per] ->decimal)))
 
 (defn- after-read
   [budget]
@@ -33,9 +39,16 @@
                     (comp success-fn after-read)
                     error-fn))
 
+(defn- before-item-save
+  [item]
+  (update-in-if item [:spec :start-date] serialize-date))
+
 (defn- before-save
   [budget]
-  (update-in budget [:start-date] serialize-date))
+  (-> budget
+      (dissoc :end-date)
+      (update-in [:start-date] serialize-date)
+      (update-in [:items] #(map before-item-save %))))
 
 (defn- update
   [budget success-fn error-fn]
@@ -52,7 +65,7 @@
    (api/path :entities
              (:id @current-entity)
              :budgets)
-   budget
+   (update-in-if budget [:auto-create-start-date] serialize-date)
    success-fn
    error-fn))
 

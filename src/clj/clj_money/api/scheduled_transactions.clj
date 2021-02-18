@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-time.core :as t]
+            [clj-time.coerce :refer [to-long]]
             [stowaway.core :as storage]
             [clj-money.util :refer [update-in-if
                                     unserialize-date]]
@@ -92,9 +93,9 @@
                                             authenticated))]
     (->> (sched-trans/search {:entity-id (:id entity)
                               :enabled true})
-         (filter (comp #(and (or (nil? (:end-date %))
-                                 (t/before? (t/today) (:end-date %)))
-                             (allowed? % ::sched-trans-auth/realize authenticated))))
+         (filter #(and (or (nil? (:end-date %))
+                           (t/before? (t/today) (:end-date %)))
+                       (allowed? % ::sched-trans-auth/realize authenticated)))
          (mapcat sched-trans/realize)
          (sort-by :transaction-date t/before?)
          creation-response)

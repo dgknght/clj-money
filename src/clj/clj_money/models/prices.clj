@@ -16,7 +16,7 @@
             [clj-money.models.settings :as settings]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.date-helpers :refer [earliest-date
-                                                   parse-date-range]]))
+                                                   parse-date-criterion]]))
 
 (s/def ::commodity-id integer?)
 (s/def ::trade-date validation/local-date?)
@@ -33,7 +33,7 @@
 (defn- prepare-criteria
   [criteria]
   (-> criteria
-      (deep-update-in-if :trade-date parse-date-range)
+      (deep-update-in-if :trade-date parse-date-criterion)
       (tag ::models/price)))
 
 (defn search

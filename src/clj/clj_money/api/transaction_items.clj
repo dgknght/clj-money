@@ -9,6 +9,7 @@
                                     parse-bool
                                     unserialize-date]]
             [clj-money.api :refer [->response]]
+            [clj-money.transactions :refer [summarize-items]]
             [clj-money.models :as models]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.accounts :as acts]
@@ -80,10 +81,35 @@
       (update-in-if [:skip] parse-int)
       (assoc :sort [[:index :desc]])))
 
-(defn index
+(defn- index
   [req]
   (->response (transactions/search-items (extract-criteria req)
                                          (extract-options req))))
 
+(defn- extract-summary-criteria
+  [{:keys [params]}]
+  (-> params
+      (update-in-if [:interval-type] keyword)
+      (update-in-if [:interval-count] parse-int)
+      (update-in-if [:transaction-date 0] unserialize-date)
+      (update-in-if [:transaction-date 1] unserialize-date))) ; TODO: Ensure start and end date
+
+(defn- summarize
+  [{:keys [authenticated] :as req}]
+  (let [{[start-date end-date] :transaction-date
+         :as criteria} (extract-summary-criteria req)
+        items (transactions/search-items (-> criteria
+                                             (update-in [:transaction-date] #(vec (cons :between %)))
+                                             (select-keys [:transaction-date
+                                                           :account-id])
+                                             (+scope ::models/transaction-item authenticated)))]
+    (->response
+      (summarize-items (-> criteria
+                           (select-keys [:interval-type :interval-count])
+                           (assoc :start-date start-date
+                                  :end-date end-date))
+                       items))))
+
 (defroutes routes
-  (GET "/api/accounts/:account-id/transaction-items" req (index req)))
+  (GET "/api/accounts/:account-id/transaction-items" req (index req))
+  (GET "/api/entities/:entity-id/transaction-items/summarize" req (summarize req)))

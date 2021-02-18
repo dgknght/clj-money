@@ -280,3 +280,29 @@
                             {:find-account-by-commodity-id (->> (:accounts trading-context)
                                                                 (map (juxt :commodity-id identity))
                                                                 (into {}))}))))))
+
+(deftest summarize-some-items
+  (let [items [{:polarized-quantity 100M
+                :transaction-date (t/local-date 2016 1 2)}
+               {:polarized-quantity 101M
+                :transaction-date (t/local-date 2016 1 16)}
+               {:polarized-quantity 102M
+                :transaction-date (t/local-date 2016 3 1)}]
+        expected [{:start-date (t/local-date 2016 1 1)
+                   :end-date (t/local-date 2016 1 31)
+                   :quantity 201M}
+                  {:start-date (t/local-date 2016 2 1)
+                   :end-date (t/local-date 2016 2 29)
+                   :quantity 0M}
+                  {:start-date (t/local-date 2016 3 1)
+                   :end-date (t/local-date 2016 3 31)
+                   :quantity 102M}
+                  {:start-date (t/local-date 2016 4 1)
+                   :end-date (t/local-date 2016 4 30)
+                   :quantity 0M}]]
+    (is (= expected
+           (trx/summarize-items {:start-date (t/local-date 2016 1 1)
+                                       :end-date (t/local-date 2016 4 30)
+                                       :interval-type :month
+                                       :interval-count 1}
+                                items)))))

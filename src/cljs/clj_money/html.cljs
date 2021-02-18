@@ -1,4 +1,5 @@
 (ns clj-money.html
+  (:refer-clojure :exclude [comment])
   (:require [clj-money.macros :refer-macros [with-retry]]))
 
 (def ^:private key-codes
@@ -22,10 +23,17 @@
   [event]
   (.-checked (.-target event)))
 
+(defn raw-string
+  [& s]
+  [:span {:dangerouslySetInnerHTML {:__html (apply str s)}}])
+
 (defn special-char
-  ([k] (special-char k {}))
-  ([k options]
-   [:span (merge options {:dangerouslySetInnerHTML {:__html (str "&" (name k) ";")}})]))
+  [k]
+  (raw-string "&" (name k) ";"))
+
+(defn comment
+  [text]
+  (raw-string "<!--" text "-->"))
 
 (defn space
   "Renders an HTML non-breakable space."

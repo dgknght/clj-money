@@ -22,13 +22,15 @@
   (insert-model db-spec :budget_items budget-item
                 :budget-id
                 :account-id
+                :spec
                 :periods))
 
 (defmethod stg/update ::models/budget-item
   [budget-item db-spec]
-  (let [sql ["UPDATE budget_items SET account_id = ?, periods = ? WHERE id = ?"
+  (let [sql ["UPDATE budget_items SET account_id = ?, periods = ?, spec = ? WHERE id = ?"
              (:account-id budget-item)
              (:periods budget-item)
+             (:spec budget-item)
              (:id budget-item)]]
     (log/debugf "update budget item: %s" (prn-str sql))
     (jdbc/execute! db-spec sql)))

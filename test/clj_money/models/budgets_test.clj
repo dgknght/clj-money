@@ -11,6 +11,7 @@
                                             find-budget]]
             [clj-money.test-helpers :refer [reset-db
                                             selective=
+                                            assert-comparable
                                             assert-validation-error]]))
 
 (use-fixtures :each reset-db)
@@ -30,28 +31,27 @@
      :period :month
      :period-count 3
      :items [{:account-id (:id salary)
-              :periods [1000M 1001M 1002M]}
+              :periods [1000M 1001M 1002M]
+              :spec nil}
              {:account-id (:id rent)
-              :periods [500M 500M 500M]}
+              :periods [500M 500M 500M]
+              :spec ^:no-prune {:average 500M}}
              {:account-id (:id groceries)
-              :periods [100M 90M 105M]}]}))
+              :periods [100M 90M 105M]
+              :spec nil}]}))
 
 (deftest create-a-budget
   (let [ctx (realize budget-context)
         entity (find-entity ctx "Personal")
         [salary groceries rent]  (find-accounts ctx "Salary" "Groceries" "Rent")
-        budget (budgets/create (attributes ctx))
+        attr (attributes ctx)
+        budget (budgets/create attr)
         retrieved (budgets/find-by {:entity-id (:id entity)}
                                    {:include-items? true})]
     (is (not (nil? (:id budget))) "The returned value has an id")
-    (is (selective= {:name "2016"
-                     :start-date (t/local-date 2016 1 1)
-                     :period :month
-                     :period-count 3}
-                    retrieved)
-        "The budget record can be retrieved.")
-    (is (= 3 (-> retrieved :items count))
-        "The retrieved budget has the correct number of items")
+    (assert-comparable attr
+                       retrieved
+                       "The budget record can be retrieved.")
     (is (= [1000M 1001M 1002M]
            (->> (:items retrieved)
                 (filter #(= (:id salary) (:account-id %)))

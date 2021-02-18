@@ -128,9 +128,14 @@
           (select-keys ~actual (keys ~expected)))
        ~msg))
 
+(defn- no-prune?
+  [model]
+  (-> model meta :no-prune))
+
 (defmulti ^:private prune-to
-  (fn [target _]
+  (fn [target model]
     (cond
+      (no-prune? model) :default
       (map? target) :map
       (sequential? target) :seq)))
 
@@ -146,7 +151,7 @@
 
 (defmethod prune-to :seq
   [target model]
-  (map #(prune-to % (first model))
+  (map-indexed #(prune-to %2 (nth model %1))
        target))
 
 (defmethod prune-to :default

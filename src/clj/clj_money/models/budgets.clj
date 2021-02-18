@@ -1,6 +1,7 @@
 (ns clj-money.models.budgets
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.walk :refer [keywordize-keys]]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-local-date
                                      to-date-time]]
@@ -11,6 +12,7 @@
                                                    with-transacted-storage]]
             [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.util :refer [assoc-if
+                                    update-in-if
                                     ->id]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts])
@@ -22,7 +24,7 @@
 (s/def ::id integer?)
 (s/def ::name string?)
 (s/def ::start-date (partial instance? LocalDate))
-(s/def ::period #{:week :month :quarter})
+(s/def ::period #{:week :month :quarter}) ; TODO: remove quarter, as it's just 3 months
 (s/def ::period-count validation/positive-integer?)
 (s/def ::entity-id integer?)
 (s/def ::new-budget (s/keys :req-un [::name ::start-date ::period ::period-count ::entity-id]))
@@ -30,8 +32,9 @@
 (s/def ::periods (s/coll-of decimal? :min-count 1))
 (s/def ::account-id integer?)
 (s/def ::budget-id integer?)
-(s/def ::new-budget-item (s/keys :req-un [::account-id ::periods ::budget-id]))
-(s/def ::existing-budget-item (s/keys :req-un [::id ::account-id ::periods] :opt-un [::budget-id]))
+(s/def ::spec map?)
+(s/def ::new-budget-item (s/keys :req-un [::account-id ::periods ::budget-id] :opt-un [::spec]))
+(s/def ::existing-budget-item (s/keys :req-un [::id ::account-id ::periods] :opt-un [::budget-id ::spec]))
 
 (defn default-start-date
   []
@@ -40,7 +43,10 @@
 
 (defn- after-item-read
   [item]
-  (tag item ::models/budget-item))
+  (-> item
+      (update-in [:spec] #(when % (keywordize-keys %)))
+      (update-in-if [:spec :average] bigdec)
+      (tag ::models/budget-item)))
 
 (defn- select-items
   ([criteria]
@@ -97,7 +103,6 @@
   [budget]
   (-> budget
       (tag ::models/budget)
-      (update-in [:period] name)
       (assoc :end-date (end-date budget))
       (dissoc :items)))
 

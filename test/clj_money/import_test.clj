@@ -318,14 +318,17 @@
                   :start-date (t/local-date 2017 1 1)
                   :end-date (t/local-date 2017 12 31)
                   :items #{{:account-id (:id salary)
-                            :periods (repeat 12 1000M)}
+                            :periods (repeat 12 1000M)
+                            :spec nil}
                            {:account-id (:id bonus)
-                            :periods  [0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 800M]}
+                            :periods  [0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 0M 800M]
+                            :spec nil}
                            {:account-id (:id groceries)
                             :periods [200M 200M 250M
                                       250M 275M 275M
                                       200M 200M 250M
-                                      250M 275M 275M]}}}]
+                                      250M 275M 275M]
+                            :spec nil}}}]
     (is (= expected actual) "The budget exists after import with correct values")))
 
 (def gnucash-commodities-sample

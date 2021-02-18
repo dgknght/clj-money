@@ -51,3 +51,11 @@
 (defn equal?
   [d1 d2]
   (.equals (->decimal d1) d2))
+
+(defn trunc
+  [d]
+  (.trunc d))
+
+(defn round
+  [d]
+  (.round d))

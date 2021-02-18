@@ -153,6 +153,7 @@
                        unparse-fn
                        equals-fn
                        icon
+                       disabled-fn
                        on-icon-click
                        on-accept
                        on-key-up
@@ -160,6 +161,7 @@
                        id]
                 :or {input-type :text
                      equals-fn =
+                     disabled-fn (constantly false)
                      unparse-fn str
                      on-accept identity
                      on-key-up identity
@@ -176,6 +178,7 @@
                                               :class])
                         {:type input-type
                          :auto-complete :off
+                         :disabled (disabled-fn)
                          :name (->name field)
                          :id (or id (->id field))
                          :value @text-value

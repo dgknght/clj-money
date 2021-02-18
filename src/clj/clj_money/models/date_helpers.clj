@@ -1,7 +1,7 @@
 (ns clj-money.models.date-helpers
   (:require [clj-time.core :as t]
-            [clj-time.coerce :refer [to-local-date
-                                     to-long]]
+            [clj-time.coerce :refer [to-long]]
+            [clj-money.dates :as dates]
             [clj-money.models.settings :as settings]))
 
 (defmulti date-range
@@ -48,7 +48,7 @@
       (update-in [2] #(or % (latest-date)))
       rest))
 
-(defmulti parse-date-range
+(defmulti parse-date-criterion
   "Accepts a date range in a variety of formats and returns
   a structure like [:between start end].
   
@@ -58,34 +58,15 @@
   #local-date 2015-03-03 => [:between #local-date 2015-03-02 #local-date 2015-03-02]"
   type)
 
-(defmethod parse-date-range :default
+(defmethod parse-date-criterion :default
   [value]
   (if-let [[start end] (date-range value)]
     [:between start end]
     value))
 
-(defmethod parse-date-range String
+(defmethod parse-date-criterion String
   [value]
-  (let [[year month day] (->> (re-matches #"(\d{4})(?:-(\d{2})(?:-(\d{2}))?)?"
-                                          value)
-                              rest
-                              (map #(when % (Integer. %))))]
-    (cond
-
-      day
-      [:between
-       (t/local-date year month day)
-       (t/local-date year month day)]
-
-      month
-      [:between
-       (to-local-date (t/first-day-of-the-month year month))
-       (to-local-date (t/last-day-of-the-month year month))]
-
-      :else
-      [:between
-       (t/local-date year 1 1)
-       (t/local-date year 12 31)])))
+  (apply vector :between (dates/parse-range value)))
 
 (defn available-date-range []
   (map #(settings/get %)

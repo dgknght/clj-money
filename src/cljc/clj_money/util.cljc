@@ -620,3 +620,9 @@
        (filter identity)
        sort
        first))
+
+(defn make-series
+  "Given a template and a list of maps, create a sequence
+  of the template merged with each map in the list"
+  [template & series]
+  (map #(merge template %) series))

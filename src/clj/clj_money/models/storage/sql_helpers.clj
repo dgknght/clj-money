@@ -103,6 +103,9 @@
                                          :primary-id    [:transaction_date :id]
                                          :foreign-table :transaction_items
                                          :foreign-id    [:transaction_date :transaction_id]}
+   #{:account :transaction-item}        {:primary-table :accounts
+                                         :foreign-table :transaction_items
+                                         :foreign-id    :account_id}
    #{:entity :transaction}              {:primary-table :entities
                                          :foreign-table :transactions
                                          :foreign-id    :entity_id}
