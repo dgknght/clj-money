@@ -1,6 +1,7 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.walk :refer [keywordize-keys]]
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
@@ -24,8 +25,10 @@
   [entity]
   (when entity
     (-> entity
-        (tag ::models/entity)
-        (update-in-if [:settings] read-string))))
+        (update-in-if [:settings] keywordize-keys)
+        (update-in-if [:settings :monitored-account-ids] set)
+        (update-in-if [:settings :inventory-method] keyword)
+        (tag ::models/entity))))
 
 (defn select
   "Returns entities for the specified user"
@@ -70,8 +73,7 @@
   [entity]
   (-> entity
       (tag ::models/entity)
-      (update-in-if [:settings :monitored-account-ids] set)
-      (update-in-if [:settings] pr-str)))
+      (update-in-if [:settings :monitored-account-ids] set)))
 
 (def ^:private validation-rules
   [(validation/create-rule name-is-unique?

@@ -1,6 +1,7 @@
 (ns clj-money.models.imports
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.walk :refer [keywordize-keys]]
             [cheshire.core :as json]
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
@@ -31,14 +32,12 @@
 
 (defn- before-save
   [imp]
-  (-> imp
-      (update-in-if [:options] pr-str)
-      (tag ::models/import)))
+  (tag imp ::models/import))
 
 (defn- prepare-progress
   [progress]
   (-> progress
-      (json/parse-string true)
+      keywordize-keys
       (select-keys [:account
                     :transaction
                     :scheduled-transaction
@@ -59,7 +58,7 @@
   (when imp
     (-> imp
         (update-in [:progress] prepare-progress)
-        (update-in-if [:options] read-string)
+        (update-in-if [:options] keywordize-keys)
         (assoc :entity-exists? (entity-exists? imp))
         (tag ::models/import))))
 
@@ -71,10 +70,6 @@
           before-save
           storage/create
           after-read))))
-
-(defn- before-update
-  [imp]
-  (update-in imp [:progress] json/generate-string))
 
 (defn search
   ([criteria]
@@ -99,9 +94,7 @@
   [impt]
   (with-storage (env :db)
     (with-validation impt ::existing-import []
-      (-> impt
-          before-update
-          storage/update)
+      (storage/update impt)
       (find impt))))
 
 (defn delete

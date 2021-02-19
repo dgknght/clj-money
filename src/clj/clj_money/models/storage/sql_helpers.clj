@@ -18,6 +18,12 @@
            [org.joda.time LocalDate DateTime]
            [clojure.lang PersistentArrayMap PersistentVector Keyword]))
 
+(defn- ->json
+  [value type-name]
+  (doto (PGobject.)
+    (.setType type-name)
+    (.setValue (json/generate-string value))))
+
 (extend-protocol jdbc/IResultSetReadColumn
   Date
   (result-set-read-column [v _ _]
@@ -27,6 +33,10 @@
   Keyword
   (sql-value [v]
     (name v))
+
+  PersistentArrayMap
+  (sql-value [v]
+    (->json v))
 
   PersistentVector
   (sql-value [v]
@@ -39,12 +49,6 @@
   DateTime
   (sql-value [v]
     (to-sql-time v)))
-
-(defn- ->json
-  [value type-name]
-  (doto (PGobject.)
-    (.setType type-name)
-    (.setValue (json/generate-string value))))
 
 (extend-protocol jdbc/ISQLParameter
   PersistentArrayMap

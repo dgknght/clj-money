@@ -96,7 +96,7 @@ CREATE TABLE public.entities (
     name character varying(100) NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    settings text
+    settings json
 );
 CREATE SEQUENCE public.entities_id_seq
     START WITH 1
@@ -109,7 +109,7 @@ CREATE TABLE public.grants (
     id integer NOT NULL,
     entity_id integer NOT NULL,
     user_id integer NOT NULL,
-    permissions text,
+    permissions json,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
@@ -137,7 +137,7 @@ CREATE TABLE public.imports (
     id integer NOT NULL,
     user_id integer NOT NULL,
     entity_name character varying(100) NOT NULL,
-    progress text,
+    progress json,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     image_ids integer[] NOT NULL

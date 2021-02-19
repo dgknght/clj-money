@@ -60,12 +60,12 @@
         result (grants/update
                 (update-in grant
                            [:permissions]
-                           #(assoc % :transactions #{:index :show})))
+                           #(assoc % :transaction #{:index :show})))
         retrieved (grants/find result)]
     (is (empty? (validation/error-messages result))
         "The result has not validation errors")
     (is (= {:account #{:index :show}
-            :transactions #{:index :show}}
+            :transaction #{:index :show}}
            (:permissions retrieved))
         "The retrieved record should have the correct content")))
 

@@ -1,10 +1,12 @@
 (ns clj-money.models.grants
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.walk :refer [keywordize-keys]]
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.util :refer [->id]]
+            [clj-money.util :refer [->id
+                                    update-in-if]]
             [clj-money.models :as models]
             [clj-money.validation :refer [with-validation]]))
 
@@ -36,15 +38,21 @@
 
 (defn- before-save
   [grant]
-  (-> grant
-      (tag ::models/grant)
-      (update-in [:permissions] prn-str)))
+  (tag grant ::models/grant))
+
+(defn- prepare-permissions
+  [permissions]
+  (reduce (fn [p k]
+            (update-in-if p [k] #(set (map keyword %))))
+          (-> permissions
+              keywordize-keys)
+          [:account :transaction]))
 
 (defn- after-read
   [grant]
   (when grant
     (-> grant
-        (update-in [:permissions] read-string)
+        (update-in [:permissions] prepare-permissions)
         (tag ::models/grant))))
 
 (defn create
