@@ -357,7 +357,7 @@
                                                                  (map (juxt (comp keyword :key)
                                                                             :value))
                                                                  (into {}))]
-                                                      (if (:credit-formula m)
+                                                      (if (seq (:credit-formula m))
                                                         [[:action :credit]
                                                          [:quantity (:credit-formula m)]
                                                          [:account-id (:account m)]]
