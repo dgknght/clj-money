@@ -11,9 +11,24 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    services:
+      postgres:
+        image: postgres
+        env:
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retrys 5
     steps:
-    - uses: actions/checkout@v2
-    - name: Install dependencies
-      run: lein deps
-    - name: Run tests
-      run: lein test
+      - name: Checkout source code
+        uses: actions/checkout@v2
+      - name: Install dependencies
+        run: lein deps
+      - name: Run database migrations
+        run: lein migrate
+      - name: Create database partitions
+        run: lein partition 2015-01-01 2017-12-31
+      - name: Run tests
+        run: lein test
