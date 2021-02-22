@@ -15,12 +15,16 @@ jobs:
       postgres:
         image: postgres
         env:
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: please01
+          POSTGRES_USER: app_user
+          POSTGRES_DB: money_test
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
+        ports:
+          - 5432:5432
     steps:
       - name: Checkout source code
         uses: actions/checkout@v2
@@ -28,13 +32,7 @@ jobs:
         run: lein deps
       - name: Run database migrations
         run: lein migrate
-        env:
-          DB: postgresql://postgres:postgres@postgres/postgres
       - name: Create database partitions
         run: lein partition 2015-01-01 2017-12-31
-        env:
-          DB: postgresql://postgres:postgres@postgres/postgres
       - name: Run tests
         run: lein test
-        env:
-          DB: postgresql://postgres:postgres@postgres/postgres
