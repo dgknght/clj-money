@@ -31,8 +31,8 @@ jobs:
       - name: Install dependencies
         run: lein deps
       - name: Run database migrations
-        run: lein migrate
+        run: lein with-profile test migrate
       - name: Create database partitions
-        run: lein partition 2015-01-01 2017-12-31
+        run: lein with-profile test partition 2015-01-01 2017-12-31
       - name: Run tests
         run: lein test
