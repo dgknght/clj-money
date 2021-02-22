@@ -28,7 +28,13 @@ jobs:
         run: lein deps
       - name: Run database migrations
         run: lein migrate
+        env:
+          DB: postgresql://postgres:postgres@postgres/postgres
       - name: Create database partitions
         run: lein partition 2015-01-01 2017-12-31
+        env:
+          DB: postgresql://postgres:postgres@postgres/postgres
       - name: Run tests
         run: lein test
+        env:
+          DB: postgresql://postgres:postgres@postgres/postgres
