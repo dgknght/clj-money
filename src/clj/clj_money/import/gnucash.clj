@@ -343,6 +343,16 @@
                     ::split/slots
                     :slot))
 
+(defn- stock-split-stack?
+  [tag-stack]
+  (match-tag-stack? tag-stack
+                    ::gnc/transaction
+                    ::trn/splits
+                    ::trn/split
+                    ::split/slots
+                    :slot
+                    ::slot/value))
+
 (defmethod ^:private process-elem ::slot/value
   [{:keys [content child-content elems] :as state} {:keys [tag]}]
   (let [tag-stack (map :tag elems)
@@ -365,6 +375,9 @@
                                                          [:quantity (:debit-formula m)]
                                                          [:account-id (:account m)]]))
 
+                 (stock-split-stack? tag-stack) (log/warnf "ignoring value \"%s\" at key \"%s\" because it is believed to be insigificant"
+                                                           (agg-text-content (peek content))
+                                                           (tag->keyword tag))
                  :else
                  [[(tag->keyword tag)
                    (agg-text-content (peek content))]])]
@@ -392,7 +405,7 @@
                  (budget-item-stack? tag-stack)
                  [[:item (into {} (peek child-content))]]
 
-                 (and (reconcile-info-stack? tag-stack) 
+                 (and (reconcile-info-stack? tag-stack)
                       (reconcile-info-content? child-content))
                  [(with-meta (->> (peek child-content)
                                   (filter map?)
@@ -406,35 +419,53 @@
                  :else [(into {} (peek child-content))])]
     (pop-elem state result)))
 
-(defmethod ^:private process-elem ::gnc/transaction
-  [{:keys [out-chan child-content elems] :as state} _]
-  (if (template? elems)
-    (let [content (->> (peek child-content)
-                       (group-by first)
-                       (map (fn [entry]
-                              (update-in entry [1] #(map second %))))
-                       (into {}))
-          template {:id (:account (first (:split content)))
-                    :description (first (:description content))
-                    :items (map #(select-keys % [:action
-                                                 :quantity
-                                                 :account-id])
-                                (:split content))}]
+(defn- process-template-elem
+  [{:keys [child-content] :as state}]
+  (let [content (->> (peek child-content)
+                     (group-by first)
+                     (map (fn [entry]
+                            (update-in entry [1] #(map second %))))
+                     (into {}))
+        template {:id (:account (first (:split content)))
+                  :description (first (:description content))
+                  :items (map #(select-keys % [:action
+                                               :quantity
+                                               :account-id])
+                              (:split content))}]
 
-      (-> state
-          (update-in [:templates] (fnil assoc {}) (:id template) template)
-          pop-elem))
-    (do
-      (>!! out-chan (with-meta (reduce (fn [r [k v]]
-                                         (if (= :split k)
-                                           (update-in r [:splits] conj v)
-                                           (if (blank-string? v)
-                                             r
-                                             (assoc r k v))))
-                                       {:splits []}
-                                       (peek child-content))
-                               {:record-type :transaction}))
-      (pop-elem state))))
+    (-> state
+        (update-in [:templates] (fnil assoc {}) (:id template) template)
+        pop-elem)))
+
+(defn- aggregate-child-attr
+  [result [k v]]
+  (if (= :split k)
+    (update-in result [:splits] conj v)
+    (if (blank-string? v)
+      result
+      (do
+        (when-let [existing (get-in result [k])]
+          (log/warnf "Replacing existing value \"%s\" with \"%s\" at key \"%s\" in transaction"
+                     existing
+                     v
+                     k))
+        (assoc result k v)))))
+
+(defn- process-transaction-elem
+  [{:keys [out-chan child-content] :as state}]
+  (>!! out-chan
+       (with-meta
+         (reduce aggregate-child-attr
+                 {:splits []}
+                 (peek child-content))
+         {:record-type :transaction}))
+  (pop-elem state))
+
+(defmethod ^:private process-elem ::gnc/transaction
+  [{:keys [elems] :as state} _]
+  (if (template? elems)
+    (process-template-elem state)
+    (process-transaction-elem state)))
 
 (defmethod ^:private process-elem ::trn/splits
   [{:keys [child-content] :as state} _]

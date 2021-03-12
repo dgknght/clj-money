@@ -14,20 +14,24 @@
          :parents ((fnil conj []) (:parents parent) (:id parent))))
 
 (defn- append-children
-  [account {:keys [all-accounts plus]
+  [account {:keys [all-accounts plus zero]
             :as options}]
   (let [children (->> all-accounts
                       (filter #(= (:id account) (:parent-id %)))
                       (map #(append-path % account))
                       (map #(append-children % options))
                       (sort-by :name)
-                      vec)]
-    (assoc account :children children
-           :children-value (reduce #(plus %1
-                                          (or (:value %2) 0M)
-                                          (or (:children-value %2) 0M))
-                                   0M
-                                   children))))
+                      vec)
+        children-value (->> children
+                                (mapcat (juxt :value :children-value))
+                                (filter identity)
+                                (reduce plus (zero)))]
+    (assoc account
+           :children children
+           :children-value children-value
+           :total-value (plus (or (:value account)
+                                  (zero))
+                              children-value))))
 
 (defn nest
   "Accepts a list of accounts and nests
@@ -35,6 +39,7 @@
   ([accounts] (nest {} accounts))
   ([opts accounts]
    (let [options (merge {:plus +
+                         :zero (constantly 0)
                          :account-types account-types}
                         opts
                         {:all-accounts accounts})
