@@ -133,9 +133,9 @@
     :dry-run   - do not execute the commands that are generated
     :rules     - a map of table names to interval type and count"
   ([start-date end-date options]
-   (jdbc/with-db-connection [c (env :db)]
+   (jdbc/with-db-connection [conn (env :db)]
      (doseq [cmd (create-table-cmds start-date end-date options)]
        (when-not (:silent options)
          (println cmd))
        (when-not (:dry-run options)
-         (jdbc/execute! c cmd))))))
+         (jdbc/execute! conn cmd))))))

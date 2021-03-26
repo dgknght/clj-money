@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.walk :refer [keywordize-keys]]
-            [cheshire.core :as json]
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage

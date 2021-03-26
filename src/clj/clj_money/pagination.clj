@@ -6,7 +6,7 @@
 (s/def ::per-page integer?)
 (s/def ::total integer?)
 (s/def ::url map?)
-(s/def ::max-pages (s/and integer? #(< 3)))
+(s/def ::max-pages (s/and integer? #(< % 3)))
 (s/def ::pagination-options (s/keys :req-un [::total ::url] :opt-un [::page ::per-page]))
 
 (defn- validate-options

@@ -19,10 +19,13 @@
            [clojure.lang PersistentArrayMap PersistentVector Keyword]))
 
 (defn- ->json
-  [value type-name]
-  (doto (PGobject.)
-    (.setType type-name)
-    (.setValue (json/generate-string value))))
+  ([value]
+   (doto (PGobject.)
+     (.setValue (json/generate-string value))))
+  ([value type-name]
+   (doto (PGobject.)
+     (.setType type-name)
+     (.setValue (json/generate-string value)))))
 
 (extend-protocol jdbc/IResultSetReadColumn
   Date

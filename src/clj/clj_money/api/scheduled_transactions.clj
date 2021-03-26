@@ -2,7 +2,6 @@
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-time.core :as t]
-            [clj-time.coerce :refer [to-long]]
             [stowaway.core :as storage]
             [clj-money.util :refer [update-in-if
                                     unserialize-date]]
