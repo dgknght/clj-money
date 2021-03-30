@@ -36,7 +36,11 @@
    [:html {:lang "en"}
     (head)
     [:body
-     [:div#app]
+     [:div#app
+      [:div.container
+       [:nav.nav-bar
+        "Money"]]
+      "Loading..."]
      (include-js "/js/app/main.js")]]))
 
 (defroutes routes

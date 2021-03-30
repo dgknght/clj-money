@@ -1,7 +1,7 @@
 # clj-money
 Clojure cloud accounting application
 
-![build status](https://travis-ci.org/dgknght/clj-money.svg?branch=master)
+![build status](https://github.com/dgknght/clj-money/actions/workflows/clojure.yml/badge.svg)
 
 ## Running locally
 
@@ -9,21 +9,19 @@ In a terminal:
 ```bash
 lein repl
 ```
+In another terminal:
+```bash
+lein figwheel
+```
 
 Inside the repl:
 ```clojure
-(require 'clj-money.web)
-(def server (clj-money.web/-main))
+(start-server)
 ```
 
 To stop
 ```clojure
-(.stop server)
-```
-
-To start again
-```clojure
-(.start server)
+(stop-server)
 ```
 
 ## Running on Heroku

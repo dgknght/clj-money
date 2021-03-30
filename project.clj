@@ -75,6 +75,8 @@
                                                 org.clojure/clojure
                                                 org.clojure/core.specs.alpha
                                                 org.clojure/tools.logging]]]
+  :repl-options {:welcome "Finincial tracking is here for you!"
+                 :init-ns clj-money.repl}
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
