@@ -75,7 +75,7 @@
                                                 org.clojure/clojure
                                                 org.clojure/core.specs.alpha
                                                 org.clojure/tools.logging]]]
-  :repl-options {:welcome "Finincial tracking is here for you!"
+  :repl-options {:welcome (println "Finincial tracking is here for you!")
                  :init-ns clj-money.repl}
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
@@ -140,7 +140,7 @@
             :project/test {:dependencies [[ring/ring-mock "0.4.0"]
                                           [peridot "0.5.2"]]
                            :env
-                           {:db "postgresql://app_user:please01@localhost/money_test" 
+                           {:db "postgresql://app_user:please01@localhost/money_test"
                             :partition-period "year"
                             :mailer-host "testmailer.com"
                             :mailer-from "no-reply@clj-money.com"
