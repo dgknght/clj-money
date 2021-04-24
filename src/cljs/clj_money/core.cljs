@@ -23,7 +23,6 @@
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.api.entities :as entities]
-            [clj-money.dom :refer [app-element]]
             [clj-money.bootstrap :as bootstrap]
             [clj-money.api.users :as users]))
 
@@ -180,7 +179,7 @@
   (let [mounted? (r/cursor app-state [:mounted?])]
     (when-not @mounted?
       (swap! app-state assoc :mounted? true :page #'home-page)
-      (r/render [current-page] (app-element)))))
+      (r/render [current-page] (.getElementById js/document "app")))))
 
 (defn- receive-entities
   [[entity :as entities]]
