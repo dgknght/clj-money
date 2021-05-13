@@ -1,78 +1,46 @@
 (ns clj-money.accounts
-  (:require #?(:clj [clj-time.coerce :as tc]
-               :cljs [cljs-time.coerce :as tc])
-            [clj-money.util :refer [abs]]))
+  (:require [clojure.string :as string]
+            [dgknght.app-lib.models :as models]
+            [clj-money.util :refer [abs]]
+            #?(:cljs [dgknght.app-lib.decimal :as decimal])
+            #?(:clj [clj-time.coerce :as tc]
+               :cljs [cljs-time.coerce :as tc])))
 
 (def account-types
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
-(defn- append-path
-  [account parent]
-  (assoc account
-         :path (str (:path parent) "/" (:name account))
-         :parents ((fnil conj []) (:parents parent) (:id parent))))
+(defn plus
+  [n1 n2]
+  #?(:cljs (decimal/+ n1 n2)
+     :clj (+ n1 n2)))
 
-(defn- append-children
-  [account {:keys [all-accounts plus zero]
-            :as options}]
-  (let [children (->> all-accounts
-                      (filter #(= (:id account) (:parent-id %)))
-                      (map #(append-path % account))
-                      (map #(append-children % options))
-                      (sort-by :name)
-                      vec)
-        children-value (->> children
-                                (mapcat (juxt :value :children-value))
-                                (filter identity)
-                                (reduce plus (zero)))]
-    (assoc account
-           :children children
-           :children-value children-value
-           :total-value (plus (or (:value account)
-                                  (zero))
-                              children-value))))
+(defn- eval-children
+  [{:keys [children] :as account}]
+  (assoc account
+         :children-value (->> children
+                              (mapcat (juxt :value :children-value))
+                              (filter identity)
+                              (reduce plus 0M))
+         :has-children? true))
 
 (defn nest
-  "Accepts a list of accounts and nests
-  children under parents"
   ([accounts] (nest {} accounts))
-  ([opts accounts]
-   (let [options (merge {:plus +
-                         :zero (constantly 0)
-                         :account-types account-types}
-                        opts
-                        {:all-accounts accounts})
-         grouped (->> accounts
-                      (remove :parent-id)
-                      (map (comp #(append-children % options)
-                                 #(assoc % :path (:name %))))
-                      (group-by :type))]
-     (mapv #(hash-map :type % :accounts (or
-                                         (->> (get-in grouped [%])
-                                              (sort-by :name)
-                                              vec)
-                                         []))
-           (:account-types options)))))
-
-(defn- unnest*
-  [accumulator accounts]
-  (reduce (fn [r account]
-            (unnest* (conj r (-> account
-                                 (assoc :has-children?
-                                        (boolean (seq (:children account))))
-                                 (dissoc account :children)))
-                     (:children account)))
-          accumulator
-          accounts))
+  ([{:keys [types]
+     :or {types account-types}}
+    accounts]
+   (let [by-type (group-by :type accounts)]
+     (mapv #(hash-map :type %
+                      :accounts (models/nest
+                                  {:decorate-parent-fn eval-children}
+                                  (get-in by-type [%])))
+           types))))
 
 (defn unnest
-  "Accepts a nested set of accounts and flattens the heirarchy,
-  retaining the :path attribute"
-  [accounts]
-  (->> accounts
+  [types]
+  (->> types
        (mapcat :accounts)
-       (unnest* [])))
+       models/unnest))
 
 (defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
@@ -145,3 +113,12 @@
       date-field [:between
                   (:earliest-transaction-date account)
                   (:latest-transaction-date account)]})))
+
+(defn find-by-path
+  [term accounts]
+  (let [term (string/lower-case term)]
+    (filter #(->> (get-in % [:path])
+                  (map string/lower-case)
+                  (some (fn [segment]
+                          (string/includes? segment term))))
+            accounts)))

@@ -3,7 +3,7 @@
             [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
-            [clj-money.validation :as validation]
+            [dgknght.app-lib.test]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.factories.user-factory]
@@ -13,9 +13,7 @@
                                             find-account
                                             find-accounts
                                             find-transaction]]
-            [clj-money.test-helpers :refer [reset-db
-                                            assert-validation-error
-                                            assert-comparable]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -69,11 +67,9 @@
 (deftest create-a-transaction
   (let [context (realize base-context)
         transaction (transactions/create (attributes context))]
-
-    (assert transaction "A transaction must be returned")
-
+    (is transaction "A non-nil value is returned")
     (testing "return value includes the new id"
-      (is (empty? (validation/error-messages transaction)))
+      (is (valid? transaction))
       (is (:id transaction) "A map with the new ID is returned"))
     (testing "transaction can be retrieved"
       (let [actual (transactions/find transaction)
@@ -81,8 +77,8 @@
                       :description "Paycheck"
                       :memo "final, partial"
                       :entity-id (-> context :entities first :id)
-                      :value 1000M
-                      :items [{:description "Paycheck"
+                      :value 1000M}
+            expected-items [{:description "Paycheck"
                                :account-id (:id (find-account context "Checking"))
                                :index 0
                                :transaction-date (t/local-date 2016 3 2)
@@ -109,8 +105,10 @@
                                :value 1000M
                                :reconciliation-status nil
                                :reconciliation-id nil
-                               :reconciled? false}]}]
-        (assert-comparable expected actual "The correct data is retrieved")))))
+                               :reconciled? false}]]
+        (is (comparable? expected actual "The correct data is retrieved"))
+        (doseq [[e a] (partition 2 (interleave expected-items (:items actual)))]
+          (is (comparable? e a) "Each item is retrieved correctly"))))))
 
 (deftest rollback-on-failure
   (let [call-count (atom 0)]
@@ -142,21 +140,21 @@
   (let [context (realize base-context)
         transaction (transactions/create (dissoc (attributes context)
                                                  :transaction-date))]
-    (is (validation/has-error? transaction :transaction-date))))
+    (is (invalid? transaction [:transaction-date] "Transaction date is required"))))
 
 (deftest entity-id-is-required
   (let [context (realize base-context)
-        transaction (transactions/create (dissoc (attributes context)
+        result (transactions/create (dissoc (attributes context)
                                                  :entity-id))]
-    (is (validation/has-error? transaction :entity-id))))
+    (is (invalid? result [:entity-id] "Entity is required"))))
 
 (deftest items-are-required
-  (let [context (realize base-context)]
-    (assert-validation-error :items "Count must be greater than or equal to 1"
-                             (transactions/create
+  (let [context (realize base-context)
+        result (transactions/create
                               (-> context
                                   attributes
-                                  (assoc :items []))))))
+                                  (assoc :items [])))]
+    (is (invalid? result [:items] "Items must contain at least 1 item(s)"))))
 
 (deftest item-account-id-is-required
   (let [context (realize base-context)
@@ -165,7 +163,7 @@
                       (attributes context)
                       [:items 0]
                       #(dissoc % :account-id)))]
-    (is (validation/has-error? transaction :items))))
+    (is (invalid? transaction [:items 0 :account-id] "Account is required"))))
 
 (deftest item-quantity-is-required
   (let [context (realize base-context)
@@ -174,7 +172,7 @@
                       (attributes context)
                       [:items 0]
                       #(dissoc % :quantity)))]
-    (is (validation/has-error? transaction :items) "Validation error should be present")))
+    (is (invalid? transaction [:items 0 :quantity] "Quantity is required"))))
 
 (deftest item-quantity-must-be-greater-than-zero
   (let [context (realize base-context)
@@ -183,7 +181,7 @@
                       (attributes context)
                       [:items 0]
                       #(assoc % :quantity -1000M)))]
-    (is (validation/has-error? transaction :items) "Validation error should be present")))
+    (is (invalid? transaction [:items 0 :quantity] "Quantity cannot be less than zero"))))
 
 (deftest item-action-is-required
   (let [context (realize base-context)
@@ -192,16 +190,16 @@
                       (attributes context)
                       [:items 0]
                       #(dissoc % :action)))]
-    (is (validation/has-error? transaction :items) "Validation error should be present")))
+    (is (invalid? transaction [:items 0 :action] "Action is required"))))
 
-(deftest item-action-must-be-debit-or-created
+(deftest item-action-must-be-debit-or-credit
   (let [context (realize base-context)
         transaction (transactions/create
                      (update-in
                       (attributes context)
                       [:items 0]
                       #(assoc % :action :not-valid)))]
-    (is (validation/has-error? transaction :items) "Validation error should be present")))
+    (is (invalid? transaction [:items 0 :action] "Action must be debit or credit"))))
 
 (deftest sum-of-debits-must-equal-sum-of-credits
   (let [context (realize base-context)
@@ -210,7 +208,7 @@
                       (attributes context)
                       [:items 0]
                       #(assoc % :quantity 1001M)))]
-    (is (validation/has-error? transaction :items) "Validation error should be present")))
+    (is (invalid? transaction [:items] "Sum of debits must equal the sum of credits"))))
 
 (def balance-context
   (merge base-context
@@ -574,8 +572,7 @@
                             {:index 0 :quantity 99.99M :balance 99.99M}]
         actual-groceries (->> (items-by-account (:id groceries))
                               (map #(select-keys % [:index :quantity :balance])))]
-    (is (empty? (validation/error-messages result))
-        "The transaction is updated successfully.")
+    (is (valid? result))
     (testing "transaction item balances are correct"
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
@@ -632,8 +629,7 @@
         actual-groceries (->> (:id groceries)
                               items-by-account
                               (map #(select-keys % [:index :quantity :balance :transaction-date])))]
-    (is (empty? (validation/error-messages result))
-        "The record is saved successfully")
+    (is (valid? result))
     (testing "transaction item balances are correct"
       (is (= expected-checking actual-checking)
           "Checking items should have the correct values after update")
@@ -763,8 +759,7 @@
                           :quantity 101M
                           :balance 797M}}
               actual (get @update-calls (:id checking))]
-          (is (empty? (validation/error-messages result))
-              "The transaction is saved successfully")
+          (is (valid? result))
           (testing "the expected transactions are updated"
             (is (= expected actual)
                 "Only items with changes are updated")
@@ -898,7 +893,7 @@
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id groceries)))]
-    (is (empty? (validation/error-messages result)) "There are no validation errors")
+    (is (valid? result))
     (testing "items are updated correctly"
       (is (= expected-items actual-items)
           "Groceries should have the correct items after update"))
@@ -1128,7 +1123,7 @@
                         {:account-id (:id salary)
                          :action :credit
                          :quantity 1000M}]]
-    (is (empty? (validation/error-messages trx)) "The transaction is created successfully")
+    (is (valid? trx))
     (is (= expected-items actual-items) "The items are created correctly")))
 
 (deftest set-account-boundaries
@@ -1137,7 +1132,7 @@
         [checking
          salary
          groceries] (find-accounts context "Checking" "Salary" "Groceries")
-        _ (->> [{:transaction-date (t/local-date 2017 2 27)
+        created (->> [{:transaction-date (t/local-date 2017 2 27)
                  :description "Paycheck"
                  :quantity 1000M
                  :debit-account-id (:id checking)
@@ -1152,6 +1147,7 @@
         [checking
          salary
          groceries] (map accounts/reload [checking salary groceries])]
+    (is (valid? created))
     (is (= (t/local-date 2017 2 27) (:earliest-transaction-date checking))
         "The checking account's earliest is the paycheck")
     (is (= (t/local-date 2017 3 2) (:latest-transaction-date checking))
@@ -1164,3 +1160,66 @@
         "The groceries account's earliest is the grocery purchase")
     (is (= (t/local-date 2017 3 2) (:latest-transaction-date groceries))
         "The groceries account's latest is the grocery purchase")))
+
+(def ^:private existing-reconciliation-context
+  (-> base-context
+      (update-in [:accounts] conj {:name "Rent"
+                                   :type :expense
+                                   :entity-id "Personal"})
+      (assoc :transactions [{:transaction-date (t/local-date 2017 1 1)
+                             :description "Paycheck"
+                             :debit-account-id "Checking"
+                             :credit-account-id "Salary"
+                             :quantity 1000M}
+                            {:transaction-date (t/local-date 2017 1 2)
+                             :description "Landlord"
+                             :debit-account-id "Rent"
+                             :credit-account-id "Checking"
+                             :quantity 500M}
+                            {:transaction-date (t/local-date 2017 1 3)
+                             :description "Kroger"
+                             :debit-account-id "Groceries"
+                             :credit-account-id "Checking"
+                             :quantity 45M}
+                            {:transaction-date (t/local-date 2017 1 10)
+                             :description "Safeway"
+                             :debit-account-id "Groceries"
+                             :credit-account-id "Checking"
+                             :quantity 53M}]
+             :reconciliations
+             [{:account-id "Checking"
+               :end-of-period (t/local-date 2017 1 1)
+               :balance 1000M
+               :status :completed
+               :item-refs [{:transaction-date (t/local-date 2017 1 1)
+                            :quantity 1000M}]}])))
+
+(deftest the-quantity-and-action-of-a-reconciled-item-cannot-be-changed
+  (let [context (realize existing-reconciliation-context)
+        transaction (find-transaction context (t/local-date 2017 1 1) "Paycheck")
+        result1 (transactions/update (update-in transaction [:items]
+                                                #(map (fn [item]
+                                                        (assoc item :quantity 1M))
+                                                      %)))
+        result2 (transactions/update (update-in transaction [:items]
+                                                #(map (fn [item]
+                                                        (update-in item [:action] (fn [a] (if (= :credit a)
+                                                                                            :debit
+                                                                                            :credit))))
+                                                      %)))]
+    (is (invalid? result1 [:items] "A reconciled item cannot be updated"))
+    (is (invalid? result2 [:items] "A reconciled item cannot be updated"))))
+
+(deftest a-reconciled-transaction-item-cannot-be-deleted
+  (let [context (realize existing-reconciliation-context)
+        [item-id date] (-> context :reconciliations first :item-refs first)
+        transaction (transactions/find-by-item-id item-id date)]
+    (is (thrown-with-msg? clojure.lang.ExceptionInfo #"A transaction with reconciled items cannot be deleted."
+                          (transactions/delete transaction))
+        "An exception is raised")
+    (is (do
+          (try
+            (transactions/delete transaction)
+            (catch clojure.lang.ExceptionInfo _ nil))
+          (transactions/find-by-item-id item-id date))
+        "The transaction can be retrieved after the delete has been denied")))

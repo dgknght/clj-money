@@ -2,14 +2,10 @@
   (:require [clojure.test :refer [use-fixtures deftest is]]
             [ring.mock.request :as req]
             [clj-time.core :as t]
-            [clj-money.util :refer [path
-                                    unserialize-date
-                                    serialize-date
-                                    update-in-if]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-successful-create
-                                                assert-successful-no-content
-                                                assert-not-found]]
+            [dgknght.app-lib.web :refer [path
+                                         unserialize-date
+                                         serialize-date]]
+            [dgknght.app-lib.test]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-json-body]]
             [clj-money.factories.user-factory]
@@ -19,8 +15,7 @@
                                             find-entity
                                             find-account
                                             find-scheduled-transaction]]
-            [clj-money.test-helpers :refer [reset-db
-                                            assert-contains]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.transactions :as trans]
             [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.web.server :refer [app]]))
@@ -81,8 +76,8 @@
                                 %))))
 
 (defn- assert-successful-list
-  [{:keys [json-body] :as res}]
-  (assert-successful res)
+  [{:keys [json-body] :as response}]
+  (is (http-success? response))
   (is (= [{:start-date "2004-03-02"
            :description "Birthday present"
            :memo "automatically created"
@@ -98,8 +93,8 @@
       "The body contains the existing scheduled transactions"))
 
 (defn- assert-blocked-list
-  [{:keys [json-body] :as res}]
-  (assert-successful res)
+  [{:keys [json-body] :as response}]
+  (is (http-success? response))
   (is (empty? json-body)))
 
 (deftest a-user-can-get-a-list-of-scheduled-transactions-in-his-entity
@@ -121,26 +116,6 @@
            {:action :credit
             :quantity 1000M
             :memo "salary"}]})
-
-(defn- comparable
-  ([sched-trans] (comparable sched-trans false))
-  ([sched-tran from-json?]
-   (let [pruned (-> sched-tran
-                    (select-keys (keys attr))
-                    (update-in [:items] (fn [items]
-                                          (map #(select-keys % (-> attr :items first keys))
-                                               items))))]
-     (if from-json?
-       (-> pruned
-           (update-in-if [:date-spec :days] #(map keyword %))
-           (update-in [:start-date] unserialize-date)
-           (update-in [:interval-type] keyword)
-           (update-in [:items] (fn [items]
-                                 (map #(-> %
-                                           (update-in [:quantity] bigdec)
-                                           (update-in [:action] keyword))
-                                      items))))
-       pruned))))
 
 (defn- create-sched-tran
   [user-email]
@@ -164,17 +139,29 @@
     [res retrieved]))
 
 (defn- assert-sched-tran-created
-  [[{:keys [json-body] :as res} retrieved]]
-  (assert-successful-create res)
+  [[{:keys [json-body] :as response} retrieved]]
+  (is (http-created? response))
   (is (:id json-body) "The return value contains an :id")
-  (is (= attr (comparable json-body true))
+  (is (comparable? {:description "Paycheck"
+                    :start-date "2021-01-01"
+                    :date-spec {:days ["friday"]}
+                    :interval-type "week"
+                    :interval-count 2
+                    :memo "biweekly"
+                    :items [{:action "debit"
+                             :quantity 1000.0
+                             :memo "checking"}
+                            {:action "credit"
+                             :quantity 1000.0
+                             :memo "salary"}]}
+                   json-body)
       "The return value contains the created schedule transaction")
-  (is (= attr (comparable (first retrieved)))
+  (is (seq-with-map-like? attr retrieved)
       "The scheduled transaction can be retrieved"))
 
 (defn- assert-blocked-create
-  [[res retrieved]]
-  (assert-not-found res)
+  [[response retrieved]]
+  (is (http-not-found? response))
   (is (empty? retrieved) "The record is not created"))
 
 (deftest a-user-can-create-a-scheduled-transaction-in-his-entity
@@ -218,14 +205,18 @@
     [res (sched-trans/find tran)]))
 
 (defn- assert-successful-update
-  [[{:keys [json-body] :as res} retrieved]]
-  (assert-successful res)
-  (assert-contains update-attr (comparable json-body true) "The updated scheduled transaction is returned")
-  (assert-contains update-attr retrieved "The database is updated correctly"))
+  [[{:keys [json-body] :as response} retrieved]]
+  (is (http-success? response))
+  (is (comparable? {:interval-type "week"
+                    :interval-count 2}
+                   json-body)
+      "The updated scheduled transaction is returned")
+  (is (comparable? update-attr retrieved)
+      "The database is updated correctly"))
 
 (defn- assert-blocked-update
-  [[res retrieved]]
-  (assert-not-found res)
+  [[response retrieved]]
+  (is (http-not-found? response))
   (is (= {:interval-type :month
           :interval-count 1}
          (select-keys retrieved [:interval-type :interval-count]))
@@ -252,13 +243,13 @@
     [res retrieved]))
 
 (defn- assert-successful-delete
-  [[res retrieved]]
-  (assert-successful-no-content res)
+  [[response retrieved]]
+  (is (http-no-content? response))
   (is (nil? retrieved) "The record cannot be retrieved after delete"))
 
 (defn- assert-blocked-delete
-  [[res retrieved]]
-  (assert-not-found res)
+  [[response retrieved]]
+  (is (http-not-found? response))
   (is retrieved "The record can still be retrieved after blocked delete"))
 
 (deftest a-user-can-delete-a-scheduled-transaction-in-his-entity
@@ -287,8 +278,8 @@
     [res retrieved]))
 
 (defn- assert-successful-realization
-  [[res retrieved]]
-  (assert-successful-create res)
+  [[response retrieved]]
+  (is (http-created? response))
   (is (= 1 (count retrieved))
       "One transaction is created.")
   (is (= {:description "Paycheck"
@@ -305,8 +296,8 @@
       "The transaction is created with the correct line items."))
 
 (defn- assert-blocked-realization
-  [[res retrieved]]
-  (assert-not-found res)
+  [[response retrieved]]
+  (is (http-not-found? response))
   (is (empty? retrieved) "The transaction is not created."))
 
 (deftest a-user-can-realize-a-scheduled-transaction-in-his-entity
@@ -389,22 +380,22 @@
     from-json? (update-in [:transaction-date] unserialize-date)))
 
 (defn- assert-successful-mass-realization
-  [[res retrieved]]
-  (assert-successful-create res)
+  [[response retrieved]]
+  (is (http-created? response))
   (let [expected [{:description "Groceries"
                    :transaction-date (t/local-date 2016 1 31)}
                   {:description "Paycheck"
                    :transaction-date (t/local-date 2016 2 1)}
                   {:description "Groceries"
                    :transaction-date (t/local-date 2016 2 7)}]]
-    (is (= expected (map #(comparable-trans % true) (:json-body res)))
+    (is (= expected (map #(comparable-trans % true) (:json-body response)))
         "The created transactions are returned.")
     (is (= expected (map #(comparable-trans % false) retrieved))
         "The transactions can be retrieved.")))
 
 (defn- assert-blocked-mass-realization
-  [[res retrieved]]
-  (assert-not-found res)
+  [[response retrieved]]
+  (is (http-not-found? response))
   (is (empty? retrieved) "No transactions are created."))
 
 (deftest a-user-can-realize-all-scheduled-transactions-in-his-entity

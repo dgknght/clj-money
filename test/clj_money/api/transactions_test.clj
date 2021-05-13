@@ -4,10 +4,9 @@
             [ring.mock.request :as req]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
-            [clj-money.util :refer [path
-                                    serialize-date]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
+            [dgknght.app-lib.web :refer [path
+                                         serialize-date]]
+            [dgknght.app-lib.test]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
@@ -15,8 +14,7 @@
                                             find-entity
                                             find-account
                                             find-transaction]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.transactions :as trans]
             [clj-money.web.server :refer [app]]))
 
@@ -66,7 +64,7 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= [{:transaction-date "2016-02-01"
            :description "Paycheck"
            :memo "Pre-existing transaction"
@@ -80,7 +78,7 @@
 
 (defn- assert-blocked-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-transactions-in-his-entity
@@ -105,17 +103,17 @@
 
 (defn- assert-successful-get
   [[response body]]
-  (assert-successful response)
-  (is (selective= {:transaction-date "2016-02-01"
-                   :description "Paycheck"
-                   :memo "Pre-existing transaction"
-                   :value 1000.0}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:transaction-date "2016-02-01"
+                    :description "Paycheck"
+                    :memo "Pre-existing transaction"
+                    :value 1000.0}
+                   body)
       "The correct transaction is returned in the response"))
 
 (defn- assert-blocked-get
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-transaction-from-his-entity
   (assert-successful-get (get-a-transaction "john@doe.com")))
@@ -154,27 +152,26 @@
 
 (defn- assert-successful-create
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:description "Paycheck"
-                   :transaction-date "2016-03-02"
-                   :memo "Seems like there should be more"}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:description "Paycheck"
+                    :transaction-date "2016-03-02"
+                    :memo "Seems like there should be more"}
+                   body)
       "The created transaction is returned in the response")
-  (is (some #(selective= {:description "Paycheck"
-                          :transaction-date (t/local-date 2016 3 2)
-                          :memo "Seems like there should be more"}
-                         %)
-            retrieved)
+  (is (seq-with-map-like? {:description "Paycheck"
+
+                           :transaction-date (t/local-date 2016 3 2)
+                           :memo "Seems like there should be more"}
+                          retrieved)
       "The created transaction can be retrieved from the database"))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (not-any? #(selective= {:description "Paycheck"
+  (is (http-not-found? response))
+  (is (seq-with-no-map-like? {:description "Paycheck"
                               :transaction-date (t/local-date 2016 3 2)
                               :memo "Seems like there should be more"}
-                             %)
-                retrieved)
+                             retrieved)
       "The transaction is not created"))
 
 (deftest a-user-can-create-a-transaction-in-his-entity
@@ -209,25 +206,25 @@
 
 (defn- assert-successful-update
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:description "Just got paid today"
-                   :transaction-date "2016-02-01"
-                   :memo "Pre-existing transaction"}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:description "Just got paid today"
+                    :transaction-date "2016-02-01"
+                    :memo "Pre-existing transaction"}
+                   body)
       "The updated transaction is returned in the response")
-  (is (selective= {:description "Just got paid today"
-                   :transaction-date (t/local-date 2016 2 1)
-                   :memo "Pre-existing transaction"}
-                  retrieved)
+  (is (comparable? {:description "Just got paid today"
+                    :transaction-date (t/local-date 2016 2 1)
+                    :memo "Pre-existing transaction"}
+                   retrieved)
       "The transaction is updated in the database"))
 
 (defn- assert-blocked-update
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (selective= {:description "Paycheck"
-                   :transaction-date (t/local-date 2016 2 1)
-                   :memo "Pre-existing transaction"}
-                  retrieved)
+  (is (http-not-found? response))
+  (is (comparable? {:description "Paycheck"
+                    :transaction-date (t/local-date 2016 2 1)
+                    :memo "Pre-existing transaction"}
+                   retrieved)
       "The transaction is not updated"))
 
 (deftest a-user-can-update-a-transaction-in-his-entity
@@ -252,13 +249,13 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (nil? retrieved)
       "The record cannot be retrieved after delete"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved
       "The record can be retrieved after a blocked delete"))
 

@@ -1,6 +1,6 @@
 (ns clj-money.api.lots
-  (:require [clj-money.api :as api]
-            [clj-money.util :refer [unserialize-date]]))
+  (:require [dgknght.app-lib.web :refer [unserialize-date]]
+            [dgknght.app-lib.api :as api]))
 
 (defn- after-read
   [lot]
@@ -17,8 +17,8 @@
                                      (:account-id criteria)
                                      :lots)
                            (dissoc criteria :account-id)])]
-    (api/get-resources path
-                       criteria
-                       (comp success-fn
-                             #(map after-read %))
-                       error-fn)))
+    (api/get path
+             criteria
+             (comp success-fn
+                   #(map after-read %))
+             error-fn)))

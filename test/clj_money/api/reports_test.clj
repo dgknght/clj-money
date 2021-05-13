@@ -3,11 +3,9 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-time.core :as t]
+            [dgknght.app-lib.web :refer [path]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.util :refer [path]]
             [clj-money.test-context :refer [realize
                                             basic-context
                                             find-user
@@ -39,7 +37,7 @@
 
 (defn- assert-successful-income-statement
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= ["Income" "Expense" "Net"]
          (->> body
               (filter #(#{"header" "summary"} (:style %)))
@@ -48,7 +46,7 @@
 
 (defn- assert-blocked-income-statement
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-income-statement-for-his-entity
   (assert-successful-income-statement (get-income-statement "john@doe.com")))
@@ -74,7 +72,7 @@
 
 (defn- assert-successful-balance-sheet
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= ["Asset" "Liability" "Equity" "Liabilities + Equity"]
          (->> body
               (filter #(#{"summary" "header"} (:style %)))
@@ -83,7 +81,7 @@
 
 (defn- assert-blocked-balance-sheet
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-balance-sheet-for-his-entity
   (assert-successful-balance-sheet (get-balance-sheet "john@doe.com")))
@@ -114,12 +112,12 @@
 
 (defn- assert-successful-budget-report
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (coll? body)))
 
 (defn- assert-blocked-budget-report
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-budget-report-for-his-entity
   (assert-successful-budget-report (get-budget-report "john@doe.com")))
@@ -130,7 +128,7 @@
 (def ^:private monitor-context
   (-> budget-context
       (update-in [:budgets 0] assoc :items [{:account-id "Groceries"
-                                             :periods (repeat 12 200)}])
+                                             :periods (repeat 12 200M)}])
       (update-in [:entities 0] assoc-in [:settings :monitored-account-ids] #{"Groceries"})
       (assoc :transactions [{:transaction-date (t/local-date 2016 1 1)
                              :description "Kroger"
@@ -156,7 +154,7 @@
 
 (defn- assert-successful-monitor-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (let [expected [{:caption "Groceries"
                    :period {:total-budget 200.0
                             :actual 85.0
@@ -174,7 +172,7 @@
 
 (defn- assert-blocked-monitor-list
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-budget-monitors-for-his-entity
   (assert-successful-monitor-list (get-monitor-list "john@doe.com")))
@@ -222,7 +220,7 @@
 
 (defn- assert-successful-portfolio-report
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= ["IRA" "Total"]
          (->> body
               (filter #(#{"header" "summary"} (:style %)))
@@ -231,7 +229,7 @@
 
 (defn- assert-blocked-portfolio-report
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-portfolio-report-for-his-entity
   (assert-successful-portfolio-report (get-portfolio-report "john@doe.com")))

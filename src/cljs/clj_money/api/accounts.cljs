@@ -1,10 +1,10 @@
 (ns clj-money.api.accounts
-  (:refer-clojure :exclude [update])
-  (:require [clj-money.util :refer [unserialize-date
-                                    unserialize-date-time]]
+  (:refer-clojure :exclude [update get])
+  (:require [dgknght.app-lib.web :refer [unserialize-date
+                                         unserialize-date-time]]
             [clj-money.state :refer [current-entity]]
-            [clj-money.decimal :as decimal :refer [->decimal]]
-            [clj-money.api :as api]))
+            [dgknght.app-lib.decimal :as decimal :refer [->decimal]]
+            [dgknght.app-lib.api :as api]))
 
 (defn- set-flags ; TODO: maybe the checkbox form fn should be able to handle keywords in a set?
   [{:keys [tags] :as account}]
@@ -29,16 +29,16 @@
   ([success-fn error-fn]
    (select {} success-fn error-fn))
   ([criteria success-fn error-fn]
-   (api/get-resources (api/path :entities (:id @current-entity) :accounts)
-                      criteria
-                      #(success-fn (map after-read %))
-                      error-fn)))
+   (api/get (api/path :entities (:id @current-entity) :accounts)
+            criteria
+            #(success-fn (map after-read %))
+            error-fn)))
 
-(defn get-one
+(defn get
   [id success-fn error-fn]
-  (api/get-resources (api/path :accounts id)
-                     #(success-fn (after-read %))
-                     error-fn))
+  (api/get (api/path :accounts id)
+           #(success-fn (after-read %))
+           error-fn))
 
 (def ^:private attribute-keys
   [:id
@@ -51,17 +51,17 @@
 
 (defn create
   [account success-fn error-fn]
-  (api/create-resource (api/path :entities (:entity-id account) :accounts)
-                       (select-keys account attribute-keys)
-                       success-fn
-                       error-fn))
+  (api/post (api/path :entities (:entity-id account) :accounts)
+            (select-keys account attribute-keys)
+            success-fn
+            error-fn))
 
 (defn update
   [account success-fn error-fn]
-  (api/update-resource (api/path :accounts (:id account))
-                       (select-keys account attribute-keys)
-                       success-fn
-                       error-fn))
+  (api/patch (api/path :accounts (:id account))
+             (select-keys account attribute-keys)
+             success-fn
+             error-fn))
 
 (defn save
   [account success-fn error-fn]
@@ -71,6 +71,6 @@
 
 (defn delete
   [account success-fn error-fn]
-  (api/delete-resource (api/path :accounts (:id account))
-                       success-fn
-                       error-fn))
+  (api/delete (api/path :accounts (:id account))
+              success-fn
+              error-fn))

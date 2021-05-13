@@ -1,12 +1,11 @@
 (ns clj-money.models.identities-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-user]]
-            [clj-money.validation :as v]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.identities :as idents]))
 
 (use-fixtures :each reset-db)
@@ -26,25 +25,26 @@
         ident (idents/create (attr ctx))]
     (is ident "A value is returned")
     (is (:id ident) "An :id value is assigned")
+    (is (valid? ident))
     (is (= (:id user)  (:user-id ident)) "The user-id is retained")))
 
 (deftest provider-is-required
   (let [ctx (realize create-context)
         ident (idents/create (dissoc (attr ctx) :provider))]
     (is ident "A value is returned")
-    (is (v/has-error? ident :provider) "The model is returned with an error message")))
+    (is (invalid? ident [:provider] "Provider is required"))))
 
 (deftest provider-id-is-required
   (let [ctx (realize create-context)
         ident (idents/create (dissoc (attr ctx) :provider-id))]
     (is ident "A value is returned")
-    (is (v/has-error? ident :provider-id) "The model is returned with an error message")))
+    (is (invalid? ident [:provider-id] "Provider is required")))) ; TODO: Allow for this to be "Provider id is required"
 
 (deftest user-id-is-required
   (let [ctx (realize create-context)
         ident (idents/create (dissoc (attr ctx) :user-id))]
     (is ident "A value is returned")
-    (is (v/has-error? ident :user-id) "The model is returned with an error message")))
+    (is (invalid? ident [:user-id] "User is required"))))
 
 (def find-context
   (assoc create-context
@@ -65,7 +65,7 @@
         retrieved (idents/find-or-create-from-profile
                    :google
                    profile)]
-    (is (selective= user retrieved :id :email :first-name :last-name)
+    (is (comparable? user retrieved :id :email :first-name :last-name)
         "The correct user record is returned")))
 
 (deftest find-a-user-from-profile-and-create-identity
@@ -74,15 +74,15 @@
         retrieved (idents/find-or-create-from-profile
                    :google
                    profile)]
-    (is (selective= user retrieved :id :email :first-name :last-name)
+    (is (comparable? user retrieved :id :email :first-name :last-name)
         "The correct user record is returned")))
 
 (deftest create-a-user-from-a-profile
   (let [retrieved (idents/find-or-create-from-profile
-                   :google
-                   profile)]
-    (is (selective= {:email "john@doe.com"
-                     :first-name "John"
-                     :last-name "Doe"}
-                    retrieved)
+                    :google
+                    profile)]
+    (is (comparable? {:email "john@doe.com"
+                      :first-name "John"
+                      :last-name "Doe"}
+                     retrieved)
         "The correct user record is returned")))

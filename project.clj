@@ -3,13 +3,12 @@
   :url "http://money.herokuapp.com"
   :license {:name "Eclipse Public License v1.0"
             :url "http://www.eclipse.org/legal/epl-v10.html"}
-  :dependencies [[org.clojure/clojure "1.9.0" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/tools.logging "0.4.0" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/core.async "0.4.474" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/tools.cli "0.3.7" :exclusions [org.clojure/tools.reader]]
-                 [org.clojure/tools.reader "1.1.0"]
+  :dependencies [[org.clojure/clojure "1.10.1" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/tools.logging "1.1.0" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/core.async "1.3.610" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/tools.cli "1.0.206" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/tools.reader "1.3.4"]
                  [org.clojure/data.xml "0.2.0-alpha6"]
-                 [slingshot "0.12.2" :exclusions [org.clojure/tools.reader]]
                  [clj-http "3.9.0" :exclusions [org.clojure/tools.reader]]
                  [cheshire "5.8.0" :exclusions [org.clojure/tools.reader]]
                  [com.github.kyleburton/clj-xpath "1.4.11" :exclusions [org.clojure/tools.reader]]
@@ -71,12 +70,12 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
+                 [com.github.dgknght/app-lib "0.1.0"]
+                 [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.8" :exclusions [org.clojure/spec.alpha
                                                 org.clojure/clojure
                                                 org.clojure/core.specs.alpha
                                                 org.clojure/tools.logging]]]
-  :repl-options {:welcome (println "Finincial tracking is here for you!")
-                 :init-ns clj-money.repl}
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]

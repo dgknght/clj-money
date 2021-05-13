@@ -3,14 +3,10 @@
             [ring.mock.request :as req]
             [clj-time.core :as t]
             [cheshire.core :as json]
-            [clj-money.validation :as v]
-            [clj-money.util :refer [path]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [dgknght.app-lib.test]
+            [dgknght.app-lib.web :refer [path]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-successful-create
-                                                assert-not-found]]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-user
@@ -75,17 +71,17 @@
 
 (defn- assert-successful-get
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= 1 (count body))
       "The correct number of reconciliations is returned")
-  (is (selective= {:end-of-period "2015-01-04"
-                   :balance 400.0}
-                  (first body))
+  (is (comparable? {:end-of-period "2015-01-04"
+                    :balance 400.0}
+                   (first body))
       "The correct reconciliation records are returned"))
 
 (defn- assert-blocked-get
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "No reconciliations are returned"))
 
 (deftest a-user-can-get-a-reconciliations-from-his-entity
@@ -119,32 +115,27 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)
-        retrieved (recs/search {:account-id (:id account)})]
+        retrieved (recs/find-by {:account-id (:id account)
+                                 :end-of-period (t/local-date 2015 2 4)})]
     [response body retrieved]))
 
 (defn- assert-create-succeeded
   [[response body retrieved]]
-  (assert-successful-create response)
-  (is (nil? (::v/errors body))
-      "There are no validation errors")
-  (is (selective= {:end-of-period "2015-02-04"
-                   :balance 299.0}
-                  body)
+  (is (http-created? response))
+  (is (valid? body))
+  (is (comparable? {:end-of-period "2015-02-04"
+                    :balance 299.0}
+                   body)
       "The body contains the created reconciliation")
-  (is (some #(selective= {:end-of-period (t/local-date 2015 2 4)
-                          :balance 299M}
-                         %)
-            retrieved)
+  (is (comparable? {:end-of-period (t/local-date 2015 2 4)
+                    :balance 299M}
+                   retrieved)
       "The newly created reconciliation can be retrieved"))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (not-any? #(selective= {:end-of-period (t/local-date 2015 2 4)
-                              :balance 300M}
-                             %)
-                retrieved)
-      "The reconciliation is not created"))
+  (is (http-not-found? response))
+  (is (nil?  retrieved) "The reconciliation is not created"))
 
 (deftest a-user-can-create-a-completed-reconciliation-in-his-entity
   (assert-create-succeeded (create-reconciliation "john@doe.com" true)))
@@ -188,7 +179,7 @@
 
 (defn- assert-successful-update
   [[response body retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= "completed" (:status body))
       "The response includes the updated reconciliation")
   (is (= :completed (:status retrieved))
@@ -196,7 +187,7 @@
 
 (defn- assert-blocked-update
   [[response _ retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is (= :new (:status retrieved))
       "The reconciliation is not updated in the database"))
 

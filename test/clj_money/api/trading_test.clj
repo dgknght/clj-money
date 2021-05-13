@@ -4,13 +4,11 @@
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [clj-time.core :as t]
-            [clj-money.util :refer [path]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-user
@@ -76,24 +74,22 @@
 
 (defn- assert-successful-purchase
   [[response body transactions]]
-  (assert-successful response)
-  (is (selective= {:transaction-date "2016-03-02"
+  (is (http-success? response))
+  (is (comparable? {:transaction-date "2016-03-02"
                    :description "Purchase 100.0 shares of AAPL at 10.000"}
                   (:transaction body))
       "The creating transaction is returned in the response")
-  (is (some #(selective= {:transaction-date (t/local-date 2016 3 2)
-                          :description "Purchase 100.0 shares of AAPL at 10.000"}
-                         %)
-            transactions)
+  (is (seq-with-map-like? {:transaction-date (t/local-date 2016 3 2)
+                           :description "Purchase 100.0 shares of AAPL at 10.000"}
+                          transactions)
       "The new transaction can be retrieved from the database"))
 
 (defn- assert-blocked-purchase
   [[response _ transactions]]
-  (assert-not-found response)
-  (is (not-any? #(selective= {:transaction-date (t/local-date 2016 3 2)
+  (is (http-not-found? response))
+  (is (seq-with-no-map-like? {:transaction-date (t/local-date 2016 3 2)
                               :description "Purchase 100.0 shares of AAPL at 10.000"}
-                             %)
-                transactions)
+                             transactions)
       "The transaction is not created"))
 
 (deftest a-user-can-purchase-a-commodity-in-his-entity
@@ -165,29 +161,27 @@
 
 (defn- assert-successful-sale
   [[response body transactions lots]]
-  (assert-successful response)
-  (is (selective= {:transaction-date "2016-03-02"
-                   :description "Sell 100 shares of AAPL at 11.000"}
-                  (:transaction body))
+  (is (http-success? response))
+  (is (comparable? {:transaction-date "2016-03-02"
+                    :description "Sell 100 shares of AAPL at 11.000"}
+                   (:transaction body))
       "The created transaction is included in the response")
-  (is (some #(selective= {:transaction-date (t/local-date 2016 3 2)
+  (is (seq-with-map-like? {:transaction-date (t/local-date 2016 3 2)
                           :description "Sell 100 shares of AAPL at 11.000"}
-                         %)
-            transactions)
+                          transactions)
       "The created transaction can be retrieved")
   (is  (= 0M (:shares-owned (first lots)))
        "The shares are not longer owned"))
 
 (defn- assert-blocked-sale
   [[response _ transactions lots]]
-  (assert-not-found response)
-  (is (not-any? #(selective= {:transaction-date (t/local-date 2016 3 2)
+  (is (http-not-found? response))
+  (is (seq-with-no-map-like? {:transaction-date (t/local-date 2016 3 2)
                               :description "Sell 100.0 shares of AAPL at 11.000"}
-                             %)
-                transactions)
+                             transactions)
       "The no transaction is created")
   (is  (= 100M (:shares-owned (first lots)))
-       "The shares are still owned"))
+      "The shares are still owned"))
 
 (deftest a-user-can-sell-a-commodity-in-his-entity
   (assert-successful-sale (sell-a-commodity "john@doe.com")))

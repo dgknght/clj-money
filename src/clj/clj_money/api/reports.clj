@@ -1,9 +1,9 @@
 (ns clj-money.api.reports
   (:require [compojure.core :refer [defroutes GET]]
-            [clj-money.util :refer [unserialize-date
-                                    update-in-if]]
-            [clj-money.api :as api]
-            [clj-money.authorization :refer [+scope]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.web :refer [unserialize-date]]
+            [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.authorization :refer [+scope]]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.budgets :as budgets]
@@ -21,40 +21,40 @@
 (defn- income-statement
   [{{:keys [start-date end-date]} :params :as req}]
   (if-let [entity (fetch-entity req)]
-    (api/->response
-     (rpt/income-statement entity
-                           (unserialize-date start-date)
-                           (unserialize-date end-date)))
-    (api/not-found)))
+    (api/response
+      (rpt/income-statement entity
+                            (unserialize-date start-date)
+                            (unserialize-date end-date)))
+    api/not-found))
 
 (defn- balance-sheet
   [{:keys [params] :as req}]
   (if-let [entity (fetch-entity req)]
-    (api/->response
-     (rpt/balance-sheet entity
-                        (unserialize-date (:as-of params))))
-    (api/not-found)))
+    (api/response
+      (rpt/balance-sheet entity
+                         (unserialize-date (:as-of params))))
+    api/not-found))
 
 (defn- portfolio
   [{:keys [params] :as req}]
   (if-let [entity (fetch-entity req)]
-    (api/->response (rpt/portfolio (-> params
-                                       (select-keys [:aggregate :as-of])
-                                       (update-in-if [:aggregate] keyword)
-                                       (update-in-if [:as-of] unserialize-date)
-                                       (assoc :entity entity))))
-    (api/not-found)))
+    (api/response (rpt/portfolio (-> params
+                                     (select-keys [:aggregate :as-of])
+                                     (update-in-if [:aggregate] keyword)
+                                     (update-in-if [:as-of] unserialize-date)
+                                     (assoc :entity entity))))
+    api/not-found))
 
 (defn- budget
   [{:keys [params authenticated]}]
   (if-let [budget (budgets/find-by  (+scope {:id (:budget-id params)}
                                             ::models/budget
                                             authenticated))]
-    (api/->response
-     (rpt/budget budget (-> params
-                            (select-keys [:as-of])
-                            (update-in-if [:as-of] unserialize-date))))
-    (api/not-found)))
+    (api/response
+      (rpt/budget budget (-> params
+                             (select-keys [:as-of])
+                             (update-in-if [:as-of] unserialize-date))))
+    api/not-found))
 
 (defn- flatten-ratio
   [ratio]
@@ -76,11 +76,11 @@
 (defn- monitors
   [req]
   (if-let [entity (fetch-entity req)]
-    (api/->response (map (comp serialize-monitor
-                               rpt/monitor
-                               accounts/find)
-                         (get-in entity [:settings :monitored-account-ids])))
-    (api/not-found)))
+    (api/response (map (comp serialize-monitor
+                             rpt/monitor
+                             accounts/find)
+                       (get-in entity [:settings :monitored-account-ids])))
+    api/not-found))
 
 (defroutes routes
   (GET "/api/entities/:entity-id/reports/income-statement/:start-date/:end-date"

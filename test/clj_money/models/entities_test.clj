@@ -1,16 +1,13 @@
 (ns clj-money.models.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
-            [clj-money.validation :as validation]
+            [dgknght.app-lib.test]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity]]
             [clj-money.models.entities :as entities]
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db
-                                            assert-validation-error]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -41,16 +38,14 @@
 (deftest attempt-to-create-an-invalid-entity
   (let [context (realize entity-context)]
     (testing "Name is required"
-      (assert-validation-error
-       :name
-       "Name is required"
-       (entities/create (dissoc (attributes context) :name))))
+      (is (invalid? (entities/create (dissoc (attributes context) :name))
+                    [:name]
+                    "Name is required")))
     (testing "Name must be unique"
       (entities/create (attributes context))
-      (assert-validation-error
-       :name
-       "Name is already in use"
-       (entities/create (attributes context))))))
+      (is (invalid? (entities/create (attributes context))
+          [:name]
+          "Name is already in use")))))
 
 (def ^:private list-context
   (-> entity-context
@@ -88,17 +83,7 @@
                   :user-id (:id user)
                   :settings {:monitored-account-ids #{1 2}}}
         actual (dissoc retrieved :updated-at :created-at)]
-
-    (when (validation/has-error? result)
-      (pprint {:result result}))
-
     (is (= "Entity Y" (:name result)) "The result contains the correct values")
-
-    (if-not (= expected actual)
-      (pprint {:expected expected
-               :actual actual
-               :diff (diff expected actual)}))
-
     (is (= expected actual) "The retreived value has the correct values")))
 
 (deftest delete-an-entity
@@ -109,17 +94,15 @@
     (is (nil? retrieved) "The entity is not returned after delete")))
 
 (deftest inventory-method-can-be-lifo
-  (let [context (realize entity-context)
-        entity (entities/create (-> context
-                                    attributes
-                                    (assoc :settings {:inventory-method :lifo})))]
-    (is (empty? (validation/error-messages entity)) "The entity is valid")))
+  (let [context (realize entity-context)]
+    (is (valid? (entities/create (-> context
+                                     attributes
+                                     (assoc :settings {:inventory-method :lifo})))))))
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
-  (let [context (realize entity-context)
-        entity (entities/create (-> context
-                                    attributes
-                                    (assoc :settings {:inventory-method :not-valid})))]
-    (is (= {:inventory-method ["Inventory method must be one of: fifo, lifo"]}
-           (validation/error-messages entity :settings))
-        "There is an error message for the attributes")))
+  (let [context (realize entity-context)]
+    (is (invalid? (entities/create (-> context
+                                       attributes
+                                       (assoc :settings {:inventory-method :not-valid})))
+                  [:settings :inventory-method]
+                  "Inventory method must be fifo or lifo"))))

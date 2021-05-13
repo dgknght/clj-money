@@ -5,6 +5,9 @@
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
             [cljs-time.core :as t]
+            [dgknght.app-lib.web :refer [format-date]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.components :refer [load-in-chunks
                                           load-on-scroll]]
             [clj-money.bootstrap :as bs]
@@ -12,10 +15,7 @@
             [clj-money.api.prices :as prices]
             [clj-money.state :refer [app-state
                                      current-entity]]
-            [clj-money.notifications :as notify]
-            [clj-money.forms :as forms]
-            [clj-money.html :as html]
-            [clj-money.util :refer [format-date]]))
+            [dgknght.app-lib.forms :as forms]))
 
 (defn- load-commodities
   [page-state]
@@ -223,7 +223,8 @@
                                               (swap! page-state
                                                      assoc
                                                      :selected-price
-                                                     {:commodity-id (:id @commodity)})
+                                                     {:commodity-id (:id @commodity)
+                                                      :trade-date (t/today)})
                                               (html/set-focus "trade-date"))}
          (bs/icon-with-text :plus "Add")]
         (html/space)

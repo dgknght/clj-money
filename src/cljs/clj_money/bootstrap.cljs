@@ -222,8 +222,11 @@
 
 (defn spinner
   ([] (spinner {}))
-  ([{:keys [style]
-     :or {style :border}}]
-   [:div {:role :status
-          :class (str "spinner-" (name style))}
-    [:span.sr-only "Loading..."]]))
+  ([{:keys [style size]
+     :or {style :border
+          size :normal}}]
+   (let [class-name (str "spinner-" (name style))]
+     [:div {:role :status
+            :class (cond-> [class-name]
+                     (= :small size) (conj (str class-name "-sm")))}
+      [:span.sr-only "Loading..."]])))

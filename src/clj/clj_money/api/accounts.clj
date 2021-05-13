@@ -3,18 +3,21 @@
   (:require [clojure.set :refer [rename-keys]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
-            [clj-money.api :refer [->response
-                                   creation-response
-                                   not-found]]
-            [clj-money.util :refer [update-in-if
-                                    parse-bool
-                                    ->coll]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          parse-bool]]
+            [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
-            [clj-money.authorization :refer [authorize
-                                             +scope]
+            [dgknght.app-lib.authorization :refer [authorize
+                                                   +scope]
              :as authorization]
             [clj-money.models.accounts :as accounts]
             [clj-money.authorization.accounts]))
+
+(defn- ->coll
+  [value]
+  (if (coll? value)
+    value
+    [value]))
 
 (defn- extract-criteria
   [{:keys [params authenticated]}]
@@ -35,18 +38,23 @@
 
 (defn- index
   [req]
-  (->response (accounts/search (extract-criteria req)
-                               (extract-options req))))
+  (api/response
+    (accounts/search (extract-criteria req)
+                     (extract-options req))))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (authorize (accounts/find (:id params))
-             action
-             authenticated))
+  (some-> params
+          (select-keys [:id])
+          (+scope ::models/account authenticated)
+          accounts/find-by
+          (authorize action authenticated)))
 
 (defn- show
   [req]
-  (->response (find-and-auth req ::authorization/show)))
+  (if-let [account (find-and-auth req ::authorization/show)]
+    (api/response account)
+    api/not-found))
 
 (def ^:private attribute-keys
   [:id
@@ -69,29 +77,31 @@
 
 (defn- create
   [{:keys [params body authenticated]}]
-  (let [account (-> body
-                    (assoc :entity-id (:entity-id params))
-                    before-save
-                    (authorize ::authorization/create authenticated)
-                    accounts/create)]
-    (creation-response account)))
+  (-> body
+      (assoc :entity-id (:entity-id params))
+      before-save
+      (authorize ::authorization/create authenticated)
+      accounts/create
+      api/creation-response))
 
 (defn- update
   [{:keys [body] :as req}]
   (if-let [account (find-and-auth req ::authorization/update)]
-    (->response (accounts/update
-                 (merge account (-> body
-                                    (select-keys attribute-keys)
-                                    before-save))))
-    (not-found)))
+    (-> account
+        (merge (-> body
+                   (select-keys attribute-keys)
+                   before-save))
+        accounts/update
+        api/update-response)
+    api/not-found))
 
 (defn- delete
   [req]
   (if-let [account (find-and-auth req ::authorization/destroy)]
     (do
       (accounts/delete account)
-      (->response))
-    (not-found)))
+      (api/response))
+    api/not-found))
 
 (defroutes routes
   (GET "/api/entities/:entity-id/accounts" req (index req))

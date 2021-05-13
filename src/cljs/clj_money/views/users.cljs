@@ -1,11 +1,12 @@
 (ns clj-money.views.users
   (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.notifications :as notify]
+            [clj-money.html :refer [google-g]]
             [clj-money.state :as state :refer [app-state]]
             [clj-money.bootstrap :as bs]
-            [clj-money.html :as html]
-            [clj-money.forms :as forms]
-            [clj-money.notifications :as notify]
             [clj-money.api.users :as users]
             [clj-money.api.entities :as entities]))
 
@@ -56,7 +57,7 @@
           [:li.list-group-item.d-flex.justify-content-center
            [:a#login.btn.btn-light {:href "/auth/google/start"
                                     :title "Click here to sign in with a Google account"}
-            (html/google-g)
+            (google-g)
             [:span "Sign in with Google"]]]]]]])))
 
 (secretary/defroute "/login" []

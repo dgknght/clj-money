@@ -1,23 +1,15 @@
 (ns clj-money.api.users
-  (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [cljs.core.async :refer [<!]]
-            [cljs-http.client :as http]
-            [clj-money.api :as api]))
+  (:require [dgknght.app-lib.api :as api]))
 
 (defn authenticate
   [credentials success-fn error-fn]
-  (api/create-resource (api/path :users :authenticate)
-                       credentials
-                       success-fn
-                       error-fn))
+  (api/post (api/path :users :authenticate)
+            credentials
+            success-fn
+            error-fn))
 
 (defn me
   [success-fn error-fn]
-  (go (let [response (<! (http/get "/api/users/me"
-                                   (api/append-auth {:headers {"Content-Type" "application/json"
-                                                               "Accept" "application/json"}})))]
-        (if (= 200 (:status response))
-          (success-fn (:body response))
-          (do
-            (.log js/console (prn-str {::me (:body response)}))
-            (error-fn (:body response)))))))
+  (api/get (api/path :users :me)
+           success-fn
+           error-fn))

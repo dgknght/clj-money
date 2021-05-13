@@ -1,11 +1,11 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require [clj-money.api :as api]
+  (:require [dgknght.app-lib.web :refer [serialize-date
+                                         unserialize-date]]
+            [lambdaisland.uri :refer [map->query-string]]
+            [dgknght.app-lib.api :as api]
             [clj-money.state :refer [current-entity]]
-            [clj-money.decimal :refer [->decimal]]
-            [clj-money.util :refer [serialize-date
-                                    unserialize-date
-                                    map->query-string]]))
+            [dgknght.app-lib.decimal :refer [->decimal]]))
 
 (defn after-read
   [item]
@@ -28,26 +28,27 @@
   [criteria success-fn error-fn]
   {:pre [(contains? criteria :account-id)]}
 
-  (api/get-resources (api/path :accounts
-                               (:account-id criteria)
-                               :transaction-items)
-                     (-> criteria
-                         (dissoc :account-id)
-                         prepare-criteria)
-                     (comp success-fn
-                           #(map after-read %))
-                     error-fn))
+  (api/get (api/path :accounts
+                     (:account-id criteria)
+                     :transaction-items)
+           (-> criteria
+               (dissoc :account-id)
+               prepare-criteria)
+           (comp success-fn
+                 #(map after-read %))
+           error-fn))
 
 (defn summarize
   [criteria success-fn error-fn]
-  (api/get-resources (str (api/path :entities
-                               (:id @current-entity)
-                               :transaction-items
-                               :summarize)
-                          "?"
-                          (-> criteria
-                              (update-in [:transaction-date 0] serialize-date)
-                              (update-in [:transaction-date 1] serialize-date)
-                              map->query-string))
-                     success-fn
-                     error-fn))
+  (api/get (str (api/path :entities
+                          (:id @current-entity)
+                          :transaction-items
+                          :summarize)
+                "?"
+                (-> criteria
+                    (update-in [:transaction-date 0] serialize-date)
+                    (update-in [:transaction-date 1] serialize-date)
+                    (update-in [:interval-type] name)
+                    map->query-string))
+           success-fn
+           error-fn))

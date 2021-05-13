@@ -4,7 +4,7 @@
             [ring.util.response :refer [response content-type]]
             [clj-money.models.images :as images]
             [clj-money.authorization.images]
-            [clj-money.authorization :refer [authorize] :as authorization]))
+            [dgknght.app-lib.authorization :refer [authorize] :as authorization]))
 
 (defn show
   [{:keys [params authenticated]}]

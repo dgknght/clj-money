@@ -3,7 +3,7 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
             [clojure.core.async :refer [chan <!!] :as async]
-            [clj-money.util :refer [uuid]]
+            [dgknght.app-lib.core :refer [uuid]]
             [clj-money.factories.user-factory]
             [clj-money.import :refer [read-source]]
             [clj-money.import.gnucash]))

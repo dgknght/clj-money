@@ -1,8 +1,9 @@
 (ns clj-money.test-context
-  (:require [clj-factory.core :refer [factory]]
+  (:require [clojure.string :as string]
+            [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.validation :as validation]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
             [clj-money.models.grants :as grants]
@@ -174,9 +175,9 @@
 
 (defn- throw-on-invalid
   [model]
-  (if (validation/has-error? model)
-    (throw (ex-info (format "Unable to create the model. %s"
-                            model)
+  (if (v/has-error? model)
+    (throw (ex-info (format "Unable to create the model: %s"
+                            (string/join ", " (v/flat-error-messages model)))
                     model))
     model))
 
@@ -396,7 +397,8 @@
           (-> attributes
               (resolve-entity context)
               (resolve-budget-items context)
-              budgets/create))
+              budgets/create
+              throw-on-invalid))
         budgets))
 
 (defn- realize-budgets

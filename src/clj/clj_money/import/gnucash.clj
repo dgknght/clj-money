@@ -16,11 +16,11 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [uuid
-                                    update-in-if
-                                    parse-bool
-                                    parse-int
-                                    presence]]
+            [dgknght.app-lib.core :refer [uuid
+                                          update-in-if
+                                          parse-int
+                                          parse-bool]]
+            [clj-money.util :refer [presence]]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream

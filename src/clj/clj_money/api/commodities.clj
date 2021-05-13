@@ -2,12 +2,11 @@
   (:refer-clojure :exclude [update count])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
-            [clj-money.api :refer [->response]]
-            [clj-money.models :as models]
-            [clj-money.authorization :refer [authorize
+            [dgknght.app-lib.authorization :refer [authorize
                                              +scope]
              :as authorization]
-            [clj-money.validation :as v]
+            [dgknght.app-lib.api :as api]
+            [clj-money.models :as models]
             [clj-money.models.commodities :as coms]
             [clj-money.models.prices :as prices]
             [clj-money.authorization.commodities]))
@@ -20,8 +19,8 @@
 
 (defn- count
   [req]
-  (->response
-   {:count (coms/count (scoped-params req))}))
+  (api/response
+    {:count (coms/count (scoped-params req))}))
 
 (defn- append-current-prices
   [commodities]
@@ -34,7 +33,7 @@
 
 (defn- index
   [req]
-  (->response
+  (api/response
    (append-current-prices
     (coms/search (scoped-params req)))))
 
@@ -46,7 +45,8 @@
 
 (defn- show
   [req]
-  (->response (find-and-authorize req ::authorization/show)))
+  (api/response
+    (find-and-authorize req ::authorization/show)))
 
 (def ^:private attribute-keys
   [:id
@@ -64,32 +64,40 @@
           m
           ks))
 
+(defn- extract-commodity
+  [{:keys [body params]}]
+  (-> body
+      (assoc :entity-id (:entity-id params))
+      (select-keys attribute-keys)
+      (ensure-keyword :exchange :type)
+      (storage/tag ::models/commodity)))
+
 (defn- create
-  [{:keys [body authenticated params]}]
-  (let [commodity (-> body
-                      (assoc :entity-id (:entity-id params))
-                      (select-keys attribute-keys)
-                      (ensure-keyword :exchange :type)
-                      (storage/tag ::models/commodity)
-                      (authorize ::authorization/create authenticated))
-        result (coms/create commodity)]
-    (->response result
-                (if (v/has-error? result)
-                  400
-                  201))))
+  [{:keys [authenticated] :as req}]
+  (-> req
+      extract-commodity
+      (authorize ::authorization/create authenticated)
+      coms/create
+      api/creation-response))
 
 (defn- update
   [{:keys [body] :as req}]
-  (let [commodity (find-and-authorize req ::authorization/update)]
-    (->response (coms/update (merge commodity (-> body
-                                                  (select-keys attribute-keys)
-                                                  (ensure-keyword :exchange :type)))))))
+  (if-let [commodity (find-and-authorize req ::authorization/update)]
+    (-> commodity
+        (merge (-> body
+                   (select-keys attribute-keys)
+                   (ensure-keyword :exchange :type)))
+        coms/update
+        api/update-response)
+    api/not-found))
 
 (defn- delete
   [req]
-  (let [commodity (find-and-authorize req ::authorization/destroy)]
-    (coms/delete commodity)
-    (->response)))
+  (if-let [commodity (find-and-authorize req ::authorization/destroy)]
+    (do
+      (coms/delete commodity)
+      (api/response))
+    api/not-found))
 
 (defroutes routes
   (GET "/api/entities/:entity-id/commodities/count" req (count req))

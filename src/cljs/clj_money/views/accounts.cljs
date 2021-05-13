@@ -7,9 +7,16 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
-            [clj-money.decimal :as decimal]
-            [clj-money.inflection :refer [humanize]]
-            [clj-money.forms :as forms]
+            [dgknght.app-lib.core :as lib]
+            [dgknght.app-lib.web :refer [serialize-date
+                                         format-percent
+                                         format-date
+                                         format-decimal]]
+            [dgknght.app-lib.inflection :refer [humanize]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.components :refer [load-on-scroll]]
             [clj-money.bootstrap :as bs :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]
@@ -18,18 +25,13 @@
             [clj-money.api.prices :as prices]
             [clj-money.transactions :refer [can-simplify?]]
             [clj-money.accounts :refer [account-types
+                                        find-by-path
                                         nest
                                         unnest]]
             [clj-money.state :refer [app-state]]
-            [clj-money.notifications :as notify]
-            [clj-money.util :refer [serialize-date
-                                    format-percent
-                                    format-date
-                                    format-decimal]]
             [clj-money.views.transactions :as trns]
             [clj-money.views.reconciliations :as recs]
-            [clj-money.views.attachments :as atts]
-            [clj-money.html :as html]))
+            [clj-money.views.attachments :as atts]))
 
 (defn- load-accounts
   ([page-state] (load-accounts page-state identity))
@@ -38,13 +40,11 @@
                       (swap! page-state
                              (fn [s]
                                (let [accounts (->> result
-                                                   (nest {:plus decimal/+})
+                                                   nest
                                                    unnest)]
                                  (cond-> (assoc s
                                                 :accounts accounts
-                                                :mapped-accounts (->> accounts
-                                                                      (map (juxt :id identity))
-                                                                      (into {})))
+                                                :mapped-accounts (lib/index-by :id accounts))
                                    (empty? (:accounts s))
                                    (assoc :hide-zero-balances? (->> result
                                                                     (map :value)
@@ -73,25 +73,25 @@
    created-at))
 
 (defn- account-hidden?
-  [{:keys [parents] :as account} expanded hide-zero-balances?]
-  (or (and @hide-zero-balances?
+  [{:keys [parent-ids] :as account} expanded hide-zero-balances?]
+  (or (and hide-zero-balances?
            (decimal/zero? (decimal/+ (:value account)
                                      (:children-value account)))
            (not (recently-created? account)))
-      (not (@expanded (:type account)))
-      (and parents
-           (not-every? @expanded parents))))
+      (not (expanded (:type account)))
+      (and (seq parent-ids)
+           (not-every? expanded parent-ids))))
 
 (defn- account-row
-  [{:keys [id parents] :as account} expanded hide-zero-balances? page-state]
+  [{:keys [id parent-ids] :as account} expanded hide-zero-balances? page-state]
   ^{:key (str "account-" id)}
   [:tr {:class (when (account-hidden? account expanded hide-zero-balances?)
                  "d-none")}
-   [:td [:span {:class (str "account-depth-" (count parents))}
+   [:td [:span {:class (str "account-depth-" (count parent-ids))}
          [:span.toggle-ctl {:on-click #(toggle-account (:id account) page-state)
                             :class (when-not (:has-children? account)
                                      "invisible")}
-          (bs/icon (if (@expanded id)
+          (bs/icon (if (expanded id)
                      :arrows-collapse
                      :arrows-expand))]
          (:name account)]]
@@ -111,6 +111,22 @@
                                      :title "Click here to remove this account."}
       (bs/icon :x-circle)]]]])
 
+(defn- account-type-row
+  [account-type group expanded page-state]
+  ^{:key (str "account-type" account-type)}
+  [:tr.account-type {:id (str "account-type-" account-type)}
+   [:td
+    [:span.toggle-ctl {:aria-hidden true
+                       :on-click #(toggle-account account-type page-state)}
+     (bs/icon (if (expanded account-type)
+                :arrows-collapse
+                :arrows-expand))]
+    (name account-type)]
+   [:td.text-right (currency-format (->> group
+                                         (map :value)
+                                         (reduce decimal/+)))]
+   [:td (html/space)]])
+
 (defn- account-and-type-rows
   [page-state]
   (let [accounts (r/cursor page-state [:accounts])
@@ -120,20 +136,8 @@
       (let [grouped (group-by :type @accounts)]
         [:tbody
          (doall (mapcat (fn [[account-type group]]
-                          (concat [^{:key (str "account-type" account-type)}
-                                   [:tr.account-type {:id (str "account-type-" account-type)}
-                                    [:td
-                                     [:span.toggle-ctl {:aria-hidden true
-                                                        :on-click #(toggle-account account-type page-state)}
-                                      (bs/icon (if (@expanded account-type)
-                                                 :arrows-collapse
-                                                 :arrows-expand))]
-                                     (name account-type)]
-                                    [:td.text-right (currency-format (->> group
-                                                                          (map :value)
-                                                                          (reduce decimal/+)))]
-                                    [:td (html/space)]]]
-                                  (doall (map #(account-row % expanded hide-zero-balances? page-state) group))))
+                          (concat [(account-type-row account-type group @expanded page-state)]
+                                  (map #(account-row % @expanded @hide-zero-balances? page-state) group)))
                         grouped))]))))
 
 (defn- account-list
@@ -171,28 +175,29 @@
         commodities (r/cursor page-state [:commodities])]
     (fn []
       [:form
-       (forms/typeahead-field
+       [forms/typeahead-field
         account
         [:parent-id]
         {:search-fn (fn [input callback]
-                      (let [term (string/lower-case input)]
-                        (->> @accounts
-                             (filter #(string/includes? (string/lower-case (:path %))
-                                                        term))
-                             callback)))
-         :caption-fn :path
+                      (callback (find-by-path input @accounts)))
+         :caption-fn #(string/join "/" (:path %))
+         :on-change (fn [parent]
+                      (when parent
+                        (swap! account assoc
+                               :type (:type parent)
+                               :commodity-id (:commodity-id parent))))
          :value-fn :id
          :find-fn (fn [id callback]
                     (->> @accounts
                          (filter #(= id (:id %)))
                          first
-                         callback))})
-       (forms/select-field account
+                         callback))}]
+       [forms/select-field account
                            [:type]
                            (map (juxt name humanize) account-types)
-                           {:class (when (:parent-id @account) "hidden")})
-       (forms/text-field account [:name] {:validate [:required]})
-       (forms/typeahead-field
+                           {:class (when (:parent-id @account) "hidden")}]
+       [forms/text-field account [:name] {:validate [:required]}]
+       [forms/typeahead-field
         account
         [:commodity-id]
         {:search-fn (fn [input callback]
@@ -207,11 +212,11 @@
          :caption-fn :name
          :value-fn :id
          :find-fn (fn [id callback]
-                    (callback (get-in @commodities [id])))})
-       (forms/checkbox-field
+                    (callback (get-in @commodities [id])))}]
+       [forms/checkbox-field
         account
         [:trading]
-        {:caption "Check here if this account is used to trade commodities"})])))
+        {:caption "Check here if this account is used to trade commodities"}]])))
 
 (defn- save-account
   [page-state]

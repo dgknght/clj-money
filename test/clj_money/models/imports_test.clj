@@ -1,13 +1,12 @@
 (ns clj-money.models.imports-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-imports]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
-            [clj-money.validation :as validation]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.imports :as imports]
             [clj-money.models.images :as images]))
 
@@ -51,32 +50,29 @@
 
 (deftest create-an-import
   (let [context (realize import-context)
-        result (imports/create (attributes context))]
+        attr (attributes context)
+        result (imports/create attr)]
 
-    (is (empty? (validation/error-messages result))
-        "The result has no validation errors")
+    (is (valid? result))
     (is (:id result) "It assigns an ID to the result")
-    (is (selective= (attributes context)
-                    result)
+    (is (comparable? attr
+                     result)
         "The attributes are stored and retreived correctly.")))
 
 (deftest user-id-is-required
   (let [context (realize import-context)
         result (imports/create (dissoc (attributes context) :user-id))]
-    (is (seq (validation/error-messages result :user-id))
-        "There is a validation error on :user-id")))
+    (is (invalid? result [:user-id] "User is required"))))
 
 (deftest image-ids-is-required
   (let [context (realize import-context)
         result (imports/create (dissoc (attributes context) :image-ids))]
-    (is (seq (validation/error-messages result :image-ids))
-        "There is a validation error on :image-ids")))
+    (is (invalid? result [:image-ids] "Image ids is required"))))
 
 (deftest entity-name-is-required
   (let [context (realize import-context)
         result (imports/create (dissoc (attributes context) :entity-name))]
-    (is (seq (validation/error-messages result :entity-name))
-        "There is a validation error on :entity-name")))
+    (is (invalid? result [:entity-name] "Entity name is required"))))
 
 (deftest update-an-import
   (let [context (realize import-context)

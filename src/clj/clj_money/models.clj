@@ -1,3 +1,4 @@
-(ns clj-money.models)
+(ns clj-money.models
+  (:require [clojure.spec.alpha :as s]) )
 
-; TODO: add schema/generation logic here
+(s/def ::id integer?)

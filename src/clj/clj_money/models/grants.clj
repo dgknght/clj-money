@@ -5,10 +5,10 @@
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.util :refer [->id
-                                    update-in-if]]
-            [clj-money.models :as models]
-            [clj-money.validation :refer [with-validation]]))
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :refer [with-validation]]
+            [clj-money.models :as models]))
 
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
@@ -58,7 +58,7 @@
 (defn create
   [grant]
   (with-storage (env :db)
-    (with-validation grant ::new-grant []
+    (with-validation grant ::new-grant
       (-> grant
           before-save
           storage/create
@@ -84,7 +84,7 @@
 (defn update
   [grant]
   (with-storage (env :db)
-    (with-validation grant ::existing-grant []
+    (with-validation grant ::existing-grant
       (-> grant
           before-save
           storage/update)

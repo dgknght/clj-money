@@ -3,18 +3,16 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity
                                             find-commodity
                                             find-account]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
-            [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.accounts :as accounts]))
 
@@ -54,17 +52,17 @@
 
 (defn- assert-successful-create
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:name "Savings"
-                   :type "asset"}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:name "Savings"
+                    :type "asset"}
+                   body)
       "The created account is returned in the response")
   (is (some #(= "Savings" (:name %)) retrieved)
       "The created account can be retrieved from the data store"))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is (not-any? #(= "Savings" (:name %)) retrieved)
       "The account is not created"))
 
@@ -90,7 +88,7 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= #{"Checking"}
          (->> body
               (map :name)
@@ -99,7 +97,7 @@
 
 (defn- assert-blocked-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body)))
 
 (deftest a-user-can-get-a-list-of-accounts-in-his-entity
@@ -112,26 +110,25 @@
   [email]
   (let [ctx (realize  context)
         checking (find-account ctx "Checking")
-        user (find-user ctx email)
-        response (-> (req/request :get (path :api
-                                             :accounts
-                                             (:id checking)))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+        user (find-user ctx email)]
+    (-> (req/request :get (path :api
+                                :accounts
+                                (:id checking)))
+        (add-auth user)
+        app
+        parse-json-body)))
 
 (defn- assert-successful-get
-  [[response body]]
-  (assert-successful response)
-  (is (selective= {:name "Checking"
-                   :type "asset"}
-                  body)
+  [{:keys [json-body] :as response}]
+  (is (http-success? response))
+  (is (comparable? {:name "Checking"
+                    :type "asset"}
+                   json-body)
       "The accounts are returned in the response"))
 
 (defn- assert-blocked-get
-  [[response _]]
-  (assert-not-found response))
+  [response]
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-an-account-in-his-entity
   (assert-successful-get (get-an-account "john@doe.com")))
@@ -158,19 +155,19 @@
 
 (defn- assert-successful-update
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:name "New Name"}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:name "New Name"}
+                   body)
       "The updated account is returned in the response")
-  (is (selective= {:name "New Name"}
-                  retrieved)
+  (is (comparable? {:name "New Name"}
+                   retrieved)
       "The retrieved value has the updated attributes"))
 
 (defn- assert-blocked-update
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (selective= {:name "Checking"}
-                  retrieved)
+  (is (http-not-found? response))
+  (is (comparable? {:name "Checking"}
+                   retrieved)
       "The retrieved value has not been updated."))
 
 (deftest a-user-can-update-an-account-in-his-entity
@@ -194,13 +191,13 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (nil? retrieved)
       "The record cannot be retrieved after delete"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved
       "The record can be retrieved after a failed delete"))
 

@@ -6,8 +6,8 @@
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
+            [dgknght.app-lib.validation :refer [with-validation]]
             [clj-money.models :as models]
-            [clj-money.validation :refer [with-validation]]
             [clj-money.models.users :as users]))
 
 (s/def ::user-id integer?)
@@ -26,7 +26,7 @@
 (defn create
   [ident]
   (with-storage (env :db)
-    (with-validation ident ::identity []
+    (with-validation ident ::identity
       (-> ident
           before-save
           storage/create

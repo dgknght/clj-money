@@ -1,12 +1,12 @@
 (ns clj-money.views.attachments
   (:require [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
-            [clj-money.html :as html]
+            [dgknght.app-lib.web :refer [format-date
+                                         path]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.forms :as forms]
             [clj-money.bootstrap :as bs]
-            [clj-money.notifications :as notify]
-            [clj-money.util :refer [format-date
-                                    path]]
-            [clj-money.forms :as forms]
             [clj-money.api.attachments :as attachments]))
 
 (defn- process-deleted-attachment

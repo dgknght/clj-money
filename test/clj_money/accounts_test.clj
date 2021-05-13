@@ -66,3 +66,44 @@
       (is (= {:quantity 10M :action :credit :account-id 1}
              (accounts/derive-item quantity {:id 1 :type :expense}))
           "The action is :credit"))))
+
+(def ^:private flat-accounts
+  [{:id 1
+    :type :asset
+    :name "Savings"}
+   {:id 2
+    :parent-id 1
+    :type :asset
+    :name "Car"
+    :value 1000M}
+   {:id 2
+    :parent-id 1
+    :type :asset
+    :name "Reserve"
+    :value  2000M}])
+
+(def ^:private nested-accounts
+  [{:type :asset
+    :accounts
+    [{:id 1
+      :type :asset
+      :name "Savings"
+      :has-children? true
+      :children-value 3000M
+      :children [{:id 2
+                  :parent-id 1
+                  :type :asset
+                  :name "Car"
+                  :value 1000M}
+                 {:id 2
+                  :parent-id 1
+                  :type :asset
+                  :name "Reserve"
+                  :value  2000M}]}]}
+   {:type :liability :accounts []}
+   {:type :equity :accounts []}
+   {:type :income :accounts []}
+   {:type :expense :accounts []}])
+
+(deftest nest-accounts
+  (is (= nested-accounts (accounts/nest flat-accounts))))

@@ -8,19 +8,23 @@
             [reagent.format :refer [currency-format]]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
-            [clj-money.decimal :as decimal]
-            [clj-money.inflection :refer [humanize]]
+            [dgknght.app-lib.core :refer [parse-int]]
+            [dgknght.app-lib.web :refer [format-date
+                                         format-decimal ]]
+            [dgknght.app-lib.inflection :refer [humanize]]
+            [dgknght.app-lib.html :refer [set-focus
+                                          space
+                                          special-char
+                                          shift-key?
+                                          key-code]]
+            [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.dnd :as dnd]
             [clj-money.bootstrap :as bs]
-            [clj-money.html :refer [set-focus
-                                    space
-                                    special-char
-                                    key-code]]
-            [clj-money.util :as util :refer [parse-int
-                                             debounce
-                                             format-date
-                                             format-decimal]]
-            [clj-money.accounts :refer [polarize-quantity]]
+            [clj-money.util :as util :refer [debounce]]
+            [clj-money.accounts :refer [polarize-quantity
+                                        find-by-path]]
             [clj-money.transactions :refer [simplify
                                             fullify
                                             can-simplify?
@@ -29,13 +33,11 @@
                                             ensure-empty-item
                                             tradify
                                             untradify]]
-            [clj-money.forms :as forms]
             [clj-money.components :refer [load-in-chunks]]
             [clj-money.api.transaction-items :as transaction-items]
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as att]
-            [clj-money.api.trading :as trading]
-            [clj-money.notifications :as notify]))
+            [clj-money.api.trading :as trading]))
 
 (defn mode
   ([transaction]
@@ -66,14 +68,14 @@
 
 (defn- edit-transaction
   [item page-state]
-  (transactions/get-one (item->tkey item)
-                        (fn [result]
-                          (let [prepared (prepare-transaction-for-edit
-                                          result
-                                          (:view-account @page-state))]
-                            (swap! page-state assoc :transaction prepared))
-                          (set-focus "transaction-date"))
-                        notify/danger))
+  (transactions/get (item->tkey item)
+                    (fn [result]
+                      (let [prepared (prepare-transaction-for-edit
+                                       result
+                                       (:view-account @page-state))]
+                        (swap! page-state assoc :transaction prepared))
+                      (set-focus "transaction-date"))
+                    notify/danger))
 
 (defn stop-item-loading
   [page-state]
@@ -178,7 +180,7 @@
      [:td.text-right (currency-format (polarize-quantity item @account))]
      [:td.text-center
       (if @reconciliation
-        [forms/checkbox-input reconciliation [:item-refs (:id item)]]
+        [forms/checkbox-input reconciliation [:item-refs (:id item)] {::forms/decoration ::forms/none}]
         (bs/icon
          (case (:reconciliation-status item)
            :completed :check-box
@@ -290,20 +292,25 @@
       (first (zip/next fields))
       (recur (zip/next fields)))))
 
+(defn- arrow-key?
+  [e]
+  (#{:up :down :left :right} (key-code e)))
+
 (defn- item-navigate
   [e item-count]
-  (.preventDefault e)
-  (let [target-id (.-id (.-target e))
-        [_ field raw-index] (re-find #"(.*)-(\d)" target-id)
-        index (parse-int raw-index)
-        [to-field to-index] (case (key-code e)
-                              :up    [field (mod (dec index) item-count)]
-                              :down  [field (mod (inc index) item-count)]
-                              :left  [(prev-item-nav-field field) index]
-                              :right [(next-item-nav-field field) index]
-                              nil)]
-    (when to-field
-      (set-focus (str to-field "-" to-index)))))
+  (when-not (shift-key? e)
+    (let [target-id (.-id (.-target e))
+          [_ field raw-index] (re-find #"(.*)-(\d)" target-id)
+          index (parse-int raw-index)
+          [to-field to-index] (case (key-code e)
+                                :up    [field (mod (dec index) item-count)]
+                                :down  [field (mod (inc index) item-count)]
+                                :left  [(prev-item-nav-field field) index]
+                                :right [(next-item-nav-field field) index]
+                                nil)]
+      (when to-field
+        (.preventDefault e)
+        (set-focus (str to-field "-" to-index))))))
 
 (defn- item-input-row
   [item index item-count page-state]
@@ -312,33 +319,29 @@
    [:td [forms/typeahead-input
          item
          [:account-id]
-         {:id (str "account-id-" index)
-          :search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> (:accounts @page-state)
-                              (filter #(string/includes? (string/lower-case (:path %))
-                                                         term))
-                              callback)))
+         {:search-fn (fn [input callback]
+                       (callback (find-by-path input (:accounts @page-state))))
           :on-change #(ensure-entry-state page-state)
-          :on-key-up #(item-navigate % item-count)
-          :caption-fn :path
+          :caption-fn #(string/join "/" (:path %))
           :value-fn :id
           :find-fn (fn [id callback]
                      (->> (:accounts @page-state)
                           (filter #(= id (:id %)))
                           first
-                          callback))}]]
+                          callback))
+          :html {:id (str "account-id-" index)
+                 :on-key-up #(item-navigate % item-count)}}]]
    [:td [forms/text-input item [:memo] {:on-change #(ensure-entry-state page-state)
-                                        :on-key-up #(item-navigate % item-count)
-                                        :id (str "memo-" index)}]]
+                                        :html {:on-key-up #(item-navigate % item-count)
+                                               :id (str "memo-" index)}}]]
    [:td [forms/decimal-input item [:credit-quantity] {:on-accept #(ensure-entry-state page-state)
-                                                      :on-key-up #(item-navigate % item-count)
-                                                      :on-key-down #(.preventDefault %)
-                                                      :id (str "credit-quantity-" index)}]]
+                                                      :html {:on-key-up #(item-navigate % item-count)
+                                                             :on-key-down #(when (arrow-key? %) (.preventDefault %))
+                                                             :id (str "credit-quantity-" index)}}]]
    [:td [forms/decimal-input item [:debit-quantity] {:on-accept #(ensure-entry-state page-state)
-                                                     :on-key-up #(item-navigate % item-count)
-                                                      :on-key-down #(.preventDefault %)
-                                                     :id (str "debit-quantity-" index)}]]])
+                                                     :html {:id (str "debit-quantity-" index)
+                                                            :on-key-up #(item-navigate % item-count)
+                                                            :on-key-down #(when (arrow-key? %) (.preventDefault %))}}]]])
 
 (defn full-transaction-form
   [page-state]
@@ -353,8 +356,8 @@
         item-count (make-reaction #(count (:items @transaction)))]
     (fn []
       [:form {:class (when-not (mode? @transaction ::full) "d-none")}
-       (forms/date-field transaction [:transaction-date] {:validate [:required]})
-       (forms/text-field transaction [:description] {:validate [:required]})
+       [forms/date-field transaction [:transaction-date] {:validate [:required]}]
+       [forms/text-field transaction [:description] {:validate [:required]}]
        [:table.table
         [:thead
          [:tr
@@ -385,19 +388,15 @@
         accounts (r/cursor page-state [:accounts])]
     (fn []
       [:form {:class (when-not (mode? @transaction ::simple) "d-none")}
-       (forms/date-field transaction [:transaction-date] {:validate [:required]})
-       (forms/text-field transaction [:description] {:validate [:required]})
-       (forms/decimal-field transaction [:quantity] {:validate [:required]})
+       [forms/date-field transaction [:transaction-date] {:validate [:required]}]
+       [forms/text-field transaction [:description] {:validate [:required]}]
+       [forms/decimal-field transaction [:quantity] {:validate [:required]}]
        [forms/typeahead-field
         transaction
         [:other-account-id]
         {:search-fn (fn [input callback]
-                      (let [term (string/lower-case input)]
-                        (->> @accounts
-                             (filter #(string/includes? (string/lower-case (:path %))
-                                                        term))
-                             callback)))
-         :caption-fn :path
+                      (callback (find-by-path input @accounts)))
+         :caption-fn #(string/join "/" (:path %))
          :value-fn :id
          :find-fn (fn [id callback]
                     (->> @accounts
@@ -411,10 +410,10 @@
         commodities (r/cursor page-state [:commodities])]
     (fn []
       [:form {:class (when-not (mode? @transaction ::dividend) "d-none")}
-       (forms/date-field transaction [:transaction-date] {:validate [:required]})
-       (forms/decimal-field transaction [:quantity] {:validate [:required]
-                                                     :caption "Dividend"})
-       (forms/decimal-field transaction [:shares] {:validate [:required]})
+       [forms/date-field transaction [:transaction-date] {:validate [:required]}]
+       [forms/decimal-field transaction [:quantity] {:validate [:required]
+                                                     :caption "Dividend"}]
+       [forms/decimal-field transaction [:shares] {:validate [:required]}]
        [forms/typeahead-field
         transaction
         [:commodity-id]

@@ -13,7 +13,7 @@ pom.xml.asc
 .lein-env
 .nrepl-port
 .DS_Store
-.clj-kondo/
+.clj-kondo/.cache
 figwheel_server.log
 resources/public/js/app
 .rebel_readline_history

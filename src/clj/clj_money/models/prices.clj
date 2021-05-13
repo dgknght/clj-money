@@ -8,22 +8,36 @@
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
-            [clj-money.util :refer [deep-update-in-if
-                                    assoc-if]]
+            [dgknght.app-lib.core :refer [deep-update-in-if
+                                     assoc-if]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.find-in-chunks :as ch]
-            [clj-money.validation :as validation :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.date-helpers :refer [earliest-date
                                                    parse-date-criterion]]))
 
+(declare find-by)
+
+(defn- trade-date-unique?
+  [{:keys [id commodity-id trade-date]}]
+  (-> {:commodity-id commodity-id
+       :trade-date [:between trade-date trade-date]}
+      (assoc-if :id (when id [:!= id]))
+      find-by
+      nil?))
+(v/reg-spec trade-date-unique? {:message "%s already exists"
+                                :path [:trade-date]})
+
 (s/def ::commodity-id integer?)
-(s/def ::trade-date validation/local-date?)
+(s/def ::trade-date v/local-date?)
 (s/def ::price decimal?)
 (s/def ::id uuid?)
-(s/def ::new-price (s/keys :req-un [::commodity-id ::trade-date ::price]))
-(s/def ::existing-price (s/keys :req-un [::id ::trade-date ::price] :opt-un [::commodity-id]))
+(s/def ::new-price (s/and (s/keys :req-un [::commodity-id ::trade-date ::price])
+                          trade-date-unique?))
+(s/def ::existing-price (s/and (s/keys :req-un [::id ::trade-date ::price] :opt-un [::commodity-id])
+                               trade-date-unique?))
 
 (defn- after-read
   [price & _]
@@ -61,19 +75,6 @@
   [price]
   (find price))
 
-(defn- trade-date-unique?
-  [{:keys [id commodity-id trade-date]}]
-  (-> {:commodity-id commodity-id
-       :trade-date [:between trade-date trade-date]}
-      (assoc-if :id (when id [:!= id]))
-      find-by
-      nil?))
-
-(def ^:private validation-rules
-  [(validation/create-rule trade-date-unique?
-                           [:trade-date]
-                           "Trade date must be unique")])
-
 (defn- before-save
   [price]
   (tag price ::models/price))
@@ -92,7 +93,7 @@
 (defn create
   [{:keys [trade-date commodity-id] :as price}]
   (with-transacted-storage (env :db)
-    (with-validation price ::new-price validation-rules
+    (with-validation price ::new-price
       (when-let [commodity (commodities/find commodity-id)]
         (commodities/update (apply-date-to-commodity commodity trade-date)))
       (-> price
@@ -103,7 +104,7 @@
 (defn update
   [price]
   (with-storage (env :db)
-    (with-validation price ::existing-price validation-rules
+    (with-validation price ::existing-price
       (-> price
           before-save
           storage/update) ; TODO: might need to delete from the old location

@@ -3,13 +3,12 @@
   (:require [clojure.set :refer [rename-keys]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
-            [clj-money.util :refer [uuid
-                                    update-in-if
-                                    unserialize-date]]
-            [clj-money.api :refer [->response
-                                   creation-response]]
+            [dgknght.app-lib.core :refer [uuid
+                                     update-in-if]]
+            [dgknght.app-lib.web :refer [unserialize-date]]
+            [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
-            [clj-money.authorization :refer [authorize
+            [dgknght.app-lib.authorization :refer [authorize
                                              +scope]
              :as authorization]
             [clj-money.models.transactions :as trans]
@@ -32,15 +31,15 @@
 
 (defn- index
   [req]
-  (->response
+  (api/response
    (trans/search (->criteria req) (->options req))))
 
 (defn- show
   [{{:keys [id transaction-date]} :params authenticated :authenticated}]
-  (->response (authorize (trans/find id
-                                     (unserialize-date transaction-date))
-                         ::authorization/show
-                         authenticated)))
+  (api/response (authorize (trans/find id
+                                       (unserialize-date transaction-date))
+                           ::authorization/show
+                           authenticated)))
 
 (def ^:private attribute-keys
   [:id
@@ -63,14 +62,15 @@
 
 (defn- create
   [{:keys [params body authenticated]}]
-  (creation-response (-> body
-                         (update-in-if [:transaction-date] unserialize-date)
-                         (update-in-if [:items] #(map parse-item %))
-                         (select-keys attribute-keys)
-                         (assoc :entity-id (:entity-id params))
-                         (storage/tag ::models/transaction)
-                         (authorize ::authorization/create authenticated)
-                         trans/create)))
+  (api/creation-response
+    (-> body
+        (update-in-if [:transaction-date] unserialize-date)
+        (update-in-if [:items] #(map parse-item %))
+        (select-keys attribute-keys)
+        (assoc :entity-id (:entity-id params))
+        (storage/tag ::models/transaction)
+        (authorize ::authorization/create authenticated)
+        trans/create)))
 
 (defn- apply-to-existing
   [updated-item items]
@@ -94,21 +94,35 @@
       (select-keys attribute-keys)
       (update-in [:items] apply-item-updates (:items body))))
 
+(defn- find-and-auth
+  [{:keys [params authenticated]} action]
+  (let [trans-date (some #(params %)
+                         [:original-transaction-date
+                          :transaction-date])]
+    (some-> params
+            (select-keys [:id])
+            (assoc :transaction-date trans-date)
+            (storage/tag ::models/transaction)
+            (+scope authenticated)
+            trans/find-by
+            (authorize action authenticated))))
+
 (defn- update
-  [{:keys [params body authenticated]}]
-  (let [trans-date (some #(params %) [:original-transaction-date :transaction-date])
-        transaction (authorize (trans/find (:id params) trans-date)
-                               ::authorization/update
-                               authenticated)]
-    (->response (trans/update (apply-update transaction body)))))
+  [{:keys [body] :as req}]
+  (if-let [transaction (find-and-auth req ::authorization/update)]
+    (-> transaction
+        (apply-update body)
+        trans/update
+        api/update-response)
+    api/not-found))
 
 (defn- delete
-  [{:keys [params authenticated]}]
-  (-> (trans/find (:id params)
-                  (:transaction-date params))
-      (authorize ::authorization/destroy authenticated)
-      trans/delete)
-  (->response))
+  [req]
+  (if-let [transaction (find-and-auth req ::authorization/destroy)]
+    (do
+      (trans/delete transaction)
+      (api/response))
+    api/not-found))
 
 (defroutes routes
   (GET "/api/entities/:entity-id/:start/:end/transactions" req (index req))

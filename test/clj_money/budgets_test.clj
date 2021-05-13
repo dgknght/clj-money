@@ -19,13 +19,13 @@
       (is (= "Q4 2020" (budgets/period-description 3 budget))))))
 
 (def accounts
-  {1 {:path "Salary"
+  {1 {:path ["Salary"]
       :type :income}
-   2 {:path "Rent"
+   2 {:path ["Rent"]
       :type :expense}
-   3 {:path "Groceries"
+   3 {:path ["Groceries"]
       :type :expense}
-   4 {:path "Bonus"
+   4 {:path ["Bonus"]
       :type :income}})
 
 (deftest render-a-budget

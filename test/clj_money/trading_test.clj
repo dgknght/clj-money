@@ -2,17 +2,15 @@
   (:require [clojure.test :refer [use-fixtures deftest is testing]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
-            [clj-money.util :refer [->id]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-account
                                             find-accounts
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=
-                                            assert-comparable]]
-            [clj-money.validation :as validation]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.lots :as lots]
@@ -107,21 +105,7 @@
                                            :transaction-date (t/local-date 2016 1 2)
                                            :shares 100M
                                            :price 10M}]
-                              :items [{:action :debit
-                                       :quantity 100M
-                                       :negative false
-                                       :polarized-quantity 100M
-                                       :balance 100M
-                                       :value 1000M
-                                       :account-id (:id apple-account)
-                                       :description "Purchase 100 shares of AAPL at 10.000"
-                                       :memo nil
-                                       :transaction-date (t/local-date 2016 1 2)
-                                       :index 0
-                                       :reconciliation-status nil
-                                       :reconciled? false
-                                       :reconciliation-id nil}
-                                      {:action :credit
+                              :items [{:action :credit
                                        :quantity 1000M
                                        :negative true
                                        :polarized-quantity -1000M
@@ -132,6 +116,20 @@
                                        :index 1
                                        :memo nil
                                        :transaction-date (t/local-date 2016 1 2)
+                                       :reconciliation-status nil
+                                       :reconciled? false
+                                       :reconciliation-id nil}
+                                      {:action :debit
+                                       :quantity 100M
+                                       :negative false
+                                       :polarized-quantity 100M
+                                       :balance 100M
+                                       :value 1000M
+                                       :account-id (:id apple-account)
+                                       :description "Purchase 100 shares of AAPL at 10.000"
+                                       :memo nil
+                                       :transaction-date (t/local-date 2016 1 2)
+                                       :index 0
                                        :reconciliation-status nil
                                        :reconciled? false
                                        :reconciliation-id nil}]}
@@ -153,20 +151,16 @@
                                                              :quantity])]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
-    (assert-comparable expected-transaction
-                       (:transaction result)
-                       "The resulting transaction has the correct attributes")
-    (is (empty? (-> result :transaction validation/error-messages))
-        "The transaction is valid")
+    (is (comparable? expected-transaction (:transaction result))
+        "The resulting transaction has the correct attributes")
+    (is (valid? (:transaction result)))
     (is (= "Purchase 100 shares of AAPL at 10.000"
            (-> result :transaction :description))
         "The transaction description describes the purchase")
     (is (:lot result)
         "The result contains a lot representing the purchased shares")
-    (is (empty? (-> result :lot validation/error-messages))
-        "The lot is valid")
-    (is (empty? (-> result :lot-transaction validation/error-messages))
-        "The lot transaction is valud")
+    (is (valid? (:lot result)))
+    (is (valid? (:lot-transaction result)))
     (is (= expected-commodity-account
            actual-commodity-account)
         "The commodity account is created")
@@ -197,27 +191,21 @@
         result (trading/buy  (-> context
                                  (purchase-attributes)
                                  (dissoc :trade-date)))]
-    (is (= ["Trade date is required"]
-           (validation/error-messages result :trade-date))
-        "The validation message indicates the error")))
+    (is (invalid? result [:trade-date] "Trade date is required"))))
 
 (deftest purchase-requires-a-number-of-shares
   (let [context (realize purchase-context)
         result (trading/buy (-> context
                                 (purchase-attributes)
                                 (dissoc :shares)))]
-    (is (= ["Shares is required"]
-           (validation/error-messages result :shares))
-        "The validation message indicates the error")))
+    (is (invalid? result [:shares] "Shares is required"))))
 
 (deftest purchase-requires-a-value
   (let [context (realize purchase-context)
         result (trading/buy (-> context
                                 (purchase-attributes)
                                 (dissoc :value)))]
-    (is (= ["Value is required"]
-           (validation/error-messages result :value))
-        "The validation message indicates the error")))
+    (is (invalid? result [:value] "Value is required"))))
 
 (deftest a-purchase-creates-a-lot-record
   (let [context (realize purchase-context)
@@ -318,31 +306,28 @@
                            :account-id (:id ira)
                            :purchase-date (t/local-date 2016 3 2)})]
     (is price "The result contains a price")
-    (is (empty? (validation/error-messages price))
-        "The price is valid")
+    (is (valid? price) "The price is valid")
     (is lots "The result contains the lots affected")
     (doseq [lot lots]
-      (is (empty? (validation/error-messages lot))
-          "Each lot is valid"))
+      (is (valid? lot) "Each lot is valid"))
     (is (= 75M (:shares-owned lot))
         "The shares-owned value of the original lot is updated")
     (is transaction "The result contains the transaction record")
-    (is (empty? (validation/error-messages transaction))
-        "The transaction is valid")
-    (is (selective= {:action :debit
-                     :value 375M
-                     :quantity 375M}
-                    (item-by-account ira transaction))
+    (is (valid? transaction) "The transaction is valid")
+    (is (comparable? {:action :debit
+                      :value 375M
+                      :quantity 375M}
+                     (item-by-account ira transaction))
         "The trading account is debited the total proceeds from the purchase")
-    (is (selective= {:action :credit
-                     :value 125M
-                     :quantity 125M}
-                    (item-by-account ltcg transaction))
+    (is (comparable? {:action :credit
+                      :value 125M
+                      :quantity 125M}
+                     (item-by-account ltcg transaction))
         "The capital gains account is credited the amount received above the original cost of the shares.")
-    (is (selective= {:action :credit
-                     :value 250M
-                     :quantity 25M}
-                    (item-by-account aapl-acc transaction))
+    (is (comparable? {:action :credit
+                      :value 250M
+                      :quantity 25M}
+                     (item-by-account aapl-acc transaction))
         "The commodity account is credited the number of shares and purchase value of the shares.")
     (testing "entity settings"
       (let [expected (select-keys result [:lt-capital-gains-account-id
@@ -375,31 +360,28 @@
                            :purchase-date (t/local-date 2016 3 2)})]
     (is (= 8M (:price price))
         "The result contains the correct price")
-    (is (empty? (validation/error-messages price))
-        "The price is valid")
+    (is (valid? price) "The price is valid")
     (is lots "The result contains the lots affected")
     (doseq [lot lots]
-      (is (empty? (validation/error-messages lot))
-          "Each lot is valid"))
+      (is (valid? lot) "Each lot is valid"))
     (is (= 75M (:shares-owned lot))
         "The shares-owned value of the original lot is updated")
     (is transaction "The result contains the transaction record")
-    (is (empty? (validation/error-messages transaction))
-        "The transaction is valid")
-    (is (selective= {:action :debit
-                     :value 200M
-                     :quantity 200M}
-                    (item-by-account ira transaction))
+    (is (valid? transaction) "The transaction is valid")
+    (is (comparable? {:action :debit
+                      :value 200M
+                      :quantity 200M}
+                     (item-by-account ira transaction))
         "The trading account is debited the total proceeds from the purchase")
-    (is (selective= {:action :debit
-                     :value 50M
-                     :quantity 50M}
-                    (item-by-account ltcl transaction))
+    (is (comparable? {:action :debit
+                      :value 50M
+                      :quantity 50M}
+                     (item-by-account ltcl transaction))
         "The capital loss account is debited the cost the shares less the sale proceeds")
-    (is (selective= {:action :credit
-                     :value 250M
-                     :quantity 25M}
-                    (item-by-account aapl-acc transaction))
+    (is (comparable? {:action :credit
+                      :value 250M
+                      :quantity 25M}
+                     (item-by-account aapl-acc transaction))
         "The commodity account is credited the number of shares and purchase value of the shares.")))
 
 (def ^:private auto-create-context
@@ -418,26 +400,26 @@
                                 :name "Long-term Capital Losses"})
         stcl (accounts/find-by {:entity-id (:id entity)
                                 :name "Short-term Capital Losses"})]
-    (is (selective= {:type :income}
-                    ltcg)
+    (is (comparable? {:type :income}
+                     ltcg)
         "The long-term capital gains account is an income account")
     (is (= (get-in entity [:settings :lt-capital-gains-account-id])
            (:id ltcg))
         "The Long-term Capital Gains account id is placed in the entity settings")
-    (is (selective= {:type :income}
-                    stcg)
+    (is (comparable? {:type :income}
+                     stcg)
         "The short-term capital gains account is an income account")
     (is (= (get-in entity [:settings :st-capital-gains-account-id])
            (:id stcg))
         "The Short-term Capital Gains account id is placed in the entity settings")
-    (is (selective= {:type :expense}
-                    ltcl)
+    (is (comparable? {:type :expense}
+                     ltcl)
         "The long-term capital losses account is an expense account")
     (is (= (get-in entity [:settings :lt-capital-loss-account-id])
            (:id ltcl))
         "The Long-term Capital Losses account id is placed in the entity settings")
-    (is (selective= {:type :expense}
-                    stcl)
+    (is (comparable? {:type :expense}
+                     stcl)
         "The short-term capital losses account is an expense account")
     (is (= (get-in entity [:settings :st-capital-loss-account-id])
            (:id stcl))
@@ -464,27 +446,21 @@
         result (trading/sell (-> context
                                  sale-attributes
                                  (dissoc :trade-date)))]
-    (is (= ["Trade date is required"]
-           (validation/error-messages result :trade-date))
-        "The correct validation error is present")))
+    (is (invalid? result [:trade-date] "Trade date is required"))))
 
 (deftest sales-requires-a-number-of-shares
   (let [context (realize sale-context)
         result (trading/sell (-> context
                                  sale-attributes
                                  (dissoc :shares)))]
-    (is (= ["Shares is required"]
-           (validation/error-messages result :shares))
-        "The correct validation error is present")))
+    (is (invalid? result [:shares] "Shares is required"))))
 
 (deftest sales-requires-a-value
   (let [context (realize sale-context)
         result (trading/sell (-> context
                                  sale-attributes
                                  (dissoc :value)))]
-    (is (= ["Value is required"]
-           (validation/error-messages result :value))
-        "The correct validation error is present")))
+    (is (invalid? result [:value] "Value is required"))))
 
 (deftest selling-a-commodity-for-a-profit-increases-the-balance-of-the-account
   (let [context (realize purchase-context)
@@ -762,16 +738,16 @@
         expected-transaction {:transaction-date (t/local-date 2016 4 2)
                               :description "Transfer 100 shares of AAPL"
                               :entity-id (:entity-id commodity)
-                              :items [{:action :debit
-                                       :quantity 100M
-                                       :value 1000M
-                                       :balance 100M
-                                       :account-id (:id ira-2-commodity-account)}
-                                      {:action :credit
+                              :items [{:action :credit
                                        :quantity 100M
                                        :value 1000M
                                        :balance 0M
-                                       :account-id (:id ira-commodity-account)}]}
+                                       :account-id (:id ira-commodity-account)}
+                                      {:action :debit
+                                       :quantity 100M
+                                       :value 1000M
+                                       :balance 100M
+                                       :account-id (:id ira-2-commodity-account)}]}
         actual-transaction (-> (:transaction result)
                                (select-keys [:entity-id
                                              :transaction-date
@@ -789,8 +765,7 @@
                                                     :balance])
                                                  items))))]
     (is result "A non-nil result is returned")
-    (is (empty? (validation/error-messages result))
-        "The result does not contain validation errors")
+    (is (valid? result) "The result is valid")
     (is (= expected-transaction actual-transaction)
         "The correct transaction is returned")
     (is (= expected-lots actual-lots)
@@ -833,15 +808,14 @@
                                        :balance 200M
                                        :value 0M
                                        :description "Split shares of AAPL 2 for 1"}]}]
-    (is (empty? (validation/error-messages result))
-        "The result has no validation errors")
+    (is (valid? result) "The result has no validation errors")
     (is (= 2M (:ratio result))
         "The correct split ratio is returned")
-    (assert-comparable expected-transaction (:transaction result)
-                       "The result contains the transaction that was created")
+    (is (comparable? expected-transaction (:transaction result))
+        "The result contains the transaction that was created")
     (is (= expected-lots actual-lots)
         "The lots are adjusted correctly")
-    #_(is (= 200M (:quantity (accounts/reload ira)))
+    (is (= 1000M (:quantity (accounts/reload ira)))
           "The account has the correct balance after the transfer.")))
 
 (def ^:private rev-split-context

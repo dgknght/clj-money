@@ -5,7 +5,7 @@
             [stowaway.sql :refer [apply-limit
                                   apply-sort
                                   select-count]]
-            [clj-money.util :refer [deep-contains?]]
+            [dgknght.app-lib.core :refer [deep-contains?]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model

@@ -5,14 +5,14 @@
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
             [cljs-time.periodic :refer [periodic-seq]]
-            [clj-money.calendar :as cal]
-            [clj-money.decimal :as decimal]
+            [dgknght.app-lib.web :refer [format-decimal]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.calendar :as cal]
+            [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.forms :as forms]
             [clj-money.state :refer [app-state]]
-            [clj-money.html :as html]
-            [clj-money.util :as util]
             [clj-money.bootstrap :as bs]
-            [clj-money.notifications :as notify]
-            [clj-money.forms :as forms]
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
             [clj-money.api.transaction-items :as tran-items]
@@ -172,9 +172,9 @@
       (map-indexed
        (fn [index value]
          ^{:key (str "period-value-" (:id item) "-" index)}
-         [:td.text-right (util/format-decimal value)])
+         [:td.text-right (format-decimal value)])
        (:periods (:item item)))))
-   [:td.text-right (util/format-decimal (:total item))]
+   [:td.text-right (format-decimal (:total item))]
    [:td
     [:div.btn-group
      [:button.btn.btn-sm.btn-info {:on-click #(select-budget-item (:item item) page-state)
@@ -208,9 +208,9 @@
       (map-indexed
        (fn [index value]
          ^{:key (str "period-value-" (:caption item-group) "-" index)}
-         [:td.text-right (util/format-decimal value)])
+         [:td.text-right (format-decimal value)])
        (:periods item-group))))
-   [:td.text-right (util/format-decimal (:total item-group))]
+   [:td.text-right (format-decimal (:total item-group))]
    [:td (html/space)]])
 
 (defn- budget-item-rows
@@ -364,7 +364,7 @@
    [:tfoot
     [:tr
      [:td (html/space)]
-     [:td (util/format-decimal (reduce decimal/+ (:periods @item)))]]]
+     [:td (format-decimal (reduce decimal/+ (:periods @item)))]]]
    [:tbody
     (->> (range (:period-count budget))
          (map #(period-row % item budget))
@@ -414,7 +414,7 @@
         [:tr
          [:td
           (html/comment @calculated)] ; only need this rendered to trigger the reagent magic
-         [:td.text-right (util/format-decimal @total)]]]
+         [:td.text-right (format-decimal @total)]]]
        [:tbody
         (->> @periods
              (map-indexed (fn [i amount]
@@ -422,7 +422,7 @@
                             [:tr
                              [:td
                               (nth cal/month-names i)] ; TODO: this assumes the budgets starts in January
-                             [:td.text-right (util/format-decimal amount)]]))
+                             [:td.text-right (format-decimal amount)]]))
              doall)]])))
 
 (def ^:private period-nav-options
@@ -485,13 +485,8 @@
         item
         [:account-id]
         {:search-fn (fn [input callback]
-                      (let [term (string/lower-case input)]
-                        (->> @accounts
-                             vals
-                             (filter #(string/includes? (string/lower-case (:path %))
-                                                        term))
-                             callback)))
-         :caption-fn :path
+                      (callback (accounts/find-by-path input (vals @accounts))))
+         :caption-fn #(string/join "/" (:path %))
          :value-fn :id
          :find-fn (fn [id callback]
                     (->> @accounts

@@ -2,16 +2,13 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
-            [clj-money.web.test-helpers :refer [assert-unauthorized
-                                                assert-successful
-                                                assert-successful-create]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-json-body]]
             [clj-money.test-context :refer [realize
                                             find-user]]
-            [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -30,17 +27,17 @@
                                                   :users
                                                   :me))
                           (add-auth user)))]
-    (assert-successful response)
-    (is (selective= {:email "john@doe.com"
-                     :first-name "John"
-                     :last-name "Doe"}
-                    (json/parse-string (:body response) true)))))
+    (is (http-success? response))
+    (is (comparable? {:email "john@doe.com"
+                      :first-name "John"
+                      :last-name "Doe"}
+                     (json/parse-string (:body response) true)))))
 
 (deftest an-unauthenticated-user-cannot-get-me-info
   (let [response (app (req/request :get (path :api
                                               :users
                                               :me)))]
-    (assert-unauthorized response)))
+    (is (http-unauthorized? response))))
 
 (deftest a-user-signs-in-directly
   (realize context)
@@ -51,5 +48,5 @@
                                      :password "please01"})
                      app
                      parse-json-body)]
-    (assert-successful-create response)
+    (is (http-success? response))
     (is (:auth-token (:json-body response)))))

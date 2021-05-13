@@ -3,20 +3,17 @@
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
-            [clj-money.factories.user-factory]
+            [lambdaisland.uri :refer [map->query-string]]
+            [dgknght.app-lib.web :refer [path
+                                         serialize-date]]
+            [dgknght.app-lib.test]
             [clj-time.core :as t]
-            [clj-money.util :refer [map->query-string
-                                    serialize-date
-                                    path]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
 
@@ -57,19 +54,19 @@
 
 (defn- assert-successful-create
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:price 12.34
-                   :trade-date "2016-03-02"}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:price 12.34
+                    :trade-date "2016-03-02"}
+                   body)
       "The created price is returned in the response")
-  (is (selective= {:price 12.34M
-                   :trade-date (t/local-date 2016 3 2)}
-                  (first retrieved))
+  (is (comparable? {:price 12.34M
+                    :trade-date (t/local-date 2016 3 2)}
+                   (first retrieved))
       "The price is created in the database"))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is (empty? retrieved) "The database record is not created"))
 
 (deftest a-user-can-create-a-price-for-a-commodity-in-his-entity
@@ -109,7 +106,7 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= [{:trade-date "2016-03-02"
            :price 11.0}
           {:trade-date "2016-02-27"
@@ -120,7 +117,7 @@
 
 (defn- assert-blocked-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-prices-from-his-entity
@@ -148,22 +145,22 @@
 
 (defn- assert-successful-update
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:trade-date "2016-02-27"
-                   :price 9.99}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:trade-date "2016-02-27"
+                    :price 9.99}
+                   body)
       "The response contains the updated price")
-  (is (selective= {:trade-date (t/local-date 2016 2 27)
-                   :price 9.99M}
-                  retrieved)
+  (is (comparable? {:trade-date (t/local-date 2016 2 27)
+                    :price 9.99M}
+                   retrieved)
       "The database record is updated"))
 
 (defn- assert-blocked-update
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (selective= {:trade-date (t/local-date 2016 2 27)
-                   :price 10M}
-                  retrieved)
+  (is (http-not-found? response))
+  (is (comparable? {:trade-date (t/local-date 2016 2 27)
+                    :price 10M}
+                   retrieved)
       "The database record is not updated"))
 
 (deftest a-user-can-update-a-price-for-a-commodity-is-his-entity
@@ -188,12 +185,12 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (nil? retrieved) "The price cannot be retrieved after delete."))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved "The price can still be retrieved after blocked delete."))
 
 (deftest a-user-can-delete-a-price-in-his-entity

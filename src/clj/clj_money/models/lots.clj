@@ -7,17 +7,24 @@
                                      to-sql-date]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.validation :as validation :refer [with-validation]]
-            [clj-money.util :refer [->id]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
+(defn- asset-account?
+  [account-id]
+  (= :asset
+     (:type (accounts/find account-id))))
+(v/reg-msg asset-account? "%s must be an asset")
+
 (s/def ::id integer?)
-(s/def ::account-id integer?)
+(s/def ::account-id (s/and integer?
+                           asset-account?))
 (s/def ::commodity-id integer?)
-(s/def ::purchase-date validation/local-date?)
+(s/def ::purchase-date v/local-date?)
 (s/def ::purchase-price decimal?)
 (s/def ::shares-purchased decimal?)
 (s/def ::shares-owned decimal?)
@@ -65,28 +72,14 @@
       (update-in [:purchase-date] to-sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 
-(defn- before-validation
-  [lot]
-  (assoc lot :account (accounts/find (:account-id lot))))
-
-(defn- account-is-an-asset?
-  [lot]
-  (= :asset (-> lot :account :type)))
-
-(def ^:private validation-rules
-  [(validation/create-rule account-is-an-asset?
-                           [:account-id]
-                           "The account must be an asset account")])
-
 (defn create
   [lot]
   (with-storage (env :db)
-    (let [lot (before-validation lot)]
-      (with-validation lot ::new-lot validation-rules
-        (-> lot
-            before-save
-            storage/create
-            after-read)))))
+    (with-validation lot ::new-lot
+      (-> lot
+          before-save
+          storage/create
+          after-read))))
 
 (defn select-by-commodity-id
   [commodity-id]
@@ -97,12 +90,11 @@
 (defn update
   [lot]
   (with-storage (env :db)
-    (let [lot (before-validation lot)]
-      (with-validation lot ::existing-lot validation-rules
-        (-> lot
-            before-save
-            storage/update)
-        (find lot)))))
+    (with-validation lot ::existing-lot
+      (-> lot
+          before-save
+          storage/update)
+      (find lot))))
 
 (defn- lot-unrealized-gains
   [{:keys [purchase-price

@@ -3,12 +3,12 @@
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
+            [lambdaisland.uri :refer [map->query-string]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-time.core :as t]
-            [clj-money.util :refer [path
-                                    map->query-string]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.web.test-helpers :refer [assert-successful]]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-account
@@ -86,7 +86,7 @@
 
 (defn- assert-successful-get
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (let [expected [{:purchase-date "2016-02-01"
                    :shares-purchased 10.0
                    :purchase-price 5.0
@@ -104,7 +104,7 @@
 
 (defn- assert-blocked-get
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-lots-for-an-account-in-his-entity

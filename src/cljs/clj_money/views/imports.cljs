@@ -4,14 +4,16 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [timeout
                                      <!]]
+            [dgknght.app-lib.core :refer [trace]]
+            [dgknght.app-lib.web :refer [format-percent
+                                         format-date-time]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.forms :refer [text-field]]
             [clj-money.bootstrap :as bs]
             [clj-money.dnd :as dnd]
-            [clj-money.html :as html]
-            [clj-money.util :as util]
             [clj-money.state :as state :refer [app-state]]
-            [clj-money.api.imports :as imports]
-            [clj-money.notifications :as notify]
-            [clj-money.forms :refer [text-field]]))
+            [clj-money.api.imports :as imports]))
 
 (defn- load-imports
   [page-state]
@@ -70,10 +72,10 @@
                                 perc)
                               "%")}}
         (when (<= 50 perc)
-          (util/format-percent (/ perc 100)))]
+          (format-percent (/ perc 100)))]
        (when (> 50 perc)
          [:span.pl-1
-          (util/format-percent (/ perc 100))])])]])
+          (format-percent (/ perc 100))])])]])
 
 (defn- progress-table
   [page-state]
@@ -96,7 +98,7 @@
   [{{:keys [errors finished]} :progress :as received} page-state]
   (swap! page-state assoc :active received)
   (when (seq errors)
-    (util/trace {:errors errors}))
+    (trace {:errors errors}))
   (when finished
     (reset! auto-refresh false))
   (when @auto-refresh
@@ -106,9 +108,9 @@
 
 (defn- load-import
   [page-state]
-  (imports/get-one (get-in @page-state [:active :id])
-                   #(receive-import % page-state)
-                   notify/danger))
+  (imports/get (get-in @page-state [:active :id])
+               #(receive-import % page-state)
+               notify/danger))
 
 (defn- start-import
   [imp page-state]
@@ -123,7 +125,7 @@
   ^{:key (str "import-row-" (:id imp))}
   [:tr
    [:td (:entity-name imp)]
-   [:td (util/format-date-time (:created-at imp))]
+   [:td (format-date-time (:created-at imp))]
    [:td
     [:div.btn-group
      [:button.btn.btn-success.btn-sm {:disabled (:entity-exists? imp)

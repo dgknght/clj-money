@@ -1,13 +1,12 @@
 (ns clj-money.views.entities
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.forms :refer [text-field]]
             [clj-money.bootstrap :as bs]
-            [clj-money.html :as html]
             [clj-money.api.entities :as entities]
-            [clj-money.notifications :as notify]
-            [clj-money.state :as state :refer [app-state]]
-            [clj-money.forms :refer [text-field
-                                     #_radio-buttons]]))
+            [clj-money.state :as state :refer [app-state]]))
 
 (defn- delete
   [entity page-state]

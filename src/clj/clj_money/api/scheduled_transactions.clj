@@ -3,13 +3,11 @@
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [clj-time.core :as t]
             [stowaway.core :as storage]
-            [clj-money.util :refer [update-in-if
-                                    unserialize-date]]
-            [clj-money.api :refer [->response
-                                   creation-response
-                                   not-found]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.web :refer [unserialize-date]]
+            [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
-            [clj-money.authorization :refer [authorize
+            [dgknght.app-lib.authorization :refer [authorize
                                              allowed?
                                              +scope]
              :as authorization]
@@ -25,7 +23,7 @@
 
 (defn- index
   [req]
-  (->response
+  (api/response
     (sched-trans/search (->criteria req))))
 
 (defn- ->sched-trans-item
@@ -51,7 +49,7 @@
       (assoc :entity-id (:entity-id params))
       (authorize ::authorization/create authenticated)
       sched-trans/create
-      creation-response))
+      api/creation-response))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
@@ -66,24 +64,24 @@
     (-> sched-tran
         (merge (->sched-tran body))
         sched-trans/update
-        ->response)
-    (not-found)))
+        api/response)
+    api/not-found))
 
 (defn- delete
   [req]
   (if-let [sched-tran (find-and-authorize req ::authorization/destroy)]
     (do
       (sched-trans/delete sched-tran)
-      (->response))
-    (not-found)))
+      (api/response))
+    api/not-found))
 
 (defn- realize
   [req]
   (if-let [sched-tran (find-and-authorize req ::sched-trans-auth/realize)]
     (-> sched-tran
         sched-trans/realize
-        creation-response)
-    (not-found)))
+        api/creation-response)
+    api/not-found))
 
 (defn- mass-realize
   [{:keys [params authenticated]}]
@@ -97,8 +95,8 @@
                        (allowed? % ::sched-trans-auth/realize authenticated)))
          (mapcat sched-trans/realize)
          (sort-by :transaction-date t/before?)
-         creation-response)
-    (not-found)))
+         api/creation-response)
+    api/not-found))
 
 (defroutes routes
   (GET "/api/entities/:entity-id/scheduled-transactions" req (index req))

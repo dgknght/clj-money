@@ -1,8 +1,8 @@
 (ns clj-money.api.reconciliations
   (:refer-clojure :exclude [find update])
-  (:require [clj-money.api :as api]
-            [clj-money.util :refer [serialize-date
-                                    unserialize-date]]))
+  (:require [dgknght.app-lib.web :refer [serialize-date
+                                         unserialize-date]]
+            [dgknght.app-lib.api :as api]))
 
 (defn- after-read
   [reconciliation]
@@ -12,12 +12,12 @@
   [{:keys [account-id] :as criteria} success-fn error-fn]
   {:pre [account-id]}
 
-  (api/get-resources (api/path :accounts
-                               account-id
-                               :reconciliations)
-                     (dissoc criteria account-id)
-                     (comp success-fn #(map after-read %))
-                     error-fn))
+  (api/get (api/path :accounts
+                     account-id
+                     :reconciliations)
+           (dissoc criteria account-id)
+           (comp success-fn #(map after-read %))
+           error-fn))
 
 (defn find
   [criteria success-fn error-fn]
@@ -37,26 +37,24 @@
 
 (defn create
   [{:keys [account-id] :as reconciliation} success-fn error-fn]
-  (api/create-resource
-   (api/path :accounts
-             account-id
-             :reconciliations)
-   (-> reconciliation
-       (dissoc :account-id)
-       before-save)
-   success-fn
-   error-fn))
+  (api/post (api/path :accounts
+                      account-id
+                      :reconciliations)
+            (-> reconciliation
+                (dissoc :account-id)
+                before-save)
+            success-fn
+            error-fn))
 
 (defn update
   [{:keys [id] :as reconciliation} success-fn error-fn]
-  (api/update-resource
-   (api/path :reconciliations
-             id)
-   (-> reconciliation
-       (dissoc :id :account-id)
-       before-save)
-   success-fn
-   error-fn))
+  (api/patch (api/path :reconciliations
+                       id)
+             (-> reconciliation
+                 (dissoc :id :account-id)
+                 before-save)
+             success-fn
+             error-fn))
 
 (defn save
   [reconciliation success-fn error-fn]

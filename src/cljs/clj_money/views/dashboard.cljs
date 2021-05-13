@@ -2,13 +2,15 @@
   (:require [clojure.string :as string]
             [reagent.core :as r]
             [reagent.format :refer [currency-format]]
+            [dgknght.app-lib.inflection :refer [title-case]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.state :refer [current-entity]]
-            [clj-money.inflection :refer [title-case]]
             [clj-money.bootstrap :as bs]
-            [clj-money.forms :as forms]
-            [clj-money.notifications :as notify]
-            [clj-money.html :as html]
-            [clj-money.accounts :refer [nest unnest]]
+            [clj-money.accounts :refer [nest
+                                        unnest
+                                        find-by-path]]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.entities :as entities]
             [clj-money.api.reports :as reports]))
@@ -41,13 +43,8 @@
         new-monitor
         [:account-id]
         {:search-fn (fn [input callback]
-                      (let [term (string/lower-case input)]
-                        (->> @accounts
-                             vals
-                             (filter #(string/includes? (string/lower-case (:path %))
-                                                        term))
-                             callback)))
-         :caption-fn :path
+                      (callback (find-by-path input @accounts)))
+         :caption-fn #(string/join "/" (:path %))
          :value-fn :id
          :find-fn (fn [id callback]
                     (->> @accounts

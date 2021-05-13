@@ -7,7 +7,11 @@
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
-            [clj-money.validation :as v]
+            [dgknght.app-lib.core :refer [uuid
+                                          deep-contains?
+                                          deep-update-in-if]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.accounts :as accounts]
@@ -17,12 +21,54 @@
                                                    available-date-range
                                                    earliest
                                                    latest]]
-            [clj-money.util :refer [uuid
-                                    ->id
-                                    deep-update-in-if
-                                    deep-contains?]]
             [clj-money.accounts :refer [polarize-quantity]])
   (:import org.joda.time.LocalDate))
+
+(declare reload)
+
+(defn- no-reconciled-items-changed?
+  [transaction]
+  (let [existing (reload transaction)
+        reconciled (->> (:items existing)
+                        (filter :reconciled?)
+                        (map #(select-keys % [:id :quantity :account-id :action]))
+                        set)
+        ids (->> reconciled
+                 (map :id)
+                 set)
+        incoming (->> transaction
+                      :items
+                      (filter #(ids (:id %)))
+                      (map #(select-keys % [:id :quantity :account-id :action]))
+                      set)]
+    (= incoming reconciled)))
+
+(v/reg-spec no-reconciled-items-changed? {:message "A reconciled item cannot be updated"
+                                          :path [:items]})
+
+(defn- sum-by
+  "Returns the sum of values of the items in the transaction having
+  the specified action"
+  [attr items]
+  (->> items
+       (map attr)
+       (reduce + 0M)))
+
+(defn- sum-of-credits-equals-sum-of-debits?
+  [items]
+  (->> items
+       (group-by :action)
+       (map (comp #(sum-by :value %)
+                  second))
+       (apply =)))
+(v/reg-msg sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
+
+(defn- transaction-dates-match?
+  [{:keys [transaction-date items]}]
+  (->> items
+       (map :transaction-date)
+       (apply = transaction-date)))
+(v/reg-msg transaction-dates-match? "All transaction items must have the same date as the transaction")
 
 (s/def ::account-id integer?)
 (s/def ::action #{:debit :credit})
@@ -52,19 +98,22 @@
                                   :opt-un [::balance
                                            ::index
                                            ::memo]))
-(s/def ::items (s/coll-of ::transaction-item :min-count 1))
+(s/def ::items (s/and (s/coll-of ::transaction-item :min-count 1)
+                      sum-of-credits-equals-sum-of-debits?))
 (s/def ::new-transaction (s/keys :req-un [::description
                                           ::transaction-date
                                           ::items
                                           ::entity-id]
                                  :opt-un [::memo
                                           ::lot-items]))
-(s/def ::existing-transaction (s/keys :req-un [::id
+(s/def ::existing-transaction (s/and (s/keys :req-un [::id
                                                ::transaction-date
                                                ::items]
                                       :opt-un [::entity-id
                                                ::memo
-                                               ::lot-items]))
+                                               ::lot-items])
+                                     no-reconciled-items-changed?
+                                     transaction-dates-match?))
 
 (def ambient-settings
   (atom {}))
@@ -105,30 +154,6 @@
                                      (* -1 quantity)
                                      quantity)))
     item))
-
-(defn- item-value-sum
-  "Returns the sum of values of the items in the transaction having
-  the specified action"
-  [transaction action]
-  (reduce + 0M (->> (:items transaction)
-                    (filter #(= action (:action %)))
-                    (map :value))))
-
-(defn- ^{::v/message "The total debits does not match the total credits"
-         ::v/path [:items]}
-  sum-of-credits-must-equal-sum-of-debits
-  [transaction]
-  (->> [:debit :credit]
-       (map #(item-value-sum transaction %))
-       (apply =)))
-
-(defn- ^{::v/message "Each item must have the same transaction-date as the transaction"
-         ::v/path [:items]}
-  transaction-dates-must-match
-  [{:keys [transaction-date items]}]
-  (->> items
-       (map :transaction-date)
-       (apply = transaction-date)))
 
 (defn- before-item-validation
   [item]
@@ -224,13 +249,10 @@
                           options)))))
 
 (defn- append-items
-  [{:keys [id transaction-date] :as transaction}]
-  (when transaction
-    (assoc transaction
-           :items
-           (vec (search-items {:transaction-id id
-                               :transaction-date transaction-date}
-                              {:sort [[:action :desc] [:quantity :desc]]})))))
+  [{:keys [id] :as transaction} items]
+  (assoc transaction
+         :items
+         (get-in items [id])))
 
 (defn- append-lot-items
   [transaction]
@@ -248,17 +270,13 @@
   "Returns a transaction that is ready for public use"
   ([transaction]
    (after-read transaction {}))
-  ([transaction options]
+  ([transaction {:keys [include-items?
+                        items
+                        include-lot-items?]}]
    (when transaction
-     (cond-> transaction
-       (:include-items? options)
-       append-items
-
-       (:include-lot-items? options)
-       append-lot-items
-
-       true
-       (tag ::models/transaction)))))
+     (cond-> (tag transaction ::models/transaction)
+       include-items?     (append-items items)
+       include-lot-items? append-lot-items))))
 
 (defn find-item-by
   "Returns the first item matching the specified criteria"
@@ -311,39 +329,41 @@
                               {:index [:!= (:index item)]}]])]
       (> records-affected 0))))
 
-(declare reload)
-(defn- no-reconciled-items-changed?
-  [transaction]
-  (if (:id transaction)
-    (let [existing (reload transaction)
-          reconciled (->> (:items existing)
-                          (filter :reconciled?)
-                          (map #(select-keys % [:id :quantity :account-id :action]))
-                          set)
-          ids (->> reconciled
-                   (map :id)
-                   set)
-          incoming (->> transaction
-                        :items
-                        (filter #(ids (:id %)))
-                        (map #(select-keys % [:id :quantity :account-id :action]))
-                        set)]
-      (= incoming reconciled))
-    true))
-
-(def ^:private validation-rules
-  [#'sum-of-credits-must-equal-sum-of-debits
-   #'transaction-dates-must-match
-   (v/create-rule no-reconciled-items-changed?
-                  [:items]
-                  "A reconciled transaction item cannot be changed")])
-
 (defn- validate
   [transaction spec]
   (-> transaction
       before-validation
-      (v/validate spec validation-rules)
+      (v/validate spec)
       after-validation))
+
+(defn- transactions->item-criteria
+  [transactions]
+  (tag
+    (reduce (fn [m {:keys [id transaction-date]}]
+              (-> m
+                  (update-in [:transaction-id] conj id)
+                  (update-in [:transaction-date 1] #(first (sort t/before? (filter identity [% transaction-date]))))
+                  (update-in [:transaction-date 2] #(first (sort t/after? (filter identity [% transaction-date]))))))
+            {:transaction-date [:between nil nil]
+             :transaction-id []}
+            transactions)
+    ::models/transaction-item))
+
+(defn- compare-items
+  [i1 i2]
+  (reduce (fn [result k]
+            (if (zero? result)
+              (compare (get-in i1 [k])
+                       (get-in i2 [k]))
+              (reduced result)))
+          0
+          [:action :quantity]))
+
+(defn- sort-items
+  [items]
+  (->> items
+       (sort-by (juxt :action :quantity) compare-items)
+       (into [])))
 
 (defn search
   "Returns the transactions that belong to the specified entity"
@@ -351,9 +371,16 @@
    (search criteria {}))
   ([criteria options]
    (with-storage (env :db)
-     (map #(after-read % options)
-          (storage/select (prepare-criteria criteria ::models/transaction)
-                          options)))))
+     (let [transactions (storage/select (prepare-criteria criteria ::models/transaction)
+                                        options)
+           items (when (and (:include-items? options)
+                            (seq transactions))
+                   (->> (storage/select (transactions->item-criteria transactions) {})
+                        (map after-item-read)
+                        (group-by :transaction-id)
+                        (map #(update-in % [1] sort-items))
+                        (into {})))]
+       (map #(after-read % (assoc options :items items)) transactions)))))
 
 (defn find-by
   ([criteria] (find-by criteria {}))
@@ -683,7 +710,7 @@
     (let [validated (validate transaction ::existing-transaction)]
       (if (v/has-error? validated)
         validated
-        (let [existing (find-existing-transaction transaction)
+        (let [existing (find-existing-transaction validated)
               dereferenced-items (->> (:items existing)
                                       (remove #(some (fn [i] (= (:id i)
                                                                 (:id %)))

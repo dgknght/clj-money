@@ -20,8 +20,9 @@
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [co.deps.ring-etag-middleware :as etag]
             [environ.core :refer [env]]
-            [slingshot.slingshot :refer [try+]]
-            [clj-money.util :refer [serialize-date]]
+            [dgknght.app-lib.web :refer [serialize-date]]
+            [dgknght.app-lib.authorization :as authorization]
+            [dgknght.app-lib.api :as api]
             [clj-money.core]
             [clj-money.json]
             [clj-money.web.auth :as web-auth]
@@ -29,7 +30,9 @@
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-exceptions
                                           wrap-collection-params]]
-            [clj-money.api :as api :refer [wrap-authentication]]
+            [clj-money.models :as models]
+            [clj-money.api :refer [find-user-by-auth-token
+                                   log-error]]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
@@ -72,10 +75,10 @@
               (ANY "/api/*" req
                 (do
                   (log/debugf "unable to match API route for %s \"%s\"." (:request-method req) (:uri req))
-                  (api/not-found))))
+                  api/not-found)))
       (wrap-routes wrap-integer-id-params)
       (wrap-json-body {:keywords? true :bigdecimals? true})
-      wrap-authentication
+      (api/wrap-authentication {:authenticate-fn find-user-by-auth-token})
       wrap-exceptions
       wrap-json-response))
 
@@ -85,31 +88,54 @@
       (res/status 404)
       (res/content-type "text/html")))
 
+(defn- forbidden []
+  (-> (slurp "resources/403.html")
+      res/response
+      (res/status 403)
+      (res/content-type "text/html")))
+
 (defn internal-error []
   (-> (slurp "resources/500.html")
       res/response
       (res/status 500)
       (res/content-type "text/html")))
 
+; TODO: Remove this duplicate with the API version of this fn
+(defmulti handle-exception :type)
+
+(defmethod handle-exception ::authorization/unauthorized
+  [data]
+  (if (:opaque? data)
+    (not-found)
+    (forbidden)))
+
+(defmethod handle-exception ::authorization/not-found
+  [_data]
+  (not-found))
+
+(defmethod handle-exception ::authorization/no-rules
+  [_data]
+  (internal-error))
+
+(defmethod handle-exception ::models/not-found
+  [_data]
+  (not-found))
+
 (defn wrap-web-exceptions
   [handler]
   (fn [req]
-    (try+
+    (try
      (handler req)
-     (catch [:type :clj-money.models/not-found] error-data
-       (not-found))
-     (catch [:type :clj-money.authorization/no-rules] error-data
-       (internal-error))
-     (catch [:type :clj-money.authorization/unauthorized] error-data
-       (not-found))
+     (catch clojure.lang.ExceptionInfo e
+       (handle-exception (ex-data e)))
      (catch Exception e
-       (api/log-error e "unexpected error")
+       (log-error e "unexpected error")
        (internal-error)))))
 
 (defroutes protected-web-routes
   (-> images/routes
       (wrap-routes wrap-integer-id-params)
-      wrap-authentication
+      (api/wrap-authentication {:authenticate-fn find-user-by-auth-token})
       wrap-web-exceptions))
 
 (defn- wrap-no-cache-header

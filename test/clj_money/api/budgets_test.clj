@@ -4,14 +4,12 @@
             [clj-time.periodic :refer [periodic-seq]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.test]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-json-body]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-successful-no-content
-                                                assert-created
-                                                assert-not-found]]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-user
@@ -19,9 +17,7 @@
                                             find-account
                                             find-budget]]
             [clj-money.models.budgets :as budgets]
-            [clj-money.validation :as v]
-            [clj-money.util :refer [path
-                                    make-series]]
+            [clj-money.util :refer [make-series]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -49,32 +45,26 @@
     [response body retrieved]))
 
 (defn- assert-successful-create
-  [[response body retrieved]]
-  (assert-created response)
+  [[response body [retrieved]]]
+  (is (http-created? response))
   (is (nil? (::v/errors body)) "There are no validation errors")
-  (is (selective= {:name "2020"
-                   :start-date "2020-01-01"
-                   :period "month"
-                   :period-count 12}
-                  body)
+  (is (comparable? {:name "2020"
+                    :start-date "2020-01-01"
+                    :period "month"
+                    :period-count 12}
+                   body)
       "The response contains the newly created budget")
-  (is (some #(selective= {:name "2020"
+  (is (comparable? {:name "2020"
                           :start-date (t/local-date 2020 1 1)
                           :period :month
                           :period-count 12}
-                         %)
-            retrieved)
-      "The record can be retrieved after create"))
+                   retrieved)
+       "The record can be retrieved after create"))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (not-any? #(selective= {:name "2020"
-                              :start-date "2020-01-01"
-                              :period :month
-                              :period-count 20}
-                             %)
-                retrieved)
+  (is (http-not-found? response))
+  (is (not ((->> retrieved (map :name) set) "2020"))
       "The record is not created."))
 
 (deftest a-user-can-create-a-budget-in-his-entity
@@ -128,7 +118,7 @@
                            (add-auth user)
                            app
                            parse-json-body)]
-    (assert-created response)
+    (is (http-created? response))
     (is (= 2 (count (:items json-body)))
         "The created budget contains an item for each income statement account with transaction items in the specified time frame")
     (is (= [500.0 400.0 400.0
@@ -181,7 +171,7 @@
 
 (defn- assert-successful-get-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= [{:name "2016"
            :start-date "2016-01-01"}
           {:name "2015"
@@ -191,7 +181,7 @@
 
 (defn- assert-blocked-get-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-budgets-for-his-entity
@@ -215,7 +205,7 @@
 
 (defn- assert-successful-get
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= 3 (count (:items body)))
       "The items are included")
   (is (some #(= 1001.0 (first (:periods %)))
@@ -230,7 +220,7 @@
 
 (defn- assert-blocked-get
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-detailed-budget-for-his-entity
   (assert-successful-get (get-budget "john@doe.com")))
@@ -255,7 +245,7 @@
 
 (defn- assert-successful-update
   [[response body retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? (v/error-messages body)))
   (is (= (repeat 12 502.0)
          (get-in body [:items 1 :periods]))
@@ -266,9 +256,9 @@
 
 (defn- assert-blocked-update
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (selective= {:periods [501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M]}
-                  (get-in retrieved [:items 1]))
+  (is (http-not-found? response))
+  (is (comparable? {:periods [501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M]}
+                   (get-in retrieved [:items 1]))
       "The record is not updated"))
 
 (deftest a-user-can-update-a-budget-in-his-entity
@@ -292,13 +282,13 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful-no-content response)
+  (is (http-no-content? response))
   (is (nil? retrieved)
       "The delete budget cannot be retrieved"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved "The record is not deleted"))
 
 (deftest a-user-can-delete-a-budget-in-his-entity

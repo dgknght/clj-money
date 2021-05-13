@@ -5,7 +5,7 @@
                :cljs [cljs-time.coerce :as tc])
             #?(:clj [clj-time.periodic :refer [periodic-seq]]
                :cljs [cljs-time.periodic :refer [periodic-seq]])
-            [clj-money.util :refer [parse-int]]))
+            [dgknght.app-lib.core :refer [parse-int]]))
 
 (defn- parse-partial
   [value]

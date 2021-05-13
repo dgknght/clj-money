@@ -3,20 +3,18 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity]]
-            [clj-money.test-helpers :as h :refer [selective=]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found
-                                                assert-unauthorized]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.web.server :refer [app]]
-            [clj-money.models.entities :as entities]
-            [clj-money.util :refer [path]]))
+            [clj-money.models.entities :as entities]))
 
-(use-fixtures :each h/reset-db)
+(use-fixtures :each reset-db)
 
 (def ^:private create-context
   {:users [(factory :user {:email "john@doe.com"})
@@ -31,11 +29,11 @@
                      (add-auth user)
                      app)
         retrieved (entities/select {:user-id (:id user)})]
-    (assert-successful response)
-    (is (selective= {:user-id (:id user)
-                     :name "Personal"
-                     :settings {:inventory-method :fifo}}
-                    (first retrieved)))))
+    (is (http-success? response))
+    (is (comparable? {:user-id (:id user)
+                      :name "Personal"
+                      :settings {:inventory-method :fifo}}
+                     (first retrieved)))))
 
 (def ^:private list-context
   (assoc create-context :entities [{:user-id "john@doe.com"
@@ -61,19 +59,19 @@
 
 (defn- assert-successful-edit
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:name "New Name"}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:name "New Name"}
+                   body)
       "The updated entity is returned in the response")
-  (is (selective= {:name "New Name"}
-                  retrieved)
+  (is (comparable? {:name "New Name"}
+                   retrieved)
       "The retrieved value has the updated attributes"))
 
 (defn- assert-blocked-edit
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (selective= {:name "Personal"}
-                  retrieved)
+  (is (http-not-found? response))
+  (is (comparable? {:name "Personal"}
+                   retrieved)
       "The retrieved value has not been changed"))
 
 (deftest a-user-can-edit-his-own-entity
@@ -91,9 +89,9 @@
                                         (select-keys [:name :settings])))
                      app)
         retrieved (entities/find entity)]
-    (assert-unauthorized response)
-    (is (selective= {:name "Personal"}
-                    retrieved)
+    (is (http-unauthorized? response))
+    (is (comparable? {:name "Personal"}
+                     retrieved)
         "The retrieved value has not been changed.")))
 
 (defn- get-a-list
@@ -108,13 +106,13 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= #{"Personal" "Business"} (set (map :name body)))
       "The body contains the correct entities"))
 
 (defn- assert-blocked-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-his-entities
@@ -136,12 +134,12 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (nil? retrieved) "The entity is not available after delete"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved "The entity is still available after failed delete"))
 
 (deftest a-user-can-delete-his-own-entity

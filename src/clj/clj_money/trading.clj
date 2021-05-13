@@ -5,8 +5,8 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
-            [clj-money.util :refer [format-decimal]]
-            [clj-money.validation :as validation :refer [with-validation]]
+            [dgknght.app-lib.web :refer [format-decimal]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models.entities :as entities]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
@@ -25,9 +25,9 @@
 (s/def ::lt-capital-loss-account-id  (s/nilable integer?))
 (s/def ::st-capital-gains-account-id (s/nilable integer?))
 (s/def ::st-capital-loss-account-id  (s/nilable integer?))
-(s/def ::trade-date validation/local-date?)
-(s/def ::transfer-date validation/local-date?)
-(s/def ::split-date validation/local-date?)
+(s/def ::trade-date v/local-date?)
+(s/def ::transfer-date v/local-date?)
+(s/def ::split-date v/local-date?)
 (s/def ::shares decimal?)
 (s/def ::value decimal?)
 (s/def ::shares-gained decimal?)
@@ -244,7 +244,7 @@
                       :description (sale-transaction-description context)
                       :items items
                       :lot-items (:lot-items context)})]
-    (if (validation/has-error? transaction)
+    (if (v/has-error? transaction)
       (do
         (log/errorf "Unable to create the commodity sale transaction: %s" transaction)
         (throw (ex-info "Unable to create the commodity sale transaction." {:transaction transaction})))
@@ -338,7 +338,7 @@
         cut-off-date (t/plus (:purchase-date lot) (t/years 1))
         long-term? (>= 0 (compare cut-off-date
                                   (:trade-date context)))]
-    (when (validation/has-error? adj-lot)
+    (when (v/has-error? adj-lot)
       (log/errorf "Unable to update lot for sale %s" adj-lot))
     [(-> context
          (update-in [:lot-items] #(conj % {:lot-id (:id adj-lot)
@@ -531,8 +531,8 @@
   :to-account-id    - identifies the account to which the commodity is to be moved
   :to-account       - the account to which the commodity is to be moved. Supplying this instead of :to-account-id bypasses the database lookup for the account."
   [transfer]
-  (let [validated (validation/validate transfer ::transfer)]
-    (if (validation/valid? validated)
+  (let [validated (v/validate transfer ::transfer)]
+    (if (v/valid? validated)
       (with-transacted-storage (env :db)
         (some-> validated
                 append-commodity
@@ -608,7 +608,7 @@
 
 (defn- validate-split
   [split]
-  (validation/validate split ::split))
+  (v/validate split ::split))
 
 (defn split
   "Records a stock split
@@ -620,7 +620,7 @@
 
   [split]
   (let [validated (validate-split split)]
-    (if (validation/valid? validated)
+    (if (v/valid? validated)
       (with-transacted-storage (env :db)
         (-> validated
             append-commodity

@@ -3,12 +3,12 @@
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [clj-time.core :as t]
-            [clj-money.util :refer [path
-                                    make-series
-                                    map->query-string]]
+            [lambdaisland.uri :refer [map->query-string]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
+            [clj-money.util :refer [make-series]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-json-body]]
-            [clj-money.web.test-helpers :refer [assert-successful]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [basic-context
                                             realize
@@ -123,7 +123,7 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (let [expected [{:transaction-date "2017-01-29"
                    :description "Kroger"
                    :quantity 100.0
@@ -160,7 +160,7 @@
 
 (defn- assert-blocked-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "No transaction items are returned"))
 
 (deftest a-user-can-get-a-list-of-transaction-items-in-his-entity
@@ -216,7 +216,7 @@
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)]
-    (assert-successful response)
+    (is (http-success? response))
     (is (= #{101.0 102.0 103.0}
            (transduce (map :quantity) conj #{} body))
         "The items in the specified account and the children accounts are returned.")))
@@ -266,7 +266,7 @@
 
 (defn- assert-successful-summary
   [{:keys [json-body] :as response}]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= [{:start-date "2016-01-01"
            :end-date "2016-01-31"
            :quantity 201.0}
@@ -283,7 +283,7 @@
 
 (defn- assert-blocked-summary
   [{:keys [json-body] :as response}]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= [{:start-date "2016-01-01"
            :end-date "2016-01-31"
            :quantity 0}

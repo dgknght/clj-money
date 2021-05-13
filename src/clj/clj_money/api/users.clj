@@ -2,13 +2,13 @@
   (:refer-clojure :exclude [find])
   (:require [clojure.set :refer [rename-keys]]
             [compojure.core :refer [defroutes GET POST]]
+            [dgknght.app-lib.api :as api]
             [clj-money.web.auth :refer [make-token]]
-            [clj-money.api :as api]
             [clj-money.models.users :as users]))
 
 (defn- find
   [{:keys [authenticated]}]
-  (api/->response authenticated))
+  (api/response authenticated))
 
 (defn- extract-credentials
   [{:keys [body]}]
@@ -21,7 +21,7 @@
   (if-let [user (users/authenticate (extract-credentials req))]
     (api/creation-response {:user user
                             :auth-token (make-token user)})
-    (api/not-found)))
+    api/not-found))
 
 (defroutes routes
   (GET "/api/users/me" req (find req)))

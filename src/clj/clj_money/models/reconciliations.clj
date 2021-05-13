@@ -2,15 +2,108 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [environ.core :refer [env]]
+            [clj-time.core :as t]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
-            [clj-money.util :refer [->id]]
-            [clj-money.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.core :refer [assoc-if]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]))
+
+(declare find
+         find-by
+         find-last-completed)
+
+(defn- in-balance?
+  [{:keys [balance] :as reconciliation}]
+  (let [starting-balance (get-in reconciliation
+                                 [::last-completed :balance]
+                                 0M)
+        new-balance (->> (::all-items reconciliation)
+                         (map :polarized-quantity)
+                         (reduce + starting-balance))]
+    (= balance new-balance)))
+
+(defn- in-progress?
+  [{:keys [status]}]
+  (not= :completed status))
+
+(def not-unbalanced?
+  (some-fn in-progress? in-balance?))
+
+(v/reg-spec not-unbalanced?
+            {:message "%s must match the calculated balance"
+             :path [:balance]})
+
+(defn find-working
+  "Returns the uncompleted reconciliation for the specified
+  account, if one exists"
+  [account-id]
+  (find-by {:status "new"
+            :account-id account-id}))
+
+(defn- working-reconciliation-exists?
+  [{:keys [account-id id]}]
+  (when-let [existing (when account-id
+                        (find-working account-id))]
+    (or (nil? id)
+        (not= id (:id existing)))))
+
+(def no-working-conflict?
+  (complement working-reconciliation-exists?))
+
+(v/reg-spec no-working-conflict?
+            {:message "%s already has a reconciliation in progress"
+             :path [:account-id]})
+
+(defn- items-belong-to-account?
+  [{:keys [account-id] :as reconciliation}]
+  (or (empty? (::new-items reconciliation))
+      (let [account-ids (->> (accounts/search
+                              {:id account-id}
+                              {:include-children? true})
+                             (map :id)
+                             set)]
+        (->> (::new-items reconciliation)
+             (map :account-id)
+             (every? #(account-ids %))))))
+
+(v/reg-spec items-belong-to-account?
+            {:message "All items must belong to the account being reconciled"
+             :path [:item-refs]})
+
+(defn- items-not-already-reconciled?
+  [{:keys [id] :as reconciliation}]
+  (->> (::new-items reconciliation)
+       (map :reconciliation-id)
+       (remove (some-fn nil? #(= id %)))
+       empty?))
+
+(v/reg-spec items-not-already-reconciled? {:message "No item can belong to another reconciliation"
+                                           :path [:item-refs]})
+
+(defn- can-be-updated?
+  [{:keys [id]}]
+  (or (nil? id)
+      (= :new (:status (find id)))))
+
+(v/reg-spec can-be-updated?
+            {:message "A completed reconciliation cannot be updated"
+             :path [:status]})
+
+(defn- after-last-reconciliation?
+  [{::keys [last-completed] :as reconciliation}]
+  (or (nil? last-completed)
+      (t/before? (:end-of-period last-completed)
+                 (:end-of-period reconciliation))))
+
+(v/reg-spec after-last-reconciliation?
+            {:message "%s must be after that latest reconciliation"
+             :path [:end-of-period]})
 
 (s/def ::account-id integer?)
 (s/def ::end-of-period v/local-date?)
@@ -19,8 +112,14 @@
 (s/def ::item-ref (s/tuple uuid? v/local-date?))
 (s/def ::item-refs (s/coll-of ::item-ref))
 
-(s/def ::new-reconciliation (s/keys :req-un [::account-id ::end-of-period ::status ::balance] :opt-un [::item-refs]))
-(s/def ::existing-reconciliation (s/keys :req-un [::id ::end-of-period ::status ::balance] :opt-un [::account-id ::item-refs]))
+(s/def ::reconciliation (s/and (s/keys :req-un [::account-id ::end-of-period ::status ::balance]
+                                       :opt-un [::item-refs])
+                               not-unbalanced?
+                               no-working-conflict?
+                               items-belong-to-account?
+                               items-not-already-reconciled?
+                               can-be-updated?
+                               after-last-reconciliation?))
 
 (defn- resolve-item-refs
   [item-refs]
@@ -42,6 +141,15 @@
       (transactions/search-items criteria))
     []))
 
+(defn- find-last-completed
+  "Returns the last completed reconciliation for an account"
+  [{:keys [account-id id]}]
+  (when account-id
+    (find-by (assoc-if  {:account-id account-id
+                         :status "completed"}
+                       :id (when id [:!= id]))
+             {:sort [[:end-of-period :desc]]})))
+
 (defn- before-validation
   [{:keys [item-refs] :as reconciliation}]
   (let [existing-items (fetch-items reconciliation)
@@ -57,7 +165,8 @@
         (update-in [:status] (fnil identity :new))
         (assoc ::new-items new-items
                ::all-items all-items
-               ::existing-items existing-items))))
+               ::existing-items existing-items
+               ::last-completed (find-last-completed reconciliation)))))
 
 (defn- before-save
   [reconciliation]
@@ -108,90 +217,6 @@
   (find-by {:account-id account-id}
            {:sort [[:end-of-period :desc]]}))
 
-(defn find-last-completed
-  "Returns the last completed reconciliation for an account"
-  [account-id]
-  (find-by {:account-id account-id
-            :status "completed"}
-           {:sort [[:end-of-period :desc]]}))
-
-(defn- is-in-balance?
-  [{:keys [account-id balance] :as reconciliation}]
-  (or (= :new (:status reconciliation))
-      (let [starting-balance (or (:balance (find-last-completed
-                                            account-id))
-                                 0M)
-            new-balance (->> (::all-items reconciliation)
-                             (map :polarized-quantity)
-                             (reduce + starting-balance))]
-        (= balance new-balance))))
-
-(defn- items-belong-to-account?
-  [{:keys [account-id] :as reconciliation}]
-  (or (empty? (::new-items reconciliation))
-      (let [account-ids (->> (accounts/search
-                              {:id account-id}
-                              {:include-children? true})
-                             (map :id)
-                             set)]
-        (->> (::new-items reconciliation)
-             (map :account-id)
-             (every? #(account-ids %))))))
-
-(defn- items-do-not-belong-to-another-reconciliation?
-  [{:keys [id] :as reconciliation}]
-  (let [reconciliation-ids (->> (::new-items reconciliation)
-                                (map :reconciliation-id)
-                                (filter identity)
-                                set)]
-    (or (empty? reconciliation-ids)
-        (= reconciliation-ids #{id}))))
-
-(defn- can-be-updated?
-  [{:keys [id]}]
-  (or (nil? id)
-      (= :new (:status (find id)))))
-
-(defn- is-after-last-reconciliation?
-  [reconciliation]
-  (let [last-completed (find-last-completed (:account-id reconciliation))]
-    (or (nil? last-completed)
-        (> 0 (compare (:end-of-period last-completed)
-                      (:end-of-period reconciliation))))))
-
-(defn find-working
-  "Returns the uncompleted reconciliation for the specified
-  account, if one exists"
-  [account-id]
-  (find-by {:status "new"
-            :account-id account-id}))
-
-(defn- working-reconciliation-exists?
-  [{:keys [account-id id]}]
-  (when account-id
-    (when-let [existing (find-working account-id)]
-      (or (nil? id) (not= id (:id existing))))))
-
-(def ^:private validation-rules
-  [(v/create-rule is-in-balance?
-                  [:balance]
-                  "The account balance must match the statement balance.")
-   (v/create-rule items-belong-to-account?
-                  [:item-refs]
-                  "All items must belong to the account being reconciled")
-   (v/create-rule items-do-not-belong-to-another-reconciliation?
-                  [:item-refs]
-                  "No items may belong to another reconcilidation")
-   (v/create-rule is-after-last-reconciliation?
-                  [:end-of-period]
-                  "End of period must be after the latest reconciliation")
-   (v/create-rule can-be-updated?
-                  [:status]
-                  "A completed reconciliation cannot be updated")
-   (v/create-rule (complement working-reconciliation-exists?)
-                  [:account-id]
-                  "A new reconciliation cannot be created while a working reconciliation already exists")])
-
 (defn- ->date-range
   [items date-fn]
   (when (seq items)
@@ -231,7 +256,7 @@
   [reconciliation]
   (with-transacted-storage (env :db)
     (let [recon (before-validation reconciliation)]
-      (with-validation recon ::new-reconciliation validation-rules
+      (with-validation recon ::reconciliation
         (let [to-create (before-save recon)
               created (storage/create to-create)]
           (-> (merge created
@@ -246,7 +271,7 @@
   [recon]
   (with-transacted-storage (env :db)
     (let [recon (before-validation recon)]
-      (with-validation recon ::existing-reconciliation validation-rules
+      (with-validation recon ::reconciliation
         (let [to-update (before-save recon)]
           (storage/update to-update)
           (after-save to-update)

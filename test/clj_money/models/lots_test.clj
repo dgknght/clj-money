@@ -2,12 +2,12 @@
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-account
                                             find-commodity]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.validation :as validation]
             [clj-money.models.lots :as lots]))
 
 (use-fixtures :each reset-db)
@@ -46,7 +46,7 @@
         result (lots/create (attributes context))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (:id result) "The result receives an ID value")
-    (is (empty? (validation/error-messages result)) "The result contains no validation errors")
+    (is (valid? result))
     (is (= [{:purchase-date (t/local-date 2017 3 2)
              :shares-owned 100M
              :purchase-price 10M}] ; shares-owned is set to shares-purchased
@@ -64,7 +64,7 @@
                                 (dissoc :commodity-id)))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (seq (validation/error-messages result :commodity-id)) "The result contains a validation error")
+    (is (invalid? result [:commodity-id] "Commodity is required"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest account-id-is-required
@@ -75,7 +75,7 @@
                                 (dissoc :account-id)))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (seq (validation/error-messages result :account-id)) "The result contains a validation error")
+    (is (invalid? result [:account-id] "Account is required"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-price-is-required
@@ -86,7 +86,7 @@
                                 (dissoc :purchase-price)))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (seq (validation/error-messages result :purchase-price)) "The result contains a validation error")
+    (is (invalid? result [:purchase-price] "Purchase price is required"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest account-id-must-reference-an-asset-account
@@ -98,7 +98,7 @@
                                 (assoc :account-id (:id dining))))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (seq (validation/error-messages result :account-id)) "The result contains a validation error")
+    (is (invalid? result [:account-id] "Account must be an asset"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-date-is-required
@@ -109,7 +109,7 @@
                                 (dissoc :purchase-date)))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (seq (validation/error-messages result :purchase-date)) "The result contains a validation error")
+    (is (invalid? result [:purchase-date] "Purchase date is required"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest purchase-date-must-be-a-date
@@ -120,7 +120,7 @@
                                 (assoc :purchase-date "not-a-date")))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (seq (validation/error-messages result :purchase-date)) "The result contains a validation error")
+    (is (invalid? result [:purchase-date] "Purchase date must be a date"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest shares-purchased-is-required
@@ -131,7 +131,7 @@
                                 (dissoc :shares-purchased)))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (seq (validation/error-messages result :shares-purchased)) "The result contains a validation error")
+    (is (invalid? result [:shares-purchased] "Shares purchased is required"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (def ^:private existing-lot-context
@@ -148,8 +148,7 @@
         updated (update-in lot [:shares-owned] #(- % 30M))
         result (lots/update updated)
         retrieved (lots/find lot)]
-    (is (empty? (validation/error-messages result))
-        "The result contains no validation errors")
+    (is (valid? result))
     (is (= 70M (:shares-owned retrieved))
         "The retrieved map contains the updated value")))
 

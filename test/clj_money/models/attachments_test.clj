@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
-            [clj-money.validation :as validation]
+            [dgknght.app-lib.test]
             [clj-money.models.attachments :as attachments]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
@@ -50,8 +50,7 @@
         retrieved (first
                    (attachments/search {:transaction-id (:id transaction)
                                         :transaction-date (:transaction-date transaction)}))]
-    (is (empty? (validation/error-messages result))
-        "The attachment is saved successfully")
+    (is (valid? result))
     (is retrieved "The value can be retreived from the database")
     (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")))
 
@@ -59,19 +58,13 @@
   (let [context (realize attach-context)
         result (attachments/create (dissoc (attributes context)
                                            :transaction-id))]
-    (is (not (validation/valid? result))
-        "The value can be retreived from the database")
-    (is (seq (validation/error-messages result :transaction-id))
-        "The transaction-id attribute has an error message")))
+    (is (invalid? result [:transaction-id] "Transaction is required"))))
 
 (deftest image-id-is-required
   (let [context (realize attach-context)
         result (attachments/create (dissoc (attributes context)
                                            :image-id))]
-    (is (not (validation/valid? result))
-        "The value can be retreived from the database")
-    (is (seq (validation/error-messages result :image-id))
-        "The image-id attribute has an error message")))
+    (is (invalid? result [:image-id] "Image is required"))))
 
 (def ^:private update-context
   (assoc attach-context :attachments
@@ -86,7 +79,7 @@
         result (attachments/update (assoc attachment
                                           :caption "Updated caption"))
         retrieved (attachments/find attachment)]
-    (is (empty? (validation/error-messages result)) "There are no validation errors")
+    (is (valid? result))
     (is (= "Updated caption" (:caption result)) "The updated value is returned")
     (is (= "Updated caption" (:caption retrieved)) "The correct value is retrieved")))
 

@@ -5,23 +5,46 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [camel-snake-kebab.core :as csk]
+            [dgknght.app-lib.core :as lib]
+            [dgknght.app-lib.models :refer [map-index]]
+            [dgknght.app-lib.web :refer [format-date
+                                         format-decimal]]
+            [dgknght.app-lib.inflection :refer [title-case]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.calendar :as calendar]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.state :refer [app-state
                                      current-entity]]
-            [clj-money.inflection :refer [title-case]]
-            [clj-money.decimal :as decimal]
-            [clj-money.util :as util]
-            [clj-money.html :as html]
             [clj-money.bootstrap :as bs]
-            [clj-money.notifications :as notify]
-            [clj-money.calendar :as calendar]
-            [clj-money.forms :as forms]
             [clj-money.api.accounts :as accounts]
-            [clj-money.accounts :refer [nest unnest]]
+            [clj-money.accounts :refer [nest
+                                        unnest
+                                        find-by-path]]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
             [clj-money.api.scheduled-transactions :as sched-trans]))
 
 (defonce ^:private auto-loaded (atom []))
+
+(defn set-next-occurrence
+  [sched-tran]
+  (assoc sched-tran :next-occurrence (next-transaction-date sched-tran)))
+
+(defn- update-sched-trans
+  [state transactions]
+  (let [mapped-trans (lib/index-by :scheduled-transaction-id transactions)]
+    (update-in state
+               [:scheduled-transactions]
+               (fn [sched-trans]
+                 (map (fn [sched-tran]
+                        (if-let [trans (get-in mapped-trans [(:id sched-tran)])]
+                          (-> sched-tran
+                              (assoc :last-occurrence (:transaction-date trans))
+                              set-next-occurrence)
+                          sched-tran))
+                      sched-trans)))))
 
 (defn- realize
   [& args]
@@ -29,11 +52,17 @@
                                   (cons nil args)
                                   args)
         success-fn (fn [result]
-                     (swap! page-state update-in [:created] (fnil concat []) result)
+                     (swap! page-state #(-> %
+                                            (update-sched-trans result)
+                                            (dissoc :busy?)
+                                            (update-in [:created] (fnil concat []) result)))
                      (notify/toast "Success" (if (empty? result)
                                                "No transactions are ready to be created."
                                                "The scheduled transactions where created")))
-        error-fn (notify/danger-fn "Unable to realize the transaction: %s")]
+        error-fn (fn [error]
+                   (swap! page-state dissoc :busy?)
+                   (notify/danger (str "Unable to realize the transaction: " error)))]
+    (swap! page-state assoc :busy? true)
     (if sched-tran
       (sched-trans/realize sched-tran success-fn error-fn)
       (sched-trans/realize success-fn error-fn))))
@@ -66,14 +95,14 @@
                  {}))))
 
 (defn- sched-tran-row
-  [sched-tran page-state]
+  [sched-tran page-state busy?]
   ^{:key (str "sched-tran-row-" (:id sched-tran))}
   [:tr {:class (cond-> []
                  (disabled? sched-tran) (conj "sched-tran-disabled")
                  (expired? sched-tran) (conj "sched-tran-expired"))}
    [:td (:description sched-tran)]
-   [:td (util/format-date (:last-occurrence sched-tran))]
-   [:td (util/format-date (:next-occurrence sched-tran))]
+   [:td (format-date (:last-occurrence sched-tran))]
+   [:td (format-date (:next-occurrence sched-tran))]
    [:td
     [:div.btn-group
      [:button.btn.btn-sm {:title "Click here to realize transactions for this schedule."
@@ -81,7 +110,9 @@
                                    "btn-success"
                                    "btn-light")
                           :on-click #(realize sched-tran page-state)}
-      (bs/icon :gear)]
+      (if busy?
+        (bs/spinner {:size :small})
+        (bs/icon :gear))]
      [:button.btn.btn-info.btn-sm {:title "Click here to edit this scheduled transaction."
                                    :on-click (fn [_]
                                                (swap! page-state assoc :selected (->editable sched-tran))
@@ -119,6 +150,7 @@
 (defn- sched-trans-table
   [page-state]
   (let [sched-trans (r/cursor page-state [:scheduled-transactions])
+        busy? (r/cursor page-state [:busy?])
         hide-inactive? (r/cursor page-state [:hide-inactive?])
         sort-on (r/cursor page-state [:sort-on])
         sort-fn (make-reaction #({:next-occurrence date-compare
@@ -136,7 +168,7 @@
           (->> @sched-trans
                (filter @filter-fn)
                (sort-by @sort-on @sort-fn)
-               (map #(sched-tran-row % page-state))
+               (map #(sched-tran-row % page-state @busy?))
                doall)
           [:tr
            [:td {:col-span 3}
@@ -216,15 +248,10 @@
          [:items index :account-id]
          {:id (str "account-id-" index)
           :search-fn (fn [input callback]
-                       (let [term (string/lower-case input)]
-                         (->> (:accounts @page-state)
-                              vals
-                              (filter #(string/includes? (string/lower-case (:path %))
-                                                         term))
-                              callback)))
+                       (callback (find-by-path input (vals (:accounts @page-state)))))
           ;:on-change #(ensure-entry-state page-state)
           ;:on-key-up #(item-navigate % item-count)
-          :caption-fn :path
+          :caption-fn #(string/join "/" (:path %))
           :value-fn :id
           :find-fn (fn [id callback]
                      (callback
@@ -246,8 +273,8 @@
                                           (map :debit-quantity)
                                           (filter identity)
                                           (reduce decimal/+ (decimal/zero))))
-        css-class (make-reaction #(if (decimal/equal? @total-debits
-                                                      @total-credits)
+        css-class (make-reaction #(if (= @total-debits
+                                         @total-credits)
                                     "text-success"
                                     "text-danger"))]
     (fn []
@@ -255,9 +282,9 @@
        [:tr
         [:td {:col-span 2} (html/space)]
         [:td {:class @css-class}
-         (util/format-decimal @total-debits)]
+         (format-decimal @total-debits)]
         [:td  {:class @css-class}
-         (util/format-decimal @total-credits)]]])))
+         (format-decimal @total-credits)]]])))
 
 (defn- items-table
   [page-state]
@@ -333,9 +360,9 @@
   [{:keys [id transaction-date description value]}]
   ^{:key (str "created-transaction-row-" id)}
   [:tr
-   [:td (util/format-date transaction-date)]
+   [:td (format-date transaction-date)]
    [:td description]
-   [:td (util/format-decimal value)]])
+   [:td (format-decimal value)]])
 
 (defn- created
   [page-state]
@@ -362,7 +389,7 @@
                            (->> %
                                 nest
                                 unnest
-                                util/->indexed-map))
+                                map-index))
                    (notify/danger-fn "Unable to load the accounts: %s")))
 
 (defn- index

@@ -5,39 +5,34 @@
             [clj-http.client :as http]
             [environ.core :refer [env]]
             [cheshire.core :as json]
-            [clj-money.url :refer [protocol
-                                   host
-                                   path
-                                   query
-                                   format-url]]
-            [clj-money.models.identities :as idents])
-  #_(:import [java.util UUID]))
+            [dgknght.app-lib.core :refer [uuid]]
+            [lambdaisland.uri :refer [uri map->query-string]]
+            [clj-money.models.identities :as idents]))
 
 (defn- callback-url []
   {:pre [(env :site-protocol)
          (env :site-host)]}
-  (-> (protocol (env :site-protocol))
-      (host (env :site-host))
-      (path :auth :google :callback)
-      format-url))
+  (-> (uri "/auth/google/callback")
+      (assoc :host (env :site-host)
+             :scheme (env :site-protocol))
+      str))
 
-(defn- redirect-url []
+(defn- redirect-url
+  [state]
   (assert (env :google-client-id) "The google client has not been configured correctly")
-  (-> (protocol "https")
-      (host "accounts.google.com")
-      (path :o :oauth2 :v2 :auth)
-      (query {:response_type "code"
-              :client_id (env :google-client-id)
-              :redirect_uri (callback-url)
-              :scope "email profile"})
-      format-url))
+  (-> (uri "/o/oauth2/v2/auth")
+      (assoc :scheme "https"
+             :host "accounts.google.com"
+             :query (map->query-string {:response_type "code"
+                                        :client_id (env :google-client-id)
+                                        :redirect_uri (callback-url)
+                                        :state state
+                                        :scope "email profile"}))
+      str))
 
 (defn make-token
   [user]
   (jwt/sign {:user-id (:id user)} (env :secret)))
-
-#_(defn- random-state []
-  (str (UUID/randomUUID)))
 
 (defn- make-json-request
   [method uri options]
@@ -70,6 +65,7 @@
 
 (defmethod ^:private callback :code
   [{{:keys [code]} :params}]
+  ; TODO: check the state to see if it matches
   (let [{access-token :access_token} (request-access-token code)
         user-info (request-user-info access-token)
         user (idents/find-or-create-from-profile :google user-info)
@@ -82,6 +78,10 @@
   [{{:keys [error]} :params}]
   (res/redirect (str "/?error=" error)))
 
+(defn- start []
+  (let [state (str (uuid))]
+    (res/redirect (redirect-url state))))
+
 (defroutes routes
-  (GET "/auth/google/start" []  (res/redirect (redirect-url)))
+  (GET "/auth/google/start" [] (start) )
   (GET "/auth/google/callback" req (callback req)))

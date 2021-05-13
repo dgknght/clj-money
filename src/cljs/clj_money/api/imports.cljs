@@ -1,11 +1,12 @@
 (ns clj-money.api.imports
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update get])
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [clj-money.api :as api]
-            [clj-money.util :refer [unserialize-date-time
-                                    update-in-if]]
+  (:require [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.web :refer [unserialize-date-time]]
+            [dgknght.app-lib.api :as api]
             [cljs.core.async :refer [<!]]
-            [cljs-http.client :as http]))
+            [cljs-http.client :as http]
+            [clj-money.state :refer [app-state]]))
 
 (defn- ->multipart-params
   [import-data]
@@ -29,40 +30,40 @@
                    ->multipart-params
                    (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                clj->js)))]
-    (go (let [response (<! (http/post "/api/imports"
+    (go (let [response (<! (http/post (api/path :imports)
                                       (-> {}
                                           (api/multipart-params params)
-                                          api/append-auth)))]
+                                          (assoc :oauth-token (:auth-token @app-state)))))]
           (if (= 201 (:status response))
             (success-fn (update-in (:body response) [:import] after-read))
             (do
               (.log js/console "Unable to create the import " (prn-str response))
               (error-fn (-> response :body :message))))))))
 
-(defn get-one
+(defn get
   [id success-fn error-fn]
-  (api/get-resources (api/path :imports id)
-                     (comp success-fn after-read)
-                     error-fn))
+  (api/get (api/path :imports id)
+           (comp success-fn after-read)
+           error-fn))
 
 (defn select
   [success-fn error-fn]
-  (api/get-resources (api/path :imports)
-                     (comp success-fn
-                           #(map after-read %))
-                     error-fn))
+  (api/get (api/path :imports)
+           (comp success-fn
+                 #(map after-read %))
+           error-fn))
 
 (defn delete
   [{id :id} success-fn error-fn]
-  (api/delete-resource (api/path :imports id)
-                       success-fn
-                       error-fn))
+  (api/delete (api/path :imports id)
+              success-fn
+              error-fn))
 
 (defn start
   [{id :id} success-fn error-fn]
   (go (let [path (api/path :imports id)
             response (<! (http/patch path
-                                     (api/append-auth (api/request))))]
+                                     (assoc (api/request) :oauth-token (:auth-token @app-state))))]
         (if (= 200 (:status response))
           (success-fn)
           (do

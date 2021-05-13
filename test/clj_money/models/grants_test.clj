@@ -1,14 +1,12 @@
 (ns clj-money.models.grants-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-user
                                             find-grant]]
-            [clj-money.validation :as validation]
             [clj-money.models.grants :as grants]
             [clj-money.test-helpers :refer [reset-db]]))
 
@@ -31,21 +29,11 @@
                :user-id (:id user)
                :permissions {:account #{:index :show}}}
         result (grants/create grant)
-        grant-list (map #(dissoc % :updated-at :created-at :id)
-                        (grants/search {:entity-id (:id entity)}))
-        expected-grant-list [{:entity-id (:id entity)
-                              :user-id (:id user)
-                              :permissions {:account #{:index :show}}}]]
-    (is (empty? (validation/error-messages result))
-        "The result does not contain any validation errors")
-
-    (when-not (= expected-grant-list grant-list)
-      (pprint {:expected expected-grant-list
-               :actual grant-list
-               :diff (diff expected-grant-list grant-list)}))
-    (is (= expected-grant-list
-           grant-list)
-        "The grant exists in the list after create")))
+        retrieved (grants/find result)]
+    (is (valid? result)) 
+    (is (comparable? grant result) "The return value has correct attributes")
+    (is (comparable? grant retrieved)
+        "The retrieved value has the correct attributes")))
 
 (def ^:private existing-grant-context
   (assoc grant-context :grants [{:user-id "jane@doe.com"
@@ -62,8 +50,7 @@
                            [:permissions]
                            #(assoc % :transaction #{:index :show})))
         retrieved (grants/find result)]
-    (is (empty? (validation/error-messages result))
-        "The result has not validation errors")
+    (is (valid? result))
     (is (= {:account #{:index :show}
             :transaction #{:index :show}}
            (:permissions retrieved))

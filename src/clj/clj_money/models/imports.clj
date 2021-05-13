@@ -6,10 +6,10 @@
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
-            [clj-money.util :refer [update-in-if
-                                    ->id]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :refer [with-validation]]
             [clj-money.models :as models]
-            [clj-money.validation :refer [with-validation]]
             [clj-money.models.entities :as entities]
             [clj-money.models.images :as images]))
 
@@ -64,7 +64,7 @@
 (defn create
   [impt]
   (with-storage (env :db)
-    (with-validation impt ::new-import []
+    (with-validation impt ::new-import
       (-> impt
           before-save
           storage/create
@@ -92,7 +92,7 @@
 (defn update
   [impt]
   (with-storage (env :db)
-    (with-validation impt ::existing-import []
+    (with-validation impt ::existing-import
       (storage/update impt)
       (find impt))))
 

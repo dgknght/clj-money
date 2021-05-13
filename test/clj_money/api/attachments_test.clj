@@ -4,22 +4,20 @@
             [clj-time.core :as t]
             [cheshire.core :as json]
             [ring.mock.request :as req]
+            [lambdaisland.uri :refer [map->query-string]]
+            [dgknght.app-lib.web :refer [path
+                                         serialize-date]]
+            [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
-            [clj-money.web.test-helpers :refer [assert-created
-                                                assert-successful
-                                                assert-not-found]]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-user
                                             find-transaction
                                             find-attachment]]
             [clj-money.models.attachments :as att]
-            [clj-money.util :refer [path
-                                    map->query-string
-                                    serialize-date]]
-            [clj-money.validation :as v]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -45,25 +43,24 @@
                      (merge (build-multipart-request {:file {:file file
                                                              :content-type "image/jpg"}}))
                      (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        retrieved (att/search {:transaction-id (:id transaction)})]
-    [response body retrieved]))
+                     app
+                     parse-json-body)
+        retrieved (att/find-by {:transaction-id (:id transaction)})]
+    [response retrieved]))
 
 (defn- assert-successful-create
-  [[response body retrieved]]
-  (assert-created response)
-  (is (empty? (::v/errors body))
+  [[{:keys [json-body] :as response} retrieved]]
+  (is (http-created? response))
+  (is (empty? (::v/errors json-body))
       "There are no validation errors")
-  (is (:id body) "An ID is assigned to the new record")
-  (is (some #(= (:transaction-date %)
-                (t/local-date 2015 1 1))
-            retrieved)
+  (is (:id json-body) "An ID is assigned to the new record")
+  (is (comparable? {:transaction-date (t/local-date 2015 1 1)}
+                   retrieved) 
       "The created attachment can be retrieved"))
 
 (defn- assert-blocked-create
-  [[response _ retrieved]]
-  (assert-not-found response)
+  [[response retrieved]]
+  (is (http-not-found? response))
   (is (empty? retrieved)))
 
 (deftest a-user-can-create-an-attachment-in-his-entity
@@ -102,14 +99,14 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= [{:caption "Receipt"}]
          (map #(select-keys % [:caption]) body))
       "The correct content is returned."))
 
 (defn- assert-blocked-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "No records are returned"))
 
 (deftest a-user-can-get-a-list-of-attachments-in-his-entity
@@ -135,7 +132,7 @@
 
 (defn- assert-successful-update
   [[response body retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= {:caption "Updated caption"}
          (select-keys body [:caption]))
       "The updated attachment is returned")
@@ -145,7 +142,7 @@
 
 (defn- assert-blocked-update
   [[response _ retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is (= {:caption "Receipt"}
          (select-keys retrieved [:caption]))
       "The database is not updated"))
@@ -172,12 +169,12 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (nil? retrieved) "The attachment cannot be retrieved after delete"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved "The attachment can be retrieved after a blocked delete"))
 
 (deftest a-user-can-delete-an-attachment-in-his-entity

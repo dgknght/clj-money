@@ -1,27 +1,20 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [ring.util.response :refer [status response header]]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
-            [environ.core :refer [env]]
-            [cheshire.core :as json]
+  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
-            [clj-money.util :refer [update-in-if]]
-            [clj-money.api :refer [->response
-                                   error->response
-                                   invalid->response
-                                   not-found
-                                   log-error]]
-            [clj-money.validation :as validation]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models :as models]
-            [clj-money.authorization :refer [authorize +scope] :as authorization]
             [clj-money.models.entities :as entities]
             [clj-money.authorization.entities]))
 
 (defn- index
   [{:keys [authenticated params]}]
-  (->response (entities/select (-> params
-                                   (select-keys [:name])
-                                   (+scope ::models/entity authenticated)))))
+  (api/response
+    (entities/select (-> params
+                         (select-keys [:name])
+                         (+scope ::models/entity authenticated)))))
 
 (defn- extract-entity
   [{:keys [body authenticated]}]
@@ -33,56 +26,37 @@
 
 (defn- create
   [req]
-  (let [entity (extract-entity req)]
-    (try
-      (let [result (entities/create entity)]
-        (if (validation/has-error? result)
-          (invalid->response result)
-          (->response result 201)))
-      (catch Exception e
-        (log-error e "Unable to create the entity.")
-        (error->response e "Unable to create the entity.")))))
+  (-> req
+      extract-entity
+      entities/create
+      api/creation-response))
+
+(defn- find-and-auth
+  [{:keys [params authenticated]} action]
+  (some-> params
+          (select-keys [:id])
+          (+scope ::models/entity authenticated)
+          entities/find-by
+          (authorize action authenticated)))
 
 (defn- update
-  [{:keys [params body authenticated]}]
-  (let [entity (authorize (entities/find (:id params))
-                          ::authorization/update
-                          authenticated)
-        updated (merge entity (-> body
-                                  (update-in-if [:settings :monitored-account-ids] set)
-                                  (select-keys [:name :settings])))]
-    (try
-      (let [result (entities/update updated)]
-        (if (validation/has-error? result)
-          (-> {:message (validation/error-messages result)}
-              json/generate-string
-              response
-              (header "Content-Type" "application/json")
-              (status 422))
-          (-> result
-              json/generate-string
-              response
-              (header "Content-Type" "application/json")
-              (status 200))))
-      (catch Exception e
-        (->  (if (env :show-error-messages?)
-               (.getMessage e)
-               "Unable to save the entity.")
-             response
-             (header "Content-Type" "application/json")
-             (status 500))))))
+  [{:keys [body] :as req}]
+  (if-let [entity (find-and-auth req ::authorization/update)]
+    (-> entity
+        (merge (-> body
+                   (update-in-if [:settings :monitored-account-ids] set)
+                   (select-keys [:name :settings])))
+        entities/update
+        api/update-response)
+    api/not-found))
 
 (defn- delete
-  [{:keys [params authenticated]}]
-  (if-let [entity (first (entities/select (-> params
-                                              (select-keys [:id])
-                                              (+scope ::models/entity authenticated))))]
+  [req]
+  (if-let [entity (find-and-auth req ::authorization/destroy)]
     (do
-      (entities/delete (authorize entity
-                                  ::authorization/destroy
-                                  authenticated))
-      (->response))
-    (not-found)))
+      (entities/delete entity)
+      (api/response))
+    api/not-found))
 
 (defroutes routes
   (GET "/api/entities" req (index req))

@@ -4,18 +4,17 @@
             [clojure.core.async :refer [go-loop <! chan]]
             [cheshire.core :as json]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
-            [clj-money.util :refer [update-in-if]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.api :as api]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.validation :as v]
-            [clj-money.api :refer [->response
-                                   not-found]]
             [clj-money.models :as models]
             [clj-money.models.images :as images]
             [clj-money.import :refer [import-data]]
             [clj-money.import.gnucash]
             [clj-money.import.edn]
             [clj-money.models.imports :as imports]
-            [clj-money.authorization :refer [authorize +scope] :as authorization]
+            [dgknght.app-lib.authorization :refer [authorize +scope] :as authorization]
             [clj-money.authorization.imports]))
 
 (defn- launch-and-track-import
@@ -71,13 +70,13 @@
     (if-let [errors  (-> imp
                          v/flat-error-messages
                          seq)]
-      (->response {:error (format "Unable to save the import record. %s"
-                                  (string/join ", " errors))}
-                  422)
+      (api/response {:error (format "Unable to save the import record. %s"
+                                    (string/join ", " errors))}
+                    422)
       (let [{:keys [entity]} (launch-and-track-import imp)]
-        (->response {:entity entity
-                     :import imp}
-                    201)))))
+        (api/response {:entity entity
+                       :import imp}
+                      201)))))
 
 (defn- step-1
   [{:keys [params authenticated] :as req}]
@@ -85,11 +84,11 @@
     (if-let [errors (->> images
                          (mapcat v/error-messages)
                          seq)]
-      (->response {:error (format "Unable to save the source file(s). %s"
-                                  (->> errors
-                                       (mapcat vals)
-                                       (string/join ", ")))}
-                  422)
+      (api/response {:error (format "Unable to save the source file(s). %s"
+                                    (->> errors
+                                         (mapcat vals)
+                                         (string/join ", ")))}
+                    422)
       (step-2 req images))))
 
 (defn- create
@@ -107,22 +106,22 @@
 (defn- show
   [req]
   (if-let [imp (find-and-authorize req ::authorization/show)]
-    (->response imp)
-    (not-found)))
+    (api/response imp)
+    api/not-found))
 
 (defn- index
   [{:keys [authenticated params]}]
-  (->response (imports/search (-> params
-                                  (select-keys [:entity-name])
-                                  (+scope ::models/import authenticated)))))
+  (api/response (imports/search (-> params
+                                    (select-keys [:entity-name])
+                                    (+scope ::models/import authenticated)))))
 
 (defn- delete
   [req]
   (if-let [imp (find-and-authorize req ::authorization/show)]
     (do
       (imports/delete imp)
-      (->response))
-    (not-found)))
+      (api/response))
+    api/not-found))
 
 (defn- start
   [{:keys [params authenticated]}]
@@ -130,7 +129,7 @@
                        ::authorization/update
                        authenticated)]
     (launch-and-track-import imp)
-    (->response imp)))
+    (api/response imp)))
 
 (defroutes routes
   (GET "/api/imports" req (index req))

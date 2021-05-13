@@ -1,11 +1,12 @@
 (ns clj-money.budgets
-  (:require #?(:clj [clj-time.core :as t]
+  (:require [clojure.string :as string]
+            #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])
             #?(:clj [clj-time.format :as tf]
                :cljs [cljs-time.format :as tf])
             #?(:clj [clj-time.coerce :as tc]
                :cljs [cljs-time.coerce :as tc])
-            #?(:cljs [clj-money.decimal :as decimal])))
+            #?(:cljs [dgknght.app-lib.decimal :as decimal])))
 
 (def periods #{:month :quarter :year})
 
@@ -34,7 +35,7 @@
                             (sort-by (comp :path :account))
                             (map (fn [item]
                                    {:item (dissoc item :account) ; TODO: should I remove this here? It simplifies testing, but is it better?
-                                    :caption (-> item :account :path)
+                                    :caption (string/join "/" (-> item :account :path))
                                     :total (sum (:periods item))})))]
     {:caption caption
      :items rendered-items

@@ -12,8 +12,8 @@
             [clojure.java.jdbc :as jdbc]
             [honeysql.core :as sql]
             [honeysql.helpers :refer [select from where limit]]
+            [dgknght.app-lib.web :refer [unserialize-date]]
             [clj-money.core]
-            [clj-money.util :refer [unserialize-date]]
             [clj-money.models.settings :as settings]
             [clj-money.partitioning :refer [create-partition-tables]]))
 

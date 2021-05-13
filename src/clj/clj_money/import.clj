@@ -1,6 +1,7 @@
 (ns clj-money.import
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.string :as string]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<!! >!! chan go] :as async]
             [environ.core :refer [env]]
@@ -8,7 +9,7 @@
             [clj-time.predicates :refer [last-day-of-the-month?]]
             [stowaway.implicit :refer [with-storage
                                        with-transacted-storage]]
-            [clj-money.validation :as v]
+            [dgknght.app-lib.validation :as v]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.models.settings :as settings]
@@ -131,9 +132,9 @@
       (throw (ex-info (format "Unable to create commodity %s (%s): %s"
                               (:name created)
                               (:symbol created)
-                              (v/error-messages created))
-                      created))
-      (log/infof "imported commodity %s (%s)" (:name created)  (:symbol created)))
+                              (string/join "; " (v/flat-error-messages created)))
+                      {:failures (v/flat-error-messages created)}))
+      (log/infof "imported commodity %s (%s)" (:name created) (:symbol created)))
     (-> context
         (update-in [:commodities] #((fnil conj []) % created))
         (update-in [:commodities-by-symbol] #((fnil assoc {}) % symbol created))

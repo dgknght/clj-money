@@ -4,16 +4,17 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
-            [clj-money.decimal :as decimal]
-            [clj-money.html :as html]
-            [clj-money.util :as util :refer [format-decimal
+            [dgknght.app-lib.models :refer [map-index]]
+            [dgknght.app-lib.web :refer [format-decimal
                                              format-percent]]
-            [clj-money.inflection :refer [humanize
-                                          title-case]]
+            [dgknght.app-lib.inflection :refer [humanize
+                                                title-case]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.bootstrap :as bs]
             [clj-money.state :refer [app-state]]
-            [clj-money.forms :as forms]
-            [clj-money.notifications :as notify]
             [clj-money.accounts :refer [nest
                                         unnest]]
             [clj-money.budgets :refer [period-description]]
@@ -93,7 +94,7 @@
             [:div.spinner-border.spinner-border-sm.text-light
              [:span.sr-only "Loading..."]]
             (bs/icon :arrow-repeat))]]]
-       [:div.row
+       [:div.row.mt-3
         [:div.col
          [forms/checkbox-field
           page-state
@@ -148,7 +149,7 @@
             [:div.spinner-border.spinner-border-sm.text-light
              [:span.sr-only "Loading..."]]
             (bs/icon :arrow-repeat))]]]
-       [:div.row
+       [:div.row.mt-3
         [:div.col
          [forms/checkbox-field
           page-state
@@ -210,7 +211,7 @@
    page-state]
   (let [budget (update-in budget
                           [:items]
-                          util/->indexed-map
+                          map-index
                           :account-id)
         budget-item (or (get-in budget [:items account-id])
                         {:account-id account-id
@@ -332,7 +333,7 @@
     (fn []
       [:div.background.fixed-top {:class (when-not @apply-info "d-none")}
        [:div.card
-        [:div.card-header (str "Apply Budget Item: " (:path @account))]
+        [:div.card-header (str "Apply Budget Item: " (string/join "/" (:path @account)))]
         [:div.card-body
          [:form {:on-submit #(.preventDefault %)
                  :no-validate true}

@@ -1,12 +1,12 @@
 (ns clj-money.pagination
   (:require [clojure.spec.alpha :as s]
-            [clj-money.url :as url]))
+            [lambdaisland.uri :refer [uri map->query-string]]))
 
 (s/def ::page integer?)
 (s/def ::per-page integer?)
 (s/def ::total integer?)
 (s/def ::url map?)
-(s/def ::max-pages (s/and integer? #(< % 3)))
+(s/def ::max-pages (s/and integer? #(< 3 %)))
 (s/def ::pagination-options (s/keys :req-un [::total ::url] :opt-un [::page ::per-page]))
 
 (defn- validate-options
@@ -25,23 +25,23 @@
   :url       - the base url for the navigation links"
   [options]
   [:nav {:aria-label "Page navigation"}
-   (let [{:keys [url total per-page page]} (validate-options options)
+   (let [{:keys [total per-page page]} (validate-options options)
          page-count (int (Math/ceil (/ total per-page)))]
      [:nav {:aria-label "Page navigation"}
       [:div.row
        [:div.col-sm-5.text-right
         [:div.btn-group
-         [:a.btn.btn-default {:href (-> url
-                                        (url/query {:page 1
-                                                    :per-page per-page})
-                                        url/format-url)}
+         [:a.btn.btn-default {:href (-> (uri "")
+                                        (assoc :query (map->query-string {:page 1
+                                                                          :per-page per-page}))
+                                        str)}
           [:span.glyphicon.glyphicon-fast-backward {:aria-hidden true}]]
-         [:a.btn.btn-default {:href (-> url
-                                        (url/query {:page (if (= 1 page)
-                                                            1
-                                                            (- page 1))
-                                                    :per-page per-page})
-                                        url/format-url)}
+         [:a.btn.btn-default {:href (-> (uri "")
+                                        (assoc :query (map->query-string {:page (if (= 1 page)
+                                                                                  1
+                                                                                  (- page 1))
+                                                                          :per-page per-page}))
+                                        str)}
           [:span.glyphicon.glyphicon-step-backward {:aria-hidden true}]]]]
        [:div.col-sm-2.text-center
         [:div.input-group
@@ -50,25 +50,25 @@
                                           :value page}]
          [:span.input-group-btn
           [:button.btn.btn-default
-           {:data-url (-> url
-                          (url/query {:page "_p_"
-                                      :per-page per-page})
-                          url/format-url)
+           {:data-url (-> (uri "")
+                          (assoc :query (map->query-string {:page "_p_"
+                                                            :per-page per-page}))
+                          str)
             :onclick "window.location.href = this.dataset.url.replace('_p_', $(\"#page-input\").val());"}
            "Go"]]]]
        [:div.col-sm-5.text-left
         [:div.btn-group
-         [:a.btn.btn-default {:href (-> url
-                                        (url/query {:page (if (= page-count page)
-                                                            page-count
-                                                            (+ page 1))
-                                                    :per-page per-page})
-                                        url/format-url)}
+         [:a.btn.btn-default {:href (-> (uri "")
+                                        (assoc :query (map->query-string {:page (if (= page-count page)
+                                                                                  page-count
+                                                                                  (+ page 1))
+                                                                          :per-page per-page}))
+                                        str)}
           [:span.glyphicon.glyphicon-step-forward {:aria-hidden true}]]
-         [:a.btn.btn-default {:href (-> url
-                                        (url/query {:page page-count
-                                                    :per-page per-page})
-                                        url/format-url)}
+         [:a.btn.btn-default {:href (-> (uri "")
+                                        (assoc :query (map->query-string {:page page-count
+                                                                          :per-page per-page}))
+                                        str)}
           [:span.glyphicon.glyphicon-fast-forward {:aria-hidden true}]]]]]])])
 
 (defn prepare-options

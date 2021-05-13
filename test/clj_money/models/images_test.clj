@@ -2,11 +2,11 @@
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [clojure.java.io :as io]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.test]
             [clj-money.io :refer [read-bytes]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.validation :as validation]
             [clj-money.models.images :as images]))
 
 (use-fixtures :each reset-db)
@@ -24,28 +24,24 @@
 (deftest create-an-image
   (let [context (realize image-context)
         result (images/create (attributes context))]
-    (is (empty? (validation/error-messages result))
-        "The result has no validation errors")
+    (is (valid? result))
     (is (:id result)
         "The result has an :id value")))
 
 (deftest user-id-is-required
   (let [context (realize image-context)
         result (images/create (dissoc (attributes context) :user-id))]
-    (is (seq (validation/error-messages result :user-id))
-        "The result has a validation error on :user-id")))
+    (is (invalid? result [:user-id] "User is required"))))
 
 (deftest original-filename-is-required
   (let [context (realize image-context)
         result (images/create (dissoc (attributes context) :original-filename))]
-    (is (seq (validation/error-messages result :original-filename))
-        "The result has a validation error on :original-filename")))
+    (is (invalid? result [:original-filename] "Original filename is required"))))
 
 (deftest body-hash-is-generated
   (let [context (realize image-context)
         result (images/create (attributes context))]
-    (is (empty? (validation/error-messages result))
-        "There are no validation errors")
+    (is (valid? result))
     (is (= "7e3feff7f2dc501a32af044d3ead2f8667649b79"
            (:body-hash result))
         "The body-hash value is calculated and saved")))
@@ -54,20 +50,15 @@
   (let [context (realize image-context)
         _ (images/create (attributes context))
         image-2 (images/create (attributes context))]
-    (is (seq (validation/error-messages image-2 :body-hash))
-        "The result has a validation error on :body")))
+    (is (invalid? image-2 [:body-hash] "The image has already been added"))))
 
 (deftest body-is-required
   (let [context (realize image-context)
         result (images/create (dissoc (attributes context) :body))]
-    (is (seq (validation/error-messages result :body))
-        "The result has a validation error on :body")))
+    (is (invalid? result [:body] "Body is required"))))
 
 (deftest content-type-is-required
   (let [context (realize image-context)
         result (images/create (dissoc (attributes context)
                                       :content-type))]
-    (is (not (validation/valid? result))
-        "The value can be retreived from the database")
-    (is (seq (validation/error-messages result :content-type))
-        "The content-type attribute has an error message")))
+    (is (invalid? result [:content-type] "Content type is required"))))

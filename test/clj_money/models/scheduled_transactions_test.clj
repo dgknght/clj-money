@@ -2,10 +2,9 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clj-time.core :as t]
             [stowaway.core :refer [tag]]
+            [dgknght.app-lib.test]
             [clj-money.models :as models]
-            [clj-money.validation :as v]
-            [clj-money.test-helpers :refer [reset-db
-                                            assert-contains]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-account
@@ -36,32 +35,21 @@
 (defn- successful-creation
   [[result retrieved]]
   (is (map? result) "A map is returned")
+  (is (valid? result))
   (is (= ::models/scheduled-transaction
          (tag result)))
-  (is (empty? (v/error-messages result))
-      "There are no validation errors")
   (is (:id result) "The returned value has an :id")
   (is (= *attr*
          (comparable (first retrieved)))
         "The record can be retrieved"))
 
 (defn- failed-validation
-  ([attr artifacts] (failed-validation attr nil artifacts))
-  ([attr msg [result retrieved]]
-   {:pre [(vector? attr)]}
+  ([path artifacts] (failed-validation path nil artifacts))
+  ([path error [result retrieved]]
+   {:pre [(vector? path)]}
 
    (is (map? result) "A map is returned")
-   (is (v/has-error? result) "The model is not valid")
-   (let [pred (if msg
-                   #(= msg %)
-                   seq)
-         messages (get-in (v/error-messages result) attr)]
-     (is (some pred messages)
-         (format "Expected %s, found %s"
-                 (if msg
-                   (format "\"%s\"" msg)
-                   "any error")
-                 messages)))
+   (is (invalid? result path error))
    (is (empty? retrieved)
        "The record is not created")))
 
@@ -91,15 +79,15 @@
 
 (deftest entity-id-is-required
   (binding [*attr* (dissoc (init-attr) :entity-id)]
-    (failed-validation [:entity-id] (create-scheduled-transaction))))
+    (failed-validation [:entity-id] "Entity is required" (create-scheduled-transaction))))
 
 (deftest description-is-required
   (binding [*attr* (dissoc (init-attr) :description)]
-    (failed-validation [:description] (create-scheduled-transaction))))
+    (failed-validation [:description] "Description is required" (create-scheduled-transaction))))
 
 (deftest interval-type-is-required
   (binding [*attr* (dissoc (init-attr) :interval-type)]
-    (failed-validation [:interval-type] (create-scheduled-transaction))))
+    (failed-validation [:interval-type] "Interval type is required" (create-scheduled-transaction))))
 
 (deftest interval-type-can-be-week
   (binding [*attr* (assoc (init-attr) :interval-type :week)]
@@ -115,23 +103,23 @@
 
 (deftest interval-type-cannot-be-off-list
   (binding [*attr* (assoc (init-attr) :interval-type :not-valid)]
-    (failed-validation [:interval-type] (create-scheduled-transaction))))
+    (failed-validation [:interval-type] "Interval type must be day, week, month, or year" (create-scheduled-transaction))))
 
 (deftest start-date-is-required
   (binding [*attr* (dissoc (init-attr) :start-date)]
-    (failed-validation [:start-date] (create-scheduled-transaction))))
+    (failed-validation [:start-date] "Start date is required" (create-scheduled-transaction))))
 
 (deftest date-spec-is-required
   (binding [*attr* (dissoc (init-attr) :date-spec)]
-    (failed-validation [:date-spec] (create-scheduled-transaction))))
+    (failed-validation [:date-spec] "Date spec is required" (create-scheduled-transaction))))
 
 (deftest interval-count-is-required
   (binding [*attr* (dissoc (init-attr) :interval-count)]
-    (failed-validation [:interval-count] (create-scheduled-transaction))))
+    (failed-validation [:interval-count] "Interval count is required" (create-scheduled-transaction))))
 
-(deftest interval-cannot-be-less-than-zero
-  (binding [*attr* (assoc (init-attr) :interval-count -1)]
-    (failed-validation [:interval-count] (create-scheduled-transaction))))
+(deftest interval-must-be-greater-than-zero
+  (binding [*attr* (assoc (init-attr) :interval-count 0)]
+    (failed-validation [:interval-count] "Interval count must be greater than zero" (create-scheduled-transaction))))
 
 (deftest at-least-two-items-are-required
   (binding [*attr* (update-in (init-attr) [:items] #(take 1 %))]
@@ -148,7 +136,7 @@
 (deftest item-account-id-is-required
   (binding [*attr* (update-in (init-attr) [:items 0] dissoc :account-id)]
     (failed-validation [:items 0 :account-id]
-                       "Account id is required"
+                       "Account is required"
                        (create-scheduled-transaction))))
 
 (deftest item-action-is-required
@@ -159,8 +147,8 @@
 
 (deftest item-action-must-be-credit-or-debit
   (binding [*attr* (assoc-in (init-attr) [:items 0 :action] :not-valid)]
-    (failed-validation [:items :action]
-                       "Action must be one of: debit, credit"
+    (failed-validation [:items 0 :action]
+                       "Action must be debit or credit"
                        (create-scheduled-transaction))))
 
 (deftest item-quantity-is-required
@@ -171,8 +159,8 @@
 
 (deftest item-quantity-must-be-greater-than-zero
   (binding [*attr* (assoc-in (init-attr) [:items 0 :quantity] 0M)]
-    (failed-validation [:items :quantity]
-                       "Quantity must be a positive number"
+    (failed-validation [:items 0 :quantity]
+                       "Quantity must be greater than zero"
                        (create-scheduled-transaction))))
 
 (def ^:private update-context
@@ -212,10 +200,10 @@
                                    (merge changes)
                                    (assoc-in [:items 0 :quantity] 901M)
                                    (assoc-in [:items 2 :quantity] 1001M))))]
-    (is (empty? (v/error-messages result)) "There are no validation errors")
+    (is (valid? result))
     (is (map? result) "A map is returned")
-    (assert-contains changes result "The updated scheduled-transaction is returned")
-    (assert-contains changes retrieved "The record is updated in the database")
+    (is (comparable? changes result) "The updated scheduled-transaction is returned")
+    (is (comparable? changes retrieved) "The record is updated in the database")
     (is (= #{1001M 901M 100M}
            (->> (:items retrieved)
                 (map :quantity)
@@ -232,8 +220,7 @@
                                               {:action :debit
                                                :account-id (:id (find-account ctx "Medicare"))
                                                :quantity 50M}))))]
-    (is (empty? (v/error-messages result))
-        "There are no validation errors")
+    (is (valid? result))
     (is (= (->> (:items retrieved)
                 (map #(select-keys % [:action :quantity]))
                 set)
@@ -269,8 +256,7 @@
   [[result transactions sched-tran]]
   (is (every? :id result)
       "The returned values contain an :id")
-  (is (empty? (v/error-messages result))
-      "The result contains no validation errors")
+  (is (valid? result))
   (is (= (:transaction-date (last transactions))
          (:last-occurrence sched-tran))
       "The scheduled transaction last occurrence is updated")

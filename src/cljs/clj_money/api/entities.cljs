@@ -1,7 +1,7 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [clj-money.util :refer [update-in-if]]
-            [clj-money.api :as api]))
+  (:require [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.api :as api]))
 
 (defn- after-read
   [entity]
@@ -11,28 +11,28 @@
 
 (defn select
   [success-fn error-fn]
-  (api/get-resources (api/path :entities)
-                     (comp success-fn
-                           #(map after-read %))
-                     error-fn))
+  (api/get (api/path :entities)
+           (comp success-fn
+                 #(map after-read %))
+           error-fn))
 
 (defn create
   [entity success-fn error-fn]
-  (api/create-resource (api/path :entities)
-                       entity
-                       (comp
-                        success-fn
-                        after-read)
-                       error-fn))
+  (api/post (api/path :entities)
+            entity
+            (comp
+              success-fn
+              after-read)
+            error-fn))
 
 (defn update
   [entity success-fn error-fn]
-  (api/update-resource (api/path :entities (:id entity))
-                       entity
-                       (comp
-                        success-fn
-                        after-read)
-                       error-fn))
+  (api/patch (api/path :entities (:id entity))
+             entity
+             (comp
+               success-fn
+               after-read)
+             error-fn))
 
 (defn save
   [entity success-fn error-fn]
@@ -42,6 +42,6 @@
 
 (defn delete
   [entity success-fn error-fn]
-  (api/delete-resource (api/path :entities (:id entity))
-                       success-fn
-                       error-fn))
+  (api/delete (api/path :entities (:id entity))
+              success-fn
+              error-fn))

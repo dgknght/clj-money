@@ -1,18 +1,14 @@
 (ns clj-money.models.budgets-test
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [clj-time.core :as t]
-            [clj-money.validation :as validation]
+            [dgknght.app-lib.test]
             [clj-money.models.budgets :as budgets]
             [clj-money.test-context :refer [realize
                                             basic-context
                                             find-entity
                                             find-account
-                                            find-accounts
                                             find-budget]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=
-                                            assert-comparable
-                                            assert-validation-error]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -43,86 +39,51 @@
 (deftest create-a-budget
   (let [ctx (realize budget-context)
         entity (find-entity ctx "Personal")
-        [salary groceries rent]  (find-accounts ctx "Salary" "Groceries" "Rent")
         attr (attributes ctx)
         budget (budgets/create attr)
         retrieved (budgets/find-by {:entity-id (:id entity)}
                                    {:include-items? true})]
-    (is (not (nil? (:id budget))) "The returned value has an id")
-    (assert-comparable attr
-                       retrieved
-                       "The budget record can be retrieved.")
-    (is (= [1000M 1001M 1002M]
-           (->> (:items retrieved)
-                (filter #(= (:id salary) (:account-id %)))
-                (map :periods)
-                first))
-        "The salary item can be retrieved")
-    (is (some #(selective= {:account-id (:id groceries)
-                            :periods [100M 90M 105M]}
-                           %)
-              (:items retrieved))
-        "The groceries item can be retrieved")
-    (is (some #(selective= {:account-id (:id rent)
-                            :periods [500M 500M 500M]}
-                           %)
-              (:items retrieved))
-        "The rent item can be retrieved")))
+    (is (:id budget) "The returned value has an id")
+    (is (valid? budget))
+    (is (comparable? (dissoc attr :items) (dissoc retrieved :items)) "The budget record can be retrieved.")
+    (doseq [[e a] (partition-all 2 (interleave (:items attr) (:items retrieved)))]
+      (is (comparable? e a) "The correct items are retrieved"))))
 
 (deftest entity-id-is-required
   (let [context (realize budget-context)]
-    (assert-validation-error
-     :entity-id
-     "Entity id is required"
-     (budgets/create (dissoc (attributes context) :entity-id)))))
+    (is (invalid? (budgets/create (dissoc (attributes context) :entity-id))
+                  [:entity-id]
+                  "Entity is required"))))
 
 (deftest name-is-required
   (let [context (realize budget-context)
         result (budgets/create  (dissoc (attributes context) :name))]
-    (assert-validation-error
-     :name
-     "Name is required"
-     result)))
+    (is (invalid? result [:name] "Name is required"))))
 
 (deftest start-date-is-required
   (let [context (realize budget-context)
         result (budgets/create (dissoc (attributes context) :start-date))]
-    (assert-validation-error
-     :start-date
-     "Start date is required"
-     result)))
+    (is (invalid? result [:start-date] "Start date is required"))))
 
 (deftest period-is-required
   (let [context (realize budget-context)
         result (budgets/create (dissoc (attributes context) :period))]
-    (assert-validation-error
-     :period
-     "Period is required"
-     result)))
+    (is (invalid? result [:period] "Period is required"))))
 
 (deftest period-must-be-week-month-or-quarter
   (let [context (realize budget-context)
         result (budgets/create (assoc (attributes context) :period :not-a-period))]
-    (assert-validation-error
-     :period
-     "Period must be one of: quarter, week, month"
-     result)))
+    (is (invalid? result [:period] "Period must be week or month"))))
 
 (deftest period-count-is-required
   (let [context (realize budget-context)
         result (budgets/create (dissoc (attributes context) :period-count))]
-    (assert-validation-error
-     :period-count
-     "Period count is required"
-     result)))
+    (is (invalid? result [:period-count] "Period count is required"))))
 
 (deftest period-count-must-be-greater-than-zero
   (let [context (realize budget-context)
         result (budgets/create (assoc (attributes context) :period-count 0))]
-    (assert-validation-error
-     :period-count
-     "Period count must be greater than zero"
-     result)))
+    (is (invalid? result [:period-count] "Period count must be greater than zero"))))
 
 (def delete-context
   (assoc budget-context
@@ -159,8 +120,7 @@
                     (assoc :start-date (t/local-date 2015 1 1))
                     (assoc-in [:items 0 :periods] (repeat 12 1100M))))
         retrieved (budgets/find budget)]
-    (is (empty? (validation/error-messages result))
-        "The budget is valid")
+    (is (valid? result))
     (is (= "edited" (:name result))
         "The returned value reflects the update")
     (is (= (t/local-date 2015 12 31)
@@ -184,19 +144,16 @@
                 first))
         "The retrieved value reflects the updated items")))
 
-#_(deftest budget-item-requires-account-id
+(deftest budget-item-requires-account-id
     (let [context (realize budget-context)
           attr (update-in (attributes context)
                           [:items 0]
                           dissoc
                           :account-id)
           result (budgets/create attr)]
-      (assert-validation-error
-       :account-id
-       "Account id is required"
-       result)))
+      (is (invalid? result [:items 0 :account-id] "Account is required"))))
 
-#_(deftest budget-item-account-must-belong-to-budget-entity
+(deftest budget-item-account-must-belong-to-budget-entity
     (let [context (realize budget-context)
           account (find-account context "Sales")
           attributes (update-in (attributes context)
@@ -205,12 +162,9 @@
                                 :account-id
                                 (:id account))
           result (budgets/create attributes)]
-      (assert-validation-error
-       :account-id
-       "Account must belong to the same entity as the budget"
-       result)))
+      (is (invalid? result [:items] "All accounts must belong to the budget entity"))))
 
-#_(deftest budget-item-has-same-period-count-as-budget
+(deftest budget-item-has-same-period-count-as-budget
     (let [context (realize budget-context)
           attributes (update-in (attributes context)
                                 [:items 0]
@@ -218,12 +172,11 @@
                                 :periods
                                 [100M])
           result (budgets/create attributes)]
-      (assert-validation-error
-       :periods
-       "Number of periods must match the budget \"Period count\" value"
-       result)))
+      (is (invalid? result [:items] "All items must have a number of periods that matches the budget period count"))))
 
 ;; Periods
+
+; TODO: Move these to cljc?
 
 (deftest get-a-budget-end-date
   (testing "a monthly budget"

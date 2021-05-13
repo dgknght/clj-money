@@ -1,5 +1,5 @@
 (ns clj-money.j-query
-  (:require [clj-money.macros :refer-macros [call]]))
+  (:require [dgknght.app-lib.client-macros :refer-macros [call]]))
 
 (defn- match
   [selector]

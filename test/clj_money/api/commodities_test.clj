@@ -3,22 +3,16 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=
-                                            seq-containing?]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-created
-                                                assert-bad-request
-                                                assert-not-found]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.util :refer [path]]
             [clj-money.models.commodities :as coms]
-            [clj-money.validation :as v]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -57,12 +51,12 @@
 
 (defn- assert-successful-count
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= {:count 2} body) "The body contains the count"))
 
 (defn- assert-blocked-count
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= {:count 0} body) "The body contains a count of zero"))
 
 (deftest a-user-can-get-a-count-of-commodities-in-his-entity
@@ -87,20 +81,20 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
-  (is (seq-containing? [{:name "Microsoft, Inc"
-                         :symbol "MSFT"
-                         :type "stock"
-                         :exchange "nasdaq"}
-                        {:name "US Dollar"
-                         :symbol "USD"
-                         :type "currency"}]
-                       body)
+  (is (http-success? response))
+  (is (seq-of-maps-like? [{:name "Microsoft, Inc"
+                             :symbol "MSFT"
+                             :type "stock"
+                             :exchange "nasdaq"}
+                            {:name "US Dollar"
+                             :symbol "USD"
+                             :type "currency"}]
+                           body)
       "The body contains the list of commodities"))
 
 (defn- assert-blocked-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (empty? body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-commodities-in-his-entity
@@ -124,17 +118,17 @@
 
 (defn- assert-successful-get
   [[response body]]
-  (assert-successful response)
-  (is (selective= {:name "Microsoft, Inc"
-                   :symbol "MSFT"
-                   :type "stock"
-                   :exchange "nasdaq"}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:name "Microsoft, Inc"
+                    :symbol "MSFT"
+                    :type "stock"
+                    :exchange "nasdaq"}
+                   body)
       "The specified commodity is returned in the response"))
 
 (defn- assert-blocked-get
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-commodity-in-his-entity
   (assert-successful-get (get-a-commodity "john@doe.com")))
@@ -166,25 +160,23 @@
 
 (defn- assert-successful-create
   [[response body retrieved]]
-  (assert-created response)
-  (is (selective= commodity-attributes
-                  body)
+  (is (http-created? response))
+  (is (comparable? commodity-attributes
+                   body)
       "The newly created commodity is returned in the response")
-  (is (some #(selective= (-> commodity-attributes
-                             (update-in [:type] keyword)
-                             (update-in [:exchange] keyword))
-                         %)
-            retrieved)
+  (is (seq-with-map-like? (-> commodity-attributes
+                              (update-in [:type] keyword)
+                              (update-in [:exchange] keyword))
+                          retrieved)
       "The new commodity can be retrieved from the database"))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (not-any? #(selective= (-> commodity-attributes
+  (is (http-not-found? response))
+  (is (seq-with-no-map-like? (-> commodity-attributes
                                  (update-in [:type] keyword)
                                  (update-in [:exchange] keyword))
-                             %)
-                retrieved)
+                             retrieved)
       "The commodity is not created"))
 
 (deftest a-user-can-create-a-commodity-in-his-entity
@@ -206,10 +198,8 @@
                      app)
         body (json/parse-string (:body response) true)
         retrieved (coms/search {:entity-id (:id entity)})]
-    (assert-bad-request response)
-    (is (= ["Exchange must be one of: amex, nasdaq, nyse"]
-           (get-in body [::v/errors :exchange]))
-        "The validation error is present")
+    (is (http-bad-request? response))
+    (is (invalid? body [:exchange] "Exchange must be amex, nasdaq, or nyse"))
     (is (not-any? #(= "AAPL" (:symbol %)) retrieved) "The record is not created")))
 
 (defn- update-a-commodity
@@ -229,19 +219,19 @@
 
 (defn- assert-successful-update
   [[response body retrieved]]
-  (assert-successful response)
-  (is (selective= {:name "Microsoft, Ltd."}
-                  body)
+  (is (http-success? response))
+  (is (comparable? {:name "Microsoft, Ltd."}
+                   body)
       "The updated commodity is returned in the body")
-  (is (selective= {:name "Microsoft, Ltd."}
-                  retrieved)
+  (is (comparable? {:name "Microsoft, Ltd."}
+                   retrieved)
       "The record is updated in the database"))
 
 (defn- assert-blocked-update
   [[response _ retrieved]]
-  (assert-not-found response)
-  (is (selective= {:name "Microsoft, Inc"}
-                  retrieved)
+  (is (http-not-found? response))
+  (is (comparable? {:name "Microsoft, Inc"}
+                   retrieved)
       "The record is not updated in the database"))
 
 (deftest a-user-can-update-a-commodity-in-his-entity
@@ -265,13 +255,13 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (nil? retrieved)
       "The commodity cannot be retrieved after delete"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved
       "The commodity can be retrieved after failed delete"))
 

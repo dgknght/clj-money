@@ -8,9 +8,9 @@
              :as storage
              :refer [with-storage
                      with-transacted-storage]]
-            [clj-money.util :refer [->id]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :refer [with-validation]]
             [clj-money.models :as models]
-            [clj-money.validation :refer [with-validation]]
             [clj-money.models.images :as images])
   (:import org.joda.time.LocalDate))
 
@@ -38,7 +38,7 @@
 (defn create
   [attachment]
   (with-storage (env :db)
-    (with-validation attachment ::new-attachment []
+    (with-validation attachment ::new-attachment
       (-> attachment
           before-save
           storage/create
@@ -66,7 +66,7 @@
 (defn update
   [attachment]
   (with-storage (env :db)
-    (with-validation attachment ::existing-attachment []
+    (with-validation attachment ::existing-attachment
       (-> attachment
           before-save
           storage/update)

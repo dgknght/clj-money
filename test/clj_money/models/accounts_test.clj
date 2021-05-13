@@ -1,8 +1,7 @@
 (ns clj-money.models.accounts-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.data :refer [diff]]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
@@ -10,14 +9,10 @@
                                             find-entity
                                             find-commodity
                                             find-account]]
-            [clj-money.validation :as v]
             [clj-money.models.accounts :as accounts]
-            [clj-money.accounts :refer [nest
-                                        polarize-quantity
+            [clj-money.accounts :refer [polarize-quantity
                                         derive-action]]
-            [clj-money.test-helpers :refer [reset-db
-                                            assert-validation-error
-                                            simplify-account-groups]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -104,46 +99,6 @@
                :type :expense
                :parent-id "Taxes"}]})
 
-; TODO Probably this should be moved to mirror the ns where the nest fn is defined
-(deftest select-nested-accounts
-  (let [context (realize nested-context)
-        entity-id (-> context :entities first :id)
-        result (->> (accounts/search {:entity-id entity-id})
-                    nest
-                    simplify-account-groups)
-        expected [{:type :asset
-                   :accounts [{:name "Checking"
-                               :path "Checking"}
-                              {:name "Savings"
-                               :path "Savings"
-                               :children [{:name "Car"
-                                           :path "Savings/Car"
-                                           :children [{:name "Doug"
-                                                       :path "Savings/Car/Doug"}
-                                                      {:name "Eli"
-                                                       :path "Savings/Car/Eli"}]}
-                                          {:name "Reserve"
-                                           :path "Savings/Reserve"}]}]}
-                  {:type :liability
-                   :accounts []}
-                  {:type :equity
-                   :accounts []}
-                  {:type :income
-                   :accounts []}
-                  {:type :expense
-                   :accounts [{:name "Taxes"
-                               :path "Taxes"
-                               :children [{:name "Federal Income Tax"
-                                           :path "Taxes/Federal Income Tax"}
-                                          {:name "Social Security"
-                                           :path "Taxes/Social Security"}]}]}]]
-    (when-not (= expected result)
-      (pprint {:expected expected
-               :actual result
-               :diff (diff expected result)}))
-
-    (is (= expected result) "The accounts should be returned in the correct hierarchy")))
-
 (deftest select-account-with-children
   (let [ctx (realize nested-context)
         account (find-account ctx "Savings")
@@ -172,8 +127,7 @@
                    :commodity-id (:id usd)
                    :quantity 0M
                    :value 0M}]]
-    (is (empty? (v/error-messages result))
-        "The result has no validation errors.")
+    (is (valid? result))
     (is (= expected accounts) "The account can be retrieved")))
 
 (def ^:private duplicate-name-context
@@ -211,8 +165,7 @@
         result (accounts/create {:name "Credit card"
                                  :type :liability
                                  :entity-id (:id business)})]
-    (is (not (v/has-error? result))
-        "A second account can be created with the same name in a different entity")))
+    (is (valid? result))))
 
 (deftest duplicate-name-across-parents
   (let [context (realize duplicate-name-context)
@@ -222,8 +175,7 @@
                                  :type :expense
                                  :parent-id (:id household)
                                  :entity-id (:id business)})]
-    (is (empty? (v/error-messages result))
-        "A name can be dulicated across parents")))
+    (is (valid? result))))
 
 (deftest duplicate-name-across-asset-types
   (let [context (realize duplicate-name-context)
@@ -231,8 +183,7 @@
         result (accounts/create {:name "Investment"
                                  :type :expense
                                  :entity-id (:id entity)})]
-    (is (empty? (v/error-messages result))
-        "A name can be dulicated across asset types")))
+    (is (valid? result))))
 
 (def ^:private create-child-context
   {:users [(factory :user)]
@@ -251,8 +202,7 @@
                               :type :asset
                               :parent-id (:id savings)
                               :entity-id (:id entity)})]
-    (is (empty? (v/error-messages car))
-        "The model should not have any errors")))
+    (is (valid? car))))
 
 (deftest child-must-have-same-type-as-parent
   (let [context (realize create-child-context)
@@ -262,10 +212,7 @@
                                  :type :expense
                                  :parent-id (:id savings)
                                  :entity-id (:id entity)})]
-    (assert-validation-error
-     :type
-     "Type must match the parent type"
-     result)))
+    (is (invalid? result [:type] "Type must match the parent type"))))
 
 (deftest name-is-required
   (let [context (realize account-context)
@@ -273,7 +220,7 @@
                  attributes
                  (dissoc :name))
         result (accounts/create attr)]
-    (assert-validation-error :name "Name is required" result)))
+    (is (invalid? result [:name] "Name is required"))))
 
 (deftest name-is-unique-within-a-parent
   (let [context (realize duplicate-name-context)
@@ -283,18 +230,14 @@
                     :parent-id (:id auto)
                     :entity-id (:id entity)
                     :type :expense}]
-    (assert-validation-error
-     :name
-     "Name is already in use"
-     (accounts/create attributes))))
+    (is (invalid? (accounts/create attributes) [:name] "Name is already in use"))))
 
 (deftest correct-account-type
   (let [context (realize account-context)
         attr (assoc (attributes context) :type :invalidtype)]
-    (assert-validation-error
-     :type
-     "Type must be one of: expense, equity, liability, income, asset"
-     (accounts/create attr))))
+    (is (invalid? (accounts/create attr)
+                  [:type]
+                  "Type must be expense, equity, liability, income, or asset"))))
 
 (deftest commodity-id-defaults-to-entity-default
   (let [context (realize account-context)
@@ -311,9 +254,7 @@
         account (find-account context "Checking")
         result (accounts/update (assoc account :name "New name"))
         retrieved (accounts/find account)]
-    (is (not (v/has-error? result))
-        (format "Unexpected validation error: %s"
-                (v/error-messages result)))
+    (is (valid? result))
     (is (= "New name" (:name result)) "The updated account is returned")
     (is (= "New name" (:name retrieved)) "The updated account is retreived")))
 
@@ -337,8 +278,7 @@
         updated (assoc house :parent-id (:id fixed))
         result (accounts/update updated)
         retrieved (accounts/reload updated)]
-    (is (empty? (v/error-messages result))
-        "The result has no validation errors")
+    (is (valid? result))
     (is (= (:id fixed)
            (:parent-id result))
         "The returned account has the correct parent-id value")
@@ -350,12 +290,8 @@
   (let [context (realize select-context)
         account (-> context :accounts first)
         _ (accounts/delete account)
-        accounts (accounts/search {:entity-id (-> context
-                                                  :entities
-                                                  first
-                                                  :id)})]
-    (is (not-any? #(= (:id account) (:id %)) accounts)
-        "The deleted account is no longer returned from the database")))
+        retrieved (accounts/find (:id account))]
+    (is (nil? retrieved) "The account cannot be retrieved after delete.")))
 
 (defmacro test-polarization
   [context account-type action quantity expected message]

@@ -1,13 +1,14 @@
 (ns clj-money.reports
   (:require [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
+            [clojure.string :as string]
             [clj-time.core :as t]
             [clj-time.format :as tf]
             [clj-time.coerce :as tc]
             [clj-money.find-in-chunks :as ch]
-            [clj-money.util :refer [format-date
-                                    earliest]]
-            [clj-money.inflection :refer [humanize]]
+            [dgknght.app-lib.web :refer [format-date]]
+            [clj-money.util :refer [earliest]]
+            [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.models.date-helpers :refer [available-date-range
                                                    earliest-date]]
             [clj-money.models.accounts :as accounts]
@@ -118,7 +119,7 @@
    (->> (accounts/search {:entity-id (:id entity)
                           :type ["income" "expense"]})
         (append-deltas start end)
-        (nest {:account-types [:income :expense]})
+        (nest {:types [:income :expense]})
         (mapcat summarize-group)
         summarize-income-statement)))
 
@@ -318,15 +319,16 @@
                                           :periods
                                           (take period-count)))
                         0M) ; TODO only total the periods up to and including the as-of date
-        actual-amount (:value account)
+        actual-amount (or (:value account) 0M)
         difference (if (left-side? account)
                      (- budget-amount actual-amount)
                      (- actual-amount budget-amount))]
     (with-precision 10
       {:id (:id account)
        :parent-id (:parent-id account)
-       :caption (or (:path account)
-                    (:name account))
+       :caption (if (seq (:path account))
+                  (string/join "/" (:path account))
+                  (:name account))
        :style :data
        :budget budget-amount
        :actual actual-amount
@@ -465,7 +467,7 @@
          items (->> (accounts/search {:entity-id (:entity-id budget)
                                       :type #{:income :expense}})
                     (append-deltas (:start-date budget) as-of)
-                    nest
+                    (nest {:types [:income :expense]})
                     unnest
                     (group-by :type)
                     (sort-by  #(.indexOf [:income :expense] (first %)))

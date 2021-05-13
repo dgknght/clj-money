@@ -7,42 +7,61 @@
             [stowaway.core :as stow :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
-            [clj-money.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.transactions :as trans]
-            [clj-money.scheduled-transactions :as st]
-            [clj-money.util :refer [->id
-                                    update-in-if]]))
+            [clj-money.scheduled-transactions :as st]))
+
+(defn- at-least-two-items?
+  [items]
+  (<= 2 (count items)))
+
+(v/reg-msg at-least-two-items? "There must be at least two items")
+
+(defn- debit-credit-balanced?
+  [items]
+  (let [totals (->> items
+                    (group-by :action)
+                    (map (fn [entry]
+                           (update-in entry [1] #(->> %
+                                                      (map :quantity)
+                                                      (reduce +)))))
+                    (into {}))]
+    (= (:debit totals)
+       (:credit totals))))
+
+(v/reg-msg debit-credit-balanced? "The sum of debits must equal the sum of credits")
+
+(def greater-than-zero?
+  (every-pred integer? #(> % 0)))
+
+(v/reg-msg greater-than-zero? "%s must be greater than zero")
 
 (s/def ::action #{:credit :debit})
 (s/def ::account-id integer?)
 (s/def ::quantity v/positive-big-dec?)
 (s/def ::item (s/keys :req-un [::action ::account-id ::quantity]))
 
-(s/def ::items (s/coll-of ::item))
+(s/def ::items (s/and (s/coll-of ::item)
+                      at-least-two-items?
+                      debit-credit-balanced?))
 (s/def ::entity-id integer?)
 (s/def ::description string?)
 (s/def ::interval-type #{:day :week :month :year})
-(s/def ::interval-count (s/and integer? #(> % 0)))
+(s/def ::interval-count greater-than-zero?)
 (s/def ::start-date v/local-date?)
 (s/def ::end-date v/nilable-local-date?)
 (s/def ::date-spec map?)
-(s/def ::new-scheduled-transaction (s/keys :req-un [::entity-id
-                                                    ::description
-                                                    ::interval-type
-                                                    ::interval-count
-                                                    ::start-date
-                                                    ::date-spec
-                                                    ::items]
-                                           :opt-un [::end-date]))
-
-(s/def ::id integer?)
-(s/def ::existing-scheduled-transaction (s/keys :req-un [::id ::items]
-                                                :opt-un [::description
-                                                         ::interval-type
-                                                         ::interval-count
-                                                         ::start-date
-                                                         ::date-spec]))
+(s/def ::scheduled-transaction (s/keys :req-un [::entity-id
+                                                ::description
+                                                ::interval-type
+                                                ::interval-count
+                                                ::start-date
+                                                ::date-spec
+                                                ::items]
+                                       :opt-un [::end-date]))
 
 (declare search-items)
 
@@ -79,30 +98,6 @@
       (update-in [:action] keyword)
       (tag ::models/scheduled-transaction-item)))
 
-(defn- at-least-two-items?
-  [scheduled-transaction]
-  (<= 2 (count (:items scheduled-transaction))))
-
-(defn- debit-credit-balanced?
-  [scheduled-transaction]
-  (let [totals (->> (:items scheduled-transaction)
-                    (group-by :action)
-                    (map (fn [entry]
-                           (update-in entry [1] #(->> %
-                                                      (map :quantity)
-                                                      (reduce +)))))
-                    (into {}))]
-    (= (:debit totals)
-       (:credit totals))))
-
-(def ^:private validation-rules
-  [(v/create-rule at-least-two-items?
-                  [:items]
-                  "There must be at least two items")
-   (v/create-rule debit-credit-balanced?
-                  [:items]
-                  "The sum of debits must equal the sum of credits")])
-
 (defn- create-item
   [item]
   (-> item
@@ -113,7 +108,7 @@
 (defn create
   [sched-tran]
   (with-transacted-storage (env :db)
-    (with-validation sched-tran ::new-scheduled-transaction validation-rules
+    (with-validation sched-tran ::scheduled-transaction
       (let [created (-> sched-tran
                         before-save
                         storage/create
@@ -170,8 +165,10 @@
 
 (defn update
   [sched-tran]
+  {:pre [(:id sched-tran)]}
+
   (with-transacted-storage (env :db)
-    (with-validation sched-tran ::existing-scheduled-transaction validation-rules
+    (with-validation sched-tran ::scheduled-transaction
       (update-items sched-tran)
       (-> sched-tran
           before-save

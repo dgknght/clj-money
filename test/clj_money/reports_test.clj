@@ -4,8 +4,8 @@
             [clojure.data :refer [diff]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.core]
-            [clj-money.util :refer [update-in-if]]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-entity

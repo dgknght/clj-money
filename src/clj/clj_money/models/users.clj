@@ -9,12 +9,39 @@
             [buddy.hashers :as hashers]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.util :refer [assoc-if
-                                    ->id]]
+            [dgknght.app-lib.core :refer [assoc-if
+                                          present? ]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models.sql-storage-ref]
-            [clj-money.models :as models]
-            [clj-money.validation :as validation :refer [with-validation]])
+            [clj-money.models :as models])
   (:import java.util.UUID))
+
+(declare find-by)
+
+(defn- unique?
+  [{:keys [id email]}]
+  (-> {:email email}
+      (assoc-if :id (when id [:!= id]))
+      find-by
+      nil?))
+(v/reg-spec unique? {:message "%s is already in use"
+                     :path [:email]})
+
+(s/def ::first-name (s/and string?
+                           present?))
+(s/def ::last-name (s/and string?
+                          present?))
+(s/def ::password (s/and string?
+                         present?))
+(s/def ::email (s/and string?
+                      present?
+                      v/email?))
+(s/def ::new-user (s/and (s/keys :req-un [::first-name ::last-name ::password ::email])
+                         unique?))
+(s/def ::existing-user (s/and (s/keys :req-un [::id ::first-name ::last-name ::email]
+                                      :opt-un [::password])
+                              unique?))
 
 (defn- before-save
   [user]
@@ -25,13 +52,6 @@
 (defn- after-read
   [user]
   (tag user ::models/user))
-
-(s/def ::first-name validation/non-empty-string?)
-(s/def ::last-name validation/non-empty-string?)
-(s/def ::password validation/non-empty-string?)
-(s/def ::email validation/email?)
-(s/def ::new-user (s/keys :req-un [::first-name ::last-name ::password ::email]))
-(s/def ::existing-user (s/keys :req-un [::id ::first-name ::last-name ::email] :opt-un [::password]))
 
 (defn search
   [criteria options]
@@ -53,22 +73,10 @@
   [email]
   (find-by {:email email}))
 
-(defn- email-is-unique?
-  [{:keys [email id]}]
-  (-> {:email email}
-      (assoc-if :id (when id [:!= id]))
-      find-by
-      nil?))
-
-(def validation-rules
-  [(validation/create-rule email-is-unique?
-                           [:email]
-                           "Email is already taken")])
-
 (defn create
   [user]
   (with-storage (env :db)
-    (with-validation user ::new-user validation-rules
+    (with-validation user ::new-user
       (-> user
           before-save
           storage/create
@@ -117,7 +125,7 @@
 (defn update
   [user]
   (with-storage (env :db)
-    (with-validation user ::existing-user validation-rules
+    (with-validation user ::existing-user
       (-> user
           before-save
           storage/update)

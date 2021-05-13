@@ -1,6 +1,6 @@
 (ns clj-money.authorization.scheduled-transactions
   (:require [clj-money.models :as models]
-            [clj-money.authorization :as authorization]
+            [dgknght.app-lib.authorization :as authorization]
             [clj-money.models.auth-helpers :refer [owner-or-granted?]]))
 
 (derive ::realize ::authorization/manage)

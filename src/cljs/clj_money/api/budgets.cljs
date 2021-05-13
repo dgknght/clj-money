@@ -1,11 +1,12 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
   (:require [clojure.walk :refer [keywordize-keys]]
-            [clj-money.api :as api]
-            [clj-money.decimal :refer [->decimal]]
-            [clj-money.util :refer [update-in-if
-                                    serialize-date
-                                    unserialize-date]]
+            [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.web :refer [serialize-date
+                                         unserialize-date]]
+            [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.decimal :refer [->decimal]]
+
             [clj-money.state :refer [current-entity]]))
 
 (defn- after-item-read
@@ -27,17 +28,17 @@
 
 (defn search
   [success-fn error-fn]
-  (api/get-resources (api/path :entities
-                               (:id @current-entity)
-                               :budgets)
-                     #(success-fn (map after-read %))
-                     error-fn))
+  (api/get (api/path :entities
+                     (:id @current-entity)
+                     :budgets)
+           #(success-fn (map after-read %))
+           error-fn))
 
 (defn find
   [id success-fn error-fn]
-  (api/get-resource (api/path :budgets id)
-                    (comp success-fn after-read)
-                    error-fn))
+  (api/get (api/path :budgets id)
+           (comp success-fn after-read)
+           error-fn))
 
 (defn- before-item-save
   [item]
@@ -52,22 +53,22 @@
 
 (defn- update
   [budget success-fn error-fn]
-  (api/update-resource
-   (api/path :budgets
-             (:id budget))
-   budget
-   success-fn
-   error-fn))
+  (api/patch
+    (api/path :budgets
+              (:id budget))
+    budget
+    success-fn
+    error-fn))
 
 (defn- create
   [budget success-fn error-fn]
-  (api/create-resource
-   (api/path :entities
-             (:id @current-entity)
-             :budgets)
-   (update-in-if budget [:auto-create-start-date] serialize-date)
-   success-fn
-   error-fn))
+  (api/post
+    (api/path :entities
+              (:id @current-entity)
+              :budgets)
+    (update-in-if budget [:auto-create-start-date] serialize-date)
+    success-fn
+    error-fn))
 
 (defn save
   [budget success-fn error-fn]
@@ -81,6 +82,6 @@
 
 (defn delete
   [budget success-fn error-fn]
-  (api/delete-resource (api/path :budgets (:id budget))
-                       success-fn
-                       error-fn))
+  (api/delete (api/path :budgets (:id budget))
+              success-fn
+              error-fn))

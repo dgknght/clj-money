@@ -4,23 +4,49 @@
             [environ.core :refer [env]]
             [stowaway.core :as stow :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.util :refer [assoc-if
-                                    ->id]]
-            [clj-money.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.core :refer [assoc-if
+                                          present?]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]))
 
+(declare find-by find)
+
+(defn- name-is-unique?
+  [{:keys [id] :as account}]
+  (nil? (find-by (-> account
+                     (select-keys [:entity-id :parent-id :name :type])
+                     (assoc-if :id (when id [:!= id]))))))
+(v/reg-spec name-is-unique? {:message "%s is already in use"
+                             :path [:name]})
+
+(defn- parent-has-same-type?
+  "Validation rule that ensure an account
+  has the same type as its parent"
+  [{:keys [parent-id type]}]
+  (or (nil? parent-id)
+      (= type
+         (:type (find parent-id)))))
+(v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
+                                   :path [:type]})
+
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
-(s/def ::name v/non-empty-string?)
+(s/def ::name (s/and string?
+                     present?))
 (s/def ::type #{:asset :liability :equity :income :expense})
 (s/def ::commodity-id integer?)
 (s/def ::parent-id (s/nilable integer?))
-(s/def ::new-account (s/keys :req-un [::entity-id ::name ::type ::commodity-id]
-                             :opt-un [::parent-id]))
-(s/def ::existing-account (s/keys :req-un [::id ::entity-id ::type ::name]
-                                  :opt-un [::parent-id ::commodity-id]))
+(s/def ::new-account (s/and (s/keys :req-un [::entity-id ::name ::type ::commodity-id]
+                                    :opt-un [::parent-id])
+                            name-is-unique?
+                            parent-has-same-type?))
+(s/def ::existing-account (s/and (s/keys :req-un [::id ::entity-id ::type ::name]
+                                         :opt-un [::parent-id ::commodity-id])
+                                 name-is-unique?
+                                 parent-has-same-type?))
 ; :value and :children-value are not specified because they are always
 ; calculated and not passed in
 
@@ -110,35 +136,11 @@
   (find-by {:entity-id entity-id
             :name account-name}))
 
-(defn- name-is-unique?
-  [{:keys [id parent-id name entity-id type]}]
-  (nil? (find-by (assoc-if {:entity-id entity-id
-                            :parent-id parent-id
-                            :name name
-                            :type type}
-                           :id [:!= id]))))
-
-(defn- parent-has-same-type?
-  "Validation rule that ensure an account
-  has the same type as its parent"
-  [{:keys [parent-id type]}]
-  (or (nil? parent-id)
-      (= type
-         (:type (find parent-id)))))
-
-(def ^:private validation-rules
-  [(v/create-rule name-is-unique?
-                  [:name]
-                  "Name is already in use")
-   (v/create-rule parent-has-same-type?
-                  [:type]
-                  "Type must match the parent type")])
-
 (defn create
   [account]
   (with-storage (env :db)
     (let [account (before-validation account)]
-      (with-validation account ::new-account validation-rules
+      (with-validation account ::new-account
         (-> account
             before-save
             storage/create
@@ -152,7 +154,7 @@
 (defn update
   [account]
   (with-storage (env :db)
-    (with-validation account ::existing-account validation-rules
+    (with-validation account ::existing-account
       (-> account
           before-save
           storage/update)

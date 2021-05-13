@@ -10,31 +10,64 @@
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
-            [clj-money.validation :as validation :refer [with-validation]]
-            [clj-money.util :refer [assoc-if
-                                    update-in-if
-                                    ->id]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          assoc-if]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts])
-  (:import (org.joda.time LocalDate
-                          Months
+  (:import (org.joda.time Months
                           Weeks
                           Days)))
 
-(s/def ::id integer?)
-(s/def ::name string?)
-(s/def ::start-date (partial instance? LocalDate))
-(s/def ::period #{:week :month :quarter}) ; TODO: remove quarter, as it's just 3 months
-(s/def ::period-count validation/positive-integer?)
-(s/def ::entity-id integer?)
-(s/def ::new-budget (s/keys :req-un [::name ::start-date ::period ::period-count ::entity-id]))
-(s/def ::existing-budget (s/keys :req-un [::id ::name ::start-date ::period ::period-count] :opt-un [::entity-id]))
+(defn- all-accounts-belong-to-budget-entity?
+  [{:keys [entity-id items]}]
+  (if (seq items)
+    (when entity-id
+      (when-let [account-ids (->> items
+                                  (map :account-id)
+                                  (filter identity)
+                                  seq)]
+        (let [entity-ids (->> (accounts/search {:id [:in account-ids]})
+                              (map :entity-id)
+                              set)]
+          (and (= 1 (count entity-ids))
+               (entity-ids entity-id)))))
+    true))
+
+(v/reg-spec all-accounts-belong-to-budget-entity?
+            {:message "All accounts must belong to the budget entity"
+             :path [:items]})
+
+(defn- period-counts-match?
+  [{:keys [items period-count]}]
+  (if (seq items)
+    (let [item-period-counts (->> items
+                                  (map (comp count :periods))
+                                  set)]
+      (and (= 1 (count item-period-counts))
+           (item-period-counts period-count)))
+    true))
+
+(v/reg-spec period-counts-match?
+            {:message "All items must have a number of periods that matches the budget period count"
+             :path [:items]})
+
 (s/def ::periods (s/coll-of decimal? :min-count 1))
 (s/def ::account-id integer?)
-(s/def ::budget-id integer?)
-(s/def ::spec map?)
-(s/def ::new-budget-item (s/keys :req-un [::account-id ::periods ::budget-id] :opt-un [::spec]))
-(s/def ::existing-budget-item (s/keys :req-un [::id ::account-id ::periods] :opt-un [::budget-id ::spec]))
+(s/def ::spec (some-fn nil? map?))
+(s/def ::budget-item (s/keys :req-un [::account-id ::periods] :opt-un [::spec]))
+(s/def ::items (s/coll-of ::budget-item))
+(s/def ::id integer?)
+(s/def ::name v/non-empty-string?)
+(s/def ::start-date v/local-date?)
+(s/def ::period #{:week :month})
+(s/def ::period-count v/positive-integer?)
+(s/def ::entity-id integer?)
+(s/def ::budget (s/and (s/keys :req-un [::name ::start-date ::period ::period-count ::entity-id]
+                            :opt-un [::items])
+                       all-accounts-belong-to-budget-entity?
+                       period-counts-match?))
 
 (defn default-start-date
   []
@@ -162,10 +195,10 @@
 
 (defn update
   [budget]
-  {:pre [(sequential? (:items budget))]}
+  {:pre [(:id budget)]}
 
   (with-transacted-storage (env :db)
-    (with-validation budget ::existing-budget []
+    (with-validation budget ::budget
       (-> budget
           before-save
           storage/update)
@@ -201,7 +234,7 @@
 (defn create
   [budget]
   (with-transacted-storage (env :db)
-    (with-validation budget ::new-budget []
+    (with-validation budget ::budget
       (let [created (-> budget
                         before-save
                         storage/create

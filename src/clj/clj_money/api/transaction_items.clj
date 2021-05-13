@@ -1,14 +1,14 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET]]
-            [clj-money.authorization :refer [+scope]]
-            [clj-money.util :refer [uuid
-                                    presence
-                                    update-in-if
-                                    parse-int
-                                    parse-bool
-                                    unserialize-date]]
-            [clj-money.api :refer [->response]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          parse-int
+                                          parse-bool
+                                          uuid]]
+            [dgknght.app-lib.web :refer [unserialize-date ]]
+            [dgknght.app-lib.authorization :refer [+scope]]
+            [dgknght.app-lib.api :as api]
+            [clj-money.util :refer [presence]]
             [clj-money.transactions :refer [summarize-items]]
             [clj-money.models :as models]
             [clj-money.models.transactions :as transactions]
@@ -83,8 +83,8 @@
 
 (defn- index
   [req]
-  (->response (transactions/search-items (extract-criteria req)
-                                         (extract-options req))))
+  (api/response (transactions/search-items (extract-criteria req)
+                                           (extract-options req))))
 
 (defn- extract-summary-criteria
   [{:keys [params]}]
@@ -103,9 +103,10 @@
                                              (select-keys [:transaction-date
                                                            :account-id])
                                              (+scope ::models/transaction-item authenticated)))]
-    (->response
+    (api/response
       (summarize-items (-> criteria
                            (select-keys [:interval-type :interval-count])
+                           (update-in [:interval-type] keyword)
                            (assoc :start-date start-date
                                   :end-date end-date))
                        items))))

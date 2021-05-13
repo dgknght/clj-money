@@ -1,8 +1,11 @@
 (ns clj-money.middleware
   (:refer-clojure :exclude [update])
-  (:require [ring.util.response :refer [response status header]]
-            [slingshot.slingshot :refer [try+]]
-            [clj-money.api :as api]))
+  (:require [clojure.tools.logging :as log]
+            [ring.util.response :refer [response status header]]
+            [dgknght.app-lib.authorization :as authorization]
+            [dgknght.app-lib.api :as api]
+            [clj-money.models :as models]
+            [clj-money.api :refer [log-error]]))
 
 (defn- param-name
   [specified-name]
@@ -71,23 +74,45 @@
   (fn [req]
     (handler (update-in req [:params] normalize-collection-params))))
 
+(defmulti handle-exception :type)
+
+(defmethod handle-exception ::authorization/unauthorized
+  [data]
+  (if (:opaque? data)
+    api/not-found
+    api/forbidden))
+
+(defmethod handle-exception ::authorization/not-found
+  [_data]
+  api/not-found)
+
+(defmethod handle-exception ::authorization/no-rules
+  [_data]
+  (-> {:message "no authorization rules"}
+      response
+      (status 500)
+      (header "Content-Type" "application/json")))
+
+(defmethod handle-exception ::models/not-found
+  [_data]
+  api/not-found)
+
+(defmethod handle-exception :default
+  [data]
+  (log/warnf "Unexpected ExceptionInfo was raised: %s" data)
+  api/internal-server-error)
+
 ; TODO: Move this to the api namespace
 (defn wrap-exceptions
   [handler]
   (fn [request]
-    (try+
+    (try
      (handler request)
-     (catch [:type :clj-money.models/not-found] error-data
-       (api/not-found))
-     (catch [:type :clj-money.authorization/no-rules] error-data
-       (-> {:message "no authorization rules"}
-           response
-           (status 500)
-           (header "Content-Type" "application/json")))
-     (catch [:type :clj-money.authorization/unauthorized] error-data
-       (api/not-found))
+     (catch clojure.lang.ExceptionInfo e
+       (handle-exception (ex-data e)))
      (catch Exception e
-       (api/log-error e "unexpected error")
+       (log-error e "unexpected error")
+       ; TODO: only do this if in local development mode
        (-> {:message (str "unexpected error: " (or (.getMessage e)
                                                    (.getClass e)))}
            response

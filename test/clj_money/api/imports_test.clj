@@ -4,17 +4,15 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
-            [clj-money.test-helpers :refer [reset-db
-                                            selective=]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
-            [clj-money.web.test-helpers :refer [assert-successful
-                                                assert-not-found]]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-import]]
-            [clj-money.util :refer [path]]
             [clj-money.web.server :refer [app]]
             [clj-money.models.imports :as imports]
             [clj-money.api.imports :as imports-api]))
@@ -47,17 +45,17 @@
                        app))
         body (json/parse-string (:body response) true)
         retrieved (imports/search {:user-id (:id user)})]
-    (assert-successful response)
-    (is (selective= {:name "Personal"
-                     :user-id (:id user)}
-                    (:entity body))
+    (is (http-success? response))
+    (is (comparable? {:name "Personal"
+                      :user-id (:id user)}
+                     (:entity body))
         "The newly created entity is returned in the response")
-    (is (selective= {:entity-name "Personal"
-                     :user-id (:id user)}
-                    (:import body))
+    (is (comparable? {:entity-name "Personal"
+                      :user-id (:id user)}
+                     (:import body))
         "The newly created import is returned in the response")
-    (is (selective= {:entity-name "Personal"}
-                    (first retrieved))
+    (is (comparable? {:entity-name "Personal"}
+                     (first retrieved))
         "The new record can be retrieved from the database")
     (is (some #(= "Personal" (:entity-name %)) @calls)
         "The import is started")))
@@ -80,7 +78,7 @@
 
 (defn- assert-successful-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (= #{"Personal" "Business"}
          (->> body
               (map :entity-name)
@@ -89,7 +87,7 @@
 
 (defn- assert-other-user-list
   [[response body]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (not (some #(= "Personal" (:entity-name %)) body))
       "The Personal import is not included in the result")
   (is (not (some #(= "Business" (:entity-name %)) body))
@@ -114,13 +112,13 @@
 
 (defn- assert-successful-get
   [[response body]]
-  (assert-successful response)
-  (is (selective= {:entity-name "Personal"} body)
+  (is (http-success? response))
+  (is (comparable? {:entity-name "Personal"} body)
       "The import is returned in the response"))
 
 (defn- assert-blocked-get
   [[response]]
-  (assert-not-found response))
+  (is (http-not-found? response)))
 
 (deftest a-user-can-view-his-own-import
   (assert-successful-get (get-an-import "john@doe.com")))
@@ -141,13 +139,13 @@
 
 (defn- assert-successful-delete
   [[response retrieved]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (nil? retrieved)
       "The import is not retrievable after delete"))
 
 (defn- assert-blocked-delete
   [[response retrieved]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is retrieved
       "The import is retrievable after attempted delete"))
 
@@ -171,13 +169,13 @@
 
 (defn- assert-successful-start
   [[response calls]]
-  (assert-successful response)
+  (is (http-success? response))
   (is (some #(= "Personal" (:entity-name %)) @calls)
       "The import is started"))
 
 (defn- assert-blocked-start
   [[response calls]]
-  (assert-not-found response)
+  (is (http-not-found? response))
   (is (not-any? #(= "Personal" (:entity-name %)) @calls)
       "The import is not started"))
 

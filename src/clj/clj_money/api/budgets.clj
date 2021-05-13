@@ -2,31 +2,33 @@
   (:refer-clojure :exclude [update find])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-time.core :as t]
-            [clj-money.util :refer [update-in-if
-                                    unserialize-date]]
-            [clj-money.api :refer [->response
-                                   not-found]]
-            [clj-money.models :as models]
-            [clj-money.authorization
+            [dgknght.app-lib.web :refer [unserialize-date]]
+            [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.authorization
              :as auth
              :refer [+scope
                      authorize]]
+            [dgknght.app-lib.api :as api]
+            [clj-money.models :as models]
             [clj-money.transactions :refer [summarize-items]]
-            [clj-money.validation :as v]
             [clj-money.models.transactions :as trans]
             [clj-money.models.budgets :as budgets]
             [clj-money.authorization.budgets]))
 
 (defn- index
   [{:keys [params authenticated]}]
-  (->response (budgets/search (-> params
-                                  (select-keys [:entity-id])
-                                  (+scope ::models/budget authenticated))
-                              {:sort [[:start-date :desc]]})))
+  (api/response
+    (budgets/search (-> params
+                        (select-keys [:entity-id])
+                        (+scope ::models/budget authenticated))
+                    {:sort [[:start-date :desc]]})))
 (defn- prepare-item
   [item]
-  (update-in-if item [:spec :start-date] unserialize-date))
+  (-> item
+      (update-in-if [:periods] #(map bigdec %))
+      (update-in-if [:spec :start-date] unserialize-date)))
 
 (defn- extract-budget
   [{:keys [body]}]
@@ -91,7 +93,7 @@
       (auto-create-items (-> body
                              :auto-create-start-date
                              unserialize-date))
-      (->response 201)))
+      api/creation-response))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
@@ -103,25 +105,25 @@
 (defn- find
   [req]
   (if-let [budget (find-and-auth req ::auth/show)]
-    (->response budget)
-    (not-found)))
+    (api/response budget)
+    api/not-found))
 
 (defn- update
   [req]
   (if-let [budget (find-and-auth req ::auth/update)]
-    (->response
-     (-> budget
-         (merge (extract-budget req))
-         budgets/update))
-    (not-found)))
+    (-> budget
+        (merge (extract-budget req))
+        budgets/update
+        api/update-response)
+    api/not-found))
 
 (defn- delete
   [req]
   (if-let [budget (find-and-auth req ::auth/destroy)]
     (do
       (budgets/delete budget)
-      (->response))
-    (not-found)))
+      (api/response))
+    api/not-found))
 
 (defroutes routes
   (GET "/api/entities/:entity-id/budgets" req (index req))

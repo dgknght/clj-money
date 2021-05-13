@@ -4,18 +4,45 @@
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.util :refer [update-in-if
-                                    assoc-if
-                                    ->id]]
-            [clj-money.validation :as validation :refer [with-validation]]
+            [dgknght.app-lib.core :refer [update-in-if
+                                          assoc-if
+                                          present? ]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models.sql-storage-ref]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]))
 
+(declare find-by)
+
+(defn- name-is-unique?
+  [{:keys [id] :as commodity}]
+  (nil?
+    (find-by
+      (-> commodity
+          (select-keys [:name :exchange :entity-id])
+          (assoc-if :id (when id [:!= id]))))))
+
+(v/reg-spec name-is-unique? {:message "%s is already in use"
+                             :path [:name]})
+
+(defn- symbol-is-unique?
+  [{:keys [id] :as commodity}]
+  (nil?
+    (find-by
+      (-> commodity
+          (select-keys [:symbol :exchange :entity-id])
+          (assoc-if :id (when id [:!= id]))))))
+
+(v/reg-spec symbol-is-unique? {:message "%s is already in use"
+                               :path [:symbol]})
+
 (s/def ::id integer?)
 (s/def ::entity-id integer?)
-(s/def ::name validation/non-empty-string?)
-(s/def ::symbol validation/non-empty-string?)
+(s/def ::name (s/and string?
+                     present?))
+(s/def ::symbol (s/and string?
+                     present?))
 (s/def ::exchange #{:nyse :nasdaq :amex})
 (s/def ::type #{:currency :stock :fund})
 
@@ -23,17 +50,16 @@
 
 (defmulti new-commodity-spec :type)
 (defmethod new-commodity-spec :default [_]
-  (s/keys :req-un [::type]))
+  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
 (defmethod new-commodity-spec :stock [_]
   (s/keys :req-un [::type ::entity-id ::name ::symbol ::exchange]))
-(defmethod new-commodity-spec :fund [_]
-  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
-(defmethod new-commodity-spec :currency [_]
-  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
 
-(s/def ::new-commodity (s/multi-spec new-commodity-spec :type))
+(s/def ::new-commodity (s/and (s/keys :req-un [::type])
+                              (s/multi-spec new-commodity-spec :type)
+                              name-is-unique?
+                              symbol-is-unique?))
 
-(s/def ::existing-commodity (s/keys :req-un [::type ::entity-id ::name ::symbol] :opt-un [::id]))
+(s/def ::existing-commodity (s/keys :req-un [::id ::type ::entity-id ::name ::symbol]))
 
 (defn- before-save
   [commodity]
@@ -71,32 +97,6 @@
   [id-or-commodity]
   (find-by {:id (->id id-or-commodity)}))
 
-(defn- name-is-unique?
-  [{:keys [id entity-id exchange] commodity-name :name}]
-  (-> {:entity-id entity-id
-       :name commodity-name
-       :exchange (when exchange (name exchange))}
-      (assoc-if :id (when id [:!= id]))
-      find-by
-      nil?))
-
-(defn- symbol-is-unique?
-  [{:keys [id entity-id exchange] commodity-symbol :symbol}]
-  (-> {:entity-id entity-id
-       :symbol commodity-symbol
-       :exchange (when exchange (name exchange))}
-      (assoc-if :id (when id [:!= id]))
-      find-by
-      nil?))
-
-(def ^:private validation-rules
-  [(validation/create-rule name-is-unique?
-                           [:name]
-                           "Name must be unique for a given exchange")
-   (validation/create-rule symbol-is-unique?
-                           [:symbol]
-                           "Symbol must be unique for a given exchange")])
-
 (defn- set-implicit-default
   "After a commodity is saved, checks to see if it is
   the only currency commodity. If so, update the entity to indicate
@@ -115,7 +115,7 @@
 (defn create
   [commodity]
   (with-storage (env :db)
-    (with-validation commodity ::new-commodity validation-rules
+    (with-validation commodity ::new-commodity
       (-> commodity
           before-save
           storage/create
@@ -132,7 +132,7 @@
 (defn update
   [commodity]
   (with-storage (env :db)
-    (with-validation commodity ::existing-commodity validation-rules
+    (with-validation commodity ::existing-commodity
       (-> commodity
           before-save
           storage/update)

@@ -2,12 +2,12 @@
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [ring.mock.request :as req]
             [clj-time.core :as t]
+            [dgknght.app-lib.web :refer [path]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-image
                                             find-user]]
-            [clj-money.util :refer [path]]
             [clj-money.web.auth :as auth]
             [clj-money.web.server :refer [app]]))
 

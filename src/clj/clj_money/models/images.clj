@@ -5,20 +5,29 @@
             [digest :refer [sha-1]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
-            [clj-money.util :refer [->id]]
-            [clj-money.validation :as validation :refer [with-validation]]
+            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models :as models]))
 
+(declare find-by-hash)
+
+(defn- body-hash-is-unique?
+  [{:keys [body-hash user-id]}]
+  (nil? (find-by-hash user-id body-hash)))
+(v/reg-spec body-hash-is-unique? {:message "The image has already been added"
+                                  :path [:body-hash]})
+
 (s/def ::user-id integer?)
-(s/def ::original-filename validation/non-empty-string?)
+(s/def ::original-filename v/non-empty-string?)
 (s/def ::content-type string?)
-(s/def ::body-hash validation/non-empty-string?)
+(s/def ::body-hash v/non-empty-string?)
 (s/def ::body bytes?)
-(s/def ::image (s/keys :req-un [::user-id
-                                ::original-filename
-                                ::content-type
-                                ::body-hash
-                                ::body]))
+(s/def ::image (s/and (s/keys :req-un [::user-id
+                                       ::original-filename
+                                       ::content-type
+                                       ::body-hash
+                                       ::body])
+                      body-hash-is-unique?))
 
 (defn- after-read
   [image]
@@ -47,15 +56,6 @@
   (find-by {:user-id user-id
             :body-hash hash}))
 
-(defn- body-hash-is-unique?
-  [{:keys [body-hash user-id]}]
-  (nil? (find-by-hash user-id body-hash)))
-
-(def ^:private validation-rules
-  [(validation/create-rule body-hash-is-unique?
-                           [:body-hash]
-                           "The image content must be unique")])
-
 (defn- before-validation
   [image]
   (assoc image :body-hash (sha-1 (:body image))))
@@ -68,7 +68,7 @@
   [image]
   (with-storage (env :db)
     (let [image (before-validation image)]
-      (with-validation image ::image validation-rules
+      (with-validation image ::image
         (-> image
             before-save
             storage/create

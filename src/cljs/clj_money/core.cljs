@@ -4,13 +4,16 @@
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
+            [dgknght.app-lib.inflection :refer [humanize]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.bootstrap-4 :as bs]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.j-query :as jq]
-            [clj-money.inflection :refer [humanize]]
             [clj-money.state :as state :refer [app-state
                                                current-user
                                                current-entity]]
-            [clj-money.notifications :as notify]
-            [clj-money.html :as html]
+            [clj-money.html :refer [google-g]]
             [clj-money.views.entities]
             [clj-money.views.imports]
             [clj-money.views.commodities]
@@ -26,13 +29,15 @@
             [clj-money.bootstrap :as bootstrap]
             [clj-money.api.users :as users]))
 
+(swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-4)
+
 (defn home-page []
   [:div.jumbotron.mt-3
    [:h1.display-5 "clj-money"]
    [:p "This is a double-entry accounting application that aims to be available anywhere."]
    [:a#login.btn.btn-light {:href "/auth/google/start"
                             :title "Click here to sign in with a Google account"}
-    (html/google-g)
+    (google-g)
     [:span "Sign in with Google"]]])
 
 (secretary/defroute "/" []

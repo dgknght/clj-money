@@ -1,10 +1,10 @@
 (ns clj-money.models.commodities-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-entity]]
-            [clj-money.validation :as validation]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.commodities :as commodities]))
 
@@ -17,30 +17,20 @@
 
 (defn- attributes
   [context]
-  {:entity-id (-> context :entities first :id)
+  {:entity-id (:id (find-entity context "Personal"))
    :type :stock
    :exchange :nasdaq
-   :name "Apple"
+   :name "Apple, Inc."
    :symbol "AAPL"})
 
 (deftest create-a-commodity
   (let [context (realize commodity-context)
-        entity-id (-> context :entities first :id)
         commodity (attributes context)
         result (commodities/create commodity)
-        commodities (commodities/search {:entity-id entity-id})
-        expected [{:name "Apple"
-                   :type :stock
-                   :symbol "AAPL"
-                   :earliest-price nil
-                   :latest-price nil
-                   :exchange :nasdaq}]
-        actual (map #(dissoc % :id :entity-id :created-at :updated-at)
-                    commodities)]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")
-    (is (= expected actual)
-        "The commodity can be retrieved after create")))
+        retrieved (commodities/find (:id result))]
+    (is (valid? result))
+    (is (comparable? commodity result) "The result matches the input")
+    (is (comparable? commodity retrieved) "The retrieved matches the input")))
 
 (deftest entity-id-is-required
   (let [context (realize commodity-context)
@@ -48,9 +38,7 @@
         commodity (dissoc (attributes context) :entity-id)
         result (commodities/create commodity)
         commodities (commodities/search {:entity-id entity-id})]
-    (is (= ["Entity id is required"]
-           (validation/error-messages result :entity-id))
-        "The result has an error messages")
+    (is (invalid? result [:entity-id] "Entity is required"))
     (is (empty? (->> commodities
                      (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
@@ -61,9 +49,7 @@
         commodity (dissoc (attributes context) :type)
         result (commodities/create commodity)
         commodities (commodities/search {:entity-id entity-id})]
-    (is (= ["Type is required"]
-           (validation/error-messages result :type))
-        "The result has an error messages")
+    (is (invalid? result [:type] "Type is required"))
     (is (empty? (->> commodities
                      (filter #(= "AAPL" (:symbol %)))))
         "The commodity is not retrieved after create")))
@@ -74,8 +60,7 @@
         commodity (assoc (attributes context) :type :currency)
         result (commodities/create commodity)
         commodities (commodities/search {:entity-id entity-id})]
-    (is (empty?  (validation/error-messages result :type))
-        "The result has no error messages")
+    (is (valid? result))
     (is (seq (->> commodities
                   (filter #(= "AAPL" (:symbol %)))))
         "The commodity is retrieved after create")))
@@ -86,8 +71,7 @@
         commodity (assoc (attributes context) :type :stock)
         result (commodities/create commodity)
         commodities (commodities/search {:entity-id entity-id})]
-    (is (empty?  (validation/error-messages result :type))
-        "The result has no error messages")
+    (is (valid? result))
     (is (seq (->> commodities
                   (filter #(= "AAPL" (:symbol %)))))
         "The commodity is retrieved after create")))
@@ -98,141 +82,127 @@
         commodity (assoc (attributes context) :type :fund)
         result (commodities/create commodity)
         commodities (commodities/search {:entity-id entity-id})]
-    (is (empty?  (validation/error-messages result :type))
-        "The result has no error messages")
+    (is (valid? result))
     (is (seq (->> commodities
                   (filter #(= "AAPL" (:symbol %)))))
         "The commodity is retrieved after create")))
 
 (deftest type-cannot-be-invalid
   (let [context (realize commodity-context)
-        entity-id (-> context :entities first :id)
         commodity (assoc (attributes context) :type :not-a-valid-type)
         result (commodities/create commodity)
-        commodities (commodities/search {:entity-id entity-id})]
-    (is (= ["Type must be one of: fund, currency, stock"]
-           (validation/error-messages result :type))
-        "The result has an error messages")
-    (is (empty? (->> commodities
-                     (filter #(= "AAPL" (:symbol %)))))
+        retrieved (commodities/find-by (select-keys commodity [:entity-id :symbol :name]))]
+    (is (invalid? result [:type] "Type must be fund, currency, or stock"))
+    (is (nil? retrieved)
         "The commodity is not retrieved after create")))
 
 (deftest name-is-required
   (let [context (realize commodity-context)
-        entity-id (-> context :entities first :id)
+        entity (find-entity context "Personal")
         commodity (dissoc (attributes context) :name)
         result (commodities/create commodity)
-        commodities (commodities/search {:entity-id entity-id})]
-    (is (= ["Name is required"]
-           (validation/error-messages result :name))
-        "The result has an error messages")
-    (is (empty? (->> commodities
-                     (filter #(= "AAPL" (:symbol %)))))
-        "The commodity is not retrieved after create")))
+        retrieved (commodities/find-by {:entity-id (:id entity)
+                                        :symbol (:symbol commodity)})]
+    (is (invalid? result [:name] "Name is required"))
+    (is (nil? retrieved) "The commodity is not retrieved after create")))
+
+(def existing-context
+  (assoc commodity-context
+         :commodities [{:name "Apple, Inc."
+                        :symbol "AAPL"
+                        :exchange :nasdaq
+                        :type :stock
+                        :entity-id "Personal"}]))
 
 (deftest name-is-unique-for-an-entity-and-exchange
-  (let [context (realize commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (attributes context)
-        result-1 (commodities/create commodity)
-        result-2 (commodities/create commodity)
-        commodities (commodities/search {:entity-id entity-id})]
-    (is (empty? (validation/error-messages result-1))
-        "The first is created successfully")
-    (is (= ["Name must be unique for a given exchange"]
-           (validation/error-messages result-2 :name))
-        "The result has an error messages")
-    (is (= 1 (->> commodities
-                  (filter #(= "Apple" (:name %)))
-                  count))
+  (let [ctx (realize existing-context)
+        commodity (attributes ctx)
+        result (commodities/create commodity)
+        retrieved (commodities/search (select-keys commodity [:entity-id :name]))]
+    (is (invalid? result [:name] "Name is already in use"))
+    (is (= 1 (count retrieved))
         "The commodity exists only once after both calls to create")))
 
 (deftest name-can-be-duplicated-between-exchanges
-  (let [context (realize commodity-context)
-        entity-1-id (-> context :entities first :id)
-        entity-2-id (-> context :entities second :id)
-        commodity-1 (assoc (attributes context) :entity-id entity-1-id)
-        commodity-2 (assoc (attributes context) :entity-id entity-2-id)
-        result-1 (commodities/create commodity-1)
-        result-2 (commodities/create commodity-2)
-        commodities-1 (commodities/search {:entity-id entity-1-id})
-        commodities-2 (commodities/search {:entity-id entity-2-id})]
-    (is (empty? (validation/error-messages result-1))
-        "The first is created successfully")
-    (is (empty? (validation/error-messages result-2))
-        "The second is created successfully")
-    (is (->> commodities-1
-             (filter #(= "Apple" (:name %)))
-             first)
-        "The first commodity can be retrieved after create")
-    (is (->> commodities-2
-             (filter #(= "Apple" (:name %)))
-             first)
-        "The second commodity can be retrieved after create")))
+  (let [context (realize existing-context)
+        entity (find-entity context "Personal")
+        commodity (assoc (attributes context)
+                         :exchange :nyse
+                         :symbol "APLL")
+        result (commodities/create commodity)
+        retrieved (commodities/search {:name "Apple, Inc."
+                                       :entity-id (:id entity)})]
+    (is (valid? result))
+    (is (= {:nyse 1
+            :nasdaq 1}
+           (->> retrieved
+                (map :exchange)
+                frequencies))
+        "The commodity can be retrieved after create")))
 
 (deftest name-can-be-duplicated-between-entities
-  (let [context (realize commodity-context)
-        entity-1 (-> context :entities first)
-        entity-2 (-> context :entities second)
-        _ (commodities/create (assoc (attributes context) :entity-id (:id entity-1)))
-        c2 (commodities/create (assoc (attributes context) :entity-id (:id entity-2)))]
-    (is (empty? (validation/error-messages c2)))))
+  (let [context (realize existing-context)
+        entity (find-entity context "Business")
+        commodity (assoc (attributes context)
+                         :entity-id (:id entity)
+                         :symbol "APLL")
+        result (commodities/create commodity)
+        retrieved (commodities/search {:name "Apple, Inc."})]
+    (is (valid? result))
+    (is (= 2 (count retrieved))
+        "The commodity can be retrieved after create")))
 
 (deftest symbol-is-required
   (let [context (realize commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (dissoc (attributes context) :symbol)
+        entity (find-entity context "Personal")
+        commodity {:entity-id (:id entity)
+                   :name "Test"
+                   :type :currency}
         result (commodities/create commodity)
-        commodities (commodities/search {:entity-id entity-id})]
-    (is (= ["Symbol is required"]
-           (validation/error-messages result :symbol))
-        "The result has an error message")
-    (is (empty? (->> commodities
-                     (filter #(= "AAPL" (:symbol %)))))
-        "The commodity is not retrieved after create")))
+        retrieved (commodities/find-by {:entity-id (:id entity)
+                                        :name "Test"})]
+    (is (invalid? result [:symbol] "Symbol is required"))
+    (is (nil? retrieved) "The commodity is not retrieved after create")))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
-  (let [context (realize commodity-context)
-        entity-id (-> context :entities first :id)
-        commodity (attributes context)
-        result-1 (commodities/create commodity)
-        result-2 (commodities/create commodity)
-        commodities (commodities/search {:entity-id entity-id})]
-    (is (empty? (validation/error-messages result-1))
-        "The first is created successfully")
-    (is (= ["Symbol must be unique for a given exchange"]
-           (validation/error-messages result-2 :symbol))
-        "The result has an error messages")
-    (is (= 1 (->> commodities
-                  (filter #(= "Apple" (:name %)))
-                  count))
+  (let [context (realize existing-context)
+        commodity (assoc (attributes context) :name "New Name")
+        result (commodities/create commodity)
+        retrieved (commodities/search (select-keys commodity [:entity-id :symbol]))]
+    (is (invalid? result [:symbol] "Symbol is already in use"))
+    (is (= 1 (count retrieved))
         "The commodity exists only once after both calls to create")))
 
 (deftest symbol-can-be-duplicated-between-exchanges
-  (let [context (realize commodity-context)
-        _ (commodities/create (assoc (attributes context) :exchange :nasdaq))
-        c2 (commodities/create (assoc (attributes context) :exchange :nyse))]
-    (is (empty? (validation/error-messages c2)))))
+  (let [context (realize existing-context)
+        result (commodities/create (assoc (attributes context)
+                                          :name "Apply"
+                                          :exchange :nyse))
+        retrieved (commodities/search {:symbol (:symbol result)})]
+    (is (valid? result))
+    (is (= {:nyse 1
+            :nasdaq 1}
+           (->> retrieved
+                (map :exchange)
+                frequencies))
+        "The value can be retrieved after create")))
 
 (deftest symbol-can-be-duplicated-between-entities
-  (let [context (realize commodity-context)
-        entity-1 (-> context :entities first)
-        entity-2 (-> context :entities second)
-        _ (commodities/create (assoc (attributes context) :entity-id (:id entity-1)))
-        c2 (commodities/create (assoc (attributes context) :entity-id (:id entity-2)))]
-    (is (empty? (validation/error-messages c2)))))
+  (let [context (realize existing-context)
+        entity (find-entity context "Business")
+        result (commodities/create (assoc (attributes context)
+                                          :entity-id (:id entity)))]
+    (is (valid? result))))
 
 (deftest exchange-is-required-for-stocks
   (let [context (realize commodity-context)
         entity-id (-> context :entities first :id)
         commodity (dissoc (attributes context) :exchange)
         result (commodities/create commodity)
-        commodities (commodities/search {:entity-id entity-id})]
-    (is (= ["Exchange is required"]
-           (validation/error-messages result :exchange))
-        "The result has an error message")
-    (is (empty? (->> commodities
-                     (filter #(= "AAPL" (:symbol %)))))
+        retrieved (commodities/find-by {:entity-id entity-id
+                                        :symbol (:symbol commodity)})]
+    (is (invalid? result [:exchange] "Exchange is required"))
+    (is (nil? retrieved)
         "The commodity is not retrieved after create")))
 
 (deftest exchange-is-not-required-for-currencies
@@ -245,10 +215,8 @@
         result (commodities/create commodity)
         retrieved (commodities/find-by {:entity-id entity-id
                                         :symbol "USD"})]
-    (is (empty?  (validation/error-messages result :exchange))
-        "The result has no error messages")
-    (is retrieved
-        "The commodity is retrieved after create")))
+    (is (valid? result))
+    (is retrieved "The commodity is retrieved after create")))
 
 (deftest exchange-can-be-nasdaq
   (let [context (realize commodity-context)
@@ -257,8 +225,7 @@
                          :symbol "AAPL"
                          :name "Apple")
         result (commodities/create commodity)]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")))
+    (is (valid? result))))
 
 (deftest exchange-can-be-nyse
   (let [context (realize commodity-context)
@@ -267,38 +234,28 @@
                          :symbol "HD"
                          :name "Home Depot")
         result (commodities/create commodity)]
-    (is (empty? (validation/error-messages result))
-        "The result has no error messages")))
+    (is (valid? result))))
 
 (deftest exchange-must-be-valid
   (let [context (realize commodity-context)
         commodity (assoc (attributes context)
-                         :exchange :not-a-valid-exchange
+                         :exchange :not-valid
                          :symbol "NUNYA"
                          :name "None of your business")
         result (commodities/create commodity)]
-    (is (= ["Exchange must be one of: amex, nasdaq, nyse"]
-           (validation/error-messages result :exchange))
-        "The result has an error messages")))
-
-(def ^:private existing-commodity-context
-  (assoc commodity-context :commodities [{:name "Apple"
-                                          :type :stock
-                                          :symbol "AAPL"
-                                          :exchange :nasdaq}]))
+    (is (invalid? result [:exchange] "Exchange must be amex, nasdaq, or nyse"))))
 
 (deftest a-commodity-can-be-updated
-  (let [context (realize existing-commodity-context)
+  (let [context (realize existing-context)
         commodity (-> context :commodities first)
         result (commodities/update (assoc commodity :name "New name"))
         retrieved (commodities/find commodity)]
-    (is (empty? (validation/error-messages result))
-        "The result has no validation errors")
+    (is (valid? result))
     (is (= "New name" (:name result)) "The return value has the correct name")
     (is (= "New name" (:name retrieved)) "The retrieved value has the correct name")))
 
 (deftest a-commodity-can-be-deleted
-  (let [context (realize existing-commodity-context)
+  (let [context (realize existing-context)
         commodity (-> context :commodities first)
         _ (commodities/delete commodity)
         retrieved (commodities/find commodity)]

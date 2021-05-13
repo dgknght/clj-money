@@ -1,0 +1,28 @@
+{:linters {:unresolved-symbol {:exclude [(clojure.test/is [http-success?
+                                                           http-created?
+                                                           http-no-content?
+                                                           http-bad-request?
+                                                           http-not-found?
+                                                           http-unauthorized?
+                                                           http-forbidden?
+                                                           valid?
+                                                           invalid?
+                                                           comparable?
+                                                           seq-with-map-like?
+                                                           seq-with-no-map-like?
+                                                           seq-of-maps-like?])
+                                         (dgknght.app-lib.test/with-mail-capture)]}
+           :unresolved-namespace {:exclude [act
+                                            cmdty
+                                            price
+                                            bgt
+                                            rec
+                                            slot
+                                            trn
+                                            ts
+                                            split
+                                            sx
+                                            gnc
+                                            cd]}
+           :unused-namespace {:exclude [dgknght.app-lib.validation-tests]}}
+ :output {:exclude-files ["data_readers.clj"]}}

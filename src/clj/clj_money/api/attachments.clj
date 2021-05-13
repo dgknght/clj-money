@@ -2,22 +2,19 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
-            [stowaway.core :as stow]
-            [clj-money.util :refer [uuid
-                                    update-in-if
-                                    unserialize-date
-                                    nominative-variations
-                                    symbolic-comparatives]]
-            [clj-money.io :refer [read-bytes]]
-            [clj-money.api :refer [->response
-                                   not-found
-                                   bad-request]]
-            [clj-money.models :as models]
-            [clj-money.validation :as v]
-            [clj-money.authorization
+            [stowaway.core :refer [tag]]
+            [dgknght.app-lib.core :refer [uuid
+                                          update-in-if]]
+            [dgknght.app-lib.web :refer [unserialize-date]]
+            [dgknght.app-lib.authorization
              :as auth
              :refer [+scope
                      authorize]]
+            [dgknght.app-lib.api :as api]
+            [clj-money.util :refer [nominative-variations
+                                    symbolic-comparatives]]
+            [clj-money.io :refer [read-bytes]]
+            [clj-money.models :as models]
             [clj-money.models.images :as img]
             [clj-money.models.attachments :as att]
             [clj-money.authorization.attachments]))
@@ -41,29 +38,41 @@
 
 (defn- index
   [req]
-  (->response (att/search (extract-criteria req))))
+  (api/response
+    (att/search (extract-criteria req))))
+
+(defn- extract-attachment
+  [{:keys [params]}]
+  (-> params
+      (select-keys [:transaction-id :transaction-date])
+      (update-in [:transaction-id] uuid)
+      (update-in [:transaction-date] unserialize-date)
+      (tag ::models/attachment)))
+
+(defn- create-image
+  [{{:keys [file]} :params
+    :keys [authenticated]}]
+  (-> file
+      (select-keys [:content-type :filename :tempfile])
+      (update-in [:tempfile] read-bytes)
+      (rename-keys {:filename :original-filename
+                    :tempfile :body})
+      (assoc :user-id (:id authenticated))
+      img/find-or-create))
+
+(defn- assoc-image
+  [att req]
+  (if-let [image (create-image req)]
+    (assoc att :image-id (:id image))
+    att))
 
 (defn- create
-  [{:keys [params authenticated]}]
-  (let [transaction-id (uuid (:transaction-id params))
-        transaction-date (unserialize-date (:transaction-date params))
-        attr {:transaction-id transaction-id
-              :transaction-date transaction-date}]
-    (authorize (stow/tag attr ::models/attachment)
-               ::auth/create
-               authenticated)
-    (let [image (img/find-or-create {:user-id (:id authenticated)
-                                     :content-type (:content-type (:file params))
-                                     :original-filename (:filename (:file params))
-                                     :body (read-bytes (:tempfile (:file params)))})
-          attachment (when (:id image)
-                       (att/create (assoc attr :image-id (:id image))))]
-      (if attachment
-        (->response attachment
-                    (if (v/has-error? attachment)
-                      400
-                      201))
-        (bad-request)))))
+  [{:keys [authenticated] :as req}]
+  (-> (extract-attachment req)
+      (authorize ::auth/create authenticated)
+      (assoc-image req)
+      att/create
+      api/creation-response))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
@@ -78,18 +87,19 @@
 (defn- update
   [{:keys [body] :as req}]
   (if-let [attachment (find-and-auth req ::auth/update)]
-    (->response
-     (att/update (merge attachment
-                        (select-keys body [:caption]))))
-    (not-found)))
+    (-> attachment
+        (merge (select-keys body [:caption]))
+        att/update
+        api/update-response)
+    api/not-found))
 
 (defn- delete
   [req]
   (if-let [attachment (find-and-auth req ::auth/destroy)]
     (do
       (att/delete attachment)
-      (->response))
-    (not-found)))
+      (api/response))
+    api/not-found))
 
 (defroutes routes
   (POST "/api/transactions/:transaction-id/:transaction-date/attachments" req (create req))

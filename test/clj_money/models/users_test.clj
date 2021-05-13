@@ -1,10 +1,9 @@
 (ns clj-money.models.users-test
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [clj-time.core :as t]
+            [dgknght.app-lib.test]
             [clj-money.models.users :as users]
-            [clj-money.test-helpers :refer [reset-db
-                                            assert-validation-error
-                                            selective=]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -32,43 +31,46 @@
              (select-keys user [:first-name :last-name :email]))
           "The map should contain the user properties"))))
 
+(deftest first-name-is-required
+  (is (invalid? (users/create (dissoc attributes :first-name))
+                [:first-name]
+                "First name is required")))
+
+(deftest first-name-cannot-be-empty
+  (is (invalid? (users/create (assoc attributes :first-name ""))
+                [:first-name]
+                "First name is required")))
+
+(deftest last-name-is-required
+  (is (invalid? (users/create (dissoc attributes :last-name))
+                [:last-name]
+                "Last name is required")))
+
+(deftest last-name-cannot-be-empty
+  (is (invalid? (users/create (assoc attributes :last-name ""))
+                [:last-name]
+                "Last name is required")))
+
+(deftest email-is-required
+  (is (invalid? (users/create (dissoc attributes :email))
+                [:email]
+                "Email is required")))
+
+(deftest email-cannot-be-empty
+  (is (invalid? (users/create (assoc attributes :email ""))
+                [:email]
+                "Email is required")))
+
 (deftest email-is-unique
   (users/create attributes)
-  (assert-validation-error
-   :email
-   "Email is already taken"
-   (users/create attributes)))
+  (is (invalid? (users/create attributes)
+                [:email]
+                "Email is already in use")))
 
-(deftest try-to-create-with-invalid-data
-  (testing "Email is required"
-    (assert-validation-error
-     :email
-     "Email is required"
-     (users/create (dissoc attributes :email))))
-  (testing "Email must be a valid email address"
-    (assert-validation-error
-     :email
-     "Email must be a valid email"
-     (users/create (assoc attributes :email "notavalidemail"))))
-  (testing "First name is required"
-    (assert-validation-error
-     :first-name
-     "First name is required"
-     (users/create (dissoc attributes :first-name))))
-  (testing "First name cannot be empty"
-    (assert-validation-error
-     :first-name
-     "First name cannot be empty"
-     (users/create (assoc attributes :first-name "")))
-    (assert-validation-error
-     :last-name
-     "Last name is required"
-     (users/create (dissoc attributes :last-name))))
-  (testing "Last name cannot be empty"
-    (assert-validation-error
-     :last-name
-     "Last name cannot be empty"
-     (users/create (assoc attributes :last-name "")))))
+(deftest email-must-be-well-formed
+  (is (invalid? (users/create (assoc attributes :email "notvalid"))
+                [:email]
+                "Email must be a valid email address")))
 
 (deftest authenticate-a-user
   (let [user (users/create attributes)
@@ -128,5 +130,5 @@
           result (users/find-or-create-from-profile profile)]
       ; TODO: assert that the identity record is created
 
-      (is (selective= user result :first-name :last-name :email :id)
+      (is (comparable? user result :id :first-name :last-name :email)
           "The existing user is returned"))))

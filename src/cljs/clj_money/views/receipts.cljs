@@ -5,16 +5,19 @@
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
-            [clj-money.decimal :as decimal]
+            [dgknght.app-lib.models :refer [map-index]]
+            [dgknght.app-lib.web :refer [format-date
+                                         format-decimal]]
+            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.state :refer [app-state
                                      current-entity]]
             [clj-money.bootstrap :as bs]
-            [clj-money.html :as html]
-            [clj-money.util :as util :refer [format-date
-                                             format-decimal]]
-            [clj-money.forms :as forms]
-            [clj-money.notifications :as notify]
-            [clj-money.accounts :refer [nest unnest]]
+            [clj-money.accounts :refer [nest
+                                        unnest
+                                        find-by-path]]
             [clj-money.api.accounts :as act]
             [clj-money.api.transactions :as trn]))
 
@@ -90,23 +93,20 @@
       (update-transaction receipt page-state)
       (create-transaction receipt page-state))))
 
-(defn- search-coll
-  [coll field input callback]
-  (let [term (string/lower-case input)]
-    (->> coll
-         (filter #(-> %
-                      (get-in field)
-                      string/lower-case
-                      (string/includes? term)))
-         callback)))
-
 (defn- search-accounts
-  [accounts input callback]
-  (search-coll (vals accounts) [:path] input callback))
+  [page-state]
+  (fn [input callback]
+      (callback (find-by-path input (-> @page-state :accounts vals)))))
 
 (defn- search-transactions
   [transactions input callback]
-  (search-coll transactions [:description] input callback))
+  (let [term (string/lower-case input)]
+    (->> transactions
+         (filter #(-> %
+                      (get-in [:description])
+                      string/lower-case
+                      (string/includes? term)))
+         callback)))
 
 (defn- ensure-blank-item
   [page-state]
@@ -122,11 +122,11 @@
          receipt
          [:items index :account-id]
          {:validate [:required]
-          :search-fn #(search-accounts @accounts %1 %2)
+          :search-fn (search-accounts page-state)
           :find-fn (fn [id callback]
                     (callback (@accounts id)))
           :on-change #(ensure-blank-item page-state)
-          :caption-fn :path
+          :caption-fn #(string/join "/" (:path %))
           :value-fn :id}]]
    [:td [forms/decimal-input
          receipt
@@ -147,6 +147,8 @@
         accounts (r/cursor page-state [:accounts])
         transactions (r/cursor page-state [:transactions])
         search (r/cursor page-state [:transaction-search])
+        hide-description? (make-reaction #(boolean @search))
+        hide-search-term? (make-reaction #(not @search))
         total (make-reaction #(->> (:items @receipt)
                                    (map :quantity)
                                    decimal/sum))]
@@ -165,16 +167,17 @@
                     :on-click (fn [e]
                                 (.preventDefault e)
                                 (swap! page-state assoc :transaction-search {})
-                                (html/set-focus "search-term"))}
+                                (js/setTimeout
+                                  #(html/set-focus "search-term")
+                                  250))}
                    (bs/icon :search)]
-         :attr {:auto-complete :off}
-         :form-group-attr {:class (when @search "d-none")}}]
+         :html {:auto-complete :off}
+         :hide? hide-description?}]
        [forms/typeahead-field
         search
         [:search-term]
         {:validate [:required]
-         :form-group-attr {:class (when-not @search "d-none")}
-         :list-attr {:style {:top "2em"}}
+         :hide? hide-search-term?
          :caption "Description"
          :search-fn #(search-transactions @transactions %1 %2)
          :find-fn (constantly nil)
@@ -196,10 +199,10 @@
         [:account-id]
         {:validate [:required]
          :caption "Payment Method"
-         :search-fn #(search-accounts @accounts %1 %2)
+         :search-fn (search-accounts page-state)
          :find-fn (fn [id callback]
                     (callback (@accounts id)))
-         :caption-fn :path
+         :caption-fn #(string/join "/" (:path %))
          :value-fn :id}]
        [:table.table.table-borderless
         [:thead
@@ -218,7 +221,15 @@
         [:button.btn.btn-primary
          {:type :submit
           :title "Click here to create this transaction."}
-         (bs/icon-with-text :check "Enter")]]])))
+         (bs/icon-with-text :check "Enter")]
+        (html/space)
+        [:button.btn.btn-secondary
+         {:type :button
+          :title "Click here to discard this receipt."
+          :on-click (fn []
+                      (swap! receipt select-keys [:transaction-date])
+                      (html/set-focus "transaction-date"))}
+         (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- result-row
   [transaction page-state]
@@ -255,13 +266,12 @@
                 (swap! page-state assoc :accounts (->> result
                                                        nest
                                                        unnest
-                                                       util/->indexed-map)))
+                                                       map-index)))
               (notify/danger-fn "Unable to load the accounts: %s")))
 
 (defn- load-transactions
   [page-state]
-  (trn/search {:transaction-date [:>= (-> 6 t/months t/ago)]
-               :include-items true}
+  (trn/search {:include-items true}
               (fn [transactions]
                 (swap! page-state assoc
                        :transactions transactions
