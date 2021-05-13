@@ -957,7 +957,7 @@
                                                      (= (:account-id item)
                                                         (:id pets)))
                                                    %)))
-        _ (transactions/update to-update)
+        result (transactions/update to-update)
         expected-items [{:index 2
                          :quantity 101M
                          :balance 306M}
@@ -969,10 +969,10 @@
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id groceries)))]
-    (testing "item values are correct"
-      (is (= expected-items actual-items)
-          "The Pets account should have the correct items"))
-    (assert-account-quantities pets 0M groceries 306M checking 694M)))
+    (is (valid? result))
+    (assert-account-quantities pets 0M groceries 306M checking 694M)
+    (is (= expected-items actual-items)
+          "The account for the changed item should have the correct items")))
 
 (deftest update-a-transaction-add-item
   (let [context (realize add-remove-item-context)
