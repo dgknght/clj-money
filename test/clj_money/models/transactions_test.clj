@@ -1,9 +1,10 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer [deftest use-fixtures testing is]]
-            [clojure.set :refer [rename-keys]]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
+            [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test]
+            [clj-money.transactions :refer [change-date]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.factories.user-factory]
@@ -552,127 +553,106 @@
            (map :transaction-date actual))
         "The transactions from the specified day are returned")))
 
+(defn- update-items
+  [{:keys [items] :as transaction} change-map]
+  (let [indexed-items (index-by :account-id items)
+        updated-items (reduce (fn [items [account-id item]]
+                                (update-in items [account-id] merge item))
+                              indexed-items
+                              change-map)]
+    (assoc transaction :items (vals updated-items))))
+
 (deftest update-a-transaction-change-quantity
-  (let [context (realize update-context)
-        [checking
-         _
-         groceries] (:accounts context)
-        [_ t2] (:transactions context)
-        ; Change the 2nd transaction quantity for 101 to 99.99
-        updated (-> t2
-                    (assoc-in [:items 0 :quantity] 99.99M)
-                    (assoc-in [:items 1 :quantity] 99.99M))
-        result (transactions/update updated)
-        expected-checking [{:index 2 :quantity 102M   :balance 798.01M}
-                           {:index 1 :quantity 99.99M :balance 900.01M}
-                           {:index 0 :quantity 1000M  :balance 1000M}]
-        actual-checking (->> (items-by-account (:id checking))
-                             (map #(select-keys % [:index :quantity :balance])))
-        expected-groceries [{:index 1 :quantity 102M   :balance 201.99M}
-                            {:index 0 :quantity 99.99M :balance 99.99M}]
-        actual-groceries (->> (items-by-account (:id groceries))
-                              (map #(select-keys % [:index :quantity :balance])))]
+  (let [ctx (realize update-context)
+        checking (find-account ctx "Checking")
+        groceries (find-account ctx "Groceries")
+        result (-> (find-transaction ctx (t/local-date 2016 3 12) "Kroger")
+                   (update-items {(:id groceries) {:quantity 99.99M}
+                                  (:id checking) {:quantity 99.99M}})
+                   transactions/update)]
     (is (valid? result))
-    (testing "transaction item balances are correct"
-      (is (= expected-checking actual-checking)
-          "Checking items should have the correct values after update")
-      (is (= expected-groceries actual-groceries)
-          "Groceries items should have the correct values after update"))
+    (is (seq-of-maps-like? [{:index 2 :quantity  102.00M :balance   798.01M}
+                            {:index 1 :quantity   99.99M :balance   900.01M}
+                            {:index 0 :quantity 1000.00M :balance 1000.00M}]
+                           (items-by-account (:id checking)))
+        "Expected the checking account items to be updated.")
+    (is (seq-of-maps-like? [{:index 1 :quantity 102.00M :balance 201.99M}
+                            {:index 0 :quantity  99.99M :balance  99.99M}]
+                           (items-by-account (:id groceries)))
+        "Expected the groceries account items to be updated.")
     (assert-account-quantities checking 798.01M groceries 201.99M)))
 
 (deftest rollback-a-failed-update
   (let [real-reload transactions/reload
-        call-count (atom 0)
-        context (realize update-context)
-        [checking
-         _
-         groceries] (:accounts context)
-        [_ t2] (:transactions context)
-        updated (-> t2
-                    (assoc-in [:items 0 :quantity] 99.99M)
-                    (assoc-in [:items 1 :quantity] 99.99M))
-        _ (with-redefs [transactions/reload (fn [transaction]
-                                              (swap! call-count inc)
-                                              (if (= 2 @call-count)
-                                                (throw (RuntimeException. "Induced exception"))
-                                                (real-reload transaction)))]
-            (try
-              (transactions/update updated)
-              (catch RuntimeException _ nil)))]
+        ctx (realize update-context)
+        checking (find-account ctx "Checking")
+        groceries (find-account ctx "Groceries")
+        trx (find-transaction ctx (t/local-date 2016 3 12) "Kroger")
+        call-count (atom 0)]
+    (with-redefs [transactions/reload (fn [transaction]
+                                        (swap! call-count inc)
+                                        (if (= 2 @call-count)
+                                          (throw (RuntimeException. "Induced exception"))
+                                          (real-reload transaction)))]
+      (try
+        (-> trx
+            (update-items {(:id groceries) {:quantity 99.99M}
+                           (:id checking) {:quantity 99.99M}})
+            transactions/update)
+        (catch RuntimeException _ nil)))
     (testing "transaction items are not updated"
-      (is (= #{101M} (->> (:items (transactions/reload t2))
+      (is (= #{101M} (->> (:items (transactions/reload trx))
                           (map :quantity)
                           (into #{})))))
-    (testing "account balances are not updated"
-      (is (= 797M (:quantity (accounts/reload checking)))
-          "The checkout account balance should not be changed")
-      (is (= 203M (:quantity (accounts/reload groceries)))
-          "The groceries account balance should not be changed"))))
+    (assert-account-quantities checking 797M groceries 203M)))
 
 (deftest update-a-transaction-change-date
-  (let [context (realize update-context)
-        [checking
-         _
-         groceries] (:accounts context)
-        [_t1 _t2 t3] (:transactions context)
-        updated (assoc t3 :transaction-date (t/local-date 2016 3 10)
-                       :original-transaction-date (:transaction-date t3))
-        result (transactions/update updated)
-        expected-checking [{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
-                           {:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}
-                           {:index 0 :transaction-date (t/local-date 2016 3 2)  :quantity 1000M :balance 1000M}]
-        actual-checking (->> (:id checking)
-                             items-by-account
-                             (map #(select-keys % [:index :quantity :balance :transaction-date])))
-        expected-groceries [{:index 1 :transaction-date (t/local-date 2016 3 12) :quantity 101M :balance 203M}
-                            {:index 0 :transaction-date (t/local-date 2016 3 10) :quantity 102M :balance 102M}]
-        actual-groceries (->> (:id groceries)
-                              items-by-account
-                              (map #(select-keys % [:index :quantity :balance :transaction-date])))]
+  (let [ctx (realize update-context)
+        checking (find-account ctx "Checking")
+        groceries (find-account ctx "Groceries")
+        trx (find-transaction ctx (t/local-date 2016 3 22) "Kroger")
+        result (-> trx
+                   (change-date (t/local-date 2016 3 10))
+                   transactions/update)]
     (is (valid? result))
-    (testing "transaction item balances are correct"
-      (is (= expected-checking actual-checking)
-          "Checking items should have the correct values after update")
-      (is (= expected-groceries actual-groceries)
-          "Groceries items should have the correct values after update"))
+    (is (seq-of-maps-like? [{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
+                            {:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}
+                            {:index 0 :transaction-date (t/local-date 2016 3 2)  :quantity 1000M :balance 1000M}]
+                           (items-by-account (:id checking)))
+        "Expected the checking items to be updated")
+    (is (seq-of-maps-like? [{:index 1 :transaction-date (t/local-date 2016 3 12) :quantity 101M :balance 203M}
+                            {:index 0 :transaction-date (t/local-date 2016 3 10) :quantity 102M :balance 102M}]
+                           (items-by-account (:id groceries)))
+        "Expected the groceries items to be updated")
     (assert-account-quantities checking 797M groceries 203M)
     (testing "transaction is updated"
       (is (= (t/local-date 2016 3 10)
-             (:transaction-date (transactions/reload updated)))
+             (:transaction-date (transactions/reload result)))
           "The transaction should be updated"))))
 
-; TODO: Uncomment this test
-#_(deftest update-a-transaction-cross-partition-boundary
-    (let [context (realize update-context)
-          [checking
-           salary
-           groceries] (:accounts context)
-          [t1 t2 t3] (:transactions context)
-          updated (assoc t2 :transaction-date (t/local-date 2016 4 12))
-          result (transactions/update updated)
-          expected-checking [{:index 2 :quantity 101M :balance 797M}
-                             {:index 1 :quantity 102M :balance 898M}
-                             {:index 0 :quantity 1000M :balance 1000M}]
-          actual-checking (->> (:id checking)
-                               items-by-account
-                               (map #(select-keys % [:index :quantity :balance])))
-          expected-groceries [{:index 1 :quantity 101M :balance 203M}
-                              {:index 0 :quantity 102M :balance 102M}]
-          actual-groceries (->> (:id groceries)
-                                items-by-account
-                                (map #(select-keys % [:index :quantity :balance])))]
-      (is (empty? (validation/error-messages result))
-          "The transaction is saved successfully")
-      (testing "transaction item balances are correct"
-        (is (= expected-checking actual-checking)
-            "Checking items should have the correct values after update")
-        (is (= expected-groceries actual-groceries)
-            "Groceries items should have the correct values after update"))
-      (assert-account-quantities checking 1797M groceries 203M)
-      (testing "transaction is updated"
-        (is (= (t/local-date 2016 4 12)
-               (:transaction-date (transactions/reload t2)))
-            "The transaction should be updated"))))
+(deftest update-a-transaction-cross-partition-boundary
+  (let [ctx (realize update-context)
+        checking (find-account ctx "Checking")
+        groceries (find-account ctx "Groceries")
+        trx (find-transaction ctx (t/local-date 2016 3 12) "Kroger")
+        result (-> trx (assoc :transaction-date (t/local-date 2016 4 12)
+                              :original-transaction-date (:transaction-date trx))
+                   transactions/update)]
+    (is (valid? result))
+    (is (seq-of-maps-like? [{:index 2 :quantity  101M :balance  797M}
+                            {:index 1 :quantity  102M :balance  898M}
+                            {:index 0 :quantity 1000M :balance 1000M}]
+                           (items-by-account (:id checking)))
+        "Expected the checking items to be updated")
+    (is (seq-of-maps-like? [{:index 1 :quantity 101M :balance 203M}
+                            {:index 0 :quantity 102M :balance 102M}]
+                           (items-by-account (:id groceries)))
+        "Expected the groceries items to be updated")
+    (assert-account-quantities checking 797M groceries 203M)
+    (testing "transaction is updated"
+      (is (= (t/local-date 2016 4 12)
+             (:transaction-date (transactions/reload result)))
+          "The transaction should be updated"))))
 
 (def short-circuit-context
   (merge
@@ -739,12 +719,10 @@
 ; 2016-03-23     103  Groceries Checking
 ; 2016-03-30     104  Groceries Checking
 (deftest update-a-transaction-short-circuit-updates
-  (let [context (realize short-circuit-context)
-        [checking] (:accounts context)
-        [_t1 _t2 t3] (:transactions context)
-        updated (-> t3
-                    (rename-keys {:transaction-date :original-transaction-date})
-                    (assoc :transaction-date (t/local-date 2016 3 8)))
+  (let [ctx (realize short-circuit-context)
+        checking (find-account ctx "Checking")
+        trx (find-transaction ctx (t/local-date 2016 3 16) "Kroger")
+        updated (change-date trx (t/local-date 2016 3 8))
         update-calls (atom {})]
     (binding [update-item transactions/update-item-index-and-balance]
       (with-redefs [transactions/update-item-index-and-balance (fn [item]
@@ -810,29 +788,26 @@
                                  :quantity 103}]}]})))
 
 (deftest update-a-transaction-change-account
-  (let [context (realize change-account-context)
+  (let [ctx (realize change-account-context)
         [rent
-         groceries] (find-accounts context "Rent" "Groceries")
-        t3 (find-transaction context (t/local-date 2016 3 16) "Kroger")
-        _ (transactions/update (assoc-in t3 [:items 0 :account-id] (:id rent)))
-        actual-groceries (map #(select-keys % [:index :quantity :balance])
-                              (items-by-account (:id groceries)))
-        actual-rent (map #(select-keys % [:index :quantity :balance])
-                         (items-by-account (:id rent)))
-        expected-groceries [{:index 1
+         groceries] (find-accounts ctx "Rent" "Groceries")
+        result (-> (find-transaction ctx (t/local-date 2016 3 16) "Kroger")
+                   (update-items {(:id groceries) {:account-id (:id rent)}})
+                   transactions/update)]
+    (is (valid? result))
+    (is (seq-of-maps-like? [{:index 1
                              :quantity 103M
                              :balance 204M}
                             {:index 0
                              :quantity 101M
                              :balance 101M}]
-        expected-rent [{:index 0
-                        :quantity 102M
-                        :balance 102M}]]
-    (testing "Accounts have the correct items"
-      (is (= expected-groceries actual-groceries)
-          "Groceries should have the correct items after update")
-      (is (= expected-rent actual-rent)
-          "Rent chould have the correct items after update"))
+                           (items-by-account (:id groceries)))
+        "Expected the groceries items to be updated")
+    (is (seq-of-maps-like? [{:index 0
+                             :quantity 102M
+                             :balance 102M}]
+                           (items-by-account (:id rent)))
+        "Expected the rent items to be updated")
     (assert-account-quantities groceries 204M rent 102M)))
 
 (def change-action-context
@@ -878,25 +853,22 @@
 (deftest update-a-transaction-change-action
   (let [context (realize change-action-context)
         [checking _ groceries] (:accounts context)
-        transaction (find-transaction context (t/local-date 2016 3 16) "Kroger")
-        result (transactions/update (-> transaction
-                                        (assoc-in [:items 0 :action] :credit)
-                                        (assoc-in [:items 1 :action] :debit)))
-        expected-items [{:index 2
-                         :quantity 101M
-                         :balance 192M}
-                        {:index 1
-                         :quantity 12M
-                         :balance 91M}
-                        {:index 0
-                         :quantity 103M
-                         :balance 103M}]
-        actual-items (map #(select-keys % [:index :quantity :balance])
-                          (items-by-account (:id groceries)))]
+        result (-> (find-transaction context (t/local-date 2016 3 16) "Kroger")
+                   (update-items {(:id groceries) {:action :credit}
+                                  (:id checking) {:action :debit}})
+                   transactions/update)]
     (is (valid? result))
-    (testing "items are updated correctly"
-      (is (= expected-items actual-items)
-          "Groceries should have the correct items after update"))
+    (is (seq-of-maps-like? [{:index 2
+                             :quantity 101M
+                             :balance 192M}
+                            {:index 1
+                             :quantity 12M
+                             :balance 91M}
+                            {:index 0
+                             :quantity 103M
+                             :balance 103M}]
+                           (items-by-account (:id groceries)))
+        "Expected the groceries items to be updated")
     (assert-account-quantities groceries 192M checking 808M)))
 
 (def add-remove-item-context
@@ -950,8 +922,8 @@
          pets
          groceries] (find-accounts context "Checking" "Pets" "Groceries")
         result (-> (find-transaction context (t/local-date 2016 3 16) "Kroger")
-                   (assoc-in [:items 0 :quantity] 102M)
-                   (assoc-in [:items 0 :value] 102M)
+                   (update-items {(:id groceries) {:quantity 102M
+                                                   :value 102M}})
                    (update-in [:items] #(remove (fn [item]
                                                   (= (:account-id item)
                                                      (:id pets)))
@@ -968,7 +940,7 @@
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id groceries)))]
-    (is (valid? result) (str "Expected the transaction to be valid: " (prn-str result)))
+    (is (valid? result) (str "Expected the transaction to be valid: " (prn-str (dissoc result :v/explanation))))
     (assert-account-quantities pets 0M groceries 306M checking 694M)
     (is (= expected-items actual-items)
         "The account for the changed item should have the correct items")))
@@ -980,8 +952,8 @@
          checking] (find-accounts context "Pets" "Groceries" "Checking")
         t2 (find-transaction context (t/local-date 2016 3 9) "Kroger")
         to-update (-> t2
-                      (assoc-in [:items 0 :quantity] 90M)
-                      (assoc-in [:items 0 :value] 90M)
+                      (update-items {(:id groceries) {:quantity 90M
+                                                      :value 90M}})
                       (update-in [:items] #(conj % {:action :debit
                                                     :account-id (:id pets)
                                                     :quantity 13M
