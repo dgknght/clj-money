@@ -949,15 +949,14 @@
         [checking
          pets
          groceries] (find-accounts context "Checking" "Pets" "Groceries")
-        transaction (find-transaction context (t/local-date 2016 3 16) "Kroger")
-        to-update (-> transaction
-                      (assoc-in [:items 0 :quantity] 102M)
-                      (assoc-in [:items 0 :value] 102M)
-                      (update-in [:items] #(remove (fn [item]
-                                                     (= (:account-id item)
-                                                        (:id pets)))
-                                                   %)))
-        result (transactions/update to-update)
+        result (-> (find-transaction context (t/local-date 2016 3 16) "Kroger")
+                   (assoc-in [:items 0 :quantity] 102M)
+                   (assoc-in [:items 0 :value] 102M)
+                   (update-in [:items] #(remove (fn [item]
+                                                  (= (:account-id item)
+                                                     (:id pets)))
+                                                %))
+                   transactions/update)
         expected-items [{:index 2
                          :quantity 101M
                          :balance 306M}
@@ -969,10 +968,10 @@
                          :balance 103M}]
         actual-items (map #(select-keys % [:index :quantity :balance])
                           (items-by-account (:id groceries)))]
-    (is (valid? result))
+    (is (valid? result) (str "Expected the transaction to be valid: " (prn-str result)))
     (assert-account-quantities pets 0M groceries 306M checking 694M)
     (is (= expected-items actual-items)
-          "The account for the changed item should have the correct items")))
+        "The account for the changed item should have the correct items")))
 
 (deftest update-a-transaction-add-item
   (let [context (realize add-remove-item-context)
