@@ -157,3 +157,9 @@
   (->> (dates/ranges start-date (dates/period interval-type interval-count))
        (take-while #(apply t/overlaps? start-date end-date %))
        (map #(summarize-period % items))))
+
+(defn change-date
+  [trx new-date]
+  (-> trx
+      (rename-keys {:transaction-date :original-transaction-date})
+      (assoc :transaction-date new-date)))
