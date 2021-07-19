@@ -1,5 +1,5 @@
 (ns clj-money.api.reports
-  (:require [lambdaisland.uri :refer [map->query-string]]
+  (:require [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date]]
             [clj-money.state :refer [current-entity]]
@@ -35,12 +35,22 @@
            error-fn))
 
 (defn budget
-  [{:keys [budget-id]} success-fn error-fn]
-  (api/get (api/path :reports
-                     :budget
-                     budget-id)
-           (comp success-fn #(update-in % [:items] after-read))
-           error-fn))
+  [{:keys [budget-id] :as opts} success-fn error-fn]
+  (let [url (str
+              (assoc
+                (uri (api/path :reports
+                               :budget
+                               budget-id))
+                :query (-> opts
+                           (dissoc :budget-id)
+                           (update-in-if [:tags] #(map name %))
+                           map->query-string)))]
+
+    (.log js/console url)
+
+    (api/get url
+             (comp success-fn #(update-in % [:items] after-read))
+             error-fn)))
 
 (defn budget-monitors
   [success-fn error-fn]

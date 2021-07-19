@@ -33,7 +33,7 @@
 
 (defmethod ^:private report-row :data
   [{:keys [id caption value depth]} hide-zeros?]
-  ^{:key (str "report-row-" id)}
+  ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (when (and hide-zeros?
                           (zero? value))
                  "d-none")}
@@ -171,7 +171,7 @@
 
 (defn- fetch-budget-report
   [page-state]
-  (rpt/budget (select-keys (:budget @page-state) [:budget-id])
+  (rpt/budget (select-keys (:budget @page-state) [:budget-id :tags])
               (fn [result]
                 (swap! page-state #(-> %
                                        (assoc-in [:budget :report] result)
@@ -211,8 +211,7 @@
    page-state]
   (let [budget (update-in budget
                           [:items]
-                          map-index
-                          :account-id)
+                          #(map-index :account-id %))
         budget-item (or (get-in budget [:items account-id])
                         {:account-id account-id
                          :periods []})
@@ -537,7 +536,8 @@
                             :income-statement {:start-date (start-of-year)
                                                :end-date (t/today)}
                             :balance-sheet {:as-of (t/today)}
-                            :budget {:depth 0}
+                            :budget {:depth 0
+                                     :tags [:tax :mandatory :discretionary]} ; TODO: make this user editable
                             :portfolio {:current-nav :by-account
                                         :filter {:as-of (t/today)}
                                         :by-account {:visible-ids #{}}

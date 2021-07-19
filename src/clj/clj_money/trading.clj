@@ -65,11 +65,11 @@
 
 (defn- ensure-tag
   "Appends the :trading tag to the account if it isn't there already"
-  [{:keys [tags] :as account} tag]
+  [{:keys [system-tags] :as account} tag]
   (when account
-    (if (contains? tags tag)
+    (if (contains? system-tags tag)
       account
-      (accounts/update (update-in account [:tags] conj tag)))))
+      (accounts/update (update-in account [:system-tags] conj tag)))))
 
 (defn- append-commodity-account
   "If the argument contains a commodity-account-id, append
@@ -108,7 +108,7 @@
                     :commodity-id (:id commodity)
                     :parent-id (:id parent)
                     :entity-id (:entity-id parent)
-                    :tags #{:tradable}}))
+                    :system-tags #{:tradable}}))
 
 (defn- find-or-create-commodity-account
   [parent commodity]

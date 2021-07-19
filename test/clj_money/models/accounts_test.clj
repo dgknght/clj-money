@@ -28,7 +28,7 @@
   {:name "Checking"
    :type :asset
    :entity-id (-> context :entities first :id)
-   :tags #{:something-special}})
+   :system-tags #{:something-special}})
 
 (def ^:private select-context
   {:users [(factory :user)]
@@ -48,20 +48,20 @@
         actual (->> (accounts/search {:entity-id entity-id})
                     (map #(select-keys % [:name
                                           :type
-                                          :tags
+                                          :system-tags
                                           :quantity
                                           :value
                                           :entity-id
                                           :commodity])))
         expected [{:name "Checking"
                    :type :asset
-                   :tags #{}
+                   :system-tags #{}
                    :quantity 0M
                    :value 0M
                    :entity-id entity-id}
                   {:name "Credit card"
                    :type :liability
-                   :tags #{}
+                   :system-tags #{}
                    :quantity 0M
                    :value 0M
                    :entity-id entity-id}]]
@@ -116,14 +116,14 @@
                       (map #(select-keys % [:name
                                             :type
                                             :entity-id
-                                            :tags
+                                            :system-tags
                                             :commodity-id
                                             :quantity
                                             :value])))
         expected [{:name "Checking"
                    :type :asset
                    :entity-id (:id entity)
-                   :tags #{:something-special}
+                   :system-tags #{:something-special}
                    :commodity-id (:id usd)
                    :quantity 0M
                    :value 0M}]]
@@ -168,13 +168,21 @@
     (is (valid? result))))
 
 (deftest duplicate-name-across-parents
-  (let [context (realize duplicate-name-context)
-        business (first (filter #(= "Business" (:name %)) (:entities context)))
-        household (first (filter #(= "Household" (:name %)) (:accounts context)))
+  (let [ctx (realize duplicate-name-context)
+        business (find-entity ctx "Personal")
+        household (find-account ctx "Household")
         result (accounts/create {:name "Repair"
                                  :type :expense
                                  :parent-id (:id household)
                                  :entity-id (:id business)})]
+    (is (valid? result))))
+
+(deftest duplicate-name-with-nil-parent
+  (let [ctx (realize duplicate-name-context)
+        entity (find-entity ctx "Personal")
+        result (accounts/create {:name "Repair"
+                                 :type :expense
+                                 :entity-id (:id entity)})]
     (is (valid? result))))
 
 (deftest duplicate-name-across-asset-types

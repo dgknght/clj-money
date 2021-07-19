@@ -138,7 +138,7 @@
                                     :entity-id (-> context :entities first :id)
                                     :type :asset
                                     :parent-id (:id ira)
-                                    :tags #{:tradable}
+                                    :system-tags #{:tradable}
                                     :quantity 100M
                                     ; :value 1000M TODO Restore this check
                                     }
@@ -147,7 +147,7 @@
                                                              :entity-id
                                                              :type
                                                              :parent-id
-                                                             :tags
+                                                             :system-tags
                                                              :quantity])]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
@@ -164,7 +164,7 @@
     (is (= expected-commodity-account
            actual-commodity-account)
         "The commodity account is created")
-    (is ((-> ira accounts/reload :tags) :trading)
+    (is ((-> ira accounts/reload :system-tags) :trading)
         "The specified account is tagged as a trading account")))
 
 (deftest purchase-a-commodity-with-a-fee

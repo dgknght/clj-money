@@ -1,5 +1,6 @@
 (ns clj-money.reports
-  (:require [clojure.set :refer [rename-keys]]
+  (:require [clojure.set :refer [rename-keys
+                                 intersection]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clj-time.core :as t]
@@ -69,9 +70,11 @@
 (declare summarize-accounts)
 (defn- summarize-account
   [account depth]
-  (let [children (summarize-accounts (inc depth) (:children account))]
+  (let [children (->> (:children account)
+                      (summarize-accounts (inc depth))
+                      (sort-by :name))]
     (cons (-> account
-              (select-keys [:name :value])
+              (select-keys [:id :name :value])
               (rename-keys {:name :caption})
               (update-in [:value] (fn [value]
                                     (->> children
@@ -324,20 +327,20 @@
                      (- budget-amount actual-amount)
                      (- actual-amount budget-amount))]
     (with-precision 10
-      {:id (:id account)
-       :parent-id (:parent-id account)
-       :caption (if (seq (:path account))
-                  (string/join "/" (:path account))
-                  (:name account))
-       :style :data
-       :budget budget-amount
-       :actual actual-amount
-       :difference difference
-       :percent-difference (when (not= 0M budget-amount)
-                             (with-precision 5
-                               (/ difference budget-amount)))
-       :actual-per-period (with-precision 5
-                            (/ actual-amount period-count))})))
+      (-> account
+          (select-keys [:id :user-tags :parent-id])
+          (merge {:caption (if (seq (:path account))
+                             (string/join "/" (:path account))
+                             (:name account))
+                  :style :data
+                  :budget budget-amount
+                  :actual actual-amount
+                  :difference difference
+                  :percent-difference (when (not= 0M budget-amount)
+                                        (with-precision 5
+                                          (/ difference budget-amount)))
+                  :actual-per-period (with-precision 5
+                                       (/ actual-amount period-count))})))))
 
 (defn- sum
   [attr col]
@@ -346,11 +349,16 @@
        (reduce + 0M)))
 
 (defn- budget-group-header
-  [period-count account-type records]
+  [period-count header-key records]
   (let [[budget actual diff] (map #(sum % records)
-                                  [:budget :actual :difference])]
+                                  [:budget :actual :difference])
+        ; If all items are grouped by Untagged, then just ignore the tag layer
+        records (if (and (= 1 (count records))
+                         (= "Untagged" (:caption (first records))))
+                  (-> records first :items)
+                  records)]
     (with-precision 10
-      {:caption (humanize account-type)
+      {:caption (humanize header-key)
        :style :header
        :budget budget
        :actual actual
@@ -396,16 +404,17 @@
 
 (defn- zero-budget-report-item?
   [item]
-  (every? #(= 0M (get-in item % 0M))
-          [[:actual]
-           [:budget]
-           [:roll-up :actual]
-           [:roll-up :budget]]))
+  (->> [[:actual]
+        [:budget]
+        [:roll-up :actual]
+        [:roll-up :budget]]
+       (map #(get-in item % 0M))
+       (every? zero?)))
 
-(defn- process-budget-group
-  [budget {:keys [period-count] :as options} [account-type accounts]]
+(defn- process-tag-group
+  [[tag accounts] {:keys [period-count budget] :as options}]
   (budget-group-header period-count
-                       account-type
+                       tag
                        (->> accounts
                             (map #(->budget-report-record % budget options))
                             (sort-by :difference)
@@ -413,14 +422,65 @@
                             (map #(dissoc % :parent-id))
                             (remove zero-budget-report-item?))))
 
+(defn- group-by-tags
+  [tags accounts]
+  (let [tagged (->> tags
+                    (map (fn [tag]
+                           [tag (filter #(contains? (:user-tags %) tag) accounts)]))
+                    (into {}))
+        tag-set (set tags)]
+    (assoc tagged
+           :untagged (->> accounts
+                          (filter #(= :expense (:type %))) ; TODO: consider expanding this to include any account on the budget, as one day I want to include savings, loan payments, etc.
+                          (remove #(seq (intersection (:user-tags %) tag-set)))))))
+
+(defn- any-account-has-tag?
+  [tags accounts]
+  (boolean
+    (when (seq tags)
+      (->> accounts
+           (filter #(seq (intersection (set tags) (:user-tags %))))
+           first))))
+
+(defn- process-budget-group
+  [[account-type accounts] {:keys [period-count tags budget] :as options}]
+  (if (any-account-has-tag? (set tags) accounts)
+    (let [accounts-by-tag (group-by-tags tags accounts)]
+      (->> (conj tags :untagged)
+           (map (comp #(with-meta % {:account-type account-type})
+                      #(process-tag-group % options)
+                      #(vector % (accounts-by-tag %))))
+           (remove zero-budget-report-item?))) ; TODO: Is there a better place for this?
+    [(with-meta
+       (budget-group-header period-count
+                          account-type
+                          (->> accounts
+                               (map #(->budget-report-record % budget options))
+                               (sort-by :difference)
+                               (roll-up period-count)
+                               (map #(dissoc % :parent-id))
+                               (remove zero-budget-report-item?)))
+       {:account-type account-type})]))
+
+(defn- summarize
+  [ks records]
+  (reduce (fn [result record]
+            (reduce #(update-in %1 [%2] + (get-in record [%2]))
+                    result
+                    ks))
+          (->> ks
+               (map #(vector % 0M))
+               (into {}))
+          records))
+
 (defn- append-summary
   [period-count records]
   (let [income (->> records
-                    (filter #(= "Income" (:caption %)))
-                    first)
+                    (filter #(= :income (-> % meta :account-type)))
+                    (summarize [:budget :actual]))
         expense (->> records
-                     (filter #(= "Expense" (:caption %)))
-                     first)
+                     (filter #(= :expense (-> % meta :account-type)))
+                     (summarize [:budget :actual]))
         budget (if (and income expense)
                  (->> [income expense]
                       (map #(:budget %))
@@ -459,6 +519,7 @@
    (let [as-of (or as-of
                    (default-budget-end-date budget))
          context (assoc options
+                        :budget budget
                         :as-of as-of
                         :period-count (if (t/after? (:end-date budget)
                                                     as-of)
@@ -470,8 +531,8 @@
                     (nest {:types [:income :expense]})
                     unnest
                     (group-by :type)
-                    (sort-by  #(.indexOf [:income :expense] (first %)))
-                    (map #(process-budget-group budget context %))
+                    (sort-by #(.indexOf [:income :expense] (first %)))
+                    (mapcat #(process-budget-group % context))
                     (append-summary (:period-count context)))]
      {:items items
       :title (format "%s: %s to %s"

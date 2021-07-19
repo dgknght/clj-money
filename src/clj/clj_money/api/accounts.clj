@@ -19,15 +19,20 @@
     value
     [value]))
 
+(defn- tag-criteria
+  [tags]
+  [:& (->> (->coll tags)
+           (map keyword)
+           set)])
+
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
-      (rename-keys {"tags[]" :tags})
-      (select-keys [:entity-id :tags])
-      (update-in-if [:tags] (fn [tags]
-                              [:& (->> (->coll tags)
-                                       (map keyword)
-                                       set)]))
+      (rename-keys {"system-tags[]" :system-tags
+                    "user-tags[]" :user-tags})
+      (select-keys [:entity-id :system-tags :user-tags])
+      (update-in-if [:system-tags] tag-criteria)
+      (update-in-if [:user-tags] tag-criteria)
       (+scope ::models/account authenticated)))
 
 (defn- extract-options
@@ -62,24 +67,41 @@
    :entity-id
    :type
    :commodity-id
-   :tags
+   :system-tags
+   :user-tags
    :parent-id])
+
+(defn- prepare-tags
+  [tags]
+  (if tags
+    (->> tags
+         (map keyword)
+         set)
+    #{}))
+
+(defn- handle-trading-tag
+  [{:keys [trading] :as account}]
+  (if trading
+    (update-in account [:system-tags] (fnil conj #{}) :trading)
+    (if (seq (:system-tags account))
+      (update-in account [:system-tags] disj :trading)
+      account)))
 
 (defn- before-save
   [account]
   (-> account
-      (update-in [:tags] #(if (:trading account)
-                            (conj (or % #{}) :trading)
-                            %))
-      (update-in [:type] keyword)
-      (select-keys attribute-keys)
-      (storage/tag ::models/account)))
+      (update-in-if [:user-tags] prepare-tags)
+      (update-in-if [:system-tags] prepare-tags)
+      (update-in-if [:type] keyword)
+      handle-trading-tag
+      (select-keys attribute-keys)))
 
 (defn- create
   [{:keys [params body authenticated]}]
   (-> body
       (assoc :entity-id (:entity-id params))
       before-save
+      (storage/tag ::models/account)
       (authorize ::authorization/create authenticated)
       accounts/create
       api/creation-response))
@@ -88,9 +110,7 @@
   [{:keys [body] :as req}]
   (if-let [account (find-and-auth req ::authorization/update)]
     (-> account
-        (merge (-> body
-                   (select-keys attribute-keys)
-                   before-save))
+        (merge (before-save body))
         accounts/update
         api/update-response)
     api/not-found))

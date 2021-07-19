@@ -33,13 +33,22 @@
   margin-right: 8em;
 }
 
+.budget-item-row th {
+  font-weight: normal;
+}
+
 .report-header td, .report-footer td {
   font-weight: bold;
-  font-size: 120%;
+  font-size: 110%;
 }
 
 .report-header td, .report-header th {
   border-bottom: 1px solid black;
+}
+
+.report-condensed-summary td, .report-condensed-summary th {
+  font-weight: bold;
+  font-size: 110%;
 }
 
 .report-footer td, .report-footer th {
@@ -49,7 +58,7 @@
 .report-summary {
   border-top: 1px solid black;
   font-weight: bold;
-  font-size: 120%;
+  font-size: 110%;
 }
 
 .portfolio tbody .report-header td {
@@ -219,4 +228,23 @@ table tfoot td {
 }
 .sched-tran-expired {
   background-color: #CCC;
+}
+
+.tag {
+  border-radius: 0.5em;
+  padding: 0.2em 0.5em;
+  margin-right: 0.5em;
+}
+
+.tag a {
+  text-decoration: none;
+}
+
+.account-tag {
+  background-color: #17a2b8;
+  color: #fff;
+}
+
+.account-tag a {
+  color: #fff;
 }

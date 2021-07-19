@@ -184,7 +184,7 @@
   (-> basic-context
       (update-in [:accounts] concat [{:name "IRA"
                                       :type :asset
-                                      :tags #{:trading}
+                                      :system-tags #{:trading}
                                       :entity-id "Personal"}])
       (update-in [:commodities] concat [{:name "Apple, Inc."
                                          :symbol "AAPL"

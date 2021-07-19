@@ -43,15 +43,11 @@
         new-monitor
         [:account-id]
         {:search-fn (fn [input callback]
-                      (callback (find-by-path input @accounts)))
+                      (callback (find-by-path input (vals @accounts))))
          :caption-fn #(string/join "/" (:path %))
          :value-fn :id
          :find-fn (fn [id callback]
-                    (->> @accounts
-                         vals
-                         (filter #(= id (:id %)))
-                         first
-                         callback))}]
+                    (callback (@accounts id)))}]
        [:button.btn.btn-primary {:on-click #(save-monitor state)
                                  :title "Click here to add this new monitor"
                                  :disabled (not (:account-id @new-monitor))}
@@ -142,24 +138,22 @@
                    (notify/danger-fn "Unable to remove the budget monitor: %s")))
 
 (defn- monitor
-  [monitor state]
-  (let [scope (get-in @state [:monitor-scope])
-        account (get-in @state [:accounts (:account-id monitor)])]
-    ^{:key (str "budget-monitor-" (:account-id monitor))}
-    [:div.d-flex.align-items-start
-     [:div.budget-monitor.my-2
-      (if (:message monitor)
-        [:p (:message monitor)]
-        [:figure
-         (monitor-svg (get-in monitor [scope]) {:style {:width "100%"
-                                                        :height "2em"}})
-         [:figcaption (:path account)]])]
-     [:div
-      {:on-click #(remove-monitor monitor state)
-       :style {:margin "0.5em"
-               :cursor "pointer"}
-       :title "Click here to remove this budget monitor."}
-      (bs/icon :x-circle)]]))
+  [{:keys [scope account] :as monitor} state]
+  ^{:key (str "budget-monitor-" (:id account))}
+  [:div.d-flex.align-items-start
+   [:div.budget-monitor.my-2
+    (if (:message monitor)
+      [:p (:message monitor)]
+      [:figure
+       (monitor-svg (get-in monitor [scope]) {:style {:width "100%"
+                                                      :height "2em"}})
+       [:figcaption (string/join "/" (:path account))]])]
+   [:div
+    {:on-click #(remove-monitor monitor state)
+     :style {:margin "0.5em"
+             :cursor "pointer"}
+     :title "Click here to remove this budget monitor."}
+    (bs/icon :x-circle)]])
 
 (defn- monitor-nav-tab
   [scope state]
@@ -170,6 +164,7 @@
 
 (defn- monitors []
   (let [state (r/atom {:monitor-scope :period})
+        scope (r/cursor state [:monitor-scope])
         monitors (r/cursor state [:monitors])
         accounts (r/cursor state [:accounts])
         new-monitor (r/cursor state [:new-monitor])]
@@ -182,7 +177,10 @@
          [bs/nav-tabs (map #(monitor-nav-tab % state) [:period :budget])])
        (if (and @monitors @accounts)
          (->> @monitors
-              (sort-by #(get-in @accounts [(:account-id %) :path]))
+              (map #(assoc %
+                           :account (@accounts (:account-id %))
+                           :scope @scope))
+              (sort-by #(get-in % [:account :path]))
               (map #(monitor % state))
               doall)
          [:div.my-3

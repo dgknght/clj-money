@@ -30,15 +30,17 @@
 
 (defn index []
   (html5
-   [:html {:lang "en"}
-    (head)
-    [:body
-     [:div#app
-      [:div.container
-       [:nav.nav-bar
-        "Money"]]
-      "Loading..."]
-     (include-js "/js/app/main.js")]]))
+    [:html {:lang "en"}
+     (head)
+     [:body
+      [:div#app
+       [:nav.navbar.navbar-expand-lg.navbar-light.bg-light
+        [:div.container "clj-money"]]
+       [:div.container.mt-5
+        [:div.spinner-border {:role :status}
+         [:span.sr-only
+          "Loading..."]]]]
+      (include-js "/js/app/main.js")]]))
 
 (defroutes routes
   (GET "/" [] (index)))

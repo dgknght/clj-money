@@ -70,7 +70,7 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [com.github.dgknght/app-lib "0.1.0"]
+                 [com.github.dgknght/app-lib "0.1.1"]
                  [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.8" :exclusions [org.clojure/spec.alpha
                                                 org.clojure/clojure
@@ -122,6 +122,8 @@
             "generate-transactions"         ["run" "-m" "clj-money.seed/generate-transactions"]
             "recalc"                        ["run" "-m" "clj-money.tasks/recalc"]
             "migrate-account"               ["run" "-m" "clj-money.tasks/migrate-account"]
+            "export-user-tags"              ["run" "-m" "clj-money.tasks/export-user-tags"]
+            "import-user-tags"              ["run" "-m" "clj-money.tasks/import-user-tags"]
             "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]

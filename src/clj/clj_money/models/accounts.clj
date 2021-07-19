@@ -18,6 +18,7 @@
   [{:keys [id] :as account}]
   (nil? (find-by (-> account
                      (select-keys [:entity-id :parent-id :name :type])
+                     (update-in [:parent-id] identity) ; Ensure that nil is included, as it matters for this query
                      (assoc-if :id (when id [:!= id]))))))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:name]})
@@ -39,12 +40,14 @@
 (s/def ::type #{:asset :liability :equity :income :expense})
 (s/def ::commodity-id integer?)
 (s/def ::parent-id (s/nilable integer?))
+(s/def ::system-tags (s/coll-of keyword? :kind set?))
+(s/def ::user-tags (s/coll-of keyword? :kind set?))
 (s/def ::new-account (s/and (s/keys :req-un [::entity-id ::name ::type ::commodity-id]
-                                    :opt-un [::parent-id])
+                                    :opt-un [::parent-id ::system-tags ::user-tags])
                             name-is-unique?
                             parent-has-same-type?))
 (s/def ::existing-account (s/and (s/keys :req-un [::id ::entity-id ::type ::name]
-                                         :opt-un [::parent-id ::commodity-id])
+                                         :opt-un [::parent-id ::commodity-id ::system-tags ::user-tags])
                                  name-is-unique?
                                  parent-has-same-type?))
 ; :value and :children-value are not specified because they are always
@@ -87,9 +90,10 @@
       (update-in [:quantity] (fnil identity 0M))
       (update-in [:value] (fnil identity 0M))
       (update-in [:type] name)
-      (update-in [:tags] #(if (seq %)
-                            (into-array (map name %))
-                            nil))
+      (update-in [:user-tags] #(when (seq %)
+                                 (into-array (map name %))))
+      (update-in [:system-tags] #(when (seq %)
+                                   (into-array (map name %))))
       (dissoc :commodity)))
 
 (defn- dissoc-if-nil
@@ -100,14 +104,19 @@
     (dissoc m k)
     m))
 
+(defn- prepare-tags
+  [tags]
+  (->> tags
+       (map keyword)
+       set))
+
 (defn- after-read
   "Adjusts account data read from the database for use"
   [account & _]
   (-> account
       (update-in [:type] keyword)
-      (update-in [:tags] #(->> %
-                               (map keyword)
-                               set))
+      (update-in [:system-tags] prepare-tags)
+      (update-in [:user-tags] prepare-tags)
       (tag ::models/account)
       (dissoc-if-nil :parent-id)))
 

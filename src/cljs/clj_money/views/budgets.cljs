@@ -165,8 +165,8 @@
 (defn- budget-item-row
   [item detail? page-state]
   ^{:key (str "budget-item-row-" (get-in item [:item :id]))}
-  [:tr
-   [:td (:caption item)]
+  [:tr.budget-item-row
+   [:th {:scope "row"} (:caption item)]
    (when detail?
      (doall
       (map-indexed
@@ -188,7 +188,7 @@
   [item-group detail?]
   ^{:key (str "budget-item-header-row-" (:caption item-group))}
   [:tr.report-header
-   [:td (:caption item-group)]
+   [:th {:col-span 2 :scope "row"} (:caption item-group)]
    (when detail?
      (doall
       (map-indexed
@@ -213,12 +213,29 @@
    [:td.text-right (format-decimal (:total item-group))]
    [:td (html/space)]])
 
+(defn- budget-item-condensed-row
+  [item-group detail?]
+  ^{:key (str "budget-summary-row-" (:caption item-group))}
+  [:tr.report-condensed-summary
+   [:th {:scope "row"} (:caption item-group)]
+   (when detail?
+     (doall
+      (map-indexed
+       (fn [index value]
+         ^{:key (str "period-value-" (:caption item-group) "-" index)}
+         [:td.text-right (format-decimal value)])
+       (:periods item-group))))
+   [:td.text-right (format-decimal (:total item-group))]
+   [:td (html/space)]])
+
 (defn- budget-item-rows
   [item-group detail? page-state]
-  (concat [(budget-item-group-header-row item-group detail?)]
-          (map #(budget-item-row % detail? page-state)
-               (:items item-group))
-          [(budget-item-group-footer-row item-group detail?)]))
+  (if (seq (:items item-group))
+    (concat [(budget-item-group-header-row item-group detail?)]
+            (map #(budget-item-row % detail? page-state)
+                 (:items item-group))
+            [(budget-item-group-footer-row item-group detail?)])
+    [(budget-item-condensed-row item-group detail?)]))
 
 (defn- budget-items-table
   [page-state]
@@ -226,7 +243,8 @@
         accounts (r/cursor page-state [:accounts])
         rendered-budget (make-reaction (fn []
                                          (budgets/render @budget
-                                                         #(get-in @accounts [%]))))
+                                                         {:find-account @accounts
+                                                          :tags [:tax :mandatory :discretionary]}))) ; TODO: make this user editable
         selected-item (r/cursor page-state [:selected-item])
         detail-flag? (r/cursor page-state [:show-period-detail?])
         detail? (make-reaction #(and @detail-flag?
@@ -247,7 +265,9 @@
          [:th.text-right "Total"]
          [:th (html/space)]]]
        [:tbody
-        (doall (mapcat #(budget-item-rows % @detail? page-state) @rendered-budget))]])))
+        (->> @rendered-budget
+             (mapcat #(budget-item-rows % @detail? page-state))
+             doall)]])))
 
 (defmulti calc-periods
   (fn [item _budget _callback]

@@ -1,6 +1,7 @@
 (ns clj-money.tasks
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.string :as string]
+            [clojure.edn :as edn]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
@@ -15,7 +16,7 @@
 (defn- read-args
   [args cli-opts {:keys [validate
                          title]
-                  :or {validate (constantly true)}}]
+                  :or {validate (constantly nil)}}]
   (let [{:keys [options
                 summary
                 errors]} (parse-opts args cli-opts)
@@ -154,3 +155,56 @@
                                         :name (:to-account opts)})]
       (assert to-account "\"To\" account not found")
       (transactions/migrate-account from-account to-account))))
+
+(def ^:private export-user-tags-cli-options
+  [["-u" "--user" "Username (email address)"
+    :required "Identifies the user account from which user tags are to be exported"]
+   ["-e" "--entity" "Entity name"
+    :required "Identifies the entity from which user tags are to be exported"]
+   ["-o" "--output-file" "Output File"
+    :required "The location where the tags are to be written"]
+   ["-h" "--help"
+    :id :help?]])
+
+(defn export-user-tags
+  [& args]
+  (when-let [opts (read-args
+                    args
+                    export-user-tags-cli-options
+                    {:title "EXPORT USER TAGS"})]
+    (let [user (users/find-by {:email (:user opts)})
+          entity (entities/find-by {:user-id (:id user)
+                                    :name (:entity opts)})
+          _ (assert entity "Entity not found")]
+      (spit (:output-file opts)
+            (->> (accounts/search {:entity-id (:id entity)})
+                 (filter #(seq (:user-tags %)))
+                 (map #(select-keys % [:name :user-tags]))
+                 prn-str)))))
+
+(def ^:private import-user-tags-cli-options
+  [["-u" "--user" "Username (email address)"
+    :required "Identifies the user account into which user tags are to be imported"]
+   ["-e" "--entity" "Entity name"
+    :required "Identifies the entity into which user tags are to be imported"]
+   ["-i" "--input-file" "Input File"
+    :required "The location from which the tags are to be read"]
+   ["-h" "--help"
+    :id :help?]])
+
+(defn import-user-tags
+  [& args]
+  (when-let [opts (read-args
+                   args
+                   import-user-tags-cli-options
+                   {:title "IMPORT USER TAGS"})]
+    (let [user (users/find-by {:email (:user opts)})
+          entity (entities/find-by {:user-id (:id user)
+                                    :name (:entity opts)})
+          _ (assert entity "Entity not found")
+          accounts (group-by :name (accounts/search {:entity-id (:id entity)}))
+          tags (edn/read-string (slurp (:input-file opts)))]
+
+      (doseq [{:keys [name user-tags]} tags
+              account (get-in accounts [name])]
+        (accounts/update (assoc account :user-tags user-tags))))))

@@ -2,13 +2,16 @@
   (:require [clojure.test :refer [deftest testing is use-fixtures]]
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
+            [clojure.edn :as edn]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.web :refer [unserialize-date]]
             [clj-money.core]
             [clj-money.test-context :refer [basic-context
                                             realize
                                             find-entity
+                                            find-budget
                                             find-account
                                             find-accounts
                                             find-commodity
@@ -16,7 +19,8 @@
             [clj-money.factories.user-factory]
             [clj-money.trading :as trading]
             [clj-money.reports :as reports]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db]])
+  (:import [java.io PushbackReader FileReader]))
 
 (use-fixtures :each reset-db)
 
@@ -445,272 +449,18 @@
                    :style :summary}]]
     (is (= expected actual) "The report contains the correct data")))
 
-(def ^:private budget-report-context
-  (merge base-context
-         {:accounts [{:name "Checking"
-                      :type :asset}
-                     {:name "Credit Card"
-                      :type :liability}
-                     {:name "Salary"
-                      :type :income}
-                     {:name "Dining"
-                      :type :expense}
-                     {:name "Clothes"
-                      :type :expense}
-                     {:name "Rent"
-                      :type :expense}
-                     {:name "Groceries"
-                      :type :expense}
-                     {:name "Taxes"
-                      :type :expense}
-                     {:name "FIT"
-                      :type :expense
-                      :parent-id "Taxes"}
-                     {:name "Social Security"
-                      :type :expense
-                      :parent-id "Taxes"}
-                     {:name "Medicare"
-                      :type :expense
-                      :parent-id "Taxes"}]
-          :budgets [{:name "2016"
-                     :start-date (t/local-date 2016 1 1)
-                     :period :month
-                     :period-count 12
-                     :items [{:account-id "Salary"
-                              :periods (repeat 12 2000M)}
-                             {:account-id "FIT"
-                              :periods (repeat 12 400M)}
-                             {:account-id "Social Security"
-                              :periods (repeat 12 134M)}
-                             {:account-id "Medicare"
-                              :periods (repeat 12 30M)}
-                             {:account-id "Rent"
-                              :periods (repeat 12 700M)}
-                             {:account-id "Dining"
-                              :periods (repeat 12 200M)}
-                             {:account-id "Groceries"
-                              :periods (repeat 12 450M)}]}]
-          :transactions [; salary
-                         {:transaction-date (t/local-date 2016 1 1)
-                          :description "Paycheck"
-                          :items [{:action :debit
-                                   :account-id "Checking"
-                                   :quantity 724M}
-                                  {:action :debit
-                                   :account-id "FIT"
-                                   :quantity 200M}
-                                  {:action :debit
-                                   :account-id "Social Security"
-                                   :quantity 62M}
-                                  {:action :debit
-                                   :account-id "Medicare"
-                                   :quantity 15M}
-                                  {:action :credit
-                                   :account-id "Salary"
-                                   :quantity 1001M}]}
-                         {:transaction-date (t/local-date 2016 1 15)
-                          :description "Paycheck"
-                          :items [{:action :debit
-                                   :account-id "Checking"
-                                   :quantity 725M}
-                                  {:action :debit
-                                   :account-id "FIT"
-                                   :quantity 200M}
-                                  {:action :debit
-                                   :account-id "Social Security"
-                                   :quantity 62M}
-                                  {:action :debit
-                                   :account-id "Medicare"
-                                   :quantity 15M}
-                                  {:action :credit
-                                   :account-id "Salary"
-                                   :quantity 1002M}]}
-                         {:transaction-date (t/local-date 2016 2 1)
-                          :description "Paycheck"
-                          :items [{:action :debit
-                                   :account-id "Checking"
-                                   :quantity 726M}
-                                  {:action :debit
-                                   :account-id "FIT"
-                                   :quantity 200M}
-                                  {:action :debit
-                                   :account-id "Social Security"
-                                   :quantity 62M}
-                                  {:action :debit
-                                   :account-id "Medicare"
-                                   :quantity 15M}
-                                  {:action :credit
-                                   :account-id "Salary"
-                                   :quantity 1003M}]}
-                         {:transaction-date (t/local-date 2016 2 15)
-                          :description "Paycheck"
-                          :quantity 1004M
-                          :debit-account-id "Checking"
-                          :credit-account-id "Salary"}
+(def ^:private budget-fixtures
+  (edn/read {:readers {'local-date unserialize-date
+                       'repeat (fn [[n x]]
+                                 (repeat n x))}}
+            (PushbackReader.
+              (FileReader. "resources/fixtures/reports_test/budget.edn"))))
 
-                         ; groceries
-                         {:transaction-date (t/local-date 2016 1 3)
-                          :description "Kroger"
-                          :quantity 100M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 1 10)
-                          :description "Kroger"
-                          :quantity 100M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 1 17)
-                          :description "Kroger"
-                          :quantity 100M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 1 24)
-                          :description "Kroger"
-                          :quantity 100M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 1 31)
-                          :description "Kroger"
-                          :quantity 100M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 2 7)
-                          :description "Kroger"
-                          :quantity 101M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 2 14)
-                          :description "Kroger"
-                          :quantity 101M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 2 21)
-                          :description "Kroger"
-                          :quantity 101M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         {:transaction-date (t/local-date 2016 2 28)
-                          :description "Kroger"
-                          :quantity 101M
-                          :debit-account-id "Groceries"
-                          :credit-account-id "Credit Card"}
-                         ; rent
-                         {:transaction-date (t/local-date 2016 1 4)
-                          :description "Landlord"
-                          :quantity 700M
-                          :debit-account-id "Rent"
-                          :credit-account-id "Checking"}
-                         {:transaction-date (t/local-date 2016 1 7)
-                          :description "Trunk Club"
-                          :quantity 321M
-                          :debit-account-id "Clothes"
-                          :credit-account-id "Checking"}
-                         {:transaction-date (t/local-date 2016 2 4)
-                          :description "Landlord"
-                          :quantity 700M
-                          :debit-account-id "Rent"
-                          :credit-account-id "Checking"}]}))
+(def ^:private budget-report-context
+  (merge base-context (:context budget-fixtures)))
 
 (def ^:private  expected-budget
-  {:title "2016: January to February"
-   :items [{:caption "Income"
-            :style :header
-            :budget 4000M
-            :actual 4010M
-            :difference 10M
-            :percent-difference 0.0025M
-            :actual-per-period 2005M
-            :items [{:caption "Salary"
-                     :style :data
-                     :depth 0
-                     :budget 4000M
-                     :actual 4010M
-                     :difference 10M
-                     :percent-difference 0.0025M
-                     :actual-per-period 2005M}]}
-           {:caption "Expense"
-            :style :header
-            :budget 3828M
-            :actual 3456M
-            :difference 372M
-            :percent-difference 0.09717868339M
-            :actual-per-period 1728M
-            :items [{:caption "Clothes"
-                     :style :data
-                     :depth 0
-                     :budget 0M
-                     :actual 321M
-                     :difference -321M
-                     :percent-difference nil
-                     :actual-per-period 160.50M}
-                    {:caption "Groceries"
-                     :style :data
-                     :depth 0
-                     :budget 900M
-                     :actual 904M
-                     :difference -4M
-                     :percent-difference -0.0044444M
-                     :actual-per-period 452M}
-                    {:caption "Rent"
-                     :style :data
-                     :depth 0
-                     :budget 1400M
-                     :actual 1400M
-                     :difference 0M
-                     :percent-difference 0M
-                     :actual-per-period 700M}
-                    {:caption "Taxes"
-                     :style :data
-                     :depth 0
-                     :budget 0M
-                     :actual 0M
-                     :difference 0M
-                     :percent-difference nil
-                     :actual-per-period 0M
-                     :roll-up {:budget 1128M ; 60 + 268 + 800
-                               :actual 831M ; 45 + 186 + 600
-                               :difference 297M
-                               :percent-difference 0.2632978723M
-                               :actual-per-period 415.5M}}
-                    {:caption "Taxes/Medicare"
-                     :style :data
-                     :depth 1
-                     :budget 60M
-                     :actual 45M
-                     :difference 15M
-                     :percent-difference 0.25M
-                     :actual-per-period 22.5M}
-                    {:caption "Taxes/Social Security"
-                     :style :data
-                     :depth 1
-                     :budget 268M
-                     :actual 186M
-                     :difference 82M
-                     :percent-difference 0.30597M
-                     :actual-per-period 93M}
-                    {:caption "Taxes/FIT"
-                     :style :data
-                     :depth 1
-                     :budget 800M
-                     :actual 600M
-                     :difference 200M
-                     :percent-difference 0.25M
-                     :actual-per-period 300M}
-                    {:caption "Dining"
-                     :style :data
-                     :depth 0
-                     :budget 400M
-                     :actual 0M
-                     :difference 400M
-                     :percent-difference 1M
-                     :actual-per-period 0M}]}
-           {:caption "Net"
-            :style :summary
-            :budget 172M
-            :actual 554M
-            :difference 382M
-            :percent-difference 2.220930233M
-            :actual-per-period 277M}]})
+  (:expected budget-fixtures))
 
 (deftest create-a-budget-report
   (let [context (realize budget-report-context)
@@ -719,7 +469,19 @@
                                 {:as-of (t/local-date 2016 2 29)})
                 [:items]
                 strip-account-ids)]
-    (is (= expected-budget actual) "The function products the correct data")))
+    (is (= expected-budget actual) "The function produces the correct data")))
+
+(def ^:private  expected-tagged-budget
+  (:expected-tagged budget-fixtures))
+
+(deftest create-a-budget-report-grouped-by-tags
+  (let [ctx (realize budget-report-context)
+        actual (-> ctx
+                   (find-budget "2016")
+                   (reports/budget {:as-of (t/local-date 2016 2 29)
+                                    :tags [:tax :mandatory :discretionary]})
+                   (update-in [:items] strip-account-ids))]
+    (is (= expected-tagged-budget actual) "The function produces the correct data")))
 
 (deftest create-a-budget-monitor
   (let [context (realize budget-report-context)

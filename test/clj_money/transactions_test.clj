@@ -182,13 +182,13 @@
   {:accounts [{:id "401k"
                :name "401k"
                :type :asset
-               :tags #{:trading}
+               :system-tags #{:trading}
                :commodity-id "usd"}
               {:id "aapl"
                :parent-id 1
                :name "AAPL"
                :type :asset
-               :tags #{:tradable}
+               :system-tags #{:tradable}
                :commodity-id "aapl"}]
    :commodities [{:id "usd"
                   :name "USD"

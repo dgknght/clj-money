@@ -104,7 +104,7 @@
                                         (map #(assoc % :account (find-account (:account-id %))))
                                         (mapcat (fn [item]
                                                   (map #(vector % item)
-                                                       (:tags (:account item)))))
+                                                       (:system-tags (:account item)))))
                                         (into {}))]
     (-> transaction
         (rename-keys {:transaction-date :trade-date})

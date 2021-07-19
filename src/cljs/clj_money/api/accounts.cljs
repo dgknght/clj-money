@@ -16,9 +16,11 @@
   [account]
   (-> account
       (update-in [:type] keyword)
-      (update-in [:tags] (comp set #(map keyword %)))
+      (update-in [:system-tags] (comp set #(map keyword %)))
+      (update-in [:user-tags] (comp set #(map keyword %)))
       (update-in [:value] ->decimal)
       (update-in [:quantity] ->decimal)
+      (update-in [:tags] #(->> % (map keyword) set))
       set-flags
       (update-in [:created-at] unserialize-date-time)
       (update-in [:commodity :type] keyword)
@@ -47,7 +49,9 @@
    :type
    :commodity-id
    :parent-id
-   :trading])
+   :trading
+   :system-tags
+   :user-tags])
 
 (defn create
   [account success-fn error-fn]

@@ -122,3 +122,7 @@
                   (some (fn [segment]
                           (string/includes? segment term))))
             accounts)))
+
+(defn user-tagged?
+  [{:keys [user-tags]} tag]
+  (contains? user-tags tag))

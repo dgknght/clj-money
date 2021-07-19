@@ -52,7 +52,8 @@
                                             authenticated))]
     (api/response
       (rpt/budget budget (-> params
-                             (select-keys [:as-of])
+                             (select-keys [:as-of :tags])
+                             (update-in-if [:tags] #(mapv keyword %))
                              (update-in-if [:as-of] unserialize-date))))
     api/not-found))
 

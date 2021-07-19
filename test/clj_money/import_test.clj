@@ -205,9 +205,9 @@
                                               :commodity-id
                                               :quantity
                                               :value
-                                              :tags])))
+                                              :system-tags])))
             expected (map #(-> %
-                               (assoc :tags #{})
+                               (assoc :system-tags #{})
                                (update-in [:commodity-id]
                                           (fn [sym]
                                             (:id (commodities/find-by
@@ -418,10 +418,10 @@
             "The commodity has the correct lots after import")))
 
     (testing "accounts are tagged correctly"
-      (is (:trading (:tags ira))
-          "The IRA account has the correct tags")
-      (is (:trading (:tags four-o-one-k))
-          "The 401k account has the correct tags"))
+      (is (:trading (:system-tags ira))
+          "The IRA account has the correct system tags")
+      (is (:trading (:system-tags four-o-one-k))
+          "The 401k account has the correct system tags"))
 
     (testing "transactions are created correctly"
       (let [ira-aapl (accounts/find-by {:parent-id (:id ira)

@@ -107,3 +107,8 @@
 
 (deftest nest-accounts
   (is (= nested-accounts (accounts/nest flat-accounts))))
+
+(deftest check-for-a-user-tag
+  (let [account {:user-tags #{:mandatory}}]
+    (is (accounts/user-tagged? account :mandatory))
+    (is (not (accounts/user-tagged? account :discretionary)))))

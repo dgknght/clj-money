@@ -28,6 +28,20 @@
 
 (defonce ^:private auto-loaded (atom []))
 
+(defn- map-next-occurrence
+  [sched-trans]
+  (map #(assoc % :next-occurrence (next-transaction-date %))
+       sched-trans))
+
+(defn- load-sched-trans
+  [page-state]
+  (sched-trans/search (fn [result]
+                        (swap! page-state
+                               assoc
+                               :scheduled-transactions
+                               (map-next-occurrence result)))
+                      (notify/danger-fn "Unable to load the scheduled transactions: %s")))
+
 (defn set-next-occurrence
   [sched-tran]
   (assoc sched-tran :next-occurrence (next-transaction-date sched-tran)))
@@ -174,20 +188,6 @@
            [:td {:col-span 3}
             [:div.text-center
              (bs/spinner)]]])]])))
-
-(defn- map-next-occurrence
-  [sched-trans]
-  (map #(assoc % :next-occurrence (next-transaction-date %))
-       sched-trans))
-
-(defn- load-sched-trans
-  [page-state]
-  (sched-trans/search (fn [result]
-                        (swap! page-state
-                               assoc
-                               :scheduled-transactions
-                               (map-next-occurrence result)))
-                      (notify/danger-fn "Unable to load the scheduled transactions: %s")))
 
 (defn- ->saveable-item
   [{:keys [debit-quantity credit-quantity] :as item}]
@@ -397,7 +397,8 @@
   (let [page-state (r/atom {:scheduled-transactions @auto-loaded
                             :hide-inactive? true
                             :sort-on :next-occurrence})
-        selected (r/cursor page-state [:selected])]
+        selected (r/cursor page-state [:selected])
+        busy? (r/cursor page-state [:busy?])]
     (when-not @auto-loaded
       (load-sched-trans page-state))
     (reset! auto-loaded nil)
@@ -408,7 +409,7 @@
        [:div {:class (when @selected "d-none")}
         [forms/checkbox-field page-state [:hide-inactive?]]
         [sched-trans-table page-state]
-        [:div.d-flex
+        [:div.d-flex.mb-5
          [:button.btn.btn-primary {:title "Click here to schedule a recurring transaction."
                                    :disabled @selected
                                    :on-click (fn []
@@ -425,8 +426,14 @@
          (html/space)
          [:button.btn.btn-info {:title "Click here to new transactions from the schedule."
                                 :type :button
+                                :disabled @busy?
                                 :on-click #(realize page-state)}
-          (bs/icon-with-text :gear "Realize")]]
+          (if @busy?
+            [:div.d-flex.align-items-center
+             [:div.spinner-border.spinner-border-sm {:role :status}
+              [:span.sr-only "Working..."]]
+             [:span.ml-1 "Realize"]]
+            (bs/icon-with-text :gear "Realize"))]]
         [created page-state]]
        [:div {:class (when-not @selected "d-none")}
         [sched-tran-form page-state]]])))

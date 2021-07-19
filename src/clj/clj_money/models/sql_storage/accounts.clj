@@ -20,7 +20,8 @@
    :accounts.name
    :accounts.parent_id
    :accounts.quantity
-   :accounts.tags
+   :accounts.system_tags
+   :accounts.user_tags
    :accounts.value
    :accounts.hidden
    :accounts.earliest_transaction_date
@@ -64,7 +65,8 @@
   (insert-model db-spec :accounts account
                 :name
                 :type
-                :tags
+                :system-tags
+                :user-tags
                 :commodity-id
                 :entity-id
                 :parent-id
@@ -78,7 +80,8 @@
   (update-model db-spec :accounts account
                 :name
                 :type
-                :tags
+                :system-tags
+                :user-tags
                 :commodity-id
                 :parent-id
                 :quantity,

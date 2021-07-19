@@ -156,6 +156,8 @@
 (defn- assert-successful-update
   [[response body retrieved]]
   (is (http-success? response))
+  (is (empty? (:dgknght.app-lib.validation/errors body))
+      "There are no validation errors")
   (is (comparable? {:name "New Name"}
                    body)
       "The updated account is returned in the response")

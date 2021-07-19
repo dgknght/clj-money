@@ -10,7 +10,7 @@
 
 (defmethod ^:private nav-item :dropdown
   [{:keys [children id caption active? tool-tip]}]
-  (if-not (seq children)
+  (when-not (seq children)
     (throw "A dropdown nav item must have children"))
 
   ^{:key (str "menu-item-" id)}
