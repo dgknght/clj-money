@@ -22,6 +22,8 @@
             [clj-money.trading :as trading])
   (:import org.joda.time.LocalDate))
 
+(def ^:dynamic *context* nil)
+
 (def basic-context
   {:users (->> ["john@doe.com" "jane@doe.com"]
                (mapv #(factory :user {:email %})))
@@ -75,103 +77,135 @@
        first))
 
 (defn find-user
-  [context email]
-  (find-in-context context :users :email email))
+  ([email] (find-user *context* email))
+  ([context email]
+   (find-in-context context :users :email email)))
+
+(defn- context+
+  [args]
+  (if (map? (first args))
+    args
+    (cons *context* args)))
 
 (defn find-users
-  [context & emails]
-  (map #(find-user context %) emails))
+  [& args]
+  (let [[context & emails] (context+ args)]
+    (map #(find-user context %) emails)))
 
 (defn find-entity
-  [context entity-name]
-  (find-in-context context :entities :name entity-name))
+  ([entity-name] (find-entity *context* entity-name))
+  ([context entity-name]
+   (find-in-context context :entities :name entity-name)))
 
 (defn find-entities
-  [context & entity-names]
-  (map #(find-entity context %) entity-names))
+  [& args]
+  (let [[context & entity-names] (context+ args)]
+    (map #(find-entity context %) entity-names)))
 
 (defn find-import
-  [context entity-name]
-  (find-in-context context :imports :entity-name entity-name))
+  ([entity-name] (find-import *context* entity-name))
+  ([context entity-name]
+   (find-in-context context :imports :entity-name entity-name)))
 
 (defn find-imports
-  [context & entity-names]
-  (map #(find-import context %) entity-names))
+  [& args]
+  (let [[context & entity-names] (context+ args)]
+    (map #(find-import context %) entity-names)))
 
 (defn find-grant
-  [context entity-id user-id]
-  (->> context
-       :grants
-       (filter #(and (= entity-id (:entity-id %))
-                     (= user-id (:user-id %))))
-       first))
+  ([entity-id user-id] (find-grant *context* entity-id user-id))
+  ([context entity-id user-id]
+   (->> context
+        :grants
+        (filter #(and (= entity-id (:entity-id %))
+                      (= user-id (:user-id %))))
+        first)))
 
 (defn find-account
-  [context account-name]
-  (find-in-context context :accounts :name account-name))
+  ([account-name] (find-account *context* account-name))
+  ([context account-name]
+   (find-in-context context :accounts :name account-name)))
 
 (defn find-accounts
-  [context & account-names]
-  (map #(find-account context %) account-names))
+  [& args]
+  (let [[context & account-names] (context+ args)]
+    (map #(find-account context %) account-names)))
 
 (defn find-attachment
-  [context caption]
-  (find-in-context context :attachments :caption caption))
+  ([caption] (find-attachment *context* caption))
+  ([context caption]
+   (find-in-context context :attachments :caption caption)))
 
 (defn find-image
-  [context original-filename]
-  (find-in-context context :images :original-filename original-filename))
+  ([original-filename] (find-image *context* original-filename))
+  ([context original-filename]
+   (find-in-context context :images :original-filename original-filename)))
 
 (defn find-commodity
-  [context symbol]
-  (find-in-context context :commodities :symbol symbol))
+  ([symbol] (find-commodity *context* symbol))
+  ([context symbol]
+   (find-in-context context :commodities :symbol symbol)))
 
 (defn find-commodities
-  [context & symbols]
-  (map #(find-commodity context %) symbols))
+  [& args]
+  (let [[context & symbols] (context+ args)]
+    (map #(find-commodity context %) symbols)))
 
 (defn find-budget
-  [context budget-name]
-  (find-in-context context :budgets :name budget-name))
+  ([budget-name] (find-budget *context* budget-name))
+  ([context budget-name]
+   (find-in-context context :budgets :name budget-name)))
 
 (defn find-price
-  [context sym trade-date]
-  (let [commodity (find-commodity context sym)]
-    (->> context
-         :prices
-         (filter #(and (= (:id commodity) (:commodity-id %))
-                       (= trade-date (:trade-date %))))
-         first)))
+  ([sym trade-date] (find-price *context* sym trade-date))
+  ([context sym trade-date]
+   (let [commodity (find-commodity context sym)]
+     (->> context
+          :prices
+          (filter #(and (= (:id commodity) (:commodity-id %))
+                        (= trade-date (:trade-date %))))
+          first))))
 
 (defn find-transaction
-  [context transaction-date description]
-  {:pre [(string? description) (instance? LocalDate transaction-date)]}
+  ([transaction-date description] (find-transaction *context* transaction-date description))
+  ([context transaction-date description]
+   {:pre [(string? description) (instance? LocalDate transaction-date)]}
 
-  (->> (:transactions context)
-       (filter #(and (= transaction-date (:transaction-date %))
-                     (= description (:description %))))
-       first))
+   (->> (:transactions context)
+        (filter #(and (= transaction-date (:transaction-date %))
+                      (= description (:description %))))
+        first)))
 
 (defn find-transaction-item
-  [context transaction-date quantity account-id]
-  (->> (:transactions context)
-       (filter #(= transaction-date (:transaction-date %)))
-       (mapcat :items)
-       (filter #(and (= account-id (:account-id %))
-                     (= quantity (:quantity %))))
-       first))
+  ([transaction-date quantity account-id]
+   (find-transaction-item *context*
+                          transaction-date
+                          quantity
+                          account-id))
+  ([context transaction-date quantity account-id]
+   (->> (:transactions context)
+        (filter #(= transaction-date (:transaction-date %)))
+        (mapcat :items)
+        (filter #(and (= account-id (:account-id %))
+                      (= quantity (:quantity %))))
+        first)))
 
 (defn find-scheduled-transaction
-  [context description]
-  (find-in-context context :scheduled-transactions :description description))
+  ([description] (find-scheduled-transaction *context* description))
+  ([context description]
+   (find-in-context context :scheduled-transactions :description description)))
 
 (defn find-recon
-  [{:keys [reconciliations] :as ctx} account-name end-of-period]
-  (let [account (find-account ctx account-name)]
-    (->> reconciliations
-         (filter #(and (= (:id account) (:account-id %))
-                       (= end-of-period (:end-of-period %))))
-         first)))
+  ([account-name end-of-period]
+   (find-recon *context*
+               account-name
+               end-of-period))
+  ([{:keys [reconciliations] :as ctx} account-name end-of-period]
+   (let [account (find-account ctx account-name)]
+     (->> reconciliations
+          (filter #(and (= (:id account) (:account-id %))
+                        (= end-of-period (:end-of-period %))))
+          first))))
 
 (defn- throw-on-invalid
   [model]
@@ -608,3 +642,11 @@
       realize-attachments
       realize-reconciliations
       realize-identities))
+
+(defmacro with-context
+  [& args]
+  (let [[context body] (if (symbol? (first args))
+                         [(first args) (rest args)]
+                         [basic-context args])]
+    `(binding [*context* (realize ~context)]
+       ~@body)))
