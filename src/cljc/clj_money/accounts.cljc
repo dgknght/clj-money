@@ -17,19 +17,24 @@
 
 (defn- eval-children
   [{:keys [children] :as account}]
-  (assoc account
-         :children-value (->> children
-                              (mapcat (juxt :value :children-value))
-                              (filter identity)
-                              (reduce plus 0M))
-         :has-children? true))
+  (let [children-value (->> children
+                            (mapcat (juxt :value :children-value))
+                            (filter identity)
+                            (reduce plus 0M))]
+    (assoc account
+           :children-value children-value
+           :total-value (+ children-value
+                           (:value account))
+           :has-children? true)))
 
 (defn nest
   ([accounts] (nest {} accounts))
   ([{:keys [types]
      :or {types account-types}}
     accounts]
-   (let [by-type (group-by :type accounts)]
+   (let [by-type (->> accounts
+                      (map #(assoc % :total-value (:value %)))
+                      (group-by :type))]
      (mapv #(hash-map :type %
                       :accounts (models/nest
                                   {:decorate-parent-fn eval-children}

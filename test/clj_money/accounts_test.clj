@@ -70,7 +70,8 @@
 (def ^:private flat-accounts
   [{:id 1
     :type :asset
-    :name "Savings"}
+    :name "Savings"
+    :value 1M}
    {:id 2
     :parent-id 1
     :type :asset
@@ -90,16 +91,20 @@
       :name "Savings"
       :has-children? true
       :children-value 3000M
+      :total-value 3001M
+      :value 1M
       :children [{:id 2
                   :parent-id 1
                   :type :asset
                   :name "Car"
-                  :value 1000M}
+                  :value 1000M
+                  :total-value 1000M}
                  {:id 2
                   :parent-id 1
                   :type :asset
                   :name "Reserve"
-                  :value  2000M}]}]}
+                  :value  2000M
+                  :total-value 2000M}]}]}
    {:type :liability :accounts []}
    {:type :equity :accounts []}
    {:type :income :accounts []}
