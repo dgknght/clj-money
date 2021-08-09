@@ -24,7 +24,7 @@
     (assoc account
            :children-value children-value
            :total-value (+ children-value
-                           (:value account))
+                           (or (:value account) 0M))
            :has-children? true)))
 
 (defn nest
