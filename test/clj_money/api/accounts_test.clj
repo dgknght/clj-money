@@ -2,7 +2,6 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
-            [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.factories.user-factory]
