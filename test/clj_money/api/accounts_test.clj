@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
+            [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
             [clj-money.factories.user-factory]
@@ -98,6 +99,24 @@
 
 (deftest a-user-cannot-get-a-list-of-accounts-in-anothers-entity
   (assert-blocked-list (get-a-list "jane@doe.com")))
+
+(deftest a-user-can-get-a-list-of-accounts-by-name
+  (with-context
+    (let [entity (find-entity "Personal")
+          user (find-user "john@doe.com")
+          res (-> (req/request :get (str (path :api
+                                               :entities
+                                               (:id entity)
+                                               :accounts)
+                                         "?"
+                                         (map->query-string {:name "Checking"})
+                                         ))
+                  (add-auth user)
+                  app
+                  parse-json-body)]
+      (is (http-success? res))
+      (is (seq-of-maps-like? [{:name "Checking"}]
+                             (:json-body res))))))
 
 (defn- get-an-account
   [email]

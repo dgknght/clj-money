@@ -306,3 +306,21 @@
                                        :interval-type :month
                                        :interval-count 1}
                                 items)))))
+
+(deftest expand-a-transaction
+  (let [expected {:transaction-date date
+                  :description "ACME Store"
+                  :memo "transaction memo"
+                  :items [{:account-id (account-id :groceries)
+                           :action :debit
+                           :quantity 10M}
+                          {:account-id (account-id :checking)
+                           :action :credit
+                           :quantity 10M}]}
+        simple {:transaction-date date
+                :description "ACME Store"
+                :memo "transaction memo"
+                :debit-account-id (account-id :groceries)
+                :credit-account-id (account-id :checking)
+                :quantity 10M}]
+    (is (= expected (trx/expand simple)))))

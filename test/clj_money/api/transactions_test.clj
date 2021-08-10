@@ -121,6 +121,30 @@
 (deftest a-user-cannot-get-a-transaction-from-anothers-entity
   (assert-blocked-get (get-a-transaction "jane@doe.com")))
 
+(defn- create-a-simple-transaction
+  [email]
+  (let [ctx (realize context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        checking (find-account ctx "Checking")
+        salary (find-account ctx "Salary")
+        response (-> (req/request :post (path :api
+                                              :entities
+                                              (:id entity)
+                                              :transactions))
+                     (req/json-body {:description "Paycheck"
+                                     :transaction-date "2016-03-02"
+                                     :memo "Seems like there should be more"
+                                     :debit-account-id (:id checking)
+                                     :credit-account-id (:id salary)
+                                     :quantity 1000M})
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)
+        retrieved (trans/search {:entity-id (:id entity)
+                                 :transaction-date (t/local-date 2016 3 2)})]
+    [response body retrieved]))
+
 (defn- create-a-transaction
   [email]
   (let [ctx (realize context)
@@ -179,6 +203,12 @@
 
 (deftest a-user-cannot-create-a-transaction-in-aothers-entity
   (assert-blocked-create (create-a-transaction "jane@doe.com")))
+
+(deftest a-user-can-create-a-simple-transaction-in-his-entity
+  (assert-successful-create (create-a-simple-transaction "john@doe.com")))
+
+(deftest a-user-cannot-create-a-simple-transaction-in-aothers-entity
+  (assert-blocked-create (create-a-simple-transaction "jane@doe.com")))
 
 (defn- update-items
   [items]

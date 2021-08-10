@@ -4,6 +4,7 @@
             [cheshire.core :as json]
             [clj-time.core :as t]
             [dgknght.app-lib.web :refer [path]]
+            [dgknght.app-lib.test]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [realize
@@ -17,6 +18,23 @@
 
 (def ^:private report-context
   basic-context)
+
+(defn- get-income-statement-with-implicit-dates
+  [email]
+  (let [ctx (realize report-context)
+        user (find-user ctx email)
+        entity (find-entity ctx "Personal")
+        response (-> (req/request :get (path :api
+                                             :entities
+                                             (:id entity)
+                                             :reports
+                                             :income-statement
+                                             "start-of-this-year"
+                                             "end-of-previous-month"))
+                     (add-auth user)
+                     app)
+        body (json/parse-string (:body response) true)]
+    [response body]))
 
 (defn- get-income-statement
   [email]
@@ -51,6 +69,9 @@
 (deftest a-user-can-get-an-income-statement-for-his-entity
   (assert-successful-income-statement (get-income-statement "john@doe.com")))
 
+(deftest a-user-can-get-an-income-statement-for-his-entity-with-implicit-dates
+  (assert-successful-income-statement (get-income-statement-with-implicit-dates "john@doe.com")))
+
 (deftest a-user-cannot-get-an-income-statement-for-anothers-entity
   (assert-blocked-income-statement (get-income-statement "jane@doe.com")))
 
@@ -59,14 +80,15 @@
   (let [ctx (realize report-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
-        response (-> (req/request :get (path :api
-                                             :entities
-                                             (:id entity)
-                                             :reports
-                                             :balance-sheet
-                                             "2016-01-31"))
-                     (add-auth user)
-                     app)
+        response (t/do-at (t/date-time 2016 2 2)
+                          (-> (req/request :get (path :api
+                                                      :entities
+                                                      (:id entity)
+                                                      :reports
+                                                      :balance-sheet
+                                                      "end-of-previous-month"))
+                              (add-auth user)
+                              app))
         body (json/parse-string (:body response) true)]
     [response body]))
 

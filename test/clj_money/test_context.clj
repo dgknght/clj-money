@@ -19,7 +19,8 @@
             [clj-money.models.images :as images]
             [clj-money.models.imports :as imports]
             [clj-money.models.identities :as idents]
-            [clj-money.trading :as trading])
+            [clj-money.trading :as trading]
+            [clj-money.transactions :refer [expand]])
   (:import org.joda.time.LocalDate))
 
 (def ^:dynamic *context* nil)
@@ -330,24 +331,11 @@
                                     (map #(prepare-item context %)
                                          items))))
 
-(defn- expand-items
-  [transaction]
-  (if (:items transaction)
-    transaction
-    (-> transaction
-        (assoc :items [{:action :debit
-                        :quantity (:quantity transaction)
-                        :account-id (:debit-account-id transaction)}
-                       {:action :credit
-                        :quantity (:quantity transaction)
-                        :account-id (:credit-account-id transaction)}])
-        (dissoc :quantity :debit-account-id :credit-account-id))))
-
 (defn- create-transaction
   [transaction context]
   (-> transaction
       (resolve-entity context)
-      expand-items
+      expand
       (prepare-items context)
       transactions/create
       throw-on-invalid))

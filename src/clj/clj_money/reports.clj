@@ -149,7 +149,8 @@
                [:accounts]
                (fn [accounts]
                  (map #(assoc % :value (or (get-in values [[(:parent-id %) (:commodity-id %)]])
-                                           (get-in balances [(:id %) :balance])))
+                                           (get-in balances [(:id %) :balance])
+                                           0M))
                       accounts)))))
 
 (defn- append-balances

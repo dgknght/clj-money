@@ -12,7 +12,8 @@
                                              +scope]
              :as authorization]
             [clj-money.models.transactions :as trans]
-            [clj-money.authorization.transactions]))
+            [clj-money.authorization.transactions]
+            [clj-money.transactions :refer [expand]]))
 
 (defn- ->criteria
   [{:keys [params authenticated]}]
@@ -64,6 +65,7 @@
   [{:keys [params body authenticated]}]
   (api/creation-response
     (-> body
+        expand
         (update-in-if [:transaction-date] unserialize-date)
         (update-in-if [:items] #(map parse-item %))
         (select-keys attribute-keys)

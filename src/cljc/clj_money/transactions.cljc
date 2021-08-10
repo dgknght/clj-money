@@ -163,3 +163,16 @@
   (-> trx
       (rename-keys {:transaction-date :original-transaction-date})
       (assoc :transaction-date new-date)))
+
+(defn expand
+  [trx]
+  (if (:items trx)
+    trx
+    (-> trx
+        (assoc :items [{:action :debit
+                        :quantity (:quantity trx)
+                        :account-id (:debit-account-id trx)}
+                       {:action :credit
+                        :quantity (:quantity trx)
+                        :account-id (:credit-account-id trx)}])
+        (dissoc :quantity :debit-account-id :credit-account-id))))

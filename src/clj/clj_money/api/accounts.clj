@@ -30,7 +30,7 @@
   (-> params
       (rename-keys {"system-tags[]" :system-tags
                     "user-tags[]" :user-tags})
-      (select-keys [:entity-id :system-tags :user-tags])
+      (select-keys [:entity-id :system-tags :user-tags :name])
       (update-in-if [:system-tags] tag-criteria)
       (update-in-if [:user-tags] tag-criteria)
       (+scope ::models/account authenticated)))
