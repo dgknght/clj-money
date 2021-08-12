@@ -1,7 +1,8 @@
 (ns clj-money.models.transactions
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [clojure.set :refer [difference]]
+            [clojure.set :refer [difference
+                                 rename-keys]]
             [clojure.tools.logging :as log]
             [clj-time.core :as t]
             [environ.core :refer [env]]
@@ -615,10 +616,15 @@
 
 (defn find
   "Returns the specified transaction"
-  ([{:keys [id transaction-date]}]
-   (find id transaction-date))
+  ([model]
+   {:pre [(:transaction-date model)
+          (some #(% model) [:id :transaction-id])]}
+
+   (let [{:keys [id transaction-date]} (rename-keys model {:transaction-id :id})]
+     (find id transaction-date)))
   ([id transaction-date]
    {:pre [id transaction-date]}
+
    (find-by {:id id
              :transaction-date transaction-date}
             {:include-items? true

@@ -1,6 +1,5 @@
 (ns clj-money.views.attachments
   (:require [reagent.core :as r]
-            [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.web :refer [format-date
                                          path]]
             [dgknght.app-lib.html :as html]
@@ -49,9 +48,7 @@
 
 (defn- attachments-table
   [page-state]
-  (let [item (r/cursor page-state [:attachments-item])
-        all-attachments (r/cursor page-state [:attachments])
-        attachments (make-reaction #(get-in @all-attachments [(:transaction-id @item)]))]
+  (let [attachments (r/cursor page-state [:attachments])]
     (fn []
       [:table.table.table-hover
        [:thead
@@ -83,7 +80,7 @@
   [state attachment]
   (-> state
       (dissoc :selected-attachment)
-      (update-in [:attachments (:transaction-id attachment)]
+      (update-in [:attachments]
                  (fn [attachments]
                    (map #(if (= (:id attachment) (:id %))
                            attachment

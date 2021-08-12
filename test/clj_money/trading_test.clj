@@ -507,13 +507,8 @@
                    :action :credit
                    :account-id (:id lt-capital-gains)
                    :quantity 125M
-                   :polarized-quantity 125M
-                   :negative false
-                   :value 125M
-                   :memo "Sell 25 shares of AAPL at 15.000"
-                   :balance 125M
-                   :index 0}]]
-    (is (= expected gains-items) "The capital gains account is credited the correct amount")))
+                   :memo "Sell 25 shares of AAPL at 15.000"}]]
+    (is (comparable? expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
   (let [context (realize sale-context)
@@ -529,13 +524,8 @@
                    :action :credit
                    :account-id (:id st-capital-gains)
                    :quantity 125M
-                   :polarized-quantity 125M
-                   :negative false
-                   :value 125M
-                   :memo "Sell 25 shares of AAPL at 15.000"
-                   :balance 125M
-                   :index 0}]]
-    (is (= expected gains-items) "The capital gains account is credited the correct amount")))
+                   :memo "Sell 25 shares of AAPL at 15.000"}]]
+    (is (comparable? expected gains-items) "The capital gains account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 

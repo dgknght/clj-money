@@ -51,6 +51,7 @@
         sql (-> sql
                 (select :transaction_items.*
                         :transactions.description
+                        :transactions.attachment_count
                         [:reconciliations.status :reconciliation_status])
                 (from :transaction_items)
                 (merge-join :transactions [:= :transactions.id :transaction_items.transaction_id])

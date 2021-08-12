@@ -7,6 +7,7 @@
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [stowaway.core :as storage]
+            [dgknght.app-lib.test]
             [clj-money.io :refer [read-bytes
                                   file-ext
                                   file-name]]
@@ -488,9 +489,9 @@
                                                 :reconciliation-status
                                                 :reconciliation-id
                                                 :reconciled?)))]
-        (is (= expected-fee-items actual-fee-items)
+        (is (seq-of-maps-like? expected-fee-items actual-fee-items)
             "The Investment Expenses account has the correct items")
-        (is (= expected-ira-items actual-ira-items)
+        (is (seq-of-maps-like? expected-ira-items actual-ira-items)
             "The IRA account has the correct items")))
 
     #_(testing "account balances are calculated correctly"

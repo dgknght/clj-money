@@ -4,6 +4,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test]
             [clj-money.models.attachments :as attachments]
+            [clj-money.models.transactions :as transactions]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.test-context :refer [realize
@@ -47,12 +48,14 @@
   (let [context (realize attach-context)
         result (attachments/create (attributes context))
         transaction (-> context :transactions first)
-        retrieved (first
-                   (attachments/search {:transaction-id (:id transaction)
-                                        :transaction-date (:transaction-date transaction)}))]
+        retrieved (attachments/find-by {:transaction-id (:id transaction)
+                                        :transaction-date (:transaction-date transaction)})
+        retrieved-trans (transactions/find transaction)]
     (is (valid? result))
     (is retrieved "The value can be retreived from the database")
-    (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")))
+    (is (= "receipt" (:caption retrieved)) "The caption is retrieved correctly")
+    (is (= 1 (:attachment-count retrieved-trans))
+        "The number of attachments in the transaction is updated")))
 
 (deftest transaction-id-is-required
   (let [context (realize attach-context)
@@ -87,5 +90,8 @@
   (let [context (realize update-context)
         attachment (-> context :attachments first)
         _ (attachments/delete attachment)
-        retrieved (attachments/find attachment)]
-    (is (nil? retrieved) "The value cannot be retrieved after delete")))
+        retrieved (attachments/find attachment)
+        retrieved-trans (transactions/find attachment)]
+    (is (nil? retrieved) "The value cannot be retrieved after delete")
+    (is (= 0 (:attachment-count retrieved-trans))
+        "The attachment count is updated in the transaction")))

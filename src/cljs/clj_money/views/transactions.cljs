@@ -93,18 +93,12 @@
      (notify/danger-fn "Unable to load the unreconciled items: %s"))))
 
 (defn- load-attachments
-  [page-state items]
-  (let [[start end] ((juxt first last) (->> items
-                                            (sort-by :transaction-date t/before?)
-                                            (map :transaction-date)))
-        ids (map :transaction-id items)]
-    (att/search {:transaction-date [:between start end]
-                 :transaction-id ids}
-                #(swap! page-state
-                        update-in
-                        [:attachments]
-                        (fnil (partial merge-with conj) {})
-                        (group-by :transaction-id %))
+  [page-state]
+  (let [{:keys [attachments-item]} @page-state
+        criteria {:transaction-id (:transaction-id attachments-item)
+                  :transaction-date (:transaction-date attachments-item)}]
+    (att/search criteria
+                #(swap! page-state assoc :attachments %)
                 (notify/danger-fn "Unable to load the attachments: %s"))))
 
 (defn init-item-loading
@@ -123,10 +117,7 @@
                   (transaction-items/search
                    {:account-id (:id account)
                     :transaction-date date-range}
-                   (fn [result]
-                     (when (seq result)
-                       (load-attachments page-state result))
-                     (callback-fn result))
+                   callback-fn
                    (notify/danger-fn "Unable to fetch transaction items: %s")))
       :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
       :finish-fn #(swap! page-state assoc :all-items-fetched? true)})))
@@ -151,18 +142,25 @@
                :file (first (dnd/files e))}
               (fn [a]
                 (swap! page-state
-                       #(-> %
-                            (update-in [:attachments]
-                                       (fnil (partial merge-with conj) {}) {(:transaction-id a) [a]})
-                            (update-in [:item-row-styles]
-                                       dissoc (:id item)))))
+                       (fn [state]
+                         (-> state
+                             (update-in [:item-row-styles]
+                                        dissoc
+                                        (:id item))
+                             (update-in [:items] (fn [items]
+                                                   (map (fn [item]
+                                                          (if (= (:transaction-id a)
+                                                                 (:transaction-id item))
+                                                            (update-in item [:attachment-count] inc)
+                                                            item))
+                                                        items))))))
+                (notify/toast "Success" "The attachment was saved successfully."))
               (notify/danger-fn "Unable to save the attachment: %s")))
 
 (defn- item-row
-  [item page-state]
+  [{:keys [attachment-count] :as item} page-state]
   (let [account (r/cursor page-state [:view-account])
         reconciliation (r/cursor page-state [:reconciliation])
-        attachments (r/cursor page-state [:attachments])
         styles (r/cursor page-state [:item-row-styles])]
     ^{:key (str "item-row-" (:id item))}
     [:tr {:on-drag-enter #(swap! page-state
@@ -194,15 +192,19 @@
          [:button.btn.btn-info.btn-sm {:on-click #(edit-transaction item page-state)
                                        :title "Click here to edit this transaction."}
           (bs/icon :pencil)]
-         [:button.btn.btn-sm {:on-click #(swap! page-state
-                                                assoc
-                                                :attachments-item
-                                                item)
-                              :class (if (get-in @attachments [(:transaction-id item)])
-                                       "btn-info"
-                                       "btn-outline-info")
+         [:button.btn.btn-sm {:on-click (fn []
+                                          (swap! page-state
+                                                 assoc
+                                                 :attachments-item
+                                                 item)
+                                          (load-attachments page-state))
+                              :class (if (zero? attachment-count)
+                                       "btn-outline-info"
+                                       "btn-info")
                               :title "Click here to view attachments for this transaction"}
-          (bs/icon :paperclip)]
+          (if (zero? attachment-count)
+            (bs/icon :paperclip)
+            [:span.badge.badge-light attachment-count])]
          [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
                                          :title "Click here to remove this transaction."}
           (bs/icon :x-circle)]]])]))

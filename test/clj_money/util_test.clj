@@ -1,5 +1,5 @@
 (ns clj-money.util-test
-  (:require [clojure.test :refer [deftest testing is]]
+  (:require [clojure.test :refer [deftest testing is are]]
             [dgknght.app-lib.web :refer [serialize-date]]
             [clj-time.core :as t]
             [clj-money.util :as util]))
@@ -44,22 +44,32 @@
 (deftest convert-symbolic-comparatives-to-nominal
   (let [date (t/local-date 2015 1 1)
         other-date (t/local-date 2015 1 31)]
-    (is (= {:start-after date}
-           (util/nominal-comparatives {:start-on [:> date]}
-                                      :start)))
-    (is (= {:transaction-date-after date}
-           (util/nominal-comparatives {:transaction-date [:> date]}
-                                      :transaction-date)))
-    (is (= {:transaction-date-on-or-after date
-            :transaction-date-on-or-before other-date}
-           (util/nominal-comparatives {:transaction-date [:between date other-date]}
-                                      :transaction-date))
-        "between generates to keys in the result")
-    (is (= {:start-on-or-after date
-            :start-on-or-before other-date}
-           (util/nominal-comparatives {:start-on [:between date other-date]}
-                                      :start-on))
-        "between generates to keys in the result")))
+    (are [m k expected] (= expected (util/nominal-comparatives m k))
+         {:start-on date}
+         :start
+         {:start-on date}
+
+         {:transaction-date date}
+         :transaction-date
+         {:transaction-date date}
+
+         {:start-on [:> date]}
+         :start
+         {:start-after date}
+
+         {:transaction-date [:> date]}
+         :transaction-date
+         {:transaction-date-after date}
+
+         {:transaction-date [:between date other-date]}
+         :transaction-date
+         {:transaction-date-on-or-after date
+          :transaction-date-on-or-before other-date}
+
+         {:start-on [:between date other-date]}
+         :start-on
+         {:start-on-or-after date
+          :start-on-or-before other-date})))
 
 (deftest get-the-earliest-date
   (let [d1 (t/local-date 2020 3 2)

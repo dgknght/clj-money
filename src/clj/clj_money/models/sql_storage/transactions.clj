@@ -35,7 +35,8 @@
                 :transaction-date
                 :memo
                 :scheduled-transaction-id
-                :value))
+                :value
+                :attachment-count))
 
 (defmethod stg/update ::models/transaction
   [transaction db-spec]
@@ -47,7 +48,8 @@
                 :transaction-date
                 :memo
                 :scheduled-transaction-id
-                :value))
+                :value
+                :attachment-count))
 
 (defmethod stg/delete ::models/transaction
   [{:keys [id transaction-date]} db-spec]

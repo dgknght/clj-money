@@ -1,5 +1,6 @@
 (ns clj-money.util
   (:require [clojure.string :as string]
+            [dgknght.app-lib.core :refer [trace]]
             #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])))
 
@@ -94,19 +95,22 @@
                   (str str-key "-or-after")])))
 
 (defn- nominal-key
-  [key-base [oper value]]
-  (let [prep (if (includes-time? value)
-               "at"
-               "on")]
+  [key-base value]
+  (let [[oper value] (if (sequential? value)
+                       value
+                       [:= value])
+        prep (when-not (string/ends-with? key-base "date") (if (includes-time? value)
+                                                             "at"
+                                                             "on"))]
     (keyword
-     (str
-      key-base
-      "-"
-      (case oper
-        :>  "after"
-        :>= (str prep "-or-after")
-        :<  "before"
-        :<= (str prep "-or-before"))))))
+      (str
+        key-base
+        (case oper
+          := (when prep (str "-" prep))
+          :>  "-after"
+          :>= (str "-" prep "-or-after")
+          :<  "-before"
+          :<= (str "-" prep "-or-before"))))))
 
 (defn- apply-to-dynamic-keys
   [m {:keys [key-base suffixes update-fn]}]
@@ -123,20 +127,24 @@
 
 (defn- between->nominal
   [m key-base]
-  (let [[_ start end] (get-in m [key-base])]
-    (if (and start end)
-      (let [str-key (name key-base)
-            prefix (if (string/ends-with? str-key "date")
-                     "-on"
-                     "")]
-        (-> m
-            (assoc (keyword (str str-key
-                                 prefix
-                                 "-or-after")) start
-                   (keyword (str str-key
-                                 prefix
-                                 "-or-before")) end)
-            (dissoc key-base)))
+  (let [value (get-in m [key-base])]
+    (if (and (sequential? value)
+             (= :between (first value)))
+      (let [[start end] (drop 1 value)]
+        (if (and start end)
+          (let [str-key (name key-base)
+                prefix (if (string/ends-with? str-key "date")
+                         "-on"
+                         "")]
+            (-> m
+                (assoc (keyword (str str-key
+                                     prefix
+                                     "-or-after")) start
+                       (keyword (str str-key
+                                     prefix
+                                     "-or-before")) end)
+                (dissoc key-base)))
+          m))
       m)))
 
 (defn nominal-comparatives
@@ -149,11 +157,13 @@
   (-> m
       (between->nominal key-base)
       (apply-to-dynamic-keys
-       {:key-base key-base
-        :suffixes ["-on" "-at" nil]
-        :update-fn (fn [result str-k _ value]
-                     (assoc result (nominal-key str-k value)
-                            (second value)))})))
+        {:key-base key-base
+         :suffixes ["-on" "-at" nil]
+         :update-fn (fn [result str-k _original-key value]
+                      (assoc result (nominal-key str-k value)
+                             (if (sequential? value)
+                               (second value)
+                               value)))})))
 
 (def ^:private suffix-keys
   {"before"       :<

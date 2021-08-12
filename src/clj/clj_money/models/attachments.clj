@@ -11,6 +11,7 @@
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :refer [with-validation]]
             [clj-money.models :as models]
+            [clj-money.models.transactions :as transactions]
             [clj-money.models.images :as images])
   (:import org.joda.time.LocalDate))
 
@@ -35,10 +36,17 @@
   [attachment]
   (tag attachment ::models/attachment))
 
+(defn- update-transaction
+  [attachment f]
+  (-> (transactions/find attachment)
+      (update-in [:attachment-count] f)
+      transactions/update))
+
 (defn create
   [attachment]
-  (with-storage (env :db)
+  (with-transacted-storage (env :db)
     (with-validation attachment ::new-attachment
+      (update-transaction attachment inc)
       (-> attachment
           before-save
           storage/create
@@ -80,4 +88,5 @@
                        id-or-attachment)
           image (images/find (:image-id attachment))]
       (images/delete image)
-      (storage/delete attachment))))
+      (storage/delete attachment)
+      (update-transaction attachment dec))))
