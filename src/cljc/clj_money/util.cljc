@@ -1,6 +1,5 @@
 (ns clj-money.util
   (:require [clojure.string :as string]
-            [dgknght.app-lib.core :refer [trace]]
             #?(:clj [clj-time.core :as t]
                :cljs [cljs-time.core :as t])))
 
