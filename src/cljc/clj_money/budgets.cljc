@@ -97,7 +97,7 @@
                {:caption summary-caption
                 :periods net-periods
                 :total (sum net-periods)}])
-      (reduced result))))
+      result)))
 
 (defn- render-tagged
   [items tags]
@@ -108,7 +108,6 @@
                                  (partial item-tagged? tag))
                :summary-caption (str "Available After " (title-case tag))}))
        (append {:caption "Uncategorized"
-                :exit-on-empty? true
                 :pred (every-pred expense?
                                   (partial item-not-tagged? (set tags)))
                 :summary-caption "Net"})

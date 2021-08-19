@@ -9,7 +9,6 @@
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [chan >! go]]
             [cljs-time.core :as t]
-            [dgknght.app-lib.core :as lib]
             [dgknght.app-lib.web :refer [serialize-date
                                          format-percent
                                          format-date
@@ -19,6 +18,8 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [clj-money.views.util :refer [handle-error]]
             [clj-money.components :refer [load-on-scroll]]
             [clj-money.bootstrap :as bs :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]
@@ -26,40 +27,25 @@
             [clj-money.api.lots :as lots]
             [clj-money.api.prices :as prices]
             [clj-money.transactions :refer [can-simplify?]]
+            [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.accounts :refer [account-types
-                                        find-by-path
-                                        nest
-                                        unnest]]
-            [clj-money.state :refer [app-state]]
+                                        find-by-path]]
+            [clj-money.state :refer [app-state
+                                     current-entity
+                                     accounts]]
             [clj-money.views.transactions :as trns]
             [clj-money.views.reconciliations :as recs]
             [clj-money.views.attachments :as atts]))
 
-(defn- load-accounts
-  ([page-state] (load-accounts page-state identity))
-  ([page-state callback]
-   (accounts/select (fn [result]
-                      (swap! page-state
-                             (fn [s]
-                               (let [accounts (->> result
-                                                   nest
-                                                   unnest)]
-                                 (cond-> (assoc s
-                                                :accounts accounts
-                                                :mapped-accounts (lib/index-by :id accounts))
-                                   (empty? (:accounts s))
-                                   (assoc :hide-zero-balances? (->> result
-                                                                    (map :value)
-                                                                    (not-every? #(= 0 %))))))))
-                      (callback))
-                    notify/danger)))
-
 (defn- delete
   [account page-state]
   (when (js/confirm (str "Are you sure you want to delete the account " (:name account) "?"))
+    (+busy page-state)
     (accounts/delete account
-                     #(load-accounts page-state)
-                     notify/danger)))
+                     (fn []
+                       (fetch-accounts)
+                       (-busy page-state))
+                     (handle-error page-state "Unable to delete the account: %s"))))
 
 (defn- toggle-account
   [id page-state]
@@ -85,10 +71,9 @@
            (not-every? expanded parent-ids))))
 
 (defn- account-row
-  [{:keys [id parent-ids] :as account} expanded hide-zero-balances? page-state]
+  [{:keys [id parent-ids] :as account} expanded page-state]
   ^{:key (str "account-" id)}
-  [:tr {:class (when (account-hidden? account expanded hide-zero-balances?)
-                 "d-none")}
+  [:tr
    [:td [:span {:class (str "account-depth-" (count parent-ids))}
          [:span.toggle-ctl {:on-click #(toggle-account (:id account) page-state)
                             :class (when-not (:has-children? account)
@@ -134,8 +119,7 @@
 
 (defn- account-and-type-rows
   [page-state]
-  (let [accounts (r/cursor page-state [:accounts])
-        filter-tags (r/cursor page-state [:filter-tags])
+  (let [filter-tags (r/cursor page-state [:filter-tags])
         filter-fn (make-reaction #(cond
                                     (@filter-tags :_untagged) (fn [{:keys [user-tags]}]
                                                                 (empty? user-tags))
@@ -150,16 +134,16 @@
          (doall (mapcat (fn [[account-type group]]
                           (concat [(account-type-row account-type group @expanded page-state)]
                                   (->> group
-                                       (filter @filter-fn)
+                                       (filter (every-pred @filter-fn
+                                                           #(not (account-hidden? % @expanded @hide-zero-balances?))))
                                        (map #(account-row %
                                                           @expanded
-                                                          @hide-zero-balances?
                                                           page-state)))))
                         grouped))]))))
 
 (defn- bulk-save
   [page-state]
-  (swap! page-state assoc :busy? true)
+  (+busy page-state)
   (let [{{:keys [account-ids
                  merge-user-tags?
                  user-tags]} :bulk-edit
@@ -177,8 +161,10 @@
                                           (update-in [:completed] inc))))
                      (when (>= (:completed @results)
                                (count account-ids))
-                       (swap! page-state dissoc :busy? :bulk-edit)
-                       (load-accounts page-state)
+                       (swap! page-state #(-> %
+                                              -busy
+                                              (dissoc :bulk-edit)))
+                       (fetch-accounts)
                        (notify/toast "Updated Finished"
                                      (str "Updated "
                                           (:succeeded @results)
@@ -270,10 +256,9 @@
                                    :on-click #(swap! page-state dissoc :bulk-edit)}
         (bs/icon-with-text :x-circle "Cancel")]])))
 
-(defn- account-list
+(defn- accounts-table
   [page-state]
-  (let [accounts (r/cursor page-state [:accounts])
-        all-tags (make-reaction #(->> @accounts
+  (let [all-tags (make-reaction #(->> @accounts
                                       (mapcat :user-tags)
                                       set))
         tag-items (make-reaction #(concat [[:_untagged "untagged"]]
@@ -281,7 +266,8 @@
                                                  [v (name v)])
                                                @all-tags)))
         current-entity (r/cursor app-state [:current-entity])
-        bulk-select (r/cursor page-state [:bulk-edit :account-ids])]
+        bulk-select (r/cursor page-state [:bulk-edit :account-ids])
+        busy? (busy page-state)]
     (fn []
       [:div.row
        [:div.col-md-6
@@ -306,8 +292,12 @@
            [:th.col-md-3.text-right "Value"]
            [:th.col-md-1 (html/space)]
            [:th.col-md-2 (html/space)]]]
-         (if (seq @accounts)
-           [account-and-type-rows page-state]
+         (if @accounts
+           (if (seq @accounts)
+             [account-and-type-rows page-state]
+             [:tbody
+              [:tr
+               [:td {:col-span 4} "No accounts"]]])
            [:tbody
             [:tr
              [:td {:col-span 4}
@@ -317,18 +307,22 @@
         [:button.btn.btn-primary {:on-click (fn []
                                               (swap! page-state assoc :selected {:entity-id (:id @current-entity)
                                                                                  :type :asset})
-                                              (html/set-focus "parent-id"))}
+                                              (html/set-focus "parent-id"))
+                                  :disabled @busy?}
          (bs/icon-with-text :plus "Add")]]
        [:div.col-md-6 {:class (when-not (seq @bulk-select) "d-none")}
         [bulk-edit-form page-state]]])))
 
 (defn- save-account
   [page-state]
+  (+busy page-state)
   (accounts/save (:selected @page-state)
                  (fn [_]
-                   (swap! page-state dissoc :selected)
-                   (load-accounts page-state))
-                 (notify/danger-fn "Unable to save the account: %s")))
+                   (fetch-accounts)
+                   (swap! page-state #(-> %
+                                          -busy
+                                          (dissoc :selected))))
+                 (handle-error page-state "Unable to save the account: %s")))
 
 (defn- account-form
   [page-state]
@@ -463,7 +457,7 @@
 (defn- post-transaction-save
   [page-state]
   (fn []
-    (load-accounts page-state #(trns/reset-item-loading page-state))))
+    (fetch-accounts #(trns/reset-item-loading page-state))))
 
 (defn- do-tab-nav
   [mode page-state]
@@ -731,10 +725,14 @@
 
 (defn- load-commodities
   [page-state]
-  (commodities/select #(swap! page-state assoc :commodities (->> %
-                                                                 (map (juxt :id identity))
-                                                                 (into {})))
-                      notify/danger))
+  (+busy page-state)
+  (commodities/select (fn [result]
+                        (swap! page-state #(-> %
+                                               -busy
+                                               (assoc :commodities (->> result
+                                                                        (map (juxt :id identity))
+                                                                        (into {}))))))
+                      (handle-error page-state "Unable to load the commodities: %s")))
 
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
@@ -742,8 +740,19 @@
                             :ctl-chan (chan)})
         selected (r/cursor page-state [:selected])
         view-account (r/cursor page-state [:view-account])]
-    (load-accounts page-state)
     (load-commodities page-state)
+
+    (add-watch current-entity
+               ::refine-state
+               (fn [_ _ _ entity]
+                 (when entity
+                   (swap! page-state assoc
+                          :hide-zero-balances? (->> (or @accounts [])
+                                                    (map :value)
+                                                    (not-every? #(= 0 %)))
+
+                          :expanded #{}
+                          :filter-tags #{}))))
 
     (fn []
       [:div.mt-5
@@ -751,7 +760,7 @@
         [:h1.accounts-title (str "Accounts" (when @view-account
                                               (str " - " (:name @view-account))))]]
        (when-not (or @selected @view-account)
-         [account-list page-state])
+         [accounts-table page-state])
        (when @selected
          [account-form page-state])
        (when @view-account

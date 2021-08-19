@@ -1,9 +1,13 @@
 (ns clj-money.state
-  (:require [reagent.core :as r]))
+  (:require [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
+            [dgknght.app-lib.core :as lib]))
 
 (defonce app-state (r/atom {:mounted? false}))
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
+(def accounts (r/cursor app-state [:accounts]))
+(def accounts-by-id (make-reaction #(lib/index-by :id @accounts)))
 
 (defn- remove-entity-from-list
   [entity entities]

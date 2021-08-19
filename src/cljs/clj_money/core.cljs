@@ -25,6 +25,7 @@
             [clj-money.views.reports]
             [clj-money.views.scheduled]
             [clj-money.views.dashboard :refer [dashboard]]
+            [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api.entities :as entities]
             [clj-money.bootstrap :as bootstrap]
             [clj-money.api.users :as users]))
@@ -132,8 +133,10 @@
   (let [active-nav (r/cursor app-state [:active-nav])
         entities (r/cursor app-state [:entities])]
     (fn []
-      (let [items (nav-items @current-user @current-entity @active-nav)
-            secondary-items (secondary-nav-items @current-user @entities @current-entity)]
+      (let [user @current-user
+            entity @current-entity
+            items (nav-items user entity @active-nav)
+            secondary-items (secondary-nav-items user @entities entity)]
         (bootstrap/navbar
          {:title "clj-money"
           :title-url "/"
@@ -219,3 +222,5 @@
   (mount-root))
 
 (init!)
+
+(add-watch current-entity ::fetch-accounts watch-entity)

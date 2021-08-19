@@ -11,36 +11,46 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :as forms]
-            [clj-money.state :refer [app-state]]
+            [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [clj-money.views.util :refer [handle-error]]
+            [clj-money.state :refer [app-state
+                                     accounts
+                                     accounts-by-id]]
             [clj-money.bootstrap :as bs]
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
             [clj-money.api.transaction-items :as tran-items]
-            [clj-money.api.accounts :as accounts-api]
             [clj-money.api.budgets :as api]))
 
 (defn- load-budgets
   [page-state]
-  (swap! page-state assoc :loading? true)
+  (+busy page-state)
   (api/search (fn [result]
-                (swap! page-state dissoc :loading?)
-                (swap! page-state assoc :budgets result))
-              (notify/danger-fn "Unable to load the budgets: %s")))
+                (swap! page-state #(-> %
+                                       -busy
+                                       (assoc :budgets result))))
+              (handle-error page-state "Unable to load the budgets: %s")))
 
 (defn- delete-budget
   [budget page-state]
   (when (js/confirm (str "Are you sure you want to delete the budget " (:name budget) "?"))
+    (+busy page-state)
     (api/delete budget
-                #(load-budgets page-state)
-                (notify/danger-fn "Unable to remove the budget: %s"))))
+                (fn []
+                  (load-budgets page-state)
+                  (-busy page-state))
+                (handle-error page-state "Unable to remove the budget: %s"))))
 
 (defn- load-budget-details
   [budget page-state]
+  (+busy page-state)
   (api/find (:id budget)
             (fn [b]
-              (swap! page-state assoc :detailed-budget b)
+              (swap! page-state #(-> %
+                                     -busy
+                                     (assoc :detailed-budget b)))
               (html/set-focus "account-id"))
-            (notify/danger-fn "Unable to load the budget details: %s")))
+            (handle-error page-state "Unable to load the budget details: %s")))
 
 (defn- budget-row
   [budget page-state]
@@ -63,8 +73,7 @@
 
 (defn- budgets-table
   [page-state]
-  (let [budgets (r/cursor page-state [:budgets])
-        loading? (r/cursor page-state [:loading?])]
+  (let [budgets (r/cursor page-state [:budgets])]
     (fn []
       [:table.table.table-hover
        [:thead
@@ -72,35 +81,41 @@
          [:th "Name"]
          [:th (html/space)]]]
        [:tbody
-        (if @loading?
-          [:tr
-           [:td {:col-span 2} [:span.inline-status "Loading..."]]]
+        (if budgets
           (if (seq @budgets)
             (doall (map #(budget-row % page-state) @budgets))
             [:tr
-             [:td {:col-span 2} [:span.inline-status "No budgets."]]]))]])))
+             [:td {:col-span 2} [:span.inline-status "No budgets."]]])
+          [:tr
+           [:td {:col-span 2} [:span.inline-status "Loading..."]]])]])))
 
 (defn- budgets-list
   [page-state]
-  [:div
-   [budgets-table page-state]
-   [:div.mt-2
-    [:button.btn.btn-primary {:on-click (fn []
-                                          (swap! page-state
-                                                 assoc
-                                                 :selected
-                                                 {:period :month
-                                                  :period-count 12})
-                                          (html/set-focus "name"))}
-     (bs/icon-with-text :plus "Add")]]])
+  (let [busy? (busy page-state)]
+    (fn []
+      [:div
+       [budgets-table page-state]
+       [:div.mt-2
+        [:button.btn.btn-primary {:on-click (fn []
+                                              (swap! page-state
+                                                     assoc
+                                                     :selected
+                                                     {:period :month
+                                                      :period-count 12})
+                                              (html/set-focus "name"))
+                                  :disabled @busy?}
+         (bs/icon-with-text :plus "Add")]]])))
 
 (defn- save-budget
   [page-state]
+  (+busy page-state)
   (api/save (dissoc (:selected @page-state) :items)
             (fn []
               (load-budgets page-state)
-              (swap! page-state dissoc :selected))
-            (notify/danger-fn "Unable to save the budget: %s")))
+              (swap! page-state #(-> %
+                                     -busy
+                                     (dissoc :selected))))
+            (handle-error page-state "Unable to save the budget: %s")))
 
 (defn- budget-form
   [page-state]
@@ -132,16 +147,20 @@
 (defn- delete-budget-item
   [{:keys [account-id]} page-state]
   (when (js/confirm (str "Are you sure you want to remove the account "
-                         (get-in @page-state [:accounts account-id :name])
+                         (get-in @accounts-by-id [account-id :name])
                          " from the budget?"))
+    (+busy page-state)
     (api/save (update-in (:detailed-budget @page-state)
                          [:items]
                          (fn [items]
                            (remove #(= (:account-id %)
                                        account-id)
                                    items)))
-              #(swap! page-state assoc :detailed-budget %)
-              (notify/danger-fn "Unable to delete the account from the budget: %s"))))
+              (fn [budget]
+                (swap! page-state #(-> %
+                                       -busy
+                                       (assoc :detailed-budget budget))))
+              (handle-error page-state "Unable to delete the account from the budget: %s"))))
 
 (defn- infer-spec
   [item]
@@ -240,10 +259,9 @@
 (defn- budget-items-table
   [page-state]
   (let [budget (r/cursor page-state [:detailed-budget])
-        accounts (r/cursor page-state [:accounts])
         rendered-budget (make-reaction (fn []
                                          (budgets/render @budget
-                                                         {:find-account @accounts
+                                                         {:find-account @accounts-by-id
                                                           :tags [:tax :mandatory :discretionary]}))) ; TODO: make this user editable
         selected-item (r/cursor page-state [:selected-item])
         detail-flag? (r/cursor page-state [:show-period-detail?])
@@ -353,6 +371,7 @@
 
 (defn- save-budget-item
   [page-state]
+  (+busy page-state)
   (let [{budget :detailed-budget
          item :selected-item
          periods :calculated-periods} @page-state
@@ -363,9 +382,10 @@
               (fn [saved]
                 (swap! page-state
                        #(-> %
+                            -busy
                             (assoc :detailed-budget saved)
                             (dissoc :selected-item))))
-              (notify/danger-fn "Unable to save the budget detail: %s"))))
+              (handle-error page-state "Unable to save the budget account item: %s"))))
 
 (defn- period-row
   [index item budget]
@@ -494,8 +514,7 @@
 
 (defn- budget-item-form
   [page-state]
-  (let [item (r/cursor page-state [:selected-item])
-        accounts (r/cursor page-state [:accounts])]
+  (let [item (r/cursor page-state [:selected-item])]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -505,12 +524,11 @@
         item
         [:account-id]
         {:search-fn (fn [input callback]
-                      (callback (accounts/find-by-path input (vals @accounts))))
+                      (callback (accounts/find-by-path input @accounts)))
          :caption-fn #(string/join "/" (:path %))
          :value-fn :id
          :find-fn (fn [id callback]
                     (->> @accounts
-                         vals
                          (filter #(= id (:id %)))
                          first
                          callback))}]
@@ -540,7 +558,8 @@
         window-height (r/cursor resize-state [:window-height])
         scrollable-height (make-reaction #(if (< @window-height 800)
                                             400
-                                            (- @window-height 300)))]
+                                            (- @window-height 300)))
+        busy? (busy page-state)]
     (when-not @window-height
       (capture-window-height))
     (when-not (:event-registered? @resize-state)
@@ -565,11 +584,13 @@
                                                                                     (map (constantly 0M))
                                                                                     (into []))
                                                                       :spec {:entry-mode :per-total}})
-                                    :disabled (boolean @selected-item)
+                                    :disabled (or @busy?
+                                                  (boolean @selected-item))
                                     :title "Click here to add a new budget line item"}
            (bs/icon-with-text :plus "Add")]
           (html/space)
           [:button.btn.btn-light {:on-click #(swap! page-state dissoc :detailed-budget)
+                                  :disabled @busy?
                                   :title "Click here to return to the list of budgets"}
            (bs/icon-with-text :arrow-left-short "Back")]]]
         (when @selected-item
@@ -580,23 +601,11 @@
            (when @show-periods-table?
              [periods-table page-state])])]])))
 
-(defn- load-accounts
-  [page-state]
-  (accounts-api/select (fn [result]
-                         (->> result
-                              accounts/nest
-                              accounts/unnest
-                              (map (juxt :id identity))
-                              (into {})
-                              (swap! page-state assoc :accounts)))
-                       (notify/danger-fn "Unable to load the accounts: %s")))
-
 (defn- index []
   (let [page-state (r/atom {})
         selected (r/cursor page-state [:selected])
         detailed-budget (r/cursor page-state [:detailed-budget])]
     (load-budgets page-state)
-    (load-accounts page-state)
     (fn []
       [:div.mt-5
        (if @detailed-budget
