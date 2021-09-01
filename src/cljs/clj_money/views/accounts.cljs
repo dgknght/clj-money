@@ -19,9 +19,9 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [dgknght.app-lib.bootstrap-5 :as bs :refer [nav-tabs]]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.components :refer [load-on-scroll]]
-            [clj-money.bootstrap :as bs :refer [nav-tabs]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
@@ -32,7 +32,8 @@
                                         find-by-path]]
             [clj-money.state :refer [app-state
                                      current-entity
-                                     accounts]]
+                                     accounts
+                                     accounts-by-id]]
             [clj-money.views.transactions :as trns]
             [clj-money.views.reconciliations :as recs]
             [clj-money.views.attachments :as atts]))
@@ -80,9 +81,10 @@
                                      "invisible")}
           (bs/icon (if (expanded id)
                      :arrows-collapse
-                     :arrows-expand))]
+                     :arrows-expand)
+                   {:size :small})]
          (:name account)]]
-   [:td.text-right (currency-format (:total-value account))]
+   [:td.text-end (currency-format (:total-value account))]
    [:td.text-center
     [forms/checkbox-input page-state [:bulk-edit :account-ids] {:no-bootstrap? true
                                                                 :html {:name "bulk-edit-id"}
@@ -91,15 +93,15 @@
     [:div.btn-group
      [:button.btn.btn-light.btn-sm {:on-click #(swap! page-state assoc :view-account account)
                                     :title "Click here to view transactions for this account."}
-      (bs/icon :collection)]
-     [:button.btn.btn-info.btn-sm {:on-click (fn []
+      (bs/icon :collection {:size :small})]
+     [:button.btn.btn-light.btn-sm {:on-click (fn []
                                                (swap! page-state assoc :selected account)
                                                (html/set-focus "parent-id"))
                                    :title "Click here to edit this account."}
-      (bs/icon :pencil)]
+      (bs/icon :pencil {:size :small})]
      [:button.btn.btn-danger.btn-sm {:on-click #(delete account page-state)
                                      :title "Click here to remove this account."}
-      (bs/icon :x-circle)]]]])
+      (bs/icon :x-circle {:size :small})]]]])
 
 (defn- account-type-row
   [account-type group expanded page-state]
@@ -110,12 +112,20 @@
                        :on-click #(toggle-account account-type page-state)}
      (bs/icon (if (expanded account-type)
                 :arrows-collapse
-                :arrows-expand))]
+                :arrows-expand)
+              {:size :small})]
     (name account-type)]
-   [:td.text-right (currency-format (->> group
+   [:td.text-end (currency-format (->> group
                                          (map :value)
                                          (reduce decimal/+)))]
    [:td (html/space)]])
+
+(defn- compare-vec
+  [v1 v2]
+  (let [r (compare (first v1) (first v2))]
+    (if (zero? r)
+      (compare-vec (rest v1) (rest v2))
+      r)))
 
 (defn- account-and-type-rows
   [page-state]
@@ -129,11 +139,13 @@
         expanded (r/cursor page-state [:expanded])
         hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])]
     (fn []
+
       (let [grouped (group-by :type @accounts)]
         [:tbody
          (doall (mapcat (fn [[account-type group]]
                           (concat [(account-type-row account-type group @expanded page-state)]
                                   (->> group
+                                       (sort-by :path compare-vec)
                                        (filter (every-pred @filter-fn
                                                            #(not (account-hidden? % @expanded @hide-zero-balances?))))
                                        (map #(account-row %
@@ -146,8 +158,7 @@
   (+busy page-state)
   (let [{{:keys [account-ids
                  merge-user-tags?
-                 user-tags]} :bulk-edit
-         :keys [mapped-accounts]} @page-state
+                 user-tags]} :bulk-edit} @page-state
         account-ids (if (set? account-ids)
                       account-ids
                       #{account-ids})
@@ -173,7 +184,7 @@
                    #(update-in % [:user-tags] union user-tags)
                    #(assoc % :user-tags user-tags))
         to-update (->> account-ids
-                       (map mapped-accounts)
+                       (map @accounts-by-id)
                        (map apply-fn))]
     (doseq [account to-update]
       (accounts/update account
@@ -181,35 +192,47 @@
                        #(receive-fn (fn [state] (update-in state [:errors] conj %)))))))
 
 (defn- tag-elem
-  [tag {:keys [on-click
-               title]
-        :or {on-click identity}}]
-  [:div.tag.account-tag.d-flex
-   [:span.mr-2 tag]
-   [:a.ml-auto {:href "#"
-                :title title
-                :on-click on-click}
-    (html/special-char :times)]])
+  [tag {:keys [remove-fn]}]
+  (let [tag-name (name tag)]
+    ^{:key (str "tag-" tag-name)}
+    [:div.tag.account-tag.d-flex
+     [:span.me-2 tag-name]
+     [:a.ms-auto {:href "#"
+                  :title "Click here to remove this tag"
+                  :on-click (fn [] (remove-fn tag))}
+      (bs/icon :x {:size :small})]]))
 
 (defn- tag-elems
-  [tags {:keys [on-click]}]
+  [tags opts]
   [:div.d-flex.mb-3.mt-3
    (if (seq tags)
      (->> tags
-          (map name)
-          (map (fn [tag]
-                 (with-meta
-                   (tag-elem tag {:title "Click here to remove this tag."
-                                  :on-click #(on-click tag)})
-                   {:key (str "tag-" tag)}))))
+          (map #(tag-elem % opts))
+          doall)
      [:span.text-muted "None"])])
+
+(defn- tag-search-fn
+  [bulk-edit all-user-tags]
+  (fn [term callback]
+    (let [existing (or (:user-tags @bulk-edit)
+                       #{})]
+      (->> @all-user-tags
+           (remove existing)
+           (map name)
+           (filter #(string/includes? % term))
+           callback))))
+
+(defn- apply-tag
+  [bulk-edit tag]
+  (swap! bulk-edit #(-> %
+                        (update-in [:user-tags] (fnil conj #{}) (keyword tag))
+                        (dissoc :working-tag))))
 
 (defn- bulk-edit-form
   [page-state]
   (let [bulk-edit (r/cursor page-state [:bulk-edit])
         busy? (r/cursor page-state [:busy?])
         user-tags (r/cursor bulk-edit [:user-tags])
-        accounts  (r/cursor page-state [:accounts])
         all-user-tags (make-reaction #(->> @accounts
                                            (mapcat :user-tags)
                                            set))]
@@ -223,27 +246,24 @@
         [forms/typeahead-input
          bulk-edit
          [:working-tag]
-         {:search-fn (fn [term callback]
-                       (let [existing (or (:user-tags @bulk-edit)
-                                          #{})]
-                         (->> @all-user-tags
-                              (remove existing)
-                              (map name)
-                              (filter #(string/includes? % term))
-                              callback)))
+         {:search-fn (tag-search-fn bulk-edit all-user-tags)
+          :mode :direct
+          :html {:on-blur #(when-let [tag (get-in @bulk-edit [:working-tag])]
+                             (apply-tag bulk-edit tag))}
           :caption-fn name
           :value-fn name
           :find-fn keyword
-          :create-fn keyword
           :on-change (fn [tag]
-                       (swap! bulk-edit #(-> %
-                                             (update-in [:user-tags] (fnil conj #{}) tag)
-                                             (dissoc :working-tag))))}]
-        (tag-elems @user-tags {:on-click #(swap! user-tags
-                                                 disj
-                                                 (keyword %))})]
+                       (apply-tag bulk-edit tag))}]
+        (tag-elems @user-tags {:remove-fn (fn [tag]
+                                            (.log js/console (prn-str {:remove tag
+                                                                       :user-tags @user-tags
+                                                                       }))
+                                            (swap! user-tags
+                                                  disj
+                                                  tag))})]
        [forms/checkbox-field bulk-edit [:merge-user-tags?] {:caption "Keep existing tags"}]
-       [:button.btn.btn-primary.mr-3 {:title "Click here to apply these changes to the selected accounts."
+       [:button.btn.btn-primary.me-2 {:title "Click here to apply these changes to the selected accounts."
                                       :type :submit}
         (if @busy?
           [:div
@@ -289,7 +309,7 @@
          [:thead
           [:tr
            [:th.col-md-6 "Name"]
-           [:th.col-md-3.text-right "Value"]
+           [:th.col-md-3.text-end "Value"]
            [:th.col-md-1 (html/space)]
            [:th.col-md-2 (html/space)]]]
          (if @accounts
@@ -303,7 +323,7 @@
              [:td {:col-span 4}
               [:div.d-flex.justify-content-center.m2
                [:div.spinner-border {:role :status}
-                [:span.sr-only "Loading"]]]]]])]
+                [:span.visually-hidden "Loading"]]]]]])]
         [:button.btn.btn-primary {:on-click (fn []
                                               (swap! page-state assoc :selected {:entity-id (:id @current-entity)
                                                                                  :type :asset})
@@ -399,20 +419,19 @@
                          (swap! account #(-> %
                                              (update-in [:user-tags] (fnil conj #{}) tag)
                                              (dissoc :working-tag))))}]
-          (tag-elems @user-tags {:on-click #(swap! account
-                                                   update-in
-                                                   [:user-tags]
-                                                   disj
-                                                   (keyword %))})]
+          (tag-elems @user-tags {:remove-fn #(swap! account
+                                                    update-in
+                                                    [:user-tags]
+                                                    disj
+                                                    %)})]
          [:div
           [:button.btn.btn-primary {:type :submit
                                     :title "Click here to save the account."}
            (bs/icon-with-text :check "Save")]
 
-          (html/space)
-          [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :selected)
-                                   :type :button
-                                   :title "Click here to return to the list of accounts."}
+          [:button.btn.btn-danger.ms-2 {:on-click #(swap! page-state dissoc :selected)
+                                        :type :button
+                                        :title "Click here to return to the list of accounts."}
            (bs/icon-with-text :x "Cancel")]]]]])))
 
 (defn- new-transaction
@@ -434,24 +453,22 @@
        [:button.btn.btn-primary {:on-click #(new-transaction page-state)
                                  :disabled (not (nil? @transaction))}
         (bs/icon-with-text :plus "Add")]
-       (html/space)
-       [:button.btn.btn-info {:on-click (fn []
-                                          (trns/stop-item-loading page-state)
-                                          (swap! page-state assoc
-                                                 :items nil)
-                                          (recs/load-working-reconciliation page-state)
-                                          (trns/load-unreconciled-items page-state)
-                                          (html/set-focus "end-of-period"))
-                              :title "Click here to reconcile this account"}
+       [:button.btn.btn-secondary.ms-2 {:on-click (fn []
+                                                    (trns/stop-item-loading page-state)
+                                                    (swap! page-state assoc
+                                                           :items nil)
+                                                    (recs/load-working-reconciliation page-state)
+                                                    (trns/load-unreconciled-items page-state)
+                                                    (html/set-focus "end-of-period"))
+                                        :title "Click here to reconcile this account"}
         (bs/icon-with-text :check-box "Reconcile")]
-       (html/space)
-       [:button.btn.btn-info {:on-click (fn []
-                                          (trns/stop-item-loading page-state)
-                                          (swap! page-state dissoc
-                                                 :view-account
-                                                 :items
-                                                 :all-items-fetched?))
-                              :title "Click here to return to the account list."}
+       [:button.btn.btn-secondary.ms-2 {:on-click (fn []
+                                                    (trns/stop-item-loading page-state)
+                                                    (swap! page-state dissoc
+                                                           :view-account
+                                                           :items
+                                                           :all-items-fetched?))
+                                        :title "Click here to return to the account list."}
         (bs/icon-with-text :arrow-left-short "Back")]])))
 
 (defn- post-transaction-save
@@ -545,7 +562,7 @@
         [trns/items-table page-state]]
        [:div.card-footer.d-flex.align-items-center
         [account-buttons page-state]
-        [:span.ml-auto
+        [:span.ms-auto
          [load-on-scroll {:target "items-container"
                           :all-items-fetched? all-items-fetched?
                           :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
@@ -591,12 +608,12 @@
       [:table.table.table-hover.table-borderless
        [:thead
         [:tr
-         [:th.text-right "Purchase Date"]
-         [:th.text-right "Shares Purchased"]
-         [:th.text-right "Shares Owned"]
-         [:th.text-right "Purchase Price"]
-         [:th.text-right "Gn/Ls"]
-         [:th.text-right "Gn/Ls %"]]]
+         [:th.text-end "Purchase Date"]
+         [:th.text-end "Shares Purchased"]
+         [:th.text-end "Shares Owned"]
+         [:th.text-end "Purchase Price"]
+         [:th.text-end "Gn/Ls"]
+         [:th.text-end "Gn/Ls %"]]]
        [:tbody
         (doall (for [lot (sort-by (comp serialize-date :purchase-date) @lots)]
                  (let [g-l (- (* (:price @latest-price)
@@ -605,16 +622,16 @@
                                  (:shares-owned lot)))]
                    ^{:key (str "lot-" (:id lot))}
                    [:tr
-                    [:td.text-right (format-date (:purchase-date lot))]
-                    [:td.text-right (format-decimal (:shares-purchased lot) 4)]
-                    [:td.text-right (format-decimal (:shares-owned lot) 4)]
-                    [:td.text-right (format-decimal (:purchase-price lot) 2)]
-                    [:td.text-right
+                    [:td.text-end (format-date (:purchase-date lot))]
+                    [:td.text-end (format-decimal (:shares-purchased lot) 4)]
+                    [:td.text-end (format-decimal (:shares-owned lot) 4)]
+                    [:td.text-end (format-decimal (:purchase-price lot) 2)]
+                    [:td.text-end
                      {:class (if (>= g-l 0M)
                                "text-success"
                                "text-danger")}
                      (format-decimal g-l)]
-                    [:td.text-right
+                    [:td.text-end
                      {:class (if (>= @gain-loss 0M)
                                "text-success"
                                "text-danger")}
@@ -624,16 +641,16 @@
                                      3)]])))]
        [:tfoot
         [:tr
-         [:td.text-right {:col-span 2}
+         [:td.text-end {:col-span 2}
           (when @latest-price
             (gstr/format "(%s as of %s)"
                          (currency-format (:price @latest-price))
                          (format-date (:trade-date @latest-price))))]
-         [:td.text-right (format-decimal @total-shares 4)]
-         [:td.text-right (currency-format @total-value)]
-         [:td.text-right {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+         [:td.text-end (format-decimal @total-shares 4)]
+         [:td.text-end (currency-format @total-value)]
+         [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
           (currency-format @gain-loss)]
-         [:td.text-right {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
+         [:td.text-end {:class (if (>= @gain-loss 0M) "text-success" "text-danger")}
           (format-percent (/ @gain-loss
                              @total-cost)
                           3)]]]])))
@@ -686,7 +703,7 @@
                                                (html/set-focus "trade-date"))}
           (bs/icon-with-text :plus "Buy/Sell")]
          (html/space)
-         [:button.btn.btn-info {:title "Click here to return the the account list."
+         [:button.btn.btn-light {:title "Click here to return the the account list."
                                 :on-click #(swap! page-state dissoc :view-account)}
           (bs/icon-with-text :arrow-left-short "Back")]]]])))
 

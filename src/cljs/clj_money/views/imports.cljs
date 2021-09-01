@@ -10,24 +10,30 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :refer [text-field]]
-            [clj-money.bootstrap :as bs]
+            [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [clj-money.views.util :refer [handle-error]]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state]]
             [clj-money.api.imports :as imports]))
 
 (defn- load-imports
   [page-state]
-  (imports/select #(swap! page-state assoc :imports %)
-                  (notify/danger-fn "Unable to load the imports: %s")))
+  (+busy page-state)
+  (imports/select (fn [result]
+                    (swap! page-state #(-> %
+                                           -busy
+                                           (assoc :imports result))))
+                  (handle-error page-state "Unable to load the imports: %s")))
 
 (defn- delete-import
   [imp page-state]
-  (swap! page-state assoc :busy? true)
+  (+busy page-state)
   (imports/delete imp
                   (fn []
-                    (swap! page-state dissoc :busy?)
+                    (-busy page-state)
                     (load-imports page-state))
-                  notify/danger))
+                  (handle-error page-state "Unable to delete the import: s")))
 
 (defn- append-dropped-files
   [event import-data]
@@ -55,18 +61,18 @@
    [:td.text-center
     (let [perc (* 100 (/ imported total))]
       [:div.progress
-       [:div.progress-bar.text-center
+       [:div.progress-bar
         {:aria-valuenow imported
          :aria-valuemax total
          :aria-valuemin 0
          :role "progressbar"
          :class (cond
                   (> perc 100)
-                  "progress-bar-danger progress-bar-striped active"
+                  "bg-danger progress-bar-striped"
                   (= perc 100)
-                  "progress-bar-info"
+                  "bg-success"
                   :else
-                  "progress-bar-info progress-bar-striped active")
+                  "progress-bar-striped")
          :style {"width" (str (if (> perc 100)
                                 100
                                 perc)
@@ -74,7 +80,7 @@
         (when (<= 50 perc)
           (format-percent (/ perc 100)))]
        (when (> 50 perc)
-         [:span.pl-1
+         [:span.ps-1
           (format-percent (/ perc 100))])])]])
 
 (defn- progress-table
@@ -96,7 +102,9 @@
 (declare load-import)
 (defn- receive-import
   [{{:keys [errors finished]} :progress :as received} page-state]
-  (swap! page-state assoc :active received)
+  (swap! page-state #(-> %
+                         -busy
+                         (assoc :active received)))
   (when (seq errors)
     (trace {:errors errors}))
   (when finished
@@ -108,16 +116,20 @@
 
 (defn- load-import
   [page-state]
+  (+busy page-state)
   (imports/get (get-in @page-state [:active :id])
                #(receive-import % page-state)
-               notify/danger))
+               (handle-error page-state "Unable to load the import: %s")))
 
 (defn- start-import
   [imp page-state]
+  (+busy page-state)
   (imports/start imp
                  (fn []
                    (reset! auto-refresh true)
-                   (swap! page-state assoc :active imp))
+                   (swap! page-state #(-> %
+                                          -busy
+                                          (assoc :active imp))))
                  notify/danger))
 
 (defn- import-row
@@ -131,24 +143,24 @@
      [:button.btn.btn-success.btn-sm {:disabled (:entity-exists? imp)
                                       :on-click #(start-import imp page-state)
                                       :title "Click here to start the import."}
-      (bs/icon :play)]
-     [:button.btn.btn-info.btn-sm {:on-click (fn []
-                                               (swap! page-state assoc :active imp)
-                                               (reset! auto-refresh true)
-                                               (load-import page-state))
-                                   :disable busy?
-                                   :title "Click here to view this import."}
-      (bs/icon :eye)]
+      (bs/icon :play {:size :small})]
+     [:button.btn.btn-light.btn-sm {:on-click (fn []
+                                                (swap! page-state assoc :active imp)
+                                                (reset! auto-refresh true)
+                                                (load-import page-state))
+                                    :disable busy?
+                                    :title "Click here to view this import."}
+      (bs/icon :eye {:size :small})]
      [:button.btn.btn-danger.btn-sm {:on-click #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
                                                   (delete-import imp page-state))
                                      :disabled busy?
                                      :title "Click here to remove this import."}
-      (bs/icon :x-circle)]]]])
+      (bs/icon :x-circle {:size :small})]]]])
 
 (defn- import-table
   [page-state]
   (let [imports (r/cursor page-state [:imports])
-        busy? (r/cursor page-state [:busy?])]
+        busy? (busy page-state)]
     (fn []
       [:table.table.table-striped
        [:tbody
@@ -167,13 +179,13 @@
                 :title "Click here to stop the auto-refresh."}
                {:class "btn-success"
                 :title "Click here to auto-refresh the page."})]
-    [:button.btn (assoc attr :on-click (fn []
-                                         (swap! auto-refresh not)
-                                         (when @auto-refresh
-                                           (load-import page-state))))
-     (bs/icon (if @auto-refresh
-                :stop
-                :arrow-repeat))]))
+    [bs/busy-button {:html (assoc attr :on-click (fn []
+                                                   (swap! auto-refresh not)
+                                                   (when @auto-refresh
+                                                     (load-import page-state))))
+                     :icon (if @auto-refresh
+                             :stop
+                             :arrow-repeat)}]))
 
 (defn- progress-card
   [page-state]
@@ -182,10 +194,9 @@
      [:div.card-header [import-title page-state]]
      [progress-table page-state]
      [:div.card-footer
-      [:button.btn.btn-light {:title "Click here to return the list of imports."
-                              :on-click #(swap! page-state dissoc :active)}
+      [:button.btn.btn-light.me-2 {:title "Click here to return the list of imports."
+                                   :on-click #(swap! page-state dissoc :active)}
        (bs/icon-with-text :x "Cancel")]
-      (html/space)
       [refresh-button page-state]]]))
 
 (defn- errors-card
@@ -211,16 +222,18 @@
 (defn- import-click
   [event page-state]
   (.preventDefault event)
+  (+busy page-state)
   (imports/create (get-in @page-state [:import-data])
                   (fn [result]
                     (state/add-entity (:entity result))
                     (reset! auto-refresh true)
                     (swap! page-state #(-> %
+                                           -busy
                                            (dissoc :import-data)
                                            (update-in [:imports] conj (:import result))
                                            (assoc :active (:import result))))
                     (load-import page-state))
-                  notify/danger))
+                  (handle-error page-state "Unable to create the import: %s")))
 
 (defn- file-drop
   [import-data event]
@@ -232,7 +245,8 @@
 
 (defn- import-form
   [page-state]
-  (let [import-data (r/cursor page-state [:import-data])]
+  (let [import-data (r/cursor page-state [:import-data])
+        busy? (busy page-state)]
     [:div.card
      [:div.card-header [:strong "Import Entity"]]
      [:div.card-body
@@ -248,30 +262,40 @@
        [:div "Drop files here"]]]
      [file-list import-data]
      [:div.card-footer
-      [:button.btn.btn-success {:on-click #(import-click % page-state)
-                                :title "Click here to begin the import."}
-       (bs/icon-with-text :file-arrow-up "Import")]
-      (html/space)
-      [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :import-data)
-                               :title "Click here to discard this import."}
-       (bs/icon-with-text :x "Cancel")]]]))
+      [bs/busy-button {:html {:on-click #(import-click % page-state)
+                              :class "btn-success"
+                              :title "Click here to begin the import."}
+                       :busy? busy?
+                       :icon :file-arrow-up
+                       :caption "Import"}]
+
+      [bs/busy-button {:html {:on-click #(swap! page-state dissoc :import-data)
+                              :class "btn-secondary ms-2"
+                              :title "Click here to discard this import."}
+                       :busy? busy?
+                       :icon :x
+                       :caption "Cancel"}]]]))
 
 (defn- import-list []
   (let [page-state (r/atom {})
         import-data (r/cursor page-state [:import-data])
-        active (r/cursor page-state [:active])]
+        active (r/cursor page-state [:active])
+        busy? (busy page-state)]
     (load-imports page-state)
     (fn []
       [:div.row.mt-5
        [:div.col-md-6
         [:h1 "Imports"]
         [import-table page-state]
-        [:button.btn.btn-primary {:title "Click here to import a new entiry from another system."
-                                  :on-click (fn []
-                                              (swap! page-state assoc
-                                                     :import-data {:user-id (:id @state/current-user)})
-                                              (html/set-focus "entity-name"))}
-         (bs/icon-with-text :plus "Add")]]
+        [bs/busy-button {:html {:title "Click here to import a new entiry from another system."
+                                :class "btn-primary"
+                                :on-click (fn []
+                                            (swap! page-state assoc
+                                                   :import-data {:user-id (:id @state/current-user)})
+                                            (html/set-focus "entity-name"))}
+                         :busy? busy?
+                         :icon :plus
+                         :caption "Add"}]]
        (when @import-data
          [:div.col-md-6
           [import-form page-state]])

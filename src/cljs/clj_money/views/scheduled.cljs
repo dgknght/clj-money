@@ -15,12 +15,12 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
                                      accounts-by-id]]
-            [clj-money.bootstrap :as bs]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
@@ -127,15 +127,15 @@
                           :on-click #(realize sched-tran page-state)}
       (if busy?
         (bs/spinner {:size :small})
-        (bs/icon :gear))]
-     [:button.btn.btn-info.btn-sm {:title "Click here to edit this scheduled transaction."
+        (bs/icon :gear {:size :small}))]
+     [:button.btn.btn-light.btn-sm {:title "Click here to edit this scheduled transaction."
                                    :on-click (fn [_]
                                                (swap! page-state assoc :selected (->editable sched-tran))
                                                (html/set-focus "description"))}
-      (bs/icon :pencil)]
+      (bs/icon :pencil {:size :small})]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this scheduled transaction."
                                      :on-click #(delete-sched-tran sched-tran page-state)}
-      (bs/icon :x)]]]])
+      (bs/icon :x {:size :small})]]]])
 
 (defn- date-compare
   [d1 d2]
@@ -153,7 +153,7 @@
                     ^{:key (str "table-header-" (name k))}
                     [:th
                      (title-case (name k))
-                     [:a.ml-3 {:href "#"
+                     [:a.ms-3 {:href "#"
                                :class (if (= k @sort-on)
                                         "text-dark"
                                         "text-muted")
@@ -354,10 +354,9 @@
        [:button.btn.btn-primary {:type :submit
                                  :title "Click here to save this scheduled transaction."}
         (bs/icon-with-text :check "Save")]
-       (html/space)
-       [:button.btn.btn-secondary {:type :button
-                                   :title "Click here to cancel this operation."
-                                   :on-click #(swap! page-state dissoc :selected)}
+       [:button.btn.btn-secondary.ms-2 {:type :button
+                                        :title "Click here to cancel this operation."
+                                        :on-click #(swap! page-state dissoc :selected)}
         (bs/icon-with-text :x-circle "Cancel")]])))
 
 (defn- created-row
@@ -415,16 +414,15 @@
                                                                {:credit-quantity nil}]})
                                                (html/set-focus "description"))}
           (bs/icon-with-text :plus "Add")]
-         (html/space)
-         [:button.btn.btn-info {:title "Click here to new transactions from the schedule."
-                                :type :button
-                                :disabled @busy?
-                                :on-click #(realize page-state)}
+         [:button.btn.btn-secondary.ms-2 {:title "Click here to new transactions from the schedule."
+                                          :type :button
+                                          :disabled @busy?
+                                          :on-click #(realize page-state)}
           (if @busy?
             [:div.d-flex.align-items-center
              [:div.spinner-border.spinner-border-sm {:role :status}
-              [:span.sr-only "Working..."]]
-             [:span.ml-1 "Realize"]]
+              [:span.visually-hidden "Working..."]]
+             [:span.ms-1 "Realize"]]
             (bs/icon-with-text :gear "Realize"))]]
         [created page-state]]
        [:div {:class (when-not @selected "d-none")}
@@ -443,7 +441,7 @@
   [:div.mt-5
    [:h1 "Welcome!"]
    [:div.spinner-border {:role :status}
-    [:span.sr-only "Loading..."]]
+    [:span.visually-hidden "Loading..."]]
    [:p "We are automatically processing scheduled transactions. One moment, please."]])
 
 (secretary/defroute "/scheduled" []

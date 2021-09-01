@@ -6,8 +6,8 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.state :refer [current-entity]]
-            [clj-money.bootstrap :as bs]
             [clj-money.accounts :refer [nest
                                         unnest
                                         find-by-path]]
@@ -185,7 +185,7 @@
               doall)
          [:div.my-3
           [:div.spinner-border {:role :status}
-           [:div.sr-only "loading..."]]])
+           [:div.visually-hidden "loading..."]]])
        (if @new-monitor
          [monitor-form state]
          [:button.btn.btn-secondary {:on-click (fn []

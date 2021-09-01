@@ -16,17 +16,9 @@
    [:link  {:rel "icon" :href "../../favicon.ico"}]
    [:title "clj-money"]
 
-   "<!-- jQuery -->"
-   [:script {:src "/js/jquery-3.1.0.min.js"}]
-   [:script {:src "/js/jquery-ui.min.js"}]
-   [:script {:src "/js/bootstrap/bootstrap.min.js"}]
+   [:script {:src "/js/bootstrap.min.js"}]
 
-   "<!-- Bootstrap core CSS -->"
-   [:link {:rel "stylesheet" :href "/css/bootstrap/bootstrap.min.css"}]
-   [:link {:rel "stylesheet" :href "/css/jquery-ui.min.css"}]
-   [:link {:rel "stylesheet" :href "/css/jquery-ui.structure.min.css"}]
-   [:link {:rel "stylesheet" :href "/css/jquery-ui.theme.min.css"}]
-   [:link {:rel "stylesheet" :href "/css/clj-money.css"}]])
+   [:link {:rel "stylesheet" :href "/css/site.css"}]])
 
 (defn index []
   (html5
@@ -38,7 +30,7 @@
         [:div.container "clj-money"]]
        [:div.container.mt-5
         [:div.spinner-border {:role :status}
-         [:span.sr-only
+         [:span.visually-hidden
           "Loading..."]]]]
       (include-js "/js/app/main.js")]]))
 

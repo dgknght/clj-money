@@ -12,11 +12,11 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
                                      accounts
                                      accounts-by-id]]
-            [clj-money.bootstrap :as bs]
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
             [clj-money.api.transaction-items :as tran-items]
@@ -59,17 +59,17 @@
    [:td (:name budget)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-sm.btn-info {:on-click (fn []
+     [:button.btn.btn-sm.btn-light {:on-click (fn []
                                                (swap! page-state assoc :selected budget)
                                                (html/set-focus "name"))
                                    :title "Click here to edit this budget"}
-      (bs/icon :pencil)]
-     [:button.btn.btn-sm.btn-info {:on-click #(load-budget-details budget page-state)
+      (bs/icon :pencil {:size :small})]
+     [:button.btn.btn-sm.btn-light {:on-click #(load-budget-details budget page-state)
                                    :title "Click here to fill out details for this budget."}
-      (bs/icon :collection)]
+      (bs/icon :collection {:size :small})]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget budget page-state)
                                      :title "Click here to remove this budget."}
-      (bs/icon :x-circle)]]]])
+      (bs/icon :x-circle {:size :small})]]]])
 
 (defn- budgets-table
   [page-state]
@@ -96,15 +96,19 @@
       [:div
        [budgets-table page-state]
        [:div.mt-2
-        [:button.btn.btn-primary {:on-click (fn []
-                                              (swap! page-state
-                                                     assoc
-                                                     :selected
-                                                     {:period :month
-                                                      :period-count 12})
-                                              (html/set-focus "name"))
-                                  :disabled @busy?}
-         (bs/icon-with-text :plus "Add")]]])))
+        [bs/busy-button {:html {:class "btn-primary"
+                                :title "Click here to add a new budget."
+                                :on-click (fn []
+                                            (swap! page-state
+                                                   assoc
+                                                   :selected
+                                                   {:period :month
+                                                    :period-count 12})
+                                            (html/set-focus "name"))
+                                :disabled @busy?}
+                         :icon :plus
+                         :caption "Add"
+                         :busy? busy?}]]])))
 
 (defn- save-budget
   [page-state]
@@ -120,7 +124,8 @@
 (defn- budget-form
   [page-state]
   (let [selected (r/cursor page-state [:selected])
-        auto-create (r/cursor selected [:auto-create-items])]
+        auto-create (r/cursor selected [:auto-create-items])
+        busy? (busy page-state)]
     (fn []
       [:div.card
        [:div.card-header
@@ -137,12 +142,18 @@
          [forms/checkbox-field selected [:auto-create-items]]
          [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]]]
        [:div.card-footer
-        [:button.btn.btn-primary {:on-click #(save-budget page-state)
+        [bs/busy-button {:html {:class "btn-primary"
+                                :on-click #(save-budget page-state)
                                   :title "Click here to save this budget."}
-         (bs/icon-with-text :check "Save")]
-        (html/space)
-        [:button.btn.btn-light {:on-click #(swap! page-state dissoc :selected)}
-         (bs/icon-with-text :x "Cancel")]]])))
+                         :icon :check
+                         :caption "Save"
+                         :busy? busy?}]
+        [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                :title "Click here to cancel this operation."
+                                :on-click #(swap! page-state dissoc :selected)}
+                         :icon :x
+                         :caption "Cancel"
+                         :busy? busy?}]]])))
 
 (defn- delete-budget-item
   [{:keys [account-id]} page-state]
@@ -191,17 +202,17 @@
       (map-indexed
        (fn [index value]
          ^{:key (str "period-value-" (:id item) "-" index)}
-         [:td.text-right (format-decimal value)])
+         [:td.text-end (format-decimal value)])
        (:periods (:item item)))))
-   [:td.text-right (format-decimal (:total item))]
+   [:td.text-end (format-decimal (:total item))]
    [:td
     [:div.btn-group
-     [:button.btn.btn-sm.btn-info {:on-click #(select-budget-item (:item item) page-state)
+     [:button.btn.btn-sm.btn-light {:on-click #(select-budget-item (:item item) page-state)
                                    :title "Click here to edit this values for this account."}
-      (bs/icon :pencil)]
+      (bs/icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete-budget-item (:item item) page-state)
                                      :title "Click here to remove this account from the budget."}
-      (bs/icon :x-circle)]]]])
+      (bs/icon :x-circle {:size :small})]]]])
 
 (defn- budget-item-group-header-row
   [item-group detail?]
@@ -227,9 +238,9 @@
       (map-indexed
        (fn [index value]
          ^{:key (str "period-value-" (:caption item-group) "-" index)}
-         [:td.text-right (format-decimal value)])
+         [:td.text-end (format-decimal value)])
        (:periods item-group))))
-   [:td.text-right (format-decimal (:total item-group))]
+   [:td.text-end (format-decimal (:total item-group))]
    [:td (html/space)]])
 
 (defn- budget-item-condensed-row
@@ -242,9 +253,9 @@
       (map-indexed
        (fn [index value]
          ^{:key (str "period-value-" (:caption item-group) "-" index)}
-         [:td.text-right (format-decimal value)])
+         [:td.text-end (format-decimal value)])
        (:periods item-group))))
-   [:td.text-right (format-decimal (:total item-group))]
+   [:td.text-end (format-decimal (:total item-group))]
    [:td (html/space)]])
 
 (defn- budget-item-rows
@@ -278,9 +289,9 @@
            (doall
             (map (fn [index]
                    ^{:key (str "period-header-" index)}
-                   [:th.text-right (budgets/period-description index @budget)])
+                   [:th.text-end (budgets/period-description index @budget)])
                  (range @period-count))))
-         [:th.text-right "Total"]
+         [:th.text-end "Total"]
          [:th (html/space)]]]
        [:tbody
         (->> @rendered-budget
@@ -454,7 +465,7 @@
         [:tr
          [:td
           (html/comment @calculated)] ; only need this rendered to trigger the reagent magic
-         [:td.text-right (format-decimal @total)]]]
+         [:td.text-end (format-decimal @total)]]]
        [:tbody
         (->> @periods
              (map-indexed (fn [i amount]
@@ -462,7 +473,7 @@
                             [:tr
                              [:td
                               (nth cal/month-names i)] ; TODO: this assumes the budgets starts in January
-                             [:td.text-right (format-decimal amount)]]))
+                             [:td.text-end (format-decimal amount)]]))
              doall)]])))
 
 (def ^:private period-nav-options
@@ -514,7 +525,8 @@
 
 (defn- budget-item-form
   [page-state]
-  (let [item (r/cursor page-state [:selected-item])]
+  (let [item (r/cursor page-state [:selected-item])
+        busy? (busy page-state)]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -533,14 +545,19 @@
                          first
                          callback))}]
        [period-fields item page-state]
-       [:button.btn.btn-primary {:type :submit
-                                 :title "Click here to save this budget line item."}
-        (bs/icon-with-text :check "Save")]
-       (html/space)
-       [:button.btn.btn-light {:on-click #(swap! page-state dissoc :selected-item)
+       [bs/busy-button {:html {:class "btn-primary"
+                               :type :submit
+                               :title "Click here to save this budget line item."}
+                        :icon :check
+                        :caption "Save"
+                        :busy? busy?}]
+       [bs/busy-button {:html {:class "btn-secondary ms-2"
+                               :on-click #(swap! page-state dissoc :selected-item)
                                :type :button
                                :title "Click here to cancel this operation."}
-        (bs/icon-with-text :x "Cancel")]])))
+                        :icon :x
+                        :caption "Cancel"
+                        :busy? busy?}]])))
 
 (defonce resize-state (r/atom {}))
 
@@ -578,21 +595,27 @@
                         :overflow-y "scroll"}}
           [budget-items-table page-state]]
          [:div.my-2
-          [:button.btn.btn-primary {:on-click #(swap! page-state assoc
-                                                      :selected-item {:id (random-uuid)
-                                                                      :periods (->> (range (:period-count @budget))
-                                                                                    (map (constantly 0M))
-                                                                                    (into []))
-                                                                      :spec {:entry-mode :per-total}})
-                                    :disabled (or @busy?
-                                                  (boolean @selected-item))
-                                    :title "Click here to add a new budget line item"}
-           (bs/icon-with-text :plus "Add")]
-          (html/space)
-          [:button.btn.btn-light {:on-click #(swap! page-state dissoc :detailed-budget)
+          [bs/busy-button {:html {:class "btn-primary"
+                                  :on-click #(swap! page-state assoc
+                                                    :selected-item {:id (random-uuid)
+                                                                    :periods (->> (range (:period-count @budget))
+                                                                                  (map (constantly 0M))
+                                                                                  (into []))
+                                                                    :spec {:entry-mode :per-total}})
+                                  :disabled (or @busy?
+                                                (boolean @selected-item))
+                                  :title "Click here to add a new budget line item"}
+                           :icon :plus
+                           :caption "Add"
+                           :busy? busy?}]
+
+          [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                  :on-click #(swap! page-state dissoc :detailed-budget)
                                   :disabled @busy?
                                   :title "Click here to return to the list of budgets"}
-           (bs/icon-with-text :arrow-left-short "Back")]]]
+                           :icon :arrow-left-short
+                           :caption "Back"
+                           :busy? busy?}]]]
         (when @selected-item
           [:div.col
            [budget-item-form page-state]])

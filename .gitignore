@@ -15,6 +15,7 @@ pom.xml.asc
 .DS_Store
 .clj-kondo/.cache
 figwheel_server.log
+/resources/public/css
 resources/public/js/app
 .rebel_readline_history
 profiles.clj

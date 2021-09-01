@@ -4,16 +4,17 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
+            [dgknght.app-lib.busy :refer [busy +busy -busy]]
             [dgknght.app-lib.models :refer [map-index]]
             [dgknght.app-lib.web :refer [format-decimal
                                              format-percent]]
             [dgknght.app-lib.inflection :refer [humanize
                                                 title-case]]
-            [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
-            [clj-money.bootstrap :as bs]
+            [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state]]
             [clj-money.accounts :refer [nest
                                         unnest]]
@@ -29,7 +30,7 @@
   ^{:key (str "report-row-" caption)}
   [:tr.report-header
    [:th {:scope :row} caption]
-   [:td.text-right (format-decimal value)]])
+   [:td.text-end (format-decimal value)]])
 
 (defmethod ^:private report-row :data
   [{:keys [id caption value depth]} hide-zeros?]
@@ -40,7 +41,7 @@
    [:td
     [:span {:class (str "account-depth-" depth)}
      caption]]
-   [:td.text-right
+   [:td.text-end
     [:span {:class (str "value-depth-" depth)} (format-decimal value)]]])
 
 (defmethod ^:private report-row :summary
@@ -48,7 +49,7 @@
   ^{:key (str "report-row-" caption)}
   [:tr.report-summary
    [:th {:scope :row} caption]
-   [:td.text-right (format-decimal value)]])
+   [:td.text-end (format-decimal value)]])
 
 (defn- start-of-year
   ([] (start-of-year (t/today)))
@@ -57,16 +58,17 @@
 
 (defn- fetch-income-statement
   [page-state]
+  (+busy page-state)
   (rpt/income-statement (select-keys (:income-statement @page-state) [:start-date :end-date])
                         (fn [result]
                           (swap! page-state #(-> %
-                                                 (assoc-in [:income-statement :report] result)
-                                                 (dissoc :loading?))))
+                                                 -busy
+                                                 (assoc-in [:income-statement :report] result))))
                         (notify/danger-fn "Unable to fetch the report: %s")))
 
 (defn- income-statement-filter
   [page-state]
-  (let [loading? (r/cursor page-state [:loading?])]
+  (let [busy? (busy page-state)]
     (fn []
       [:form.d-print-none {:on-submit (fn [e]
                                         (.preventDefault e)
@@ -86,14 +88,11 @@
           {:placeholder "End date"
            :validate [:required]}]]
         [:div.col
-         [:button.btn.btn-primary {:on-click (fn []
-                                               (swap! page-state assoc :loading? true)
-                                               (fetch-income-statement page-state))
-                                   :title "Click here to get the report with the specified parameters"}
-          (if @loading?
-            [:div.spinner-border.spinner-border-sm.text-light
-             [:span.sr-only "Loading..."]]
-            (bs/icon :arrow-repeat))]]]
+         [bs/busy-button {:html {:class "btn-primary"
+                                 :on-click #(fetch-income-statement page-state)
+                                 :title "Click here to get the report with the specified parameters"}
+                          :icon :arrow-repeat
+                          :busy? busy?}]]]
        [:div.row.mt-3
         [:div.col
          [forms/checkbox-field
@@ -116,18 +115,17 @@
 
 (defn- fetch-balance-sheet
   [page-state]
+  (+busy page-state)
   (rpt/balance-sheet (select-keys (:balance-sheet @page-state) [:as-of])
                      (fn [result]
                        (swap! page-state #(-> %
-                                              (assoc-in [:balance-sheet :report] result)
-                                              (dissoc :loading?))))
-                     (fn [error]
-                       (swap! page-state dissoc :loading?)
-                       (notify/danger (str "Unable to fetch the report: " (or (:message error) error))))))
+                                              -busy
+                                              (assoc-in [:balance-sheet :report] result))))
+                     (handle-error page-state "Unable to fetch the balance sheet report: %s")))
 
 (defn- balance-sheet-filter
   [page-state]
-  (let [loading? (r/cursor page-state [:loading?])]
+  (let [busy? (busy page-state)]
     (fn []
       [:form.d-print-none {:on-submit (fn [e]
                                         (.preventDefault e)
@@ -141,14 +139,11 @@
           {:placeholder "As Of"
            :validate [:required]}]]
         [:div.col
-         [:button.btn.btn-primary {:on-click (fn []
-                                               (swap! page-state assoc :loading? true)
-                                               (fetch-balance-sheet page-state))
-                                   :title "Click here to get the report with the specified parameters"}
-          (if @loading?
-            [:div.spinner-border.spinner-border-sm.text-light
-             [:span.sr-only "Loading..."]]
-            (bs/icon :arrow-repeat))]]]
+         [bs/busy-button {:html {:class "btn-primary"
+                                 :on-click #(fetch-balance-sheet page-state)
+                                 :title "Click here to get the report with the specified parameters"}
+                          :icon :arrow-repeat
+                          :busy? busy?}]]]
        [:div.row.mt-3
         [:div.col
          [forms/checkbox-field
@@ -171,37 +166,37 @@
 
 (defn- fetch-budget-report
   [page-state]
+  (+busy page-state)
   (rpt/budget (select-keys (:budget @page-state) [:budget-id :tags])
               (fn [result]
                 (swap! page-state #(-> %
+                                       -busy
                                        (assoc-in [:budget :report] result)
-                                       (dissoc :loading?)
                                        (update-in [:budget] dissoc :apply-info))))
               (notify/danger-fn "Unable to fetch the budget report: %s")))
 
 (defn- budget-filter
   [page-state]
   (let [budgets (r/cursor page-state [:budget :budgets])
-        loading? (r/cursor page-state [:loading?])
+        busy? (busy page-state)
         options (make-reaction #(->> (vals @budgets)
                                      (sort-by :start-date t/after?)
                                      (map (juxt :id :name))))]
     (fn []
-      [:form.form-inline.d-print-none {:on-submit (fn [e]
-                                                    (.preventDefault e)
-                                                    false)}
-       [forms/select-elem page-state [:budget :budget-id] options]
-       [forms/integer-input page-state [:budget :depth] {:class "ml-sm-2"
-                                                         :placeholder "Depth"
-                                                         :style {:width "5em"}}]
-       [:button.btn.btn-primary.ml-sm-2 {:on-click (fn []
-                                                     (swap! page-state assoc :loading? true)
-                                                     (fetch-budget-report page-state))
-                                         :title "Click here to get the report with the specified parameters"}
-        (if @loading?
-          [:div.spinner-border.spinner-border-sm.text-light
-           [:span.sr-only "Loading..."]]
-          (bs/icon :arrow-repeat))]])))
+      [:div.row
+       [:div.col-md-6
+        [:form.d-flex.align-items-center.d-print-none {:on-submit (fn [e]
+                                                                    (.preventDefault e)
+                                                                    false)}
+         [forms/select-elem page-state [:budget :budget-id] options]
+         [forms/integer-input page-state [:budget :depth] {:class "ms-sm-2"
+                                                           :placeholder "Depth"
+                                                           :style {:width "5em"}}]
+         [bs/busy-button {:html {:class "btn-primary ms-2"
+                                 :on-click #(fetch-budget-report page-state)
+                                 :title "Click here to get the report with the specified parameters"}
+                          :icon :arrow-repeat
+                          :busy? busy?}]]]])))
 
 (defn- receive-budget
   [budget
@@ -247,8 +242,8 @@
   ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (str "report-" (name style))}
    [:td caption]
-   [:td.text-right (format-decimal budget)]
-   [:td.text-right (format-decimal actual)]
+   [:td.text-end (format-decimal budget)]
+   [:td.text-end (format-decimal actual)]
    [:td.d-flex.justify-content-between {:class (when (> 0 difference) "text-light bg-danger")}
     (when (= :data style)
       [:span.d-print-none
@@ -256,9 +251,9 @@
         :title "Click here to update the budget with recorded actual values."
         :style {:cursor :pointer}}
        (bs/icon :gear {:size :small})])
-    [:span.flex-fill.text-right (format-decimal difference)]]
-   [:td.text-right (format-percent percent-difference)]
-   [:td.text-right (format-decimal actual-per-period)]])
+    [:span.flex-fill.text-end (format-decimal difference)]]
+   [:td.text-end (format-percent percent-difference)]
+   [:td.text-end (format-decimal actual-per-period)]])
 
 (defn- load-budgets
   [page-state]
@@ -304,7 +299,7 @@
 (defn- save-budget
   [page-state]
   (let [{:keys [budget budget-item]} (get-in @page-state [:budget :apply-info])]
-    (swap! page-state assoc :loading? true)
+    (+busy page-state)
     (bdt/save (update-in budget [:items] (fn [items]
                                            (-> items
                                               (assoc (:account-id budget-item)
@@ -313,7 +308,9 @@
                                                                 #(mapv (fnil identity (decimal/zero))
                                                                        %)))
                                               vals)))
-              #(fetch-budget-report page-state)
+              (fn [& _]
+                (-busy page-state)
+                (fetch-budget-report page-state))
               (notify/danger-fn "Unable to save the budget: %s"))))
 
 (defn- apply-budget-item-form
@@ -323,7 +320,7 @@
         account (r/cursor report-item [:account])
         budget (r/cursor apply-info [:budget])
         original-budget-item (make-reaction #(get-in @budget [:items (:id @account)]))
-        loading? (r/cursor page-state [:loading?])
+        busy? (busy page-state)
         budget-item (r/cursor apply-info [:budget-item])
         original-total (make-reaction
                          #(decimal/sum (:periods @original-budget-item)))
@@ -340,7 +337,7 @@
            [:thead
             [:tr
              [:th "Period"]
-             [:th.text-right "Current"]
+             [:th.text-end "Current"]
              [:th "New"]]]
            [:tbody
             (->> (range (:period-count @budget))
@@ -348,28 +345,28 @@
                                 ^{:key (str "budget-item-period-" index)}
                                 [:tr
                                  [:td (period-description index @budget)]
-                                 [:td.text-right (format-decimal
-                                                   (get-in @original-budget-item
-                                                           [:periods index]))]
+                                 [:td.text-end (format-decimal
+                                                 (get-in @original-budget-item
+                                                         [:periods index]))]
                                  [:td [forms/decimal-input budget-item [:periods index]]]]))
                  doall)]
            [:tfoot
             [:tr
-             [:td.text-right {:col-span 2} (format-decimal @original-total)]
-             [:td.text-right (format-decimal @item-total)]]]]]]
+             [:td.text-end {:col-span 2} (format-decimal @original-total)]
+             [:td.text-end (format-decimal @item-total)]]]]]]
         [:div.card-footer
-         [:button.btn.btn-primary {:title "Click here to save this budget item."
-                                   :on-click #(save-budget page-state)}
-          (if @loading?
-            [:div
-             [:div.spinner-border.spinner-border-sm.text-light
-              [:span.sr-only "Loading..."]]
-             "Save"]
-            (bs/icon-with-text :check "Save"))]
-         (html/space)
-         [:button.btn.btn-info {:title "Click here to cancel this edit."
-                                :on-click #(swap! page-state update-in [:budget] dissoc :apply-info)}
-          (bs/icon-with-text :x "Cancel")]]]])))
+         [bs/busy-button {:html {:class "btn-primary"
+                                 :title "Click here to save this budget item."
+                                 :on-click #(save-budget page-state)}
+                          :icon :check
+                          :caption "Save"
+                          :busy? busy?}]
+         [bs/busy-button {:html {:class "btn-light ms-2"
+                                 :title "Click here to cancel this edit."
+                                 :on-click #(swap! page-state update-in [:budget] dissoc :apply-info)}
+                          :icon :x
+                          :caption "Cancel"
+                          :busy? busy?}]]]])))
 
 (defn- budget
   [page-state]
@@ -390,11 +387,11 @@
            [:thead
             [:tr
              [:th "Account"]
-             [:th.text-right "Budget"]
-             [:th.text-right "Actual"]
-             [:th.text-right "Diff"]
-             [:th.text-right "% Diff"]
-             [:th.text-right "Act/Mo"]]]
+             [:th.text-end "Budget"]
+             [:th.text-end "Actual"]
+             [:th.text-end "Diff"]
+             [:th.text-end "% Diff"]
+             [:th.text-end "Act/Mo"]]]
            [:tbody
             (->> (:items @report)
                  (refine-and-flatten @depth)
@@ -405,17 +402,17 @@
 
 (defn- load-portfolio
   [page-state]
-  (swap! page-state assoc :loading? true)
+  (+busy page-state)
   (let [{:keys [current-nav] :as state} (get-in @page-state [:portfolio])]
     (rpt/portfolio {:aggregate current-nav
                     :as-of (get-in state [:filter :as-of])}
                    (fn [result]
                      (swap! page-state #(-> %
+                                            -busy
                                             (assoc-in [:portfolio
                                                        current-nav
                                                        :report]
-                                                      result)
-                                            (dissoc :loading?))))
+                                                      result))))
                    (notify/danger-fn "Unable to load the accounts report"))))
 
 (defn- visible?
@@ -457,17 +454,17 @@
         :on-click (when-not (= "data" style)
                     #(swap! page-state toggle-visibility id))}
    [:td {:class (when (= "data" style)
-                  "text-right")}
+                  "text-end")}
     caption]
-   [:td.text-right (format-shares shares-purchased)]
-   [:td.text-right (format-shares shares-owned)]
-   [:td.text-right (format-decimal cost-basis)]
-   [:td.text-right (format-decimal current-value)]
-   [:td.text-right {:class (if (> 0 gain-loss)
+   [:td.text-end (format-shares shares-purchased)]
+   [:td.text-end (format-shares shares-owned)]
+   [:td.text-end (format-decimal cost-basis)]
+   [:td.text-end (format-decimal current-value)]
+   [:td.text-end {:class (if (> 0 gain-loss)
                              "text-danger"
                              "text-success")}
     (format-decimal gain-loss)]
-   [:td.text-right {:class (if (> 0 gain-loss)
+   [:td.text-end {:class (if (> 0 gain-loss)
                              "text-danger"
                              "text-success")}
     (format-percent gain-loss-percent)]])
@@ -482,12 +479,12 @@
        [:thead
         [:tr
          [:th "Purchase Date"]
-         [:th.text-right "Shares Purchased"]
-         [:th.text-right "Shares Owned"]
-         [:th.text-right "Cost Basis"]
-         [:th.text-right "Current Value"]
-         [:th.text-right "Gain/Loss"]
-         [:th.text-right "G/L %"]]]
+         [:th.text-end "Shares Purchased"]
+         [:th.text-end "Shares Owned"]
+         [:th.text-end "Cost Basis"]
+         [:th.text-end "Current Value"]
+         [:th.text-end "Gain/Loss"]
+         [:th.text-end "G/L %"]]]
        [:tbody
         (cond
           (nil? @report)
@@ -503,7 +500,7 @@
   [page-state]
   (let [current-nav (r/cursor page-state [:portfolio :current-nav])
         report-filter (r/cursor page-state [:portfolio :filter])
-        loading? (r/cursor page-state [:loading?])]
+        busy? (busy page-state)]
     (load-portfolio page-state)
     (fn []
       [:div
@@ -520,13 +517,12 @@
         [:div.col
          [forms/date-input report-filter [:as-of]]]
         [:div.col
-         [:button.btn.btn-info {:on-click (fn []
-                                            (load-portfolio page-state))
-                                :title "Click here to refresh the report."}
-          (if @loading?
-            [:div.spinner-border.spinner-border-sm.text-light
-             [:span.sr-only "Loading..."]]
-            (bs/icon :arrow-repeat))]]]
+         [bs/busy-button {:html {:class "btn-secondary"
+                                 :on-click (fn []
+                                             (load-portfolio page-state))
+                                 :title "Click here to refresh the report."}
+                          :icon :arrow-repeat
+                          :busy? busy?}]]]
        [:div.mt-2
         [render-portfolio page-state]]])))
 

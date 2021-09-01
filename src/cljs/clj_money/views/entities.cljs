@@ -2,21 +2,22 @@
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
             [dgknght.app-lib.html :as html]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :refer [text-field]]
-            [clj-money.bootstrap :as bs]
+            [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [clj-money.views.util :refer [handle-error]]
             [clj-money.api.entities :as entities]
             [clj-money.state :as state :refer [app-state]]))
 
 (defn- delete
   [entity page-state]
   (when (js/confirm (str "Are you sure you want to delete the entity \"" (:name entity) "\"?"))
-    (swap! page-state assoc :busy? true)
+    (+busy page-state)
     (entities/delete entity
                      (fn []
-                       (swap! page-state dissoc :busy?)
+                       (-busy page-state)
                        (state/remove-entity entity))
-                     notify/danger)))
+                     (handle-error page-state "Unable to delete the entity: %s"))))
 
 (defn find-entity
   [id]
@@ -38,17 +39,21 @@
 (defn- save-entity
   [page-state]
   (let [entity (get-in @page-state [:selected])]
+    (+busy page-state)
     (entities/save entity
                    (fn [result]
                      (if (:id entity)
                        (relay-updated-entity result)
                        (state/add-entity result))
-                     (swap! page-state dissoc :selected))
-                   (notify/danger-fn "Unable to save the entity: %s"))))
+                     (swap! page-state #(-> %
+                                            -busy
+                                            (dissoc :selected))))
+                   (handle-error page-state "Unable to save the entity: %s"))))
 
 (defn- entity-form
   [page-state]
-  (let [entity (r/cursor page-state [:selected])]
+  (let [entity (r/cursor page-state [:selected])
+        busy? (busy page-state)]
     (fn []
       [:div.card
        [:div.card-header [:strong (str (if (:id @entity) "Edit" "New") " Entity")]]
@@ -57,11 +62,19 @@
          [text-field entity [:name] {:validate [:required]}]
          #_[radio-buttons [:settings :inventory-method] ["fifo" "lifo"]]]]
        [:div.card-footer
-        [:button.btn.btn-primary {:on-click #(save-entity page-state)}
-         (bs/icon-with-text :check "Save")]
-        (html/space)
-        [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :selected)}
-         (bs/icon-with-text :x "Cancel")]]])))
+        [bs/busy-button {:html {:on-click #(save-entity page-state)
+                                :title "Click here to save this entity."
+                                :class "btn-primary"}
+                         :icon :check
+                         :caption "Save"
+                         :busy? busy?}]
+
+        [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                :title "Click here to cancel this operation."
+                                :on-click #(swap! page-state dissoc :selected)}
+                         :icon :x
+                         :caption "Cancel"
+                         :busy? busy?}]]])))
 
 (defn- entity-row
   [entity page-state busy?]
@@ -71,16 +84,16 @@
     (:name entity)]
    [:td
     [:div.btn-group
-     [:button.btn.btn-sm.btn-info {:on-click (fn []
-                                               (swap! page-state assoc :selected entity)
-                                               (html/set-focus "name"))
-                                   :disabled busy?
-                                   :title "Click here to edit this entity."}
-      (bs/icon :pencil)]
+     [:button.btn.btn-sm.btn-light {:on-click (fn []
+                                                (swap! page-state assoc :selected entity)
+                                                (html/set-focus "name"))
+                                    :disabled busy?
+                                    :title "Click here to edit this entity."}
+      (bs/icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete entity page-state)
                                      :disabled busy?
                                      :title "Click here to remove this entity."}
-      (bs/icon :x-circle)]]]])
+      (bs/icon :x-circle {:size :small})]]]])
 
 (defn- entity-table
   [page-state]
@@ -99,25 +112,31 @@
 (defn- entities-page []
   (let [page-state (r/atom {})
         current-entity (r/cursor app-state [:current-entity])
-        selected (r/cursor page-state [:selected])]
+        selected (r/cursor page-state [:selected])
+        busy? (busy page-state)]
     (fn []
       [:div.row.mt-5
        [:div.col-md-6
         [:h1 "Entities"]
         [entity-table page-state]
-        [:button.btn.btn-primary {:on-click (fn []
-                                              (swap! page-state
-                                                     assoc
-                                                     :selected
-                                                     {:entity-id (:id @current-entity)})
-                                              (html/set-focus "name"))
-                                  :disabled (boolean @selected)
-                                  :title "Click here to create a new entity."}
-         (bs/icon-with-text :plus "Add")]
-        (html/space)
-        [:button.btn.btn-light {:on-click #(secretary/dispatch! "/imports")
-                                :title "Click here to import an entity from another accounting system"}
-         (bs/icon-with-text :file-arrow-up "Import")]]
+        [bs/busy-button {:html {:class "btn-primary"
+                                :title "Click here to create a new entity."
+                                :on-click (fn []
+                                            (swap! page-state
+                                                   assoc
+                                                   :selected
+                                                   {:entity-id (:id @current-entity)})
+                                            (html/set-focus "name"))}
+                         :disabled selected
+                         :busy? busy?
+                         :icon :plus
+                         :caption "Add"}]
+        [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                :title "Click here to import an entity from another accounting system."
+                                :on-click #(secretary/dispatch! "/imports")}
+                         :icon :file-arrow-up
+                         :busy? busy?
+                         :caption "Import"}]]
        (when @selected
          [:div.col-md-6
           [entity-form page-state]])])))

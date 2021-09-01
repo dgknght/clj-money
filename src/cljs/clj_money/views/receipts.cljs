@@ -11,12 +11,12 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
                                      accounts-by-id]]
-            [clj-money.bootstrap :as bs]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.api.transactions :as trn]))
 
@@ -172,7 +172,7 @@
                                 (js/setTimeout
                                   #(html/set-focus "search-term")
                                   250))}
-                   (bs/icon :search)]
+                   (bs/icon :search {:size :small})]
          :html {:auto-complete :off}
          :hide? hide-description?}]
        [forms/typeahead-field
@@ -195,7 +195,7 @@
                     :on-click (fn [e]
                                 (.preventDefault e)
                                 (swap! page-state dissoc :transaction-search))}
-                   (bs/icon :x)]}]
+                   (bs/icon :x {:size :small})]}]
        [forms/typeahead-field
         receipt
         [:account-id]
@@ -217,23 +217,26 @@
               doall)]
         [:tfoot
          [:tr
-          [:td.text-right {:col-span 2}
+          [:td.text-end {:col-span 2}
            (format-decimal @total)]]]]
        [:div
-        [:button.btn.btn-primary
-         {:type :submit
-          :disabled @busy?
-          :title "Click here to create this transaction."}
-         (bs/icon-with-text :check "Enter")]
-        (html/space)
-        [:button.btn.btn-secondary
-         {:type :button
-          :disabled @busy?
-          :title "Click here to discard this receipt."
-          :on-click (fn []
-                      (swap! receipt select-keys [:transaction-date])
-                      (html/set-focus "transaction-date"))}
-         (bs/icon-with-text :x "Cancel")]]])))
+        [bs/busy-button {:html {:class "btn-primary"
+                                :type :submit
+                                :disabled @busy?
+                                :title "Click here to create this transaction."}
+                         :icon :check
+                         :caption "Enter"
+                         :busy? busy?}]
+        [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                :type :button
+                                :disabled @busy?
+                                :title "Click here to discard this receipt."
+                                :on-click (fn []
+                                            (swap! receipt select-keys [:transaction-date])
+                                            (html/set-focus "transaction-date"))}
+                         :icon :x
+                         :caption "Cancel"
+                         :busy? busy?}]]])))
 
 (defn- result-row
   [transaction page-state]
@@ -243,10 +246,10 @@
    [:td (:description transaction)]
    [:td (format-decimal (:value transaction))]
    [:td
-    [:button.btn.btn-sm.btn-info
+    [:button.btn.btn-sm.btn-light
      {:title "Click here to edit this transaction."
       :on-click #(swap! page-state assoc :receipt (->receipt transaction))}
-     (bs/icon :pencil)]]])
+     (bs/icon :pencil {:size :small})]]])
 
 (defn- results-table
   [page-state]

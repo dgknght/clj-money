@@ -7,9 +7,8 @@
             [dgknght.app-lib.inflection :refer [humanize]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.bootstrap-4 :as bs]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.notifications :as notify]
-            [clj-money.j-query :as jq]
             [clj-money.state :as state :refer [app-state
                                                current-user
                                                current-entity]]
@@ -27,10 +26,9 @@
             [clj-money.views.dashboard :refer [dashboard]]
             [clj-money.cached-accounts :refer [watch-entity]]
             [clj-money.api.entities :as entities]
-            [clj-money.bootstrap :as bootstrap]
             [clj-money.api.users :as users]))
 
-(swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-4)
+(swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
 
 (defn home-page []
   [:div.jumbotron.mt-3
@@ -52,8 +50,8 @@
 (defn- entity->nav-item
   [{:keys [id name] :as entity}]
   {:id id
-   :caption name
-   :on-click (fn []
+   :label name
+   :nav-fn (fn []
                (let [page (get-in @app-state [:page])]
                  (swap! app-state assoc :page #'nil-page)
                  (js/setTimeout
@@ -85,8 +83,8 @@
     (if current-entity
       (map (fn [{:keys [id] :as item}]
              (-> item
-                 (assoc-if-nil :caption (humanize id))
-                 (assoc-if-nil :url (str "/" (name id)))
+                 (assoc-if-nil :label (humanize id))
+                 (assoc-if-nil :path (str "/" (name id)))
                  (assoc-if-nil :active? (= id active-nav))
                  (assoc-if-nil :tool-tip (str "Click here to manage "
                                               (humanize id)
@@ -94,40 +92,42 @@
            authenticated-nav-items)
       [])
     [{:id :login
-      :url "/login"
-      :caption "Login"
+      :path "/login"
+      :label "Login"
       :tool-top "Click here to sign into the system"}]))
+
+(defn- entity-nav-items
+  [entities current-entity]
+  (if (seq entities)
+    [{:id :entities
+      :label (:name current-entity)
+      :children (concat (mapv entity->nav-item
+                              entities)
+                        [{:role :separator
+                          :id "entity-separator"}
+                         {:id "manage-entities"
+                          :path "/entities"
+                          :label "Manage Entities"
+                          :tool-tip "Click here to manage your entities."}
+                         {:id "manage-imports"
+                          :path "/imports"
+                          :label "Manage Imports"
+                          :tool-tip "Click here to manage your imports."}])}]
+    []))
 
 (defn- secondary-nav-items
   [current-user entities current-entity]
   (when current-user
-    (let [items (if (seq entities)
-                  [{:id :entities
-                    :role :dropdown
-                    :caption (:name current-entity)
-                    :children (concat (map entity->nav-item
-                                           entities)
-                                      [{:role :separator
-                                        :id "entity-separator"}
-                                       {:id "manage-entities"
-                                        :url "/entities"
-                                        :caption "Manage Entities"
-                                        :tool-tip "Click here to manage your entities."}
-                                       {:id "manage-imports"
-                                        :url "/imports"
-                                        :caption "Manage Imports"
-                                        :tool-tip "Click here to manage your imports."}])}]
-                  [])]
-      (concat items
-              [{:id :current-user
-                :caption (->> ((juxt :first-name :last-name) current-user)
-                              (string/join " "))}
-               {:id :logout
-                :caption "Logout"
-                :on-click (fn []
-                            (state/logout)
-                            (cookies/remove! :auth-token)
-                            (secretary/dispatch! "/"))}]))))
+    (concat (entity-nav-items entities current-entity)
+            [{:id :current-user
+              :label (->> ((juxt :first-name :last-name) current-user)
+                          (string/join " "))}
+             {:id :logout
+              :label "Logout"
+              :nav-fn (fn []
+                        (state/logout)
+                        (cookies/remove! :auth-token)
+                        (secretary/dispatch! "/"))}])))
 
 (defn- nav []
   (let [active-nav (r/cursor app-state [:active-nav])
@@ -137,41 +137,26 @@
             entity @current-entity
             items (nav-items user entity @active-nav)
             secondary-items (secondary-nav-items user @entities entity)]
-        (bootstrap/navbar
-         {:title "clj-money"
-          :title-url "/"
-          :items items
-          :secondary-items secondary-items})))))
+        (bs/navbar
+          items
+          {:title "clj-money"
+           :title-url "/"
+           :secondary-items secondary-items})))))
 
 (defn- alerts []
   (fn []
     (when (seq @notify/notifications)
       [:div#alerts
        (doall (for [n @notify/notifications]
-                (bootstrap/alert n #(notify/unnotify n))))])))
+                (bs/alert n)))])))
 
 (defn- render-toasts []
   (when (seq @notify/toasts)
-    (.setTimeout js/window #(jq/toast ".toast") 100)
+    (js/setTimeout bs/init-toasts 200)
     [:div.toast-container
-     (for [toast @notify/toasts
-           :let [elem-id (str "toast-" (:id toast))]]
-       ^{:key elem-id}
-       [:div.toast {:id elem-id
-                    :data-animation true
-                    :data-autohide true
-                    :data-delay notify/toast-delay
-                    :role "alert"
-                    :aria-live "assertive"
-                    :aria-atomic true}
-        [:div.toast-header
-         [:strong.mr-auto (:title toast)]
-         [:button.ml-2.mb-1.close {:type :button
-                                   :data-dismiss :toast
-                                   :aria-label "Close"}
-          [:span {:aria-hidden true} (html/special-char :times)]]]
-        [:div.toast-body
-         (:body toast)]])]))
+     (->> @notify/toasts
+          (map bs/toast)
+          doall) ]))
 
 (defn- current-page []
   (let [page (r/cursor app-state [:page])]

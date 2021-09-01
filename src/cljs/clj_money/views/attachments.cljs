@@ -5,7 +5,7 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :as forms]
-            [clj-money.bootstrap :as bs]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.api.attachments :as attachments]))
 
 (defn- process-deleted-attachment
@@ -33,18 +33,18 @@
                                  :href (path :images
                                              (:image-id attachment))
                                  :target "_blank"}
-      (bs/icon :eye)]
-     [:button.btn.btn-sm.btn-info {:title "Click here to edit this attachment"
+      (bs/icon :eye {:size :small})]
+     [:button.btn.btn-sm.btn-light {:title "Click here to edit this attachment"
                                    :on-click (fn []
                                                (swap! page-state
                                                       assoc
                                                       :selected-attachment
                                                       attachment)
                                                (html/set-focus "caption"))}
-      (bs/icon :pencil)]
+      (bs/icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-danger {:title "Click here to remove this attachment"
                                      :on-click #(delete-attachment attachment page-state)}
-      (bs/icon :x-circle)]]]])
+      (bs/icon :x-circle {:size :small})]]]])
 
 (defn- attachments-table
   [page-state]
@@ -65,15 +65,16 @@
   (let [item (r/cursor page-state [:attachments-item])]
     (fn []
       [:div.card
-       [:div.card-header [:strong "Attachments"]]
-       [:div.card-body
-        (str (format-date (:transaction-date @item))
+       [:div.card-header
+        [:strong "Attachments"]
+        (str " "
+             (format-date (:transaction-date @item))
              " "
              (:description @item))]
        [attachments-table page-state]
        [:div.card-footer
-        [:button.btn.btn-info {:on-click #(swap! page-state dissoc :attachments-item)
-                               :title "Click here to close this window."}
+        [:button.btn.btn-secondary {:on-click #(swap! page-state dissoc :attachments-item)
+                                    :title "Click here to close this window."}
          "Close"]]])))
 
 (defn- process-saved-attachment
@@ -105,7 +106,6 @@
         [:button.btn.btn-primary {:on-click #(save-attachment page-state)
                                   :title "Click here to save this attachment"}
          "Save"]
-        (html/space)
-        [:button.btn.btn-info {:on-click #(swap! page-state dissoc :selected-attachment)
-                               :title "Click here to cancel this edit operation."}
+        [:button.btn.btn-danger.ms-2 {:on-click #(swap! page-state dissoc :selected-attachment)
+                                      :title "Click here to cancel this edit operation."}
          "Cancel"]]])))

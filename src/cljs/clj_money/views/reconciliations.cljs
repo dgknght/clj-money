@@ -5,7 +5,7 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.notifications :as notify]
-            [clj-money.bootstrap :as bs]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms :as forms]
             [clj-money.accounts :as accounts]
             [clj-money.views.transactions :as trns]
@@ -109,20 +109,20 @@
         [:tbody
          [:tr
           [:th {:scope :col} "Previous Balance"]
-          [:td.text-right
+          [:td.text-end
            (when @previous-balance
              (currency-format @previous-balance))]]
          [:tr
           [:th {:scope :col} "Reconciled"]
-          [:td.text-right
+          [:td.text-end
            (currency-format @reconciled-total)]]
          [:tr
           [:th {:scope :col} "New Balance"]
-          [:td.text-right
+          [:td.text-end
            (currency-format @reconciled-total)]]
          [:tr {:class (when @balanced? "bg-success text-white")}
           [:th {:scope :col} "Difference"]
-          [:td.text-right
+          [:td.text-end
            (currency-format @difference)]]]]
        [:div.card-footer
         [:button.btn.btn-success {:on-click #(finish-reconciliation page-state)

@@ -70,7 +70,7 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [com.github.dgknght/app-lib "0.1.11"]
+                 [com.github.dgknght/app-lib "0.1.17"]
                  [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.8" :exclusions [org.clojure/spec.alpha
                                                 org.clojure/clojure
@@ -79,8 +79,11 @@
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
+            [lein-sass "0.4.0"]
             [lein-cljfmt "0.7.0"]
             [lein-figwheel "0.5.16"]]
+  :sass {:src "resources/sass"
+         :output-directory "resources/public/css"}
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :main clj-money.web.server

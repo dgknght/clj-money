@@ -4,9 +4,9 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.html :refer [google-g]]
             [clj-money.state :as state :refer [app-state]]
-            [clj-money.bootstrap :as bs]
             [clj-money.api.users :as users]
             [clj-money.api.entities :as entities]))
 

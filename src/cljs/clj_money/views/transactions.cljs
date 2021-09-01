@@ -20,8 +20,8 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.dnd :as dnd]
-            [clj-money.bootstrap :as bs]
             [clj-money.util :as util :refer [debounce]]
             [clj-money.accounts :refer [polarize-quantity
                                         find-by-path]]
@@ -173,9 +173,9 @@
           :on-drag-over #(.preventDefault %)
           :on-drop #(handle-item-row-drop item % page-state)
           :style (get-in @styles [(:id item)])}
-     [:td.text-right (format-date (:transaction-date item))]
+     [:td.text-end (format-date (:transaction-date item))]
      [:td {:style (get-in @styles [(:id item)])} (:description item)]
-     [:td.text-right (currency-format (polarize-quantity item @account))]
+     [:td.text-end (currency-format (polarize-quantity item @account))]
      [:td.text-center
       (if @reconciliation
         [forms/checkbox-input reconciliation [:item-refs (:id item)] {::forms/decoration ::forms/none}]
@@ -183,31 +183,29 @@
          (case (:reconciliation-status item)
            :completed :check-box
            :new       :dot
-           :unchecked-box)))]
+           :unchecked-box)
+         {:size :small}))]
      (when-not @reconciliation
-       [:td.text-right (currency-format (:balance item))])
+       [:td.text-end (currency-format (:balance item))])
      (when-not @reconciliation
        [:td
         [:div.btn-group
-         [:button.btn.btn-info.btn-sm {:on-click #(edit-transaction item page-state)
+         [:button.btn.btn-light.btn-sm {:on-click #(edit-transaction item page-state)
                                        :title "Click here to edit this transaction."}
-          (bs/icon :pencil)]
-         [:button.btn.btn-sm {:on-click (fn []
-                                          (swap! page-state
-                                                 assoc
-                                                 :attachments-item
-                                                 item)
-                                          (load-attachments page-state))
-                              :class (if (zero? attachment-count)
-                                       "btn-outline-info"
-                                       "btn-info")
-                              :title "Click here to view attachments for this transaction"}
+          (bs/icon :pencil {:size :small})]
+         [:button.btn.btn-light.btn-sm {:on-click (fn []
+                                                    (swap! page-state
+                                                           assoc
+                                                           :attachments-item
+                                                           item)
+                                                    (load-attachments page-state))
+                                        :title "Click here to view attachments for this transaction"}
           (if (zero? attachment-count)
-            (bs/icon :paperclip)
-            [:span.badge.badge-light attachment-count])]
+            (bs/icon :paperclip {:size :small})
+            [:span.badge.bg-secondary attachment-count])]
          [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
                                          :title "Click here to remove this transaction."}
-          (bs/icon :x-circle)]]])]))
+          (bs/icon :x-circle {:size :small})]]])]))
 
 (defn items-table
   [page-state]
@@ -224,12 +222,12 @@
       [:table.table.table-striped.table-hover
        [:thead
         [:tr
-         [:th.text-right "Date"]
+         [:th.text-end "Date"]
          [:th "Description"]
-         [:th.text-right "Amount"]
+         [:th.text-end "Amount"]
          [:th.text-center "Rec."]
          (when-not @reconciliation
-           [:th.text-right "Balance"])
+           [:th.text-end "Balance"])
          (when-not @reconciliation
            [:th (space)])]]
        [:tbody
@@ -255,20 +253,20 @@
       [:table.table.table-hover.table-borderless
        [:thead
         [:tr
-         [:th.text-right "Transaction Date"]
+         [:th.text-end "Transaction Date"]
          [:th "Description"]
-         [:th.text-right "Qty."]
-         [:th.text-right "Bal."]
-         [:th.text-right "Value"]]]
+         [:th.text-end "Qty."]
+         [:th.text-end "Bal."]
+         [:th.text-end "Value"]]]
        [:tbody
         (doall (for [item (sort-by :index > @items)]
                  ^{:key (str "item-" (:id item))}
                  [:tr
-                  [:td.text-right (format-date (:transaction-date item))]
+                  [:td.text-end (format-date (:transaction-date item))]
                   [:td (:description item)]
-                  [:td.text-right (format-decimal (polarize-quantity item @account) 4)]
-                  [:td.text-right (format-decimal (:balance item), 4)]
-                  [:td.text-right (currency-format (:value item))]]))]])))
+                  [:td.text-end (format-decimal (polarize-quantity item @account) 4)]
+                  [:td.text-end (format-decimal (:balance item), 4)]
+                  [:td.text-end (currency-format (:value item))]]))]])))
 
 (defn- ensure-entry-state
   [page-state]
@@ -376,11 +374,11 @@
         [:tfoot
          [:tr
           [:td {:col-span 2} (special-char :nbsp)]
-          [:td.text-right (format-decimal @total-credits)]
-          [:td.text-right.d-flex.flex-row-reverse.justify-content-between
+          [:td.text-end (format-decimal @total-credits)]
+          [:td.text-end.d-flex.flex-row-reverse.justify-content-between
            (format-decimal @total-debits)
            (when-not (decimal/zero? @correction)
-             [:span.text-danger.mr-3
+             [:span.text-danger.me-3
               (special-char :pm)
               (format-decimal @correction)])]]]]])))
 
