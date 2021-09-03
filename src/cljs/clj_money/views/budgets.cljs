@@ -423,24 +423,30 @@
 
 (defn- period-fields-per-total
   [item]
-  [:div
-   [forms/decimal-field item [:spec :total] {:validate [:required]}]])
+  ^{:key "period-field-total"}
+  [forms/decimal-field item [:spec :total] {:validate [:required]}])
 
 (defn- period-fields-per-average
   [item]
+  ^{:key "period-field-average"}
   [forms/decimal-field item [:spec :average] {:validate [:required]}])
 
 (defn- period-fields-weekly
   [item]
-  [:div
+  [:<>
+  ^{:key "period-field-amount-per"}
    [forms/decimal-field item [:spec :amount-per] {:validate [:required]}]
+  ^{:key "period-field-start-date"}
    [forms/date-field item [:spec :start-date] {:validate [:required]}]
+  ^{:key "period-field-week-count"}
    [forms/integer-field item [:spec :week-count] {:validate [:required]}]])
 
 (defn- period-fields-historical
   [item]
-  [:div
+  [:<>
+  ^{:key "period-field-start-date"}
    [forms/date-field item [:spec :start-date] {:validate [:required]}]
+  ^{:key "period-field-round-to"}
    [forms/integer-field item [:spec :round-to]]])
 
 (defn- deref-and-calc-periods
