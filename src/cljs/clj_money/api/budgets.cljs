@@ -49,7 +49,7 @@
   (-> budget
       (dissoc :end-date)
       (update-in [:start-date] serialize-date)
-      (update-in [:items] #(map before-item-save %))))
+      (update-in-if [:items] #(map before-item-save %))))
 
 (defn- update
   [budget success-fn error-fn]
