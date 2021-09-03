@@ -156,6 +156,5 @@
                             :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
                             :site-protocol "https"
                             :site-host "www.mymoney.com"}}
-            :uberjar {:prep-tasks ["compile"
-                                   ["cljsbuild" "once"]
-                                   ["lein" "sass" "once"]]}})
+            :uberjar {:hooks [leiningen.sass]
+                      :prep-tasks ["compile" ["cljsbuild" "once"]]}})
