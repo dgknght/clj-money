@@ -74,7 +74,7 @@
                         ["url(#negative-fill)" "var(--white)"]
                         ["url(#positive-fill)" "var(--primary)"])
         line-x (str (* 100 percentage) "%")]
-    [:svg (merge opts {:version "1.1"
+    [:svg.rounded (merge opts {:version "1.1"
                        :xmlns "http://www.w3.org/2000/svg"})
      [:defs
       [:linearGradient {:id :positive-fill
@@ -153,7 +153,7 @@
      :style {:margin "0.5em"
              :cursor "pointer"}
      :title "Click here to remove this budget monitor."}
-    (bs/icon :x-circle)]])
+    (bs/icon :x-circle {:size :small})]])
 
 (defn- monitor-nav-tab
   [scope state]
