@@ -1,6 +1,7 @@
 (ns clj-money.views.imports
   (:require-macros [cljs.core.async.macros :refer [go]])
   (:require [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [timeout
                                      <!]]
@@ -102,9 +103,7 @@
 (declare load-import)
 (defn- receive-import
   [{{:keys [errors finished]} :progress :as received} page-state]
-  (swap! page-state #(-> %
-                         -busy
-                         (assoc :active received)))
+  (swap! page-state #(assoc % :active received))
   (when (seq errors)
     (trace {:errors errors}))
   (when finished
@@ -116,10 +115,9 @@
 
 (defn- load-import
   [page-state]
-  (+busy page-state)
   (imports/get (get-in @page-state [:active :id])
                #(receive-import % page-state)
-               (handle-error page-state "Unable to load the import: %s")))
+               (notify/danger-fn "Unable to load the import: %s")))
 
 (defn- start-import
   [imp page-state]
@@ -174,18 +172,22 @@
 
 (defn- refresh-button
   [page-state]
-  (let [attr (if @auto-refresh
-               {:class "btn-danger"
-                :title "Click here to stop the auto-refresh."}
-               {:class "btn-success"
-                :title "Click here to auto-refresh the page."})]
-    [bs/busy-button {:html (assoc attr :on-click (fn []
-                                                   (swap! auto-refresh not)
-                                                   (when @auto-refresh
-                                                     (load-import page-state))))
-                     :icon (if @auto-refresh
-                             :stop
-                             :arrow-repeat)}]))
+  (let [busy? (busy page-state)
+        css-class (make-reaction #(if @auto-refresh "btn-danger" "btn-success"))
+        title (make-reaction #(if @auto-refresh
+                                "Click here to stop the auto-refresh."
+                                "Click here to auto-refresh the page."))
+        icon-image (make-reaction #(if @auto-refresh :stop :arrow-repeat))]
+    (fn []
+      ; TODO: either don't use busy-button, or change it to allow class, title, and icon to change
+      [bs/busy-button {:html {:class @css-class
+                              :title @title
+                              :on-click (fn []
+                                          (swap! auto-refresh not)
+                                          (when @auto-refresh
+                                            (load-import page-state)))}
+                       :icon @icon-image
+                       :busy? busy?}])))
 
 (defn- progress-card
   [page-state]
