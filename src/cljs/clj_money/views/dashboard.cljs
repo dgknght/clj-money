@@ -1,17 +1,17 @@
 (ns clj-money.views.dashboard
   (:require [clojure.string :as string]
             [reagent.core :as r]
+            [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [dgknght.app-lib.inflection :refer [title-case]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.state :refer [current-entity]]
-            [clj-money.accounts :refer [nest
-                                        unnest
-                                        find-by-path]]
-            [clj-money.api.accounts :as accounts]
+            [clj-money.state :refer [current-entity
+                                     accounts
+                                     accounts-by-id]]
+            [clj-money.accounts :refer [find-by-path]]
             [clj-money.api.entities :as entities]
             [clj-money.api.reports :as reports]))
 
@@ -35,19 +35,18 @@
 
 (defn- monitor-form
   [state]
-  (let [new-monitor (r/cursor state [:new-monitor])
-        accounts (r/cursor state [:accounts])]
+  (let [new-monitor (r/cursor state [:new-monitor])]
     (fn []
       [:div
        [forms/typeahead-field
         new-monitor
         [:account-id]
         {:search-fn (fn [input callback]
-                      (callback (find-by-path input (vals @accounts))))
+                      (callback (find-by-path input @accounts)))
          :caption-fn #(string/join "/" (:path %))
          :value-fn :id
          :find-fn (fn [id callback]
-                    (callback (@accounts id)))}]
+                    (callback (@accounts-by-id id)))}]
        [:button.btn.btn-primary {:on-click #(save-monitor state)
                                  :title "Click here to add this new monitor"
                                  :disabled (not (:account-id @new-monitor))}
@@ -56,15 +55,6 @@
        [:button.btn.btn-secondary {:on-click #(swap! state dissoc :new-monitor)
                                    :title "Click here to close this form without creating a new monitor"}
         "Cancel"]])))
-
-(defn- load-accounts
-  [state]
-  (accounts/select #(swap! state assoc :accounts (->> %
-                                                      nest
-                                                      unnest
-                                                      (map (juxt :id identity))
-                                                      (into {})))
-                   (notify/danger-fn "Unable to load the accounts: %s")))
 
 (defn- monitor-svg
   [{:keys [percentage actual-percent actual prorated-budget]} opts]
@@ -166,21 +156,23 @@
   (let [state (r/atom {:monitor-scope :period})
         scope (r/cursor state [:monitor-scope])
         monitors (r/cursor state [:monitors])
-        accounts (r/cursor state [:accounts])
-        new-monitor (r/cursor state [:new-monitor])]
-    (load-accounts state)
+        new-monitor (r/cursor state [:new-monitor])
+        monitors-with-detail (make-reaction (fn []
+                                              (when (and @monitors @accounts-by-id)
+                                                (->> @monitors
+                                                     (map #(assoc %
+                                                                  :account (@accounts-by-id (:account-id %))
+                                                                  :scope @scope))
+                                                     (sort-by #(get-in % [:account :path]))))))]
     (load-monitors state)
+    (add-watch current-entity ::monitors (fn [& _] (load-monitors state)))
     (fn []
       [:div
        [:h3 "Monitors"]
        (when (seq @monitors)
          [bs/nav-tabs (map #(monitor-nav-tab % state) [:period :budget])])
        (if (and @monitors @accounts)
-         (->> @monitors
-              (map #(assoc %
-                           :account (@accounts (:account-id %))
-                           :scope @scope))
-              (sort-by #(get-in % [:account :path]))
+         (->> @monitors-with-detail
               (map #(monitor % state))
               doall)
          [:div.my-3

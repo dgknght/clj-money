@@ -393,6 +393,7 @@
         busy? (busy page-state)]
     (when-not @auto-loaded
       (load-sched-trans page-state))
+    (add-watch current-entity ::index (fn [& _] (load-sched-trans page-state)))
     (reset! auto-loaded nil)
     (fn []
       [:div.mt-5

@@ -333,7 +333,8 @@
         selected-price (r/cursor page-state [:selected-price])
         busy? (busy page-state)]
     (load-commodities page-state)
-
+    (add-watch current-entity ::index (fn [& _]
+                                        (load-commodities page-state)))
     (fn []
       [:div.mt-5
        [:div.row

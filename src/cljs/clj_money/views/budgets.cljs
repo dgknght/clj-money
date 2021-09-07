@@ -15,6 +15,7 @@
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
+                                     current-entity
                                      accounts
                                      accounts-by-id]]
             [clj-money.budgets :as budgets]
@@ -635,6 +636,7 @@
         selected (r/cursor page-state [:selected])
         detailed-budget (r/cursor page-state [:detailed-budget])]
     (load-budgets page-state)
+    (add-watch current-entity ::index (fn [& _] (load-budgets page-state)))
     (fn []
       [:div.mt-5
        (if @detailed-budget

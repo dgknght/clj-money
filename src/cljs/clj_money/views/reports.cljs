@@ -15,7 +15,8 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.views.util :refer [handle-error]]
-            [clj-money.state :refer [app-state]]
+            [clj-money.state :refer [app-state
+                                     current-entity]]
             [clj-money.accounts :refer [nest
                                         unnest]]
             [clj-money.budgets :refer [period-description]]
@@ -502,6 +503,7 @@
         report-filter (r/cursor page-state [:portfolio :filter])
         busy? (busy page-state)]
     (load-portfolio page-state)
+    (add-watch current-entity ::portfolio (fn [& _] (load-portfolio page-state)))
     (fn []
       [:div
        [:div.row

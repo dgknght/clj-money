@@ -7,7 +7,7 @@
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
 (def accounts (r/cursor app-state [:accounts]))
-(def accounts-by-id (make-reaction #(lib/index-by :id @accounts)))
+(def accounts-by-id (make-reaction #(when @accounts (lib/index-by :id @accounts))))
 
 (defn- remove-entity-from-list
   [entity entities]

@@ -5,7 +5,6 @@
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
             [dgknght.app-lib.inflection :refer [humanize]]
-            [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.notifications :as notify]
@@ -44,21 +43,11 @@
                                  #'dashboard
                                  #'home-page)))
 
-(defn- nil-page []
-  (html/space))
-
 (defn- entity->nav-item
   [{:keys [id name] :as entity}]
   {:id id
    :label name
-   :nav-fn (fn []
-               (let [page (get-in @app-state [:page])]
-                 (swap! app-state assoc :page #'nil-page)
-                 (js/setTimeout
-                  #(swap! app-state assoc
-                          :current-entity entity
-                          :page page)
-                  5)))})
+   :nav-fn #(swap! app-state assoc :current-entity entity)})
 
 (def authenticated-nav-items
   [{:id :commodities}
