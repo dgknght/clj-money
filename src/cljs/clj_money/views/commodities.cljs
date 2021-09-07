@@ -347,7 +347,7 @@
           [:div.input-group-append {:class (when-not @search-term "d-none")
                                     :on-click #(swap! page-state dissoc :search-term)}
            [:button.btn.btn-secondary
-            (bs/icon :x)]]]]]
+            (bs/icon :x {:size :small})]]]]]
        [:div.row
         [:div.col-md-8
          [commodities-table page-state]
