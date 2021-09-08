@@ -10,13 +10,12 @@
             [clj-money.api.transaction-items :as items]))
 
 (defn after-read
-  [{:keys [transaction-date] :as transaction}]
-  (let [transaction-date (unserialize-date transaction-date)]
-    (-> transaction
-        (assoc :original-transaction-date transaction-date
-               :transaction-date transaction-date)
-        (update-in [:created-at] unserialize-date-time)
-        (update-in [:items] #(map items/after-read %)))))
+  [transaction]
+  (-> transaction
+      (update-in [:transaction-date] unserialize-date)
+      (update-in [:original-transaction-date] unserialize-date)
+      (update-in [:created-at] unserialize-date-time)
+      (update-in [:items] #(map items/after-read %))))
 
 (def ^:private working-date
   (some-fn :original-transaction-date

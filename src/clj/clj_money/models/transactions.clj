@@ -18,6 +18,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]
             [clj-money.models.lot-transactions :as l-t]
+            [clj-money.models.lots :as lots]
             [clj-money.models.date-helpers :refer [parse-date-criterion
                                                    available-date-range
                                                    earliest
@@ -271,11 +272,14 @@
   "Returns a transaction that is ready for public use"
   ([transaction]
    (after-read transaction {}))
-  ([transaction {:keys [include-items?
-                        items
-                        include-lot-items?]}]
+  ([{:keys [transaction-date] :as transaction}
+    {:keys [include-items?
+            items
+            include-lot-items?]}]
    (when transaction
-     (cond-> (tag transaction ::models/transaction)
+     (cond-> (-> transaction
+                 (assoc :original-transaction-date transaction-date)
+                 (tag ::models/transaction))
        include-items?     (append-items items)
        include-lot-items? append-lot-items))))
 
@@ -694,6 +698,18 @@
       (assoc i :transaction-id (:id transaction))
       (upsert-item i))))
 
+(defn- update-lots
+  [{:keys [transaction-date] :as after} before]
+  (when-not (->> [before after]
+                 (map :transaction-date)
+                 (apply =))
+    (when-let [lot-item (->> (fetch-lot-items (:id after))
+                             (filter #(= :buy (:lot-action %)))
+                             first)]
+      (l-t/update (assoc lot-item :transaction-date transaction-date))
+      (lots/update (assoc (lots/find (:lot-id lot-item))
+                          :purchase-date transaction-date)))))
+
 ; Processing a transaction
 ; 1. Save the transaction and item records
 ; 2. Identify starting items for account rebalancing
@@ -734,6 +750,7 @@
                                       (concat dereferenced-account-ids)
                                       (into #{}))]
           (update-full-transaction validated)
+          (update-lots validated existing)
           (doseq [item dereferenced-items]
             (storage/delete item))
           (doseq [account-id recalc-account-ids]

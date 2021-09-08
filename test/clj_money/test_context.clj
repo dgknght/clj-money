@@ -538,6 +538,8 @@
 
 (defn- execute-trade
   [trade context]
+  {:pre [(#{:buy :purchase :sell :sale} (:type trade))]}
+
   (let [f (case (:type trade)
             :buy      trading/buy
             :purchase trading/buy

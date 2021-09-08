@@ -4,12 +4,16 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test]
+            [dgknght.app-lib.validation :as v]
             [clj-money.transactions :refer [change-date]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
+            [clj-money.models.lots :as lots]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.test-context :refer [realize
+                                            with-context
+                                            basic-context
                                             find-entity
                                             find-account
                                             find-accounts
@@ -630,13 +634,43 @@
              (:transaction-date (transactions/reload result)))
           "The transaction should be updated"))))
 
+(def ^:private trading-update-context
+  (-> basic-context
+      (update-in [:commodities] concat [{:name "Apple, Inc."
+                                         :symbol "AAPL"
+                                         :type :stock
+                                         :exchange :nasdaq}])
+      (update-in [:accounts] concat [{:name "IRA"
+                                      :entity-id "Personal"
+                                      :type :asset}])
+      (assoc :trades [{:trade-date (t/local-date 2015 1 1)
+                       :type :buy
+                       :commodity-id "AAPL"
+                       :account-id "IRA"
+                       :shares 100M
+                       :value 1000M}])))
+
+(deftest update-a-trading-transaction-change-date
+  (with-context trading-update-context
+    (let [trx (transactions/find-by {:description "Purchase 100 shares of AAPL at 10.000"
+                                     :transaction-date (t/local-date 2015 1 1)}
+                                    {:include-items? true})
+          result (transactions/update (assoc trx :transaction-date (t/local-date 2015 2 1)))
+          account (find-account "IRA")
+          retrieved (lots/find-by {:account-id (:id account)})]
+      (is (empty? (v/error-messages result))
+          "There are no validation errors")
+      (is (= (t/local-date 2015 2 1)
+             (:purchase-date retrieved))
+          "The lot is updated with the correct purchase date"))))
+
 (deftest update-a-transaction-cross-partition-boundary
   (let [ctx (realize update-context)
         checking (find-account ctx "Checking")
         groceries (find-account ctx "Groceries")
         trx (find-transaction ctx (t/local-date 2016 3 12) "Kroger")
-        result (-> trx (assoc :transaction-date (t/local-date 2016 4 12)
-                              :original-transaction-date (:transaction-date trx))
+        result (-> trx
+                   (assoc :transaction-date (t/local-date 2016 4 12))
                    transactions/update)]
     (is (valid? result))
     (is (seq-of-maps-like? [{:index 2 :quantity  101M :balance  797M}
