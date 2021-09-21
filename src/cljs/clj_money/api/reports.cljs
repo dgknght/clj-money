@@ -45,9 +45,6 @@
                            (dissoc :budget-id)
                            (update-in-if [:tags] #(map name %))
                            map->query-string)))]
-
-    (.log js/console url)
-
     (api/get url
              (comp success-fn #(update-in % [:items] after-read))
              error-fn)))

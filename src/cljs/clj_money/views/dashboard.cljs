@@ -187,7 +187,7 @@
           "Add"])])))
 
 (defn dashboard []
-  [:div.row.mt-5
+  [:div.row.mt-3
    [:div.col-md-9
     "probably put a simplified balance sheet here"]
    [:div.col-md-3

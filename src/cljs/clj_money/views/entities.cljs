@@ -80,9 +80,8 @@
   [entity page-state busy?]
   ^{:key entity}
   [:tr
-   [:td
-    (:name entity)]
-   [:td
+   [:td (:name entity)]
+   [:td.text-end
     [:div.btn-group
      [:button.btn.btn-sm.btn-light {:on-click (fn []
                                                 (swap! page-state assoc :selected entity)
@@ -105,7 +104,7 @@
         [:tbody
          [:tr
           [:th.col-sm-10 "Name"]
-          [:th.col-sm-2 " "]]
+          [:th.col-sm-2 (html/space)]]
          (doall (map #(entity-row % page-state @busy?)
                      @entities))]]])))
 
@@ -115,31 +114,32 @@
         selected (r/cursor page-state [:selected])
         busy? (busy page-state)]
     (fn []
-      [:div.row.mt-5
-       [:div.col-md-6
-        [:h1 "Entities"]
-        [entity-table page-state]
-        [bs/busy-button {:html {:class "btn-primary"
-                                :title "Click here to create a new entity."
-                                :on-click (fn []
-                                            (swap! page-state
-                                                   assoc
-                                                   :selected
-                                                   {:entity-id (:id @current-entity)})
-                                            (html/set-focus "name"))}
-                         :disabled selected
-                         :busy? busy?
-                         :icon :plus
-                         :caption "Add"}]
-        [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                :title "Click here to import an entity from another accounting system."
-                                :on-click #(secretary/dispatch! "/imports")}
-                         :icon :file-arrow-up
-                         :busy? busy?
-                         :caption "Import"}]]
-       (when @selected
-         [:div.col-md-6
-          [entity-form page-state]])])))
+      [:<>
+       [:h1.mt-3 "Entities"]
+       [:div.row
+        [:div.col-md-6
+         [entity-table page-state]
+         [bs/busy-button {:html {:class "btn-primary"
+                                 :title "Click here to create a new entity."
+                                 :on-click (fn []
+                                             (swap! page-state
+                                                    assoc
+                                                    :selected
+                                                    {:entity-id (:id @current-entity)})
+                                             (html/set-focus "name"))}
+                          :disabled selected
+                          :busy? busy?
+                          :icon :plus
+                          :caption "Add"}]
+         [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                 :title "Click here to import an entity from another accounting system."
+                                 :on-click #(secretary/dispatch! "/imports")}
+                          :icon :file-arrow-up
+                          :busy? busy?
+                          :caption "Import"}]]
+        (when @selected
+          [:div.col-md-6
+           [entity-form page-state]])]])))
 
 (secretary/defroute "/entities" []
   (swap! app-state assoc :page #'entities-page))

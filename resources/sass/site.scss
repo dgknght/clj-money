@@ -12,6 +12,7 @@
 @import "../bootstrap/scss/root";
 
 // 4. Include any optional Bootstrap CSS as needed
+@import "../bootstrap/scss/accordion";
 @import "../bootstrap/scss/alert";
 @import "../bootstrap/scss/badge";
 @import "../bootstrap/scss/button-group";
@@ -27,19 +28,19 @@
 @import "../bootstrap/scss/list-group";
 @import "../bootstrap/scss/nav";
 @import "../bootstrap/scss/navbar";
+@import "../bootstrap/scss/offcanvas";
 @import "../bootstrap/scss/pagination";
 @import "../bootstrap/scss/progress";
 @import "../bootstrap/scss/reboot";
 @import "../bootstrap/scss/spinners";
 @import "../bootstrap/scss/tables";
 @import "../bootstrap/scss/toasts";
+@import "../bootstrap/scss/tooltip";
+@import "../bootstrap/scss/transitions";
 @import "../bootstrap/scss/type";
+
 @import "../bootstrap/scss/utilities";
-
-// 5. Optionally include utilities API last to generate classes based on the Sass map in `_utililies.scss`
 @import "../bootstrap/scss/utilities/api";
-
-// 6. Add additional custom code here
 
 .account-type {
   font-size: 120%;
@@ -47,33 +48,62 @@
   text-transform: capitalize;
 }
 
-.account-depth-1 {
+.account-depth-1, .account-depth-2, .account-depth-3, .account-depth-4,
+.value-depth-1, .value-depth-2, .value-depth-3, .value-depth-4 {
   display: block;
-  margin-left: 2em;
 }
-.account-depth-2 {
-  display: block;
-  margin-left: 4em;
+
+.account-depth-1 { margin-left: 0.5em }
+.account-depth-2 { margin-left: 1em }
+.account-depth-3 { margin-left: 1.5em }
+.account-depth-4 { margin-left: 2em }
+
+.value-depth-1 { margin-right: 0.5em }
+.value-depth-2 { margin-right: 1em }
+.value-depth-3 { margin-right: 1.5em }
+.value-depth-4 { margin-right: 2em }
+
+@include media-breakpoint-up(sm) {
+  .account-depth-1 { margin-left: 1em }
+  .account-depth-2 { margin-left: 2em }
+  .account-depth-3 { margin-left: 3em }
+  .account-depth-4 { margin-left: 4em }
+
+  .value-depth-1 { margin-right: 1em }
+  .value-depth-2 { margin-right: 2em }
+  .value-depth-3 { margin-right: 3em }
+  .value-depth-4 { margin-right: 4em }
 }
-.account-depth-3 {
-  display: block;
-  margin-left: 6em;
+
+@include media-breakpoint-up(md) {
+  .account-depth-1 { margin-left: 1.5em }
+  .account-depth-2 { margin-left: 3em }
+  .account-depth-3 { margin-left: 4.5em }
+  .account-depth-4 { margin-left: 6em }
+
+  .value-depth-1 { margin-right: 1.5em }
+  .value-depth-2 { margin-right: 3em }
+  .value-depth-3 { margin-right: 4.5em }
+  .value-depth-4 { margin-right: 6em }
 }
-.value-depth-1 {
-  display: block;
-  margin-right: 2em;
+
+@include media-breakpoint-up(lg) {
+  .account-depth-1 { margin-left: 2em }
+  .account-depth-2 { margin-left: 4em }
+  .account-depth-3 { margin-left: 6em }
+  .account-depth-4 { margin-left: 8em }
+
+  .value-depth-1 { margin-right: 2em }
+  .value-depth-2 { margin-right: 4em }
+  .value-depth-3 { margin-right: 6em }
+  .value-depth-4 { margin-right: 8em }
 }
-.value-depth-2 {
-  display: block;
-  margin-right: 4em;
-}
-.value-depth-3 {
-  display: block;
-  margin-right: 6em;
-}
-.value-depth-4 {
-  display: block;
-  margin-right: 8em;
+
+@include media-breakpoint-up(md) {
+  .account-depth-sm-1 { margin-left: 0.5em }
+  .account-depth-sm-1 { margin-left: 1em }
+  .account-depth-sm-1 { margin-left: 1.5em }
+  .account-depth-sm-1 { margin-left: 2em }
 }
 
 .budget-item-row th {
@@ -91,7 +121,7 @@
 
 .report-condensed-summary td, .report-condensed-summary th {
   font-weight: bold;
-  font-size: 110%;
+  font-size: 105%;
 }
 
 .report-footer td, .report-footer th {
@@ -101,12 +131,12 @@
 .report-summary {
   border-top: 1px solid black;
   font-weight: bold;
-  font-size: 110%;
+  font-size: 105%;
 }
 
 .portfolio tbody .report-header td {
   border-bottom: none;
-  font-size: 110%;
+  font-size: 105%;
   cursor: pointer;
 }
 
@@ -215,10 +245,6 @@ td.status {
   #side-bar, .btn-group, .btn, .nav, #report-settings {
     display: none;
   }
-}
-
-.accounts-header {
-  display: flex;
 }
 
 table tfoot td {

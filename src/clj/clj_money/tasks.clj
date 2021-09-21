@@ -199,6 +199,7 @@
                    import-user-tags-cli-options
                    {:title "IMPORT USER TAGS"})]
     (let [user (users/find-by {:email (:user opts)})
+          _ (assert user "User not found")
           entity (entities/find-by {:user-id (:id user)
                                     :name (:entity opts)})
           _ (assert entity "Entity not found")

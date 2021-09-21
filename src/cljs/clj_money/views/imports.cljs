@@ -7,6 +7,7 @@
                                      <!]]
             [dgknght.app-lib.core :refer [trace]]
             [dgknght.app-lib.web :refer [format-percent
+                                         format-date
                                          format-date-time]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.notifications :as notify]
@@ -135,7 +136,9 @@
   ^{:key (str "import-row-" (:id imp))}
   [:tr
    [:td (:entity-name imp)]
-   [:td (format-date-time (:created-at imp))]
+   [:td
+    [:span.d-none.d-md-inline (format-date-time (:created-at imp))]
+    [:span.n-md-none (format-date (:created-at imp) "M/d")]]
    [:td
     [:div.btn-group
      [:button.btn.btn-success.btn-sm {:disabled (:entity-exists? imp)
@@ -164,7 +167,7 @@
        [:tbody
         [:tr
          [:th "Entity Name"]
-         [:th "Uploaded On"]
+         [:th "Uploaded"]
          [:th (html/space)]]
         (if @imports
           (doall (map #(import-row % page-state @busy?) @imports))
@@ -219,7 +222,8 @@
   (fn []
     [:div
      [progress-card page-state]
-     [errors-card page-state]]))
+     [:div.mt-2
+      [errors-card page-state]]]))
 
 (defn- import-click
   [event page-state]
@@ -285,25 +289,26 @@
         busy? (busy page-state)]
     (load-imports page-state)
     (fn []
-      [:div.row.mt-5
-       [:div.col-md-6
-        [:h1 "Imports"]
-        [import-table page-state]
-        [bs/busy-button {:html {:title "Click here to import a new entiry from another system."
-                                :class "btn-primary"
-                                :on-click (fn []
-                                            (swap! page-state assoc
-                                                   :import-data {:user-id (:id @state/current-user)})
-                                            (html/set-focus "entity-name"))}
-                         :busy? busy?
-                         :icon :plus
-                         :caption "Add"}]]
-       (when @import-data
-         [:div.col-md-6
-          [import-form page-state]])
-       (when @active
-         [:div.col-md-6
-          [import-activity page-state]])])))
+      [:<>
+       [:h1.mt-3 "Imports"]
+       [:div.row
+        [:div.col-md-6 {:class (when @import-data "d-none d-md-block")}
+         [import-table page-state]
+         [bs/busy-button {:html {:title "Click here to import a new entiry from another system."
+                                 :class "btn-primary"
+                                 :on-click (fn []
+                                             (swap! page-state assoc
+                                                    :import-data {:user-id (:id @state/current-user)})
+                                             (html/set-focus "entity-name"))}
+                          :busy? busy?
+                          :icon :plus
+                          :caption "Add"}]]
+        (when @import-data
+          [:div.col-md-6
+           [import-form page-state]])
+        (when @active
+          [:div.col-md-6.mt-2.mt-md-0
+           [import-activity page-state]])]])))
 
 (secretary/defroute "/imports" []
   (swap! app-state assoc :page #'import-list))

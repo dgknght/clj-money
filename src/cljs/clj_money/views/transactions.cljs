@@ -4,10 +4,10 @@
             [clojure.zip :as zip]
             [goog.string :as gstr]
             [cljs.core.async :refer [>! go]]
+            [cljs-time.core :as t]
             [reagent.core :as r]
             [reagent.format :refer [currency-format]]
             [reagent.ratom :refer [make-reaction]]
-            [cljs-time.core :as t]
             [dgknght.app-lib.core :refer [parse-int]]
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal ]]
@@ -21,6 +21,8 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.state :refer [accounts
+                                     accounts-by-id]]
             [clj-money.dnd :as dnd]
             [clj-money.util :as util :refer [debounce]]
             [clj-money.accounts :refer [polarize-quantity
@@ -173,10 +175,12 @@
           :on-drag-over #(.preventDefault %)
           :on-drop #(handle-item-row-drop item % page-state)
           :style (get-in @styles [(:id item)])}
-     [:td.text-end (format-date (:transaction-date item))]
+     [:td.text-end
+      [:span.d-md-none (format-date (:transaction-date item) "M/d")]
+      [:span.d-none.d-md-inline (format-date (:transaction-date item))]]
      [:td {:style (get-in @styles [(:id item)])} (:description item)]
      [:td.text-end (currency-format (polarize-quantity item @account))]
-     [:td.text-center
+     [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
         [forms/checkbox-input reconciliation [:item-refs (:id item)] {::forms/decoration ::forms/none}]
         (bs/icon
@@ -186,20 +190,21 @@
            :unchecked-box)
          {:size :small}))]
      (when-not @reconciliation
-       [:td.text-end (currency-format (:balance item))])
+       [:td.text-end.d-none.d-md-table-cell (currency-format (:balance item))])
      (when-not @reconciliation
        [:td
         [:div.btn-group
          [:button.btn.btn-light.btn-sm {:on-click #(edit-transaction item page-state)
                                        :title "Click here to edit this transaction."}
           (bs/icon :pencil {:size :small})]
-         [:button.btn.btn-light.btn-sm {:on-click (fn []
-                                                    (swap! page-state
-                                                           assoc
-                                                           :attachments-item
-                                                           item)
-                                                    (load-attachments page-state))
-                                        :title "Click here to view attachments for this transaction"}
+         [:button.btn.btn-light.btn-sm.d-none.d-md-block
+          {:on-click (fn []
+                       (swap! page-state
+                              assoc
+                              :attachments-item
+                              item)
+                       (load-attachments page-state))
+           :title "Click here to view attachments for this transaction"}
           (if (zero? attachment-count)
             (bs/icon :paperclip {:size :small})
             [:span.badge.bg-secondary attachment-count])]
@@ -225,9 +230,9 @@
          [:th.text-end "Date"]
          [:th "Description"]
          [:th.text-end "Amount"]
-         [:th.text-center "Rec."]
+         [:th.text-center.d-none.d-md-table-cell "Rec."]
          (when-not @reconciliation
-           [:th.text-end "Balance"])
+           [:th.text-end.d-none.d-md-table-cell "Balance"])
          (when-not @reconciliation
            [:th (space)])]]
        [:tbody
@@ -320,15 +325,12 @@
          item
          [:account-id]
          {:search-fn (fn [input callback]
-                       (callback (find-by-path input (:accounts @page-state))))
+                       (callback (find-by-path input @accounts)))
           :on-change #(ensure-entry-state page-state)
           :caption-fn #(string/join "/" (:path %))
           :value-fn :id
           :find-fn (fn [id callback]
-                     (->> (:accounts @page-state)
-                          (filter #(= id (:id %)))
-                          first
-                          callback))
+                     (callback (@accounts-by-id id)))
           :html {:id (str "account-id-" index)
                  :on-key-up #(item-navigate % item-count)}}]]
    [:td [forms/text-input item [:memo] {:on-change #(ensure-entry-state page-state)
@@ -355,37 +357,38 @@
         correction (make-reaction #(decimal/abs (- @total-debits @total-credits)))
         item-count (make-reaction #(count (:items @transaction)))]
     (fn []
-      [:form {:class (when-not (mode? @transaction ::full) "d-none")}
-       [forms/date-field transaction [:transaction-date] {:validate [:required]}]
-       [forms/text-field transaction [:description] {:validate [:required]}]
-       [:table.table
-        [:thead
-         [:tr
-          [:td "Account"]
-          [:td "Memo"]
-          [:td "Credit Amount"]
-          [:td "Debit Amount"]]]
-        [:tbody
-         (doall (for [index (range @item-count)]
-                  (item-input-row (r/cursor page-state [:transaction :items index])
-                                  index
-                                  @item-count
-                                  page-state)))]
-        [:tfoot
-         [:tr
-          [:td {:col-span 2} (special-char :nbsp)]
-          [:td.text-end (format-decimal @total-credits)]
-          [:td.text-end.d-flex.flex-row-reverse.justify-content-between
-           (format-decimal @total-debits)
-           (when-not (decimal/zero? @correction)
-             [:span.text-danger.me-3
-              (special-char :pm)
-              (format-decimal @correction)])]]]]])))
+      [:div {:class (when-not (mode? @transaction ::full) "d-none")}
+       [:div.alert.alert-warning.d-md-none "Please use a larger screen to edit the transaction in this mode."]
+       [:form.d-none.d-md-block
+        [forms/date-field transaction [:transaction-date] {:validate [:required]}]
+        [forms/text-field transaction [:description] {:validate [:required]}]
+        [:table.table
+         [:thead
+          [:tr
+           [:td "Account"]
+           [:td "Memo"]
+           [:td "Credit Amount"]
+           [:td "Debit Amount"]]]
+         [:tbody
+          (doall (for [index (range @item-count)]
+                   (item-input-row (r/cursor page-state [:transaction :items index])
+                                   index
+                                   @item-count
+                                   page-state)))]
+         [:tfoot
+          [:tr
+           [:td {:col-span 2} (special-char :nbsp)]
+           [:td.text-end (format-decimal @total-credits)]
+           [:td.text-end.d-flex.flex-row-reverse.justify-content-between
+            (format-decimal @total-debits)
+            (when-not (decimal/zero? @correction)
+              [:span.text-danger.me-3
+               (special-char :pm)
+               (format-decimal @correction)])]]]]]])))
 
 (defn simple-transaction-form
   [page-state]
-  (let [transaction (r/cursor page-state [:transaction])
-        accounts (r/cursor page-state [:accounts])]
+  (let [transaction (r/cursor page-state [:transaction])]
     (fn []
       [:form {:class (when-not (mode? @transaction ::simple) "d-none")}
        [forms/date-field transaction [:transaction-date] {:validate [:required]}]
@@ -399,10 +402,7 @@
          :caption-fn #(string/join "/" (:path %))
          :value-fn :id
          :find-fn (fn [id callback]
-                    (->> @accounts
-                         (filter #(= id (:id %)))
-                         first
-                         callback))}]])))
+                    (callback (@accounts-by-id id)))}]])))
 
 (defn dividend-transaction-form
   [page-state]
@@ -459,19 +459,17 @@
                     (callback (get-in @commodities [id])))}]])))
 
 (defn transformations
-  [account accounts commodities]
+  [account commodities]
   {::simple #(simplify % account)
    ::full entryfy
-   ::trade #(tradify % {:find-account accounts
+   ::trade #(tradify % {:find-account @accounts-by-id
                         :find-commodity commodities})
    ::dividend #(simplify % account)})
 
-(defn untransformations
-  [accounts]
-  {::simple #(fullify % accounts)
+(defn untransformations []
+  {::simple #(fullify % @accounts-by-id)
    ::full unentryfy
-   ::trade #(untradify % {:find-account-by-commodity-id (->> accounts
-                                                             vals
+   ::trade #(untradify % {:find-account-by-commodity-id (->> @accounts
                                                              (map (juxt :commodity-id identity)) ; TODO: This will cause errors unless we lookup by parent also
                                                              (into {}))})
    ::dividend #(fullify % accounts)})
@@ -482,10 +480,9 @@
 
 (defmethod save-transaction :default
   [page-state callback]
-  (let [{:keys [transaction]
-         accounts :mapped-accounts} @page-state
+  (let [{:keys [transaction]} @page-state
         mode (mode transaction)
-        prepare ((untransformations accounts) mode)]
+        prepare ((untransformations) mode)]
     (-> transaction
         prepare
         (transactions/save callback

@@ -1,6 +1,5 @@
 (ns clj-money.core
-  (:require [clojure.string :as string]
-            [reagent.core :as r]
+  (:require [reagent.core :as r]
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
             [accountant.core :as accountant]
@@ -43,12 +42,6 @@
                                  #'dashboard
                                  #'home-page)))
 
-(defn- entity->nav-item
-  [{:keys [id name] :as entity}]
-  {:id id
-   :label name
-   :nav-fn #(swap! app-state assoc :current-entity entity)})
-
 (def authenticated-nav-items
   [{:id :commodities}
    {:id :accounts}
@@ -58,79 +51,83 @@
    {:id :reports
     :tool-tip "Click here to view reports"}
    {:id :scheduled
-    :tool-tip "Click here to manage schedule transactions"}])
+    :tool-tip "Click here to manage schedule transactions"}
+   {:id :logout
+    :tool-tip "Click here to sign out of the system"
+    :nav-fn (fn []
+              (state/logout)
+              (cookies/remove! :auth-token)
+              (secretary/dispatch! "/"))}])
 
-(defn- assoc-if-nil
-  [m k v]
-  (if (get-in m [k])
-    m
-    (assoc m k v)))
+(def unauthenticated-nav-items
+  [{:id :login
+    :path "/login"
+    :tool-tip "Click here to sign into the system"}])
+
+(defn- default-nav-item
+  [{:keys [id]} active-nav]
+  {:label (humanize id)
+   :toggle "#primary-nav"
+   :path (str "/" (name id))
+   :active? (= id active-nav)
+   :tool-tip (str "Click here to manage "
+                  (humanize id)
+                  ".")})
+
+(defn- available?
+  [nav-item]
+  (or (:path nav-item)
+      (:nav-fn nav-item)
+      @current-entity))
 
 (defn- nav-items
-  [current-user current-entity active-nav]
-  (if current-user
-    (if current-entity
-      (map (fn [{:keys [id] :as item}]
-             (-> item
-                 (assoc-if-nil :label (humanize id))
-                 (assoc-if-nil :path (str "/" (name id)))
-                 (assoc-if-nil :active? (= id active-nav))
-                 (assoc-if-nil :tool-tip (str "Click here to manage "
-                                              (humanize id)
-                                              "."))))
-           authenticated-nav-items)
-      [])
-    [{:id :login
-      :path "/login"
-      :label "Login"
-      :tool-top "Click here to sign into the system"}]))
+  [active-nav]
+  (->> (if @current-user
+           authenticated-nav-items
+           unauthenticated-nav-items)
+         (filter available?)
+         (map #(merge (default-nav-item % active-nav)
+                   %))))
 
-(defn- entity-nav-items
-  [entities current-entity]
-  (if (seq entities)
-    [{:id :entities
-      :label (:name current-entity)
-      :children (concat (mapv entity->nav-item
-                              entities)
-                        [{:role :separator
-                          :id "entity-separator"}
-                         {:id "manage-entities"
-                          :path "/entities"
-                          :label "Manage Entities"
-                          :tool-tip "Click here to manage your entities."}
-                         {:id "manage-imports"
-                          :path "/imports"
-                          :label "Manage Imports"
-                          :tool-tip "Click here to manage your imports."}])}]
-    []))
+(defn navbar
+  [items {:keys [profile-photo-url]}]
+  [:nav.navbar.navbar-expand-lg.navbar-light.bg-light.d-print-none
+   [:div.container
+    [:a.navbar-brand {:href "/"} "clj-money"] ; TODO: Get an icon
+    (when-let [entity (:name @current-entity)]
+      [:a.navbar-brand {:href "#entity-selection"
+                        :data-bs-toggle "offcanvas"
+                        :role :button
+                        :aria-controls "entity-selection"}
+       entity])
+    [:button.navbar-toggler {:type :button
+                             :data-bs-toggle :collapse
+                             :data-bs-target "#primary-nav"
+                             :aria-controls "primary-nav"
+                             :aria-expanded false
+                             :aria-label "Toggle Navigation"}
+     [:span.navbar-toggler-icon]]
+    (when (seq items)
+      [:div#primary-nav.collapse.navbar-collapse
+       [:ul.navbar-nav.me-auto.mb-2.mb-lg-0
+        (->> items
+             (map bs/nav-item)
+             doall)]])
 
-(defn- secondary-nav-items
-  [current-user entities current-entity]
-  (when current-user
-    (concat (entity-nav-items entities current-entity)
-            [{:id :current-user
-              :label (->> ((juxt :first-name :last-name) current-user)
-                          (string/join " "))}
-             {:id :logout
-              :label "Logout"
-              :nav-fn (fn []
-                        (state/logout)
-                        (cookies/remove! :auth-token)
-                        (secretary/dispatch! "/"))}])))
+    (when profile-photo-url ; TODO: Fetch this when authenticating via google
+      [:img.rounded-circle.d-none.d-lg-block
+       {:src profile-photo-url
+        :style {:max-width "32px"}
+        :alt "Profile Photo"}])]])
 
 (defn- nav []
-  (let [active-nav (r/cursor app-state [:active-nav])
-        entities (r/cursor app-state [:entities])]
+  (let [active-nav (r/cursor app-state [:active-nav])]
     (fn []
-      (let [user @current-user
-            entity @current-entity
-            items (nav-items user entity @active-nav)
-            secondary-items (secondary-nav-items user @entities entity)]
-        (bs/navbar
+      (let [items (nav-items @active-nav)]
+        (navbar
           items
-          {:title "clj-money"
-           :title-url "/"
-           :secondary-items secondary-items})))))
+          {:brand "clj-money"
+           :brand-path "/"})))))
 
 (defn- alerts []
   (fn []
@@ -147,12 +144,47 @@
           (map bs/toast)
           doall) ]))
 
+(defn- entity-selection []
+  (let [entities (r/cursor app-state [:entities])]
+    (fn []
+      [:div#entity-selection.offcanvas.offcanvas-top {:tab-index -1}
+       [:div.offcanvas-header
+        [:h5 "Entities"]
+        [:button.btn-close.text-reset {:data-bs-dismiss :offcanvas
+                                       :aria-label "Close" }]]
+       [:div.offcanvas-body
+        [:div.row
+         [:div.col-md-3.offset-md-3
+          [:div.list-group
+           (let [current @current-entity]
+             (->> @entities
+                  (map (fn [entity]
+                         ^{:key (str "entity-selection-" (:id entity))}
+                         [:button.list-group-item
+                          {:on-click #(swap! app-state assoc :current-entity entity)
+                           :data-bs-toggle :offcanvas
+                           :class (when (= (:id entity)
+                                           (:id current))
+                                    "active")}
+                          (:name entity)]))))]]
+         [:div.col-md-3
+          [:ul.nav.nav-pills.nav-fill.flex-md-column
+           [:li.nav-item
+            [:a.nav-link {:href "/entities"
+                          :data-bs-toggle :offcanvas}
+             "Manage Entities"]]
+           [:li.nav-item
+            [:a.nav-link {:href "/imports"
+                          :data-bs-toggle :offcanvas}
+             "Manage Imports"]]]]]]])))
+
 (defn- current-page []
   (let [page (r/cursor app-state [:page])]
     (fn []
-      [:div
+      [:div.h-100
        [nav]
-       [:div.container
+       [entity-selection]
+       [:div.container.h-100
         [alerts]
         [render-toasts]
         [@page]]])))

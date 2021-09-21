@@ -79,8 +79,8 @@
       [:table.table.table-hover
        [:thead
         [:tr
-         [:th "Name"]
-         [:th (html/space)]]]
+         [:th.w-75 "Name"]
+         [:th.w-25 (html/space)]]]
        [:tbody
         (if budgets
           (if (seq @budgets)
@@ -92,9 +92,12 @@
 
 (defn- budgets-list
   [page-state]
-  (let [busy? (busy page-state)]
+  (let [busy? (busy page-state)
+        selected (r/cursor page-state [:selected])
+        details (r/cursor page-state [:detailed-budget])
+        hide? (make-reaction #(or @selected @details))]
     (fn []
-      [:div
+      [:div {:class (when @hide? "d-none")}
        [budgets-table page-state]
        [:div.mt-2
         [bs/busy-button {:html {:class "btn-primary"
@@ -128,24 +131,21 @@
         auto-create (r/cursor selected [:auto-create-items])
         busy? (busy page-state)]
     (fn []
-      [:div.card
-       [:div.card-header
-        [:strong (str (if (:id @selected) "Edit" "New") " Budget")]]
-       [:div.card-body
-        [:form {:on-submit #(.preventDefault %)
-                :no-validate true}
-         [forms/text-field selected [:name] {:validate [:required]}]
-         [forms/date-field selected [:start-date] {:validate [:required]}]
-         [forms/select-field selected [:period] (->> budgets/periods
-                                                     (map name)
-                                                     sort)]
-         [forms/integer-field selected [:period-count]]
-         [forms/checkbox-field selected [:auto-create-items]]
-         [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]]]
-       [:div.card-footer
+      [:div {:class (when-not @selected "d-none")}
+       [:form {:on-submit #(.preventDefault %)
+               :no-validate true}
+        [forms/text-field selected [:name] {:validate [:required]}]
+        [forms/date-field selected [:start-date] {:validate [:required]}]
+        [forms/select-field selected [:period] (->> budgets/periods
+                                                    (map name)
+                                                    sort)]
+        [forms/integer-field selected [:period-count]]
+        [forms/checkbox-field selected [:auto-create-items]]
+        [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]]
+       [:div
         [bs/busy-button {:html {:class "btn-primary"
                                 :on-click #(save-budget page-state)
-                                  :title "Click here to save this budget."}
+                                :title "Click here to save this budget."}
                          :icon :check
                          :caption "Save"
                          :busy? busy?}]
@@ -193,11 +193,24 @@
   (swap! page-state assoc :selected-item (ensure-spec item))
   (html/set-focus "account-id"))
 
+(defn- abbreviate
+  [account-name]
+  (if (<= (count account-name) 10)
+    account-name
+    (let [segments (string/split account-name #"/")]
+      (string/join
+          "/"
+          (concat (map #(str (first %))
+                       (butlast segments))
+                  (take-last 1 segments))))))
+
 (defn- budget-item-row
   [item detail? page-state]
   ^{:key (str "budget-item-row-" (get-in item [:item :id]))}
   [:tr.budget-item-row
-   [:th {:scope "row"} (:caption item)]
+   [:th
+    [:span.d-none.d-md-inline (:caption item)]
+    [:span.d-md-none (abbreviate (:caption item))]]
    (when detail?
      (doall
       (map-indexed
@@ -272,9 +285,10 @@
   [page-state]
   (let [budget (r/cursor page-state [:detailed-budget])
         rendered-budget (make-reaction (fn []
-                                         (budgets/render @budget
-                                                         {:find-account @accounts-by-id
-                                                          :tags [:tax :mandatory :discretionary]}))) ; TODO: make this user editable
+                                         (when @accounts-by-id
+                                           (budgets/render @budget
+                                                           {:find-account @accounts-by-id
+                                                            :tags [:tax :mandatory :discretionary]})))) ; TODO: make this user editable
         selected-item (r/cursor page-state [:selected-item])
         detail-flag? (r/cursor page-state [:show-period-detail?])
         detail? (make-reaction #(and @detail-flag?
@@ -282,16 +296,16 @@
         period-count (r/cursor page-state [:detailed-budget :period-count])]
     (fn []
       [:table.table.table-hover.table-borderless
-       {:style (when-not @detail? {:width "20em"})}
+       {:style (when-not @detail? {:max-width "20em"})}
        [:thead
         [:tr
          [:th "Account"]
          (when @detail?
            (doall
-            (map (fn [index]
-                   ^{:key (str "period-header-" index)}
-                   [:th.text-end (budgets/period-description index @budget)])
-                 (range @period-count))))
+             (map (fn [index]
+                    ^{:key (str "period-header-" index)}
+                    [:th.text-end (budgets/period-description index @budget)])
+                  (range @period-count))))
          [:th.text-end "Total"]
          [:th (html/space)]]]
        [:tbody
@@ -463,7 +477,7 @@
         calculated (r/track! deref-and-calc-periods item budget periods)
         total (make-reaction #(reduce decimal/+ @periods))]
     (fn []
-      [:table.table.table-hover {:title (str "periods for item" (:account-id @item))}
+      [:table.table.table-sm.table-hover {:title (str "periods for item" (:account-id @item))}
        [:thead
         [:tr
          [:th "Month"]
@@ -496,39 +510,58 @@
    {:caption "Historical"
     :elem-key :historical}])
 
+(defn- filtered-period-field-nav-options
+  [budget]
+  (filter (fn [{:keys [filter-fn]
+                :or {filter-fn (constantly true)}}]
+            (filter-fn budget))
+          period-nav-options))
+
 (defn- period-field-nav-items
   [current-mode item budget]
-  (->> period-nav-options
-       (filter (fn [{:keys [filter-fn]
-                     :or {filter-fn (constantly true)}}]
-                 (filter-fn budget)))
-       (map (fn [{:keys [elem-key] :as option}]
-              (assoc option
-                     :active? (= elem-key current-mode)
-                     :on-click #(swap! item assoc-in [:spec :entry-mode] elem-key))))))
+  (map (fn [{:keys [elem-key] :as option}]
+         (assoc option
+                :active? (= elem-key current-mode)
+                :on-click #(swap! item assoc-in [:spec :entry-mode] elem-key)))
+       (filtered-period-field-nav-options budget)))
+
+(defn- period-field-select-options
+  [_current-mode _item budget]
+  (map (fn [{:keys [elem-key caption]}]
+         [elem-key caption])
+       (filtered-period-field-nav-options budget)))
 
 (defn- period-fields
   [item page-state]
   (let [budget (r/cursor page-state [:detailed-budget])
         entry-mode (r/cursor item [:spec :entry-mode])]
     (fn []
-      [:div
-       (bs/nav-tabs (period-field-nav-items @entry-mode item @budget))
-       [:div.mt-2
-        (case @entry-mode
-          :per-period
-          [period-fields-per-period item @budget]
-          :per-total
-          (period-fields-per-total item)
-          :per-average
-          (period-fields-per-average item)
-          :weekly
-          (period-fields-weekly item)
-          :historical
-          (period-fields-historical item)
+      [:div.card
+       [:div.card-header
+        [:h4 "Values"]]
+       [:div.card-body
+        (bs/nav-tabs {:class "d-none d-md-flex"} (period-field-nav-items @entry-mode item @budget))
+        [:div.d-md-none
+         [forms/select-elem
+          item
+          [:spec :entry-mode]
+          (period-field-select-options @entry-mode item @budget)
+          {:transform-fn keyword}]]
+        [:div.mt-2
+         (case @entry-mode
+           :per-period
+           [period-fields-per-period item @budget]
+           :per-total
+           (period-fields-per-total item)
+           :per-average
+           (period-fields-per-average item)
+           :weekly
+           (period-fields-weekly item)
+           :historical
+           (period-fields-historical item)
 
-          [:div.alert.alert-danger
-           (str "Unknown entry mode " @entry-mode)])]])))
+           [:div.alert.alert-danger
+            (str "Unknown entry mode " @entry-mode)])]]])))
 
 (defn- budget-item-form
   [page-state]
@@ -552,19 +585,20 @@
                          first
                          callback))}]
        [period-fields item page-state]
-       [bs/busy-button {:html {:class "btn-primary"
-                               :type :submit
-                               :title "Click here to save this budget line item."}
-                        :icon :check
-                        :caption "Save"
-                        :busy? busy?}]
-       [bs/busy-button {:html {:class "btn-secondary ms-2"
-                               :on-click #(swap! page-state dissoc :selected-item)
-                               :type :button
-                               :title "Click here to cancel this operation."}
-                        :icon :x
-                        :caption "Cancel"
-                        :busy? busy?}]])))
+       [:div.mt-3
+        [bs/busy-button {:html {:class "btn-primary"
+                                :type :submit
+                                :title "Click here to save this budget line item."}
+                         :icon :check
+                         :caption "Save"
+                         :busy? busy?}]
+        [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                :on-click #(swap! page-state dissoc :selected-item)
+                                :type :button
+                                :title "Click here to cancel this operation."}
+                         :icon :x
+                         :caption "Cancel"
+                         :busy? busy?}]]])))
 
 (defonce resize-state (r/atom {}))
 
@@ -591,13 +625,11 @@
                          "resize"
                          capture-window-height))
     (fn []
-      [:div.h-100
-       [:h1 (str "Budget Detail: " (:name @budget))]
-       [:div.row
-        [:div.col
-         [forms/checkbox-field page-state [:show-period-detail?]]]]
+      [:div.h-100 {:class (when-not @budget "d-none")}
+       [:div.d-none.d-lg-block
+        [forms/checkbox-field page-state [:show-period-detail?]]]
        [:div.row.h-100
-        [:div#budget-items-parent.col.h-100 {:class (when @selected-item "d-none")}
+        [:div#budget-items-parent.col-md-6.h-100 {:class (when @selected-item "d-none")}
          [:div {:style {:max-height (str @scrollable-height "px")
                         :overflow-y "scroll"}}
           [budget-items-table page-state]]
@@ -624,12 +656,13 @@
                            :caption "Back"
                            :busy? busy?}]]]
         (when @selected-item
-          [:div.col
+          [:div.col-md-6
            [budget-item-form page-state]])
         (when @selected-item
-          [:div.col
+          [:div.col-md-6
            (when @show-periods-table?
-             [periods-table page-state])])]])))
+             [:div.mt-md-0.mt-2
+              [periods-table page-state]])])]])))
 
 (defn- index []
   (let [page-state (r/atom {})
@@ -638,17 +671,22 @@
     (load-budgets page-state)
     (add-watch current-entity ::index (fn [& _] (load-budgets page-state)))
     (fn []
-      [:div.mt-5
-       (if @detailed-budget
-         [budget-details page-state]
-         [:div
-          [:h1 "Budgets"]
-          [:div.row
-           [:div.col
-            [budgets-list page-state]]
-           (when @selected
-             [:div.col
-              [budget-form page-state]])]])])))
+      [:div.mt-3
+       [:div
+        [:div.d-flex.justify-content-between
+         [:h1 "Budgets"]
+         (when @selected
+           [:h2(if (:id @selected)
+                 "Edit"
+                 "New")])
+         (when @detailed-budget
+           [:h2 (:name @detailed-budget)])]
+        [budget-details page-state]
+        [:div.row
+         [:div.col-md-6
+          [budgets-list page-state]]
+         [:div.col-md-6
+          [budget-form page-state]]]]])))
 
 (secretary/defroute "/budgets" []
   (swap! app-state assoc :page #'index))

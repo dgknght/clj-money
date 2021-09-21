@@ -22,16 +22,17 @@
 
 (defn index []
   (html5
-    [:html {:lang "en"}
+    [:html.h-100 {:lang "en"}
      (head)
-     [:body
-      [:div#app
+     [:body.h-100
+      [:div#app.h-100
        [:nav.navbar.navbar-expand-lg.navbar-light.bg-light
         [:div.container "clj-money"]]
-       [:div.container.mt-5
-        [:div.spinner-border {:role :status}
-         [:span.visually-hidden
-          "Loading..."]]]]
+       [:div.container.mt-3
+        [:div.d-flex.justify-content-around
+         [:div.spinner-border {:role :status}
+          [:span.visually-hidden
+           "Loading..."]]]]]
       (include-js "/js/app/main.js")]]))
 
 (defroutes routes

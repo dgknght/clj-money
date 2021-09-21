@@ -219,7 +219,7 @@
          [:tr
           [:td.text-end {:col-span 2}
            (format-decimal @total)]]]]
-       [:div
+       [:div.mb-2
         [bs/busy-button {:html {:class "btn-primary"
                                 :type :submit
                                 :disabled @busy?
@@ -287,12 +287,12 @@
     (new-receipt page-state)
     (load-transactions page-state)
     (fn []
-      [:div.mt-5
-       [:h1 "Receipt Entry"]
+      [:<>
+       [:h1.mt-3 "Receipt Entry"]
        [:div.row
-        [:div.col
+        [:div.col-md-6
          [receipt-form page-state]]
-        [:div.col
+        [:div.col-md-6
          [results-table page-state]]]])))
 
 (secretary/defroute "/receipts" []

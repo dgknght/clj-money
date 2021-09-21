@@ -116,8 +116,10 @@
                  (disabled? sched-tran) (conj "sched-tran-disabled")
                  (expired? sched-tran) (conj "sched-tran-expired"))}
    [:td (:description sched-tran)]
-   [:td (format-date (:last-occurrence sched-tran))]
-   [:td (format-date (:next-occurrence sched-tran))]
+   [:td.d-none.d-md-table-cell (format-date (:last-occurrence sched-tran))]
+   [:td
+    [:span.d-none.d-md-inline (format-date (:next-occurrence sched-tran))]
+    [:span.d-md-none] (format-date (:next-occurrence sched-tran) "M/d")]
    [:td
     [:div.btn-group
      [:button.btn.btn-sm {:title "Click here to realize transactions for this schedule."
@@ -142,22 +144,32 @@
   (t/before? (or d1 (t/epoch))
              (or d2 (t/epoch))))
 
+(def ^:private table-headers
+  [{:key :description}
+   {:key :last-occurrence
+    :caption "Last"
+    :css ["d-none"
+          "d-md-table-cell"]}
+   {:key :next-occurrence
+    :caption "Next"}])
+
 (defn- table-header
   [page-state]
   (let [sort-on (r/cursor page-state [:sort-on])]
     (fn []
       [:thead
        [:tr
-        (->> [:description :last-occurrence :next-occurrence]
-             (map (fn [k]
-                    ^{:key (str "table-header-" (name k))}
-                    [:th
-                     (title-case (name k))
+        (->> table-headers
+             (map (fn [h]
+                    ^{:key (str "table-header-" (name (:key h)))}
+                    [:th {:class (:css h)}
+                     (title-case (or (:caption h)
+                                     (name (:key h))))
                      [:a.ms-3 {:href "#"
-                               :class (if (= k @sort-on)
-                                        "text-dark"
-                                        "text-muted")
-                               :on-click #(reset! sort-on k)}
+                               :class (if (= (:key h) @sort-on)
+                                          "text-dark"
+                                          "text-muted")
+                               :on-click #(reset! sort-on (:key h))}
                       (bs/icon :sort-down-alt)]]))
              doall)
         [:th (html/space)]]])))
@@ -396,7 +408,7 @@
     (add-watch current-entity ::index (fn [& _] (load-sched-trans page-state)))
     (reset! auto-loaded nil)
     (fn []
-      [:div.mt-5
+      [:div.mt-3
        [:h1 "Scheduled Transactions"]
        [:div {:class (when @selected "d-none")}
         [forms/checkbox-field page-state [:hide-inactive?]]
@@ -439,10 +451,11 @@
                                "/scheduled"
                                "/"))))
     (notify/danger-fn "Unable to auto-create scheduled transactions: %s"))
-  [:div.mt-5
+  [:div.mt-3
    [:h1 "Welcome!"]
-   [:div.spinner-border {:role :status}
-    [:span.visually-hidden "Loading..."]]
+   [:div.d-flex.justify-content-around
+    [:div.spinner-border {:role :status}
+     [:span.visually-hidden "Loading..."]]]
    [:p "We are automatically processing scheduled transactions. One moment, please."]])
 
 (secretary/defroute "/scheduled" []

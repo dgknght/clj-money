@@ -31,7 +31,6 @@
             [clj-money.accounts :refer [account-types
                                         find-by-path]]
             [clj-money.state :refer [app-state
-                                     current-entity
                                      accounts
                                      accounts-by-id]]
             [clj-money.views.transactions :as trns]
@@ -71,11 +70,25 @@
       (and (seq parent-ids)
            (not-every? expanded parent-ids))))
 
+(defn- abbr-acct-name
+  [account]
+  (let [words (string/split (:name account) #"\s+")]
+    (if (< 3 (count words))
+      [:span {:title (:name account)
+              :data-bs-toggle :tooltip
+              :data-bs-placement :top}
+       (str
+         (->> words
+              (take 2)
+              (string/join " "))
+         "...")]
+      (:name account))))
+
 (defn- account-row
   [{:keys [id parent-ids] :as account} expanded page-state]
   ^{:key (str "account-" id)}
   [:tr
-   [:td [:span {:class (str "account-depth-" (count parent-ids))}
+   [:td [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
          [:span.toggle-ctl {:on-click #(toggle-account (:id account) page-state)
                             :class (when-not (:has-children? account)
                                      "invisible")}
@@ -83,9 +96,11 @@
                      :arrows-collapse
                      :arrows-expand)
                    {:size :small})]
-         (:name account)]]
-   [:td.text-end (currency-format (:total-value account))]
-   [:td.text-center
+         (abbr-acct-name account)]]
+   [:td.text-end.d-none.d-sm-table-cell.value-depth
+    [:span {:class (str "value-depth-" (count parent-ids))}
+     (currency-format (:total-value account))]]
+   [:td.text-center.d-none.d-md-table-cell
     [forms/checkbox-input page-state [:bulk-edit :account-ids] {:no-bootstrap? true
                                                                 :html {:name "bulk-edit-id"}
                                                                 :value id}]]
@@ -115,10 +130,11 @@
                 :arrows-expand)
               {:size :small})]
     (name account-type)]
-   [:td.text-end (currency-format (->> group
-                                         (map :value)
-                                         (reduce decimal/+)))]
-   [:td (html/space)]])
+   [:td.text-end.d-none.d-sm-table-cell
+    (currency-format (->> group
+                          (map :value)
+                          (reduce decimal/+)))]
+   [:td {:col-span 2} (html/space)]])
 
 (defn- compare-vec
   [v1 v2]
@@ -278,39 +294,21 @@
 
 (defn- accounts-table
   [page-state]
-  (let [all-tags (make-reaction #(->> @accounts
-                                      (mapcat :user-tags)
-                                      set))
-        tag-items (make-reaction #(concat [[:_untagged "untagged"]]
-                                          (map (fn [v]
-                                                 [v (name v)])
-                                               @all-tags)))
-        current-entity (r/cursor app-state [:current-entity])
+  (let [current-entity (r/cursor app-state [:current-entity])
+        selected (r/cursor page-state [:selected])
+        view-account (r/cursor page-state [:view-account])
+        hide? (make-reaction #(or @selected @view-account))
         bulk-select (r/cursor page-state [:bulk-edit :account-ids])
         busy? (busy page-state)]
     (fn []
-      [:div.row
-       [:div.col-md-6
-        [:div.accounts-options
-         [:div.form-check.mb-1
-          [forms/checkbox-input
-           page-state
-           [:hide-zero-balances?]
-           {:caption "Hide Zero-Balance Accounts"}]
-          [:label.form-check-label {:for "hide-zero-balances?"}
-           "Hide zero balances"]]
-         [forms/checkbox-inputs
-          page-state
-          [:filter-tags]
-          @tag-items
-          {:container-html {:class ["d-flex flex-column"]}
-           :input-container-html {:class "mb-1"}}]]
+      [:div.row {:class (when @hide? "d-none")}
+       [:div.col-lg-8
         [:table.table.table-hover
          [:thead
           [:tr
            [:th.col-md-6 "Name"]
-           [:th.col-md-3.text-end "Value"]
-           [:th.col-md-1 (html/space)]
+           [:th.col-md-3.text-end.d-none.d-sm-table-cell "Value"]
+           [:th.col-md-1.d-none.d-md-table-cell (html/space)]
            [:th.col-md-2 (html/space)]]]
          (if @accounts
            (if (seq @accounts)
@@ -330,8 +328,8 @@
                                               (html/set-focus "parent-id"))
                                   :disabled @busy?}
          (bs/icon-with-text :plus "Add")]]
-       [:div.col-md-6 {:class (when-not (seq @bulk-select) "d-none")}
-        [bulk-edit-form page-state]]])))
+        [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
+         [bulk-edit-form page-state]]])))
 
 (defn- save-account
   [page-state]
@@ -354,7 +352,7 @@
                                            set))
         commodities (r/cursor page-state [:commodities])]
     (fn []
-      [:div.row
+      [:div.row {:class (when-not @account "d-none")}
        [:div.col-md-6
         [:h2 (if (:id @account) "Edit" "New")]
         [:form {:no-validate true
@@ -449,18 +447,19 @@
   [page-state]
   (let  [transaction (r/cursor page-state [:transaction])]
     (fn []
-      [:div
+      [:div.d-flex.justify-content-between
        [:button.btn.btn-primary {:on-click #(new-transaction page-state)
                                  :disabled (not (nil? @transaction))}
         (bs/icon-with-text :plus "Add")]
-       [:button.btn.btn-secondary.ms-2 {:on-click (fn []
-                                                    (trns/stop-item-loading page-state)
-                                                    (swap! page-state assoc
-                                                           :items nil)
-                                                    (recs/load-working-reconciliation page-state)
-                                                    (trns/load-unreconciled-items page-state)
-                                                    (html/set-focus "end-of-period"))
-                                        :title "Click here to reconcile this account"}
+       [:button.btn.btn-secondary.ms-2.d-none.d-md-block
+        {:on-click (fn []
+                     (trns/stop-item-loading page-state)
+                     (swap! page-state assoc
+                            :items nil)
+                     (recs/load-working-reconciliation page-state)
+                     (trns/load-unreconciled-items page-state)
+                     (html/set-focus "end-of-period"))
+         :title "Click here to reconcile this account"}
         (bs/icon-with-text :check-box "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
                                                     (trns/stop-item-loading page-state)
@@ -478,11 +477,10 @@
 
 (defn- do-tab-nav
   [mode page-state]
-  (let [{:keys [mapped-accounts view-account commodities transaction]} @page-state
-        unprep-fn (get-in (trns/untransformations mapped-accounts)
+  (let [{:keys [view-account commodities transaction]} @page-state
+        unprep-fn (get-in (trns/untransformations)
                           [(trns/mode transaction)])
         prep-fn (get-in (trns/transformations view-account
-                                              mapped-accounts
                                               commodities)
                         [mode])]
     (swap! page-state
@@ -503,8 +501,8 @@
      :on-click #(do-tab-nav mode page-state)}))
 
 (defn- neutralize
-  [transaction mode accounts]
-  (let [f (get-in (trns/untransformations accounts)
+  [transaction mode]
+  (let [f (get-in (trns/untransformations)
                   [mode])]
     (f transaction)))
 
@@ -512,19 +510,18 @@
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
         mode (make-reaction #(trns/mode @transaction))
-        accounts (r/cursor page-state [:mapped-accounts])
-        neutralized (make-reaction #(neutralize @transaction @mode @accounts))
+        neutralized (make-reaction #(neutralize @transaction @mode))
         system-tags (r/cursor page-state [:view-account :system-tags])
         disable-trade? (make-reaction #(or (:id @transaction)
                                            (not (:trading @system-tags))))]
     (fn []
-      [:div.card
-       [:div.card-header
-        [:strong (if (:id @transaction)
-                   "Edit Transaction"
-                   "New Transaction")]]
-       [:div.card-body
-        (nav-tabs (map #(transaction-form-nav-tab % page-state)
+      [:<>
+       [:h3 (if (:id @transaction)
+              "Edit Transaction"
+              "New Transaction")]
+       [:div.mt-3
+        (nav-tabs {:class "mb-3"}
+                  (map #(transaction-form-nav-tab % page-state)
                        [{:mode ::trns/simple
                          :disabled? (not (can-simplify? @neutralized))}
                         {:mode ::trns/full
@@ -533,21 +530,16 @@
                          :disabled? @disable-trade?}
                         {:mode ::trns/dividend
                          :disabled? @disable-trade?}]))
-        [:div.mt-3
-         [trns/full-transaction-form page-state]
-         [:div.row
-          [:div.col-md-4
-           [trns/simple-transaction-form page-state]
-           [trns/trade-transaction-form page-state]
-           [trns/dividend-transaction-form page-state]]]]]
-       [:div.card-footer
+        [trns/full-transaction-form page-state]
+        [trns/simple-transaction-form page-state]
+        [trns/trade-transaction-form page-state]
+        [trns/dividend-transaction-form page-state]]
+       [:div
         [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
                                   :title "Click here to save the transaction"}
          (bs/icon-with-text :check "Save")]
-
-        (html/space)
-        [:button.btn.btn-danger {:on-click #(swap! page-state dissoc :transaction)
-                                 :title "Click here to cancel this transaction"}
+        [:button.btn.btn-danger.ms-2 {:on-click #(swap! page-state dissoc :transaction)
+                                      :title "Click here to cancel this transaction"}
          (bs/icon-with-text :x "Cancel")]]])))
 
 (defn- transaction-item-list
@@ -556,11 +548,10 @@
         all-items-fetched? (r/cursor page-state [:all-items-fetched?])]
     (trns/init-item-loading page-state)
     (fn []
-      [:div.card
-       [:div.card-header [:strong "Transaction Items"]]
-       [:div#items-container {:style {:max-height "40em" :overflow "auto"}}
+      [:div.d-flex.flex-column.h-75
+       [:div#items-container.flex-grow-1.overflow-auto {:style {:height "0"}}
         [trns/items-table page-state]]
-       [:div.card-footer.d-flex.align-items-center
+       [:div.d-flex.mt-2 {:style {:flex :none}}
         [account-buttons page-state]
         [:span.ms-auto
          [load-on-scroll {:target "items-container"
@@ -734,11 +725,13 @@
 
 (defn- account-details
   [page-state]
-  (let [system-tags (r/cursor page-state [:view-account :system-tags])]
+  (let [view-account (r/cursor page-state [:view-account :system-tags])
+        system-tags (r/cursor view-account [:system-tags])]
     (fn []
-      (cond
-        (:tradable @system-tags) [tradable-account-details page-state]
-        :else [currency-account-details page-state]))))
+      (when @view-account
+        (cond
+          (:tradable @system-tags) [tradable-account-details page-state]
+          :else [currency-account-details page-state])))))
 
 (defn- load-commodities
   [page-state]
@@ -751,37 +744,84 @@
                                                                         (into {}))))))
                       (handle-error page-state "Unable to load the commodities: %s")))
 
+(defn- account-filter
+  [page-state]
+  (let [all-tags (make-reaction #(->> @accounts
+                                      (mapcat :user-tags)
+                                      set))
+        tag-items (make-reaction #(concat [[:_untagged "untagged"]]
+                                          (map (fn [v]
+                                                 [v (name v)])
+                                               @all-tags)))
+        selected (r/cursor page-state [:selected])
+        view-account (r/cursor page-state [:view-account])
+        hide? (make-reaction #(or @selected @view-account))]
+    (fn []
+      [:div.accounts-options {:class (when @hide? "d-none")}
+       [:div.form-check.mb-1
+        [forms/checkbox-input
+         page-state
+         [:hide-zero-balances?]
+         {:caption "Hide Zero-Balance Accounts"}]
+        [:label.form-check-label {:for "hide-zero-balances?"}
+         "Hide zero balances"]]
+       [forms/checkbox-inputs
+        page-state
+        [:filter-tags]
+        tag-items
+        {:container-html {:class ["d-flex flex-column"]}
+         :input-container-html {:class "mb-1"}}]])))
+
+(defn- account-filter-container
+  [page-state]
+  [:div#account-filter.offcanvas.offcanvas-end {:tab-index -1}
+   [:div.offcanvas-header
+    [:h3.off-canvas-title "Filter"]
+    [:button.btn-close.text-reset {:data-bs-dismiss "offcanvas"
+                                   :aria-label "Close"}]]
+   [:div.offcanvas-body [account-filter page-state]]])
+
+(defn- any-non-zero-balances?
+  ([] (any-non-zero-balances? @accounts))
+  ([accounts]
+  (->> accounts
+       (map :value)
+       (not-every? #(= 0 %)))))
+
 (defn- index []
   (let [page-state (r/atom {:expanded #{}
+                            :hide-zero-balances? (any-non-zero-balances?)
                             :filter-tags #{}
                             :ctl-chan (chan)})
+        view-account (r/cursor page-state [:view-account])
         selected (r/cursor page-state [:selected])
-        view-account (r/cursor page-state [:view-account])]
+        hide-funnel? (make-reaction #(or @selected @view-account))]
     (load-commodities page-state)
-
-    (add-watch current-entity
-               ::refine-state
-               (fn [_ _ _ entity]
-                 (when entity
-                   (swap! page-state assoc
-                          :hide-zero-balances? (->> (or @accounts [])
-                                                    (map :value)
-                                                    (not-every? #(= 0 %)))
-
-                          :expanded #{}
-                          :filter-tags #{}))))
-
+    (add-watch accounts
+               ::index
+               (fn [_ _ _ accts]
+                 (swap! page-state
+                        assoc
+                        :expanded #{}
+                        :filter-tags #{}
+                        :hide-zero-balances? (any-non-zero-balances? accts))))
     (fn []
-      [:div.mt-5
-       [:div.accounts-header
-        [:h1.accounts-title (str "Accounts" (when @view-account
-                                              (str " - " (:name @view-account))))]]
-       (when-not (or @selected @view-account)
-         [accounts-table page-state])
-       (when @selected
-         [account-form page-state])
-       (when @view-account
-         [account-details page-state])])))
+      [:div.mt-3.h-100
+       [:div.row
+        [:div.col-lg-8
+         [:div.d-flex
+          [:h1.accounts-title.me-auto (str "Accounts" (when @view-account
+                                                        (str " - " (:name @view-account))))]
+          [:button.btn.btn-light {:type :button
+                                  :class (when @hide-funnel? "d-none")
+                                  :data-bs-toggle "offcanvas"
+                                  :data-bs-target "#account-filter"
+                                  :aria-controls "account-filter"}
+           (bs/icon :funnel {:size :small})]]]]
+       [account-filter-container page-state]
+       [accounts-table page-state]
+       [account-form page-state]
+       [account-details page-state]])))
 
 (secretary/defroute "/accounts" []
   (swap! app-state assoc :page #'index))

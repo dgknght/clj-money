@@ -7,20 +7,18 @@
             [dgknght.app-lib.busy :refer [busy +busy -busy]]
             [dgknght.app-lib.models :refer [map-index]]
             [dgknght.app-lib.web :refer [format-decimal
-                                             format-percent]]
+                                         format-percent
+                                         format-date]]
             [dgknght.app-lib.inflection :refer [humanize
                                                 title-case]]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
-                                     current-entity]]
-            [clj-money.accounts :refer [nest
-                                        unnest]]
+                                     current-entity
+                                     accounts-by-id]]
             [clj-money.budgets :refer [period-description]]
-            [clj-money.api.accounts :as act]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
 
@@ -57,66 +55,75 @@
   ([date]
    (t/local-date (t/year date) 1 1)))
 
-(defn- fetch-income-statement
+(defmulti load-report #(:selected (deref %)))
+
+(defmethod load-report :income-statement
   [page-state]
-  (+busy page-state)
+  (swap! page-state #(-> %
+                         +busy
+                         (update-in [:income-statement] dissoc :report)))
   (rpt/income-statement (select-keys (:income-statement @page-state) [:start-date :end-date])
                         (fn [result]
                           (swap! page-state #(-> %
                                                  -busy
                                                  (assoc-in [:income-statement :report] result))))
-                        (notify/danger-fn "Unable to fetch the report: %s")))
+                        (handle-error page-state "Unable to fetch the report: %s")))
 
-(defn- income-statement-filter
+(defn- income-statement-options
   [page-state]
-  (let [busy? (busy page-state)]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :income-statement @selected))]
     (fn []
-      [:form.d-print-none {:on-submit (fn [e]
-                                        (.preventDefault e)
-                                        false)
-                           :style {:max-width "785px"}}
-       [:div.row
-        [:div.col
-         [forms/date-input
-          page-state
-          [:income-statement :start-date]
-          {:placeholder "Start date"
-           :validate [:required]}]]
-        [:div.col
-         [forms/date-input
-          page-state
-          [:income-statement :end-date]
-          {:placeholder "End date"
-           :validate [:required]}]]
-        [:div.col
-         [bs/busy-button {:html {:class "btn-primary"
-                                 :on-click #(fetch-income-statement page-state)
-                                 :title "Click here to get the report with the specified parameters"}
-                          :icon :arrow-repeat
-                          :busy? busy?}]]]
-       [:div.row.mt-3
-        [:div.col
-         [forms/checkbox-field
+      [:div {:class (when @hide? "d-none")}
+       [forms/date-field
+        page-state
+        [:income-statement :start-date]
+        {:placeholder "Start date"
+         :validate [:required]}]
+       [forms/date-field
+        page-state
+        [:income-statement :end-date]
+        {:placeholder "End date"
+         :validate [:required]}]
+       [forms/checkbox-field
           page-state
           [:hide-zeros?]
-          {:caption "Hide Zero-Balance Accounts"}]]]])))
+          {:caption "Hide Zero-Balance Accounts"}]])))
+
+(defn- income-statement-header
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :income-statement @selected))
+        start-date (r/cursor page-state [:income-statement :start-date])
+        end-date (r/cursor page-state [:income-statement :end-date])]
+    (fn []
+      [:span {:class (when @hide? "d-none")}
+       (format-date @start-date)
+       " - "
+       (format-date @end-date)])))
 
 (defn- income-statement
   [page-state]
   (let [hide-zeros? (r/cursor page-state [:hide-zeros?])
+        selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :income-statement @selected))
         report (r/cursor page-state [:income-statement :report])]
     (fn []
-      [:div
-       [:h2 "Income Statement"]
-       [income-statement-filter page-state]
-       (when @report
-         [:table.mt-3.table.table-hover.table-borderless.w-50
-          [:tbody
-           (doall (map #(report-row % @hide-zeros?) @report))]])])))
+      [:div.row
+       [:div.col-md-6.offset-md-3
+        [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
+         [:tbody
+          (if @report
+            (doall (map #(report-row % @hide-zeros?) @report))
+            [:tr
+             [:td.text-center
+              [bs/spinner]]])]]]])))
 
-(defn- fetch-balance-sheet
+(defmethod load-report :balance-sheet
   [page-state]
-  (+busy page-state)
+  (swap! page-state #(-> %
+                         +busy
+                         (update-in [:balance-sheet] dissoc :report)))
   (rpt/balance-sheet (select-keys (:balance-sheet @page-state) [:as-of])
                      (fn [result]
                        (swap! page-state #(-> %
@@ -124,80 +131,79 @@
                                               (assoc-in [:balance-sheet :report] result))))
                      (handle-error page-state "Unable to fetch the balance sheet report: %s")))
 
-(defn- balance-sheet-filter
+(defn- balance-sheet-options
   [page-state]
-  (let [busy? (busy page-state)]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :balance-sheet @selected))]
     (fn []
-      [:form.d-print-none {:on-submit (fn [e]
-                                        (.preventDefault e)
-                                        false)
-                           :style {:max-width "512px"}}
-       [:div.row
-        [:div.col
-         [forms/date-input
-          page-state
-          [:balance-sheet :as-of]
-          {:placeholder "As Of"
-           :validate [:required]}]]
-        [:div.col
-         [bs/busy-button {:html {:class "btn-primary"
-                                 :on-click #(fetch-balance-sheet page-state)
-                                 :title "Click here to get the report with the specified parameters"}
-                          :icon :arrow-repeat
-                          :busy? busy?}]]]
-       [:div.row.mt-3
-        [:div.col
-         [forms/checkbox-field
-          page-state
-          [:hide-zeros?]
-          {:caption "Hide Zero-Balance Accounts"}]]]])))
+      [:form {:class (when @hide? "d-none")
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           false)
+              :style {:max-width "512px"}}
+       [forms/date-field
+        page-state
+        [:balance-sheet :as-of]
+        {:placeholder "As Of"
+         :validate [:required]}]
+       [forms/checkbox-field
+        page-state
+        [:hide-zeros?]
+        {:caption "Hide Zero-Balance Accounts"}]])))
+
+(defn- balance-sheet-header
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :balance-sheet @selected))
+        as-of (r/cursor page-state [:balance-sheet :as-of])]
+    (fn []
+      [:span {:class (when @hide? "d-none")}
+       (format-date @as-of)])))
 
 (defn- balance-sheet
   [page-state]
   (let [hide-zeros? (r/cursor page-state [:hide-zeros?])
+        selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :balance-sheet @selected))
         report (r/cursor page-state [:balance-sheet :report])]
     (fn []
-      [:div
-       [:h2 "Balance Sheet"]
-       [balance-sheet-filter page-state]
-       (when @report
-         [:table.mt-3.table.table-hover.table-borderless.w-75
-          [:tbody
-           (doall (map #(report-row % @hide-zeros?) @report))]])])))
+      [:div.row
+       [:div.col-md-6.offset-md-3
+        [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
+         [:tbody
+          (if @report
+            (doall (map #(report-row % @hide-zeros?) @report))
+            [:tr
+             [:td.text-center
+              [bs/spinner]]])]]]])))
 
-(defn- fetch-budget-report
+(defmethod load-report :budget
   [page-state]
-  (+busy page-state)
+  (swap! page-state #(-> %
+                         +busy
+                         (update-in [:budget] dissoc :report)))
   (rpt/budget (select-keys (:budget @page-state) [:budget-id :tags])
               (fn [result]
                 (swap! page-state #(-> %
                                        -busy
                                        (assoc-in [:budget :report] result)
                                        (update-in [:budget] dissoc :apply-info))))
-              (notify/danger-fn "Unable to fetch the budget report: %s")))
+              (handle-error page-state "Unable to fetch the budget report: %s")))
 
-(defn- budget-filter
+(defn- budget-options
   [page-state]
   (let [budgets (r/cursor page-state [:budget :budgets])
-        busy? (busy page-state)
         options (make-reaction #(->> (vals @budgets)
                                      (sort-by :start-date t/after?)
-                                     (map (juxt :id :name))))]
+                                     (map (juxt :id :name))))
+        selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :budget @selected))]
     (fn []
-      [:div.row
-       [:div.col-md-6
-        [:form.d-flex.align-items-center.d-print-none {:on-submit (fn [e]
-                                                                    (.preventDefault e)
-                                                                    false)}
-         [forms/select-elem page-state [:budget :budget-id] options]
-         [forms/integer-input page-state [:budget :depth] {:class "ms-sm-2"
-                                                           :placeholder "Depth"
-                                                           :style {:width "5em"}}]
-         [bs/busy-button {:html {:class "btn-primary ms-2"
-                                 :on-click #(fetch-budget-report page-state)
-                                 :title "Click here to get the report with the specified parameters"}
-                          :icon :arrow-repeat
-                          :busy? busy?}]]]])))
+      [:div {:class (when @hide? "d-none")}
+       [forms/select-field page-state [:budget :budget-id] options]
+       [forms/integer-field page-state [:budget :depth] {:class "ms-sm-2"
+                                                         :placeholder "Depth"
+                                                         :style {:width "5em"}}]])))
 
 (defn- receive-budget
   [budget
@@ -215,19 +221,19 @@
                   (repeat (:period-count budget)
                           actual-per-period))]
     (swap! page-state
-           assoc-in
-           [:budget :apply-info]
-           {:budget budget
-            :budget-item (assoc budget-item :periods periods)
-            :report-item report-item})))
+           #(-> %
+                -busy
+                (assoc-in [:budget :apply-info] {:budget budget
+                                                 :budget-item (assoc budget-item :periods periods)
+                                                 :report-item report-item})))))
 
 (defn- apply-to-budget
-  [report-item
-   page-state]
+  [report-item page-state]
+  (+busy page-state)
   (let [{{:keys [budget-id]} :budget} @page-state]
     (bdt/find budget-id
               #(receive-budget % report-item page-state)
-              (notify/danger-fn "Unable to load the budget: %s"))))
+              (handle-error page-state "Unable to load the budget: %s"))))
 
 (defn- budget-report-row
   [{:keys [id
@@ -243,43 +249,32 @@
   ^{:key (str "report-row-" (or id caption))}
   [:tr {:class (str "report-" (name style))}
    [:td caption]
-   [:td.text-end (format-decimal budget)]
-   [:td.text-end (format-decimal actual)]
+   [:td.text-end.d-none.d-md-table-cell (format-decimal budget)]
+   [:td.text-end.d-none.d-md-table-cell (format-decimal actual)]
    [:td.d-flex.justify-content-between {:class (when (> 0 difference) "text-light bg-danger")}
     (when (= :data style)
-      [:span.d-print-none
+      [:span.d-print-none.d-none.d-md-inline
        {:on-click #(apply-to-budget item page-state)
         :title "Click here to update the budget with recorded actual values."
         :style {:cursor :pointer}}
        (bs/icon :gear {:size :small})])
     [:span.flex-fill.text-end (format-decimal difference)]]
-   [:td.text-end (format-percent percent-difference)]
-   [:td.text-end (format-decimal actual-per-period)]])
+   [:td.text-end.d-none.d-md-table-cell (format-percent percent-difference)]
+   [:td.text-end.d-none.d-md-table-cell (format-decimal actual-per-period)]])
 
 (defn- load-budgets
   [page-state]
+  (+busy page-state)
   (bdt/search (fn [budgets]
                 (swap! page-state
                        (fn [state]
                          (-> state
+                             -busy
                              (assoc-in [:budget :budgets] (->> budgets
                                                                (map (juxt :id identity))
                                                                (into {})))
                              (assoc-in [:budget :budget-id] (-> budgets first :id))))))
-              (notify/danger-fn "Unable to load the budgets: %s")))
-
-(defn- load-accounts
-  [page-state]
-  (act/select (fn [accounts]
-                (swap! page-state
-                       assoc
-                       :accounts
-                       (->> accounts
-                            nest
-                            unnest
-                            (map (juxt :id identity))
-                            (into {}))))
-              (notify/danger-fn "Unable to load the accounts: %s")))
+              (handle-error page-state "Unable to load the budgets: %s")))
 
 (defn- refine-items
   [depth items]
@@ -311,8 +306,8 @@
                                               vals)))
               (fn [& _]
                 (-busy page-state)
-                (fetch-budget-report page-state))
-              (notify/danger-fn "Unable to save the budget: %s"))))
+                (load-report page-state))
+              (handle-error page-state "Unable to save the budget: %s"))))
 
 (defn- apply-budget-item-form
   [page-state]
@@ -373,38 +368,39 @@
   [page-state]
   (let [report (r/cursor page-state [:budget :report])
         depth (r/cursor page-state [:budget :depth])
-        accounts (r/cursor page-state [:accounts])]
-    (load-accounts page-state)
+        selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :budget @selected))]
     (load-budgets page-state)
     (fn []
-      [:div
-       [:h2 "Budget"]
+      [:<>
        [apply-budget-item-form page-state]
-       [budget-filter page-state]
-       (when @report
-         [:div
-          [:h2.mt-3 (:title @report)]
-          [:table.mt-3.table.table-hover.table-borderless
-           [:thead
-            [:tr
-             [:th "Account"]
-             [:th.text-end "Budget"]
-             [:th.text-end "Actual"]
-             [:th.text-end "Diff"]
-             [:th.text-end "% Diff"]
-             [:th.text-end "Act/Mo"]]]
-           [:tbody
-            (->> (:items @report)
-                 (refine-and-flatten @depth)
-                 (map (comp
-                        #(budget-report-row % page-state)
-                        #(assoc % :account (get-in @accounts [(:id %)]))))
-                 doall)]]])])))
+       [:table.mt-3.table.table-hover.table-borderless {:class (when @hide? "d-none")}
+        [:thead
+         [:tr
+          [:th "Account"]
+          [:th.text-end.d-none.d-md-table-cell "Budget"]
+          [:th.text-end.d-none.d-md-table-cell "Actual"]
+          [:th.text-end "Diff"]
+          [:th.text-end.d-none.d-md-table-cell "% Diff"]
+          [:th.text-end.d-none.d-md-table-cell "Act/Mo"]]]
+        [:tbody
+         (if @report
+           (->> (:items @report)
+                (refine-and-flatten @depth)
+                (map (comp
+                       #(budget-report-row % page-state)
+                       #(assoc % :account (get-in @accounts-by-id [(:id %)]))))
+                doall)
+           [:tr
+            [:td.text-center {:col-span 6}
+             [bs/spinner]]])]]])))
 
-(defn- load-portfolio
+(defmethod load-report :portfolio
   [page-state]
-  (+busy page-state)
   (let [{:keys [current-nav] :as state} (get-in @page-state [:portfolio])]
+    (swap! page-state #(-> %
+                           +busy
+                           (update-in [:portfolio current-nav] dissoc :report)))
     (rpt/portfolio {:aggregate current-nav
                     :as-of (get-in state [:filter :as-of])}
                    (fn [result]
@@ -414,7 +410,7 @@
                                                        current-nav
                                                        :report]
                                                       result))))
-                   (notify/danger-fn "Unable to load the accounts report"))))
+                   (handle-error page-state "Unable to load the accounts report"))))
 
 (defn- visible?
   [record visible-ids]
@@ -457,17 +453,17 @@
    [:td {:class (when (= "data" style)
                   "text-end")}
     caption]
-   [:td.text-end (format-shares shares-purchased)]
-   [:td.text-end (format-shares shares-owned)]
-   [:td.text-end (format-decimal cost-basis)]
+   [:td.text-end.d-none.d-md-table-cell (format-shares shares-purchased)]
+   [:td.text-end.d-none.d-md-table-cell (format-shares shares-owned)]
+   [:td.text-end.d-none.d-md-table-cell (format-decimal cost-basis)]
    [:td.text-end (format-decimal current-value)]
    [:td.text-end {:class (if (> 0 gain-loss)
-                             "text-danger"
-                             "text-success")}
+                           "text-danger"
+                           "text-success")}
     (format-decimal gain-loss)]
-   [:td.text-end {:class (if (> 0 gain-loss)
-                             "text-danger"
-                             "text-success")}
+   [:td.text-end.d-none.d-md-table-cell {:class (if (> 0 gain-loss)
+                                                  "text-danger"
+                                                  "text-success")}
     (format-percent gain-loss-percent)]])
 
 (defn- render-portfolio
@@ -480,12 +476,12 @@
        [:thead
         [:tr
          [:th "Purchase Date"]
-         [:th.text-end "Shares Purchased"]
-         [:th.text-end "Shares Owned"]
-         [:th.text-end "Cost Basis"]
+         [:th.text-end.d-none.d-md-table-cell "Shares Purchased"]
+         [:th.text-end.d-none.d-md-table-cell "Shares Owned"]
+         [:th.text-end.d-none.d-md-table-cell "Cost Basis"]
          [:th.text-end "Current Value"]
          [:th.text-end "Gain/Loss"]
-         [:th.text-end "G/L %"]]]
+         [:th.text-end.d-none.d-md-table-cell "G/L %"]]]
        [:tbody
         (cond
           (nil? @report)
@@ -497,36 +493,49 @@
           :else
           [:tr [:td.inline-status {:col-span 4} "No investment accounts found."]])]])))
 
-(defn- portfolio
+(defn- portfolio-options
   [page-state]
   (let [current-nav (r/cursor page-state [:portfolio :current-nav])
         report-filter (r/cursor page-state [:portfolio :filter])
-        busy? (busy page-state)]
-    (load-portfolio page-state)
-    (add-watch current-entity ::portfolio (fn [& _] (load-portfolio page-state)))
+        selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :portfolio @selected))]
     (fn []
-      [:div
-       [:div.row
-        [:div.col
-         (bs/nav-pills (map (fn [id]
-                              {:elem-key id
-                               :caption (humanize id)
-                               :on-click (fn []
-                                           (reset! current-nav id)
-                                           (load-portfolio page-state))
-                               :active? (= id @current-nav)})
-                            [:by-account :by-commodity]))]
-        [:div.col
-         [forms/date-input report-filter [:as-of]]]
-        [:div.col
-         [bs/busy-button {:html {:class "btn-secondary"
-                                 :on-click (fn []
-                                             (load-portfolio page-state))
-                                 :title "Click here to refresh the report."}
-                          :icon :arrow-repeat
-                          :busy? busy?}]]]
-       [:div.mt-2
-        [render-portfolio page-state]]])))
+      [:div {:class (when @hide? "d-none")}
+       (bs/nav-pills {:class "mb-2"} (map (fn [id]
+                                            {:elem-key id
+                                             :caption (humanize id)
+                                             :on-click (fn []
+                                                         (reset! current-nav id)
+                                                         (load-report page-state))
+                                             :active? (= id @current-nav)})
+                                          [:by-account :by-commodity]))
+       [forms/date-field report-filter [:as-of]]])))
+
+(defn- portfolio
+  [page-state]
+  (let [selected (r/cursor page-state [:selected])
+        hide? (make-reaction #(not= :portfolio @selected))]
+    (fn []
+      [:div.mt-2 {:class (when @hide? "d-none")}
+       [render-portfolio page-state]])))
+
+(def ^:private report-types
+  [:income-statement
+   :balance-sheet
+   :budget
+   :portfolio])
+
+(defn- report-nav-item-fn
+  [page-state]
+  (fn [id]
+    (let [selected (get-in @page-state [:selected])]
+      {:elem-key id
+       :caption (title-case (humanize id))
+       :active? (= id selected)
+       :on-click (fn []
+                   (swap! page-state assoc :selected id)
+                   (when-not (get-in @page-state [id :report])
+                     (load-report page-state)))})))
 
 (defn- index []
   (let [page-state (r/atom {:selected :income-statement
@@ -534,32 +543,72 @@
                             :income-statement {:start-date (start-of-year)
                                                :end-date (t/today)}
                             :balance-sheet {:as-of (t/today)}
-                            :budget {:depth 0
+                            :budget {:depth 1
                                      :tags [:tax :mandatory :discretionary]} ; TODO: make this user editable
                             :portfolio {:current-nav :by-account
                                         :filter {:as-of (t/today)}
                                         :by-account {:visible-ids #{}}
                                         :by-commodity {:visible-ids #{}}}})
+        busy? (busy page-state)
         selected (r/cursor page-state [:selected])]
+    (load-report page-state)
+    (add-watch current-entity
+               ::index
+               (fn [_ _ _ entity]
+                 (when entity
+                   (load-report page-state))))
     (fn []
-      [:div.mt-5
-       [:h1.d-print-none "Reports"]
-       (bs/nav-tabs {:class "d-print-none"}
-                    (map (fn [id]
-                           {:elem-key id
-                            :caption (title-case (humanize id))
-                            :active? (= id @selected)
-                            :on-click #(swap! page-state assoc :selected id)})
-                         [:income-statement
-                          :balance-sheet
-                          :budget
-                          :portfolio]))
+      [:div.mt-3
+
+       [:div.d-print-none.d-flex.justify-content-between
+        [:h1 "Reports"]
+        [:button.btn.btn-light
+         {:type :button
+          :data-bs-toggle "offcanvas"
+          :data-bs-target "#report-options"
+          :aria-controls "report-options" }
+         (bs/icon :gear)]]
+
+       [:div.d-none.d-print-block.text-center
+        [:h1 (humanize @selected)]
+        [:h2
+         [income-statement-header page-state]
+         [balance-sheet-header page-state] ]]
+       [:div.d-print-none
+        [:div.d-md-none.mt-2
+         [forms/select-elem
+          page-state
+          [:selected]
+          (map #(vector % (humanize %)) report-types)
+          {:transform-fn keyword
+           :on-change (fn [s field]
+                        (when-not (get-in @page-state [(get-in @s field) :report])
+                         (load-report page-state)))}]]
+        (bs/nav-tabs {:class "d-none d-md-flex"}
+                     (map (report-nav-item-fn page-state)
+                          report-types))]
+       [:div#report-options.offcanvas.offcanvas-end {:tab-index -1}
+        [:div.offcanvas-header.d-flex.justify-content-between
+         [:h3 "Options"]
+         [:button.btn-close.text-reset {:data-bs-dismiss :offcanvas}]]
+        [:div.offcanvas-body
+         [income-statement-options page-state]
+         [balance-sheet-options page-state]
+         [budget-options page-state]
+         [portfolio-options page-state]
+         [:div.mt-3
+          [bs/busy-button {:html {:class "btn-primary"
+                                  :on-click #(load-report page-state)
+                                  :data-bs-dismiss :offcanvas
+                                  :title "Click here to show the report with the specified parameters"}
+                           :caption "Show"
+                           :icon :arrow-repeat
+                           :busy? busy?}]]]]
        [:div.mt-3
-        (case @selected
-          :income-statement [income-statement page-state]
-          :balance-sheet [balance-sheet page-state]
-          :budget [budget page-state]
-          :portfolio [portfolio page-state])]])))
+        [income-statement page-state]
+        [balance-sheet page-state]
+        [budget page-state]
+        [portfolio page-state]]])))
 
 (secretary/defroute "/reports" []
   (swap! app-state assoc :page #'index))

@@ -5,6 +5,8 @@
             [reagent.format :refer [currency-format]]
             [secretary.core :as secretary :include-macros true]
             [cljs-time.core :as t]
+            [dgknght.app-lib.core :refer [fmin
+                                          fmax]]
             [dgknght.app-lib.web :refer [format-date]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.notifications :as notify]
@@ -25,9 +27,7 @@
   (commodities/select (fn [result]
                         (swap! page-state #(-> %
                                                -busy
-                                               (assoc
-                                                 :commodities (sort-by :name result)
-                                                 :total (count result)))))
+                                               (assoc :commodities (sort-by :name result)))))
                       (handle-error page-state "Unable to get a list of commodities: %s")))
 
 (defn- save-commodity
@@ -53,7 +53,7 @@
                                 ["currency" "stock" "fund"]))
         busy? (busy page-state)]
     (fn []
-      [:div#commodity-form.card
+      [:div#commodity-form.card {:class (when-not @commodity "d-none")}
        [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
        [:div.card-body
         [forms/select-field commodity [:type] @types]
@@ -86,7 +86,7 @@
                         (handle-error page-state "Unable to delete the commodity: %s"))))
 
 (defn- truncate
-  ([value] (truncate value 30))
+  ([value] (truncate value 20))
   ([value length]
    (if (> length (count value))
      value
@@ -95,6 +95,22 @@
        (apply str (take (- length 3) value))
        "...")])))
 
+(defn- init-price-loading
+  [page-state]
+  (let [end (t/local-date (inc (t/year (t/today))) 1 1)]
+    (load-in-chunks
+     {:start (t/minus- end (t/years 10))
+      :end end
+      :interval (t/years 1)
+      :ctl-chan (:prices-ctl-chan @page-state)
+      :fetch-fn (fn [date-range callback-fn]
+                  (prices/search {:trade-date date-range
+                                  :commodity-id (get-in @page-state [:prices-commodity :id])}
+                                 callback-fn
+                                 (notify/danger-fn "Unable to fetch prices: %s")))
+      :receive-fn #(swap! page-state update-in [:prices] (fnil into []) %)
+      :finish-fn #(swap! page-state assoc :all-prices-fetched? true)})))
+
 (defn- commodity-row
   [{price :most-recent-price :as commodity} page-state]
   (let  [default? (= (:id commodity)
@@ -102,10 +118,10 @@
     ^{:key (:id commodity)}
     [:tr
      [:td (truncate (:name commodity))]
-     [:td (:symbol commodity)]
-     [:td (:exchange commodity)]
-     [:td.text-end {:title (format-date (:trade-date price))} (currency-format (:price price))]
-     [:td
+     [:td.d-lg-table-cell.d-none (:symbol commodity)]
+     [:td.d-lg-table-cell.d-none (:exchange commodity)]
+     [:td.d-lg-table-cell.d-none.text-end {:title (format-date (:trade-date price))} (currency-format (:price price))]
+     [:td.text-end
       [:div.btn-group
        [:button.btn.btn-light.btn-sm {:title "Click here to edit this commodity."
                                      :on-click (fn []
@@ -117,13 +133,18 @@
        [:button.btn.btn-light.btn-sm {:title "Click here to view prices for this commodity."
                                      :disabled default?
                                      :on-click (fn []
-                                                 (swap! page-state dissoc
-                                                        :selected
-                                                        :prices
-                                                        :prices-commodity
-                                                        :all-prices-fetched?)
-                                                 (js/setTimeout #(swap! page-state assoc
-                                                                        :prices-commodity commodity)
+                                                 (swap! page-state #(-> %
+                                                                        +busy
+                                                                        (dissoc
+                                                                          :selected
+                                                                          :prices
+                                                                          :prices-commodity
+                                                                          :all-prices-fetched?)))
+                                                 (js/setTimeout (fn []
+                                                                  (swap! page-state assoc
+                                                                              :prices-commodity commodity)
+                                                                  (init-price-loading page-state)
+                                                                  (-busy page-state))
                                                                 100))}
         (bs/icon :collection {:size :small})]
        [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
@@ -139,35 +160,96 @@
             [:name :symbol]))
     (constantly true)))
 
+(defn- pagination
+  [page-state]
+  (let [commodities (r/cursor page-state [:commodities])
+        com-count (make-reaction #(count @commodities))
+        page-size (r/cursor page-state [:page-size])
+        page-count (make-reaction #(.ceil js/Math (/ @com-count @page-size)))
+        max-index (make-reaction #(- @page-count 1))
+        page-index (r/cursor page-state [:page-index])]
+    (fn []
+      [:ul.pagination {:class (when (<= @com-count @page-size) "d-none")}
+       [:li.page-item
+        [:a.page-link {:href "#"
+                       :on-click #(swap! page-state assoc :page-index 0)}
+        (bs/icon :chevron-bar-left {:size :small})]]
+       [:li.page-item
+        [:a.page-link {:href "#"
+                       :on-click #(swap! page-state update-in [:page-index] (fmin dec 0))}
+        (bs/icon :chevron-left {:size :small})]]
+       [:li.page-item
+        [:a.page-link {:href "#"}
+         (+ 1 @page-index)
+         " of "
+         @page-count]]
+       [:li.page-item
+        [:a.page-link {:href "#"
+                       :on-click #(swap! page-state update-in [:page-index] (fmax inc @max-index))}
+        (bs/icon :chevron-right {:size :small})]]
+       [:li.page-item
+        [:a.page-link {:href "#"
+                       :on-click #(swap! page-state assoc :page-index @max-index)}
+        (bs/icon :chevron-bar-right {:size :small})]]])))
+
 (defn- commodities-table
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
         search-term (r/cursor page-state [:search-term])
+        selected (r/cursor page-state [:selected])
+        busy? (busy page-state)
         pattern (make-reaction #(when (and @search-term
                                            (< 2
                                               (count @search-term)))
-                                  (re-pattern @search-term)))]
+                                  (re-pattern @search-term)))
+        prices-selected (r/cursor page-state [:prices-commodity])
+        hide? (make-reaction #(or @selected @prices-selected))]
     (fn []
-      [:table.table.table-striped.table-hover
-       [:thead
-        [:tr
-         [:th "Name"]
-         [:th "Symbol"]
-         [:th "Exchange"]
-         [:th.text-end "Latest Price"]
-         [:th (html/space)]]]
-       [:tbody
-        (if @commodities
-          (->> @commodities
-               (filter (match-commodity @pattern))
-               (drop (* @page-size @page-index))
-               (take @page-size)
-               (map #(commodity-row % page-state))
-               doall)
-          [:tr
-           [:td.text-center {:col-span 5} [bs/spinner]]])]])))
+      [:div {:class (when @hide? "d-none d-lg-block")}
+       [:div
+        [:div.input-group
+         [:span.input-group-text
+          (bs/icon :search {:size :small})]
+         [forms/text-input page-state [:search-term]]
+         [:div.input-group-append {:class (when-not @search-term "d-none")
+                                   :on-click #(swap! page-state dissoc :search-term)}
+          [:button.btn.btn-secondary
+           (bs/icon :x {:size :small})]]]]
+       [:table.table.table-striped.table-hover
+        [:thead
+         [:tr
+          [:th "Name"]
+          [:th.d-lg-table-cell.d-none "Symbol"]
+          [:th.d-lg-table-cell.d-none "Exchange"]
+          [:th.d-lg-table-cell.d-none.text-end "Latest Price"]
+          [:th (html/space)]]]
+        [:tbody
+         (if @commodities
+           (->> @commodities
+                (filter (match-commodity @pattern))
+                (drop (* @page-size @page-index))
+                (take @page-size)
+                (map #(commodity-row % page-state))
+                doall)
+           [:tr
+            [:td.text-center {:col-span 5} [bs/spinner]]])]]
+       [pagination page-state]
+       [bs/busy-button {:html {:class "btn-primary"
+                               :title "Click here to add a new commodity."
+                               :on-click (fn []
+                                           (swap! page-state
+                                                  assoc
+                                                  :selected
+                                                  {:entity-id (:id @current-entity)
+                                                   :type "stock"
+                                                   :exchange "nyse"})
+                                           (html/set-focus "type"))}
+                        :busy? busy?
+                        :icon :plus
+                        :caption "Add"
+                        :disabled? selected}]])))
 
 (defn- delete-price
   [price page-state]
@@ -202,22 +284,6 @@
                                      :on-click #(delete-price price page-state)}
       (bs/icon :x-circle {:size :small})]]]])
 
-(defn- init-price-loading
-  [page-state]
-  (let [end (t/local-date (inc (t/year (t/today))) 1 1)]
-    (load-in-chunks
-     {:start (t/minus- end (t/years 10))
-      :end end
-      :interval (t/years 1)
-      :ctl-chan (:prices-ctl-chan @page-state)
-      :fetch-fn (fn [date-range callback-fn]
-                  (prices/search {:trade-date date-range
-                                  :commodity-id (get-in @page-state [:prices-commodity :id])}
-                                 callback-fn
-                                 (notify/danger-fn "Unable to fetch prices: %s")))
-      :receive-fn #(swap! page-state update-in [:prices] (fnil into []) %)
-      :finish-fn #(swap! page-state assoc :all-prices-fetched? true)})))
-
 (defn- price-list
   [page-state]
   (let [prices (r/cursor page-state [:prices])
@@ -225,9 +291,8 @@
         all-prices-fetched? (r/cursor page-state [:all-prices-fetched?])
         ctl-chan (r/cursor page-state [:prices-ctl-chan])
         busy? (busy page-state)]
-    (init-price-loading page-state)
     (fn []
-      [:div.card
+      [:div.card {:class (when-not @commodity "d-none")}
        [:div.card-header [:strong (str (:name @commodity) " Prices")]]
        [:div#prices-container {:style {:max-height "40em" :overflow "auto"}}
         [:table.table.table-striped.table-hover
@@ -301,7 +366,7 @@
   (let [price (r/cursor page-state [:selected-price])
         busy? (busy page-state)]
     (fn []
-      [:div.card.mt-2
+      [:div.card.mt-2 {:class (when-not @price "d-none")}
        [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
        [:div.card-body
         [forms/date-field price [:trade-date]]
@@ -321,63 +386,22 @@
                          :busy? busy?}]]])))
 
 (defn- index []
-  (let [page-state (r/atom {:page-size 16
+  (let [page-state (r/atom {:page-size 10
                             :page-index 0
-                            :prices-ctl-chan (chan)})
-        selected (r/cursor page-state [:selected])
-        commodities (r/cursor page-state [:commodities])
-        search-term (r/cursor page-state [:search-term])
-        total (r/cursor page-state [:total])
-        page-size (r/cursor page-state [:page-size])
-        prices-commodity (r/cursor page-state [:prices-commodity])
-        selected-price (r/cursor page-state [:selected-price])
-        busy? (busy page-state)]
+                            :prices-ctl-chan (chan)})]
     (load-commodities page-state)
     (add-watch current-entity ::index (fn [& _]
                                         (load-commodities page-state)))
     (fn []
-      [:div.mt-5
-       [:div.row
-        [:div.col
-         [:h1 "Commodities"]]
-        [:div.col
-         [:div.input-group
-          [:span.input-group-text
-           (bs/icon :search {:size :small})]
-          [forms/text-input page-state [:search-term]]
-          [:div.input-group-append {:class (when-not @search-term "d-none")
-                                    :on-click #(swap! page-state dissoc :search-term)}
-           [:button.btn.btn-secondary
-            (bs/icon :x {:size :small})]]]]]
+      [:<>
+       [:h1.mt-3 "Commodities"]
        [:div.row
         [:div.col-md-8
-         [commodities-table page-state]
-         (when (and (seq @commodities)
-                    (> @total @page-size)
-                    (not @search-term))
-           [bs/pagination page-state])
-         [bs/busy-button {:html {:class "btn-primary"
-                                 :title "Click here to add a new commodity."
-                                 :on-click (fn []
-                                             (swap! page-state
-                                                    assoc
-                                                    :selected
-                                                    {:entity-id (:id @current-entity)
-                                                     :type "stock"
-                                                     :exchange "nyse"})
-                                             (html/set-focus "type"))}
-                          :busy? busy?
-                          :icon :plus
-                          :caption "Add"
-                          :disabled? selected}]]
-        (when @prices-commodity
-          [:div.col-md-4
-           [price-list page-state]
-           (when @selected-price
-             [price-form page-state])])
-        (when @selected
-          [:div.col-md-4
-           [commodity-form page-state]])]])))
+         [commodities-table page-state]]
+        [:div.col-md-4
+         [commodity-form page-state]
+         [price-list page-state]
+         [price-form page-state]]]])))
 
 (secretary/defroute "/commodities" []
   (swap! app-state assoc :page #'index))
