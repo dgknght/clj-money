@@ -79,7 +79,7 @@
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
-            [lein-sass "0.4.0"]
+            [lein-sass "0.5.0"]
             [lein-cljfmt "0.7.0"]
             [lein-figwheel "0.5.16"]]
   :sass {:src "resources/sass"
