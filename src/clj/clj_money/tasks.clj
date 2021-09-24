@@ -2,6 +2,7 @@
   (:require [clojure.tools.cli :refer [parse-opts]]
             [clojure.string :as string]
             [clojure.edn :as edn]
+            [clojure.java.shell :refer [sh]]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
@@ -209,3 +210,6 @@
       (doseq [{:keys [name user-tags]} tags
               account (get-in accounts [name])]
         (accounts/update (assoc account :user-tags user-tags))))))
+
+(defn compile-sass []
+  (println (:out (sh "resources/compile-sass.sh"))))

@@ -79,23 +79,16 @@
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
-            [lein-sass "0.5.0"]
             [lein-cljfmt "0.7.0"]
             [lein-figwheel "0.5.16"]]
-  :sass {:src "resources/sass"
-         :output-directory "resources/public/css"}
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
-  :main clj-money.web.server
   :aot [clj-money.web.server]
   :clean-targets ^{:protect false} [:target-path
                                     [:cljsbuild :builds :app :compiler :output-dir]
                                     [:cljsbuild :builds :app :compiler :output-to]]
   :source-paths ["src/clj" "src/cljc"]
   :resource-paths ["resources" "target/cljsbuild"]
-
-  :minify-assets {:assets
-                  {"resources/public/css/clj-money.min.css" "resources/public/css/clj-money.css"}}
 
   :cljsbuild {:builds [{:id :production
                         :source-paths ["src/cljs" "src/cljc"]
@@ -123,6 +116,7 @@
             "chunk-file"                    ["run" "-m" "clj-money.import.gnucash/chunk-file"]
             "seed"                          ["run" "-m" "clj-money.seed/seed"]
             "generate-transactions"         ["run" "-m" "clj-money.seed/generate-transactions"]
+            "sass"                          ["run" "-m" "clj-money.tasks/compile-sass"]
             "recalc"                        ["run" "-m" "clj-money.tasks/recalc"]
             "migrate-account"               ["run" "-m" "clj-money.tasks/migrate-account"]
             "export-user-tags"              ["run" "-m" "clj-money.tasks/export-user-tags"]
@@ -156,5 +150,6 @@
                             :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
                             :site-protocol "https"
                             :site-host "www.mymoney.com"}}
-            :uberjar {:hooks [leiningen.sass]
-                      :prep-tasks ["compile" ["cljsbuild" "once"]]}})
+            :uberjar {:prep-tasks ["compile"
+                                   ["cljsbuild" "once"]
+                                   "sass"]}})
