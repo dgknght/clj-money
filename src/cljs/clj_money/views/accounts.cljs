@@ -801,10 +801,17 @@
                ::index
                (fn [_ _ _ accts]
                  (swap! page-state
-                        assoc
-                        :expanded #{}
-                        :filter-tags #{}
-                        :hide-zero-balances? (any-non-zero-balances? accts))))
+                        #(-> %
+                             (dissoc :selected
+                                     :view-account
+                                     :commodities
+                                     :all-items-fetched?
+                                     :items)
+                             (assoc
+                               :expanded #{}
+                               :filter-tags #{}
+                               :hide-zero-balances? (any-non-zero-balances? accts))))
+                 (load-commodities page-state)))
     (fn []
       [:div.mt-3.h-100
        [:div.row
