@@ -61,34 +61,23 @@
   (let [bar-width (str (* 96 actual-percent) "%")
         [bar-fill
          line-stroke] (if (< percentage actual-percent)
-                        ["url(#negative-fill)" "var(--white)"]
-                        ["url(#positive-fill)" "var(--primary)"])
-        line-x (str (* 100 percentage) "%")]
-    [:svg.rounded (merge opts {:version "1.1"
+                        ["var(--bs-danger)" "var(--bs-white)"]
+                        ["var(--bs-success)" "var(--bs-primary)"])
+        line-x (str (* 99 percentage) "%")]
+    [:svg (merge opts {:version "1.1"
                        :xmlns "http://www.w3.org/2000/svg"})
-     [:defs
-      [:linearGradient {:id :positive-fill
-                        :x1 0 :y1 0
-                        :x2 0 :y2 1}
-       [:stop {:offset "0%" :stop-color "var(--success)"}]
-       [:stop {:offset "40%" :stop-color "#30c953"}]
-       [:stop {:offset "100%" :stop-color "var(--success)"}]]
-      [:linearGradient {:id :negative-fill
-                        :x1 0 :y1 0
-                        :x2 0 :y2 1}
-       [:stop {:offset "0%" :stop-color "var(--danger)"}]
-       [:stop {:offset "40%" :stop-color "#fa5a6a"}]
-       [:stop {:offset "100%" :stop-color "var(--danger)"}]]]
      [:rect {:x 0
              :y 0
+             :rx "8"
+             :ry "8"
              :width "100%"
              :height "100%"
              :opacity "0.5"
-             :fill "var(--secondary)"
-             :stroke "var(--dark)"
-             :stroke-width 2}]
+             :fill "var(--bs-secondary)"}]
      [:rect {:x 1
              :y 1
+             :rx "8"
+             :ry "8"
              :width bar-width
              :height "94%"
              :fill bar-fill
@@ -98,16 +87,15 @@
              :x2 line-x
              :y2 "100%"
              :stroke line-stroke
-             :stroke-width 2}]
+             :stroke-width 4}]
      [:text {:x 4
-             :y "70%"
-             :font-size "90%"
-             :stroke "var(--light)"
-             :fill "var(--light)"}
-      (str (currency-format actual)
-           " ("
-           (currency-format (- prorated-budget actual))
-           ")")]]))
+               :y "70%"
+               :font-size "90%"
+               :fill "var(--bs-light)"}
+        (str (currency-format actual)
+             " ("
+             (currency-format (- prorated-budget actual))
+             ")")]]))
 
 (defn- remove-monitor
   [{:keys [account-id]} state]
@@ -129,6 +117,9 @@
 
 (defn- monitor
   [{:keys [scope account] :as monitor} state]
+
+  (.log js/console (prn-str {::monitor monitor}))
+
   ^{:key (str "budget-monitor-" (:id account))}
   [:div.d-flex.align-items-start
    [:div.budget-monitor.my-2
