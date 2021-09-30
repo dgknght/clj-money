@@ -30,7 +30,12 @@
 
 (defn home-page []
   [:div.jumbotron.mt-3
-   [:h1.display-5 "clj-money"]
+   [:div.d-flex
+    [:img {:src "/images/logo.svg"
+           :alt "abacus logo"
+           :width 64
+           :height 64}]
+    [:h1.display-5.ms-3 "clj-money"]]
    [:p "This is a double-entry accounting application that aims to be available anywhere."]
    [:a#login.btn.btn-light {:href "/auth/google/start"
                             :title "Click here to sign in with a Google account"}
@@ -93,7 +98,11 @@
   [items {:keys [profile-photo-url]}]
   [:nav.navbar.navbar-expand-lg.navbar-light.bg-light.d-print-none
    [:div.container
-    [:a.navbar-brand {:href "/"} "clj-money"] ; TODO: Get an icon
+    [:a.navbar-brand {:href "/"}
+     [:img {:src "/images/logo.svg"
+            :alt "abacus logo"
+            :width 24
+            :height 24}]]
     (when-let [entity (:name @current-entity)]
       [:a.navbar-brand {:href "#entity-selection"
                         :data-bs-toggle "offcanvas"

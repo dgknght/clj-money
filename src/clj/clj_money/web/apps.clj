@@ -13,7 +13,7 @@
 
    [:meta  {:name "description" :content "Double-entry accounting system"}]
    [:meta  {:name "author" :content "Doug Knight"}]
-   [:link  {:rel "icon" :href "../../favicon.ico"}]
+   [:link  {:rel "icon" :href "images/logo.svg"}]
    [:title "clj-money"]
 
    [:script {:src "/js/bootstrap.min.js"}]
@@ -27,7 +27,11 @@
      [:body.h-100
       [:div#app.h-100
        [:nav.navbar.navbar-expand-lg.navbar-light.bg-light
-        [:div.container "clj-money"]]
+        [:div.container
+         [:img {:src "/images/logo.svg"
+                :alt "abacus logo"
+                :width 24
+                :height 24}]]]
        [:div.container.mt-3
         [:div.d-flex.justify-content-around
          [:div.spinner-border {:role :status}
