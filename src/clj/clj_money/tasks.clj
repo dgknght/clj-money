@@ -204,7 +204,8 @@
           entity (entities/find-by {:user-id (:id user)
                                     :name (:entity opts)})
           _ (assert entity "Entity not found")
-          accounts (group-by :name (accounts/search {:entity-id (:id entity)}))
+          accounts (group-by :name (accounts/search {:entity-id (:id entity)
+                                                     :type "expense"})) ; TODO: Remove this once we start supporting non income and expense accounts in budgets
           tags (edn/read-string (slurp (:input-file opts)))]
 
       (doseq [{:keys [name user-tags]} tags
