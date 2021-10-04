@@ -5,6 +5,7 @@
             [dgknght.app-lib.core :refer [update-in-if
                                      parse-int
                                      uuid]]
+            [dgknght.app-lib.dates :refer [symbolic-comparatives]]
             [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.authorization
              :as auth
@@ -18,7 +19,10 @@
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
-      (select-keys [:account-id :status])
+      (update-in-if [:end-of-period-or-before] unserialize-date) ; TODO: include all posibilities
+      (update-in-if [:end-of-period-or-after] unserialize-date)
+      (symbolic-comparatives :end-of-period)
+      (select-keys [:account-id :status :end-of-period])
       (+scope ::models/reconciliation authenticated)))
 
 (defn- translate-sort
