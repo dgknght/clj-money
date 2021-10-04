@@ -52,7 +52,7 @@
   (if (parse-bool unreconciled)
     (-> criteria
         (dissoc :unreconciled)
-        (assoc [:reconciliation :status] [:or :new nil]))
+        (assoc :reconciliation-id nil))
     criteria))
 
 (defn- extract-criteria
@@ -66,12 +66,11 @@
       (apply-child-inclusion (parse-bool (:include-children params)))
       ensure-dates
       (update-in-if [:reconciliation-id] (comp uuid presence))
+      apply-unreconciled
       (select-keys [:transaction-date
                     :account-id
                     :entity-id
-                    :reconciliation-id
-                    :unreconciled])
-      apply-unreconciled
+                    :reconciliation-id])
       (+scope ::models/transaction-item authenticated)))
 
 (defn- extract-options
