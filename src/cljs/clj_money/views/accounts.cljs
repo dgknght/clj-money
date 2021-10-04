@@ -546,7 +546,6 @@
   [page-state]
   (let [ctl-chan (r/cursor page-state [:ctl-chan])
         all-items-fetched? (r/cursor page-state [:all-items-fetched?])]
-    (trns/init-item-loading page-state)
     (fn []
       [:div.d-flex.flex-column.h-75
        [:div#items-container.flex-grow-1.overflow-auto {:style {:height "0"}}
@@ -564,6 +563,7 @@
         reconciliation (r/cursor page-state [:reconciliation])
         attachments-item (r/cursor page-state [:attachments-item])
         selected-attachment (r/cursor page-state [:selected-attachment])]
+    (trns/init-item-loading page-state)
     (fn []
       (cond
         @transaction         [transaction-form page-state]
