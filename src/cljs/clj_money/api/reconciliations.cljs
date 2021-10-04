@@ -1,6 +1,8 @@
 (ns clj-money.api.reconciliations
   (:refer-clojure :exclude [find update])
-  (:require [dgknght.app-lib.web :refer [serialize-date
+  (:require [dgknght.app-lib.core :refer [update-in-if]]
+            [dgknght.app-lib.dates :refer [nominal-comparatives]]
+            [dgknght.app-lib.web :refer [serialize-date
                                          unserialize-date]]
             [dgknght.app-lib.api :as api]))
 
@@ -11,13 +13,19 @@
 (defn search
   [{:keys [account-id] :as criteria} success-fn error-fn]
   {:pre [account-id]}
-
-  (api/get (api/path :accounts
-                     account-id
-                     :reconciliations)
-           (dissoc criteria account-id)
-           (comp success-fn #(map after-read %))
-           error-fn))
+  (let [prepared-criteria (-> criteria
+                              (update-in-if [:status] name)
+                              (update-in-if [:desc] name)
+                              (nominal-comparatives :end-of-period)
+                              (update-in-if [:end-of-period-or-after] serialize-date)
+                              (update-in-if [:end-of-period-or-before] serialize-date)
+                              (dissoc account-id))]
+    (api/get (api/path :accounts
+                       account-id
+                       :reconciliations)
+             prepared-criteria
+             (comp success-fn #(map after-read %))
+             error-fn)))
 
 (defn find
   [criteria success-fn error-fn]
