@@ -64,9 +64,8 @@
                  (assoc :desc :end-of-period
                         :status :completed))
              #(swap! page-state assoc
-                     :previous-reconciliation (if %
-                                                %
-                                                {:balance 0}))
+                      :previous-reconciliation (or %
+                                                   {:balance 0}))
              (notify/danger-fn "Unable to load the previous reconciliation: %s")))
 
 (defn- finish-reconciliation
