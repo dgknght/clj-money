@@ -86,13 +86,16 @@
 
 (defn load-unreconciled-items
   [page-state]
-  (let [account (:view-account @page-state)]
+  (let [account (:view-account @page-state)
+        criteria {:account-id (:id account)
+                  :transaction-date [:between (:earliest-transaction-date account)
+                                     (:latest-transaction-date account)]
+                  :unreconciled true
+                  :include-children (:include-children? @page-state)}]
     (transaction-items/search
-     {:account-id (:id account)
-      :unreconciled true
-      :include-children (:include-children? @page-state)}
-     #(swap! page-state assoc :items %)
-     (notify/danger-fn "Unable to load the unreconciled items: %s"))))
+      criteria
+      #(swap! page-state assoc :items %)
+      (notify/danger-fn "Unable to load the unreconciled items: %s"))))
 
 (defn- load-attachments
   [page-state]
