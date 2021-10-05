@@ -118,8 +118,6 @@
 (defn- monitor
   [{:keys [scope account] :as monitor} state]
 
-  (.log js/console (prn-str {::monitor monitor}))
-
   ^{:key (str "budget-monitor-" (:id account))}
   [:div.d-flex.align-items-start
    [:div.budget-monitor.my-2
