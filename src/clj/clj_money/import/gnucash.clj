@@ -560,22 +560,14 @@
   (let [trade-date (-> price :time :date parse-date)
         exchange (-> price :commodity :space s/lower-case keyword)
         symbol (-> price :commodity :id)
-        k [:prices exchange symbol]
-        interval (t/months 1)
-        last-trade-date (get-in @state [k])
-        ignore? (when last-trade-date
-                  (t/before? trade-date
-                             (t/minus last-trade-date interval)))]
-    (if ignore?
-      (with-meta {} (merge (meta price) {:ignore? true}))
-      (do
-        (swap! state assoc-in [k] trade-date)
-        (-> price
-            (assoc :trade-date trade-date
-                   :price (-> price :value parse-decimal)
-                   :exchange exchange
-                   :symbol symbol)
-            (dissoc :time :value :commodity :currency))))))
+        k [:prices exchange symbol]]
+    (swap! state assoc-in [k] trade-date)
+    (-> price
+        (assoc :trade-date trade-date
+               :price (-> price :value parse-decimal)
+               :exchange exchange
+               :symbol symbol)
+        (dissoc :time :value :commodity :currency))))
 
 (defmethod ^:private process-record :account
   [account _]
@@ -610,8 +602,8 @@
       (rename-keys {:last-date :end-of-period})
       (assoc :id (s/replace (str (uuid)) #"-" ""))
       (update-in-if [:include-children] parse-bool)
-      (update-in [:end-of-period] (comp seconds-to-date
-                                        parse-int))))
+      (update-in-if [:end-of-period] (comp seconds-to-date
+                                           parse-int))))
 
 (defmulti ^:private refine-trading-transaction
   (fn [transaction]

@@ -32,16 +32,6 @@
   (when-not (empty? values)
     values))
 
-(defn desc-periodic-seq
-  ([end period-like]
-   (lazy-seq (cons end
-                   (desc-periodic-seq (t/minus end period-like)
-                                      period-like))))
-  ([start end period-like]
-   (take-while #(or (t/after? % start)
-                    (t/equal? % start))
-               (desc-periodic-seq end period-like))))
-
 (defmulti update-in-criteria
   (fn [criteria attr _f]
     (when-let [value (get-in criteria [attr])]

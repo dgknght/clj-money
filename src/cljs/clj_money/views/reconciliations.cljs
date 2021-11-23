@@ -1,6 +1,5 @@
 (ns clj-money.views.reconciliations
   (:require [reagent.core :as r]
-            [reagent.format :refer [currency-format]]
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
@@ -76,6 +75,7 @@
 (defn reconciliation-form
   [page-state]
   (let [reconciliation (r/cursor page-state [:reconciliation])
+        account (r/cursor page-state [:view-account])
         previous-balance (r/cursor page-state [:previous-reconciliation :balance])
         item-ids (make-reaction #(->> (:item-refs @reconciliation)
                                       (filter second)
@@ -110,19 +110,19 @@
           [:th {:scope :col} "Previous Balance"]
           [:td.text-end
            (when @previous-balance
-             (currency-format @previous-balance))]]
+             (accounts/format-quantity @previous-balance @account))]]
          [:tr
           [:th {:scope :col} "Reconciled"]
           [:td.text-end
-           (currency-format @reconciled-total)]]
+           (accounts/format-quantity @reconciled-total @account)]]
          [:tr
           [:th {:scope :col} "New Balance"]
           [:td.text-end
-           (currency-format @reconciled-total)]]
+           (accounts/format-quantity @reconciled-total @account)]]
          [:tr {:class (when @balanced? "bg-success text-white")}
           [:th {:scope :col} "Difference"]
           [:td.text-end
-           (currency-format @difference)]]]]
+           (accounts/format-quantity @difference @account)]]]]
        [:div.card-footer
         [:button.btn.btn-success {:on-click #(finish-reconciliation page-state)
                                   :disabled (not @balanced?)}

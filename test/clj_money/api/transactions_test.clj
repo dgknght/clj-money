@@ -94,7 +94,7 @@
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :get (path :api
                                              :transactions
-                                             (serialize-date (t/local-date 2016 2 1))
+                                             "2016-02-01"
                                              (:id transaction)))
                      (add-auth user)
                      app)

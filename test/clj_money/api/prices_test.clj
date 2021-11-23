@@ -96,8 +96,7 @@
         commodity (find-commodity ctx "AAPL")
         response (-> (req/request :get (str (path :api :prices)
                                             "?"
-                                            (map->query-string {:start-date "2016-01-01"
-                                                                :end-date "2016-12-31"
+                                            (map->query-string {:trade-date ["2016-01-01" "2016-12-31"]
                                                                 :commodity-id (:id commodity)})))
                      (add-auth user)
                      app)

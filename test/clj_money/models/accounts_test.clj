@@ -5,7 +5,8 @@
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
+                                            realize
                                             find-entity
                                             find-commodity
                                             find-account]]
@@ -43,29 +44,22 @@
                :type :asset}]})
 
 (deftest select-accounts
-  (let [context (realize select-context)
-        entity-id (-> context :entities first :id)
-        actual (->> (accounts/search {:entity-id entity-id})
-                    (map #(select-keys % [:name
-                                          :type
-                                          :system-tags
-                                          :quantity
-                                          :value
-                                          :entity-id
-                                          :commodity])))
-        expected [{:name "Checking"
-                   :type :asset
-                   :system-tags #{}
-                   :quantity 0M
-                   :value 0M
-                   :entity-id entity-id}
-                  {:name "Credit card"
-                   :type :liability
-                   :system-tags #{}
-                   :quantity 0M
-                   :value 0M
-                   :entity-id entity-id}]]
-    (is (= expected actual) "It returns the correct accounts")))
+  (with-context select-context
+    (let [entity (find-entity "Personal")
+          expected [{:name "Checking"
+                     :type :asset
+                     :system-tags #{}
+                     :quantity 0M
+                     :value 0M
+                     :entity-id (:id entity)}
+                    {:name "Credit card"
+                     :type :liability
+                     :system-tags #{}
+                     :quantity 0M
+                     :value 0M
+                     :entity-id (:id entity)}]]
+      (is (seq-of-maps-like? expected (accounts/search {:entity-id (:id entity)}))
+          "It returns the accounts for the entity"))))
 
 (def ^:private nested-context
   {:users [(factory :user)]

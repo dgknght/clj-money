@@ -1,11 +1,9 @@
 (ns clj-money.components
   (:require [reagent.core :as r]
-            [cljs-time.core :as t]
-            [cljs.core.async :refer [chan <! >! go-loop go]]
+            [cljs.core.async :refer [chan <! >! go-loop go close!]]
             [clj-money.util
              :as util
-             :refer [debounce
-                     desc-periodic-seq]]))
+             :refer [debounce]]))
 
 (defn load-on-scroll
   "Adds load-on-scroll behavior to a component.
@@ -35,12 +33,12 @@
                                  :or {fully-loaded-content "All items loaded."
                                       loading-content "loading..."}}
                                 (r/props this)]
-                            (if @all-items-fetched?
+                            (if all-items-fetched?
                               (reset! message fully-loaded-content)
                               (when (should-load-more? e)
                                 (reset! message loading-content)
                                 (load-fn)
-                                (js/setTimeout #(reset! message (if @all-items-fetched?
+                                (js/setTimeout #(reset! message (if all-items-fetched?
                                                                   fully-loaded-content
                                                                   partially-loaded-content))
                                                250))))) ; a callback would be nice, but complicated. Let's just show a brief message)))
@@ -52,7 +50,8 @@
                                    (.addEventListener targetElem "scroll" (partial debounced-scroll-listener this))))
         detach-scroll-listener identity]
     (r/create-class
-     {:component-did-mount (fn [this]
+     {:display-name "load-on-scroll"
+      :component-did-mount (fn [this]
                              (attach-scroll-listener this))
       :component-did-update (fn [this]
                               (attach-scroll-listener this))
@@ -61,61 +60,38 @@
       :reagent-render (fn [_]
                         [:span.text-muted @message])})))
 
-(defn- ensure-range
-  [start end ranges]
-  (if (seq ranges)
-    ranges
-    [[start end]]))
-
 (defn load-in-chunks
-  "Loads data in a series of queries based on a range of dates. This works along-side load-on-scroll
-  to provide a stream of items from a large data set.
+  ([input-seq] (load-in-chunks {} input-seq))
+  ([{:keys [chunk-size] :or {chunk-size 50}} input-seq]
+   (let [fetch-ch (chan)  ; accepts incoming search criteria that has passed the gate
+         result-ch (chan) ; accepts results of searches based on criteria
+         ctl-ch (chan)    ; accepts commands that let criteria past the gate (or shuts everything down)
+         count-sought (atom nil)]
 
-  :start      - the start of the time period for which data is to be loaded
-  :end        - the end of the time period for which data is to be loaded
-  :interval   - a clj-time period indicating the duration of the chunked time. Defaults to 6 months
-  :ctl-chan   - an async channel used to trigger the loading of more items
-  :fetch-fn   - a fn that will fetch more items based on a date range
-  :receive-fn - a fn that will handle the items that were fetched
-  :finish-fn  - a fn that will receive notification that no more items are available to be queries"
-  [{:keys [start end ctl-chan fetch-fn receive-fn finish-fn interval]
-    :or {interval (t/months 6)}}]
-  {:pre [start end ctl-chan fetch-fn receive-fn finish-fn interval]}
+     ; use ctl-ch as a gate for dispatching ranges into the fetch channel
+     (go
+       (loop [rng (first input-seq) remaining (rest input-seq)]
+         (if rng
+           (let [cmd (<! ctl-ch)]
+             (case cmd
+               :fetch (do
+                        (reset! count-sought chunk-size)
+                        (go (>! fetch-ch rng)))
+               :fetch-more  (go (>! fetch-ch rng))
+               :quit (close! fetch-ch)))
+           (close! fetch-ch))
+         (when (seq remaining)
+           (recur (first remaining) (rest remaining)))))
 
-  (let [items-chan (chan)]
-
-    ; handle items received on the items channel
-    (go-loop [call-count 0]
-      (when-let [received (<! items-chan)]
-        (receive-fn received)
-        (recur (inc call-count))))
-
-    ; respond to requests for more items by querying
-    ; the service and putting the retrieved items
-    ; on the items channel
-    (go-loop [date-ranges (->> (desc-periodic-seq end interval)
-                               (partition 2 1)
-                               (map (comp #(update-in % [0] t/plus (t/days 1))
-                                          vec
-                                          reverse))
-                               (take-while #(t/before? start (second %)))
-                               (ensure-range start end)
-                               (map #(apply vector :between %)))]
-      (let [action (<! ctl-chan) ; action is either :fetch or the minimum number of items we want to fetch before we pause
-            count-needed (if (number? action)
-                           action
-                           50)]
-        (when (not= :quit action)
-          (fetch-fn (first date-ranges)
-                    #(go
-                       (>! items-chan %)
-                       (when (< (count %)
-                                count-needed)
-                         (>! ctl-chan (- count-needed (count %)))))))
-        (if (and (not= :quit action)
-                 (seq (rest date-ranges)))
-          (recur (rest date-ranges))
-          (finish-fn))))
-
-    ; Get the first batch
-    (go (>! ctl-chan :fetch))))
+     ; take the search results and update the count still sought
+     (go-loop [items (<! result-ch)]
+              (when items
+                (swap! count-sought - (count items))
+                (when (> @count-sought 0)
+                  (go (>! ctl-ch :fetch-more)))
+                (recur (<! result-ch))))
+     
+     ; return the channels so the caller can participate
+     {:fetch-ch fetch-ch
+      :result-ch result-ch
+      :ctl-ch ctl-ch})))

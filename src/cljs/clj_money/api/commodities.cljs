@@ -13,7 +13,10 @@
 
 (defn- after-read
   [commodity]
-  (update-in-if commodity [:most-recent-price :trade-date] unserialize-date))
+  (-> commodity
+      (update-in-if [:earliest-price] unserialize-date)
+      (update-in-if [:latest-price] unserialize-date)
+      (update-in-if [:most-recent-price :trade-date] unserialize-date)))
 
 (defn select
   ([success-fn error-fn]

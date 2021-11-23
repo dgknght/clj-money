@@ -1,12 +1,14 @@
 (ns clj-money.import
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.set :refer [rename-keys]]
             [clojure.string :as string]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [<!! >!! chan go] :as async]
+            [clojure.core.async :refer [<! >! chan go pipe sliding-buffer] :as async]
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.predicates :refer [last-day-of-the-month?]]
+            [stowaway.core :refer [tagged?]]
             [stowaway.implicit :refer [with-storage
                                        with-transacted-storage]]
             [dgknght.app-lib.validation :as v]
@@ -112,7 +114,6 @@
 
 (defn- import-budget
   [context budget]
-  (log/debugf "importing budget %s" (prn-str budget))
   (let [to-create (prepare-budget budget context)]
     (try
       (log/infof "imported budget %s"
@@ -195,7 +196,6 @@
 
 (defmethod ^:private import-transaction :buy
   [{:keys [accounts] :as context} transaction]
-  (log/debug "import buy transaction " (prn-str transaction))
   (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
         purchase {:commodity-id (->> context
                                      :commodities
@@ -223,7 +223,6 @@
 
 (defmethod ^:private import-transaction :sell
   [{:keys [accounts] :as context} transaction]
-  (log/debug "import sell transaction " (prn-str transaction))
   (let [[fee fee-account-id] (inv-transaction-fee-info context transaction :sell)
         sale {:commodity-id (->> context
                                  :commodities
@@ -247,7 +246,6 @@
 (defmethod ^:private import-transaction :transfer
   [{:keys [accounts] :as context}
    {:keys [from-account-id to-account-id] :as transaction}]
-  (log/debug "import transfer transaction " (prn-str transaction))
   (let [from-commodity-account (accounts/find (accounts from-account-id))
         from-account (accounts/find (:parent-id from-commodity-account))
         to-commodity-account (accounts/find (accounts to-account-id))
@@ -297,40 +295,13 @@
           images)
      source-type]))
 
-(def ^:private reportable-record-types
-  #{:commodity :price :account :transaction :scheduled-transaction :budget})
-
-(defn- report-progress?
-  [record]
-  (-> record
-      meta
-      :record-type
-      reportable-record-types))
-
-(defn- inc-progress
-  [xf]
-  (fn
-    ([context] (xf context))
-    ([context record]
-     (if (report-progress? record)
-       (xf
-         (update-in context [:progress
-                             (-> record meta :record-type)
-                             :imported]
-                    (fnil inc 0))
-
-         record)
-       (xf context record)))))
-
 (defmulti import-record*
   (fn [_ record]
     (-> record meta :record-type)))
 
 (defmethod import-record* :declaration
-  [context {:keys [record-type record-count]}]
-  (assoc-in context
-            [:progress record-type :total]
-            record-count))
+  [context _]
+  context)
 
 (defmethod import-record* :account
   [{:keys [accounts] :as context}
@@ -459,22 +430,6 @@
                   (report-error context (.getMessage e) (ex-data e))))
            record)))))
 
-(defn- notify-progress
-  [progress-chan]
-  (let [last-progress (atom nil)]
-    (fn
-      ([context]
-       context)
-      ([{:keys [progress] :as context} _]
-       (if (= progress @last-progress)
-         context
-         (do
-           (>!! progress-chan progress)
-           (reset! last-progress progress)
-           (if (:error progress)
-             (reduced context)
-             context)))))))
-
 (defn- append-child-ids
   [account-id account-children]
   (cons account-id
@@ -510,9 +465,134 @@
                                          ::v/errors]))))))
 
 (defn- process-reconciliations
-  [{:keys [entity] :as ctx}]
-  (doseq [recon (recs/search {[:account :entity-id] (:id entity)})]
-    (process-reconciliation recon ctx)))
+  [{:keys [entity] :as ctx} out-chan]
+  (let [reconciliations (recs/search {[:account :entity-id] (:id entity)})
+        progress {:total (count reconciliations)}
+        done (promise)]
+    (go
+      (>! out-chan progress)
+      (->> reconciliations
+           (map #(process-reconciliation % ctx))
+           (map-indexed (fn [i _]
+                          (go
+                            (>! out-chan (assoc progress :completed (+ 1 i))))))
+           doall)
+      (deliver done true))
+    done))
+
+(defn- forward
+  "Returns a transducer that places received values on the specified channel"
+  [c]
+  (fn [xf]
+    (fn
+      ([acc] (xf acc))
+      ([acc v]
+       (go (>! c v))
+       (xf acc v)))))
+
+(defn- classify-progress
+  [progress-type]
+  (fn [xf]
+    (fn
+      ([acc] (xf acc))
+      ([acc record]
+       (xf acc (assoc record :type progress-type))))))
+
+(defmulti update-progress-state
+  (fn [_state record]
+    (if (= ::finished record)
+      :finish
+      (let [record-type (-> record meta :record-type)]
+        (case record-type
+          nil :direct ; this comes from models/transactions or here and is basically ready to go
+          :declaration :init ; this comes from a declaration in the import source indicating the number or records to expect
+          :imported))))) ; this is an imported record
+
+(defmethod update-progress-state :finish
+  [state _record]
+  (assoc state :finished true))
+
+(defmethod update-progress-state :direct
+  [state record]
+  (assoc state (:type record) (dissoc record :type)))
+
+(defmethod update-progress-state :init
+  [state record]
+  (assoc state
+         (:record-type record)
+         (-> record
+             (rename-keys {:record-count :total})
+             (dissoc :record-type)
+             (assoc :completed 0))))
+
+(defmethod update-progress-state :imported
+  [state record]
+  (update-in state
+             [(-> record meta :record-type)
+              :completed]
+             (fnil inc 0)))
+
+(defn- ->progress
+  "Returns a transducer that takes an imported record and converts it
+  into a progress record"
+  []
+  (let [state (atom {})]
+    (fn
+      [xf]
+      (fn
+        ([acc] (xf acc))
+        ([acc record]
+         (swap! state update-progress-state record)
+         (xf acc @state))))))
+
+(defmulti filter-behavior
+  (fn [record _state]
+    (-> record meta :record-type)))
+
+(defmethod filter-behavior :default
+  [_record _state]
+  :import)
+
+(defmethod filter-behavior :price
+  [{:keys [trade-date] :as price} state]
+  (let [cache-key (select-keys price [:symbol :exchange])
+        last-trade-date (get-in @state [cache-key] (t/local-date 1000 1 1))]
+    (or
+      (when (t/before? last-trade-date
+                       (t/minus trade-date
+                                (t/months 1)))
+        (swap! state assoc cache-key trade-date)
+        :import)
+      :ignore)))
+
+(defn- filter-import
+  "Returns a transducing fn that drops records that can be omitted"
+  []
+  (let [state (atom {})]
+    (fn [xf]
+      (completing
+        (fn [acc record]
+          (case (filter-behavior record state)
+            :import (xf acc record)
+            :ignore (xf acc (vary-meta record assoc :ignore? true))
+            :drop   (xf acc)))))))
+
+; Import steps
+; read input -> stream of records
+; rebalance accounts -> stream of accounts (just counts?)
+; process reconciliations -> stream of (just counts?)
+;
+; source => import record =>
+;                            \
+; imported-chan                => filter-for-progress => ->progress-record =>
+;
+; rebalance-chan                                  => ->progress-record =>  - =>  inc-progress => update-import
+;                                                                         /
+; reconcilations                                  => ->progress-record =>
+
+; The source path does these things
+; 1. import-record accepts the import record, writes the database record, passes on the database record
+; 2. filt
 
 (defn- import-data*
   [import-spec progress-chan]
@@ -521,24 +601,38 @@
         entity (entities/find-or-create user
                                         (:entity-name import-spec))
         wait-promise (promise)
-        out-chan (chan)
-        result-chan (async/transduce (comp import-record
-                                           inc-progress)
-                                     (notify-progress progress-chan)
-                                     {:import import-spec
-                                      :progress {}
-                                      :accounts {}
-                                      :entity entity}
-                                     out-chan)]
+        source-chan (chan)
+        rebalance-chan (chan 1 (classify-progress :account-balance))
+        reconciliations-chan (chan 1 (classify-progress :process-reconciliation))
+        prep-chan (chan (sliding-buffer 1) (->progress))
+        read-source-result-chan (async/transduce
+                                  (comp (filter-import)
+                                        import-record
+                                        (forward prep-chan))
+                                  (fn
+                                    ([ctx] ctx)
+                                    ([ctx record]
+                                     (if (tagged? record :account)
+                                       (assoc-in ctx [:accounts (:id record)] record)
+                                       ctx)))
+                                  {:import import-spec
+                                   :accounts {}
+                                   :entity entity}
+                                  source-chan)]
+    (pipe rebalance-chan prep-chan false)
+    (pipe reconciliations-chan prep-chan false)
+    (pipe prep-chan progress-chan false)
     (go
       (try
-        (let [result (transactions/with-delayed-balancing (:id entity)
-                       (read-source source-type inputs out-chan)
-                       (<!! result-chan))]
-          (process-reconciliations (assoc result
-                                          :earliest-date (settings/get :earliest-partition-date)
-                                          :latest-date (settings/get :latest-partition-date)))
-          (>!! progress-chan (assoc (:progress result) :finished true)))
+        (let [result  (transactions/with-delayed-balancing (:id entity) rebalance-chan
+                        (read-source source-type inputs source-chan)
+                        (<! read-source-result-chan))]
+          (deref
+            (process-reconciliations (assoc result
+                                            :earliest-date (settings/get :earliest-partition-date)
+                                            :latest-date (settings/get :latest-partition-date))
+                                     reconciliations-chan))
+          (>! prep-chan ::finished))
         (finally
           (deliver wait-promise true))))
     {:entity entity

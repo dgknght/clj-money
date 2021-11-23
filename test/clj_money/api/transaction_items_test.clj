@@ -114,8 +114,7 @@
                                             "?"
                                             (map->query-string {:limit 5
                                                                 :unreconciled true
-                                                                :start-date "2017-01-01"
-                                                                :end-date "2017-01-31"})))
+                                                                :transaction-date ["2017-01-01" "2017-01-31"]})))
                      (add-auth user)
                      app)
         body (json/parse-string (:body response) true)]
@@ -124,39 +123,33 @@
 (defn- assert-successful-list
   [[response body]]
   (is (http-success? response))
-  (let [expected [{:transaction-date "2017-01-29"
-                   :description "Kroger"
-                   :quantity 100.0
-                   :polarized-quantity -100.0
-                   :action "credit"}
-                  {:transaction-date "2017-01-22"
-                   :description "Kroger"
-                   :quantity 100.0
-                   :polarized-quantity -100.0
-                   :action "credit"}
-                  {:transaction-date "2017-01-15"
-                   :description "Paycheck"
-                   :quantity 1000.0
-                   :polarized-quantity 1000.0
-                   :action "debit"}
-                  {:transaction-date "2017-01-14"
-                   :description "Kroger"
-                   :quantity 100.0
-                   :polarized-quantity -100.0
-                   :action "credit"}
-                  {:transaction-date "2017-01-01"
-                   :description "Kroger"
-                   :quantity 100.0
-                   :polarized-quantity -100.0
-                   :action "credit"}]
-        actual (mapv #(select-keys % [:transaction-date
-                                      :description
-                                      :quantity
-                                      :polarized-quantity
-                                      :action])
-                     body)]
-    (is (= expected actual)
-        "The correct transaction items are returned in the response")))
+  (is (seq-of-maps-like? [{:transaction-date "2017-01-29"
+                           :description "Kroger"
+                           :quantity 100.0
+                           :polarized-quantity -100.0
+                           :action "credit"}
+                          {:transaction-date "2017-01-22"
+                           :description "Kroger"
+                           :quantity 100.0
+                           :polarized-quantity -100.0
+                           :action "credit"}
+                          {:transaction-date "2017-01-15"
+                           :description "Paycheck"
+                           :quantity 1000.0
+                           :polarized-quantity 1000.0
+                           :action "debit"}
+                          {:transaction-date "2017-01-14"
+                           :description "Kroger"
+                           :quantity 100.0
+                           :polarized-quantity -100.0
+                           :action "credit"}
+                          {:transaction-date "2017-01-01"
+                           :description "Kroger"
+                           :quantity 100.0
+                           :polarized-quantity -100.0
+                           :action "credit"}]
+                         body)
+      "The correct transaction items are returned in the response"))
 
 (defn- assert-blocked-list
   [[response body]]

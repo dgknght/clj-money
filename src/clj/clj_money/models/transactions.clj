@@ -4,49 +4,57 @@
             [clojure.set :refer [difference
                                  rename-keys]]
             [clojure.tools.logging :as log]
+            [clojure.core.async :as a]
             [clj-time.core :as t]
             [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
             [dgknght.app-lib.core :refer [uuid
-                                          deep-contains?
-                                          deep-update-in-if]]
+                                          index-by]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]
             [clj-money.models.lot-transactions :as l-t]
             [clj-money.models.lots :as lots]
-            [clj-money.models.date-helpers :refer [parse-date-criterion
-                                                   available-date-range
-                                                   earliest
-                                                   latest]]
             [clj-money.accounts :refer [polarize-quantity]])
   (:import org.joda.time.LocalDate))
 
 (declare reload)
 
-(defn- no-reconciled-items-changed?
+(defn- no-reconciled-quantities-changed?
   [transaction]
   (let [existing (reload transaction)
-        reconciled (->> (:items existing)
-                        (filter :reconciled?)
-                        (map #(select-keys % [:id :quantity :account-id :action]))
-                        set)
-        ids (->> reconciled
-                 (map :id)
-                 set)
-        incoming (->> transaction
-                      :items
-                      (filter #(ids (:id %)))
-                      (map #(select-keys % [:id :quantity :account-id :action]))
-                      set)]
-    (= incoming reconciled)))
+        submitted (->> (:items transaction)
+                       (filter :id)
+                       (map #(select-keys % [:id :quantity :account-id :action]))
+                       (index-by :id))
+        invalid (->> (:items existing)
+                     (filter :reconciled?)
+                     (map (comp #(hash-map :before %
+                                           :after (submitted (:id %)))
+                                #(select-keys % [:id :quantity :account-id :action])))
+                     (remove #(= (:before %) (:after %))))]
+    (log/warnf "Attempt to change reconciled item(s): %s %s %s"
+               (->> invalid
+                    (map #(assoc % :account (:name (accounts/find (-> % :before :account-id)))))
+                    (into []))
+               submitted
+               existing)
+    (empty? invalid)))
 
-(v/reg-spec no-reconciled-items-changed? {:message "A reconciled item cannot be updated"
-                                          :path [:items]})
+(v/reg-spec no-reconciled-quantities-changed? {:message "A reconciled quantity cannot be updated"
+                                               :path [:items]})
+
+(defn- not-a-trading-transaction?
+  [transaction]
+  (zero? (l-t/count {:transaction-id (:id transaction)})))
+
+(v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
+                                        :path []})
 
 (defn- sum-by
   "Returns the sum of values of the items in the transaction having
@@ -114,7 +122,8 @@
                                       :opt-un [::entity-id
                                                ::memo
                                                ::lot-items])
-                                     no-reconciled-items-changed?
+                                     not-a-trading-transaction?
+                                     no-reconciled-quantities-changed?
                                      transaction-dates-match?))
 
 (def ambient-settings
@@ -122,7 +131,7 @@
 
 (defn- delay-balances?
   [entity-id]
-  (get-in @ambient-settings [entity-id :delay-balances?]))
+  (get-in @ambient-settings [entity-id]))
 
 (defn- remove-empty-strings
   [model & keys]
@@ -230,16 +239,6 @@
   [transaction-id]
   (l-t/search {:transaction-id transaction-id}))
 
-(defn- prepare-criteria
-  [criteria tg]
-  {:pre [(deep-contains? criteria :transaction-date)]}
-  (-> criteria
-      (deep-update-in-if :id #(if (sequential? %)
-                                (map uuid %)
-                                (uuid %)))
-      (deep-update-in-if :transaction-date parse-date-criterion)
-      (tag tg)))
-
 (defn search-items
   "Returns transaction items matching the specified criteria"
   ([criteria]
@@ -247,7 +246,7 @@
   ([criteria options]
    (with-storage (env :db)
      (map after-item-read
-          (storage/select (prepare-criteria criteria ::models/transaction-item)
+          (storage/select (tag criteria ::models/transaction-item)
                           options)))))
 
 (defn- append-items
@@ -376,7 +375,7 @@
    (search criteria {}))
   ([criteria options]
    (with-storage (env :db)
-     (let [transactions (storage/select (prepare-criteria criteria ::models/transaction)
+     (let [transactions (storage/select (tag criteria ::models/transaction)
                                         options)
            items (when (and (:include-items? options)
                             (seq transactions))
@@ -486,8 +485,8 @@
             [new-index new-balance (:transaction-date item)]))))))
 
 (defmulti ^:private account-value
-  (fn [_balance {:keys [tags]}]
-    (get-in tags [:tradable])))
+  (fn [_balance {:keys [system-tags]}]
+    (system-tags :tradable)))
 
 (defmethod ^:private account-value :default
   [balance _account]
@@ -497,11 +496,11 @@
   [balance {:keys [commodity-id
                    earliest-transaction-date
                    latest-transaction-date]}]
-  (let [[earliest latest] (available-date-range)]
+  (when (and earliest-transaction-date latest-transaction-date)
     (if-let [price (first (prices/search {:commodity-id commodity-id
                                           :trade-date [:between
-                                                       (or earliest-transaction-date earliest)
-                                                       (or latest-transaction-date latest)]}
+                                                       earliest-transaction-date
+                                                       latest-transaction-date]}
                                          {:sort [[:trade-date :desc]]
                                           :limit 1}))]
       (* (:price price) balance)
@@ -536,13 +535,13 @@
                      (:name account)
                      balance
                      value
-                     (earliest (:earliest-transaction-date account) as-of)
-                     (latest (:latest-transaction-date account) last-date))
+                     (dates/earliest (:earliest-transaction-date account) as-of)
+                     (dates/latest (:latest-transaction-date account) last-date))
          (accounts/update (-> account
                               (assoc :quantity balance
                                      :value value)
-                              (update-in [:earliest-transaction-date] earliest as-of)
-                              (update-in [:latest-transaction-date] latest last-date))))))))
+                              (update-in [:earliest-transaction-date] dates/earliest as-of)
+                              (update-in [:latest-transaction-date] dates/latest last-date))))))))
 
 (defn migrate-account
   "Moves all transaction items from from-account to to-account and recalculates the accounts"
@@ -570,13 +569,25 @@
        (map :account-id)
        (into #{})))
 
+(defn- apply-account-ids
+  [m entity-id transaction-date account-ids]
+  (reduce (fn [r account-id]
+            (-> r
+                (update-in [entity-id :accounts account-id :earliest-date]
+                           dates/earliest
+                           transaction-date)
+                (update-in [entity-id :accounts account-id :latest-date]
+                           dates/latest
+                           transaction-date)))
+          m
+          account-ids))
+
 (defn- save-delayed-info
   [m entity-id account-ids transaction-date]
   (-> m
-      (update-in [entity-id :delayed-account-ids]
-                 into
-                 account-ids)
-      (update-in [entity-id :earliest-date] earliest transaction-date)))
+      (apply-account-ids entity-id transaction-date account-ids)
+      (update-in [entity-id :earliest-date] dates/earliest transaction-date)
+      (update-in [entity-id :latest-date] dates/latest transaction-date)))
 
 (defn- post-create
   [{:keys [entity-id transaction-date] :as transaction}]
@@ -743,8 +754,8 @@
                                                    (->> (:items validated)
                                                         (map :account-id)
                                                         (into #{})))
-              recalc-base-date (earliest (:transaction-date existing)
-                                         (:transaction-date validated))
+              recalc-base-date (dates/earliest (:transaction-date existing)
+                                               (:transaction-date validated))
               recalc-account-ids (->> (:items validated)
                                       (map :account-id)
                                       (concat dereferenced-account-ids)
@@ -777,10 +788,14 @@
 (defn delete
   "Removes the specified transaction from the system"
   [{:keys [id transaction-date]}]
-  (with-storage (env :db)
-    (let [transaction (find id transaction-date)]
+  (with-transacted-storage (env :db)
+    (let [transaction (find id transaction-date)
+          lot (lots/find-by {[:lot-transaction :transaction-id] id
+                             [:lot-transaction :lot-action] "buy"})]
       (ensure-deletable transaction)
       (storage/delete transaction)
+      (when lot
+        (storage/delete lot))
       (doseq [account-id (extract-account-ids transaction)]
         (recalculate-account account-id (:transaction-date transaction))))))
 
@@ -819,22 +834,27 @@
     :transaction-date (vec (concat [:between] date-range))}))
 
 (defmacro with-delayed-balancing
-  [entity-id & body]
+  [entity-id progress-chan & body]
   `(do
      ; Make a note that balances should not be calculated
      ; for this entity
      (swap! ambient-settings
             assoc
             ~entity-id
-            {:delay-balances? true
-             :delayed-account-ids #{}})
+            {})
      (let [result# (do ~@body)]
        ; Recalculate balances for affected accounts
-       (let [{account-ids# :delayed-account-ids
-              as-of# :earliest-date} (get @ambient-settings ~entity-id)]
-         (with-transacted-storage (env :db)
-           (doseq [account-id# account-ids#]
-             (recalculate-account account-id# as-of#))))
+       (let [accounts# (get-in @ambient-settings [~entity-id :accounts])
+             progress# {:total (count accounts#)
+                        :completed 0}]
+         (a/>!! ~progress-chan progress#)
+         (with-storage (env :db)
+           (doseq [[index# [account-id# {earliest-date# :earliest-date}]] (->> accounts#
+                                                                               (interleave (iterate inc 1))
+                                                                               (partition 2))]
+             (recalculate-account account-id# earliest-date#)
+             (a/>!! ~progress-chan (assoc progress# :completed index#))))
+         (a/close! ~progress-chan))
 
        ; clean up the ambient settings as if we were never here
        (swap! ambient-settings dissoc ~entity-id)

@@ -8,10 +8,8 @@
             [clj-time.coerce :as tc]
             [clj-money.find-in-chunks :as ch]
             [dgknght.app-lib.web :refer [format-date]]
-            [clj-money.util :refer [earliest]]
             [dgknght.app-lib.inflection :refer [humanize]]
-            [clj-money.models.date-helpers :refer [available-date-range
-                                                   earliest-date]]
+            [clj-money.util :refer [earliest]]
             [clj-money.models.accounts :as accounts]
             [clj-money.accounts :refer [nest
                                         unnest
@@ -38,20 +36,22 @@
 (defn- fetch-balances
   ([account-ids as-of] (fetch-balances account-ids as-of {}))
   ([account-ids as-of opts]
-   (ch/find account-ids
-            (merge
-             {:start-date as-of
-              :time-step (t/years 1)
-              :fetch-fn (fn [ids date]
-                          (transactions/search-items
-                           {:account-id ids
-                            :transaction-date [:between
-                                               (t/minus date (t/years 1))
-                                               date]}))
-              :earliest-date (earliest-date) ; TODO: Get earliest date for the entity
-              :id-fn :account-id
-              :find-one-fn (partial last-item :on-or-before as-of)}
-             opts))))
+   (if (seq account-ids)
+     (ch/find account-ids
+              (merge
+                {:start-date as-of
+                 :time-step (t/years 1)
+                 :fetch-fn (fn [ids date]
+                             (transactions/search-items
+                               {:account-id ids
+                                :transaction-date [:between
+                                                   (t/minus date (t/years 1))
+                                                   date]}))
+                 :earliest-date (t/local-date 1900 1 1) ; TODO: Get earliest date for the entity
+                 :id-fn :account-id
+                 :find-one-fn (partial last-item :on-or-before as-of)}
+                opts))
+     {})))
 
 (defn- append-deltas
   [start end accounts]
@@ -116,8 +116,9 @@
 (defn income-statement
   "Returns the data used to populate an income statement report"
   ([entity]
-   (let [[start end] (available-date-range)]
-     (income-statement entity start end)))
+   (income-statement entity
+                     (t/first-day-of-the-month (t/today))
+                     (t/last-day-of-the-month (t/today))))
   ([entity start end]
    (->> (accounts/search {:entity-id (:id entity)
                           :type ["income" "expense"]})
@@ -274,7 +275,8 @@
                  (prices/batch-fetch (->> lots
                                           (map :commodity-id)
                                           set)
-                                     {:as-of as-of})
+                                     {:as-of as-of
+                                      :earliest-date (t/local-date 1900 1 1)}) ; TODO: get this from the entity
                  {})]
     (update-in ctx
                [:lots]
@@ -915,6 +917,7 @@
     aggregate - The method, :by-commodity or :by-account, defaults to :by-commodity"
   [options]
   {:pre [(:entity options)]}
+
   (-> (merge {:as-of (t/today)
               :aggregate :by-commodity}
              options)

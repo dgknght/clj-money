@@ -271,7 +271,7 @@
                          (add-auth user)
                          app
                          parse-json-body))
-        retrieved (trans/search {:transaction-date "2016"
+        retrieved (trans/search {:transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
                                  :entity-id (:entity-id sched-tran)
                                  :description "Paycheck"}
                                 {:include-items? true})]
@@ -368,7 +368,7 @@
                          (add-auth user)
                          app
                          parse-json-body))
-        retrieved (trans/search {:transaction-date "2016"
+        retrieved (trans/search {:transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
                                  :entity-id (:id entity)}
                                 {:include-items? true
                                  :sort [:transaction-date]})]

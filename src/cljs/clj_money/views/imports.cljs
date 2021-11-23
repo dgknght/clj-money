@@ -56,15 +56,15 @@
       [:strong (str "Import " (:entity-name @imp))])))
 
 (defn- progress-row
-  [[progress-type {:keys [total imported]}]]
+  [[progress-type {:keys [total completed]}]]
   ^{:key (str "progress-" (name progress-type))}
   [:tr
    [:td (name progress-type)]
    [:td.text-center
-    (let [perc (* 100 (/ imported total))]
+    (let [perc (* 100 (/ completed total))]
       [:div.progress
        [:div.progress-bar
-        {:aria-valuenow imported
+        {:aria-valuenow completed
          :aria-valuemax total
          :aria-valuemin 0
          :role "progressbar"
@@ -138,7 +138,7 @@
    [:td (:entity-name imp)]
    [:td
     [:span.d-none.d-md-inline (format-date-time (:created-at imp))]
-    [:span.n-md-none (format-date (:created-at imp) "M/d")]]
+    [:span.d-md-none (format-date (:created-at imp) "M/d")]]
    [:td
     [:div.btn-group
      [:button.btn.btn-success.btn-sm {:disabled (:entity-exists? imp)
@@ -182,15 +182,16 @@
                                 "Click here to auto-refresh the page."))
         icon-image (make-reaction #(if @auto-refresh :stop :arrow-repeat))]
     (fn []
-      ; TODO: either don't use busy-button, or change it to allow class, title, and icon to change
-      [bs/busy-button {:html {:class @css-class
-                              :title @title
-                              :on-click (fn []
-                                          (swap! auto-refresh not)
-                                          (when @auto-refresh
-                                            (load-import page-state)))}
-                       :icon @icon-image
-                       :busy? busy?}])))
+      [:button.btn {:type :button
+                    :class @css-class
+                    :title @title
+                    :on-click (fn []
+                                (swap! auto-refresh not)
+                                (when @auto-refresh
+                                  (load-import page-state)))}
+       (if @busy?
+         (bs/spinner {:size :small})
+         (bs/icon @icon-image {:size :small}))])))
 
 (defn- progress-card
   [page-state]
@@ -199,8 +200,8 @@
      [:div.card-header [import-title page-state]]
      [progress-table page-state]
      [:div.card-footer
-      [:button.btn.btn-light.me-2 {:title "Click here to return the list of imports."
-                                   :on-click #(swap! page-state dissoc :active)}
+      [:button.btn.btn-secondary.me-2 {:title "Click here to return the list of imports."
+                                       :on-click #(swap! page-state dissoc :active)}
        (bs/icon-with-text :x "Cancel")]
       [refresh-button page-state]]]))
 

@@ -70,12 +70,12 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [com.github.dgknght/app-lib "0.1.22"]
+                 [com.github.dgknght/app-lib "0.1.30"]
                  [lambdaisland/uri "1.4.54"]
-                 [stowaway "0.1.8" :exclusions [org.clojure/spec.alpha
-                                                org.clojure/clojure
-                                                org.clojure/core.specs.alpha
-                                                org.clojure/tools.logging]]]
+                 [stowaway "0.1.15" :exclusions [org.clojure/spec.alpha
+                                                 org.clojure/clojure
+                                                 org.clojure/core.specs.alpha
+                                                 org.clojure/tools.logging]]]
   :min-lein-version "2.0.0"
   :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
             [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]

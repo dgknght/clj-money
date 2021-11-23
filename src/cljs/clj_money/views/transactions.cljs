@@ -3,7 +3,7 @@
             [clojure.string :as string]
             [clojure.zip :as zip]
             [goog.string :as gstr]
-            [cljs.core.async :refer [>! go]]
+            [cljs.core.async :as a :refer [<! >! go go-loop]]
             [cljs-time.core :as t]
             [reagent.core :as r]
             [reagent.format :refer [currency-format]]
@@ -25,8 +25,10 @@
                                      accounts-by-id]]
             [clj-money.dnd :as dnd]
             [clj-money.util :as util :refer [debounce]]
+            [clj-money.dates :as dates]
             [clj-money.accounts :refer [polarize-quantity
-                                        find-by-path]]
+                                        find-by-path
+                                        format-quantity]]
             [clj-money.transactions :refer [simplify
                                             fullify
                                             can-simplify?
@@ -40,6 +42,10 @@
             [clj-money.api.transactions :as transactions]
             [clj-money.api.attachments :as att]
             [clj-money.api.trading :as trading]))
+
+(defn- fullify-trx
+  [trx]
+  (fullify trx @accounts-by-id))
 
 (defn mode
   ([transaction]
@@ -108,29 +114,39 @@
 
 (defn init-item-loading
   [page-state]
-  (let [account (:view-account @page-state)
-        end (t/last-day-of-the-month (or (:latest-transaction-date account)
-                                         (t/today))) ; This is probably only nil for newly imported entities
-        start (t/first-day-of-the-month (or (:earliest-transaction-date account)
-                                            (t/minus- end (t/months 6))))]
-    (swap! page-state dissoc :items :all-items-fetched?)
-    (load-in-chunks
-     {:start start
-      :end end
-      :ctl-chan (:ctl-chan @page-state)
-      :fetch-fn (fn [date-range callback-fn]
-                  (transaction-items/search
-                   {:account-id (:id account)
-                    :transaction-date date-range}
-                   callback-fn
-                   (notify/danger-fn "Unable to fetch transaction items: %s")))
-      :receive-fn #(swap! page-state update-in [:items] (fnil concat []) %)
-      :finish-fn #(swap! page-state assoc :all-items-fetched? true)})))
+  (let [account (get-in @page-state [:view-account])
+        start (:earliest-transaction-date account)
+        end (:latest-transaction-date account)]
+    (when (and start end)
+      (swap! page-state dissoc :items :all-items-fetched?)
+      (let [{:keys [fetch-ch result-ch ctl-ch]} (->> (dates/desc-ranges start end (t/months 6))
+                                             (map vec)
+                                             load-in-chunks)]
+        (swap! page-state assoc :ctl-chan ctl-ch)
+
+        ; take ranges that passed the gate and look up items
+        ; put them in page-state
+        ; place them on the result-ch so the component can decide if more
+        ; criteria should be processed
+        (go-loop [rng (<! fetch-ch)]
+                 (if rng
+                   (do
+                     (transaction-items/search
+                       {:account-id (:id account)
+                        :transaction-date rng}
+                       (fn [items]
+                         (swap! page-state update-in [:items] (fnil concat []) items)
+                         (go (>! result-ch items)))
+                       (notify/danger-fn "Unable to fetch items: %s"))
+                     (recur (<! fetch-ch)))
+                   (swap! page-state assoc :all-items-fetched? true)))
+        (go (>! ctl-ch :fetch))))))
 
 (defn reset-item-loading
   [page-state]
   (swap! page-state dissoc :items :transaction)
-  (stop-item-loading page-state))
+  (stop-item-loading page-state)
+  (init-item-loading page-state))
 
 (defn- delete-transaction
   [item page-state]
@@ -182,7 +198,8 @@
       [:span.d-md-none (format-date (:transaction-date item) "M/d")]
       [:span.d-none.d-md-inline (format-date (:transaction-date item))]]
      [:td {:style (get-in @styles [(:id item)])} (:description item)]
-     [:td.text-end (currency-format (polarize-quantity item @account))]
+     [:td.text-end (format-quantity (polarize-quantity item @account)
+                                    @account)]
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
         [forms/checkbox-input reconciliation [:item-refs (:id item)] {::forms/decoration ::forms/none}]
@@ -193,7 +210,8 @@
            :unchecked-box)
          {:size :small}))]
      (when-not @reconciliation
-       [:td.text-end.d-none.d-md-table-cell (currency-format (:balance item))])
+       [:td.text-end.d-none.d-md-table-cell (format-quantity (:balance item)
+                                                             @account)])
      (when-not @reconciliation
        [:td
         [:div.btn-group
@@ -410,13 +428,23 @@
 (defn dividend-transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
+        shares (r/cursor transaction [:shares])
+        quantity (r/cursor transaction [:quantity])
+        price (make-reaction #(when (and @shares @quantity)
+                                (decimal// @quantity @shares)))
         commodities (r/cursor page-state [:commodities])]
     (fn []
       [:form {:class (when-not (mode? @transaction ::dividend) "d-none")}
        [forms/date-field transaction [:transaction-date] {:validate [:required]}]
+       [:div.row
+        [:div.col-md-4
        [forms/decimal-field transaction [:quantity] {:validate [:required]
-                                                     :caption "Dividend"}]
-       [forms/decimal-field transaction [:shares] {:validate [:required]}]
+                                                     :caption "Dividend"}]]
+        [:div.col-md-4
+       [forms/decimal-field transaction [:shares] {:validate [:required]}]]
+        [:div.col-md-4.d-flex.flex-column
+         [:span.mb-2 "Est. Price"]
+         [:span.mb-3.ms-2 (when @price (format-decimal @price))]]]
        [forms/typeahead-field
         transaction
         [:commodity-id]
@@ -437,13 +465,23 @@
 (defn trade-transaction-form
   [page-state]
   (let [transaction (r/cursor page-state [:transaction])
+        price (make-reaction #(when (and (:shares @transaction)
+                                         (:value @transaction))
+                                (decimal// (:value @transaction)
+                                           (:shares @transaction))))
         commodities (r/cursor page-state [:commodities])]
     (fn []
       [:form {:class (when-not (mode? @transaction ::trade) "d-none")}
        [forms/date-field transaction [:trade-date] {:validate [:required]}]
        [forms/select-field transaction [:action] (map (juxt name humanize) [:buy :sell]) {}]
-       [forms/decimal-field transaction [:shares] {:validate [:required]}]
-       [forms/decimal-field transaction [:value] {:validate [:required]}]
+       [:div.row
+        [:div.col-md-4
+         [forms/decimal-field transaction [:shares] {:validate [:required]}]]
+        [:div.col-md-4
+         [forms/decimal-field transaction [:value] {:validate [:required]}]]
+        [:div.col-md-4.d-flex.flex-column
+         [:span.mb-2 "Est. Price"]
+         [:span.mb-3.ms-3 (when @price (format-decimal @price))]]]
        [forms/typeahead-field
         transaction
         [:commodity-id]
@@ -456,7 +494,7 @@
                                           (string/includes? (string/lower-case (:symbol %))
                                                             term)))
                              callback)))
-         :caption-fn :symbol
+         :caption-fn #(str (:name %) " (" (:symbol %) ")")
          :value-fn :id
          :find-fn (fn [id callback]
                     (callback (get-in @commodities [id])))}]])))
@@ -470,12 +508,12 @@
    ::dividend #(simplify % account)})
 
 (defn untransformations []
-  {::simple #(fullify % @accounts-by-id)
+  {::simple fullify-trx
    ::full unentryfy
    ::trade #(untradify % {:find-account-by-commodity-id (->> @accounts
                                                              (map (juxt :commodity-id identity)) ; TODO: This will cause errors unless we lookup by parent also
                                                              (into {}))})
-   ::dividend #(fullify % accounts)})
+   ::dividend fullify-trx})
 
 (defmulti save-transaction
   (fn [page-state _callback]
@@ -509,10 +547,9 @@
 
 (defmethod save-transaction ::dividend
   [page-state callback]
-  (let [{:keys [transaction commodities mapped-accounts]} @page-state
+  (let [{:keys [transaction commodities]} @page-state
         commodity (get-in commodities [(:commodity-id transaction)])
-        dividends-account (->> mapped-accounts ; TODO: Need a better way to make sure we have this value
-                               vals
+        dividends-account (->> @accounts ; TODO: Need a better way to make sure we have this value
                                (filter #(= :income (:type %)))
                                (filter #(re-find #"(?i)dividend" (:name %)))
                                first)
@@ -522,7 +559,7 @@
                                                 (:name commodity)
                                                 (:symbol commodity))
                       :other-account-id (:id dividends-account))
-               (fullify mapped-accounts))
+               fullify-trx)
         t2 (-> transaction
                (rename-keys {:quantity :value
                              :transaction-date :trade-date})

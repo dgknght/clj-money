@@ -1,6 +1,7 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count])
-  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+  (:require [clj-time.core :as t]
+            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [dgknght.app-lib.authorization :refer [authorize
                                              +scope]
@@ -26,7 +27,8 @@
   [commodities]
   (if (seq commodities)
     (let [prices (prices/batch-fetch (set (map :id commodities))
-                                     {:transform-fn identity})]
+                                     {:transform-fn identity
+                                      :earliest-date (t/local-date 1900 1 1)})] ; TODO: get this from the entity
       (map #(assoc % :most-recent-price (get-in prices [(:id %)]))
            commodities))
     commodities))

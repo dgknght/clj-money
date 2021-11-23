@@ -31,6 +31,7 @@
             [clj-money.accounts :refer [account-types
                                         find-by-path]]
             [clj-money.state :refer [app-state
+                                     current-entity
                                      accounts
                                      accounts-by-id]]
             [clj-money.views.transactions :as trns]
@@ -294,8 +295,7 @@
 
 (defn- accounts-table
   [page-state]
-  (let [current-entity (r/cursor app-state [:current-entity])
-        selected (r/cursor page-state [:selected])
+  (let [selected (r/cursor page-state [:selected])
         view-account (r/cursor page-state [:view-account])
         hide? (make-reaction #(or @selected @view-account))
         bulk-select (r/cursor page-state [:bulk-edit :account-ids])
@@ -437,7 +437,7 @@
   (let [account-id (get-in @page-state [:view-account :id])]
     (swap! page-state assoc
            :transaction (trns/mode
-                         {:entity-id (get-in @app-state [:current-entity :id])
+                         {:entity-id (:id @current-entity)
                           :transaction-date (t/today)
                           :account-id account-id}
                          ::trns/simple)))
@@ -463,6 +463,7 @@
         (bs/icon-with-text :check-box "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
                                                     (trns/stop-item-loading page-state)
+                                                    (go (>! (:ctl-chan @page-state) :quit))
                                                     (swap! page-state dissoc
                                                            :view-account
                                                            :items
@@ -542,20 +543,46 @@
                                       :title "Click here to cancel this transaction"}
          (bs/icon-with-text :x "Cancel")]]])))
 
+(defn- check-all-items
+  ([page-state]  (check-all-items page-state true))
+  ([page-state checked?]
+  (swap! page-state
+         update-in
+         [:reconciliation :item-refs]
+         merge
+         (->> (:items @page-state)
+              (map (comp #(vector % checked?)
+                         :id))
+              (into {})))))
+
+(defn- uncheck-all-items
+  [page-state]
+  (check-all-items page-state false))
+
 (defn- transaction-item-list
   [page-state]
   (let [ctl-chan (r/cursor page-state [:ctl-chan])
-        all-items-fetched? (r/cursor page-state [:all-items-fetched?])]
+        all-items-fetched? (r/cursor page-state [:all-items-fetched?])
+        reconciliation (r/cursor page-state [:reconciliation])]
     (fn []
-      [:div.d-flex.flex-column.h-75
-       [:div#items-container.flex-grow-1.overflow-auto {:style {:height "0"}}
-        [trns/items-table page-state]]
-       [:div.d-flex.mt-2 {:style {:flex :none}}
-        [account-buttons page-state]
-        [:span.ms-auto
-         [load-on-scroll {:target "items-container"
-                          :all-items-fetched? all-items-fetched?
-                          :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
+      [:<>
+       [:div.d-flex.flex-row-reverse {:class (when-not @reconciliation "d-none")}
+        [:button.btn.btn-light {:on-click #(check-all-items page-state)
+                                :title "Click here to mark all items as reconciled"}
+         (bs/icon :check-box {:size :small})]
+        [:button.btn.btn-light.ms-2 {:on-click #(uncheck-all-items page-state)
+                                     :title "Click here to mark all items as unreconciled"}
+         (bs/icon :unchecked-box {:size :small})]]
+
+       [:div.d-flex.flex-column.h-75
+        [:div#items-container.flex-grow-1.overflow-auto {:style {:height "0"}}
+         [trns/items-table page-state]]
+        [:div.d-flex.mt-2 {:style {:flex :none}}
+         [account-buttons page-state]
+         [:span.ms-auto
+          [load-on-scroll {:target "items-container"
+                           :all-items-fetched? @all-items-fetched?
+                           :load-fn #(go (>! @ctl-chan :fetch))}]]]]])))
 
 (defn- currency-account-details
   [page-state]
@@ -797,7 +824,7 @@
         selected (r/cursor page-state [:selected])
         hide-funnel? (make-reaction #(or @selected @view-account))]
     (load-commodities page-state)
-    (add-watch accounts
+    (add-watch current-entity
                ::index
                (fn [_ _ _ accts]
                  (swap! page-state

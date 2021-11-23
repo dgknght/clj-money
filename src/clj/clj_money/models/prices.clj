@@ -8,15 +8,14 @@
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
-            [dgknght.app-lib.core :refer [deep-update-in-if
-                                     assoc-if]]
+            [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.dates :as dates]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.commodities :as commodities]
-            [clj-money.models.date-helpers :refer [earliest-date
-                                                   parse-date-criterion]]))
+            [clj-money.models.accounts :as accounts]))
 
 (declare find-by)
 
@@ -42,13 +41,13 @@
 (defn- after-read
   [price & _]
   (when price
-    (tag price ::models/price)))
+    (-> price
+        (tag ::models/price)
+        (vary-meta assoc :original-values price))))
 
 (defn- prepare-criteria
   [criteria]
-  (-> criteria
-      (deep-update-in-if :trade-date parse-date-criterion)
-      (tag ::models/price)))
+  (tag criteria ::models/price))
 
 (defn search
   ([criteria]
@@ -90,30 +89,95 @@
         (t/before? trade-date earliest-price))
     (assoc :earliest-price trade-date)))
 
+(defn- update-commodity
+  [{:keys [commodity-id trade-date] :as price}]
+  (when-let [commodity (commodities/find commodity-id)]
+    (commodities/update (apply-date-to-commodity commodity trade-date)))
+  price)
+
+; TODO: Move this to another namespace?
+(defn update-accounts
+  ([price] (update-accounts price {}))
+  ([{:keys [commodity-id trade-date price] :as p}
+    {:keys [skip-account-update?
+            price-as-of]}]
+   {:pre [(:commodity-id p) (:trade-date p)]}
+
+   (when-not (or skip-account-update?
+                 (v/has-error? price))
+     (let [criteria (if price-as-of
+                      {:commodity-id commodity-id
+                       :price-as-of price-as-of}
+                      [:and
+                       {:commodity-id commodity-id}
+                       [:or
+                        {:price-as-of nil}
+                        {:price-as-of [:< trade-date]}]])]
+       (->> (accounts/search criteria)
+            (map (comp accounts/update
+                       (fn [a]
+                         (let [after (assoc a
+                                            :price-as-of trade-date
+                                            :value (* (get-in a [:quantity] 0M)
+                                                      price))]
+                           after))))
+            doall)))
+   p))
+
 (defn create
-  [{:keys [trade-date commodity-id] :as price}]
-  (with-transacted-storage (env :db)
-    (with-validation price ::new-price
-      (when-let [commodity (commodities/find commodity-id)]
-        (commodities/update (apply-date-to-commodity commodity trade-date)))
-      (-> price
-          before-save
-          storage/create
-          after-read))))
+  ([price] (create price {}))
+  ([price opts]
+   (with-transacted-storage (env :db)
+     (with-validation price ::new-price
+       (-> price
+           before-save
+           storage/create
+           after-read
+           update-commodity
+           (update-accounts opts))))))
+
+(defn- update-meta-for-change
+  [after before]
+  (when-not (t/equal? (:trade-date after)
+                      (:trade-date before))
+    (update-accounts after {:price-as-of (:trade-date before)})
+    (update-commodity after))
+  after)
+
+(def ^:private working-trade-date
+  (some-fn #(-> %
+                meta
+                :original-values
+                :trade-date)
+           :trade-date))
 
 (defn update
   [price]
-  (with-storage (env :db)
+  (with-transacted-storage (env :db)
     (with-validation price ::existing-price
-      (-> price
-          before-save
-          storage/update) ; TODO: might need to delete from the old location
-      (find price))))
+      (let [before (find-by {:id (:id price)
+                             :trade-date (working-trade-date price)})]
+        (-> price
+            before-save
+            (update-meta-for-change before)
+            storage/update)
+        (find price)))))
+
+(defn- update-meta-with-previous
+  [{:keys [commodity-id trade-date] :as price}]
+  (some-> (find-by {:commodity-id commodity-id
+                    :trade-date [:< trade-date]}
+                   {:sort [[:trade-date :desc]]})
+          (update-accounts {:price-as-of trade-date})
+          update-commodity)
+  price)
 
 (defn delete
   [price]
-  (with-storage (env :db)
-    (storage/delete price)))
+  (with-transacted-storage (env :db)
+    (-> price
+        update-meta-with-previous
+        storage/delete)))
 
 (defn most-recent
   ([commodity]
@@ -155,6 +219,8 @@
                                (settings/get :latest-partition-date)]}
         earliest (find-by criteria {:sort [[:trade-date :asc]]})
         latest (find-by criteria {:sort [[:trade-date :desc]]})]
+    (when latest
+      (update-accounts latest))
     (when (and earliest latest)
       (commodities/update (assoc commodity
                                  :earliest-price (:trade-date earliest)
@@ -163,7 +229,7 @@
 (defn batch-fetch
   ([commodity-ids] (batch-fetch commodity-ids {}))
   ([commodity-ids opts]
-   (let [as-of (or (:as-of opts (t/today)))]
+   (let [as-of (or (:as-of opts) (t/today))]
      (ch/find commodity-ids
               (merge
                {:start-date as-of
@@ -175,7 +241,6 @@
                                           [:<= %2]]})
                 :transform-fn :price
                 :id-fn :commodity-id
-                :earliest-date (earliest-date)
                 :find-one-fn (fn [prices]
                                (apply max-key
                                       (comp tc/to-long :trade-date)

@@ -1,5 +1,3 @@
-#!/bin/zsh
-
 session=clj-money
 
 tmux new-session -d -s $session

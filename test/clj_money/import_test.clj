@@ -1,12 +1,13 @@
 (ns clj-money.import-test
   (:refer-clojure :exclude [update])
-  (:require [clojure.test :refer [deftest is use-fixtures testing]]
+  (:require [clojure.test :refer [deftest is use-fixtures testing assert-expr do-report]]
             [clojure.java.io :as io]
             [clojure.core.async :refer [go-loop <! chan]]
             [clojure.string :as s]
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [stowaway.core :as storage]
+            [dgknght.app-lib.core :refer [safe-nth]]
             [dgknght.app-lib.test]
             [clj-money.io :refer [read-bytes
                                   file-ext
@@ -69,42 +70,6 @@
      :imports [{:entity-name "Personal"
                 :image-ids (map :original-filename images)
                 :options {:lt-capital-gains-account-id "Investment/Long-Term Gains"}}]}))
-
-(def expected-updates
-  (concat [{:commodity   {:total 2}} ; declare commodities
-           {:commodity   {:total 2}
-            :account     {:total 9}} ; declare accounts
-           {:commodity   {:total 2}
-            :account     {:total 9}
-            :transaction {:total 6}} ; declare transactions
-           {:commodity {:total 2
-                        :imported 1}
-            :account {:total 9}
-            :transaction {:total 6}} ; import a commodity
-           {:commodity {:total 2
-                        :imported 2} ; import a commodity
-            :account {:total 9}
-            :transaction {:total 6}}]
-          (map (fn [i] {:commodity {:total 2         ; import accounts
-                                    :imported 2}
-                        :account {:total 9
-                                  :imported (+ 1 i)}
-                        :transaction {:total 6}})
-               (range 9))
-          (map (fn [i] {:commodity {:total 2         ; import transactions
-                                    :imported 2}
-                        :account {:total 9
-                                  :imported 9}
-                        :transaction {:total 6
-                                      :imported (+ 1 i)}})
-               (range 6))
-          [{:commodity {:total 2
-                        :imported 2}
-            :account {:total 9
-                      :imported 9}
-            :transaction {:total 6
-                          :imported 6}
-            :finished true}]))                        ; indicate we're finished
 
 (def ^:private expected-inc-stmt
   [{:caption "Income"
@@ -182,22 +147,92 @@
   (let [updates (atom [])
         progress-chan (chan)
         _ (go-loop [p (<! progress-chan)]
-            (swap! updates #(conj % p))
-            (recur (<! progress-chan)))
+                   (when p
+                     (swap! updates #(conj % p))
+                     (recur (<! progress-chan))))
         {:keys [entity wait]} (import-data imp progress-chan {:atomic? true})]
     @wait
     {:entity entity
      :updates @updates}))
 
+(defmethod assert-expr 'includes-progress-notification?
+  [msg form]
+  (let  [k (safe-nth form 1)
+         expected (safe-nth form 2)
+         coll  (safe-nth form 3)]
+    `(let  [found# (->> ~coll
+                        (filter #(= ~expected
+                                    (get-in % [~k])))
+                        first)]
+       (do-report  (merge  {:expected ~expected
+                            :message ~msg
+                            :actual found#}
+                          (if found#
+                            {:type :pass}
+                            {:type :fail
+                             :actual (->> ~coll
+                                          (map #(get-in % [~k]))
+                                          (filter identity)
+                                          (into []))}))))))
+
+(defn- includes-progress-records
+  [updates]
+  (is (includes-progress-notification?
+        :commodity
+        {:total 2
+         :completed 0}
+        updates)
+      "The initial commodity progress is reported")
+  (is (includes-progress-notification?
+        :commodity
+        {:total 2
+         :completed 2}
+        updates)
+      "The final commodity progress is reported")
+  (is (includes-progress-notification?
+        :account
+        {:total 9
+         :completed 0}
+        updates)
+      "The initial account progress is reported")
+  (is (includes-progress-notification?
+        :account
+        {:total 9
+         :completed 9}
+        updates)
+      "The final account progress is reported")
+  (is (includes-progress-notification?
+        :transaction
+        {:total 6
+         :completed 0}
+        updates)
+      "The initial transaction progress is reported")
+  (is (includes-progress-notification?
+        :transaction
+        {:total 6
+         :completed 6}
+        updates)
+      "The final transaction progress is reported")
+  (is (includes-progress-notification?
+        :account-balance
+        {:total 4
+         :completed 0}
+        updates)
+      "The initial account balance progress is reported")
+  (is (includes-progress-notification?
+        :account-balance
+        {:total 4
+         :completed 4}
+        updates)
+      "The final account balance progress is reported"))
+
 (defn- test-import
   [context]
   (let [imp (find-import context "Personal")
-        {:keys [entity updates]} (execute-import imp)
+        {:keys [entity] :as result} (execute-import imp)
         all-accounts (accounts/search {:entity-id (:id entity)})]
     (is (= "Personal" (:name entity)) "It returns the new entity")
-    (is (= expected-updates updates)
-        "The import record is updated at each insert")
-
+    (includes-progress-records (:updates result))
     (testing "the correct accounts are created"
       (let [actual (->> all-accounts
                         (sort-by :name)
@@ -287,8 +322,7 @@
       (swap! updates #(conj % p))
       (recur (<! channel)))
     (import-data imp channel {:atomic? true})
-    (is (= (set expected-updates) (set @updates))
-        "The import record is updated at each insert")
+    (includes-progress-records @updates)
     (shutdown-agents)))
 
 (deftest import-a-budget
@@ -465,7 +499,7 @@
                                            :reconciled?)
                                   (transactions/search-items
                                    {:account-id (:id ira-aapl)
-                                    :transaction-date "2015"}
+                                    :transaction-date [:between> (t/local-date 2015 1 1) (t/local-date 2016 1 1)]}
                                    {:sort [:index]}))
             expected-fee-items [{:transaction-date (t/local-date 2015 5 1)
                                  :description "Sell 100 shares of AAPL at 6.000"
@@ -476,7 +510,7 @@
                                  :action :debit
                                  :index 0}]
             actual-fee-items (->> {:account-id (:id inv-exp)
-                                   :transaction-date "2015"}
+                                   :transaction-date [:between> (t/local-date 2015 1 1) (t/local-date 2016 1 1)]}
                                   transactions/search-items
                                   (map #(dissoc %
                                                 :created-at
@@ -494,9 +528,9 @@
         (is (seq-of-maps-like? expected-ira-items actual-ira-items)
             "The IRA account has the correct items")))
 
-    #_(testing "account balances are calculated correctly"
-        (is (= 0M (:balance four-o-one-k)) "All shares have been transfered out of 401k")
-        (is (= 200M (:balance ira)) "Shares have been transfered into IRA")))) ; TODO Adjust this to account for value, not shares
+    (testing "account balances are calculated correctly"
+      (is (= 0M (:quantity four-o-one-k)) "All shares have been transfered out of 401k")
+      (is (= 590M (:quantity ira)) "Shares have been transfered into IRA"))))
 
 (defmulti comparable
   (fn [x]
@@ -529,7 +563,7 @@
                                     :name "Checking"})
         salary (accounts/find-by {:entity-id (:id entity)
                                   :name "Salary"})]
-    (is (= {:total 1 :imported 1}
+    (is (= {:total 1 :completed 1}
            (:scheduled-transaction (last updates)))
         "The progress is updated for the scheduled transactions")
     (is (= [{:entity-id (:id entity)

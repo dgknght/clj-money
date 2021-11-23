@@ -18,22 +18,20 @@
       (update-in [:action] keyword)))
 
 (defn- prepare-criteria
-  [{:keys [transaction-date] :as criteria}]
+  [criteria]
   (-> criteria
-      (assoc :start-date (serialize-date (nth transaction-date 1))
-             :end-date (serialize-date (nth transaction-date 2)))
-      (dissoc :transaction-date)))
+      (dissoc :account-id)
+      (update-in [:transaction-date] #(map serialize-date %))))
 
 (defn search
   [criteria success-fn error-fn]
-  {:pre [(contains? criteria :account-id)]}
+  {:pre [(:account-id criteria)
+         (:transaction-date criteria)]}
 
   (api/get (api/path :accounts
                      (:account-id criteria)
                      :transaction-items)
-           (-> criteria
-               (dissoc :account-id)
-               prepare-criteria)
+           (prepare-criteria criteria)
            (comp success-fn
                  #(map after-read %))
            error-fn))

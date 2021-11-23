@@ -28,29 +28,37 @@
                                  1)
                               items)]
     (-> transaction
-        (assoc :other-account-id (:account-id other-item)
-               :account-id (:account-id account-item)
-               :quantity (polarize-quantity account-item ref-account))
-        (dissoc :items))))
+            (assoc :other-account-id (:account-id other-item)
+                   :other-item-id (:id other-item)
+                   :account-id (:account-id account-item)
+                   :item-id (:id account-item)
+                   :quantity (polarize-quantity account-item ref-account))
+            (dissoc :items))))
 
 (defn fullify
   "Accepts a simplified transaction (with one quantity, one debit
   account, and one credit account) and returns a standard
   transaction (with line items)"
-  [{:keys [quantity account-id other-account-id] :as transaction} find-account-fn]
+  [{:keys [quantity account-id other-account-id item-id other-item-id] :as transaction} find-account-fn]
   {:pre [(:account-id transaction)]}
   (let [account (find-account-fn account-id)
         other-account (find-account-fn other-account-id)
-        item-1 (derive-item quantity account)]
+        item-1 (assoc (derive-item quantity account)
+                      :id item-id)]
     (-> transaction
         (assoc :items [item-1
-                       {:quantity (util/abs quantity)
+                       {:id other-item-id
+                        :quantity (util/abs quantity)
                         :action (if (= :credit
                                        (:action item-1))
                                   :debit
                                   :credit)
                         :account-id (:id other-account)}])
-        (dissoc :quantity :account-id :other-account-id))))
+        (dissoc :quantity
+                :account-id
+                :other-account-id
+                :item-id
+                :other-item-id))))
 
 (defn- entryfy-item
   [{:keys [quantity action] :as item}]

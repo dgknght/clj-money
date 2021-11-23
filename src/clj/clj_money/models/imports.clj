@@ -43,6 +43,8 @@
                     :budget
                     :commodity
                     :price
+                    :account-balance
+                    :process-reconciliation
                     :finished
                     :errors])))
 

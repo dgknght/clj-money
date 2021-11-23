@@ -23,6 +23,7 @@
    :accounts.system_tags
    :accounts.user_tags
    :accounts.value
+   :accounts.price_as_of
    :accounts.hidden
    :accounts.earliest_transaction_date
    :accounts.latest_transaction_date
@@ -45,8 +46,12 @@
 
 (defn- select-sql
   [criteria options]
-  (-> (select :accounts.*)
+  (-> (select :accounts.*
+              [:commodities.type :commodity_type]
+              [:commodities.symbol :commodity_symbol]
+              [:commodities.name :commodity_name])
       (from :accounts)
+      (join :commodities [:= :commodities.id :accounts.commodity_id])
       (apply-criteria criteria (merge options
                                       {:target :account
                                        :prefix :accounts}))
@@ -72,6 +77,7 @@
                 :parent-id
                 :quantity
                 :value
+                :price-as-of
                 :earliest-transaction-date
                 :latest-transaction-date))
 
@@ -84,8 +90,9 @@
                 :user-tags
                 :commodity-id
                 :parent-id
-                :quantity,
+                :quantity
                 :value
+                :price-as-of
                 :earliest-transaction-date
                 :latest-transaction-date))
 

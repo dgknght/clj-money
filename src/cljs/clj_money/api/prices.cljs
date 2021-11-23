@@ -15,21 +15,16 @@
           :trade-date trade-date
           :original-trade-date trade-date))))
 
-(defn- adjust-trade-date
-  [{:keys [trade-date] :as criteria}]
-  (if (vector? trade-date)
-    (-> criteria
-        (assoc :start-date (serialize-date (nth trade-date 1))
-               :end-date (serialize-date (nth trade-date 2)))
-        (dissoc :trade-date))
-    criteria))
+(defn- prepare-criteria
+  [criteria]
+  (update-in criteria [:trade-date] #(map serialize-date %)))
 
 (defn search
   [criteria success-fn error-fn]
   {:pre [(some #(contains? criteria %) [:commodity-id :entity-id])
          (contains? criteria :trade-date)]}
   (api/get (api/path :prices)
-           (adjust-trade-date  criteria)
+           (prepare-criteria criteria)
            (comp success-fn
                  #(map after-read %))
            error-fn))

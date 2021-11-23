@@ -485,13 +485,13 @@
        [:tbody
         (cond
           (nil? @report)
-          [:tr [:td.inline-status {:col-span 4} "Loading..."]]
+          [:tr [:td.text-center {:col-span 7} (bs/spinner)]]
 
           (seq @report)
           (doall (map #(portfolio-report-row % @visible-ids page-state) @report))
 
           :else
-          [:tr [:td.inline-status {:col-span 4} "No investment accounts found."]])]])))
+          [:tr [:td.inline-status {:col-span 7} "No investment accounts found."]])]])))
 
 (defn- portfolio-options
   [page-state]

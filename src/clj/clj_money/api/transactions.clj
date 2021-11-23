@@ -35,12 +35,26 @@
   (api/response
    (trans/search (->criteria req) (->options req))))
 
+(defn- find-and-auth
+  [{:keys [params authenticated]} action]
+  (let [trans-date (unserialize-date
+                     (some #(params %)
+                           [:original-transaction-date
+                            :transaction-date]))]
+    (some-> params
+            (select-keys [:id])
+            (update-in [:id] uuid)
+            (assoc :transaction-date trans-date)
+            (storage/tag ::models/transaction)
+            (+scope authenticated)
+            trans/find-by
+            (authorize action authenticated))))
+
 (defn- show
-  [{{:keys [id transaction-date]} :params authenticated :authenticated}]
-  (api/response (authorize (trans/find id
-                                       (unserialize-date transaction-date))
-                           ::authorization/show
-                           authenticated)))
+  [req]
+  (if-let [trx (find-and-auth req ::authorization/show)]
+    (api/response trx)
+    api/not-found))
 
 (def ^:private attribute-keys
   [:id
@@ -92,22 +106,10 @@
   (-> transaction
       (merge (-> body
                  (update-in-if [:transaction-date] unserialize-date)
+                 (update-in-if [:original-transaction-date] unserialize-date)
                  (update-in-if [:id] uuid)))
       (select-keys attribute-keys)
       (update-in [:items] apply-item-updates (:items body))))
-
-(defn- find-and-auth
-  [{:keys [params authenticated]} action]
-  (let [trans-date (some #(params %)
-                         [:original-transaction-date
-                          :transaction-date])]
-    (some-> params
-            (select-keys [:id])
-            (assoc :transaction-date trans-date)
-            (storage/tag ::models/transaction)
-            (+scope authenticated)
-            trans/find-by
-            (authorize action authenticated))))
 
 (defn- update
   [{:keys [body] :as req}]

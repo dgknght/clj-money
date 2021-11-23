@@ -139,6 +139,9 @@
    #{:lot :commodity}                   {:primary-table :commodities
                                          :foreign-table :lots
                                          :foreign-id    :commodity_id}
+   #{:lot :lot-transaction}             {:primary-table :lots
+                                         :foreign-table :lots_transactions
+                                         :foreign-id    :lot_id}
    #{:price :commodity}                 {:primary-table :commodities
                                          :foreign-table :prices
                                          :foreign-id    :commodity_id}

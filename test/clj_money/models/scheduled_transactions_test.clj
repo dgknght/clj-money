@@ -248,7 +248,7 @@
     [(t/do-at date
               (sched-trans/realize sched-tran))
      (trans/search {:description "Paycheck"
-                    :transaction-date "2016"
+                    :transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
                     :entity-id (:entity-id sched-tran)})
      (sched-trans/find sched-tran)]))
 

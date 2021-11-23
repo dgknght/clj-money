@@ -6,7 +6,8 @@
             [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [assoc-if
                                           present?]]
-            [dgknght.app-lib.models :refer [->id]]
+            [dgknght.app-lib.models :refer [->id
+                                            extract-nested]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
@@ -117,6 +118,7 @@
       (update-in [:type] keyword)
       (update-in [:system-tags] prepare-tags)
       (update-in [:user-tags] prepare-tags)
+      (extract-nested :commodity)
       (tag ::models/account)
       (dissoc-if-nil :parent-id)))
 

@@ -14,35 +14,19 @@
             [clj-money.models.prices :as prices]
             [clj-money.authorization.prices]))
 
-(defn- handle-start-end-dates
-  [params]
-  (let [[start-date end-date]  (->> [:start-date :end-date]
-                                    (map #(get-in params [%]))
-                                    (map unserialize-date))
-        result (dissoc params :start-date :end-date)]
-    (cond
-      (and start-date end-date)
-      (assoc result :trade-date [:between start-date end-date])
+(defn- extract-criteria
+  [{:keys [params authenticated]}]
+  {:pre [(:trade-date params)]}
 
-      start-date
-      (assoc result :trade-date [:>= start-date])
-
-      end-date
-      (assoc result :trade-date [:<= end-date])
-
-      :else
-      result)))
+  (->  params
+      (update-in [:trade-date] #(apply vector :between> (map unserialize-date %)))
+      (select-keys [:commodity-id :entity-id :trade-date])
+      (+scope ::models/price authenticated)))
 
 (defn- index
-  [{:keys [params authenticated]}]
-  {:pre [(or (:trade-date params)
-             (and (:start-date params)
-                  (:end-date params)))]}
+  [req]
   (api/response
-    (prices/search (->  params
-                       (handle-start-end-dates)
-                       (select-keys [:commodity-id :entity-id :trade-date])
-                       (+scope ::models/price authenticated))
+    (prices/search (extract-criteria req)
                    {:sort [[:trade-date :desc]]})))
 
 (defn- extract-price

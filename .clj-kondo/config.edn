@@ -10,7 +10,8 @@
                                                            comparable?
                                                            seq-with-map-like?
                                                            seq-with-no-map-like?
-                                                           seq-of-maps-like?])
+                                                           seq-of-maps-like?
+                                                           includes-progress-notification?])
                                          (dgknght.app-lib.test/with-mail-capture)]}
            :unresolved-namespace {:exclude [act
                                             cmdty

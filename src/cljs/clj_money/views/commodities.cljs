@@ -1,5 +1,5 @@
 (ns clj-money.views.commodities
-  (:require [cljs.core.async :refer [chan >! go]]
+  (:require [cljs.core.async :refer [chan <! >! go go-loop]]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
@@ -12,6 +12,7 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [clj-money.dates :as dates]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.components :refer [load-in-chunks
                                           load-on-scroll]]
@@ -97,19 +98,25 @@
 
 (defn- init-price-loading
   [page-state]
-  (let [end (t/local-date (inc (t/year (t/today))) 1 1)]
-    (load-in-chunks
-     {:start (t/minus- end (t/years 10))
-      :end end
-      :interval (t/years 1)
-      :ctl-chan (:prices-ctl-chan @page-state)
-      :fetch-fn (fn [date-range callback-fn]
-                  (prices/search {:trade-date date-range
-                                  :commodity-id (get-in @page-state [:prices-commodity :id])}
-                                 callback-fn
-                                 (notify/danger-fn "Unable to fetch prices: %s")))
-      :receive-fn #(swap! page-state update-in [:prices] (fnil into []) %)
-      :finish-fn #(swap! page-state assoc :all-prices-fetched? true)})))
+  (let [commodity (:prices-commodity @page-state)
+        {:keys [fetch-ch result-ch ctl-ch]} (->> (dates/desc-ranges (:earliest-price commodity)
+                                                                    (:latest-price commodity)
+                                                                    (t/years 1))
+                                                 (map vec)
+                                                 load-in-chunks)]
+    (swap! page-state assoc :ctl-chan ctl-ch)
+    (go-loop [rng (<! fetch-ch)]
+             (if rng
+               (do
+                 (prices/search {:trade-date rng
+                                 :commodity-id (:id commodity)}
+                                (fn [prices]
+                                  (swap! page-state update-in [:prices] (fnil concat []) prices)
+                                  (go (>! result-ch prices)))
+                                (notify/danger-fn "Unable to fetch the prices: %s"))
+                 (recur (<! fetch-ch)))
+               (swap! page-state assoc :all-prices-fetched? true)))
+    (go (>! ctl-ch :fetch))))
 
 (defn- commodity-row
   [{price :most-recent-price :as commodity} page-state]
@@ -325,7 +332,7 @@
                          :busy? busy?}]
         [:span.ms-auto
          [load-on-scroll {:target "prices-container"
-                          :all-items-fetched? all-prices-fetched?
+                          :all-items-fetched? @all-prices-fetched?
                           :load-fn #(go (>! @ctl-chan :fetch))}]]]])))
 
 (defn- comp-prices

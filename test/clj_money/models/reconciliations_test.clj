@@ -308,7 +308,7 @@
         result (reconciliations/update updated)
         retrieved (reconciliations/reload updated)
         checking-items (transactions/search-items {:account-id (:id checking)
-                                                   :transaction-date "2017"}
+                                                   :transaction-date [:between> (t/local-date 2017 1 1) (t/local-date 2018 1 1)]}
                                                   {:sort [:transaction-date]})]
     (is (valid? result))
     (is (= (:status retrieved) :completed) "The retrieved value has the correct satus")

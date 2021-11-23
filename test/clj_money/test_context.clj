@@ -623,12 +623,12 @@
       realize-commodities
       realize-accounts
       update-monitored-account-ids
-      realize-prices
       realize-lots
       realize-budgets
       realize-scheduled-transactions
       realize-transactions
       realize-trades
+      realize-prices
       realize-attachments
       realize-reconciliations
       realize-identities))

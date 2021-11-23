@@ -8,7 +8,8 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [unserialize-date]]
             [clj-money.core]
-            [clj-money.test-context :refer [basic-context
+            [clj-money.test-context :refer [with-context
+                                            basic-context
                                             realize
                                             find-entity
                                             find-budget
@@ -19,6 +20,7 @@
             [clj-money.factories.user-factory]
             [clj-money.trading :as trading]
             [clj-money.reports :as reports]
+            [clj-money.models.accounts :as accounts]
             [clj-money.test-helpers :refer [reset-db]])
   (:import [java.io PushbackReader FileReader]))
 
@@ -416,38 +418,37 @@
                    :trade-date (t/local-date 2016 3 2)}]))
 
 (deftest create-a-commodities-account-summary
-  (let [context (realize commodities-account-summary-context)
-        ira (find-account context "IRA")
-        [aapl msft] (find-commodities context
-                                      "AAPL"
-                                      "MSFT")
-        actual (reports/commodities-account-summary ira
-                                                    (t/local-date 2017 3 2))
-        expected [{:caption "Apple, Inc. (AAPL)"
-                   :commodity-id (:id aapl)
-                   :shares 50M
-                   :price 20M
-                   :cost 500M
-                   :value 1000M
-                   :gain 500M
-                   :style :data}
-                  {:caption "Microsoft Corp (MSFT)"
-                   :commodity-id (:id msft)
-                   :shares 50M
-                   :price 5M
-                   :cost 500M
-                   :value 250M
-                   :gain -250M
-                   :style :data}
-                  {:caption "Cash"
-                   :style :data
-                   :value 1000M}
-                  {:caption "Total"
-                   :cost 1000M
-                   :value 2250M
-                   :gain 250M
-                   :style :summary}]]
-    (is (= expected actual) "The report contains the correct data")))
+  (with-context commodities-account-summary-context
+    (let [ira (accounts/find-by {:name "IRA"})
+          [aapl msft] (find-commodities "AAPL"
+                                        "MSFT")
+          actual (reports/commodities-account-summary ira
+                                                      (t/local-date 2017 3 2))
+          expected [{:caption "Apple, Inc. (AAPL)"
+                     :commodity-id (:id aapl)
+                     :shares 50M
+                     :price 20M
+                     :cost 500M
+                     :value 1000M
+                     :gain 500M
+                     :style :data}
+                    {:caption "Microsoft Corp (MSFT)"
+                     :commodity-id (:id msft)
+                     :shares 50M
+                     :price 5M
+                     :cost 500M
+                     :value 250M
+                     :gain -250M
+                     :style :data}
+                    {:caption "Cash"
+                     :style :data
+                     :value 1000M}
+                    {:caption "Total"
+                     :cost 1000M
+                     :value 2250M
+                     :gain 250M
+                     :style :summary}]]
+      (is (= expected actual) "The report contains the correct data"))))
 
 (def ^:private budget-fixtures
   (edn/read {:readers {'local-date unserialize-date
@@ -484,25 +485,25 @@
     (is (= expected-tagged-budget actual) "The function produces the correct data")))
 
 (deftest create-a-budget-monitor
-  (let [context (realize budget-report-context)
-        groceries (find-account context "Groceries")
+  (with-context budget-report-context
+    (let [groceries (accounts/find-by {:name "Groceries"})
 
-        ; half-way through january
-        actual (-> (reports/monitor groceries
-                                    (t/local-date 2016 1 15))
-                   (dissoc :account))
-        expected {:caption "Groceries"
-                  :period {:total-budget 450M
-                           :prorated-budget 217.74M
-                           :percentage 15/31
-                           :actual 200M
-                           :actual-percent 0.44444M}
-                  :budget {:total-budget 5400M
-                           :prorated-budget 221.31M
-                           :percentage 15/366
-                           :actual 200M
-                           :actual-percent 0.037037M}}]
-    (is (= expected actual) "The correct information is returned")))
+          ; half-way through january
+          actual (-> (reports/monitor groceries
+                                      (t/local-date 2016 1 15))
+                     (dissoc :account))
+          expected {:caption "Groceries"
+                    :period {:total-budget 450M
+                             :prorated-budget 217.74M
+                             :percentage 15/31
+                             :actual 200M
+                             :actual-percent 0.44444M}
+                    :budget {:total-budget 5400M
+                             :prorated-budget 221.31M
+                             :percentage 15/366
+                             :actual 200M
+                             :actual-percent 0.037037M}}]
+      (is (= expected actual) "The correct information is returned"))))
 
 (deftest get-a-lot-report
   (let [context (realize commodities-context)

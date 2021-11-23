@@ -140,15 +140,8 @@
                                     :parent-id (:id ira)
                                     :system-tags #{:tradable}
                                     :quantity 100M
-                                    ; :value 1000M TODO Restore this check
-                                    }
-        actual-commodity-account (select-keys apple-account [:name
-                                                             :commodity-id
-                                                             :entity-id
-                                                             :type
-                                                             :parent-id
-                                                             :system-tags
-                                                             :quantity])]
+                                    :price-as-of (t/local-date 2016 1 2)
+                                    :value 1000M}]
     (is (:transaction result)
         "The result contains the transaction associated with the purchase")
     (is (comparable? expected-transaction (:transaction result))
@@ -161,8 +154,8 @@
         "The result contains a lot representing the purchased shares")
     (is (valid? (:lot result)))
     (is (valid? (:lot-transaction result)))
-    (is (= expected-commodity-account
-           actual-commodity-account)
+    (is (comparable? expected-commodity-account
+                     (accounts/reload apple-account))
         "The commodity account is created")
     (is ((-> ira accounts/reload :system-tags) :trading)
         "The specified account is tagged as a trading account")))
@@ -314,6 +307,11 @@
         "The shares-owned value of the original lot is updated")
     (is transaction "The result contains the transaction record")
     (is (valid? transaction) "The transaction is valid")
+    (is (comparable? {:name "AAPL"
+                      :value 1125M
+                      :price-as-of (t/local-date 2017 3 2)}
+                     (accounts/reload aapl-acc))
+        "The commodity account is updated wth new value and price date")
     (is (comparable? {:action :debit
                       :value 375M
                       :quantity 375M}
@@ -334,15 +332,8 @@
                                           :st-capital-gains-account-id
                                           :lt-capital-loss-account-id
                                           :st-capital-loss-account-id
-                                          :inventory-method])
-            actual (-> (entities/find entity)
-                       :settings
-                       (select-keys [:lt-capital-gains-account-id
-                                     :st-capital-gains-account-id
-                                     :lt-capital-loss-account-id
-                                     :st-capital-loss-account-id
-                                     :inventory-method]))]
-        (is (= expected actual)
+                                          :inventory-method])]
+        (is (comparable? expected (:settings (entities/find entity)))
             "The entity settings are updated with default account ids")))))
 
 (deftest sell-a-commodity-for-a-loss

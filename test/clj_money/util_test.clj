@@ -1,26 +1,7 @@
 (ns clj-money.util-test
-  (:require [clojure.test :refer [deftest testing is are]]
-            [dgknght.app-lib.web :refer [serialize-date]]
+  (:require [clojure.test :refer [deftest is are]]
             [clj-time.core :as t]
             [clj-money.util :as util]))
-
-(deftest get-a-descending-list-of-time-periods
-  (testing "an infinite list"
-    (is (= ["2018-03-01"
-            "2018-02-01"
-            "2018-01-01"
-            "2017-12-01"]
-           (->> (util/desc-periodic-seq (t/local-date 2018 3 1) (t/months 1))
-                (map serialize-date)
-                (take 4)))))
-  (testing "a specified range"
-    (is (= ["2018-03-02"
-            "2018-01-02"
-            "2017-11-02"]
-           (->> (util/desc-periodic-seq (t/local-date 2017 11 1)
-                                        (t/local-date 2018 3 2)
-                                        (t/months 2))
-                (map serialize-date))))))
 
 (deftest convert-nominal-comparatives-to-symbolic
   (let [date (t/local-date 2015 1 1)

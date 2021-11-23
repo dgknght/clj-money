@@ -76,6 +76,33 @@
        (partition 2 1)
        (map (fn [[s e]] [s (t/minus e (t/days 1))]))))
 
+(defn desc-periodic-seq
+  ([end period-like]
+   (lazy-seq (cons end
+                   (desc-periodic-seq (t/minus end period-like)
+                                      period-like))))
+  ([start end period-like]
+   {:pre [(t/before? start end)]}
+
+   (take-while #(or (t/after? % start)
+                    (t/equal? % start))
+               (desc-periodic-seq end period-like))))
+
+(defn desc-ranges
+  ([end period-like]
+   (->> (desc-periodic-seq (t/plus end (t/days 1))
+                           period-like)
+        (partition 2 1)
+        (map reverse)))
+  ([start end period-like]
+   (cond
+     (t/equal? start end)
+     [[start (t/plus end (t/days 1))]]
+
+     :else
+     (take-while #(t/before? start (second %))
+                 (desc-ranges end period-like)))))
+
 (defn period
   [interval-type interval-count]
   {:pre [(#{:year :month :week} interval-type)]}

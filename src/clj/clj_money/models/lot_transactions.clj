@@ -1,5 +1,5 @@
 (ns clj-money.models.lot-transactions
-  (:refer-clojure :exclude [update find])
+  (:refer-clojure :exclude [update find count])
   (:require [environ.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
@@ -16,8 +16,17 @@
    (search criteria {}))
   ([criteria options]
    (with-storage (env :db)
-     (map after-read
-          (storage/select (tag criteria ::models/lot-transaction) options)))))
+     (map after-read (storage/select (tag criteria ::models/lot-transaction) options)))))
+
+(defn count
+  ([criteria] (count criteria {}))
+  ([criteria options]
+   (with-storage (env :db)
+     (->> (storage/select
+            (tag criteria ::models/lot-transaction)
+            (assoc options :count true))
+          (map :record-count)
+          first))))
 
 (defn find-by
   ([criteria] (find-by criteria {}))

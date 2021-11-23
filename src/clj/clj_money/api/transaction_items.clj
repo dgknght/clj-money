@@ -18,20 +18,10 @@
 
 (defn- translate-dates
   [criteria]
-  (let [[start-date end-date] (map (comp unserialize-date
-                                         #(get-in criteria [%]))
-                                   [:start-date :end-date])]
-    (-> criteria
-        (dissoc :start-date :end-date)
-        (assoc :transaction-date (cond
-                                   (and start-date end-date)
-                                   [:between start-date end-date]
-
-                                   start-date
-                                   [:>= start-date]
-
-                                   end-date
-                                   [:<= end-date])))))
+  (update-in criteria [:transaction-date] (fn [v]
+                                            (if (vector? v)
+                                              [:between> (unserialize-date (first v)) (unserialize-date (second v))]
+                                              (unserialize-date v)))))
 
 (defn- apply-child-inclusion
   [{:keys [account-id] :as criteria} include-children?]
@@ -50,9 +40,10 @@
 (defn- apply-unreconciled
   [{:keys [unreconciled] :as criteria}]
   (if (parse-bool unreconciled)
-    (-> criteria
-        (dissoc :unreconciled)
-        (assoc :reconciliation-id nil))
+    [:and (dissoc criteria :unreconciled)
+     [:or
+      {:reconciliation-id nil}
+      {[:reconciliation :status] "new"}]]
     criteria))
 
 (defn- extract-criteria
@@ -66,11 +57,12 @@
       (apply-child-inclusion (parse-bool (:include-children params)))
       ensure-dates
       (update-in-if [:reconciliation-id] (comp uuid presence))
-      apply-unreconciled
       (select-keys [:transaction-date
                     :account-id
                     :entity-id
+                    :unreconciled
                     :reconciliation-id])
+      apply-unreconciled
       (+scope ::models/transaction-item authenticated)))
 
 (defn- extract-options
@@ -98,7 +90,7 @@
   (let [{[start-date end-date] :transaction-date
          :as criteria} (extract-summary-criteria req)
         items (transactions/search-items (-> criteria
-                                             (update-in [:transaction-date] #(vec (cons :between %)))
+                                             (update-in [:transaction-date] #(vec (cons :between> %)))
                                              (select-keys [:transaction-date
                                                            :account-id])
                                              (+scope ::models/transaction-item authenticated)))]

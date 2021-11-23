@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [find])
   (:require [clj-time.core :as t]
             [clj-time.coerce :as tc]
-            [clj-money.util :refer [desc-periodic-seq]]))
+            [clj-money.dates :refer [desc-periodic-seq]]))
 
 
 ; For finding batches of records in partitioned tables in multiple queries

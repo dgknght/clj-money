@@ -3,13 +3,18 @@
             [clj-time.core :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test]
+            [dgknght.app-lib.validation :as v]
             [clj-money.core]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
+                                            basic-context
+                                            realize
                                             find-entity
-                                            find-commodity]]
+                                            find-commodity
+                                            find-price]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.commodities :as commodities]
+            [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]))
 
 (use-fixtures :each reset-db)
@@ -134,7 +139,7 @@
     (is (nil? retrieved)
         "The price cannot be retrieved after create")))
 
-(deftest a-price-can-be-updated
+(deftest update-a-price
   (let [context (realize existing-price-context)
         price (-> context :prices first)
         result (prices/update (assoc price :price 10M))
@@ -143,7 +148,7 @@
     (is (= 10.00M (:price retrieved))
         "The retrieved map has the correct values")))
 
-(deftest a-price-can-be-deleted
+(deftest delete-a-price
   (let [context (realize existing-price-context)
         price (-> context :prices first)
         _ (prices/delete price)
@@ -187,3 +192,63 @@
         "The commodity prices exist before delete")
     (is (empty? prices-after)
         "The commodity prices are absent after delete")))
+
+(def ^:private account-meta-context
+  (-> basic-context
+      (update-in [:commodities] concat [{:name "Apple, Inc."
+                                         :type :stock
+                                         :symbol "AAPL"
+                                         :exchange :nasdaq
+                                         :entity-id "Personal"}])
+      (update-in [:accounts] concat [{:name "IRA"
+                                      :entity-id "Personal"
+                                      :type :asset}])
+      (assoc :trades [{:type :buy
+                       :commodity-id "AAPL"
+                       :account-id "IRA"
+                       :trade-date (t/local-date 2015 1 1)
+                       :shares 100M
+                       :value 1000M}])))
+
+(deftest creating-a-price-updates-account-meta-data
+  (with-context account-meta-context
+    (let [commodity (find-commodity "AAPL")
+          price (prices/create {:commodity-id (:id commodity)
+                                :trade-date (t/local-date 2015 1 2)
+                                :price 12M})]
+
+      (is (empty? (v/error-messages price))
+          "The price is created successfully")
+      (is (= 1200M (:value (accounts/find-by {:commodity-id (:id commodity)})))
+          "The account value is correct after creating the price"))))
+
+(def ^:private account-meta-context-for-update
+  (-> account-meta-context
+      (assoc :prices [{:trade-date (t/local-date 2015 2 1)
+                       :commodity-id "AAPL"
+                       :price 12M}])))
+
+(deftest updating-a-price-updates-account-meta-data
+  (with-context account-meta-context-for-update
+    (is (= 1200M (:value (accounts/find-by {:name "AAPL"})))
+        "The account value reflects the price before update")
+    (let [price (find-price "AAPL" (t/local-date 2015 2 1))]
+      (prices/update (assoc price :price 13M :trade-date (t/local-date 2016 1 1)))
+      (is (= 1300M (:value (accounts/find-by {:name "AAPL"})))
+        "The account value reflects the previous price after update")
+      (is (seq-of-maps-like? [{:trade-date (t/local-date 2015 1 1)
+                               :price 10M}
+                              {:trade-date (t/local-date 2016 1 1)
+                               :price 13M}]
+                             (prices/search {:trade-date [:between (t/local-date 2015 1 1) (t/local-date 2016 12 31)]}
+                                            {:sort [:trade-date]}))
+          "The price is moved to the new partition without duplication"))))
+
+(deftest deleting-a-price-updates-account-meta-data
+  (with-context account-meta-context-for-update
+    (is (= 1200M (:value (accounts/find-by {:name "AAPL"})))
+        "The account value reflects the price before delete")
+    (let [price (find-price "AAPL" (t/local-date 2015 2 1))]
+      (prices/delete price)
+      (is (= 1000M (:value (accounts/find-by {:name "AAPL"})))
+        "The account value reflects the previous price after delete"))))

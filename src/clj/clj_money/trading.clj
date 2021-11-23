@@ -61,7 +61,8 @@
   [{:keys [shares value commodity trade-date] :as context}]
   (assoc context :price (prices/create {:commodity-id (:id commodity)
                                         :trade-date trade-date
-                                        :price (with-precision 4 (/ value shares))})))
+                                        :price (with-precision 4 (/ value shares))}
+                                       {:skip-account-update? true})))
 
 (defn- ensure-tag
   "Appends the :trading tag to the account if it isn't there already"
@@ -264,6 +265,13 @@
                           :shares-purchased shares})]
     (assoc context :lot lot)))
 
+(defn- update-account-meta
+  "Given a successful trade that creates a new price,
+  update any accounts with values affected be the new price."
+  [{:keys [price] :as trade}]
+  (prices/update-accounts price)
+  trade)
+
 ; expect
 ; either
 ;   :commodity-id
@@ -284,7 +292,8 @@
            append-entity
            create-price
            create-lot
-           create-purchase-transaction))))
+           create-purchase-transaction
+           update-account-meta))))
 
 (defn unbuy
   "Reverses a commodity purchase"
@@ -445,7 +454,8 @@
            update-entity-settings
            create-price
            process-lot-sales
-           create-sale-transaction))))
+           create-sale-transaction
+           update-account-meta))))
 
 (defn unsell
   [{transaction-id :id transaction-date :transaction-date}]

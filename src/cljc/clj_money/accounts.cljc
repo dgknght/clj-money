@@ -1,6 +1,7 @@
 (ns clj-money.accounts
   (:require [clojure.string :as string]
             [dgknght.app-lib.models :as models]
+            [dgknght.app-lib.web :refer [format-decimal]]
             [clj-money.util :refer [abs]]
             #?(:cljs [dgknght.app-lib.decimal :as decimal])
             #?(:clj [clj-time.coerce :as tc]
@@ -23,8 +24,8 @@
                             (reduce plus 0M))]
     (assoc account
            :children-value children-value
-           :total-value (+ children-value
-                           (or (:value account) 0M))
+           :total-value (plus children-value
+                              (or (:value account) 0M))
            :has-children? true)))
 
 (defn nest
@@ -131,3 +132,10 @@
 (defn user-tagged?
   [{:keys [user-tags]} tag]
   (contains? user-tags tag))
+
+(defn format-quantity
+  [quantity {:keys [commodity]}]
+  (format-decimal quantity
+                  (if (= "USD" (:symbol commodity))
+                    {:fraction-digits 2}
+                    {:fraction-digits 4})))

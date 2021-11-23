@@ -1,5 +1,5 @@
 (ns clj-money.dates-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest testing is are]]
             [clj-time.core :as t]
             [clj-money.dates :as dates]))
 
@@ -48,3 +48,72 @@
          (take 3 (dates/ranges (t/local-date 2015 1 1)
                                (t/months 1))))
       "A sequence of date tuples of the given size and within the given range is returned"))
+
+(deftest get-a-descending-sequence-of-periodic-dates
+  (testing "bounded result"
+    (are [start end interval expected] (= expected
+                                          (dates/desc-periodic-seq start end interval))
+         (t/local-date 2015 9 1)
+         (t/local-date 2015 12 1)
+         (t/months 1)
+         [(t/local-date 2015 12 1)
+          (t/local-date 2015 11 1)
+          (t/local-date 2015 10 1)
+          (t/local-date 2015 9 1)]
+
+         (t/local-date 2015 9 1)
+         (t/local-date 2015 12 1)
+         (t/months 2)
+         [(t/local-date 2015 12 1)
+          (t/local-date 2015 10 1)]))
+  (testing "unbounded result"
+    (are [start interval expected] (= expected
+                                          (take 3 (dates/desc-periodic-seq start interval)))
+         (t/local-date 2015 12 1)
+         (t/months 1)
+         [(t/local-date 2015 12 1)
+          (t/local-date 2015 11 1)
+          (t/local-date 2015 10 1)]
+
+         (t/local-date 2015 12 1)
+         (t/months 2)
+         [(t/local-date 2015 12 1)
+          (t/local-date 2015 10 1)
+          (t/local-date 2015 8 1)])))
+
+(deftest get-a-descending-sequence-of-date-ranges
+  (testing "bounded result"
+    (are [start end interval expected] (= expected
+                                          (dates/desc-ranges start end interval))
+         (t/local-date 2015 9 1)
+         (t/local-date 2015 12 1)
+         (t/months 1)
+         [[(t/local-date 2015 11 2) (t/local-date 2015 12 2)] ; must include the end date, top number is exclusive
+          [(t/local-date 2015 10 2) (t/local-date 2015 11 2)]
+          [(t/local-date 2015  9 2) (t/local-date 2015 10 2)]
+          [(t/local-date 2015  8 2) (t/local-date 2015  9 2)]] ; must include the start date, bottom number is inclusive
+
+         (t/local-date 2015 9 1)
+         (t/local-date 2015 12 1)
+         (t/months 2)
+         [[(t/local-date 2015 10 2) (t/local-date 2015 12 2)]
+          [(t/local-date 2015  8 2) (t/local-date 2015 10 2)]]
+         
+         (t/local-date 2015 12 1)
+         (t/local-date 2015 12 1)
+         (t/months 1)
+         [[(t/local-date 2015 12 1) (t/local-date 2015 12 2)]]))
+  (testing "unbounded result"
+    (are [start interval expected] (= expected
+                                          (take 3 (dates/desc-ranges start interval)))
+         (t/local-date 2015 12 1)
+         (t/months 1)
+         [[(t/local-date 2015 11 2) (t/local-date 2015 12 2)] ; must include the end date, top number is exclusive
+          [(t/local-date 2015 10 2) (t/local-date 2015 11 2)]
+          [(t/local-date 2015  9 2) (t/local-date 2015 10 2)]]
+
+         (t/local-date 2015 12 1)
+         (t/months 2)
+         [[(t/local-date 2015 10 2) (t/local-date 2015 12 2)]
+          [(t/local-date 2015  8 2) (t/local-date 2015 10 2)]
+          [(t/local-date 2015  6 2) (t/local-date 2015  8 2)]])))

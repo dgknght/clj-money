@@ -8,7 +8,8 @@
                                       where
                                       from]]
             [honeysql.core :as sql]
-            [stowaway.sql :refer [apply-limit]]
+            [stowaway.sql :refer [apply-limit
+                                  select-count]]
             [clj-money.models :as models]
             [clj-money.models.sql-storage :as stg]
             [clj-money.models.storage.sql-helpers :refer [insert-model
@@ -19,6 +20,7 @@
   [criteria options db-spec]
   (query db-spec (-> (select :lots_transactions.*)
                      (from :lots_transactions)
+                     (select-count options)
                      (apply-criteria criteria {:target :lot-transaction})
                      (apply-limit options))))
 

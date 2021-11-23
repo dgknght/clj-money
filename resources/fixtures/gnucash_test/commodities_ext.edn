@@ -25,6 +25,14 @@
                         {:trade-date #local-date "2015-03-02"
                          :price 10M
                          :exchange :nasdaq
+                         :symbol "AAPL"}
+                        {:trade-date #local-date "2015-01-30"
+                         :price 12M
+                         :exchange :nasdaq
+                         :symbol "AAPL"}
+                        {:trade-date #local-date "2015-01-17"
+                         :price 10M
+                         :exchange :nasdaq
                          :symbol "AAPL"}]
                 :account [{:name "Checking"
                            :id "ed92489659ab879fb9354a3a050fb65d" ; checking

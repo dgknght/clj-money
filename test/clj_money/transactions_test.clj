@@ -39,18 +39,22 @@
   (let [transaction {:transaction-date date
                      :description "ACME Store"
                      :memo "transaction memo"
-                     :items [{:account-id (account-id :checking)
+                     :items [{:id 1
+                              :account-id (account-id :checking)
                               :memo "checking memo" ; NOTE: these memos are lost
                               :action :credit
                               :quantity 10M}
-                             {:account-id (account-id :groceries)
+                             {:id 2
+                              :account-id (account-id :groceries)
                               :memo "groceries memo"
                               :action :debit
                               :quantity 10M}]}
         expected {:transaction-date date
                   :description "ACME Store"
                   :memo "transaction memo"
+                  :item-id 1
                   :account-id (account-id :checking)
+                  :other-item-id 2
                   :other-account-id (account-id :groceries)
                   :quantity -10M}]
     (is (= expected (trx/simplify transaction (:checking account-map))))))
@@ -59,16 +63,20 @@
   (let [expected {:transaction-date date
                   :description "ACME Store"
                   :memo "transaction memo"
-                  :items [{:account-id (account-id :checking)
+                  :items [{:id 1
+                           :account-id (account-id :checking)
                            :action :credit
                            :quantity 10M}
-                          {:account-id (account-id :groceries)
+                          {:id 2
+                           :account-id (account-id :groceries)
                            :action :debit
                            :quantity 10M}]}
         simple {:transaction-date date
                 :description "ACME Store"
                 :memo "transaction memo"
+                :item-id 1
                 :account-id (account-id :checking)
+                :other-item-id 2
                 :other-account-id (account-id :groceries)
                 :quantity -10M}]
     (is (= expected (trx/fullify simple indexed-accounts)))
