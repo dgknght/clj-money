@@ -10,7 +10,6 @@
                                                    with-transacted-storage]]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
-            [dgknght.app-lib.dates :as dates]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
