@@ -1,7 +1,5 @@
 (ns clj-money.util
-  (:require [clojure.string :as string]
-            #?(:clj [clj-time.core :as t]
-               :cljs [cljs-time.core :as t])))
+  (:require [clojure.string :as string]))
 
 (defn abs
   [value]

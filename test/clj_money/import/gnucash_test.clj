@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
-            [clojure.core.async :refer [chan <!!] :as async]
+            [clojure.core.async :refer [chan] :as async]
             [dgknght.app-lib.core :refer [uuid]]
             [clj-money.factories.user-factory]
             [clj-money.import :refer [read-source]]
@@ -28,7 +28,7 @@
       (read-source :gnucash
                    [(io/input-stream input-path)]
                    records-chan)
-      (<!! result))))
+      (async/<!! result))))
 
 (defn- execute-test
   [spec-path]
