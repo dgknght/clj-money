@@ -523,6 +523,7 @@
          items (search-items {:account-id (:id account)
                               :transaction-date [:>= as-of]}
                              {:sort [:transaction-date :index]})
+         earliest-date (:transaction-date (first items))
          [last-index
           balance
           last-date] (if (seq items)
@@ -532,12 +533,12 @@
                          [0 0M]))]
      (when (not (nil? last-index))
        (let [value (account-value balance (-> account
-                                              (update-in [:earliest-transaction-date] dates/earliest as-of)
+                                              (update-in [:earliest-transaction-date] dates/earliest earliest-date)
                                               (update-in [:latest-transaction-date] dates/latest last-date)))
              updated (-> account
                          (assoc :quantity balance
                                 :value value)
-                         (update-in [:earliest-transaction-date] dates/earliest as-of)
+                         (update-in [:earliest-transaction-date] dates/earliest earliest-date)
                          (update-in [:latest-transaction-date] dates/latest last-date))]
          (log/debugf "update account summary data \"%s\""
                      (select-keys account [:name

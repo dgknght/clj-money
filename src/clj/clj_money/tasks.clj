@@ -6,6 +6,7 @@
             [environ.core :refer [env]]
             [clj-time.core :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
+            [dgknght.app-lib.dates :as dates]
             [clj-money.accounts :refer [nest unnest]]
             [clj-money.models.users :as users]
             [clj-money.models.entities :as entities]
@@ -59,7 +60,10 @@
                 :missing "A user must be specified"]
                ["-e" "--entity ENTITY_NAME" "The name of the entity to be recalculated"
                 :id :entity-name
-                :missing "An entity must be specified"]]
+                :missing "An entity must be specified"]
+               ["-f" "--force" "Erase existing meta data before starting to ensure accuracy at the cost of speed"
+                :id :force?
+                :default false]]
               default-opts)})
 
 (defn- assoc-parent
@@ -92,17 +96,32 @@
             entity (entities/find-by {:user-id (:id user)
                                       :name (:entity-name opts)})
             _ (assert entity (format "Unable to find entity with name \"%s\"." (:entity-name opts)))
-            accounts (accounts/search (account-criteria (:account-name opts) entity))]
+            accounts (accounts/search (account-criteria (:account-name opts) entity))
+            reset (if (:force? opts)
+                    #(dissoc % :earliest-transaction-date :latest-transaction-date)
+                    identity)]
         (if (seq accounts)
-          (do
-            (doseq [account accounts]
-              (println (format "Processing account \"%s\"..." (:name account)))
-              (transactions/recalculate-account
-                (:id account)
-                (or (:earliest-transaction-date account)
-                    (t/local-date 2006 1 1))
-                {:force true})
-              (println ""))
+          (let [dates (->> accounts
+                           (map (comp (fn [a]
+                                        (println (format "Processed %s (%s - %s)"
+                                                         (:name a)
+                                                         (:earliest-transaction-date a)
+                                                         (:latest-transaction-date a)))
+                                        a)
+                                      #(transactions/recalculate-account %
+                                                                         (or (:earliest-transaction-date %)
+                                                                             (t/local-date 2006 1 1))
+                                                                         {:force true})
+                                      reset))
+                           (reduce (fn [res a]
+                                     (-> res
+                                         (update-in [:earliest-transaction-date] dates/earliest (:earliest-transaction-date a))
+                                         (update-in [:latest-transaction-date] dates/latest (:latest-transaction-date a))))
+                                   {}))]
+            (when (= :all (:account-path opts))
+              (-> entity
+                  (update-in [:settings] merge dates)
+                  entities/update))
             (println "Done."))
           (println "No accounts found."))))))
 
