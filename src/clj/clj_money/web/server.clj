@@ -20,7 +20,6 @@
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [co.deps.ring-etag-middleware :as etag]
             [environ.core :refer [env]]
-            [dgknght.app-lib.web :refer [serialize-date]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
             [clj-money.core]
@@ -49,12 +48,6 @@
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.apps :as apps]))
-
-; make sure we can handle joda types in json serialization
-(cheshire.generate/add-encoder
- org.joda.time.LocalDate
- (fn [local-date gen]
-   (.writeString gen (serialize-date local-date))))
 
 (defroutes api-routes
   (-> (routes users-api/routes

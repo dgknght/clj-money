@@ -20,6 +20,7 @@
             [clj-money.models.prices :as prices]
             [clj-money.models.lot-transactions :as l-t]
             [clj-money.models.lots :as lots]
+            [clj-money.models.entities :as entities]
             [clj-money.accounts :refer [polarize-quantity]])
   (:import org.joda.time.LocalDate))
 
@@ -530,28 +531,35 @@
                          ((juxt :index :quantity) base-item)
                          [0 0M]))]
      (when (not (nil? last-index))
-       (let [value (account-value balance account)]
-         (log/debugf "update account summary data for \"%s\": quantity=%s, value=%s, earliest-transaction-date=%s, latest-transaction-date=%s"
-                     (:name account)
-                     balance
-                     value
-                     (dates/earliest (:earliest-transaction-date account) as-of)
-                     (dates/latest (:latest-transaction-date account) last-date))
-         (accounts/update (-> account
-                              (assoc :quantity balance
-                                     :value value)
-                              (update-in [:earliest-transaction-date] dates/earliest as-of)
-                              (update-in [:latest-transaction-date] dates/latest last-date))))))))
+       (let [value (account-value balance (-> account
+                                              (update-in [:earliest-transaction-date] dates/earliest as-of)
+                                              (update-in [:latest-transaction-date] dates/latest last-date)))
+             updated (-> account
+                         (assoc :quantity balance
+                                :value value)
+                         (update-in [:earliest-transaction-date] dates/earliest as-of)
+                         (update-in [:latest-transaction-date] dates/latest last-date))]
+         (log/debugf "update account summary data \"%s\""
+                     (select-keys account [:name
+                                           :balance
+                                           :value
+                                           :earliest-transaction-date
+                                           :latest-transaction-date]))
+         (accounts/update updated))))))
 
 (defn migrate-account
   "Moves all transaction items from from-account to to-account and recalculates the accounts"
   [from-account to-account]
-  (let [as-of (or (->> [from-account to-account]
+  {:pre [(= (:entity-id from-account)
+            (:entity-id to-account))]}
+  (let [entity (entities/find (:entity-id from-account))
+        as-of (or (->> [from-account to-account]
                        (map :earliest-transaction-date)
                        (filter identity)
                        sort
                        first)
-                  (settings/get  :earliest-partition-date))]
+                  (get-in entity [:settings :earliest-transaction-date])
+                  (settings/get :earliest-partition-date))]
     (assert as-of "Unable to find the earliest transaction date.")
     (with-transacted-storage (env :db)
       (storage/update (tag {:account-id (:id to-account)
@@ -589,6 +597,16 @@
       (update-in [entity-id :earliest-date] dates/earliest transaction-date)
       (update-in [entity-id :latest-date] dates/latest transaction-date)))
 
+(defn- update-transaction-date-boundaries
+  [{:keys [entity-id transaction-date]}]
+  (let [entity (entities/find entity-id)
+        updated (-> entity
+                    (update-in [:settings :earliest-transaction-date] dates/earliest transaction-date)
+                    (update-in [:settings :latest-transaction-date] dates/latest transaction-date)
+                    )]
+    (when-not (= entity updated)
+      (entities/update updated))))
+
 (defn- post-create
   [{:keys [entity-id transaction-date] :as transaction}]
   (let [account-ids (extract-account-ids transaction)]
@@ -598,8 +616,10 @@
              entity-id
              account-ids
              transaction-date)
-      (doseq [account-id account-ids]
-        (recalculate-account account-id transaction-date))))
+      (do
+        (doseq [account-id account-ids]
+          (recalculate-account account-id transaction-date))
+        (update-transaction-date-boundaries transaction))))
   transaction)
 
 (defn- process-item-creation
@@ -849,11 +869,25 @@
                         :completed 0}]
          (a/>!! ~progress-chan progress#)
          (with-storage (env :db)
-           (doseq [[index# [account-id# {earliest-date# :earliest-date}]] (->> accounts#
-                                                                               (interleave (iterate inc 1))
-                                                                               (partition 2))]
-             (recalculate-account account-id# earliest-date#)
-             (a/>!! ~progress-chan (assoc progress# :completed index#))))
+           (let [dates# (->> accounts#
+                             (interleave (iterate inc 1))
+                             (partition 2)
+                             (map (fn [[index# [account-id# {earliest-date# :earliest-date}]]]
+                                    (let [recalculated# (recalculate-account account-id# earliest-date#)]
+                                      (a/>!! ~progress-chan (assoc progress# :completed index#))
+                                      recalculated#)))
+                             (reduce (fn [m# a#]
+                                       (-> m#
+                                           (update-in [:earliest-transaction-date]
+                                                      dates/earliest
+                                                      (:earliest-transaction-date a#))
+                                           (update-in [:latest-transaction-date]
+                                                      dates/latest
+                                                      (:latest-transaction-date a#))))
+                                     {}))]
+             (-> (entities/find ~entity-id)
+                 (update-in [:settings] merge dates#)
+                 entities/update)))
          (a/close! ~progress-chan))
 
        ; clean up the ambient settings as if we were never here

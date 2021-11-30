@@ -15,6 +15,7 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]
+            [clj-money.models.entities :as entities]
             [clj-money.models.prices :as prices]))
 
 (use-fixtures :each reset-db)
@@ -56,7 +57,13 @@
         "The commodity earliest-price is updated")
     (is (= (t/local-date 2017 3 2)
            (:latest-price updated-commodity))
-        "The commodity latest-price is updated")))
+        "The commodity latest-price is updated")
+    (testing "entity price date boundaries are set"
+      (let [entity (entities/find (:entity-id commodity))]
+        (is (comparable? {:earliest-price-date (t/local-date 2017 3 2)
+                          :latest-price-date (t/local-date 2017 3 2)}
+                         (:settings entity))
+            "The price date boundaries are updated in the entity")))))
 
 (deftest commodity-id-is-required
   (let [context (realize price-context)

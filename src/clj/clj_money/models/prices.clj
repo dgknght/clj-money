@@ -10,9 +10,11 @@
                                                    with-transacted-storage]]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.dates :as dates]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
+            [clj-money.models.entities :as entities]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.accounts :as accounts]))
 
@@ -94,6 +96,16 @@
     (commodities/update (apply-date-to-commodity commodity trade-date)))
   price)
 
+(defn- update-entity
+  [{:keys [trade-date commodity-id] :as price}]
+  (let [entity (entities/find-by {[:commodity :id] commodity-id})
+        updated (-> entity
+                    (update-in [:settings :earliest-price-date] dates/earliest trade-date)
+                    (update-in [:settings :latest-price-date] dates/latest trade-date))]
+    (when-not (= entity updated)
+      (entities/update updated)))
+  price)
+
 ; TODO: Move this to another namespace?
 (defn update-accounts
   ([price] (update-accounts price {}))
@@ -133,6 +145,7 @@
            storage/create
            after-read
            update-commodity
+           update-entity
            (update-accounts opts))))))
 
 (defn- update-meta-for-change

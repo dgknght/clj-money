@@ -3,6 +3,7 @@
             [clojure.java.jdbc :as jdbc]
             [clojure.string :as string]
             [cheshire.core :as json]
+            [clj-money.json]
             [camel-snake-kebab.core :refer [->kebab-case
                                             ->snake_case]]
             [camel-snake-kebab.extras :refer [transform-keys]]

@@ -233,6 +233,14 @@
         all-accounts (accounts/search {:entity-id (:id entity)})]
     (is (= "Personal" (:name entity)) "It returns the new entity")
     (includes-progress-records (:updates result))
+    (testing "the entity can be retrieved"
+      (is (comparable? {:name "Personal"
+                        :settings {:default-commodity-id (:id
+                                                           (commodities/find-by {:symbol "USD"
+                                                                                 :entity-id (:id entity)}))
+                                   :earliest-transaction-date (t/local-date 2015 1 1)
+                                   :latest-transaction-date (t/local-date 2015 1 18)}}
+                       (entities/find entity))))
     (testing "the correct accounts are created"
       (let [actual (->> all-accounts
                         (sort-by :name)

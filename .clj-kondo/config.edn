@@ -12,7 +12,8 @@
                                                            seq-with-no-map-like?
                                                            seq-of-maps-like?
                                                            includes-progress-notification?])
-                                         (dgknght.app-lib.test/with-mail-capture)]}
+                                         (dgknght.app-lib.test/with-mail-capture)
+                                         (clj-money.tasks/with-options)]}
            :unresolved-namespace {:exclude [act
                                             cmdty
                                             price

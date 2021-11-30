@@ -10,6 +10,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.lots :as lots]
+            [clj-money.models.entities :as entities]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.test-context :refer [with-context
@@ -124,7 +125,13 @@
                            retrieved)
               "The correct data is retrieved")
           (is (seq-of-maps-like? expected-items (:items retrieved))
-              "The correct items are retrieved"))))))
+              "The correct items are retrieved")))
+      (testing "metadata"
+        (is (comparable? {:earliest-transaction-date (t/local-date 2016 3 2)
+                          :latest-transaction-date (t/local-date 2016 3 2)}
+                         (-> (find-entity "Personal")
+                             (entities/find)
+                             :settings)))))))
 
 (deftest rollback-on-failure
   (let [call-count (atom 0)]

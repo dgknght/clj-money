@@ -1,11 +1,15 @@
 (ns clj-money.json
   (:refer-clojure :exclude [update])
   (:require [cheshire.generate :refer [add-encoder]]
-            [clj-time.format :as tf]))
+            [dgknght.app-lib.web :refer [serialize-date
+                                         serialize-date-time]]))
 
-(add-encoder org.joda.time.DateTime
-             (fn [date-time json-generator]
-               (.writeString
-                json-generator
-                (tf/unparse (:ordinal-date-time tf/formatters)
-                            date-time))))
+(add-encoder
+  org.joda.time.DateTime
+  (fn [date-time gen]
+    (.writeString gen (serialize-date-time date-time))))
+
+(add-encoder
+ org.joda.time.LocalDate
+ (fn [local-date gen]
+   (.writeString gen (serialize-date local-date))))

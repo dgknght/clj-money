@@ -21,7 +21,7 @@
   [criteria options db-spec]
   (query db-spec (-> (select :entities.*)
                      (from :entities)
-                     (apply-criteria criteria)
+                     (apply-criteria criteria (assoc options :target :entity))
                      (apply-limit options)
                      (apply-sort (merge {:sort [:name]} options)))))
 

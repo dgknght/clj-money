@@ -267,7 +267,7 @@
 
 (defn- update-account-meta
   "Given a successful trade that creates a new price,
-  update any accounts with values affected be the new price."
+  update any accounts with values affected by the new price."
   [{:keys [price] :as trade}]
   (prices/update-accounts price)
   trade)
