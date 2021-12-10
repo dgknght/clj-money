@@ -29,6 +29,7 @@
             [clj-money.transactions :refer [can-simplify?]]
             [clj-money.cached-accounts :refer [fetch-accounts]]
             [clj-money.accounts :refer [account-types
+                                        allocate
                                         find-by-path]]
             [clj-money.state :refer [app-state
                                      current-entity
@@ -85,8 +86,22 @@
          "...")]
       (:name account))))
 
+(defn- prepare-for-allocation
+  [{:keys [children-value] :as account}]
+  (if (:allocations account)
+    account
+    (assoc account :allocations (->> @accounts
+                                     (filter #(= (:id account)
+                                                 (:parent-id %)))
+                                     (reduce #(assoc %1
+                                                     (:id %2)
+                                                     (decimal/* 100M
+                                                                (decimal// (:total-value %2)
+                                                                           children-value)))
+                                             {})))))
+
 (defn- account-row
-  [{:keys [id parent-ids] :as account} expanded page-state]
+  [{:keys [id parent-ids system-tags] :as account} expanded page-state]
   ^{:key (str "account-" id)}
   [:tr
    [:td [:span.account-depth {:class (str "account-depth-" (count parent-ids))}
@@ -115,6 +130,15 @@
                                                (html/set-focus "parent-id"))
                                    :title "Click here to edit this account."}
       (bs/icon :pencil {:size :small})]
+     [:button.btn.btn-light {:on-click #(swap! page-state assoc :allocation {:account (prepare-for-allocation account)
+                                                                             :cash (:value account)
+                                                                             :withdrawal 0M})
+                             :disabled (not (system-tags :trading))
+                             :title "Click here to manage asset allocation for this account."}
+      (bs/icon (if (system-tags :trading)
+                 :pie-chart-fill
+                 :pie-chart)
+               {:size :small})]
      [:button.btn.btn-danger.btn-sm {:on-click #(delete account page-state)
                                      :title "Click here to remove this account."}
       (bs/icon :x-circle {:size :small})]]]])
@@ -272,13 +296,7 @@
           :find-fn keyword
           :on-change (fn [tag]
                        (apply-tag bulk-edit tag))}]
-        (tag-elems @user-tags {:remove-fn (fn [tag]
-                                            (.log js/console (prn-str {:remove tag
-                                                                       :user-tags @user-tags
-                                                                       }))
-                                            (swap! user-tags
-                                                  disj
-                                                  tag))})]
+        (tag-elems @user-tags {:remove-fn #(swap! user-tags disj %)})]
        [forms/checkbox-field bulk-edit [:merge-user-tags?] {:caption "Keep existing tags"}]
        [:button.btn.btn-primary.me-2 {:title "Click here to apply these changes to the selected accounts."
                                       :type :submit}
@@ -297,7 +315,8 @@
   [page-state]
   (let [selected (r/cursor page-state [:selected])
         view-account (r/cursor page-state [:view-account])
-        hide? (make-reaction #(or @selected @view-account))
+        allocation-account (r/cursor page-state [:allocation :account])
+        hide? (make-reaction #(or @selected @view-account @allocation-account))
         bulk-select (r/cursor page-state [:bulk-edit :account-ids])
         busy? (busy page-state)]
     (fn []
@@ -334,12 +353,19 @@
 (defn- save-account
   [page-state]
   (+busy page-state)
-  (accounts/save (:selected @page-state)
+  (accounts/save (update-in (some #(get-in @page-state %) [[:selected]
+                                                [:allocation :account]])
+                            [:allocations]
+                            (fn [allocations]
+                              (when allocations
+                                (->> allocations
+                                     (remove (fn [[_ v]] (decimal/zero? v)))
+                                     (into {})))))
                  (fn [_]
                    (fetch-accounts)
                    (swap! page-state #(-> %
                                           -busy
-                                          (dissoc :selected))))
+                                          (dissoc :selected :allocation))))
                  (handle-error page-state "Unable to save the account: %s")))
 
 (defn- account-form
@@ -760,6 +786,83 @@
           (:tradable @system-tags) [tradable-account-details page-state]
           :else [currency-account-details page-state])))))
 
+(defn- asset-allocation-row
+  [{:keys [account adj-value target-value current-value current-percentage]} parent hide-zero-balances?]
+  ^{:key (str "asset-allocation-row-" (:id account))}
+  [:tr {:class (when (and (decimal/zero? (:quantity account))
+                          hide-zero-balances?)
+                 "d-none")}
+   [:td
+    [:div.d-none.d-lg-block
+     (:name account)]
+    [:div.text-truncate.d-lg-none {:style {:max-width "5em"}}
+     (get-in account [:commodity :symbol])]]
+   [:td.text-end [forms/decimal-input parent [:allocations (:id account)]]]
+   [:td.text-end.d-none.d-lg-table-cell (currency-format target-value)]
+   [:td.text-end.d-none.d-lg-table-cell (format-percent current-percentage)]
+   [:td.text-end.d-none.d-lg-table-cell (currency-format current-value)]
+   [:td.text-end (currency-format adj-value)]])
+
+(defn- asset-allocation
+  [page-state]
+  (let [allocation (r/cursor page-state [:allocation])
+        account (r/cursor allocation [:account])
+        cash (r/cursor allocation [:cash])
+        withdrawal (r/cursor allocation [:withdrawal])
+        allocations (make-reaction #(sort-by (comp :name :account)
+                                             (allocate @account @accounts-by-id {:cash @cash
+                                                                                 :withdrawal @withdrawal})))
+        total-percent (make-reaction #(decimal// (reduce decimal/+ 0M (vals (:allocations @account)))
+                                                 100M))
+        total-percent-class (make-reaction #(if (decimal/zero? (decimal/- 1M @total-percent))
+                                              "text-success"
+                                              "text-danger"))
+        hide-zero-balances? (r/cursor page-state [:hide-zero-balances?])]
+    (fn []
+      [:div {:class (when-not @account "d-none")}
+       [:h2 "Asset Allocation for " (:name @account) " " (currency-format (:total-value @account))]
+       [:div.row
+        [:div.col-md-6
+         [:table.table.table-borderless
+          [:tbody
+           [:tr
+            [:th {:scope :row} "Cash"]
+            [:td (currency-format (:quantity @account))]]
+           [:tr
+            [:th {:scope :row} "Cash to reserve"]
+            [:td
+             [forms/decimal-input allocation [:cash]]]]
+           [:tr
+            [:th {:scope :row} "Cash to withdraw"]
+            [:td
+             [forms/decimal-input allocation [:withdrawal]]]]]]]]
+       [:table.table
+        [:thead
+         [:tr
+          [:th "Account"]
+          [:th.text-end "Target %"]
+          [:th.text-end.d-none.d-lg-table-cell "Target $"]
+          [:th.text-end.d-none.d-lg-table-cell  "Current %"]
+          [:th.text-end.d-none.d-lg-table-cell  "Current $"]
+          [:th.text-end.text-nowrap "Adj. $"]]]
+        [:tbody
+         (if (seq @allocations)
+           (->> @allocations
+                (map #(asset-allocation-row % account @hide-zero-balances?))
+                doall)
+           [:tr [:td {:col-span 6} "This account has no child accounts."]])]
+        [:tfoot
+         [:tr
+          [:td (html/space)]
+          [:td {:col-span 5 :class @total-percent-class} (format-percent @total-percent)]]]]
+       [:div
+        [:button.btn.btn-primary {:title "Click here to save these allocations."
+                                  :on-click #(save-account page-state)}
+         (bs/icon-with-text :check "Save")]
+        [:button.btn.btn-secondary.ms-2 {:title "Click here to to cancel and return to the account list."
+                                         :on-click #(swap! page-state dissoc :allocation)}
+         (bs/icon-with-text :x-circle "Cancel")]]])))
+
 (defn- load-commodities
   [page-state]
   (+busy page-state)
@@ -855,7 +958,8 @@
        [account-filter-container page-state]
        [accounts-table page-state]
        [account-form page-state]
-       [account-details page-state]])))
+       [account-details page-state]
+       [asset-allocation page-state]])))
 
 (secretary/defroute "/accounts" []
   (swap! app-state assoc :page #'index))

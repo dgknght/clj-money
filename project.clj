@@ -70,7 +70,7 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [com.github.dgknght/app-lib "0.1.30"]
+                 [com.github.dgknght/app-lib "0.1.32"]
                  [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.15" :exclusions [org.clojure/spec.alpha
                                                  org.clojure/clojure

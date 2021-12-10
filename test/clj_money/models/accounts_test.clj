@@ -254,11 +254,22 @@
 (deftest update-an-account
   (let [context (realize select-context)
         account (find-account context "Checking")
-        result (accounts/update (assoc account :name "New name"))
+        result (accounts/update (assoc account
+                                       :name "New name"
+                                       :allocations {1 50M ; we wouldn't really set them on checking, but rather IRA, or 401k
+                                                     2 50M}))
         retrieved (accounts/find account)]
     (is (valid? result))
-    (is (= "New name" (:name result)) "The updated account is returned")
-    (is (= "New name" (:name retrieved)) "The updated account is retreived")))
+    (is (comparable? {:name "New name"
+                      :allocations {1 50M
+                                    2 50M}}
+                     result)
+        "The updated account is returned")
+    (is (comparable? {:name "New name"
+                      :allocations {1 50M
+                                    2 50M}}
+                     retrieved)
+        "The updated account is retreived")))
 
 (def same-parent-context
   {:users [(factory :user)]

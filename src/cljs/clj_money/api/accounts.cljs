@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [update get])
   (:require [dgknght.app-lib.web :refer [unserialize-date
                                          unserialize-date-time]]
+            [dgknght.app-lib.core :refer [parse-int
+                                          update-in-if]]
             [clj-money.state :refer [current-entity]]
             [dgknght.app-lib.decimal :as decimal :refer [->decimal]]
             [dgknght.app-lib.api :as api]))
@@ -12,6 +14,14 @@
           account
           tags))
 
+(defn- correct-allocations
+  [allocations]
+  (->> allocations
+       (map #(-> %
+                 (update-in [0] (comp parse-int name))
+                 (update-in [1] ->decimal)))
+       (into {})))
+
 (defn- after-read
   [account]
   (-> account
@@ -21,6 +31,7 @@
       (update-in [:value] ->decimal)
       (update-in [:quantity] ->decimal)
       (update-in [:tags] #(->> % (map keyword) set))
+      (update-in-if [:allocations] correct-allocations)
       set-flags
       (update-in [:created-at] unserialize-date-time)
       (update-in [:commodity :type] keyword)
@@ -49,6 +60,7 @@
    :type
    :commodity-id
    :parent-id
+   :allocations
    :trading
    :system-tags
    :user-tags])

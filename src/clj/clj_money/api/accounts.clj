@@ -4,6 +4,7 @@
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if
+                                          parse-int
                                           parse-bool]]
             [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
@@ -69,7 +70,8 @@
    :commodity-id
    :system-tags
    :user-tags
-   :parent-id])
+   :parent-id
+   :allocations])
 
 (defn- prepare-tags
   [tags]
@@ -83,9 +85,15 @@
   [{:keys [trading] :as account}]
   (if trading
     (update-in account [:system-tags] (fnil conj #{}) :trading)
-    (if (seq (:system-tags account))
-      (update-in account [:system-tags] disj :trading)
-      account)))
+    account))
+
+; JSON serialization/deserialization wants the keys to be keywords
+(defn- correct-allocations
+  [allocations]
+  (reduce (fn [r [k v]]
+            (assoc r (-> k name parse-int) (bigdec v)))
+          {}
+          allocations))
 
 (defn- before-save
   [account]
@@ -93,6 +101,7 @@
       (update-in-if [:user-tags] prepare-tags)
       (update-in-if [:system-tags] prepare-tags)
       (update-in-if [:type] keyword)
+      (update-in-if [:allocations] correct-allocations)
       handle-trading-tag
       (select-keys attribute-keys)))
 

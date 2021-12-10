@@ -5,7 +5,9 @@
             [stowaway.core :as stow :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [assoc-if
-                                          present?]]
+                                          parse-int
+                                          present?
+                                          update-in-if]]
             [dgknght.app-lib.models :refer [->id
                                             extract-nested]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
@@ -43,12 +45,13 @@
 (s/def ::parent-id (s/nilable integer?))
 (s/def ::system-tags (s/coll-of keyword? :kind set?))
 (s/def ::user-tags (s/coll-of keyword? :kind set?))
+(s/def ::allocations (s/nilable (s/map-of ::id decimal?)))
 (s/def ::new-account (s/and (s/keys :req-un [::entity-id ::name ::type ::commodity-id]
-                                    :opt-un [::parent-id ::system-tags ::user-tags])
+                                    :opt-un [::parent-id ::system-tags ::user-tags ::allocations])
                             name-is-unique?
                             parent-has-same-type?))
 (s/def ::existing-account (s/and (s/keys :req-un [::id ::entity-id ::type ::name]
-                                         :opt-un [::parent-id ::commodity-id ::system-tags ::user-tags])
+                                         :opt-un [::parent-id ::commodity-id ::system-tags ::user-tags ::allocations])
                                  name-is-unique?
                                  parent-has-same-type?))
 ; :value and :children-value are not specified because they are always
@@ -111,13 +114,21 @@
        (map keyword)
        set))
 
+(defn- deserialize-allocations
+  [allocations]
+  (->> allocations
+       (map #(-> %
+                 (update-in [0] parse-int)
+                 (update-in [1] bigdec)))
+       (into {})))
+
 (defn- after-read
-  "Adjusts account data read from the database for use"
-  [account & _]
+  [account]
   (-> account
       (update-in [:type] keyword)
       (update-in [:system-tags] prepare-tags)
       (update-in [:user-tags] prepare-tags)
+      (update-in-if [:allocations] deserialize-allocations)
       (extract-nested :commodity)
       (tag ::models/account)
       (dissoc-if-nil :parent-id)))

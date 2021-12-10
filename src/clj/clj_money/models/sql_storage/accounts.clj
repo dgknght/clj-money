@@ -19,6 +19,7 @@
    :accounts.type
    :accounts.name
    :accounts.parent_id
+   :accounts.allocations
    :accounts.quantity
    :accounts.system_tags
    :accounts.user_tags
@@ -75,6 +76,7 @@
                 :commodity-id
                 :entity-id
                 :parent-id
+                :allocations
                 :quantity
                 :value
                 :price-as-of
@@ -90,6 +92,7 @@
                 :user-tags
                 :commodity-id
                 :parent-id
+                :allocations
                 :quantity
                 :value
                 :price-as-of

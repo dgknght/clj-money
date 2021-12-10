@@ -13,6 +13,7 @@
                                       left-join
                                       where]]
             [honeysql.format :as sql]
+            [camel-snake-kebab.core :refer [->snake_case_string]]
             [stowaway.sql :refer [apply-sort
                                   apply-limit
                                   select-count]]
@@ -21,7 +22,6 @@
                                      deep-dissoc]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
-                                                          ->sql-keys
                                                           insert-model
                                                           update-model
                                                           apply-criteria]]
@@ -115,12 +115,11 @@
   (let [sql (-> (update :transaction_items)
                 (sset (-> attr
                           (select-keys allowed-keys)
-                          (assoc :updated-at (t/now))
-                          ->sql-keys))
+                          (assoc :updated-at (t/now))))
                 (apply-criteria criteria)
                 sql/format)]
     (log/debugf "update transaction_items %s %s -> %s" attr criteria sql)
-    (first (jdbc/execute! db-spec sql))))
+    (first (jdbc/execute! db-spec sql {:entities ->snake_case_string}))))
 
 (defmethod stg/update ::models/transaction-item
   [& args]

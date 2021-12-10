@@ -4,16 +4,16 @@
             [clojure.string :as string]
             [cheshire.core :as json]
             [clj-money.json]
-            [camel-snake-kebab.core :refer [->kebab-case
-                                            ->snake_case]]
-            [camel-snake-kebab.extras :refer [transform-keys]]
+            [camel-snake-kebab.core :refer [->snake_case_string
+                                            ->kebab-case-keyword]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date
                                      to-sql-time
                                      to-local-date]]
-            [stowaway.sql :as storage])
+            [stowaway.sql :as storage]
+            [dgknght.app-lib.core :refer [update-in-if]])
   (:import [java.sql Date PreparedStatement]
            org.postgresql.util.PGobject
            [org.joda.time LocalDate DateTime]
@@ -63,26 +63,21 @@
       (.setObject stmt index (->json value type-name))
       (.setObject stmt index value))))
 
-(defn ->sql-keys
-  "Accepts a hash and replaces hyphens in key names
-  with underscores"
-  [model]
-  (transform-keys ->snake_case model))
-
-(defn ->clojure-keys
-  "Accepts a hash and replaces underscores in key names
-  with hyphens"
-  [model]
-  (transform-keys ->kebab-case model))
-
 (defn insert-model
   "Inserts a record into the specified table"
   [db-spec table model & allowed-keys]
-  (->> (select-keys model allowed-keys)
-       ->sql-keys
-       (jdbc/insert! db-spec table)
-       first
-       ->clojure-keys))
+  (jdbc/insert! db-spec
+                table
+                (select-keys model allowed-keys)
+                {:entities ->snake_case_string
+                 :identifiers ->kebab-case-keyword
+                 :result-set-fn first}))
+
+(defn- redact-sensitive
+  [model]
+  (reduce #(update-in-if %1 [%2] (constantly "****"))
+          model
+          [:password]))
 
 (defn update-model
   "Updates a record in the specified table"
@@ -90,17 +85,22 @@
   {:pre [id]}
   (let [[criteria allowed-keys] (if (keyword? (first options))
                                   [[:= :id id] options]
-                                  [(first options) (rest options)])]
+                                  [(first options) (rest options)])
+        updated-model (-> model
+                          (select-keys allowed-keys)
+                          (assoc :updated-at (t/now)))
+        where-clause (update-in (sql/format (h/where criteria))
+                                [0]
+                                string/replace
+                                #"^WHERE "
+                                "")]
+    (log/debugf "update model %s where %s"
+                (redact-sensitive updated-model)
+                where-clause)
     (jdbc/update! db-spec table
-                  (-> model
-                      (select-keys allowed-keys)
-                      (assoc :updated-at (t/now))
-                      ->sql-keys)
-                  (update-in (sql/format (h/where criteria))
-                             [0]
-                             string/replace
-                             #"^WHERE "
-                             ""))))
+                  updated-model
+                  where-clause
+                  {:entities ->snake_case_string})))
 
 (def ^:private relationships
   {#{:transaction :lot-transaction}     {:primary-table :transactions
@@ -169,7 +169,7 @@
   (let [formatted (sql/format sql)]
     (log/debug "query" (prn-str formatted))
     (try
-      (map ->clojure-keys (jdbc/query db-spec formatted))
+      (jdbc/query db-spec formatted {:identifiers ->kebab-case-keyword})
       (catch Exception e
         (log/errorf e "Unable to complete query: %s" formatted)
         (throw (Exception. "Unable to complete the query" e))))))

@@ -1,6 +1,7 @@
 (ns clj-money.accounts-test
   (:require [clojure.test :refer [deftest is testing]]
             [clj-time.core :as t]
+            [dgknght.app-lib.core :refer [index-by]]
             [clj-money.accounts :as accounts]))
 
 (deftest create-criteria-from-one-account
@@ -117,3 +118,132 @@
   (let [account {:user-tags #{:mandatory}}]
     (is (accounts/user-tagged? account :mandatory))
     (is (not (accounts/user-tagged? account :discretionary)))))
+
+(def ^:private allocation-context
+  {:ira             {:id 100
+                     :name "IRA"
+                     :quantity 468931.04M
+                     :total-value 468931.04M
+                     :value 778.29M
+                     :allocations {101 7.5M
+                                   102 30M
+                                   103 7.5M
+                                   104 15M
+                                   105 40M}}
+   :gold            {:id 101
+                     :name "Gold"
+                     :value 34309.80M}
+   :stocks          {:id 102
+                     :name "Stocks"
+                     :value 139853.78M}
+   :commodities     {:id 103
+                     :name "Commodities"
+                     :value 38316.93M}
+   :int-term-bonds  {:id 104
+                     :name "Intermediate Term Bods"
+                     :value 69167.10M}
+   :long-term-bonds {:id 105
+                     :name "Long Term Bods"
+                     :value 186505.13M}})
+
+(deftest create-rebalancing-adjustments
+  (let [{:keys [ira
+                gold
+                stocks
+                commodities
+                int-term-bonds
+                long-term-bonds]} allocation-context
+        all-accounts (index-by :id [ira
+                                    gold
+                                    stocks
+                                    commodities
+                                    int-term-bonds
+                                    long-term-bonds])
+        adjustments (accounts/allocate ira all-accounts)]
+    (is (= [{:account gold
+             :target-percentage 7.5M
+             :target-value 35111.45625M
+             :current-percentage 0.0733M
+             :current-value 34309.80M
+             :adj-value 800M}
+            {:account stocks
+             :target-percentage 30M
+             :target-value 140445.825M
+             :current-percentage 0.299M
+             :current-value 139853.78M
+             :adj-value 600M}
+            {:account commodities
+             :target-percentage 7.5M
+             :target-value 35111.45625M
+             :current-percentage 0.0818M
+             :current-value 38316.93M
+             :adj-value -3300M}
+            {:account int-term-bonds
+             :target-percentage 15M
+             :target-value 70222.9125M
+             :current-percentage 0.148M
+             :current-value 69167.10M
+             :adj-value 1100M}
+            {:account long-term-bonds
+             :target-percentage 40M
+             :target-value 187261.10M
+             :current-percentage 0.398M
+             :current-value 186505.13M
+             :adj-value 800M}]
+           (sort-by (comp :id :account) adjustments)))
+    (is (zero? (->> adjustments
+                    (map :adj-value)
+                    (reduce +)))
+        "The net change is zero")))
+
+(deftest reallocate-for-withdrawal
+  (let [{:keys [ira
+                gold
+                stocks
+                commodities
+                int-term-bonds
+                long-term-bonds]} allocation-context
+        all-accounts (index-by :id [ira
+                                    gold
+                                    stocks
+                                    commodities
+                                    int-term-bonds
+                                    long-term-bonds])
+        withdrawal 10000M
+        adjustments (accounts/allocate ira all-accounts {:withdrawal withdrawal})]
+    (is (= [{:account gold
+             :target-percentage 7.5M
+             :target-value 34361.45625M
+             :current-percentage 0.0749M ; TODO: multiply this by 100 also?
+             :current-value 34309.80M
+             :adj-value 0M}
+            {:account stocks
+             :target-percentage 30M
+             :target-value 137445.825M
+             :current-percentage 0.305M
+             :current-value 139853.78M
+             :adj-value -2400M}
+            {:account commodities
+             :target-percentage 7.5M
+             :target-value 34361.45625M
+             :current-percentage 0.0836M
+             :current-value 38316.93M
+             :adj-value -4000M}
+            {:account int-term-bonds
+             :target-percentage 15M
+             :target-value 68722.9125M
+             :current-percentage 0.151M
+             :current-value 69167.10M
+             :adj-value -400M}
+            {:account long-term-bonds
+             :target-percentage 40M
+             :target-value 183261.100M
+             :current-percentage 0.407M
+             :current-value 186505.13M
+             :adj-value -3200M}]
+           (sort-by (comp :id :account) adjustments)))
+    (is (= (- 0 withdrawal)
+           (->> adjustments
+                (map :adj-value)
+                (reduce +)))
+        "The net change is zero")))

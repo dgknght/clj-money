@@ -1,8 +1,8 @@
 (ns clj-money.accounts
+  (:refer-clojure :exclude [+ - * /])
   (:require [clojure.string :as string]
             [dgknght.app-lib.models :as models]
             [dgknght.app-lib.web :refer [format-decimal]]
-            [clj-money.util :refer [abs]]
             #?(:cljs [dgknght.app-lib.decimal :as decimal])
             #?(:clj [clj-time.coerce :as tc]
                :cljs [cljs-time.coerce :as tc])))
@@ -11,21 +11,47 @@
   "The list of valid account types in standard presentation order"
   [:asset :liability :equity :income :expense])
 
-(defn plus
+(defn +
   [n1 n2]
   #?(:cljs (decimal/+ n1 n2)
-     :clj (+ n1 n2)))
+     :clj (clojure.core/+ n1 n2)))
+
+(defn -
+  [n1 n2]
+  #?(:cljs (decimal/- n1 n2)
+     :clj (clojure.core/- n1 n2)))
+
+(defn *
+  [n1 n2]
+  #?(:cljs (decimal/* n1 n2)
+     :clj (clojure.core/* n1 n2)))
+
+(defn /
+  [n1 n2]
+  #?(:cljs (decimal// n1 n2)
+     :clj (if *math-context*
+            (clojure.core// n1 n2)
+            (with-precision 3
+              (clojure.core// n1 n2)))))
+
+(defn round
+  [n]
+  #?(:cljs (decimal/round n)
+     :clj (.setScale n 0 java.math.RoundingMode/HALF_UP)))
+
+#?(:cljs (defn abs [n] (decimal/abs n))
+   :clj  (defn abs [^java.math.BigDecimal n] (.abs n)))
 
 (defn- eval-children
   [{:keys [children] :as account}]
   (let [children-value (->> children
                             (mapcat (juxt :value :children-value))
                             (filter identity)
-                            (reduce plus 0M))]
+                            (reduce + 0M))]
     (assoc account
            :children-value children-value
-           :total-value (plus children-value
-                              (or (:value account) 0M))
+           :total-value (+ children-value
+                           (or (:value account) 0M))
            :has-children? true)))
 
 (defn nest
@@ -139,3 +165,44 @@
                   (if (= "USD" (:symbol commodity))
                     {:fraction-digits 2}
                     {:fraction-digits 4})))
+
+(defn- ->allocation-rec
+  [{:keys [target-percentage account] :as m} working-total]
+  (let [percentage (/ target-percentage 100M)
+        target-value (* working-total
+                        percentage)
+        current-value (:value account)
+        current-percentage (/ current-value working-total)
+        raw-adj-value (- target-value
+                         current-value)
+        adj-value (if (< (abs raw-adj-value) 100M)
+                    0M
+                    (* 100M
+                       (round (/ raw-adj-value
+                                 100M))))]
+    (assoc m
+           :current-value current-value
+           :current-percentage current-percentage
+           :target-value target-value
+           :adj-value adj-value)))
+
+(defn allocate
+  ([account find-account-fn]
+   (allocate account find-account-fn {}))
+  ([{:keys [allocations total-value value]} find-account-fn {:keys [cash withdrawal]}]
+   (let [cash-withheld (or cash value)
+         withdrawal (or withdrawal 0M)
+         working-total (- total-value (+ cash-withheld withdrawal))
+         result (->> allocations
+                     (map (comp #(->allocation-rec % working-total)
+                                (fn [[id target-percentage]]
+                                  {:account (find-account-fn id)
+                                   :target-percentage target-percentage})))
+                     (sort-by (comp abs :adj-value) >)
+                     (into []))
+         net (->> result
+                  (map :adj-value)
+                  (reduce + withdrawal))]
+     (if (zero? net)
+       result
+       (update-in result [0 :adj-value] - net)))))
