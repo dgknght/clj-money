@@ -119,7 +119,7 @@
    [:td.d-none.d-md-table-cell (format-date (:last-occurrence sched-tran))]
    [:td
     [:span.d-none.d-md-inline (format-date (:next-occurrence sched-tran))]
-    [:span.d-md-none] (format-date (:next-occurrence sched-tran) "M/d")]
+    [:span.d-md-none (format-date (:next-occurrence sched-tran) "M/d")]]
    [:td
     [:div.btn-group
      [:button.btn.btn-sm {:title "Click here to realize transactions for this schedule."
