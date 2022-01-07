@@ -2,6 +2,8 @@
   (:refer-clojure :exclude [update count find])
   (:require [clojure.spec.alpha :as s]
             [environ.core :refer [env]]
+            [camel-snake-kebab.core :refer [->kebab-case-keyword]]
+            [camel-snake-kebab.extras :refer [transform-keys]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [update-in-if
@@ -43,23 +45,25 @@
                      present?))
 (s/def ::symbol (s/and string?
                      present?))
-(s/def ::exchange #{:nyse :nasdaq :amex})
 (s/def ::type #{:currency :stock :fund})
 
-(def exchanges #{:nyse :nasdaq})
+(s/def ::enabled boolean?)
+(s/def ::price-config (s/keys :req-un [::enabled]))
 
 (defmulti new-commodity-spec :type)
 (defmethod new-commodity-spec :default [_]
-  (s/keys :req-un [::type ::entity-id ::name ::symbol]))
+  (s/keys :req-un [::type ::entity-id ::name ::symbol ::price-config]))
 (defmethod new-commodity-spec :stock [_]
-  (s/keys :req-un [::type ::entity-id ::name ::symbol ::exchange]))
+  (s/keys :req-un [::type ::entity-id ::name ::symbol ::price-config ::models/exchange]))
+(defmethod new-commodity-spec :fund [_]
+  (s/keys :req-un [::type ::entity-id ::name ::symbol ::price-config ::models/exchange]))
 
 (s/def ::new-commodity (s/and (s/keys :req-un [::type])
                               (s/multi-spec new-commodity-spec :type)
                               name-is-unique?
                               symbol-is-unique?))
 
-(s/def ::existing-commodity (s/keys :req-un [::id ::type ::entity-id ::name ::symbol]))
+(s/def ::existing-commodity (s/keys :req-un [::id ::type ::entity-id ::name ::symbol ::price-config]))
 
 (defn- before-save
   [commodity]
@@ -74,7 +78,8 @@
     (-> commodity
         (tag ::models/commodity)
         (update-in-if [:exchange] keyword)
-        (update-in [:type] keyword))))
+        (update-in [:type] keyword)
+        (update-in [:price-config] #(transform-keys ->kebab-case-keyword %)))))
 
 (defn search
   "Returns commodities matching the specified criteria"

@@ -127,7 +127,9 @@
 
 (defn- import-commodity
   [{:keys [entity] :as context} commodity]
-  (let [to-create (assoc commodity :entity-id (:id entity))
+  (let [to-create (assoc commodity
+                         :entity-id (:id entity)
+                         :price-config {:enabled true}) ; TODO: read this from import data
         {:keys [exchange symbol] :as created} (commodities/create to-create)]
     (if (v/has-error? created)
       (throw (ex-info (format "Unable to create commodity %s (%s): %s"

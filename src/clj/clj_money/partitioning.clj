@@ -41,6 +41,8 @@
 (def ^:private tables
   {:prices {:interval-type :year
             :interval-count 1}
+   :cached_prices {:interval-type :year
+                   :interval-count 1}
    :transactions {:interval-type :year
                   :interval-count 1}
    :transaction_items {:interval-type :year

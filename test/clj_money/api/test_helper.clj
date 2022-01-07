@@ -11,8 +11,9 @@
 
 (defn add-auth
   [req user]
-  {:pre [user]}
-  (req/header req "Authorization" (str "Bearer " (auth/make-token user))))
+  (if user
+    (req/header req "Authorization" (str "Bearer " (auth/make-token user)))
+    req))
 
 (defmulti ^:private add-part
   (fn [_ _ value]

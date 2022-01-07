@@ -1,0 +1,37 @@
+{
+  "Meta Data": {
+    "1. Information": "Daily Prices and Volumes for Digital Currency",
+    "2. Digital Currency Code": "BTC",
+    "3. Digital Currency Name": "Bitcoin",
+    "4. Market Code": "USD",
+    "5. Market Name": "United States Dollar",
+    "6. Last Refreshed": "2022-01-06 00:00:00",
+    "7. Time Zone": "UTC"
+  },
+  "Time Series (Digital Currency Daily)": {
+    "2022-01-06": {
+      "1a. open (USD)": "43451.14000000",
+      "1b. open (USD)": "43451.14000000",
+      "2a. high (USD)": "43689.99000000",
+      "2b. high (USD)": "43689.99000000",
+      "3a. low (USD)": "43261.62000000",
+      "3b. low (USD)": "43261.62000000",
+      "4a. close (USD)": "43681.73000000",
+      "4b. close (USD)": "43681.73000000",
+      "5. volume": "1505.96873000",
+      "6. market cap (USD)": "1505.96873000"
+    },
+    "2022-01-05": {
+      "1a. open (USD)": "45832.01000000",
+      "1b. open (USD)": "45832.01000000",
+      "2a. high (USD)": "47070.00000000",
+      "2b. high (USD)": "47070.00000000",
+      "3a. low (USD)": "42500.00000000",
+      "3b. low (USD)": "42500.00000000",
+      "4a. close (USD)": "43451.13000000",
+      "4b. close (USD)": "43451.13000000",
+      "5. volume": "51784.11857000",
+      "6. market cap (USD)": "51784.11857000"
+    }
+  }
+}

@@ -10,6 +10,7 @@
             [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
+            [clj-money.models.cached-prices :as cached-prices]
             [clj-money.models.lots :as lots]
             [clj-money.models.budgets :as budgets]
             [clj-money.models.transactions :as transactions]
@@ -226,6 +227,16 @@
   [context]
   (update-in context [:users] #(create-users %)))
 
+(defn- create-cached-prices
+  [cached-prices]
+  (mapv (fn [attributes]
+          (throw-on-invalid (cached-prices/create attributes)))
+        cached-prices))
+
+(defn- realize-cached-prices
+  [context]
+  (update-in context [:cached-prices] #(create-cached-prices %)))
+
 (defn- resolve-user
   [model context]
   (assoc model :user-id (:id (if-let [id (:user-id model)]
@@ -432,6 +443,7 @@
   (mapv (fn [attributes]
           (-> attributes
               (resolve-entity context)
+              (update-in [:price-config] (fnil identity {:enabled true}))
               commodities/create
               throw-on-invalid))
         commodities))
@@ -614,6 +626,7 @@
   "Realizes a test context"
   [input]
   (-> input
+      realize-cached-prices
       realize-users
       realize-images
       realize-imports

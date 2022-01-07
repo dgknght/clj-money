@@ -13,6 +13,7 @@
                                                            seq-of-maps-like?
                                                            includes-progress-notification?])
                                          (dgknght.app-lib.test/with-mail-capture)
+                                         (dgknght.app-lib.web-mocks/with-web-mocks)
                                          (clj-money.tasks/with-options)]}
            :unresolved-namespace {:exclude [act
                                             cmdty

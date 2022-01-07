@@ -7,6 +7,7 @@
             [clj-money.models.sql-storage.grants]
             [clj-money.models.sql-storage.commodities]
             [clj-money.models.sql-storage.prices]
+            [clj-money.models.sql-storage.cached-prices]
             [clj-money.models.sql-storage.lots]
             [clj-money.models.sql-storage.transactions]
             [clj-money.models.sql-storage.transaction-items]

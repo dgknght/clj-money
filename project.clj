@@ -70,7 +70,7 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [com.github.dgknght/app-lib "0.1.32"]
+                 [com.github.dgknght/app-lib "0.1.34"]
                  [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.15" :exclusions [org.clojure/spec.alpha
                                                  org.clojure/clojure
@@ -149,7 +149,9 @@
                             :google-client-secret "google-client-secret"
                             :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
                             :site-protocol "https"
-                            :site-host "www.mymoney.com"}}
+                            :site-host "www.mymoney.com"
+                            :alpha-vantage-api-key "alpha-vantage-api-key"
+                            :yahoo-api-key "yahoo-api-key"}}
             :uberjar {:prep-tasks ["compile"
                                    ["cljsbuild" "once"]
                                    "sass"]}})

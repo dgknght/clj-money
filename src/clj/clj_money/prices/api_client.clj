@@ -1,4 +1,4 @@
-(ns clj-money.models.prices.api-client
+(ns clj-money.prices.api-client
   (:refer-clojure :exclude [update])
   (:require [clj-http.client :as client]
             [clojure.set :refer [rename-keys]]

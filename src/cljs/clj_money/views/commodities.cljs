@@ -12,6 +12,7 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.busy :refer [busy +busy -busy]]
+            [dgknght.app-lib.decimal :as decimal]
             [clj-money.dates :as dates]
             [clj-money.views.util :refer [handle-error]]
             [clj-money.components :refer [load-in-chunks
@@ -33,16 +34,14 @@
 
 (defn- save-commodity
   [page-state]
-  (let [commodity (get-in @page-state [:selected])]
-    (+busy page-state)
-    (commodities/save (cond-> commodity
-                        (not= "stock" (:type commodity)) (dissoc commodity :exchange))
-                      (fn []
-                        (swap! page-state #(-> %
-                                               -busy
-                                               (dissoc :selected)))
-                        (load-commodities page-state))
-                      (handle-error page-state "Unable to save the commodity: %s"))))
+  (+busy page-state)
+  (commodities/save (get-in @page-state [:selected])
+                    (fn []
+                      (swap! page-state #(-> %
+                                             -busy
+                                             (dissoc :selected)))
+                      (load-commodities page-state))
+                    (handle-error page-state "Unable to save the commodity: %s")))
 
 (defn- commodity-form
   [page-state]
@@ -58,10 +57,10 @@
        [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
        [:div.card-body
         [forms/select-field commodity [:type] @types]
-        (when (= "stock" (:type @commodity))
-          [forms/select-field commodity [:exchange] ["nyse" "nasdaq"]])
+        [forms/select-field commodity [:exchange] ["" "nyse" "nasdaq" "otc"]]
         [forms/text-field commodity [:symbol] {:validate [:required]}]
-        [forms/text-field commodity [:name] {:validate [:required]}]]
+        [forms/text-field commodity [:name] {:validate [:required]}]
+        [forms/checkbox-field commodity [:price-config :enabled] {:caption "Download prices"}]]
        [:div.card-footer
         [bs/busy-button {:html {:class "btn-primary"
                                 :title "Click here to save this commodity"
@@ -119,7 +118,7 @@
     (go (>! ctl-ch :fetch))))
 
 (defn- commodity-row
-  [{price :most-recent-price :as commodity} page-state]
+  [{:keys [latest-price most-recent-price] :as commodity} page-state]
   (let  [default? (= (:id commodity)
                      (get-in @current-entity [:settings :default-commodity-id]))]
     ^{:key (:id commodity)}
@@ -127,7 +126,8 @@
      [:td (truncate (:name commodity))]
      [:td.d-lg-table-cell.d-none (:symbol commodity)]
      [:td.d-lg-table-cell.d-none (:exchange commodity)]
-     [:td.d-lg-table-cell.d-none.text-end {:title (format-date (:trade-date price))} (currency-format (:price price))]
+     [:td.d-lg-table-cell.d-none.text-end (currency-format (:price most-recent-price))]
+     [:td.d-lg-table-cell.d-none.text-end (format-date latest-price)]
      [:td.text-end
       [:div.btn-group
        [:button.btn.btn-light.btn-sm {:title "Click here to edit this commodity."
@@ -170,7 +170,12 @@
 (defn- pagination
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
-        com-count (make-reaction #(count @commodities))
+        hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
+        filter-fn (make-reaction #(if @hide-zero-shares?
+                                    (fn [{:keys [shares-owned]}] (not (zero? shares-owned)))
+                                    (constantly true)))
+        filtered (make-reaction #(filter @filter-fn @commodities))
+        com-count (make-reaction #(count @filtered))
         page-size (r/cursor page-state [:page-size])
         page-count (make-reaction #(.ceil js/Math (/ @com-count @page-size)))
         max-index (make-reaction #(- @page-count 1))
@@ -199,9 +204,35 @@
                        :on-click #(swap! page-state assoc :page-index @max-index)}
         (bs/icon :chevron-bar-right {:size :small})]]])))
 
+(defn- shares-owned?
+  [{:keys [shares-owned]}]
+  (not (decimal/zero? shares-owned)))
+
+(defn- price-download-enabled?
+  [{:keys [price-config]}]
+  (:enabled price-config))
+
+(defn- download-prices
+  [page-state]
+  (when-let [commodity-ids (->> (:commodities @page-state)
+                                (filter (every-pred shares-owned? price-download-enabled?))
+                                (map :id)
+                                seq)]
+    (+busy page-state)
+    (prices/fetch commodity-ids
+                  (fn [_]
+                    (load-commodities page-state)
+                    (-busy page-state))
+                  (handle-error page-state "Unable to fetch the prices: %s"))))
+
 (defn- commodities-table
   [page-state]
   (let [commodities (r/cursor page-state [:commodities])
+        hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
+        filter-fn (make-reaction #(if @hide-zero-shares?
+                                    (fn [{:keys [shares-owned]}] (not (zero? shares-owned)))
+                                    (constantly true)))
+        filtered (make-reaction #(filter @filter-fn @commodities))
         page-size (r/cursor page-state [:page-size])
         page-index (r/cursor page-state [:page-index])
         search-term (r/cursor page-state [:search-term])
@@ -231,17 +262,18 @@
           [:th.d-lg-table-cell.d-none "Symbol"]
           [:th.d-lg-table-cell.d-none "Exchange"]
           [:th.d-lg-table-cell.d-none.text-end "Latest Price"]
+          [:th.d-lg-table-cell.d-none.text-end "Price Date"]
           [:th (html/space)]]]
         [:tbody
          (if @commodities
-           (->> @commodities
+           (->> @filtered
                 (filter (match-commodity @pattern))
                 (drop (* @page-size @page-index))
                 (take @page-size)
                 (map #(commodity-row % page-state))
                 doall)
            [:tr
-            [:td.text-center {:col-span 5} [bs/spinner]]])]]
+            [:td.text-center {:col-span 6} [bs/spinner]]])]]
        [pagination page-state]
        [bs/busy-button {:html {:class "btn-primary"
                                :title "Click here to add a new commodity."
@@ -251,12 +283,20 @@
                                                   :selected
                                                   {:entity-id (:id @current-entity)
                                                    :type "stock"
-                                                   :exchange "nyse"})
+                                                   :exchange "nyse"
+                                                   :price-config {:enabled true}})
                                            (html/set-focus "type"))}
                         :busy? busy?
                         :icon :plus
                         :caption "Add"
-                        :disabled? selected}]])))
+                        :disabled? selected}]
+       [bs/busy-button {:html {:class "btn-light"
+                               :title "Click here to download recent prices for each commodity."
+                               :on-click #(download-prices page-state)}
+                        :busy? busy?
+                        :icon :download
+                        :disabled? selected
+                        :caption "Fetch Prices"}]])))
 
 (defn- delete-price
   [price page-state]
@@ -392,16 +432,40 @@
                          :caption "Cancel"
                          :busy? busy?}]]])))
 
+(defn- filter-container
+  [page-state]
+  [:div#filter.offcanvas.offcanvas-end {:tab-index -1}
+   [:div.offcanvas-header
+    [:h3.off-canvas-title "Filter"]
+    [:button.btn-close.text-reset {:data-bs-dismiss "offcanvas"
+                                   :aria-label "Close"}]]
+   [:div.offcanvas-body
+    [:div.form-check.mb-1
+        [forms/checkbox-input
+         page-state
+         [:hide-zero-shares?]]
+        [:label.form-check-label {:for "hide-zero-shares"}
+         "Hide zero shares"]]]])
+
 (defn- index []
   (let [page-state (r/atom {:page-size 10
                             :page-index 0
-                            :prices-ctl-chan (chan)})]
+                            :prices-ctl-chan (chan)
+                            :hide-zero-shares? true})]
     (load-commodities page-state)
     (add-watch current-entity ::index (fn [& _]
                                         (load-commodities page-state)))
     (fn []
       [:<>
-       [:h1.mt-3 "Commodities"]
+       [:div.row
+        [:div.col-md-8.d-flex.justify-content-between.align-items-center
+         [:h1.mt-3 "Commodities"]
+         [:button.btn.btn-light {:type :button
+                                 :data-bs-toggle "offcanvas"
+                                 :data-bs-target "#filter"
+                                 :aria-controls "filter"}
+          (bs/icon :funnel {:size :small})]]]
+       [filter-container page-state]
        [:div.row
         [:div.col-md-8
          [commodities-table page-state]]

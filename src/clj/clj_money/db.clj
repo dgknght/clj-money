@@ -40,7 +40,7 @@
 (defn put-partition-date
   [setting-name date compare-fn]
   (when (if-let [existing (settings/get setting-name)]
-          (when (compare-fn date (:value existing))
+          (when (compare-fn date existing)
             date)
           date)
     (settings/put setting-name date)))

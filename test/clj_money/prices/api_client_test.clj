@@ -1,8 +1,8 @@
-(ns clj-money.models.prices.api-client-test
+(ns clj-money.prices.api-client-test
   (:require [clojure.test :refer [deftest is]]
             [clj-time.core :as t]
             [clj-http.client :as client]
-            [clj-money.models.prices.api-client :as prices-client]))
+            [clj-money.prices.api-client :as prices-client]))
 
 (def ^:private raw-response
   {:request-time 201

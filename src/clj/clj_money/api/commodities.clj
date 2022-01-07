@@ -10,6 +10,7 @@
             [clj-money.models :as models]
             [clj-money.models.commodities :as coms]
             [clj-money.models.prices :as prices]
+            [clj-money.models.lots :as lots]
             [clj-money.authorization.commodities]))
 
 (defn- scoped-params
@@ -33,11 +34,27 @@
            commodities))
     commodities))
 
+(defn- append-shares-owned
+  [commodities]
+  (if (seq commodities)
+    (let [lots (->> (lots/search {:commodity-id (map :id commodities)
+                                  :shares-owned [:> 0]})
+                    (group-by :commodity-id)
+                    (map (fn [[commodity-id lots]]
+                           [commodity-id (->> lots
+                                              (map :shares-owned)
+                                              (reduce + 0M))]))
+                    (into {}))]
+      (map #(assoc % :shares-owned (get-in lots [(:id %)] 0M))
+           commodities))
+    commodities))
+
 (defn- index
   [req]
-  (api/response
-   (append-current-prices
-    (coms/search (scoped-params req)))))
+  (->> (coms/search (scoped-params req))
+       append-current-prices
+       append-shares-owned
+       api/response))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
@@ -56,7 +73,8 @@
    :name
    :symbol
    :exchange
-   :type])
+   :type
+   :price-config])
 
 (defn- ensure-keyword
   [m & ks]

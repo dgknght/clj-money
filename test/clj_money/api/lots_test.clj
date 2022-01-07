@@ -30,6 +30,7 @@
                  {:name "Some Fund"
                   :entity-id "Personal"
                   :symbol "FND"
+                  :exchange :nasdaq
                   :type :fund}]
    :accounts [{:name "IRA"
                :entity-id "Personal"

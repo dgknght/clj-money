@@ -6,5 +6,5 @@
   "Deletes all records from all tables in the database prior to test execution"
   [f]
   (jdbc/with-db-connection [db (env :db)]
-    (jdbc/execute! db "truncate table users cascade"))
+    (jdbc/execute! db "truncate table cached_prices; truncate table users cascade"))
   (f))

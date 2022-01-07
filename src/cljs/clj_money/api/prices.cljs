@@ -63,3 +63,10 @@
                         (->id price))
               success-fn
               error-fn))
+
+(defn fetch
+  [commodity-ids success-fn error-fn]
+  (api/get (api/path :prices :fetch)
+           {:commodity-id commodity-ids}
+           success-fn
+           error-fn))

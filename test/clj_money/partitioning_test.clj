@@ -18,7 +18,8 @@
     (let [expected #{"create table if not exists prices_y2001 partition of prices for values from ('2001-01-01') to ('2002-01-01');"
                      "create table if not exists transactions_y2001 partition of transactions for values from ('2001-01-01') to ('2002-01-01');"
                      "create table if not exists transaction_items_y2001 partition of transaction_items for values from ('2001-01-01') to ('2002-01-01');"
-                     "create table if not exists reconciliations_y2001_y2005 partition of reconciliations for values from ('2001-01-01') to ('2006-01-01');"}
+                     "create table if not exists reconciliations_y2001_y2005 partition of reconciliations for values from ('2001-01-01') to ('2006-01-01');"
+                     "create table if not exists cached_prices_y2001 partition of cached_prices for values from ('2001-01-01') to ('2002-01-01');"}
           cmds (with-cmd-intercept
                  (prt/create-partition-tables
                   (t/local-date 2001 1 1)
@@ -31,7 +32,8 @@
     (let [expected #{"create table if not exists prices_y2002 partition of prices for values from ('2002-01-01') to ('2003-01-01');"
                      "create table if not exists transactions_y2002 partition of transactions for values from ('2002-01-01') to ('2003-01-01');"
                      "create table if not exists transaction_items_y2002 partition of transaction_items for values from ('2002-01-01') to ('2003-01-01');"
-                     "create table if not exists reconciliations_y2001_y2005 partition of reconciliations for values from ('2001-01-01') to ('2006-01-01');"}
+                     "create table if not exists reconciliations_y2001_y2005 partition of reconciliations for values from ('2001-01-01') to ('2006-01-01');"
+                     "create table if not exists cached_prices_y2002 partition of cached_prices for values from ('2002-01-01') to ('2003-01-01');" }
           cmds (with-cmd-intercept
                  (prt/create-partition-tables
                   (t/local-date 2002 1 1)
@@ -50,13 +52,17 @@
                      "create table if not exists transaction_items_y2020_m01 partition of transaction_items for values from ('2020-01-01') to ('2020-02-01');"
                      "create table if not exists transaction_items_y2020_m02 partition of transaction_items for values from ('2020-02-01') to ('2020-03-01');"
                      "create table if not exists reconciliations_y2020_m01 partition of reconciliations for values from ('2020-01-01') to ('2020-02-01');"
-                     "create table if not exists reconciliations_y2020_m02 partition of reconciliations for values from ('2020-02-01') to ('2020-03-01');"}
+                     "create table if not exists reconciliations_y2020_m02 partition of reconciliations for values from ('2020-02-01') to ('2020-03-01');"
+                     "create table if not exists cached_prices_y2020_m01 partition of cached_prices for values from ('2020-01-01') to ('2020-02-01');"
+                     "create table if not exists cached_prices_y2020_m02 partition of cached_prices for values from ('2020-02-01') to ('2020-03-01');" }
           cmds (with-cmd-intercept
                  (prt/create-partition-tables
                   (t/local-date 2020 1 1)
                   (t/local-date 2020 2 29)
                   {:silent true
                    :rules {:prices            {:interval-type :month
+                                               :interval-count 1}
+                           :cached_prices     {:interval-type :month
                                                :interval-count 1}
                            :transactions      {:interval-type :month
                                                :interval-count 1}
@@ -73,13 +79,17 @@
                      "create table if not exists transaction_items_y2020_m01_m02 partition of transaction_items for values from ('2020-01-01') to ('2020-03-01');"
                      "create table if not exists transaction_items_y2020_m03_m04 partition of transaction_items for values from ('2020-03-01') to ('2020-05-01');"
                      "create table if not exists reconciliations_y2020_m01_m02 partition of reconciliations for values from ('2020-01-01') to ('2020-03-01');"
-                     "create table if not exists reconciliations_y2020_m03_m04 partition of reconciliations for values from ('2020-03-01') to ('2020-05-01');"}
+                     "create table if not exists reconciliations_y2020_m03_m04 partition of reconciliations for values from ('2020-03-01') to ('2020-05-01');"
+                     "create table if not exists cached_prices_y2020_m01_m02 partition of cached_prices for values from ('2020-01-01') to ('2020-03-01');"
+                     "create table if not exists cached_prices_y2020_m03_m04 partition of cached_prices for values from ('2020-03-01') to ('2020-05-01');"}
           cmds (with-cmd-intercept
                  (prt/create-partition-tables
                   (t/local-date 2020 2 1)
                   (t/local-date 2020 3 31)
                   {:silent true
                    :rules {:prices            {:interval-type :month
+                                               :interval-count 2}
+                           :cached_prices     {:interval-type :month
                                                :interval-count 2}
                            :transactions      {:interval-type :month
                                                :interval-count 2}

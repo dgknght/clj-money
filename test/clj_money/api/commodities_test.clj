@@ -140,7 +140,8 @@
   {:type "stock"
    :name "Apple, Inc."
    :symbol "AAPL"
-   :exchange "nasdaq"})
+   :exchange "nasdaq"
+   :price-config {:enabled true}})
 
 (defn- create-a-commodity
   [email]
@@ -199,7 +200,7 @@
         body (json/parse-string (:body response) true)
         retrieved (coms/search {:entity-id (:id entity)})]
     (is (http-bad-request? response))
-    (is (invalid? body [:exchange] "Exchange must be amex, nasdaq, or nyse"))
+    (is (invalid? body [:exchange] "Exchange must be amex, nasdaq, nyse, or otc"))
     (is (not-any? #(= "AAPL" (:symbol %)) retrieved) "The record is not created")))
 
 (defn- update-a-commodity
