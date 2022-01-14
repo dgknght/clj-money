@@ -3,7 +3,8 @@
   (:require [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date
                                          unserialize-date]]
-            [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.api-async :as api]
+            [clj-money.api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]
             [clj-money.api.transactions :as trans]))
 
@@ -43,13 +44,18 @@
       (update-in-if [:last-occurrence] unserialize-date)
       (update-in [:items] #(mapv after-item-read %))))
 
+(defn- transform
+  [xf]
+  (comp (api/apply-fn after-read)
+        xf))
+
 (defn search
-  ([success-fn error-fn] (search {} success-fn error-fn))
-  ([criteria success-fn error-fn]
+  ([xf] (search {} xf))
+  ([criteria xf]
    (api/get (path)
             criteria
-            #(success-fn (map after-read %))
-            error-fn)))
+            {:transform (transform xf)
+             :handle-ex (handle-ex "Unable to retrieve the scheduled transactions: %s")})))
 
 (defn- serialize
   [sched-tran]
@@ -70,34 +76,34 @@
                     :memo])))
 
 (defn create
-  [sched-tran success-fn error-fn]
+  [sched-tran xf]
   (api/post (path)
             (serialize sched-tran)
-            (comp success-fn after-read)
-            error-fn))
+            {:transform (transform xf)
+             :handle-ex (handle-ex "Unable to create the scheduled transaction: %s")}))
 
 (defn update
-  [sched-tran success-fn error-fn]
+  [sched-tran xf]
   (api/patch (path sched-tran)
              (serialize sched-tran)
-             (comp success-fn after-read)
-             error-fn))
+             {:transform (transform xf)
+              :handle-ex (handle-ex "Unable to update the scheduled transaction: %s")}))
 
 (defn save
-  [sched-tran success-fn error-fn]
+  [sched-tran xf]
   (if (:id sched-tran)
-    (update sched-tran success-fn error-fn)
-    (create sched-tran success-fn error-fn)))
+    (update sched-tran xf)
+    (create sched-tran xf)))
 
 (defn realize
   [& args]
-  (let [[sched-tran success-fn error-fn] (if (= 2 (count args))
-                                           (cons nil args)
-                                           args)
+  (let [[sched-tran xf] (if (= 1 (count args))
+                          (cons nil args)
+                          args)
         path (if sched-tran
                (path sched-tran :realize)
                (path :realize))]
     (api/post  path
-              (comp success-fn
-                    #(map trans/after-read %))
-              error-fn)))
+              {:transform (comp (api/apply-fn trans/after-read)
+                                xf)
+               :handle-ex (handle-ex "Unble to realize the scheduled transaction(s): %s")})))

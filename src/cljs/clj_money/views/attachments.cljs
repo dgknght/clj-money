@@ -3,23 +3,26 @@
             [dgknght.app-lib.web :refer [format-date
                                          path]]
             [dgknght.app-lib.html :as html]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.state :refer [+busy
+                                     -busy]]
             [clj-money.api.attachments :as attachments]))
 
-(defn- process-deleted-attachment
-  [state {:keys [transaction-id id]}]
-  (update-in state
-             [:attachments transaction-id]
-             (fn [a] (remove #(= id (:id %)) a))))
+(defn- post-delete
+  [page-state {:keys [transaction-id id]}]
+  (-busy)
+  (swap! page-state
+         update-in
+         [:attachments transaction-id]
+         (fn [a] (remove #(= id (:id %)) a))))
 
 (defn- delete-attachment
   [attachment page-state]
   (when (js/confirm "Are you sure you want to delete the attachment?")
+    (+busy)
     (attachments/delete attachment
-                        (swap! page-state process-deleted-attachment attachment)
-                        (notify/danger-fn "Unable to delete the attachment: %s"))))
+                        (map (partial post-delete page-state)))))
 
 (defn- attachment-row
   [attachment page-state]
@@ -77,22 +80,24 @@
                                     :title "Click here to close this window."}
          "Close"]]])))
 
-(defn- process-saved-attachment
-  [state attachment]
-  (-> state
-      (dissoc :selected-attachment)
-      (update-in [:attachments]
-                 (fn [attachments]
-                   (map #(if (= (:id attachment) (:id %))
-                           attachment
-                           %)
-                        attachments)))))
+(defn- post-save
+  [page-state attachment]
+  (-busy)
+  (swap! page-state (fn [state]
+                      (-> state
+                          (dissoc :selected-attachment)
+                          (update-in [:attachments]
+                                     (fn [attachments]
+                                       (map #(if (= (:id attachment) (:id %))
+                                               attachment
+                                               %)
+                                            attachments)))))))
 
 (defn- save-attachment
   [page-state]
+  (+busy)
   (attachments/update (get-in @page-state [:selected-attachment])
-                      #(swap! page-state (fn [s] (process-saved-attachment s %)))
-                      (notify/danger-fn "Unable to save the attachment: %s")))
+                      (map (partial post-save page-state))))
 
 (defn attachment-form
   [page-state]
@@ -106,6 +111,6 @@
         [:button.btn.btn-primary {:on-click #(save-attachment page-state)
                                   :title "Click here to save this attachment"}
          "Save"]
-        [:button.btn.btn-danger.ms-2 {:on-click #(swap! page-state dissoc :selected-attachment)
-                                      :title "Click here to cancel this edit operation."}
+        [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :selected-attachment)
+                                         :title "Click here to cancel this edit operation."}
          "Cancel"]]])))

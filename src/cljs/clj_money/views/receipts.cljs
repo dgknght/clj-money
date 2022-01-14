@@ -5,18 +5,19 @@
             [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
-            [dgknght.app-lib.busy :refer [busy +busy -busy]]
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
-                                     accounts-by-id]]
+                                     accounts-by-id
+                                     +busy
+                                     -busy
+                                     busy?]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.api.transactions :as trn]))
 
@@ -59,35 +60,33 @@
 
 (defn- create-transaction
   [receipt page-state]
-  (+busy page-state)
+  (+busy)
   (trn/create (->transaction receipt)
-              (fn [result]
-                (swap! page-state #(-> %
-                                       -busy
-                                       (update-in
-                                         [:receipts]
-                                         (fnil conj '())
-                                         result)))
-                (new-receipt page-state))
-              (handle-error page-state "Unable to create the transaction: %s")))
+              (map (fn [result]
+                     (-busy)
+                     (swap! page-state
+                            update-in
+                            [:receipts]
+                            (fnil conj '())
+                            result)
+                     (new-receipt page-state)))))
 
 (defn- update-transaction
   [receipt page-state]
-  (+busy page-state)
+  (+busy)
   (trn/update (->transaction receipt)
-              (fn [result]
-                (swap! page-state (fn [state] (-> state
-                                                  -busy
-                                                  (update-in
-                                                    [:receipts]
-                                                    (fn [receipts]
-                                                      (map #(if (= (:id receipt)
-                                                                   (:id %))
-                                                              result
-                                                              %)
-                                                           receipts))))))
-                (new-receipt page-state))
-              (handle-error page-state "Unable to update the transaction: %s")))
+              (map (fn [result]
+                     (-busy)
+                     (swap! page-state
+                            update-in
+                            [:receipts]
+                            (fn [receipts]
+                              (map #(if (= (:id receipt)
+                                           (:id %))
+                                      result
+                                      %)
+                                   receipts)))
+                     (new-receipt page-state)))))
 
 (defn- save-transaction
   [page-state]
@@ -152,8 +151,7 @@
         hide-search-term? (make-reaction #(not @search))
         total (make-reaction #(->> (:items @receipt)
                                    (map :quantity)
-                                   decimal/sum))
-        busy? (busy page-state)]
+                                   decimal/sum))]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -263,24 +261,32 @@
          [:th "Amount"]
          [:th (html/space)]]]
        [:tbody
-        (->> @transactions
-             (map #(result-row % page-state))
-             doall)]])))
+        (cond
+          (seq @transactions)
+          (->> @transactions
+               (map #(result-row % page-state))
+               doall)
+
+          @transactions
+          [:tr
+           [:td {:col-span 4} "No recent transactions"]]
+
+          :else
+          [:tr
+           [:td {:col-span 4} (bs/spinner)]])]])))
 
 (defn- load-transactions
   [page-state]
-  (+busy page-state)
+  (+busy)
   (trn/search {:include-items true}
-              (fn [transactions]
-                (swap! page-state (fn [state]
-                                    (-> state
-                                        -busy
-                                        (assoc
-                                          :transactions transactions
-                                          :receipts (filter #(t/after? (:created-at %)
-                                                                       (-> 12 t/hours t/ago))
-                                                            transactions))))))
-              (handle-error page-state "Unable to load the transactions: %s")))
+              (map (fn [transactions]
+                     (-busy)
+                     (swap! page-state
+                            assoc
+                            :transactions transactions
+                            :receipts (filter #(t/after? (:created-at %)
+                                                         (-> 12 t/hours t/ago))
+                                              transactions))))))
 
 (defn- index []
   (let [page-state (r/atom {})]

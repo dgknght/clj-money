@@ -6,19 +6,19 @@
             [dgknght.app-lib.inflection :refer [title-case]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.state :refer [current-entity
                                      accounts
-                                     accounts-by-id]]
+                                     accounts-by-id
+                                     +busy
+                                     -busy]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.api.entities :as entities]
             [clj-money.api.reports :as reports]))
 
 (defn- load-monitors
   [state]
-  (reports/budget-monitors #(swap! state assoc :monitors %)
-                           (notify/danger-fn "Unable to load the monitors: %s")))
+  (reports/budget-monitors (map #(swap! state assoc :monitors %))))
 
 (defn- save-monitor
   [state]
@@ -28,10 +28,9 @@
          (fnil conj [])
          (get-in @state [:new-monitor :account-id]))
   (entities/save @current-entity
-                 (fn []
-                   (load-monitors state)
-                   (swap! state dissoc :new-monitor))
-                 (notify/danger-fn "Unable to save the new monitor: %s")))
+                 (map (fn []
+                        (load-monitors state)
+                        (swap! state dissoc :new-monitor)))))
 
 (defn- monitor-form
   [state]
@@ -111,9 +110,9 @@
            (remove #(= account-id
                        (:account-id %))
                    monitors)))
+  (+busy)
   (entities/update @current-entity
-                   identity
-                   (notify/danger-fn "Unable to remove the budget monitor: %s")))
+                   (map #(-busy))))
 
 (defn- monitor
   [{:keys [scope account] :as monitor} state]

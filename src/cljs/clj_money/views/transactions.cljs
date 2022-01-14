@@ -22,7 +22,9 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.state :refer [accounts
-                                     accounts-by-id]]
+                                     accounts-by-id
+                                     +busy
+                                     -busy]]
             [clj-money.dnd :as dnd]
             [clj-money.util :as util :refer [debounce]]
             [clj-money.dates :as dates]
@@ -76,32 +78,30 @@
 
 (defn- edit-transaction
   [item page-state]
+  (+busy)
   (transactions/get (item->tkey item)
-                    (fn [result]
-                      (let [prepared (prepare-transaction-for-edit
-                                       result
-                                       (:view-account @page-state))]
-                        (swap! page-state assoc :transaction prepared))
-                      (set-focus "transaction-date"))
-                    notify/danger))
-
-(defn stop-item-loading
-  [page-state]
-  (when-not (:all-items-fetched? @page-state)
-    (go (>! (:ctl-chan @page-state) :quit))))
+                    (map (fn [result]
+                           (-busy)
+                           (let [prepared (prepare-transaction-for-edit
+                                            result
+                                            (:view-account @page-state))]
+                             (swap! page-state assoc :transaction prepared))
+                           (set-focus "transaction-date")))))
 
 (defn load-unreconciled-items
   [page-state]
+  (+busy)
   (let [account (:view-account @page-state)
         criteria {:account-id (:id account)
-                  :transaction-date [:between (:earliest-transaction-date account)
+                  :transaction-date [(:earliest-transaction-date account)
                                      (:latest-transaction-date account)]
                   :unreconciled true
                   :include-children (:include-children? @page-state)}]
     (transaction-items/search
       criteria
-      #(swap! page-state assoc :items %)
-      (notify/danger-fn "Unable to load the unreconciled items: %s"))))
+      (map (fn [items]
+             (-busy)
+             (swap! page-state assoc :items items))))))
 
 (defn- load-attachments
   [page-state]
@@ -109,8 +109,14 @@
         criteria {:transaction-id (:transaction-id attachments-item)
                   :transaction-date (:transaction-date attachments-item)}]
     (att/search criteria
-                #(swap! page-state assoc :attachments %)
-                (notify/danger-fn "Unable to load the attachments: %s"))))
+                (map #(swap! page-state assoc :attachments %)))))
+
+(defn- fetch-items
+  [xf]
+  (completing
+    (fn [ch criteria]
+      (transaction-items/search criteria
+                                (map #(xf ch %))))))
 
 (defn init-item-loading
   [page-state]
@@ -119,41 +125,57 @@
         end (:latest-transaction-date account)]
     (when (and start end)
       (swap! page-state dissoc :items :all-items-fetched?)
-      (let [{:keys [fetch-ch result-ch ctl-ch]} (->> (dates/desc-ranges start end (t/months 6))
-                                             (map vec)
-                                             load-in-chunks)]
-        (swap! page-state assoc :ctl-chan ctl-ch)
-
-        ; take ranges that passed the gate and look up items
-        ; put them in page-state
-        ; place them on the result-ch so the component can decide if more
-        ; criteria should be processed
-        (go-loop [rng (<! fetch-ch)]
-                 (if rng
+      (let [{:keys [ctl-ch items-ch]} (->> (dates/desc-ranges start end (t/months 6))
+                                           (map vec)
+                                           (load-in-chunks {:fetch-xf (comp (map #(hash-map :account-id (:id account)
+                                                                                            :transaction-date %))
+                                                                            fetch-items)
+                                                            :chunk-size 100}))]
+        (go-loop [items (<! items-ch)]
+                 (if items
                    (do
-                     (transaction-items/search
-                       {:account-id (:id account)
-                        :transaction-date rng}
-                       (fn [items]
-                         (swap! page-state update-in [:items] (fnil concat []) items)
-                         (go (>! result-ch items)))
-                       (notify/danger-fn "Unable to fetch items: %s"))
-                     (recur (<! fetch-ch)))
+                     (swap! page-state update-in [:items] (fnil concat []) items)
+                     (recur (<! items-ch)))
                    (swap! page-state assoc :all-items-fetched? true)))
+
+        (swap! page-state assoc :ctl-chan ctl-ch)
         (go (>! ctl-ch :fetch))))))
+
+(defn stop-item-loading
+  [page-state]
+  (let [{:keys [all-items-fetched? ctl-chan]} @page-state]
+    (when-not all-items-fetched?
+      (go (>! ctl-chan :quit)))))
 
 (defn reset-item-loading
   [page-state]
   (swap! page-state dissoc :items :transaction)
   (stop-item-loading page-state)
-  (init-item-loading page-state))
+  (go (<! (a/timeout 250)) ; give the pipes some time to flush out
+      (init-item-loading page-state)))
 
 (defn- delete-transaction
   [item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (transactions/delete (item->tkey item)
-                         #(reset-item-loading page-state)
-                         notify/danger)))
+                         (map #(reset-item-loading page-state)))))
+
+(defn- post-item-row-drop
+  [page-state item {:keys [body]}]
+  (swap! page-state
+         (fn [state]
+           (-> state
+               (update-in [:item-row-styles]
+                          dissoc
+                          (:id item))
+               (update-in [:items] (fn [items]
+                                     (map (fn [item]
+                                            (if (= (:transaction-id body)
+                                                   (:transaction-id item))
+                                              (update-in item [:attachment-count] inc)
+                                              item))
+                                          items))))))
+  (notify/toast "Success" "The attachment was saved successfully."))
 
 (defn- handle-item-row-drop
   [item e page-state]
@@ -161,22 +183,7 @@
   (att/create {:transaction-id (:transaction-id item) ; TODO: use transaction-ref to combine these?
                :transaction-date (:transaction-date item)
                :file (first (dnd/files e))}
-              (fn [a]
-                (swap! page-state
-                       (fn [state]
-                         (-> state
-                             (update-in [:item-row-styles]
-                                        dissoc
-                                        (:id item))
-                             (update-in [:items] (fn [items]
-                                                   (map (fn [item]
-                                                          (if (= (:transaction-id a)
-                                                                 (:transaction-id item))
-                                                            (update-in item [:attachment-count] inc)
-                                                            item))
-                                                        items))))))
-                (notify/toast "Success" "The attachment was saved successfully."))
-              (notify/danger-fn "Unable to save the attachment: %s")))
+              (map (partial post-item-row-drop page-state item))))
 
 (defn- item-row
   [{:keys [attachment-count] :as item} page-state]
@@ -270,11 +277,9 @@
         account  (r/cursor page-state [:view-account])]
     ; I don't think we need to chunk this, but maybe we do
     (transaction-items/search {:account-id (:id @account)
-                               :transaction-date [:between
-                                                  (:earliest-transaction-date @account)
+                               :transaction-date [(:earliest-transaction-date @account)
                                                   (:latest-transaction-date @account)]}
-                              #(swap! page-state assoc :items %)
-                              (notify/danger-fn "Unable to load the transaction items: %s"))
+                              (map #(swap! page-state assoc :items %)))
     (fn []
       [:table.table.table-hover.table-borderless
        [:thead
@@ -516,24 +521,22 @@
    ::dividend fullify-trx})
 
 (defmulti save-transaction
-  (fn [page-state _callback]
+  (fn [page-state _xf]
     (-> @page-state :transaction mode)))
 
 (defmethod save-transaction :default
-  [page-state callback]
+  [page-state xf]
   (let [{:keys [transaction]} @page-state
         mode (mode transaction)
         prepare ((untransformations) mode)]
     (-> transaction
         prepare
-        (transactions/save callback
-                           (notify/danger-fn "Unable to save the transaction: %s")))))
+        (transactions/save xf))))
 
 (defmethod save-transaction ::trade
-  [page-state callback]
+  [page-state xf]
   (trading/create (:transaction @page-state)
-                  callback
-                  (notify/danger-fn "Unable to create the trade: %s")))
+                  (map xf)))
 
 (defn- assoc-reinvest-desc
   [transaction commodity]
@@ -545,29 +548,35 @@
                       (:name commodity)
                       (:symbol commodity))))
 
+(defn- reinvest-dividend
+  [page-state]
+  (fn [xf]
+    (completing
+      (fn [ch created]
+        (let [{:keys [transaction commodities]} @page-state
+              commodity (get-in commodities [(:commodity-id transaction)])]
+          (-> transaction
+              (rename-keys {:quantity :value
+                            :transaction-date :trade-date})
+              (assoc-reinvest-desc commodity)
+              (assoc :action :buy)
+              (trading/create #(map (xf ch {:transaction created
+                                            :trade %})))))))))
+
 (defmethod save-transaction ::dividend
-  [page-state callback]
+  [page-state xf]
   (let [{:keys [transaction commodities]} @page-state
         commodity (get-in commodities [(:commodity-id transaction)])
         dividends-account (->> @accounts ; TODO: Need a better way to make sure we have this value
                                (filter #(= :income (:type %)))
                                (filter #(re-find #"(?i)dividend" (:name %)))
-                               first)
-        t1 (-> transaction
-               (dissoc :commodity-id :shares)
-               (assoc :description (gstr/format "%s (%s)"
-                                                (:name commodity)
-                                                (:symbol commodity))
-                      :other-account-id (:id dividends-account))
-               fullify-trx)
-        t2 (-> transaction
-               (rename-keys {:quantity :value
-                             :transaction-date :trade-date})
-               (assoc-reinvest-desc commodity)
-               (assoc :action :buy))]
-    (transactions/save t1
-                       (fn [_]
-                         (trading/create t2
-                                         callback
-                                         (notify/danger-fn "Unable to create the trade: %s")))
-                       (notify/danger-fn "Unable to create the dividend transaction: %s"))))
+                               first)]
+    (-> transaction
+        (dissoc :commodity-id :shares)
+        (assoc :description (gstr/format "%s (%s)"
+                                         (:name commodity)
+                                         (:symbol commodity))
+               :other-account-id (:id dividends-account))
+        fullify-trx
+        (transactions/save (comp (reinvest-dividend page-state)
+                                 xf)))))

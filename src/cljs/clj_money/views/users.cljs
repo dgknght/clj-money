@@ -3,7 +3,6 @@
             [reagent.core :as r]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.html :refer [google-g]]
             [clj-money.state :as state :refer [app-state]]
@@ -20,18 +19,16 @@
 
 (defn- fetch-entities []
   (entities/select
-    receive-entities
-    (notify/danger-fn "Unable to get the entities: %s")))
+    (map receive-entities)))
 
 (defn- authenticate
   [page-state]
   (users/authenticate (:credentials @page-state)
-                      (fn [{:keys [user auth-token]}]
-                        (swap! app-state assoc
-                               :current-user user
-                               :auth-token auth-token)
-                        (fetch-entities))
-                      (notify/danger-fn "Unable to authenticate: %s")))
+                      (map (fn [{:keys [user auth-token]}]
+                             (swap! app-state assoc
+                                    :current-user user
+                                    :auth-token auth-token)
+                             (fetch-entities)))))
 
 (defn- login []
   (let [page-state (r/atom {})

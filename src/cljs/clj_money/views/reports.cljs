@@ -4,7 +4,6 @@
             [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [cljs-time.core :as t]
-            [dgknght.app-lib.busy :refer [busy +busy -busy]]
             [dgknght.app-lib.models :refer [map-index]]
             [dgknght.app-lib.web :refer [format-decimal
                                          format-percent
@@ -14,10 +13,12 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
                                      current-entity
-                                     accounts-by-id]]
+                                     accounts-by-id
+                                     +busy
+                                     -busy
+                                     busy?]]
             [clj-money.budgets :refer [period-description]]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
@@ -59,15 +60,13 @@
 
 (defmethod load-report :income-statement
   [page-state]
-  (swap! page-state #(-> %
-                         +busy
-                         (update-in [:income-statement] dissoc :report)))
+  (+busy)
+  (swap! page-state update-in [:income-statement] dissoc :report)
   (rpt/income-statement (select-keys (:income-statement @page-state) [:start-date :end-date])
-                        (fn [result]
-                          (swap! page-state #(-> %
-                                                 -busy
-                                                 (assoc-in [:income-statement :report] result))))
-                        (handle-error page-state "Unable to fetch the report: %s")))
+                        (map
+                          (fn [result]
+                            (-busy)
+                            (swap! page-state assoc-in [:income-statement :report] result)))))
 
 (defn- income-statement-options
   [page-state]
@@ -121,15 +120,12 @@
 
 (defmethod load-report :balance-sheet
   [page-state]
-  (swap! page-state #(-> %
-                         +busy
-                         (update-in [:balance-sheet] dissoc :report)))
+  (+busy)
+  (swap! page-state update-in [:balance-sheet] dissoc :report)
   (rpt/balance-sheet (select-keys (:balance-sheet @page-state) [:as-of])
-                     (fn [result]
-                       (swap! page-state #(-> %
-                                              -busy
-                                              (assoc-in [:balance-sheet :report] result))))
-                     (handle-error page-state "Unable to fetch the balance sheet report: %s")))
+                     (map (fn [result]
+                            (-busy)
+                            (swap! page-state assoc-in [:balance-sheet :report] result)))))
 
 (defn- balance-sheet-options
   [page-state]
@@ -179,16 +175,14 @@
 
 (defmethod load-report :budget
   [page-state]
-  (swap! page-state #(-> %
-                         +busy
-                         (update-in [:budget] dissoc :report)))
+  (+busy)
+  (swap! page-state update-in [:budget] dissoc :report)
   (rpt/budget (select-keys (:budget @page-state) [:budget-id :tags])
-              (fn [result]
-                (swap! page-state #(-> %
-                                       -busy
-                                       (assoc-in [:budget :report] result)
-                                       (update-in [:budget] dissoc :apply-info))))
-              (handle-error page-state "Unable to fetch the budget report: %s")))
+              (map (fn [result]
+                     (-busy)
+                     (swap! page-state #(-> %
+                                            (assoc-in [:budget :report] result)
+                                            (update-in [:budget] dissoc :apply-info)))))))
 
 (defn- budget-options
   [page-state]
@@ -211,6 +205,7 @@
     :keys [actual-per-period]
     :as report-item}
    page-state]
+  (-busy)
   (let [budget (update-in budget
                           [:items]
                           #(map-index :account-id %))
@@ -221,19 +216,16 @@
                   (repeat (:period-count budget)
                           actual-per-period))]
     (swap! page-state
-           #(-> %
-                -busy
-                (assoc-in [:budget :apply-info] {:budget budget
-                                                 :budget-item (assoc budget-item :periods periods)
-                                                 :report-item report-item})))))
+           assoc-in [:budget :apply-info] {:budget budget
+                                           :budget-item (assoc budget-item :periods periods)
+                                           :report-item report-item})))
 
 (defn- apply-to-budget
   [report-item page-state]
-  (+busy page-state)
+  (+busy)
   (let [{{:keys [budget-id]} :budget} @page-state]
     (bdt/find budget-id
-              #(receive-budget % report-item page-state)
-              (handle-error page-state "Unable to load the budget: %s"))))
+              (map #(receive-budget % report-item page-state)))))
 
 (defn- budget-report-row
   [{:keys [id
@@ -264,17 +256,15 @@
 
 (defn- load-budgets
   [page-state]
-  (+busy page-state)
-  (bdt/search (fn [budgets]
-                (swap! page-state
-                       (fn [state]
-                         (-> state
-                             -busy
-                             (assoc-in [:budget :budgets] (->> budgets
-                                                               (map (juxt :id identity))
-                                                               (into {})))
-                             (assoc-in [:budget :budget-id] (-> budgets first :id))))))
-              (handle-error page-state "Unable to load the budgets: %s")))
+  (+busy)
+  (bdt/search (map (fn [budgets]
+                     (swap! page-state
+                            (fn [state]
+                              (-> state
+                                  (assoc-in [:budget :budgets] (->> budgets
+                                                                    (map (juxt :id identity))
+                                                                    (into {})))
+                                  (assoc-in [:budget :budget-id] (-> budgets first :id)))))))))
 
 (defn- refine-items
   [depth items]
@@ -295,7 +285,7 @@
 (defn- save-budget
   [page-state]
   (let [{:keys [budget budget-item]} (get-in @page-state [:budget :apply-info])]
-    (+busy page-state)
+    (+busy)
     (bdt/save (update-in budget [:items] (fn [items]
                                            (-> items
                                               (assoc (:account-id budget-item)
@@ -304,10 +294,9 @@
                                                                 #(mapv (fnil identity (decimal/zero))
                                                                        %)))
                                               vals)))
-              (fn [& _]
-                (-busy page-state)
-                (load-report page-state))
-              (handle-error page-state "Unable to save the budget: %s"))))
+              (map (fn [& _]
+                     (-busy)
+                     (load-report page-state))))))
 
 (defn- apply-budget-item-form
   [page-state]
@@ -316,7 +305,6 @@
         account (r/cursor report-item [:account])
         budget (r/cursor apply-info [:budget])
         original-budget-item (make-reaction #(get-in @budget [:items (:id @account)]))
-        busy? (busy page-state)
         budget-item (r/cursor apply-info [:budget-item])
         original-total (make-reaction
                          #(decimal/sum (:periods @original-budget-item)))
@@ -397,20 +385,18 @@
 
 (defmethod load-report :portfolio
   [page-state]
+  (-busy)
   (let [{:keys [current-nav] :as state} (get-in @page-state [:portfolio])]
-    (swap! page-state #(-> %
-                           +busy
-                           (update-in [:portfolio current-nav] dissoc :report)))
+    (swap! page-state update-in [:portfolio current-nav] dissoc :report)
     (rpt/portfolio {:aggregate current-nav
                     :as-of (get-in state [:filter :as-of])}
-                   (fn [result]
-                     (swap! page-state #(-> %
-                                            -busy
-                                            (assoc-in [:portfolio
-                                                       current-nav
-                                                       :report]
-                                                      result))))
-                   (handle-error page-state "Unable to load the accounts report"))))
+                   (map (fn [result]
+                          (swap! page-state
+                                 assoc-in
+                                 [:portfolio
+                                  current-nav
+                                  :report]
+                                 result))))))
 
 (defn- visible?
   [record visible-ids]
@@ -549,7 +535,6 @@
                                         :filter {:as-of (t/today)}
                                         :by-account {:visible-ids #{}}
                                         :by-commodity {:visible-ids #{}}}})
-        busy? (busy page-state)
         selected (r/cursor page-state [:selected])]
     (load-report page-state)
     (add-watch current-entity

@@ -5,9 +5,10 @@
             [dgknght.app-lib.web :refer [serialize-date
                                          unserialize-date
                                          unserialize-date-time]]
+            [dgknght.app-lib.api-async :as api]
             [clj-money.state :refer [current-entity]]
-            [dgknght.app-lib.api :as api]
-            [clj-money.api.transaction-items :as items]))
+            [clj-money.api.transaction-items :as items]
+            [clj-money.api :refer [handle-ex]]))
 
 (defn after-read
   [transaction]
@@ -16,6 +17,11 @@
       (update-in [:original-transaction-date] unserialize-date)
       (update-in [:created-at] unserialize-date-time)
       (update-in [:items] #(map items/after-read %))))
+
+(defn- transform
+  [xf]
+  (comp (api/apply-fn after-read)
+        xf))
 
 (def ^:private working-date
   (some-fn :original-transaction-date
@@ -28,7 +34,7 @@
             id))
 
 (defn search
-  [criteria success-fn error-fn]
+  [criteria xf]
   (let [end-date (get-in criteria [:end-date] (t/today))
         start-date (get-in criteria [:start-date] (t/minus end-date (t/months 6)))]
     (api/get
@@ -38,8 +44,8 @@
                 (serialize-date end-date)
                 :transactions)
       (dissoc criteria :start-date :end-date)
-      #(success-fn (map after-read %))
-      error-fn)))
+      {:transform (transform xf)
+       :handle-ex (handle-ex "Unable to retrieve the transactions: %s")})))
 
 (defn- serialize
   [transaction]
@@ -48,35 +54,36 @@
       (update-in [:transaction-date] serialize-date)))
 
 (defn create
-  [transaction success-fn error-fn]
+  [transaction xf]
   (api/post (api/path :entities
                       (:entity-id transaction)
                       :transactions)
             (serialize transaction)
-            (comp success-fn after-read)
-            error-fn))
+            {:transform (transform xf)
+             :handle-ex (handle-ex "Unable to create the transaction: %s")}))
 
 (defn update
-  [transaction success-fn error-fn]
+  [transaction xf]
   (api/patch (transaction-path transaction)
              (serialize transaction)
-             (comp success-fn after-read)
-             error-fn))
+             {:transform (transform xf)
+              :handle-ex (handle-ex "Unable to update the transaction: %s")}))
 
 (defn save
-  [transaction success-fn error-fn]
+  [transaction xf]
   (if (:id transaction)
-    (update transaction success-fn error-fn)
-    (create transaction success-fn error-fn)))
+    (update transaction xf)
+    (create transaction xf)))
 
 (defn get
-  [tkey success-fn error-fn]
+  [tkey xf]
   (api/get (transaction-path tkey)
-           (comp success-fn after-read)
-           error-fn))
+           {}
+           {:transform (transform xf)
+            :handle-ex (handle-ex "Unable to retrieve the transaction: %s")}))
 
 (defn delete
-  [transaction success-fn error-fn]
+  [transaction xf]
   (api/delete (transaction-path transaction)
-              success-fn
-              error-fn))
+              {:transform xf
+               :handle-ex (handle-ex "Unable to remove the transaction: %s")}))

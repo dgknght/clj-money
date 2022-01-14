@@ -7,6 +7,7 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.api :as api]
             [clj-money.state :as state :refer [app-state
                                                current-user
                                                current-entity]]
@@ -27,6 +28,7 @@
             [clj-money.api.users :as users]))
 
 (swap! forms/defaults assoc-in [::forms/decoration ::forms/framework] ::bs/bootstrap-5)
+(swap! api/defaults assoc :extract-body :before)
 
 (defn home-page []
   [:div.jumbotron.mt-3
@@ -213,13 +215,10 @@
 
 (defn- fetch-entities []
   (entities/select
-    receive-entities
-    (notify/danger-fn "Unable to get the entities: %s")))
+    (map receive-entities)))
 
 (defn- fetch-current-user []
-  (users/me
-    #(swap! app-state assoc :current-user %)
-    (notify/danger-fn "Unable to get information for the user: %s")))
+  (users/me (map #(swap! app-state assoc :current-user %))))
 
 (defn- sign-in-from-cookie []
   (when-not @current-user

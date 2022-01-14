@@ -3,11 +3,20 @@
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.core :as lib]))
 
-(defonce app-state (r/atom {:mounted? false}))
+(defonce app-state (r/atom {:mounted? false
+                            :bg-proc-count 0}))
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
 (def accounts (r/cursor app-state [:accounts]))
 (def accounts-by-id (make-reaction #(when @accounts (lib/index-by :id @accounts))))
+(def bg-proc-count (r/cursor app-state [:bg-proc-count]))
+(def busy? (make-reaction #(not (zero? @bg-proc-count))))
+
+(defn +busy []
+  (swap! bg-proc-count inc))
+
+(defn -busy []
+  (swap! bg-proc-count dec))
 
 (defn- remove-entity-from-list
   [entity entities]

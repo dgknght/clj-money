@@ -511,8 +511,12 @@
       t/last-day-of-the-month))
 
 (defn- default-budget-end-date
-  [bdg]
-  (earliest (end-of-last-month) (:end-date bdg)))
+  [{:keys [start-date end-date]}]
+  (->> [(end-of-last-month)
+        (t/last-day-of-the-month (t/today))
+        end-date]
+       (filter #(t/before? start-date %))
+       (apply earliest)))
 
 (defn budget
   "Returns a budget report"

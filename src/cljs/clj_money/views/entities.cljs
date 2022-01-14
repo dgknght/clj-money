@@ -4,20 +4,20 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [dgknght.app-lib.busy :refer [busy +busy -busy]]
-            [clj-money.views.util :refer [handle-error]]
             [clj-money.api.entities :as entities]
-            [clj-money.state :as state :refer [app-state]]))
+            [clj-money.state :as state :refer [app-state
+                                               +busy
+                                               -busy
+                                               busy?]]))
 
 (defn- delete
-  [entity page-state]
+  [entity]
   (when (js/confirm (str "Are you sure you want to delete the entity \"" (:name entity) "\"?"))
-    (+busy page-state)
+    (+busy)
     (entities/delete entity
-                     (fn []
-                       (-busy page-state)
-                       (state/remove-entity entity))
-                     (handle-error page-state "Unable to delete the entity: %s"))))
+                     (map (fn []
+                            (-busy)
+                            (state/remove-entity entity))))))
 
 (defn find-entity
   [id]
@@ -39,21 +39,18 @@
 (defn- save-entity
   [page-state]
   (let [entity (get-in @page-state [:selected])]
-    (+busy page-state)
+    (+busy)
     (entities/save entity
-                   (fn [result]
-                     (if (:id entity)
-                       (relay-updated-entity result)
-                       (state/add-entity result))
-                     (swap! page-state #(-> %
-                                            -busy
-                                            (dissoc :selected))))
-                   (handle-error page-state "Unable to save the entity: %s"))))
+                   (map (fn [result]
+                          (-busy)
+                          (if (:id entity)
+                            (relay-updated-entity result)
+                            (state/add-entity result))
+                          (swap! page-state dissoc :selected))))))
 
 (defn- entity-form
   [page-state]
-  (let [entity (r/cursor page-state [:selected])
-        busy? (busy page-state)]
+  (let [entity (r/cursor page-state [:selected])]
     (fn []
       [:div.card
        [:div.card-header [:strong (str (if (:id @entity) "Edit" "New") " Entity")]]
@@ -68,7 +65,6 @@
                          :icon :check
                          :caption "Save"
                          :busy? busy?}]
-
         [bs/busy-button {:html {:class "btn-secondary ms-2"
                                 :title "Click here to cancel this operation."
                                 :on-click #(swap! page-state dissoc :selected)}
@@ -89,7 +85,7 @@
                                     :disabled busy?
                                     :title "Click here to edit this entity."}
       (bs/icon :pencil {:size :small})]
-     [:button.btn.btn-sm.btn-danger {:on-click #(delete entity page-state)
+     [:button.btn.btn-sm.btn-danger {:on-click #(delete entity)
                                      :disabled busy?
                                      :title "Click here to remove this entity."}
       (bs/icon :x-circle {:size :small})]]]])
@@ -111,8 +107,7 @@
 (defn- entities-page []
   (let [page-state (r/atom {})
         current-entity (r/cursor app-state [:current-entity])
-        selected (r/cursor page-state [:selected])
-        busy? (busy page-state)]
+        selected (r/cursor page-state [:selected])]
     (fn []
       [:<>
        [:h1.mt-3 "Entities"]

@@ -270,7 +270,8 @@
 
   This is a map containing :start-date, :end-date, :index, etc."
   [budget date]
-  (->> (map-indexed #(assoc %2 :index %1) (period-seq budget))
+  (->> (period-seq budget)
+       (map-indexed #(assoc %2 :index %1))
        (filter #(within-period? % (to-date-time date)))
        first))
 

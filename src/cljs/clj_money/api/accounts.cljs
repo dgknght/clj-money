@@ -4,9 +4,10 @@
                                          unserialize-date-time]]
             [dgknght.app-lib.core :refer [parse-int
                                           update-in-if]]
-            [clj-money.state :refer [current-entity]]
             [dgknght.app-lib.decimal :as decimal :refer [->decimal]]
-            [dgknght.app-lib.api :as api]))
+            [dgknght.app-lib.api-async :as api]
+            [clj-money.api :refer [handle-ex]]
+            [clj-money.state :refer [current-entity]]))
 
 (defn- set-flags ; TODO: maybe the checkbox form fn should be able to handle keywords in a set?
   [{:keys [tags] :as account}]
@@ -38,20 +39,25 @@
       (update-in [:earliest-transaction-date] unserialize-date)
       (update-in [:latest-transaction-date] unserialize-date)))
 
+(defn- transform
+  [xf]
+  (comp (api/apply-fn after-read)
+        xf))
+
 (defn select
-  ([success-fn error-fn]
-   (select {} success-fn error-fn))
-  ([criteria success-fn error-fn]
+  ([xf]
+   (select {} xf))
+  ([criteria xf]
    (api/get (api/path :entities (:id @current-entity) :accounts)
             criteria
-            #(success-fn (map after-read %))
-            error-fn)))
+            {:transform (transform xf)
+             :handle-ex (handle-ex "Unable to get the list of acounts: %s")})))
 
 (defn get
-  [id success-fn error-fn]
+  [id xf]
   (api/get (api/path :accounts id)
-           #(success-fn (after-read %))
-           error-fn))
+           {:transform (transform xf)
+            :handle-ex "Unable to get the account: %s"}))
 
 (def ^:private attribute-keys
   [:id
@@ -66,27 +72,29 @@
    :user-tags])
 
 (defn create
-  [account success-fn error-fn]
+  [account xf]
   (api/post (api/path :entities (:entity-id account) :accounts)
             (select-keys account attribute-keys)
-            success-fn
-            error-fn))
+            {:transform (transform xf)
+             :handle-ex (handle-ex "Unable to create the account: %s")}))
 
 (defn update
-  [account success-fn error-fn]
-  (api/patch (api/path :accounts (:id account))
-             (select-keys account attribute-keys)
-             success-fn
-             error-fn))
+  ([account xf]
+   (update account xf (handle-ex "Unable to update the account: %s")))
+  ([account xf ex-handler]
+   (api/patch (api/path :accounts (:id account))
+              (select-keys account attribute-keys)
+              {:transform (transform xf)
+               :handle-ex ex-handler})))
 
 (defn save
-  [account success-fn error-fn]
+  [account xf]
   (if (:id account)
-    (update account success-fn error-fn)
-    (create account success-fn error-fn)))
+    (update account xf)
+    (create account xf)))
 
 (defn delete
-  [account success-fn error-fn]
+  [account xf]
   (api/delete (api/path :accounts (:id account))
-              success-fn
-              error-fn))
+              {:transform xf
+               :handle-ex (handle-ex "Unable to delete the account: %s")}))

@@ -3,7 +3,6 @@
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms :as forms]
             [clj-money.accounts :as accounts]
@@ -27,8 +26,7 @@
   [page-state]
   (recs/find {:account-id (get-in @page-state [:view-account :id])
               :status "new"}
-             (partial receive-reconciliation page-state)
-             (notify/danger-fn "Unable to load the working reconciliation: %s")))
+             (map (partial receive-reconciliation page-state))))
 
 (defn- resolve-item-refs
   [item-refs items]
@@ -46,10 +44,9 @@
   (recs/save (update-in (get-in @page-state [:reconciliation])
                         [:item-refs]
                         #(resolve-item-refs % (:items @page-state)))
-             (fn [_created]
-               (swap! page-state dissoc :reconciliation)
-               (trns/reset-item-loading page-state))
-             (notify/danger-fn "Unable to save the reconciliation: %s")))
+             (map (fn [_created]
+                    (swap! page-state dissoc :reconciliation)
+                    (trns/reset-item-loading page-state)))))
 
 (defn- save-reconciliation
   [page-state]
@@ -62,10 +59,9 @@
                  (accounts/->criteria {:date-field :end-of-period})
                  (assoc :desc :end-of-period
                         :status :completed))
-             #(swap! page-state assoc
-                      :previous-reconciliation (or %
-                                                   {:balance 0}))
-             (notify/danger-fn "Unable to load the previous reconciliation: %s")))
+             (map #(swap! page-state assoc
+                          :previous-reconciliation (or %
+                                                       {:balance 0})))))
 
 (defn- finish-reconciliation
   [page-state]

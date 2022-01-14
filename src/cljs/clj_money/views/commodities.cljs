@@ -9,39 +9,35 @@
                                           fmax]]
             [dgknght.app-lib.web :refer [format-date]]
             [dgknght.app-lib.html :as html]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [dgknght.app-lib.busy :refer [busy +busy -busy]]
             [dgknght.app-lib.decimal :as decimal]
             [clj-money.dates :as dates]
-            [clj-money.views.util :refer [handle-error]]
             [clj-money.components :refer [load-in-chunks
                                           load-on-scroll]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.prices :as prices]
             [clj-money.state :refer [app-state
-                                     current-entity]]
+                                     current-entity
+                                     +busy
+                                     -busy
+                                     busy? ]]
             [dgknght.app-lib.forms :as forms]))
 
 (defn- load-commodities
   [page-state]
-  (+busy page-state)
-  (commodities/select (fn [result]
-                        (swap! page-state #(-> %
-                                               -busy
-                                               (assoc :commodities (sort-by :name result)))))
-                      (handle-error page-state "Unable to get a list of commodities: %s")))
+  (+busy)
+  (commodities/select (map (fn [result]
+                             (-busy)
+                             (swap! page-state assoc :commodities (sort-by :name result))))))
 
 (defn- save-commodity
   [page-state]
-  (+busy page-state)
+  (+busy)
   (commodities/save (get-in @page-state [:selected])
-                    (fn []
-                      (swap! page-state #(-> %
-                                             -busy
-                                             (dissoc :selected)))
-                      (load-commodities page-state))
-                    (handle-error page-state "Unable to save the commodity: %s")))
+                    (map (fn [_]
+                           (-busy)
+                           (swap! page-state dissoc :selected)
+                           (load-commodities page-state)))))
 
 (defn- commodity-form
   [page-state]
@@ -50,8 +46,7 @@
                                        (= (:id @commodity)
                                           (get-in @current-entity [:settings :default-commodity-id])))
                                 ["currency"]
-                                ["currency" "stock" "fund"]))
-        busy? (busy page-state)]
+                                ["currency" "stock" "fund"]))]
     (fn []
       [:div#commodity-form.card {:class (when-not @commodity "d-none")}
        [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
@@ -78,12 +73,11 @@
 (defn- delete
   [commodity page-state]
   (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
-    (+busy page-state)
+    (+busy)
     (commodities/delete commodity
-                        (fn []
-                          (-busy page-state)
-                          (load-commodities page-state))
-                        (handle-error page-state "Unable to delete the commodity: %s"))))
+                        (map (fn []
+                               (-busy)
+                               (load-commodities page-state))))))
 
 (defn- truncate
   ([value] (truncate value 20))
@@ -95,27 +89,44 @@
        (apply str (take (- length 3) value))
        "...")])))
 
+(defn- fetch-prices
+  [xf]
+  (completing
+    (fn [ch criteria]
+      (prices/search criteria (map #(xf ch %))))))
+
 (defn- init-price-loading
   [page-state]
   (let [commodity (:prices-commodity @page-state)
-        {:keys [fetch-ch result-ch ctl-ch]} (->> (dates/desc-ranges (:earliest-price commodity)
-                                                                    (:latest-price commodity)
-                                                                    (t/years 1))
-                                                 (map vec)
-                                                 load-in-chunks)]
+        {:keys [items-ch ctl-ch]} (->> (dates/desc-ranges (:earliest-price commodity)
+                                                          (:latest-price commodity)
+                                                          (t/years 1))
+                                       (map vec)
+                                       (load-in-chunks {:fetch-xf (comp (map #(hash-map :commodity-id (:id commodity)
+                                                                                   :trade-date %))
+                                                                        fetch-prices)}))]
     (swap! page-state assoc :ctl-chan ctl-ch)
-    (go-loop [rng (<! fetch-ch)]
-             (if rng
+    (go-loop [prices (<! items-ch)]
+             (if prices
                (do
-                 (prices/search {:trade-date rng
-                                 :commodity-id (:id commodity)}
-                                (fn [prices]
-                                  (swap! page-state update-in [:prices] (fnil concat []) prices)
-                                  (go (>! result-ch prices)))
-                                (notify/danger-fn "Unable to fetch the prices: %s"))
-                 (recur (<! fetch-ch)))
+                 (swap! page-state update-in [:prices] (fnil concat []) prices)
+                 (recur (<! items-ch)))
                (swap! page-state assoc :all-prices-fetched? true)))
     (go (>! ctl-ch :fetch))))
+
+(defn- select-prices-commodity
+  [page-state commodity]
+  (+busy)
+  (swap! page-state dissoc
+         :selected
+         :prices
+         :prices-commodity
+         :all-prices-fetched?)
+  (js/setTimeout (fn []
+                   (swap! page-state assoc :prices-commodity commodity)
+                   (init-price-loading page-state)
+                   (-busy))
+                 100))
 
 (defn- commodity-row
   [{:keys [latest-price most-recent-price] :as commodity} page-state]
@@ -139,20 +150,8 @@
         (bs/icon :pencil {:size :small})]
        [:button.btn.btn-light.btn-sm {:title "Click here to view prices for this commodity."
                                      :disabled default?
-                                     :on-click (fn []
-                                                 (swap! page-state #(-> %
-                                                                        +busy
-                                                                        (dissoc
-                                                                          :selected
-                                                                          :prices
-                                                                          :prices-commodity
-                                                                          :all-prices-fetched?)))
-                                                 (js/setTimeout (fn []
-                                                                  (swap! page-state assoc
-                                                                              :prices-commodity commodity)
-                                                                  (init-price-loading page-state)
-                                                                  (-busy page-state))
-                                                                100))}
+                                     :on-click #(select-prices-commodity page-state
+                                                                         commodity)}
         (bs/icon :collection {:size :small})]
        [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
                                        :disabled default?
@@ -218,12 +217,11 @@
                                 (filter (every-pred shares-owned? price-download-enabled?))
                                 (map :id)
                                 seq)]
-    (+busy page-state)
+    (+busy)
     (prices/fetch commodity-ids
-                  (fn [_]
-                    (load-commodities page-state)
-                    (-busy page-state))
-                  (handle-error page-state "Unable to fetch the prices: %s"))))
+                  (map (fn [_]
+                         (load-commodities page-state)
+                         (-busy))))))
 
 (defn- commodities-table
   [page-state]
@@ -237,7 +235,6 @@
         page-index (r/cursor page-state [:page-index])
         search-term (r/cursor page-state [:search-term])
         selected (r/cursor page-state [:selected])
-        busy? (busy page-state)
         pattern (make-reaction #(when (and @search-term
                                            (< 2
                                               (count @search-term)))
@@ -298,21 +295,22 @@
                         :disabled? selected
                         :caption "Fetch Prices"}]])))
 
+(defn- post-delete-price
+  [page-state price]
+  (-busy)
+  (swap! page-state
+         update-in
+         [:prices]
+         (fn [prices]
+           (remove (fn [p] (= (:id price) (:id p)))
+                   prices))))
+
 (defn- delete-price
   [price page-state]
   (when (js/confirm (str "Are you sure you want to delete the price from " (format-date (:trade-date price)) "?"))
-    (+busy page-state)
+    (+busy)
     (prices/delete price
-                   (fn []
-                     (swap! page-state
-                            #(-> %
-                                 -busy
-                                 (update-in
-                                   [:prices]
-                                   (fn [prices]
-                                     (remove (fn [p] (= (:id price) (:id p)))
-                                             prices))))))
-                   (handle-error page-state "Unable to delete the price: %s"))))
+                   (map (partial post-delete-price page-state price)))))
 
 (defn- price-row
   [price page-state]
@@ -336,8 +334,7 @@
   (let [prices (r/cursor page-state [:prices])
         commodity (r/cursor page-state [:prices-commodity])
         all-prices-fetched? (r/cursor page-state [:all-prices-fetched?])
-        ctl-chan (r/cursor page-state [:prices-ctl-chan])
-        busy? (busy page-state)]
+        ctl-chan (r/cursor page-state [:prices-ctl-chan])]
     (fn []
       [:div.card {:class (when-not @commodity "d-none")}
        [:div.card-header [:strong (str (:name @commodity) " Prices")]]
@@ -386,32 +383,32 @@
   [p1 p2]
   (comp-prices p2 p1))
 
+(defn- post-save-price
+  [page-state new? {:keys [id] :as price}]
+  (-busy)
+  (let [update-fn (if new?
+                    (fn [prices]
+                      (->> (conj prices price)
+                           (sort comp-prices-rev)
+                           vec))
+                    (fn [prices]
+                      (mapv #(if (= (:id %) id)
+                               price
+                               %)
+                            prices)))]
+    (swap! page-state #(-> %
+                           (dissoc :selected-price)
+                           (update-in [:prices] update-fn)))))
 (defn- save-price
   [page-state]
   (let [price (get-in @page-state [:selected-price])]
-    (+busy page-state)
+    (+busy)
     (prices/save price
-                 (fn [result]
-                   (let [update-fn (if (:id price)
-                                     (fn [prices]
-                                       (mapv #(if (= (:id %) (:id price))
-                                                result
-                                                %)
-                                             prices))
-                                     (fn [prices]
-                                       (->> (conj prices result)
-                                            (sort comp-prices-rev)
-                                            vec)))]
-                     (swap! page-state #(-> %
-                                            -busy
-                                            (dissoc :selected-price)
-                                            (update-in [:prices] update-fn)))))
-                 (handle-error page-state "Unable to save the price: %s"))))
+                 (map (partial post-save-price page-state (not (:id price)))))))
 
 (defn- price-form
   [page-state]
-  (let [price (r/cursor page-state [:selected-price])
-        busy? (busy page-state)]
+  (let [price (r/cursor page-state [:selected-price])]
     (fn []
       [:div.card.mt-2 {:class (when-not @price "d-none")}
        [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]

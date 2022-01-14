@@ -2,8 +2,9 @@
   (:require [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date]]
-            [clj-money.state :refer [current-entity]]
-            [dgknght.app-lib.api :as api]))
+            [dgknght.app-lib.api-async :as api]
+            [clj-money.api :refer [handle-ex]]
+            [clj-money.state :refer [current-entity]]))
 
 (defn- after-read
   [report]
@@ -14,28 +15,32 @@
        report))
 
 (defn income-statement
-  [{:keys [start-date end-date]} success-fn error-fn]
+  [{:keys [start-date end-date]} xf]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
                      :income-statement
                      (serialize-date start-date)
                      (serialize-date end-date))
-           (comp success-fn after-read)
-           error-fn))
+           {}
+           {:transform (comp (map after-read)
+                             xf)
+            :handle-ex (handle-ex "Unable to retrieve the income statement: %s")}))
 
 (defn balance-sheet
-  [{:keys [as-of]} success-fn error-fn]
+  [{:keys [as-of]} xf]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
                      :balance-sheet
                      (serialize-date as-of))
-           (comp success-fn after-read)
-           error-fn))
+           {}
+           {:transform (comp (map after-read)
+                             xf)
+            :handle-ex (handle-ex "Unable to retrieve the balance sheet: %s")}))
 
 (defn budget
-  [{:keys [budget-id] :as opts} success-fn error-fn]
+  [{:keys [budget-id] :as opts} xf]
   (let [url (str
               (assoc
                 (uri (api/path :reports
@@ -46,26 +51,29 @@
                            (update-in-if [:tags] #(map name %))
                            map->query-string)))]
     (api/get url
-             (comp success-fn #(update-in % [:items] after-read))
-             error-fn)))
+             {}
+             {:transform (comp (map #(update-in % [:items] after-read))
+                               xf)
+              :handle-ex (handle-ex "Unable to retrieve the budget report: %s")})))
 
 (defn budget-monitors
-  [success-fn error-fn]
+  [xf]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
                      :budget-monitors)
-           success-fn
-           error-fn))
+           {}
+           {:transform xf
+            :handle-ex (handle-ex "Unable to retrieve the budget monitors: %s")}))
 
 (defn- after-portfolio-read
   [report]
   (map #(update-in-if % [:parents] set) report))
 
 (defn portfolio
-  ([success-fn error-fn]
-   (portfolio {:aggregate :by-account} success-fn error-fn))
-  ([options success-fn error-fn]
+  ([xf]
+   (portfolio {:aggregate :by-account} xf))
+  ([options xf]
    (api/get (str (api/path :entities
                            (:id @current-entity)
                            :reports
@@ -75,6 +83,7 @@
                      (update-in-if [:as-of] serialize-date)
                      (update-in-if [:aggregate] name)
                      map->query-string))
-            (comp success-fn
-                  after-portfolio-read)
-            error-fn)))
+            {}
+            {:transform (comp (map after-portfolio-read)
+                  xf)
+             :handle-ex (handle-ex "Unable to retrieve the portfolio report: %s")})))

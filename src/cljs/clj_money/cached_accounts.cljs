@@ -1,24 +1,22 @@
 (ns clj-money.cached-accounts
-  (:require [dgknght.app-lib.notifications :as notify]
-            [clj-money.state :refer [accounts
-                                     current-entity]]
+  (:require [clj-money.state :refer [accounts]]
             [clj-money.accounts :refer [nest unnest]]
-            [clj-money.api.accounts :as accounts]))
+            [clj-money.api.accounts :as accts]))
+
+(defn- reset-accounts
+  [retrieved]
+  (reset! accounts (->> retrieved nest unnest)))
 
 (defn fetch-accounts
-  ([] (fetch-accounts identity))
-  ([callback]
-   (accounts/select (fn [result]
-                      (reset! accounts (->> result
-                                            nest
-                                            unnest))
-                      (callback))
-                    (notify/danger-fn (str "Unable to load the accounts for " (:name @current-entity))))))
+  ([] (fetch-accounts nil))
+  ([xf]
+   (let [xform (if xf
+                 (comp (map reset-accounts) xf)
+                 (map reset-accounts))]
+     (accts/select xform))))
 
 (defn watch-entity
   [_ _ _ current]
-  (if current
-    (do
-      (reset! accounts nil)
-      (fetch-accounts))
-    (reset! accounts nil)))
+  (reset! accounts nil)
+  (when current
+    (fetch-accounts)))

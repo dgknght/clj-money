@@ -1,31 +1,26 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update])
-  (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [cljs.core.async :refer [<!]]
+  (:require [cljs.core.async :as a]
             [cljs-http.client :as http]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date]]
-            [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.api-async :as api]
+            [clj-money.api :refer [handle-ex]]
             [clj-money.state :refer [app-state]]
             [clj-money.util :as util]))
 
 (defn create
-  [attachment success-fn error-fn]
-  (go (let [response (<! (http/post (api/path :transactions
-                                              (:transaction-id attachment)
-                                              (serialize-date (:transaction-date attachment))
-                                              :attachments)
-                                    (-> {}
-                                        (api/multipart-params (dissoc attachment :transaction-id :transaction-date))
-                                        (assoc :oauth-token (:auth-token @app-state)))))]
-        (if (= 201 (:status response))
-          (success-fn (:body response))
-          (do
-            (.log js/console "Unable to create the attachment" (prn-str response))
-            (error-fn (or (some #(% (:body response)) [:dgknght.app-lib.validation/errors
-                                                       :error
-                                                       :message])
-                          (:body response))))))))
+  [{:keys [transaction-id transaction-date] :as attachment} xf]
+  {:pre [(:transaction-id attachment)
+         (:transaction-date attachment)]}
+
+  (http/post (api/path :transactions
+                       transaction-id
+                       (serialize-date transaction-date)
+                       :attachments)
+             (-> {:channel (a/chan 1 xf (handle-ex "Unable to create the attachment: %s"))}
+                 (api/multipart-params (dissoc attachment :transaction-id :transaction-date))
+                 (assoc :oauth-token (:auth-token @app-state)))))
 
 (defn- serialize-transaction-date
   [criteria]
@@ -40,23 +35,23 @@
       serialize-transaction-date))
 
 (defn search
-  [criteria success-fn error-fn]
+  [criteria xf]
   (api/get (api/path :attachments)
            (prepare-criteria criteria)
-           success-fn
-           error-fn))
+           {:transform xf
+            :handle-ex (handle-ex "Unable to retrieve the attachments: %s")}))
 
 (defn update
-  [attachment success-fn error-fn]
+  [attachment xf]
   (api/patch (api/path :attachments
                        (:id attachment))
              attachment
-             success-fn
-             error-fn))
+             {:transform xf
+              :handle-ex (handle-ex "Unable to update the attachment: %s")}))
 
 (defn delete
-  [attachment success-fn error-fn]
+  [attachment xf]
   (api/delete (api/path :attachments
                         (:id attachment))
-              success-fn
-              error-fn))
+              {:transform xf
+               :handle-ex (handle-ex "Unable to delete the attachment: %s")}))

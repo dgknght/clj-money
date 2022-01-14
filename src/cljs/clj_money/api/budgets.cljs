@@ -4,9 +4,10 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date
                                          unserialize-date]]
-            [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.api-async :as api]
             [dgknght.app-lib.decimal :refer [->decimal]]
 
+            [clj-money.api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]))
 
 (defn- after-item-read
@@ -26,19 +27,26 @@
       (update-in [:start-date] unserialize-date)
       (update-in [:end-date] unserialize-date)))
 
+(defn- transform
+  [xf]
+  (comp (api/apply-fn after-read)
+        xf))
+
 (defn search
-  [success-fn error-fn]
+  [xf]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :budgets)
-           #(success-fn (map after-read %))
-           error-fn))
+           {}
+           {:transform (transform xf)
+            :handle-ex (handle-ex "Unable to retrieve the budgets: %s")}))
 
 (defn find
-  [id success-fn error-fn]
+  [id xf]
   (api/get (api/path :budgets id)
-           (comp success-fn after-read)
-           error-fn))
+           {}
+           {:transform (transform xf)
+            :handle-ex (handle-ex "Unable to retrieve the budget: %s")}))
 
 (defn- before-item-save
   [item]
@@ -52,36 +60,32 @@
       (update-in-if [:items] #(map before-item-save %))))
 
 (defn- update
-  [budget success-fn error-fn]
+  [budget xf]
   (api/patch
     (api/path :budgets
               (:id budget))
     budget
-    success-fn
-    error-fn))
+    {:transform (transform xf)}))
 
 (defn- create
-  [budget success-fn error-fn]
+  [budget xf]
   (api/post
     (api/path :entities
               (:id @current-entity)
               :budgets)
     (update-in-if budget [:auto-create-start-date] serialize-date)
-    success-fn
-    error-fn))
+    {:transform (transform xf)
+     :handle-ex (handle-ex "Unable to create the budget: %s")}))
 
 (defn save
-  [budget success-fn error-fn]
+  [budget xf]
   (let [f (if (:id budget)
             update
             create)]
-    (f (before-save budget)
-       (comp success-fn
-             after-read)
-       error-fn)))
+    (f (before-save budget) xf)))
 
 (defn delete
-  [budget success-fn error-fn]
+  [budget xf]
   (api/delete (api/path :budgets (:id budget))
-              success-fn
-              error-fn))
+              {:transform xf
+               :handle-ex (handle-ex "Unable to remove the budget: %s")}))

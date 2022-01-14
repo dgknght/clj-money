@@ -9,49 +9,53 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.calendar :as cal]
             [dgknght.app-lib.decimal :as decimal]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.busy :refer [busy +busy -busy]]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
-                                     accounts-by-id]]
+                                     accounts-by-id
+                                     +busy
+                                     -busy
+                                     busy?]]
             [clj-money.budgets :as budgets]
             [clj-money.accounts :as accounts]
             [clj-money.api.transaction-items :as tran-items]
             [clj-money.api.budgets :as api]))
 
+(defn- post-load-budgets
+  [page-state budgets]
+  (-busy)
+  (swap! page-state assoc :budgets budgets))
+
 (defn- load-budgets
   [page-state]
-  (+busy page-state)
-  (api/search (fn [result]
-                (swap! page-state #(-> %
-                                       -busy
-                                       (assoc :budgets result))))
-              (handle-error page-state "Unable to load the budgets: %s")))
+  (+busy)
+  (api/search (map (partial post-load-budgets page-state))))
+
+(defn- post-delete-budget
+  [page-state]
+  (-busy)
+  (load-budgets page-state))
 
 (defn- delete-budget
   [budget page-state]
   (when (js/confirm (str "Are you sure you want to delete the budget " (:name budget) "?"))
-    (+busy page-state)
+    (+busy)
     (api/delete budget
-                (fn []
-                  (load-budgets page-state)
-                  (-busy page-state))
-                (handle-error page-state "Unable to remove the budget: %s"))))
+                (map (partial post-delete-budget page-state)))))
+
+(defn- post-load-budget-details
+  [page-state budget]
+  (-busy)
+  (swap! page-state assoc :detailed-budget budget)
+  (html/set-focus "account-id"))
 
 (defn- load-budget-details
   [budget page-state]
-  (+busy page-state)
+  (+busy)
   (api/find (:id budget)
-            (fn [b]
-              (swap! page-state #(-> %
-                                     -busy
-                                     (assoc :detailed-budget b)))
-              (html/set-focus "account-id"))
-            (handle-error page-state "Unable to load the budget details: %s")))
+            (map (partial post-load-budget-details page-state))))
 
 (defn- budget-row
   [budget page-state]
@@ -92,8 +96,7 @@
 
 (defn- budgets-list
   [page-state]
-  (let [busy? (busy page-state)
-        selected (r/cursor page-state [:selected])
+  (let [selected (r/cursor page-state [:selected])
         details (r/cursor page-state [:detailed-budget])
         hide? (make-reaction #(or @selected @details))]
     (fn []
@@ -114,22 +117,22 @@
                          :caption "Add"
                          :busy? busy?}]]])))
 
+(defn- post-save-budget
+  [page-state _budget]
+  (-busy)
+  (load-budgets page-state)
+  (swap! page-state dissoc :selected))
+
 (defn- save-budget
   [page-state]
-  (+busy page-state)
+  (+busy)
   (api/save (dissoc (:selected @page-state) :items)
-            (fn []
-              (load-budgets page-state)
-              (swap! page-state #(-> %
-                                     -busy
-                                     (dissoc :selected))))
-            (handle-error page-state "Unable to save the budget: %s")))
+           (map (partial post-save-budget page-state)) ))
 
 (defn- budget-form
   [page-state]
   (let [selected (r/cursor page-state [:selected])
-        auto-create (r/cursor selected [:auto-create-items])
-        busy? (busy page-state)]
+        auto-create (r/cursor selected [:auto-create-items])]
     (fn []
       [:div {:class (when-not @selected "d-none")}
        [:form {:on-submit #(.preventDefault %)
@@ -156,23 +159,24 @@
                          :caption "Cancel"
                          :busy? busy?}]]])))
 
+(defn- post-delete-budget-item
+  [page-state budget]
+  (-busy)
+  (swap! page-state assoc :detailed-budget budget))
+
 (defn- delete-budget-item
   [{:keys [account-id]} page-state]
   (when (js/confirm (str "Are you sure you want to remove the account "
                          (get-in @accounts-by-id [account-id :name])
                          " from the budget?"))
-    (+busy page-state)
+    (+busy)
     (api/save (update-in (:detailed-budget @page-state)
                          [:items]
                          (fn [items]
                            (remove #(= (:account-id %)
                                        account-id)
                                    items)))
-              (fn [budget]
-                (swap! page-state #(-> %
-                                       -busy
-                                       (assoc :detailed-budget budget))))
-              (handle-error page-state "Unable to delete the account from the budget: %s"))))
+              (map (partial post-delete-budget-item page-state)))))
 
 (defn- infer-spec
   [item]
@@ -370,11 +374,10 @@
                            :account-id account-id
                            :interval-type period
                            :interval-count 1}
-                          (fn [periods]
-                            (callback (map (comp #(round % round-to)
-                                                 :quantity)
-                                           periods)))
-                          (notify/danger-fn "Unable to get the historical transaction data: %s")))
+                          (map (fn [periods]
+                                 (callback (map (comp #(round % round-to)
+                                                      :quantity)
+                                                periods))))))
   (repeat period-count 0M))
 
 (defn- temp-id?
@@ -395,9 +398,16 @@
                     items)))]
     (update-in budget [:items] f)))
 
+(defn- post-save-budget-item
+  [page-state budget]
+  (-busy)
+  (swap! page-state #(-> %
+                         (assoc :detailed-budget budget)
+                         (dissoc :selected-item))))
+
 (defn- save-budget-item
   [page-state]
-  (+busy page-state)
+  (+busy)
   (let [{budget :detailed-budget
          item :selected-item
          periods :calculated-periods} @page-state
@@ -405,13 +415,7 @@
                  (select-keys [:id :account-id :spec])
                  (assoc :periods periods))]
     (api/save (update-budget-item budget item)
-              (fn [saved]
-                (swap! page-state
-                       #(-> %
-                            -busy
-                            (assoc :detailed-budget saved)
-                            (dissoc :selected-item))))
-              (handle-error page-state "Unable to save the budget account item: %s"))))
+              (map (partial post-save-budget-item page-state)))))
 
 (defn- period-row
   [index item budget]
@@ -565,8 +569,7 @@
 
 (defn- budget-item-form
   [page-state]
-  (let [item (r/cursor page-state [:selected-item])
-        busy? (busy page-state)]
+  (let [item (r/cursor page-state [:selected-item])]
     (fn []
       [:form {:no-validate true
               :on-submit (fn [e]
@@ -616,8 +619,7 @@
         window-height (r/cursor resize-state [:window-height])
         scrollable-height (make-reaction #(if (< @window-height 800)
                                             400
-                                            (- @window-height 300)))
-        busy? (busy page-state)]
+                                            (- @window-height 300)))]
     (when-not @window-height
       (capture-window-height))
     (when-not (:event-registered? @resize-state)

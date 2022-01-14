@@ -1,6 +1,6 @@
 (ns clj-money.components
   (:require [reagent.core :as r]
-            [cljs.core.async :refer [chan <! >! go-loop go close!]]
+            [cljs.core.async :as a :refer [chan <! >! go go-loop close!]]
             [clj-money.util
              :as util
              :refer [debounce]]))
@@ -60,38 +60,48 @@
       :reagent-render (fn [_]
                         [:span.text-muted @message])})))
 
+(defn- assess-reload
+  [count-sought ctl-ch]
+  (fn [xf]
+    (completing
+      (fn [ch items]
+        (when (> (swap! count-sought - (count items))
+                 0)
+          (go (>! ctl-ch :fetch-more)))
+        (xf ch items)))))
+
 (defn load-in-chunks
   ([input-seq] (load-in-chunks {} input-seq))
-  ([{:keys [chunk-size] :or {chunk-size 50}} input-seq]
-   (let [fetch-ch (chan)  ; accepts incoming search criteria that has passed the gate
-         result-ch (chan) ; accepts results of searches based on criteria
+  ([{:keys [chunk-size fetch-xf] :or {chunk-size 50}} input-seq]
+   (let [count-sought (atom chunk-size)
          ctl-ch (chan)    ; accepts commands that let criteria past the gate (or shuts everything down)
-         count-sought (atom nil)]
+         fetch-ch (chan 2 ; accepts incoming ranges from the sequence that have passed the gate
+                        (comp fetch-xf
+                              (assess-reload count-sought ctl-ch))
+                        #(.error js/console %))]
+
+     ; Setting the buffer size on the fetch-ch to 1 resulted in the range being passed
+     ; directly to the receiver, bypassing the xform. Setting it to 2 resolves that.
+
+     ; If the first result set is larger than the chuck-size, then no data
+     ; is ever passed to the receiver. I haven't figured out why, but I'm
+     ; pretty sure it's related to the buffer. For now, we'll just need to tune
+     ; the range size and chuck size to avoid that
 
      ; use ctl-ch as a gate for dispatching ranges into the fetch channel
-     (go
-       (loop [rng (first input-seq) remaining (rest input-seq)]
-         (if rng
-           (let [cmd (<! ctl-ch)]
-             (case cmd
-               :fetch (do
-                        (reset! count-sought chunk-size)
-                        (go (>! fetch-ch rng)))
-               :fetch-more  (go (>! fetch-ch rng))
-               :quit (close! fetch-ch)))
-           (close! fetch-ch))
-         (when (seq remaining)
-           (recur (first remaining) (rest remaining)))))
+     (go-loop [rng (first input-seq) remaining (rest input-seq)]
+              (if rng
+                (let [cmd (<! ctl-ch)]
+                  (case cmd
+                    :fetch (do
+                             (reset! count-sought chunk-size)
+                             (go (>! fetch-ch rng)))
+                    :fetch-more (go (>! fetch-ch rng))
+                    :quit (close! fetch-ch))
+                  (recur (first remaining) (rest remaining)))
+                (close! fetch-ch)))
 
-     ; take the search results and update the count still sought
-     (go-loop [items (<! result-ch)]
-              (when items
-                (swap! count-sought - (count items))
-                (when (> @count-sought 0)
-                  (go (>! ctl-ch :fetch-more)))
-                (recur (<! result-ch))))
-     
-     ; return the channels so the caller can participate
-     {:fetch-ch fetch-ch
-      :result-ch result-ch
-      :ctl-ch ctl-ch})))
+     ; return the control channel so the caller can prompt more searching,
+     ; and the fetch/items channel so they can take receive the items
+     {:ctl-ch ctl-ch
+      :items-ch fetch-ch})))

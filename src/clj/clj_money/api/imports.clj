@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.string :as string]
             [clojure.core.async :refer [go-loop <! chan]]
+            [clojure.tools.logging :as log]
             [cheshire.core :as json]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [dgknght.app-lib.core :refer [update-in-if]]
@@ -22,6 +23,7 @@
   (let [progress-chan (chan)]
     (go-loop [progress (<! progress-chan)]
       (when progress
+        (log/debugf "import progress for %s: %s" (:entity-name imp) progress)
         (imports/update (assoc imp :progress progress))
         (recur (<! progress-chan))))
     (import-data imp progress-chan)))

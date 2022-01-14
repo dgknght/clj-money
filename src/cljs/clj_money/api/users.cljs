@@ -1,15 +1,17 @@
 (ns clj-money.api.users
-  (:require [dgknght.app-lib.api :as api]))
+  (:require [dgknght.app-lib.api-async :as api]
+            [clj-money.api :refer [handle-ex]]))
 
 (defn authenticate
-  [credentials success-fn error-fn]
+  [credentials xf]
   (api/post (api/path :users :authenticate)
             credentials
-            success-fn
-            error-fn))
+            {:transform xf
+             :handle-ex (handle-ex "Unable to authenticate the user: %s")}))
 
 (defn me
-  [success-fn error-fn]
+  [xf]
   (api/get (api/path :users :me)
-           success-fn
-           error-fn))
+           {}
+           {:transform xf
+            :handle-ex (handle-ex "Unable to retrieve your user profile: %s")}))

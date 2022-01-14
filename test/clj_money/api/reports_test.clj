@@ -141,10 +141,10 @@
   [[response]]
   (is (http-not-found? response)))
 
-(deftest a-user-can-get-an-budget-report-for-his-entity
+(deftest a-user-can-get-a-budget-report-for-his-entity
   (assert-successful-budget-report (get-budget-report "john@doe.com")))
 
-(deftest a-user-cannot-get-an-budget-report-for-anothers-entity
+(deftest a-user-cannot-get-a-budget-report-for-anothers-entity
   (assert-blocked-budget-report (get-budget-report "jane@doe.com")))
 
 (def ^:private monitor-context

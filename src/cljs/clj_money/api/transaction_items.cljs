@@ -3,9 +3,10 @@
   (:require [dgknght.app-lib.web :refer [serialize-date
                                          unserialize-date]]
             [lambdaisland.uri :refer [map->query-string]]
-            [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.api-async :as api]
+            [dgknght.app-lib.decimal :refer [->decimal]]
             [clj-money.state :refer [current-entity]]
-            [dgknght.app-lib.decimal :refer [->decimal]]))
+            [clj-money.api :refer [handle-ex]]))
 
 (defn after-read
   [item]
@@ -17,6 +18,11 @@
       (update-in [:reconciliation-status] keyword)
       (update-in [:action] keyword)))
 
+(defn- transform
+  [xf]
+  (comp (api/apply-fn after-read)
+        xf))
+
 (defn- prepare-criteria
   [criteria]
   (-> criteria
@@ -24,7 +30,7 @@
       (update-in [:transaction-date] #(map serialize-date %))))
 
 (defn search
-  [criteria success-fn error-fn]
+  [criteria xf]
   {:pre [(:account-id criteria)
          (:transaction-date criteria)]}
 
@@ -32,12 +38,11 @@
                      (:account-id criteria)
                      :transaction-items)
            (prepare-criteria criteria)
-           (comp success-fn
-                 #(map after-read %))
-           error-fn))
+           {:transform (transform xf)
+            :handle-ex (handle-ex "Unable to retrieve the transaction items: %s")}))
 
 (defn summarize
-  [criteria success-fn error-fn]
+  [criteria xf]
   (api/get (str (api/path :entities
                           (:id @current-entity)
                           :transaction-items
@@ -48,5 +53,5 @@
                     (update-in [:transaction-date 1] serialize-date)
                     (update-in [:interval-type] name)
                     map->query-string))
-           success-fn
-           error-fn))
+           {:transform xf
+            :handle-ex (handle-ex "Unable to retrieve the transaction item summary: %s")}))

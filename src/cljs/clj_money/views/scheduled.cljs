@@ -14,13 +14,14 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.notifications :as notify]
-            [dgknght.app-lib.busy :refer [busy +busy -busy]]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [clj-money.views.util :refer [handle-error]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
-                                     accounts-by-id]]
+                                     accounts-by-id
+                                     +busy
+                                     -busy
+                                     busy?]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.scheduled-transactions :refer [next-transaction-date
                                                       pending? ]]
@@ -35,15 +36,13 @@
 
 (defn- load-sched-trans
   [page-state]
-  (+busy page-state)
-  (sched-trans/search (fn [result]
-                        (swap! page-state
-                               #(-> %
-                                    -busy
-                                    (assoc
-                                      :scheduled-transactions
-                                      (map-next-occurrence result)))))
-                      (handle-error page-state "Unable to load the scheduled transactions: %s")))
+  (+busy)
+  (sched-trans/search (map (fn [result]
+                             (-busy)
+                             (swap! page-state
+                                    assoc
+                                    :scheduled-transactions
+                                    (map-next-occurrence result))))))
 
 (defn set-next-occurrence
   [sched-tran]
@@ -65,22 +64,21 @@
 
 (defn- realize
   [& args]
+  (+busy)
   (let [[sched-tran page-state] (if (= 1 (count args))
                                   (cons nil args)
                                   args)
-        success-fn (fn [result]
-                     (swap! page-state #(-> %
-                                            -busy
-                                            (update-sched-trans result)
-                                            (update-in [:created] (fnil concat []) result)))
-                     (notify/toast "Success" (if (empty? result)
-                                               "No transactions are ready to be created."
-                                               "The scheduled transactions where created")))
-        error-fn (handle-error page-state "Unable to realize the transaction: %s")]
-    (+busy page-state)
+        xf (map (fn [result]
+                  (-busy)
+                  (swap! page-state #(-> %
+                                         (update-sched-trans result)
+                                         (update-in [:created] (fnil concat []) result)))
+                  (notify/toast "Success" (if (empty? result)
+                                            "No transactions are ready to be created."
+                                            "The scheduled transactions where created"))))]
     (if sched-tran
-      (sched-trans/realize sched-tran success-fn error-fn)
-      (sched-trans/realize success-fn error-fn))))
+      (sched-trans/realize sched-tran xf)
+      (sched-trans/realize xf))))
 
 (defn- delete-sched-tran
   [_sched-tran _page-state]
@@ -177,7 +175,6 @@
 (defn- sched-trans-table
   [page-state]
   (let [sched-trans (r/cursor page-state [:scheduled-transactions])
-        busy? (busy page-state)
         hide-inactive? (r/cursor page-state [:hide-inactive?])
         sort-on (r/cursor page-state [:sort-on])
         sort-fn (make-reaction #({:next-occurrence date-compare
@@ -228,15 +225,13 @@
 
 (defn- save-sched-tran
   [page-state]
-  (+busy page-state)
+  (+busy)
   (-> (:selected @page-state)
       ->saveable
-      (sched-trans/save (fn [_]
-                          (load-sched-trans page-state)
-                          (swap! page-state #(-> %
-                                                 -busy
-                                                 (dissoc :selected))))
-                        (handle-error page-state "Unable to schedule the transaction: %s"))))
+      (sched-trans/save (map (fn [_]
+                               (-busy)
+                               (load-sched-trans page-state)
+                               (swap! page-state dissoc :selected))))))
 
 (defn- adj-items
   [page-state]
@@ -401,8 +396,7 @@
   (let [page-state (r/atom {:scheduled-transactions @auto-loaded
                             :hide-inactive? true
                             :sort-on :next-occurrence})
-        selected (r/cursor page-state [:selected])
-        busy? (busy page-state)]
+        selected (r/cursor page-state [:selected])]
     (when-not @auto-loaded
       (load-sched-trans page-state))
     (add-watch current-entity ::index (fn [& _] (load-sched-trans page-state)))
@@ -443,20 +437,21 @@
 
 (defn- autorun []
   (sched-trans/search
-    (fn [results]
-      (let [r (map-next-occurrence results)]
-        (reset! auto-loaded (seq r))
-        (secretary/dispatch! (if (some pending?
-                                       r)
-                               "/scheduled"
-                               "/"))))
-    (notify/danger-fn "Unable to auto-create scheduled transactions: %s"))
-  [:div.mt-3
-   [:h1 "Welcome!"]
-   [:div.d-flex.justify-content-around
-    [:div.spinner-border {:role :status}
-     [:span.visually-hidden "Loading..."]]]
-   [:p "We are automatically processing scheduled transactions. One moment, please."]])
+    (map (fn [results]
+           (let [r (map-next-occurrence results)]
+             (reset! auto-loaded (seq r))
+             (secretary/dispatch! (if (some pending?
+                                            r)
+                                    "/scheduled"
+                                    "/"))))))
+  (fn []
+    [:div.row.mt-3
+     [:div.col-md-4.offset-md-4
+      [:h1 "Welcome!"]
+      [:div "We are automatically processing scheduled transactions. One moment, please."]
+      [:div.d-flex.justify-content-around
+       [:div.spinner-border {:role :status}
+        [:span.visually-hidden "Loading..."]]]]]))
 
 (secretary/defroute "/scheduled" []
   (swap! app-state assoc :page #'index))

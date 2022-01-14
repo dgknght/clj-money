@@ -10,32 +10,29 @@
                                          format-date
                                          format-date-time]]
             [dgknght.app-lib.html :as html]
-            [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.bootstrap-5 :as bs]
-            [dgknght.app-lib.busy :refer [busy +busy -busy]]
-            [clj-money.views.util :refer [handle-error]]
             [clj-money.dnd :as dnd]
-            [clj-money.state :as state :refer [app-state]]
+            [clj-money.state :as state :refer [app-state
+                                               +busy
+                                               -busy
+                                               busy?]]
             [clj-money.api.imports :as imports]))
 
 (defn- load-imports
   [page-state]
-  (+busy page-state)
-  (imports/select (fn [result]
-                    (swap! page-state #(-> %
-                                           -busy
-                                           (assoc :imports result))))
-                  (handle-error page-state "Unable to load the imports: %s")))
+  (+busy)
+  (imports/select (map (fn [result]
+                         (-busy)
+                         (swap! page-state assoc :imports result)))))
 
 (defn- delete-import
   [imp page-state]
-  (+busy page-state)
+  (+busy)
   (imports/delete imp
-                  (fn []
-                    (-busy page-state)
-                    (load-imports page-state))
-                  (handle-error page-state "Unable to delete the import: s")))
+                  (map (fn []
+                         (-busy)
+                         (load-imports page-state)))))
 
 (defn- append-dropped-files
   [event import-data]
@@ -104,7 +101,6 @@
 (declare load-import)
 (defn- receive-import
   [{{:keys [errors finished]} :progress :as received} page-state]
-  (swap! page-state #(assoc % :active received))
   (when (seq errors)
     (trace {:errors errors}))
   (when finished
@@ -112,24 +108,23 @@
   (when @auto-refresh
     (go
       (<! (timeout 1000))
-      (load-import page-state))))
+      (load-import page-state)))
+  (swap! page-state assoc :active received))
 
 (defn- load-import
   [page-state]
+  ; Don't set busy because this happens constantly during import
   (imports/get (get-in @page-state [:active :id])
-               #(receive-import % page-state)
-               (notify/danger-fn "Unable to load the import: %s")))
+               (map #(receive-import % page-state))))
 
 (defn- start-import
   [imp page-state]
-  (+busy page-state)
+  (+busy)
   (imports/start imp
-                 (fn []
-                   (reset! auto-refresh true)
-                   (swap! page-state #(-> %
-                                          -busy
-                                          (assoc :active imp))))
-                 notify/danger))
+                 (map (fn [result]
+                        (-busy)
+                        (reset! auto-refresh true)
+                        (receive-import result page-state)))))
 
 (defn- import-row
   [imp page-state busy?]
@@ -141,7 +136,7 @@
     [:span.d-md-none (format-date (:created-at imp) "M/d")]]
    [:td
     [:div.btn-group
-     [:button.btn.btn-success.btn-sm {:disabled (:entity-exists? imp)
+     [:button.btn.btn-success.btn-sm {:disable (str (:entity-exists? imp))
                                       :on-click #(start-import imp page-state)
                                       :title "Click here to start the import."}
       (bs/icon :play {:size :small})]
@@ -154,14 +149,13 @@
       (bs/icon :eye {:size :small})]
      [:button.btn.btn-danger.btn-sm {:on-click #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
                                                   (delete-import imp page-state))
-                                     :disabled busy?
+                                     :disable busy?
                                      :title "Click here to remove this import."}
       (bs/icon :x-circle {:size :small})]]]])
 
 (defn- import-table
   [page-state]
-  (let [imports (r/cursor page-state [:imports])
-        busy? (busy page-state)]
+  (let [imports (r/cursor page-state [:imports])]
     (fn []
       [:table.table.table-striped
        [:tbody
@@ -170,13 +164,12 @@
          [:th "Uploaded"]
          [:th (html/space)]]
         (if @imports
-          (doall (map #(import-row % page-state @busy?) @imports))
+          (doall (map #(import-row % page-state (str @busy?)) @imports))
           [:tr [:td.status {:colSpan 3} [:span.inline-status "Loading..."]]])]])))
 
 (defn- refresh-button
   [page-state]
-  (let [busy? (busy page-state)
-        css-class (make-reaction #(if @auto-refresh "btn-danger" "btn-success"))
+  (let [css-class (make-reaction #(if @auto-refresh "btn-danger" "btn-success"))
         title (make-reaction #(if @auto-refresh
                                 "Click here to stop the auto-refresh."
                                 "Click here to auto-refresh the page."))
@@ -229,18 +222,17 @@
 (defn- import-click
   [event page-state]
   (.preventDefault event)
-  (+busy page-state)
+  (+busy)
   (imports/create (get-in @page-state [:import-data])
-                  (fn [result]
-                    (state/add-entity (:entity result))
-                    (reset! auto-refresh true)
-                    (swap! page-state #(-> %
-                                           -busy
-                                           (dissoc :import-data)
-                                           (update-in [:imports] conj (:import result))
-                                           (assoc :active (:import result))))
-                    (load-import page-state))
-                  (handle-error page-state "Unable to create the import: %s")))
+                  (map (fn [result]
+                         (-busy)
+                         (state/add-entity (:entity result))
+                         (reset! auto-refresh true)
+                         (swap! page-state #(-> %
+                                                (dissoc :import-data)
+                                                (update-in [:imports] conj (:import result))
+                                                (assoc :active (:import result))))
+                         (load-import page-state)))))
 
 (defn- file-drop
   [import-data event]
@@ -252,8 +244,7 @@
 
 (defn- import-form
   [page-state]
-  (let [import-data (r/cursor page-state [:import-data])
-        busy? (busy page-state)]
+  (let [import-data (r/cursor page-state [:import-data])]
     [:div.card
      [:div.card-header [:strong "Import Entity"]]
      [:div.card-body
@@ -286,8 +277,7 @@
 (defn- import-list []
   (let [page-state (r/atom {})
         import-data (r/cursor page-state [:import-data])
-        active (r/cursor page-state [:active])
-        busy? (busy page-state)]
+        active (r/cursor page-state [:active])]
     (load-imports page-state)
     (fn []
       [:<>
