@@ -146,14 +146,21 @@
                   (:earliest-transaction-date account)
                   (:latest-transaction-date account)]})))
 
+(defn- match-path?
+  [path terms]
+  (loop [t (first terms) tt (rest terms) p (first path) pp (rest path)]
+    (when (and t p)
+      (if (string/includes? p t)
+        (if (seq tt)
+          (recur (first tt) (rest tt) (first pp) (rest pp))
+          true)
+        (recur t tt (first pp) (rest pp))))))
+
 (defn find-by-path
   [term accounts]
-  (let [term (string/lower-case term)]
-    (filter #(->> (get-in % [:path])
-                  (map string/lower-case)
-                  (some (fn [segment]
-                          (string/includes? segment term))))
-            accounts)))
+  (filter #(match-path? (map string/lower-case (:path %))
+                        (map string/lower-case (string/split term #"/|:")))
+          accounts))
 
 (defn user-tagged?
   [{:keys [user-tags]} tag]

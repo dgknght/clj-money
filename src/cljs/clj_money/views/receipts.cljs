@@ -97,7 +97,7 @@
 
 (defn- search-accounts []
   (fn [input callback]
-      (callback (find-by-path input @accounts))))
+    (callback (find-by-path input @accounts))))
 
 (defn- search-transactions
   [transactions input callback]
@@ -125,7 +125,7 @@
          {:validate [:required]
           :search-fn (search-accounts)
           :find-fn (fn [id callback]
-                    (callback (@accounts-by-id id)))
+                     (callback (@accounts-by-id id)))
           :on-change #(ensure-blank-item page-state)
           :caption-fn #(string/join "/" (:path %))
           :value-fn :id}]]

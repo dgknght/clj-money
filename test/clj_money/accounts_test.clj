@@ -247,3 +247,21 @@
                 (map :adj-value)
                 (reduce +)))
         "The net change is zero")))
+
+(deftest find-account-by-path
+  (let [accounts (map #(hash-map :path %) [["Investments"]
+                                           ["Investments" "IRA"]
+                                           ["Investments" "Eli's College"]
+                                           ["Investments" "Fidelity"]
+                                           ["Investments" "Fidelity"]
+                                           ["Receivable" "Eli"]])]
+
+    (is (= [["Investments" "Eli's College"]
+            ["Investments" "Fidelity"]
+            ["Investments" "Fidelity"]
+            ["Receivable" "Eli"]]
+           (map :path (accounts/find-by-path "Eli" accounts))))
+    (is (= [["Receivable" "Eli"]]
+           (map :path (accounts/find-by-path "Rec/Eli" accounts))))
+    (is (= [["Receivable" "Eli"]]
+           (map :path (accounts/find-by-path "Rec:Eli" accounts))))))
