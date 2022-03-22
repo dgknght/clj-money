@@ -26,9 +26,10 @@
 (defn- load-commodities
   [page-state]
   (+busy)
-  (commodities/select (map (fn [result]
-                             (-busy)
-                             (swap! page-state assoc :commodities (sort-by :name result))))))
+  (commodities/select
+    (map (fn [result]
+           (-busy)
+           (swap! page-state assoc :commodities (sort-by :name result))))))
 
 (defn- save-commodity
   [page-state]
@@ -74,10 +75,11 @@
   [commodity page-state]
   (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
     (+busy)
-    (commodities/delete commodity
-                        (map (fn []
-                               (-busy)
-                               (load-commodities page-state))))))
+    (commodities/delete
+      commodity
+      (map (fn []
+             (-busy)
+             (load-commodities page-state))))))
 
 (defn- truncate
   ([value] (truncate value 20))
@@ -122,11 +124,12 @@
          :prices
          :prices-commodity
          :all-prices-fetched?)
-  (js/setTimeout (fn []
-                   (swap! page-state assoc :prices-commodity commodity)
-                   (init-price-loading page-state)
-                   (-busy))
-                 100))
+  (js/setTimeout
+    (fn []
+      (swap! page-state assoc :prices-commodity commodity)
+      (init-price-loading page-state)
+      (-busy))
+    100))
 
 (defn- commodity-row
   [{:keys [latest-price most-recent-price] :as commodity} page-state]
@@ -219,9 +222,10 @@
                                 seq)]
     (+busy)
     (prices/fetch commodity-ids
-                  (map (fn [_]
+                  (map (fn [r]
                          (load-commodities page-state)
-                         (-busy))))))
+                         (-busy)
+                         r)))))
 
 (defn- commodities-table
   [page-state]
@@ -287,7 +291,7 @@
                         :icon :plus
                         :caption "Add"
                         :disabled? selected}]
-       [bs/busy-button {:html {:class "btn-light"
+       [bs/busy-button {:html {:class "btn-light ms-2"
                                :title "Click here to download recent prices for each commodity."
                                :on-click #(download-prices page-state)}
                         :busy? busy?
