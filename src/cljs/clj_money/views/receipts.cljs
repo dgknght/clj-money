@@ -11,6 +11,7 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.forms-validation :as v]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -122,7 +123,7 @@
    [:td [forms/typeahead-input
          receipt
          [:items index :account-id]
-         {:validate [:required]
+         {:validations #{::v/required}
           :search-fn (search-accounts)
           :find-fn (fn [id callback]
                      (callback (@accounts-by-id id)))
@@ -132,7 +133,7 @@
    [:td [forms/decimal-input
          receipt
          [:items index :quantity]
-         {:validate [:required]
+         {:validations #{::v/required}
           :on-accept #(ensure-blank-item page-state)}]]])
 
 (defn- reuse-trans
@@ -156,12 +157,14 @@
       [:form {:no-validate true
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (save-transaction page-state))}
-       [forms/date-field receipt [:transaction-date] {:validate [:required]}]
+                           (v/validate receipt)
+                           (when (v/valid? receipt)
+                             (save-transaction page-state)))}
+       [forms/date-field receipt [:transaction-date] {:validations #{::v/required}}]
        [forms/text-field
         receipt
         [:description]
-        {:validation [:required]
+        {:validations #{::v/required}
          :prepend [:button.btn.btn-secondary
                    {:title "Click here to find a previous transaction to re-use."
                     :on-click (fn [e]
@@ -176,7 +179,7 @@
        [forms/typeahead-field
         search
         [:search-term]
-        {:validate [:required]
+        {:validations #{::v/required}
          :hide? hide-search-term?
          :caption "Description"
          :search-fn #(search-transactions @transactions %1 %2)
@@ -197,7 +200,7 @@
        [forms/typeahead-field
         receipt
         [:account-id]
-        {:validate [:required]
+        {:validations #{::v/required}
          :caption "Payment Method"
          :search-fn (search-accounts)
          :find-fn (fn [id callback]
