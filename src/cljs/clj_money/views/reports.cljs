@@ -506,8 +506,8 @@
        [render-portfolio page-state]])))
 
 (def ^:private report-types
-  [:income-statement
-   :balance-sheet
+  [:balance-sheet
+   :income-statement
    :budget
    :portfolio])
 
@@ -524,7 +524,7 @@
                      (load-report page-state)))})))
 
 (defn- index []
-  (let [page-state (r/atom {:selected :income-statement
+  (let [page-state (r/atom {:selected :balance-sheet
                             :hide-zeros? true
                             :income-statement {:start-date (start-of-year)
                                                :end-date (t/today)}
