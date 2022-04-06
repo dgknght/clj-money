@@ -258,6 +258,7 @@
   [page-state]
   (+busy)
   (bdt/search (map (fn [budgets]
+                     (-busy)
                      (swap! page-state
                             (fn [state]
                               (-> state
