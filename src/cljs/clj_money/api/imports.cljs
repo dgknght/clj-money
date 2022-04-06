@@ -8,8 +8,8 @@
             [clj-money.api :refer [handle-ex]]))
 
 (defn- ->multipart-params
-  [import-data]
-  (->> (:files import-data)
+  [{:keys [files] :as import-data}]
+  (->> files
        (map-indexed (fn [idx f] [idx f]))
        (reduce (fn [m [index file]]
                  (assoc m
