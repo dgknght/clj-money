@@ -29,7 +29,9 @@
   (commodities/select
     (map (fn [result]
            (-busy)
-           (swap! page-state assoc :commodities (sort-by :name result))))))
+           (swap! page-state #(-> %
+                                  (dissoc :prices-commodity)
+                                  (assoc :commodities (sort-by :name result))))))))
 
 (defn- save-commodity
   [page-state]
@@ -105,7 +107,7 @@
                                                           (t/years 1))
                                        (map vec)
                                        (load-in-chunks {:fetch-xf (comp (map #(hash-map :commodity-id (:id commodity)
-                                                                                   :trade-date %))
+                                                                                        :trade-date %))
                                                                         fetch-prices)}))]
     (swap! page-state assoc :ctl-chan ctl-ch)
     (go-loop [prices (<! items-ch)]
@@ -113,7 +115,9 @@
                (do
                  (swap! page-state update-in [:prices] (fnil concat []) prices)
                  (recur (<! items-ch)))
-               (swap! page-state assoc :all-prices-fetched? true)))
+               (swap! page-state #(-> %
+                                      (update-in [:prices] (fnil identity []))
+                                      (assoc :all-prices-fetched? true)))))
     (go (>! ctl-ch :fetch))))
 
 (defn- select-prices-commodity
