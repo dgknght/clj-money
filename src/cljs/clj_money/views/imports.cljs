@@ -275,7 +275,8 @@
                        :caption "Cancel"}]]]))
 
 (defn- import-list []
-  (let [page-state (r/atom {})
+  (let [page-state (r/atom {:import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
+                                                    :st-capital-gains-account-id "Investment Income/Short Term Gains"}}})
         import-data (r/cursor page-state [:import-data])
         active (r/cursor page-state [:active])]
     (load-imports page-state)
