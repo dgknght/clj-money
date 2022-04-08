@@ -99,7 +99,9 @@
                     :fetch-more (go (>! fetch-ch rng))
                     :quit (close! fetch-ch))
                   (recur (first remaining) (rest remaining)))
-                (close! fetch-ch)))
+                (do
+                  (<! (a/timeout 1000)) ; if the lookup is asynchronous, then we may close the channel before the lookup finishes
+                  (close! fetch-ch))))
 
      ; return the control channel so the caller can prompt more searching,
      ; and the fetch/items channel so they can take receive the items

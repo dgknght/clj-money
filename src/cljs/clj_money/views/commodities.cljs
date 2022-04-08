@@ -26,9 +26,12 @@
 (defn- load-commodities
   [page-state]
   (+busy)
-  (commodities/select (map (fn [result]
-                             (-busy)
-                             (swap! page-state assoc :commodities (sort-by :name result))))))
+  (commodities/select
+    (map (fn [result]
+           (-busy)
+           (swap! page-state #(-> %
+                                  (dissoc :prices-commodity)
+                                  (assoc :commodities (sort-by :name result))))))))
 
 (defn- save-commodity
   [page-state]
@@ -74,10 +77,11 @@
   [commodity page-state]
   (when (js/confirm (str "Are you sure you want to delete the commodity \"" (:name commodity) "\"?"))
     (+busy)
-    (commodities/delete commodity
-                        (map (fn []
-                               (-busy)
-                               (load-commodities page-state))))))
+    (commodities/delete
+      commodity
+      (map (fn []
+             (-busy)
+             (load-commodities page-state))))))
 
 (defn- truncate
   ([value] (truncate value 20))
@@ -103,7 +107,7 @@
                                                           (t/years 1))
                                        (map vec)
                                        (load-in-chunks {:fetch-xf (comp (map #(hash-map :commodity-id (:id commodity)
-                                                                                   :trade-date %))
+                                                                                        :trade-date %))
                                                                         fetch-prices)}))]
     (swap! page-state assoc :ctl-chan ctl-ch)
     (go-loop [prices (<! items-ch)]
@@ -111,7 +115,9 @@
                (do
                  (swap! page-state update-in [:prices] (fnil concat []) prices)
                  (recur (<! items-ch)))
-               (swap! page-state assoc :all-prices-fetched? true)))
+               (swap! page-state #(-> %
+                                      (update-in [:prices] (fnil identity []))
+                                      (assoc :all-prices-fetched? true)))))
     (go (>! ctl-ch :fetch))))
 
 (defn- select-prices-commodity
@@ -122,11 +128,12 @@
          :prices
          :prices-commodity
          :all-prices-fetched?)
-  (js/setTimeout (fn []
-                   (swap! page-state assoc :prices-commodity commodity)
-                   (init-price-loading page-state)
-                   (-busy))
-                 100))
+  (js/setTimeout
+    (fn []
+      (swap! page-state assoc :prices-commodity commodity)
+      (init-price-loading page-state)
+      (-busy))
+    100))
 
 (defn- commodity-row
   [{:keys [latest-price most-recent-price] :as commodity} page-state]
@@ -219,9 +226,10 @@
                                 seq)]
     (+busy)
     (prices/fetch commodity-ids
-                  (map (fn [_]
+                  (map (fn [r]
                          (load-commodities page-state)
-                         (-busy))))))
+                         (-busy)
+                         r)))))
 
 (defn- commodities-table
   [page-state]
@@ -287,7 +295,7 @@
                         :icon :plus
                         :caption "Add"
                         :disabled? selected}]
-       [bs/busy-button {:html {:class "btn-light"
+       [bs/busy-button {:html {:class "btn-light ms-2"
                                :title "Click here to download recent prices for each commodity."
                                :on-click #(download-prices page-state)}
                         :busy? busy?
