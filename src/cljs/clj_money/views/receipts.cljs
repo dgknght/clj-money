@@ -237,7 +237,9 @@
                                             (html/set-focus "transaction-date"))}
                          :icon :x
                          :caption "Cancel"
-                         :busy? busy?}]]])))
+                         :busy? busy?}]]
+
+       ])))
 
 (defn- result-row
   [transaction page-state]
