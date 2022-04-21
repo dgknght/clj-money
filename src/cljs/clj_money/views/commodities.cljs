@@ -11,6 +11,8 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.decimal :as decimal]
+            [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.forms-validation :as v]
             [clj-money.dates :as dates]
             [clj-money.components :refer [load-in-chunks
                                           load-on-scroll]]
@@ -20,8 +22,7 @@
                                      current-entity
                                      +busy
                                      -busy
-                                     busy? ]]
-            [dgknght.app-lib.forms :as forms]))
+                                     busy? ]]))
 
 (defn- load-commodities
   [page-state]
@@ -51,27 +52,35 @@
                                 ["currency"]
                                 ["currency" "stock" "fund"]))]
     (fn []
-      [:div#commodity-form.card {:class (when-not @commodity "d-none")}
-       [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
-       [:div.card-body
-        [forms/select-field commodity [:type] @types]
-        [forms/select-field commodity [:exchange] ["" "nyse" "nasdaq" "otc"]]
-        [forms/text-field commodity [:symbol] {:validate [:required]}]
-        [forms/text-field commodity [:name] {:validate [:required]}]
-        [forms/checkbox-field commodity [:price-config :enabled] {:caption "Download prices"}]]
-       [:div.card-footer
-        [bs/busy-button {:html {:class "btn-primary"
-                                :title "Click here to save this commodity"
-                                :on-click #(save-commodity page-state)}
-                         :icon :check
-                         :caption "Save"
-                         :busy? busy?}]
-        [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                :title "Click here to discontinue this edit operation."
-                                      :on-click #(swap! page-state dissoc :selected)}
-                         :icon :x
-                         :caption "Cancel"
-                         :busy? busy?}]]])))
+      (when @commodity
+        [:form {:on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate commodity)
+                             (when (v/valid? commodity)
+                               (save-commodity page-state)))
+                :no-validate true}
+         [:div#commodity-form.card {:class (when-not @commodity "d-none")}
+          [:div.card-header [:strong (str (if (:id @commodity) "Edit" "New")) " Commodity"]]
+          [:div.card-body
+           [forms/select-field commodity [:type] @types {:validations #{::v/required}}]
+           [forms/select-field commodity [:exchange] ["" "nyse" "nasdaq" "otc"]]
+           [forms/text-field commodity [:symbol] {:validations #{::v/required}}]
+           [forms/text-field commodity [:name] {:validations #{::v/required}}]
+           [forms/checkbox-field commodity [:price-config :enabled] {:caption "Download prices"}]]
+          [:div.card-footer
+           [bs/busy-button {:html {:class "btn-primary"
+                                   :type :submit
+                                   :title "Click here to save this commodity"}
+                            :icon :check
+                            :caption "Save"
+                            :busy? busy?}]
+           [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                   :title "Click here to discontinue this edit operation."
+                                   :type :button
+                                   :on-click #(swap! page-state dissoc :selected)}
+                            :icon :x
+                            :caption "Cancel"
+                            :busy? busy?}]]]]))))
 
 (defn- delete
   [commodity page-state]
@@ -418,24 +427,32 @@
   [page-state]
   (let [price (r/cursor page-state [:selected-price])]
     (fn []
-      [:div.card.mt-2 {:class (when-not @price "d-none")}
-       [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
-       [:div.card-body
-        [forms/date-field price [:trade-date]]
-        [forms/decimal-field price [:price]]]
-       [:div.card-footer
-        [bs/busy-button {:html {:class "btn-primary"
-                                :title "Click here to save this price."
-                                :on-click #(save-price page-state)}
-                         :icon :check
-                         :caption "Save"
-                         :busy? busy?}]
-        [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                :title "Click here to cancel this update."
-                                :on-click #(swap! page-state dissoc :selected-price)}
-                         :icon :x
-                         :caption "Cancel"
-                         :busy? busy?}]]])))
+      (when @price
+        [:form {:no-validate true
+                :on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate price)
+                             (when (v/valid? price)
+                               (save-price page-state)))}
+         [:div.card.mt-2 {:class (when-not @price "d-none")}
+          [:div.card-header [:strong (str (if  (:id @price) "Edit" "New") " Price")]]
+          [:div.card-body
+           [forms/date-field price [:trade-date] {:validations #{::v/required}}]
+           [forms/decimal-field price [:price] {:validations #{::v/required}}]]
+          [:div.card-footer
+           [bs/busy-button {:html {:class "btn-primary"
+                                   :title "Click here to save this price."
+                                   :type :submit}
+                            :icon :check
+                            :caption "Save"
+                            :busy? busy?}]
+           [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                   :title "Click here to cancel this update."
+                                   :type :button
+                                   :on-click #(swap! page-state dissoc :selected-price)}
+                            :icon :x
+                            :caption "Cancel"
+                            :busy? busy?}]]]]))))
 
 (defn- filter-container
   [page-state]
