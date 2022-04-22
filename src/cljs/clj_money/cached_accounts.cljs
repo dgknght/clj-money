@@ -5,7 +5,7 @@
 
 (defn- reset-accounts
   [retrieved]
-  (reset! accounts (->> retrieved nest unnest)))
+  (reset! accounts (->> retrieved nest unnest (into []))))
 
 (defn fetch-accounts
   ([] (fetch-accounts nil))
