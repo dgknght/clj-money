@@ -183,14 +183,8 @@
     (constantly true)))
 
 (defn- pagination
-  [page-state]
-  (let [commodities (r/cursor page-state [:commodities])
-        hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
-        filter-fn (make-reaction #(if @hide-zero-shares?
-                                    (fn [{:keys [shares-owned]}] (not (zero? shares-owned)))
-                                    (constantly true)))
-        filtered (make-reaction #(filter @filter-fn @commodities))
-        com-count (make-reaction #(count @filtered))
+  [page-state collection]
+  (let [com-count (make-reaction #(count @collection))
         page-size (r/cursor page-state [:page-size])
         page-count (make-reaction #(.ceil js/Math (/ @com-count @page-size)))
         max-index (make-reaction #(- @page-count 1))
@@ -200,11 +194,11 @@
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state assoc :page-index 0)}
-        (bs/icon :chevron-bar-left {:size :small})]]
+         (bs/icon :chevron-bar-left {:size :small})]]
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state update-in [:page-index] (fmin dec 0))}
-        (bs/icon :chevron-left {:size :small})]]
+         (bs/icon :chevron-left {:size :small})]]
        [:li.page-item
         [:a.page-link {:href "#"}
          (+ 1 @page-index)
@@ -213,11 +207,11 @@
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state update-in [:page-index] (fmax inc @max-index))}
-        (bs/icon :chevron-right {:size :small})]]
+         (bs/icon :chevron-right {:size :small})]]
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state assoc :page-index @max-index)}
-        (bs/icon :chevron-bar-right {:size :small})]]])))
+         (bs/icon :chevron-bar-right {:size :small})]]])))
 
 (defn- shares-owned?
   [{:keys [shares-owned]}]
@@ -245,7 +239,10 @@
   (let [commodities (r/cursor page-state [:commodities])
         hide-zero-shares? (r/cursor page-state [:hide-zero-shares?])
         filter-fn (make-reaction #(if @hide-zero-shares?
-                                    (fn [{:keys [shares-owned]}] (not (zero? shares-owned)))
+                                    (fn [{:keys [shares-owned created-at]}]
+                                      (or (t/after? created-at
+                                                    (t/minus (t/now) (t/hours 1)))
+                                          (not (zero? shares-owned))))
                                     (constantly true)))
         filtered (make-reaction #(filter @filter-fn @commodities))
         page-size (r/cursor page-state [:page-size])
@@ -288,7 +285,7 @@
                 doall)
            [:tr
             [:td.text-center {:col-span 6} [bs/spinner]]])]]
-       [pagination page-state]
+       [pagination page-state filtered]
        [bs/busy-button {:html {:class "btn-primary"
                                :title "Click here to add a new commodity."
                                :on-click (fn []

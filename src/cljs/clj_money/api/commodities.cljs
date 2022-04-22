@@ -1,7 +1,8 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count get])
   (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
+            [dgknght.app-lib.web :refer [unserialize-date
+                                         unserialize-date-time]]
             [dgknght.app-lib.api-async :as api]
             [clj-money.state :refer [current-entity]]
             [clj-money.api :refer [handle-ex]]))
@@ -15,6 +16,7 @@
 (defn- after-read
   [commodity]
   (-> commodity
+      (update-in [:created-at] unserialize-date-time)
       (update-in-if [:earliest-price] unserialize-date)
       (update-in-if [:latest-price] unserialize-date)
       (update-in-if [:most-recent-price :trade-date] unserialize-date)))
