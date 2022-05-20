@@ -12,6 +12,7 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.notifications :as notify]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
                                                +busy
@@ -219,20 +220,25 @@
      [:div.mt-2
       [errors-card page-state]]]))
 
-(defn- import-click
+(defn- save-and-start-import
   [event page-state]
   (.preventDefault event)
   (+busy)
-  (imports/create (get-in @page-state [:import-data])
-                  (map (fn [result]
-                         (-busy)
-                         (state/add-entity (:entity result))
-                         (reset! auto-refresh true)
-                         (swap! page-state #(-> %
-                                                (dissoc :import-data)
-                                                (update-in [:imports] conj (:import result))
-                                                (assoc :active (:import result))))
-                         (load-import page-state)))))
+  (try
+    (imports/create (get-in @page-state [:import-data])
+                    (map (fn [result]
+                           (-busy)
+                           (state/add-entity (:entity result))
+                           (reset! auto-refresh true)
+                           (swap! page-state #(-> %
+                                                  (dissoc :import-data)
+                                                  (update-in [:imports] conj (:import result))
+                                                  (assoc :active (:import result))))
+                           (load-import page-state))))
+    (catch js/Error e
+      (-busy)
+      (.dir js/console e)
+      (notify/danger (str "Unable to start the import: " (.-name e) " - " (.-message e))))))
 
 (defn- file-drop
   [import-data event]
@@ -245,34 +251,37 @@
 (defn- import-form
   [page-state]
   (let [import-data (r/cursor page-state [:import-data])]
-    [:div.card
-     [:div.card-header [:strong "Import Entity"]]
-     [:div.card-body
-      [:form
-       [text-field import-data [:entity-name] {:validate [:required]}]
-       [text-field import-data [:options :lt-capital-gains-account-id] {:caption "Long-term Capital Gains Account"}]
-       [text-field import-data [:options :st-capital-gains-account-id] {:caption "Short-term Capital Gains Account"}]
-       [text-field import-data [:options :lt-capital-loss-account-id] {:caption "Long-term Capital Loss Account"}]
-       [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]]
-      [:div#import-source.drop-zone.bg-primary.text-light
-       {:on-drag-over #(.preventDefault %)
-        :on-drop #(file-drop import-data %)}
-       [:div "Drop files here"]]]
-     [file-list import-data]
-     [:div.card-footer
-      [bs/busy-button {:html {:on-click #(import-click % page-state)
-                              :class "btn-success"
-                              :title "Click here to begin the import."}
-                       :busy? busy?
-                       :icon :file-arrow-up
-                       :caption "Import"}]
+    (when (:user-id @import-data)
+      [:form {:no-validate true
+              :on-submit #(save-and-start-import % page-state)}
+       [:div.card
+        [:div.card-header [:strong "Import Entity"]]
+        [:div.card-body
+         [text-field import-data [:entity-name] {:validate [:required]}]
+         [text-field import-data [:options :lt-capital-gains-account-id] {:caption "Long-term Capital Gains Account"}]
+         [text-field import-data [:options :st-capital-gains-account-id] {:caption "Short-term Capital Gains Account"}]
+         [text-field import-data [:options :lt-capital-loss-account-id] {:caption "Long-term Capital Loss Account"}]
+         [text-field import-data [:options :st-capital-loss-account-id] {:caption "Short-term Capital Loss Account"}]
+         [:div#import-source.drop-zone.bg-primary.text-light
+          {:on-drag-over #(.preventDefault %)
+           :on-drop #(file-drop import-data %)}
+          [:div "Drop files here"]]]
+        [file-list import-data]
+        [:div.card-footer
+         [bs/busy-button {:html {:type :submit
+                                 :class "btn-success"
+                                 :title "Click here to begin the import."}
+                          :busy? busy?
+                          :icon :file-arrow-up
+                          :caption "Import"}]
 
-      [bs/busy-button {:html {:on-click #(swap! page-state dissoc :import-data)
-                              :class "btn-secondary ms-2"
-                              :title "Click here to discard this import."}
-                       :busy? busy?
-                       :icon :x
-                       :caption "Cancel"}]]]))
+         [bs/busy-button {:html {:on-click #(swap! page-state dissoc :import-data)
+                                 :type :button
+                                 :class "btn-secondary ms-2"
+                                 :title "Click here to discard this import."}
+                          :busy? busy?
+                          :icon :x
+                          :caption "Cancel"}]]]])))
 
 (defn- import-list []
   (let [page-state (r/atom {:import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
@@ -286,18 +295,19 @@
        [:div.row
         [:div.col-md-6 {:class (when @import-data "d-none d-md-block")}
          [import-table page-state]
-         [bs/busy-button {:html {:title "Click here to import a new entiry from another system."
+         [bs/busy-button {:html {:title "Click here to import a new entity from another system."
                                  :class "btn-primary"
                                  :on-click (fn []
                                              (swap! page-state assoc
-                                                    :import-data {:user-id (:id @state/current-user)})
+                                                    :import-data {:user-id (:id @state/current-user)
+                                                                  :options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
+                                                                            :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
                                              (html/set-focus "entity-name"))}
                           :busy? busy?
                           :icon :plus
                           :caption "Add"}]]
-        (when @import-data
-          [:div.col-md-6
-           [import-form page-state]])
+        [:div.col-md-6
+         [import-form page-state]]
         (when @active
           [:div.col-md-6.mt-2.mt-md-0
            [import-activity page-state]])]])))
