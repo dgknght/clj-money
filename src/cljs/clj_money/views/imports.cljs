@@ -13,6 +13,7 @@
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.notifications :as notify]
+            [dgknght.app-lib.forms-validation :as v]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
                                                +busy
@@ -225,7 +226,7 @@
   (.preventDefault event)
   (+busy)
   (try
-    (imports/create (get-in @page-state [:import-data])
+    (imports/create (dissoc (get-in @page-state [:import-data]) ::v/validation)
                     (map (fn [result]
                            (-busy)
                            (state/add-entity (:entity result))
@@ -248,10 +249,14 @@
     (catch js/Error err
       (.log js/console "Error: " (prn-str err)))))
 
+(defn- present?
+  [{:keys [user-id]}]
+  (not (nil? user-id)))
+
 (defn- import-form
   [page-state]
   (let [import-data (r/cursor page-state [:import-data])]
-    (when (:user-id @import-data)
+    (when (present? @import-data)
       [:form {:no-validate true
               :on-submit #(save-and-start-import % page-state)}
        [:div.card
@@ -306,8 +311,9 @@
                           :busy? busy?
                           :icon :plus
                           :caption "Add"}]]
-        [:div.col-md-6
-         [import-form page-state]]
+        (when (present? @import-data)
+          [:div.col-md-6
+           [import-form page-state]])
         (when @active
           [:div.col-md-6.mt-2.mt-md-0
            [import-activity page-state]])]])))
