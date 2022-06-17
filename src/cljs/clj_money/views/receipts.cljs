@@ -1,5 +1,6 @@
 (ns clj-money.views.receipts
   (:require [clojure.string :as string]
+            [clojure.data :refer [diff]]
             [goog.string :as gstr]
             [cljs-time.core :as t]
             [secretary.core :as secretary :include-macros true]
@@ -138,18 +139,17 @@
 
 (defn- reuse-trans
   [state transaction]
-  (-> state
-      (dissoc :transaction-search)
-      (update-in [:receipt] merge (->receipt transaction {:for-reuse? true}))))
+  (if transaction
+    (-> state
+        (dissoc :transaction-search)
+        (update-in [:receipt] merge (->receipt transaction {:for-reuse? true})))
+    state))
 
 (defn- receipt-form
   [page-state]
   (let [receipt (r/cursor page-state [:receipt])
         item-count (make-reaction #(count (:items @receipt)))
         transactions (r/cursor page-state [:transactions])
-        search (r/cursor page-state [:transaction-search])
-        hide-description? (make-reaction #(boolean @search))
-        hide-search-term? (make-reaction #(not @search))
         total (make-reaction #(->> (:items @receipt)
                                    (map :quantity)
                                    decimal/sum))]
@@ -161,26 +161,11 @@
                            (when (v/valid? receipt)
                              (save-transaction page-state)))}
        [forms/date-field receipt [:transaction-date] {:validations #{::v/required}}]
-       [forms/text-field
+       [forms/typeahead-field
         receipt
         [:description]
-        {:validations #{::v/required}
-         :prepend [:button.btn.btn-secondary
-                   {:title "Click here to find a previous transaction to re-use."
-                    :on-click (fn [e]
-                                (.preventDefault e)
-                                (swap! page-state assoc :transaction-search {})
-                                (js/setTimeout
-                                  #(html/set-focus "search-term")
-                                  250))}
-                   (bs/icon :search {:size :small})]
-         :html {:auto-complete :off}
-         :hide? hide-description?}]
-       [forms/typeahead-field
-        search
-        [:search-term]
-        {:validations #{::v/required}
-         :hide? hide-search-term?
+        {:mode :direct
+         :validations #{::v/required}
          :caption "Description"
          :search-fn #(search-transactions @transactions %1 %2)
          :find-fn (constantly nil)
@@ -190,13 +175,7 @@
                                         (format-decimal (:value %))
                                         (:description %))
          :on-change #(swap! page-state reuse-trans %)
-         :value-fn :description
-         :prepend [:button.btn.btn-secondary
-                   {:title "Click here to cancel the search."
-                    :on-click (fn [e]
-                                (.preventDefault e)
-                                (swap! page-state dissoc :transaction-search))}
-                   (bs/icon :x {:size :small})]}]
+         :value-fn :description}]
        [forms/typeahead-field
         receipt
         [:account-id]
