@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
             [clj-time.core :as t]
+            [clj-http.core :as http]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
             [clj-money.prices.alpha-vantage :as alpha-vantage]))
