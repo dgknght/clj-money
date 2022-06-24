@@ -1,6 +1,5 @@
 (ns clj-money.views.receipts
   (:require [clojure.string :as string]
-            [clojure.data :refer [diff]]
             [goog.string :as gstr]
             [cljs-time.core :as t]
             [secretary.core :as secretary :include-macros true]
@@ -92,10 +91,15 @@
 
 (defn- save-transaction
   [page-state]
-  (let [{:keys [receipt]} @page-state]
-    (if (:id receipt)
-      (update-transaction receipt page-state)
-      (create-transaction receipt page-state))))
+  (let [{:keys [receipt]} @page-state
+        to-save (update-in receipt [:items] (fn [items]
+                                              (remove (every-pred #(nil? (:account-id %))
+                                                                  #(nil? (:quantity %))
+                                                                  )
+                                                      items)))]
+    (if (:id to-save)
+      (update-transaction to-save page-state)
+      (create-transaction to-save page-state))))
 
 (defn- search-accounts []
   (fn [input callback]
@@ -124,8 +128,7 @@
    [:td [forms/typeahead-input
          receipt
          [:items index :account-id]
-         {:validations #{::v/required}
-          :search-fn (search-accounts)
+         {:search-fn (search-accounts)
           :find-fn (fn [id callback]
                      (callback (@accounts-by-id id)))
           :on-change #(ensure-blank-item page-state)
@@ -134,8 +137,7 @@
    [:td [forms/decimal-input
          receipt
          [:items index :quantity]
-         {:validations #{::v/required}
-          :on-accept #(ensure-blank-item page-state)}]]])
+         {:on-accept #(ensure-blank-item page-state)}]]])
 
 (defn- reuse-trans
   [state transaction]
