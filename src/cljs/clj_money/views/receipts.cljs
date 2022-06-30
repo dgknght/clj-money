@@ -24,9 +24,11 @@
 
 (defn- new-receipt
   [page-state]
-  (let [transaction-date (get-in @page-state [:receipt :transaction-date] (t/today))]
-    (swap! page-state assoc :receipt {:transaction-date transaction-date
-                                      :items [{}]})
+  (let [defaults (-> (get-in @page-state [:receipt])
+                     (select-keys [:transaction-date :account-id])
+                     (update-in [:transaction-date] (fnil identity (t/today)))
+                     (assoc :items [{}]))]
+    (swap! page-state assoc :receipt defaults)
     (html/set-focus "transaction-date")))
 
 (defn- ->transaction-item
