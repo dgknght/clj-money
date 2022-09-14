@@ -58,7 +58,7 @@
                   (not for-reuse?) (concat [:id :transaction-date]))]
      (merge (select-keys transaction retain)
             {:account-id (:account-id credit)
-             :items (mapv #(select-keys % [:account-id :quantity])
+             :items (mapv #(select-keys % [:account-id :quantity :memo])
                           debit)}))))
 
 (defn- create-transaction
@@ -96,8 +96,7 @@
   (let [{:keys [receipt]} @page-state
         to-save (update-in receipt [:items] (fn [items]
                                               (remove (every-pred #(nil? (:account-id %))
-                                                                  #(nil? (:quantity %))
-                                                                  )
+                                                                  #(nil? (:quantity %)))
                                                       items)))]
     (if (:id to-save)
       (update-transaction to-save page-state)
@@ -139,7 +138,11 @@
    [:td [forms/decimal-input
          receipt
          [:items index :quantity]
-         {:on-accept #(ensure-blank-item page-state)}]]])
+         {:on-accept #(ensure-blank-item page-state)}]]
+   [:td [forms/text-input
+         receipt
+         [:items index :memo]
+         {:on-change #(ensure-blank-item page-state)}]]])
 
 (defn- reuse-trans
   [state transaction]
@@ -194,7 +197,8 @@
         [:thead
          [:tr
           [:th "Category"]
-          [:th "Amount"]]]
+          [:th "Amount"]
+          [:th "Memo"]]]
         [:tbody
          (->> (range @item-count)
               (map #(receipt-item-row % receipt page-state))
