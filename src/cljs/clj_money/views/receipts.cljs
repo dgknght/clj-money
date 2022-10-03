@@ -91,13 +91,16 @@
                                    receipts)))
                      (new-receipt page-state)))))
 
+(defn- remove-empty-items
+  [items]
+  (remove (every-pred #(nil? (:account-id %))
+                      #(nil? (:quantity %)))
+          items))
+
 (defn- save-transaction
   [page-state]
   (let [{:keys [receipt]} @page-state
-        to-save (update-in receipt [:items] (fn [items]
-                                              (remove (every-pred #(nil? (:account-id %))
-                                                                  #(nil? (:quantity %)))
-                                                      items)))]
+        to-save (update-in receipt [:items] remove-empty-items)]
     (if (:id to-save)
       (update-transaction to-save page-state)
       (create-transaction to-save page-state))))
