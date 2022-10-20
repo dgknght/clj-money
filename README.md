@@ -5,6 +5,19 @@ Clojure cloud accounting application
 
 ## Running locally
 
+### Setup the database:
+You'll need PostgreSQL installed.
+
+```bash
+createdb money_development
+lein migrate
+lein partition <start-date> <end-date>
+
+createdb money_test
+lein with-profile test migrate
+lein with-profile partition 2015-01-01 2017-12-31
+```
+
 In a terminal:
 ```bash
 lein repl
