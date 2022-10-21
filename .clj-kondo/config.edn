@@ -27,5 +27,6 @@
                                             sx
                                             gnc
                                             cd]}
-           :unused-namespace {:exclude [dgknght.app-lib.validation-tests]}}
+           :unused-namespace {:exclude [dgknght.app-lib.validation-tests
+                                        clj-http.core]}}
  :output {:exclude-files ["data_readers.clj"]}}
