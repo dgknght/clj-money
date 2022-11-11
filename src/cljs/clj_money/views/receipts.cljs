@@ -149,7 +149,9 @@
 
 (defn- reuse-trans
   [state transaction]
-  (if transaction
+  ; The on-change will return the selected item when an item is selected
+  ; and will return the simple text value if no item is selected
+  (if (map? transaction)
     (-> state
         (dissoc :transaction-search)
         (update-in [:receipt] merge (->receipt transaction {:for-reuse? true})))
