@@ -3,6 +3,7 @@
             [reagent.core :as r]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.html :refer [google-g]]
             [clj-money.state :as state :refer [app-state]]
@@ -31,25 +32,27 @@
                              (fetch-entities)))))
 
 (defn- login []
-  (let [page-state (r/atom {})
+  (let [page-state (r/atom {:credentials {}})
         credentials (r/cursor page-state [:credentials])]
     (html/set-focus "email")
     (fn []
       [:div.mt-5
-       [:h1 "Login"]
        [:div.row
-        [:div.col
+        [:div.col-md-6
+         [:h1 "Login"]
          [:form {:no-validate true
                  :on-submit (fn [e]
                               (.preventDefault e)
-                              (authenticate page-state))}
-          [forms/email-field credentials [:email] {:validate [:required]}]
-          [forms/password-field credentials [:password] {:validate [:required]}]
+                              (v/validate credentials)
+                              (when (v/valid? credentials)
+                                (authenticate page-state)))}
+          [forms/email-field credentials [:email] {:validations #{::v/required}}]
+          [forms/password-field credentials [:password] {:validations #{::v/required}}]
           [:button.btn.btn-primary {:type :submit
                                     :title "Click here to sign in."}
            (bs/icon-with-text :box-arrow-in-left "Sign in")]]]
-        [:div.col
-         [:p "Other sign in options:"]
+        [:div.col-md-6
+         [:h3.mt-3 "Other sign in options:"]
          [:ul.list-group
           [:li.list-group-item.d-flex.justify-content-center
            [:a#login.btn.btn-light {:href "/auth/google/start"
