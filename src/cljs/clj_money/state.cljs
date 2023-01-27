@@ -18,6 +18,11 @@
 (defn -busy []
   (swap! bg-proc-count dec))
 
+(def -busy-x
+  (map (fn [x]
+         (swap! bg-proc-count dec)
+         x)))
+
 (defn- remove-entity-from-list
   [entity entities]
   (remove #(= (:id %)
