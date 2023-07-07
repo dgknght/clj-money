@@ -136,7 +136,7 @@
                            :partition-period "year"
                            :show-error-messages? "true"
                            :site-protocol "http"
-                           :site-host "lvh.me:5000"
+                           :site-host "lvh.me:3000"
                            :secret "This is a secret for development that isn't all that secure"}}
             :project/test {:dependencies [[ring/ring-mock "0.4.0"]
                                           [peridot "0.5.2"]]
