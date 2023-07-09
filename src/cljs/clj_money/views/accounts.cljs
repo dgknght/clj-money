@@ -506,7 +506,6 @@
         (bs/icon-with-text :check-box "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
                                                     (trns/stop-item-loading page-state)
-                                                    (go (>! (:ctl-chan @page-state) :quit))
                                                     (swap! page-state dissoc
                                                            :view-account
                                                            :items
