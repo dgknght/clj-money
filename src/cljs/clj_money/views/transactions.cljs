@@ -113,12 +113,10 @@
 
 (defn- fetch-items
   [xf]
-  (fn
-    ([_ch]
-     (println "no criteria"))
-    ([ch criteria]
-     (transaction-items/search criteria
-                               (map #(xf ch %))))))
+  (completing
+    (fn [ch criteria]
+      (transaction-items/search criteria
+                                (map #(xf ch %))))))
 
 (defn init-item-loading
   [page-state]
