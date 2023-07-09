@@ -1,14 +1,15 @@
 (ns clj-money.views.imports
   (:require-macros [cljs.core.async.macros :refer [go]])
-  (:require [reagent.core :as r]
+  (:require [cljs.pprint :refer [pprint]]
+            [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
             [secretary.core :as secretary :include-macros true]
             [cljs.core.async :refer [timeout
                                      <!]]
-            [dgknght.app-lib.core :refer [trace]]
             [dgknght.app-lib.web :refer [format-percent
                                          format-date
                                          format-date-time]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.bootstrap-5 :as bs]
@@ -104,7 +105,7 @@
 (defn- receive-import
   [{{:keys [errors finished]} :progress :as received} page-state]
   (when (seq errors)
-    (trace {:errors errors}))
+    (pprint {::errors errors}))
   (when finished
     (reset! auto-refresh false))
   (when @auto-refresh
@@ -307,7 +308,7 @@
                                                     :import-data {:user-id (:id @state/current-user)
                                                                   :options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
                                                                             :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
-                                             (html/set-focus "entity-name"))}
+                                             (set-focus "entity-name"))}
                           :busy? busy?
                           :icon :plus
                           :caption "Add"}]]

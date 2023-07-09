@@ -8,6 +8,7 @@
             [dgknght.app-lib.core :refer [fmin
                                           fmax]]
             [dgknght.app-lib.web :refer [format-date]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.decimal :as decimal]
@@ -162,7 +163,7 @@
                                                  (swap! page-state #(-> %
                                                                         (dissoc :prices-commodity)
                                                                         (assoc :selected commodity)))
-                                                 (html/set-focus "type"))}
+                                                 (set-focus "type"))}
         (bs/icon :pencil {:size :small})]
        [:button.btn.btn-light.btn-sm {:title "Click here to view prices for this commodity."
                                      :disabled default?
@@ -296,7 +297,7 @@
                                                    :type "stock"
                                                    :exchange "nyse"
                                                    :price-config {:enabled true}})
-                                           (html/set-focus "type"))}
+                                           (set-focus "type"))}
                         :busy? busy?
                         :icon :plus
                         :caption "Add"
@@ -337,7 +338,7 @@
      [:button.btn.btn-light.btn-sm {:title "Click here to edit this price."
                                    :on-click (fn []
                                                (swap! page-state assoc :selected-price price)
-                                               (html/set-focus "trade-date"))}
+                                               (set-focus "trade-date"))}
       (bs/icon :pencil {:size :small})]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
                                      :on-click #(delete-price price page-state)}
@@ -372,7 +373,7 @@
                                                    :selected-price
                                                    {:commodity-id (:id @commodity)
                                                     :trade-date (t/today)})
-                                            (html/set-focus "trade-date"))}
+                                            (set-focus "trade-date"))}
                          :icon :plus
                          :caption "Add"
                          :busy? busy?}]

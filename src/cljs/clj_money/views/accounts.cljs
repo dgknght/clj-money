@@ -14,6 +14,7 @@
                                          format-date
                                          format-decimal]]
             [dgknght.app-lib.inflection :refer [humanize]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
@@ -128,7 +129,7 @@
       (bs/icon :collection {:size :small})]
      [:button.btn.btn-light.btn-sm {:on-click (fn []
                                                (swap! page-state assoc :selected account)
-                                               (html/set-focus "parent-id"))
+                                               (set-focus "parent-id"))
                                    :title "Click here to edit this account."}
       (bs/icon :pencil {:size :small})]
      [:button.btn.btn-light {:on-click #(swap! page-state assoc :allocation {:account (prepare-for-allocation account)
@@ -348,7 +349,7 @@
         [:button.btn.btn-primary {:on-click (fn []
                                               (swap! page-state assoc :selected {:entity-id (:id @current-entity)
                                                                                  :type :asset})
-                                              (html/set-focus "parent-id"))
+                                              (set-focus "parent-id"))
                                   :disabled @busy?}
          (bs/icon-with-text :plus "Add")]]
        [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
@@ -484,7 +485,7 @@
                           :transaction-date (t/today)
                           :account-id account-id}
                          ::trns/simple)))
-  (html/set-focus "transaction-date"))
+  (set-focus "transaction-date"))
 
 (defn- account-buttons
   [page-state]
@@ -500,7 +501,7 @@
                      (swap! page-state dissoc :items)
                      (recs/load-working-reconciliation page-state)
                      (trns/load-unreconciled-items page-state)
-                     (html/set-focus "end-of-period"))
+                     (set-focus "end-of-period"))
          :title "Click here to reconcile this account"}
         (bs/icon-with-text :check-box "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
@@ -782,7 +783,7 @@
                                                        :account-id parent-id
                                                        :commodity-id commodity-id
                                                        :commodity-account-id (:id @account)})
-                                               (html/set-focus "trade-date"))}
+                                               (set-focus "trade-date"))}
           (bs/icon-with-text :plus "Buy/Sell")]
          (html/space)
          [:button.btn.btn-light {:title "Click here to return the the account list."

@@ -1,7 +1,7 @@
 (ns clj-money.views.users
   (:require [secretary.core :as secretary :include-macros true]
             [reagent.core :as r]
-            [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
@@ -34,7 +34,7 @@
 (defn- login []
   (let [page-state (r/atom {:credentials {}})
         credentials (r/cursor page-state [:credentials])]
-    (html/set-focus "email")
+    (set-focus "email")
     (fn []
       [:div.mt-5
        [:div.row

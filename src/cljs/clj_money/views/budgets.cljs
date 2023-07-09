@@ -7,6 +7,7 @@
             [cljs-time.periodic :refer [periodic-seq]]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.calendar :as cal]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
@@ -50,7 +51,7 @@
   [page-state budget]
   (-busy)
   (swap! page-state assoc :detailed-budget budget)
-  (html/set-focus "account-id"))
+  (set-focus "account-id"))
 
 (defn- load-budget-details
   [budget page-state]
@@ -67,7 +68,7 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-light {:on-click (fn []
                                                (swap! page-state assoc :selected budget)
-                                               (html/set-focus "name"))
+                                               (set-focus "name"))
                                    :title "Click here to edit this budget"}
       (bs/icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-light {:on-click #(load-budget-details budget page-state)
@@ -112,7 +113,7 @@
                                                    :selected
                                                    {:period :month
                                                     :period-count 12})
-                                            (html/set-focus "name"))
+                                            (set-focus "name"))
                                 :disabled @busy?}
                          :icon :plus
                          :caption "Add"
@@ -201,7 +202,7 @@
 (defn- select-budget-item
   [item page-state]
   (swap! page-state assoc :selected-item (ensure-spec item))
-  (html/set-focus "account-id"))
+  (set-focus "account-id"))
 
 (defn- abbreviate
   [account-name]

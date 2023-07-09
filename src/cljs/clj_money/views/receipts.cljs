@@ -7,6 +7,7 @@
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
@@ -29,7 +30,7 @@
                      (update-in [:transaction-date] (fnil identity (t/today)))
                      (assoc :items [{}]))]
     (swap! page-state assoc :receipt defaults)
-    (html/set-focus "transaction-date")))
+    (set-focus "transaction-date")))
 
 (defn- ->transaction-item
   [item]
@@ -226,7 +227,7 @@
                                 :title "Click here to discard this receipt."
                                 :on-click (fn []
                                             (swap! receipt select-keys [:transaction-date])
-                                            (html/set-focus "transaction-date"))}
+                                            (set-focus "transaction-date"))}
                          :icon :x
                          :caption "Cancel"
                          :busy? busy?}]]])))

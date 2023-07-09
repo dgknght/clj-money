@@ -10,6 +10,7 @@
                                          format-decimal]]
             [dgknght.app-lib.inflection :refer [title-case]]
             [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.calendar :as calendar]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.decimal :as decimal]
@@ -131,7 +132,7 @@
      [:button.btn.btn-light.btn-sm {:title "Click here to edit this scheduled transaction."
                                    :on-click (fn [_]
                                                (swap! page-state assoc :selected (->editable sched-tran))
-                                               (html/set-focus "description"))}
+                                               (set-focus "description"))}
       (bs/icon :pencil {:size :small})]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this scheduled transaction."
                                      :on-click #(delete-sched-tran sched-tran page-state)}
@@ -419,7 +420,7 @@
                                                        :enabled true
                                                        :items [{:debit-quantity nil}
                                                                {:credit-quantity nil}]})
-                                               (html/set-focus "description"))}
+                                               (set-focus "description"))}
           (bs/icon-with-text :plus "Add")]
          [:button.btn.btn-secondary.ms-2 {:title "Click here to new transactions from the schedule."
                                           :type :button

@@ -1,6 +1,7 @@
 (ns clj-money.views.entities
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.forms-validation :as v]
@@ -89,7 +90,7 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-light {:on-click (fn []
                                                 (swap! page-state assoc :selected entity)
-                                                (html/set-focus "name"))
+                                                (set-focus "name"))
                                     :disabled busy?
                                     :title "Click here to edit this entity."}
       (bs/icon :pencil {:size :small})]
@@ -129,7 +130,7 @@
                                                     assoc
                                                     :selected
                                                     {:entity-id (:id @current-entity)})
-                                             (html/set-focus "name"))}
+                                             (set-focus "name"))}
                           :disabled selected
                           :busy? busy?
                           :icon :plus
