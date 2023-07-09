@@ -37,8 +37,8 @@
                                                              :volume 51784.11857M}}}
                      (alpha-vantage/get-quote "BTC")))
     (is (called-with-headers?
-          {"X-Rapidapi-Host" "alpha-vantage.p.rapidapi.com"
-           "X-Rapidapi-Key" "alpha-vantage-api-key"}
           :once
-          calls)
+          calls
+          {"X-Rapidapi-Host" "alpha-vantage.p.rapidapi.com"
+           "X-Rapidapi-Key" "alpha-vantage-api-key"})
         "It includes the headers required by the API")))
