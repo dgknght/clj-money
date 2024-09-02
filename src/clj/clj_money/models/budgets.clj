@@ -6,7 +6,7 @@
             [clj-time.coerce :refer [to-local-date
                                      to-date-time]]
             [clj-time.periodic :refer [periodic-seq]]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]

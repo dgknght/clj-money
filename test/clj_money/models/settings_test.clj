@@ -1,7 +1,7 @@
 (ns clj-money.models.settings-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [clojure.java.jdbc :as jdbc]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-money.models.settings :as settings]))
 
 (defn- clear-settings

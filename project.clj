@@ -50,7 +50,9 @@
                                                             org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
-                 [environ "1.2.0" :exclusions [org.clojure/tools.reader]]
+                 [yogthos/config "1.2.0" :exclusions [org.clojure/spec.alpha
+                                                      org.clojure/clojure
+                                                      org.clojure/core.specs.alpha]]
                  [ragtime "0.7.2" :exclusions [org.clojure/tools.reader]]
                  [clj-factory "0.2.1" :exclusions [org.clojure/tools.reader]]
                  [digest "1.4.8" :exclusions [org.clojure/tools.reader]]
@@ -78,8 +80,7 @@
                                                  org.clojure/core.specs.alpha
                                                  org.clojure/tools.logging]]]
   :min-lein-version "2.0.0"
-  :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
-            [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
+  :plugins [[lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
             [lein-cljfmt "0.7.0"]
             [lein-figwheel "0.5.16"]]
   :hooks []

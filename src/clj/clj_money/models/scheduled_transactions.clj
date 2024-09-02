@@ -3,7 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :refer [difference
                                  rename-keys]]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [stowaway.core :as stow :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]

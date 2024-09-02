@@ -3,7 +3,7 @@
             [clojure.string :as string]
             [clojure.edn :as edn]
             [clojure.java.shell :refer [sh]]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-time.core :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
             [dgknght.app-lib.dates :as dates]

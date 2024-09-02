@@ -1,7 +1,7 @@
 (ns clj-money.models.reconciliations
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-time.core :as t]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage

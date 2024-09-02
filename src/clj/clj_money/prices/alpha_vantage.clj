@@ -4,7 +4,7 @@
             [clj-http.client :as http]
             [clj-time.coerce :as tc]
             [clj-time.format :as tf]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [camel-snake-kebab.extras :refer [transform-keys]]
             [lambdaisland.uri :refer [uri

@@ -1,7 +1,7 @@
 (ns clj-money.models.commodities
   (:refer-clojure :exclude [update count find])
   (:require [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [camel-snake-kebab.extras :refer [transform-keys]]
             [stowaway.core :refer [tag]]

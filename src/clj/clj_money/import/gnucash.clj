@@ -13,7 +13,7 @@
                      >!!]
              :as async]
             [clojure.data.xml :as xml]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [dgknght.app-lib.core :refer [uuid

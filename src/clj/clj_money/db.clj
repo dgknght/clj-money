@@ -8,7 +8,7 @@
             [ragtime.jdbc :refer [sql-database
                                   load-resources]]
             [ragtime.repl :as rt]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clojure.java.jdbc :as jdbc]
             [honeysql.core :as sql]
             [honeysql.helpers :refer [select from where limit]]

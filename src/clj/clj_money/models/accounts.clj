@@ -1,7 +1,7 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [stowaway.core :as stow :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [assoc-if
