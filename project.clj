@@ -57,6 +57,7 @@
                  [faker "0.3.2" :exclusions [org.clojure/tools.reader]]
                  [com.draines/postal "2.0.2" :exclusions [org.clojure/tools.reader]]
                  [com.andrewmcveigh/cljs-time "0.5.2"]
+                 [crypto-random "1.2.1" :exclusions [commons-codec]] ; added to clarify dependencies
                  [buddy/buddy-sign "3.1.0" :exclusions [com.fasterxml.jackson.dataformat/jackson-dataformat-smile
                                                         com.fasterxml.jackson.dataformat/jackson-dataformat-cbor
                                                         cheshire
@@ -70,7 +71,7 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1"]
                  [camel-snake-kebab "0.4.1"]
-                 [com.github.dgknght/app-lib "0.1.35"]
+                 [com.github.dgknght/app-lib "0.1.35" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server org.eclipse.jetty/jetty-util com.google.javascript/closure-compiler-externs camel-snake-kebab cheshire commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core]]
                  [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.15" :exclusions [org.clojure/spec.alpha
                                                  org.clojure/clojure
