@@ -1,0 +1,27 @@
+---
+name: clj-money
+volumes:
+  sql-data:
+services:
+  sql:
+    image: postgres:16
+    restart: on-failure
+    ports:
+      - 5432:5432
+    volumes:
+      - sql-data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: please01
+      POSTGRES_USER: app_user
+      POSTGRES_DB: app_user
+    healthcheck:
+      test: ["CMD-SHELL", "PGPASSWORD=please01 sh -c 'pg_isready -U app_user -d app_user'"]
+  pgadmin:
+    image: dpage/pgadmin4
+    environment:
+      PGADMIN_DEFAULT_EMAIL: test@test.com
+      PGADMIN_DEFAULT_PASSWORD: please01
+    ports:
+      - 16543:80
+    depends_on:
+      - sql
