@@ -173,7 +173,7 @@
    (-> item
        (update-in [:value] #(or % (:quantity item)))
        (assoc :balance (bigdec 0))
-       (update-in [:index] (fnil identity (Integer/MAX_VALUE))))
+       (update-in [:index] (fnil identity Integer/MAX_VALUE)))
 
     (string? (:account-id item))
     (update-in [:account-id] #(Integer. %))
