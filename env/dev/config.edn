@@ -1,0 +1,14 @@
+{:alpha-vantage-api-key "alpha-vantage-api-key"
+ :application-name "Local Money"
+ :db "postgresql://app_user:please01@localhost/money_development"
+ :dev? true
+ :detailed-import-logging? true
+ :google-client-id "google-id"
+ :google-client-secret "google-client-secret"
+ :mailer-host "devmailer.com"
+ :mailer-from "no-reply@clj-money.com"
+ :partition-period :year
+ :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
+ :show-error-messages? true
+ :site-host "lvh.me:5000"
+ :site-protocol "http"}
