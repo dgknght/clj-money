@@ -16,7 +16,7 @@
 
 (use-fixtures :each reset-db)
 
-(def ^:dynamic *attr* )
+(def ^:dynamic *attr* nil)
 
 (defn- create-scheduled-transaction []
   (let [result (sched-trans/create *attr*)]
