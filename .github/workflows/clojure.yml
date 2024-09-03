@@ -30,7 +30,7 @@ jobs:
         uses: actions/checkout@v4
       - name: Install dependencies
         run: lein deps
-      - name: Install clj-kondo
+      - name: Lint with clj-kondo
         uses: DeLaGuardo/clojure-lint-action@master
         with:
           clj-kondo-args: --lint src:test
