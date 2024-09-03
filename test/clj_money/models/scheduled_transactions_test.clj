@@ -16,7 +16,7 @@
 
 (use-fixtures :each reset-db)
 
-(def ^:dynamic *attr* )
+(def ^:dynamic *attr* nil)
 
 (defn- create-scheduled-transaction []
   (let [result (sched-trans/create *attr*)]
@@ -265,6 +265,7 @@
       "The new transaction has the :scheduled-transaction-id")
   (let [expected {:transaction-date (t/local-date 2016 2 1)
                   :description "Paycheck"}]
+    #_{:clj-kondo/ignore [:unused-value]}
     (= expected
        (select-keys result (keys expected))
        "The created transaction is returned")

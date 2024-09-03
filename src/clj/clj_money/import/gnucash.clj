@@ -1,5 +1,5 @@
 (ns clj-money.import.gnucash
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update abs])
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io]
             [clojure.set :refer [rename-keys]]

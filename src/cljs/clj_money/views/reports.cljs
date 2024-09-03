@@ -326,7 +326,7 @@
              [:th "New"]]]
            [:tbody
             (->> (range (:period-count @budget))
-                 (map-indexed (fn [index]
+                 (map-indexed (fn [index _]
                                 ^{:key (str "budget-item-period-" index)}
                                 [:tr
                                  [:td (period-description index @budget)]
