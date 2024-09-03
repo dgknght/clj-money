@@ -15,6 +15,19 @@
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
                                          (clj-money.tasks/with-options)]}
+           :clojure-lsp/unused-public-var {:exclude #{clj-money.db/remigrate
+                                                      clj-money.db/create-partitions
+                                                      clj-money.db/check-transaction-balances}}
+           :unresolved-var {:exclude [honeysql.helpers/select
+                                      honeysql.helpers/merge-select
+                                      honeysql.helpers/from
+                                      honeysql.helpers/join
+                                      honeysql.helpers/merge-join
+                                      honeysql.helpers/left-join
+                                      honeysql.helpers/limit
+                                      honeysql.helpers/with-recursive
+                                      honeysql.core/format
+                                      digest/sha-1]}
            :unresolved-namespace {:exclude [act
                                             cmdty
                                             price
