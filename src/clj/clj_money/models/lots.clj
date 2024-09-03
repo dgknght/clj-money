@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-time.coerce :refer [to-local-date
                                      to-sql-date]]
             [stowaway.core :refer [tag]]

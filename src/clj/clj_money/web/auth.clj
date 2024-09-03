@@ -3,7 +3,7 @@
             [ring.util.response :as res]
             [buddy.sign.jwt :as jwt]
             [clj-http.client :as http]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [cheshire.core :as json]
             [dgknght.app-lib.core :refer [uuid]]
             [lambdaisland.uri :refer [uri map->query-string]]

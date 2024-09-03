@@ -5,7 +5,7 @@
             [slingshot.slingshot :refer [throw+]]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date]]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [buddy.hashers :as hashers]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]

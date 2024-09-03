@@ -50,7 +50,9 @@
                                                             org.clojure/tools.reader]]
                  [closure-clj "0.1.2" :exclusions [com.google.javascript/closure-compiler
                                                    org.clojure/tools.reader]]
-                 [environ "1.2.0" :exclusions [org.clojure/tools.reader]]
+                 [yogthos/config "1.2.0" :exclusions [org.clojure/spec.alpha
+                                                      org.clojure/clojure
+                                                      org.clojure/core.specs.alpha]]
                  [ragtime "0.7.2" :exclusions [org.clojure/tools.reader]]
                  [clj-factory "0.2.1" :exclusions [org.clojure/tools.reader]]
                  [digest "1.4.8" :exclusions [org.clojure/tools.reader]]
@@ -78,8 +80,7 @@
                                                  org.clojure/core.specs.alpha
                                                  org.clojure/tools.logging]]]
   :min-lein-version "2.0.0"
-  :plugins [[lein-environ "1.1.0" :exclusions [org.clojure/tools.reader]]
-            [lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
+  :plugins [[lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
             [lein-cljfmt "0.7.0"]
             [lein-figwheel "0.5.16"]]
   :hooks []
@@ -89,7 +90,6 @@
                                     [:cljsbuild :builds :app :compiler :output-dir]
                                     [:cljsbuild :builds :app :compiler :output-to]]
   :source-paths ["src/clj" "src/cljc"]
-  :resource-paths ["resources" "target/cljsbuild"]
 
   :cljsbuild {:builds [{:id :production
                         :source-paths ["src/cljs" "src/cljc"]
@@ -125,34 +125,10 @@
             "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
-  :profiles {:production {:env {:production true}}
-            :dev [:project/dev :profiles/dev]
-            :test [:project/test :profiles/test]
-            :profiles/dev {}
-            :profiles/test {}
-            :project/dev {:env
-                          {:db "postgresql://app_user:please01@localhost/money_development"
-                           :partition-period "year"
-                           :show-error-messages? "true"
-                           :site-protocol "http"
-                           :site-host "lvh.me:5000"}}
-            :project/test {:dependencies [[ring/ring-mock "0.4.0"]
-                                          [peridot "0.5.2"]]
-                           :env
-                           {:db "postgresql://app_user:please01@localhost/money_test"
-                            :partition-period "year"
-                            :mailer-host "testmailer.com"
-                            :mailer-from "no-reply@clj-money.com"
-                            :application-name "clj-money"
-                            :show-error-messages? "true"
-                            :detailed-import-logging? "false"
-                            :google-client-id "google-id"
-                            :google-client-secret "google-client-secret"
-                            :secret "9c3931112e73122ab46bf6fc0c40e72490b72b444b857dec35abc07056d3e867d952664eae62ba1db8d94089834ee2fd9fc989d6af8c7bd21fcfb6371bde27d3"
-                            :site-protocol "https"
-                            :site-host "www.mymoney.com"
-                            :alpha-vantage-api-key "alpha-vantage-api-key"
-                            :yahoo-api-key "yahoo-api-key"}}
-            :uberjar {:prep-tasks ["compile"
-                                   ["cljsbuild" "once"]
-                                   "sass"]}})
+  :profiles {:test {:dependencies [[ring/ring-mock "0.4.0"]
+                                   [peridot "0.5.2"]]
+                    :resource-paths ^:replace ["env/test" "resources" "target/cljsbuild"]}
+             :dev {:resource-paths ^:replace ["env/dev" "resources" "target/cljsbuild"]}
+             :uberjar {:prep-tasks ["compile"
+                                    ["cljsbuild" "once"]
+                                    "sass"]}})

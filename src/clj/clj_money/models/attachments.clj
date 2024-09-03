@@ -1,7 +1,7 @@
 (ns clj-money.models.attachments
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [stowaway.core
              :refer [tag]]
             [stowaway.implicit

@@ -1,6 +1,6 @@
 (ns clj-money.models.lot-transactions
   (:refer-clojure :exclude [update find count])
-  (:require [environ.core :refer [env]]
+  (:require [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [clj-money.models :as models]))

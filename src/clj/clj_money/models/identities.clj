@@ -3,7 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.validation :refer [with-validation]]

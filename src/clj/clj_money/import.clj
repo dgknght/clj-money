@@ -5,7 +5,7 @@
             [clojure.string :as string]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<! >! chan go pipe sliding-buffer] :as async]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.predicates :refer [last-day-of-the-month?]]
             [stowaway.core :refer [tagged?]]

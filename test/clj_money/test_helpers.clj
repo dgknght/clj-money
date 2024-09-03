@@ -1,6 +1,6 @@
 (ns clj-money.test-helpers
   (:require [clojure.java.jdbc :as jdbc]
-            [environ.core :refer [env]]))
+            [config.core :refer [env]]))
 
 (defn reset-db
   "Deletes all records from all tables in the database prior to test execution"

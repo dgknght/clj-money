@@ -1,7 +1,7 @@
 (ns clj-money.models.images
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [digest :refer [sha-1]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
