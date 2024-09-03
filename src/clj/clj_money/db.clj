@@ -23,9 +23,6 @@
 
 (defn migrate
   []
-
-  (pprint {::migrate (env :db)})
-
   (rt/migrate (ragtime-config)))
 
 (defn rollback
