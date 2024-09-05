@@ -2,8 +2,7 @@
   (:require [clojure.tools.logging :as log]
             [clojure.string :as string]
             [clj-http.client :as http]
-            [clj-time.coerce :as tc]
-            [clj-time.format :as tf]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [camel-snake-kebab.extras :refer [transform-keys]]
@@ -16,10 +15,10 @@
 (def rapidapi-host "alpha-vantage.p.rapidapi.com")
 
 (def date-time-formatter
-  (tf/formatter "yyyy-MM-dd HH:mm:ss"))
+  (t/formatter :iso-date-time))
 
 (def date-formatter
-  (tf/formatters :date))
+  (t/formatter :iso-date))
 
 (defn- get-quote-uri
   [sym]
@@ -65,7 +64,7 @@
              (fn [series-map]
                (->> series-map
                     (map #(update-in % [1] extract-currency-map))
-                    (map #(update-in % [0] (partial tf/parse-local-date date-formatter)))
+                    (map #(update-in % [0] (partial t/local-date date-formatter)))
                     (into {})))))
 
 (defn get-quote
@@ -79,7 +78,7 @@
     (-> (get-in res [:body])
         extract-daily-currency-maps
         adj-keys
-        (update-in [:meta-data :last-refreshed] (partial tf/parse date-time-formatter)))))
+        (update-in [:meta-data :last-refreshed] (partial t/instant date-time-formatter)))))
 
 (defn cache
   [price]
@@ -88,7 +87,7 @@
 
 (defn- transform-quote
   [m]
-  (let [trade-date (tc/to-local-date (get-in m [:meta-data :last-refreshed]))]
+  (let [trade-date (t/local-date (get-in m [:meta-data :last-refreshed]))]
     {:price (get-in m [:time-series trade-date "USD" :close])
      :symbol (get-in m [:meta-data :digital-currency-code])
      :exchange :currency
@@ -98,5 +97,6 @@
   prices/PriceProvider
   (prices/fetch-prices [_ symbols]
     (mapv (comp transform-quote
-                get-quote)
+                get-quote
+                cache)
           symbols)))

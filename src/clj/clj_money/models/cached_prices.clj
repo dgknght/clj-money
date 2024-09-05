@@ -1,6 +1,8 @@
 (ns clj-money.models.cached-prices
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
@@ -22,7 +24,7 @@
                                 :path [:trade-date]})
 
 (s/def ::symbol string?)
-(s/def ::trade-date v/local-date?)
+(s/def ::trade-date t/local-date?)
 (s/def ::price decimal?)
 (s/def ::id uuid?)
 (s/def ::cached-price (s/and (s/keys :req-un [::trade-date ::price ::exchange ::symbol ::models/exchange])

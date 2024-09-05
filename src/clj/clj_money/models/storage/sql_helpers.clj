@@ -14,7 +14,7 @@
                                      to-local-date]]
             [stowaway.sql :as storage]
             [dgknght.app-lib.core :refer [update-in-if]])
-  (:import [java.sql Date PreparedStatement]
+  (:import [java.sql PreparedStatement]
            org.postgresql.util.PGobject
            [org.joda.time LocalDate DateTime]
            [clojure.lang PersistentArrayMap PersistentVector Keyword]))
@@ -27,11 +27,6 @@
    (doto (PGobject.)
      (.setType type-name)
      (.setValue (json/generate-string value)))))
-
-(extend-protocol jdbc/IResultSetReadColumn
-  Date
-  (result-set-read-column [v _ _]
-    (to-local-date v)))
 
 (extend-protocol jdbc/ISQLValue
   Keyword

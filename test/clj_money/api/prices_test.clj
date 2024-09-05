@@ -7,7 +7,7 @@
             [dgknght.app-lib.web :refer [path
                                          serialize-date]]
             [dgknght.app-lib.test :refer [parse-json-body]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             realize
@@ -231,9 +231,7 @@
                                              :regularMarketPrice 10.01M
                                              :regularMarketTime (t/local-date 2015 3 2)})
                                           symbols))]
-      (t/do-at
-        (t/date-time 2015 3 2 12)
-
+      (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
         (-> (req/request :get (str (path :api
                                          :prices
                                          :fetch)
@@ -287,8 +285,7 @@
                                                :regularMarketTime (t/local-date 2015 3 2)
                                                :fullExchangeName "NasdaqGS"})
                                             symbols))]
-        (t/do-at
-          (t/date-time 2015 3 2 12)
+        (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
           (-> (req/request :get (str (path :api
                                            :prices
                                            :fetch)

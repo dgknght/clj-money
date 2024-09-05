@@ -2,9 +2,8 @@
   (:require [clojure.set :refer [rename-keys]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [clj-time.coerce :refer [from-long
-                                     to-local-date]]
             [clj-http.client :as http]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [lambdaisland.uri :refer [uri
@@ -33,8 +32,7 @@
     (->> (get-in res [:body :quoteResponse :result])
          (map (fn [m]
                 (-> m ; There are like 1,000 other conversions we could do, but this is all we need right now
-                    (update-in [:regularMarketTime] (comp to-local-date
-                                                          from-long
+                    (update-in [:regularMarketTime] (comp t/instant
                                                           #(.longValue %)
                                                           (partial * 1000)))
                     (update-in [:regularMarketPrice] bigdec)))))))
