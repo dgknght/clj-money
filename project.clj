@@ -22,10 +22,11 @@
                                                  org.clojure/clojure
                                                  org.clojure/core.specs.alpha
                                                  org.clojure/tools.reader]]
-                 [clj-time "0.14.3" :exclusions [org.clojure/tools.reader]]
-                 [compojure "1.6.1" :exclusions [org.clojure/tools.reader]]
+                 [org.threeten/threeten-extra "1.8.0"]
+                 [clojure.java-time "1.4.2"]
+                 [compojure "1.6.1" :exclusions [joda-time clj-time org.clojure/tools.reader]]
                  [ring/ring-core "1.8.0" :exclusions [ring/ring-codec]]
-                 [ring/ring-jetty-adapter "1.6.3" :exclusions [org.clojure/tools.reader]]
+                 [ring/ring-jetty-adapter "1.6.3" :exclusions [joda-time clj-time org.clojure/tools.reader]]
                  [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-anti-forgery "1.2.0" :exclusions [org.clojure/tools.reader]]
@@ -71,7 +72,7 @@
                                                            commons-codec
                                                            com.fasterxml.jackson.core/jackson-core]]
                  [org.mindrot/jbcrypt "0.3m"]
-                 [co.deps/ring-etag-middleware "0.2.1"]
+                 [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
                  [com.github.dgknght/app-lib "0.1.35" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server org.eclipse.jetty/jetty-util com.google.javascript/closure-compiler-externs camel-snake-kebab cheshire commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core]]
                  [lambdaisland/uri "1.4.54"]
