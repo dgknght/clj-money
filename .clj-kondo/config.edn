@@ -45,5 +45,9 @@
                                             sx
                                             gnc
                                             cd]}
-           :unused-namespace {:exclude [dgknght.app-lib.validation-tests]}}
+           :unused-referred-var {:exclude {clojure.pprint [pprint]
+                                           cljs.pprint [pprint]}}
+           :unused-namespace {:exclude [dgknght.app-lib.validation-tests
+                                        clojure.pprint
+                                        cljs.pprint]}}
  :output {:exclude-files ["data_readers.clj"]}}
