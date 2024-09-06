@@ -1,7 +1,7 @@
 (ns clj-money.models.transactions-test
   (:require [clojure.test :refer [deftest use-fixtures testing is]]
             [clojure.core.async :refer [chan go-loop <!]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test]

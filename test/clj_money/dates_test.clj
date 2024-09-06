@@ -117,3 +117,23 @@
          [[(t/local-date 2015 10 2) (t/local-date 2015 12 2)]
           [(t/local-date 2015  8 2) (t/local-date 2015 10 2)]
           [(t/local-date 2015  6 2) (t/local-date 2015  8 2)]])))
+
+(deftest get-the-earliest-date-from-a-sequence
+  (let [jan (t/local-date 2015 1 1)
+        feb (t/local-date 2015 2 1)]
+    (is (= jan (dates/earliest [jan feb])))
+    (is (= jan (dates/earliest [feb jan])))))
+
+(deftest get-the-latest-date-from-a-sequence
+  (let [jan (t/local-date 2015 1 1)
+        feb (t/local-date 2015 2 1)]
+    (is (= feb (dates/latest jan feb)))
+    (is (= feb (dates/latest feb jan)))))
+
+(deftest get-the-first-day-of-a-month
+  (is (= (t/local-date 2015 4 1)
+         (dates/first-day-of-the-month 2015 4))))
+
+(deftest get-the-last-day-of-a-month
+  (is (= (t/local-date 2015 4 30)
+         (dates/last-day-of-the-month 2015 4))))

@@ -5,7 +5,7 @@
                                  rename-keys]]
             [clojure.tools.logging :as log]
             [clojure.core.async :as a]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
@@ -13,7 +13,7 @@
                                           index-by]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
-            [dgknght.app-lib.dates :as dates]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.accounts :as accounts]
@@ -21,8 +21,7 @@
             [clj-money.models.lot-transactions :as l-t]
             [clj-money.models.lots :as lots]
             [clj-money.models.entities :as entities]
-            [clj-money.accounts :refer [polarize-quantity]])
-  (:import org.joda.time.LocalDate))
+            [clj-money.accounts :refer [polarize-quantity]]))
 
 (declare reload)
 
@@ -94,7 +93,7 @@
 (s/def ::value v/positive-big-dec?)
 (s/def ::description v/non-empty-string?)
 (s/def ::memo #(or (nil? %) (string? %)))
-(s/def ::transaction-date (partial instance? LocalDate))
+(s/def ::transaction-date t/local-date?)
 (s/def ::id uuid?)
 (s/def ::entity-id integer?)
 (s/def ::lot-id integer?)
@@ -532,9 +531,10 @@
                          ((juxt :index :quantity) base-item)
                          [0 0M]))]
      (when (not (nil? last-index))
-       (let [value (account-value balance (-> account
-                                              (update-in [:earliest-transaction-date] dates/earliest earliest-date)
-                                              (update-in [:latest-transaction-date] dates/latest last-date)))
+       (let [value (account-value
+                     balance (-> account
+                                 (update-in [:earliest-transaction-date] dates/earliest earliest-date)
+                                 (update-in [:latest-transaction-date] dates/latest last-date)))
              updated (-> account
                          (assoc :quantity balance
                                 :value value)

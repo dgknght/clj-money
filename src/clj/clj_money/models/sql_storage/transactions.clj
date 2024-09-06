@@ -5,6 +5,7 @@
             [stowaway.sql :refer [apply-sort
                                   apply-limit
                                   select-count]]
+            [java-time.api :as t]
             [dgknght.app-lib.core :refer [deep-contains?]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
@@ -12,6 +13,10 @@
                                                           update-model
                                                           apply-criteria]]
             [clj-money.models.sql-storage :as stg]))
+
+(defn- after-read
+  [trx]
+  (update-in trx [:transaction-date] t/local-date))
 
 (defmethod stg/select ::models/transaction
   [criteria options db-spec]
@@ -22,21 +27,22 @@
                 (apply-limit options)
                 (apply-sort options)
                 (select-count options))]
-    (query db-spec sql)))
+    (map after-read (query db-spec sql))))
 
 (defmethod stg/insert ::models/transaction
   [transaction db-spec]
   {:pre [(:transaction-date transaction)]}
-  (insert-model db-spec
-                :transactions
-                transaction
-                :entity-id
-                :description
-                :transaction-date
-                :memo
-                :scheduled-transaction-id
-                :value
-                :attachment-count))
+  (after-read
+    (insert-model db-spec
+                  :transactions
+                  transaction
+                  :entity-id
+                  :description
+                  :transaction-date
+                  :memo
+                  :scheduled-transaction-id
+                  :value
+                  :attachment-count)))
 
 (defmethod stg/update ::models/transaction
   [transaction db-spec]

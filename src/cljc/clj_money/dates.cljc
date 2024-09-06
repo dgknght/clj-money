@@ -1,11 +1,19 @@
 (ns clj-money.dates
-  (:require #?(:clj [clj-time.core :as t]
+  (:require #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            #?(:clj [clj-time.coerce :as tc]
-               :cljs [cljs-time.coerce :as tc])
+            #?(:cljs [cljs-time.coerce :as tc])
             #?(:clj [clj-time.periodic :refer [periodic-seq]]
                :cljs [cljs-time.periodic :refer [periodic-seq]])
-            [dgknght.app-lib.core :refer [parse-int]]))
+            [dgknght.app-lib.core :refer [parse-int]])
+  #?(:import [org.threeten.extra Interval]))
+
+(def ^:private interval
+  #?(:clj (fn [start end] (Interval/of start end))
+     :cljs t/interval))
+
+(def ^:private instant
+  #?(:clj t/instant
+     :cljs t/date-time))
 
 (defn- parse-partial
   [value]
@@ -13,6 +21,20 @@
                                           value)
                               rest
                               (map parse-int)))
+
+(def ^:private ->local-date
+  #?(:clj t/local-date
+     :cljs tc/to-local-date))
+
+(defn first-day-of-the-month
+  [year month]
+  (t/local-date year month 1))
+
+(defn last-day-of-the-month
+  [year month]
+  (t/minus (t/plus (first-day-of-the-month year month)
+                   (t/months 1))
+           (t/days 1)))
 
 (defn parse-range
   "Accepts a date range in a variety of formats and returns
@@ -31,8 +53,8 @@
        (t/local-date year month day)]
 
       month
-      [(tc/to-local-date (t/first-day-of-the-month year month))
-       (tc/to-local-date (t/last-day-of-the-month year month))]
+      [(->local-date (first-day-of-the-month year month))
+       (->local-date (last-day-of-the-month year month))]
 
       :else
       [(t/local-date year 1 1)
@@ -41,28 +63,28 @@
 (defn parse-interval
   "Takes a string containing a date or partial date and returns a corresponding interval
 
-  2015       => (t/interval (t/date-time 2015 1 1) (t/date-time 2016 1 1))
-  2015-03    => (t/interval (t/date-time 2015 3 1) (t/date-time 2015 4 1))
-  2015-03-02 => (t/interval (t/date-time 2015 3 2) (t/date-time 2015 3 3))"
+  2015       => (ten/interval (t/instant 2015 1 1) (t/instant 2016 1 1))
+  2015-03    => (ten/interval (t/instant 2015 3 1) (t/instant 2015 4 1))
+  2015-03-02 => (ten/interval (t/instant 2015 3 2) (t/instant 2015 3 3))"
   [value]
   (let [[year month day] (parse-partial value)]
     (cond
 
       day
-      (let [start (t/date-time year month day)]
-        (t/interval start
-                    (t/plus start
-                            (t/days 1))))
+      (let [start (instant year month day)]
+        (interval start
+                  (t/plus start
+                          (t/days 1))))
 
       month
-      (let [start (t/date-time year month 1)]
-        (t/interval start
-                    (t/plus start (t/months 1))))
+      (let [start (instant year month 1)]
+        (interval start
+                  (t/plus start (t/months 1))))
 
       :else
-      (let [start (t/date-time year 1 1)]
-        (t/interval start
-                    (t/plus start (t/years 1)))))))
+      (let [start (instant year 1 1)]
+        (interval start
+                  (t/plus start (t/years 1)))))))
 
 (defn intervals
   [start interval]
@@ -111,3 +133,11 @@
     :year (t/years interval-count)
     :month (t/months interval-count)
     :week (t/weeks interval-count)))
+
+(defn earliest
+  [& ds]
+  (first (sort t/before? ds)))
+
+(defn latest
+  [& ds]
+  (first (sort t/after? ds)))
