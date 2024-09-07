@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.set :refer [difference
                                  rename-keys]]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :as stow :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
@@ -51,7 +52,7 @@
 (s/def ::description string?)
 (s/def ::interval-type #{:day :week :month :year})
 (s/def ::interval-count greater-than-zero?)
-(s/def ::start-date v/local-date?)
+(s/def ::start-date t/local-date?)
 (s/def ::end-date v/nilable-local-date?)
 (s/def ::date-spec map?)
 (s/def ::scheduled-transaction (s/keys :req-un [::entity-id

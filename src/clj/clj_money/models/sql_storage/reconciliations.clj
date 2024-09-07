@@ -1,5 +1,6 @@
 (ns clj-money.models.sql-storage.reconciliations
   (:require [clojure.java.jdbc :as jdbc]
+            [java-time.api :as t]
             [honeysql.helpers :refer [select
                                       from]]
             [stowaway.sql :refer [apply-limit
@@ -11,21 +12,27 @@
                                                           apply-criteria]]
             [clj-money.models.sql-storage :as stg]))
 
+(defn- after-read
+  [reconciliation]
+  (update-in reconciliation [:end-of-period] t/local-date))
+
 (defmethod stg/select ::models/reconciliation
   [criteria options db-spec]
-  (query db-spec (-> (select :reconciliations.*)
-                     (from :reconciliations)
-                     (apply-criteria criteria {:target :reconciliation})
-                     (apply-sort options)
-                     (apply-limit options))))
+  (map after-read
+       (query db-spec (-> (select :reconciliations.*)
+                          (from :reconciliations)
+                          (apply-criteria criteria {:target :reconciliation})
+                          (apply-sort options)
+                          (apply-limit options)))))
 
 (defmethod stg/insert ::models/reconciliation
   [reconciliation db-spec]
-  (insert-model db-spec :reconciliations reconciliation
-                :account-id
-                :balance
-                :end-of-period
-                :status))
+  (after-read
+    (insert-model db-spec :reconciliations reconciliation
+                  :account-id
+                  :balance
+                  :end-of-period
+                  :status)))
 
 (defmethod stg/update ::models/reconciliation
   [reconciliation db-spec]

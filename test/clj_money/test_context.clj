@@ -1,5 +1,6 @@
 (ns clj-money.test-context
   (:require [clojure.string :as string]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.validation :as v]
             [clj-money.factories.user-factory]
@@ -21,8 +22,7 @@
             [clj-money.models.imports :as imports]
             [clj-money.models.identities :as idents]
             [clj-money.trading :as trading]
-            [clj-money.transactions :refer [expand]])
-  (:import org.joda.time.LocalDate))
+            [clj-money.transactions :refer [expand]]))
 
 (def ^:dynamic *context* nil)
 
@@ -171,7 +171,7 @@
 (defn find-transaction
   ([transaction-date description] (find-transaction *context* transaction-date description))
   ([context transaction-date description]
-   {:pre [(string? description) (instance? LocalDate transaction-date)]}
+   {:pre [(string? description) (t/local-date? transaction-date)]}
 
    (->> (:transactions context)
         (filter #(and (= transaction-date (:transaction-date %))

@@ -121,6 +121,16 @@
     :reconciliation-id
     :negative})
 
+(defmulti update-trx-date type)
+
+(defmethod update-trx-date clojure.lang.PersistentVector
+  [[oper & vs]]
+  (apply vector oper (map update-trx-date vs)))
+
+(defmethod update-trx-date :default
+  [d]
+  (t/sql-date d))
+
 (defn- update-items
   [attr criteria db-spec]
   {:pre [(deep-contains? criteria :transaction-date)]}
@@ -132,7 +142,7 @@
                 (apply-criteria
                   (criteria/apply-to
                     criteria
-                    #(update-in-if % [:transaction-date] t/sql-date)))
+                    #(update-in-if % [:transaction-date] update-trx-date)))
                 sql/format)]
     (log/debugf "update transaction_items %s %s -> %s" attr criteria sql)
     (first (jdbc/execute! db-spec sql {:entities ->snake_case_string}))))

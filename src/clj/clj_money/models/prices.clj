@@ -30,7 +30,7 @@
                                 :path [:trade-date]})
 
 (s/def ::commodity-id integer?)
-(s/def ::trade-date v/local-date?)
+(s/def ::trade-date t/local-date?)
 (s/def ::price decimal?)
 (s/def ::id uuid?)
 (s/def ::new-price (s/and (s/keys :req-un [::commodity-id ::trade-date ::price])

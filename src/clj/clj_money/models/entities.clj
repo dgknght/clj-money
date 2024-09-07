@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.walk :refer [keywordize-keys]]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :refer [tag]]
@@ -86,8 +87,11 @@
   [entity]
   (-> entity
       (tag ::models/entity)
-      (update-in-if [:settings :monitored-account-ids] set)))
-
+      (update-in-if [:settings :monitored-account-ids] set)
+      (update-in-if [:settings :earliest-transaction-date] #(t/format (t/formatter :iso-date) %))
+      (update-in-if [:settings :latest-transaction-date] #(t/format (t/formatter :iso-date) %))
+      (update-in-if [:settings :earliest-price-date] #(t/format (t/formatter :iso-date) %))
+      (update-in-if [:settings :latest-price-date] #(t/format (t/formatter :iso-date) %))))
 
 (defn create
   [entity]

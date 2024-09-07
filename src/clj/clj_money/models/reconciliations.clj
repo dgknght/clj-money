@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [config.core :refer [env]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
@@ -106,10 +106,10 @@
              :path [:end-of-period]})
 
 (s/def ::account-id integer?)
-(s/def ::end-of-period v/local-date?)
+(s/def ::end-of-period t/local-date?)
 (s/def ::balance decimal?)
 (s/def ::status #{:new :completed})
-(s/def ::item-ref (s/tuple uuid? v/local-date?))
+(s/def ::item-ref (s/tuple uuid? t/local-date?))
 (s/def ::item-refs (s/coll-of ::item-ref))
 
 (s/def ::reconciliation (s/and (s/keys :req-un [::account-id ::end-of-period ::status ::balance]

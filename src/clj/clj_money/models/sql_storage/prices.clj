@@ -1,5 +1,6 @@
 (ns clj-money.models.sql-storage.prices
   (:require [clojure.java.jdbc :as jdbc]
+            [java-time.api :as t]
             [honeysql.helpers :refer [select
                                       from]]
             [stowaway.sql :refer [apply-limit
@@ -13,6 +14,10 @@
                                                           apply-criteria]]
             [clj-money.models.sql-storage :as stg]))
 
+(defn- after-read
+  [price]
+  (update-in price [:trade-date] t/local-date))
+
 (defmethod stg/select ::models/price
   [criteria options db-spec]
   {:pre [(deep-contains? criteria :trade-date)]}
@@ -22,17 +27,18 @@
                 (apply-limit options)
                 (apply-sort options)
                 (select-count options))]
-    (query db-spec sql)))
+    (map after-read (query db-spec sql))))
 
 (defmethod stg/insert ::models/price
   [price db-spec]
   {:pre [(:trade-date price)]}
-  (insert-model db-spec
-                :prices
-                price
-                :commodity-id
-                :trade-date
-                :price))
+  (after-read
+    (insert-model db-spec
+                  :prices
+                  price
+                  :commodity-id
+                  :trade-date
+                  :price)))
 
 (defmethod stg/update ::models/price
   [price db-spec]
