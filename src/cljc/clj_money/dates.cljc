@@ -1,19 +1,45 @@
 (ns clj-money.dates
-  (:require #?(:clj [java-time.api :as t]
+  (:require #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])
+            #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.coerce :as tc])
-            #?(:clj [clj-time.periodic :refer [periodic-seq]]
-               :cljs [cljs-time.periodic :refer [periodic-seq]])
+            #?(:cljs [cljs-time.periodic :as periodic])
             [dgknght.app-lib.core :refer [parse-int]])
-  #?(:import [org.threeten.extra Interval]))
+  #?(:clj (:import [org.threeten.extra Interval]
+                   [java.time ZoneOffset LocalDate Instant])))
 
-(def ^:private interval
-  #?(:clj (fn [start end] (Interval/of start end))
-     :cljs t/interval))
+(def ^:private equal?
+  #?(:clj t/=
+     :cljs t/equal?))
 
-(def ^:private instant
-  #?(:clj t/instant
+#?(:clj (defmulti instant* type))
+
+#?(:clj (defmethod instant* LocalDate
+          [local-date]
+          (.toInstant (.atStartOfDay local-date)
+                      ZoneOffset/UTC)))
+
+#?(:clj (defmethod instant* Instant
+          [instant]
+          instant))
+
+(def instant
+  #?(:clj (fn
+            ([temporal]
+             (instant* temporal))
+            ([year month day]
+             (instant (t/local-date year month day))))
      :cljs t/date-time))
+
+(def interval
+  #?(:clj (fn
+            ([[start end]]
+             (interval start end))
+            ([start end]
+             (Interval/of (instant start)
+                          (instant end))))
+     :cljs t/interval))
 
 (defn- parse-partial
   [value]
@@ -53,15 +79,16 @@
        (t/local-date year month day)]
 
       month
-      [(->local-date (first-day-of-the-month year month))
-       (->local-date (last-day-of-the-month year month))]
+      [(first-day-of-the-month year month)
+       (last-day-of-the-month year month)]
 
       :else
       [(t/local-date year 1 1)
        (t/local-date year 12 31)])))
 
 (defn parse-interval
-  "Takes a string containing a date or partial date and returns a corresponding interval
+  "Takes a string containing a date or partial date and returns a corresponding
+  org.threeten.extra.Interval
 
   2015       => (ten/interval (t/instant 2015 1 1) (t/instant 2016 1 1))
   2015-03    => (ten/interval (t/instant 2015 3 1) (t/instant 2015 4 1))
@@ -71,26 +98,33 @@
     (cond
 
       day
-      (let [start (instant year month day)]
+      (let [start (t/local-date year month day)]
         (interval start
                   (t/plus start
-                          (t/days 1))))
+                                   (t/days 1))))
 
       month
-      (let [start (instant year month 1)]
+      (let [start (t/local-date year month 1)]
         (interval start
                   (t/plus start (t/months 1))))
 
       :else
-      (let [start (instant year 1 1)]
+      (let [start (t/local-date year 1 1)]
         (interval start
                   (t/plus start (t/years 1)))))))
 
+(defn periodic-seq
+  [start period]
+  #?(:cljs (periodic/periodic-seq start period)
+     :clj (lazy-seq (cons start
+                          (periodic-seq (t/plus start period)
+                                        period)))))
+
 (defn intervals
-  [start interval]
-  (->> (periodic-seq start interval)
+  [start period]
+  (->> (periodic-seq start period)
        (partition 2 1)
-       (map (fn [[s e]] (t/interval s e)))))
+       (map #(apply interval %))))
 
 (defn ranges
   [start interval]
@@ -107,7 +141,7 @@
    {:pre [(t/before? start end)]}
 
    (take-while #(or (t/after? % start)
-                    (t/equal? % start))
+                    (equal? % start))
                (desc-periodic-seq end period-like))))
 
 (defn desc-ranges
@@ -118,7 +152,7 @@
         (map reverse)))
   ([start end period-like]
    (cond
-     (t/equal? start end)
+     (equal? start end)
      [[start (t/plus end (t/days 1))]]
 
      :else
@@ -141,3 +175,14 @@
 (defn latest
   [& ds]
   (first (sort t/after? ds)))
+
+(defn within?
+  [date [start end]]
+  #?(:clj (.contains (Interval/of (instant start) (instant end)) (instant date))
+     :cljs (t/within? start end date)))
+
+(defn overlaps?
+  [range1 range2]
+  #?(:clj (.overlaps (interval range1)
+                     (interval range2))
+     :cljs (t/overlaps? range1 range2)))
