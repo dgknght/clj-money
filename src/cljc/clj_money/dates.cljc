@@ -195,3 +195,12 @@
   #?(:clj (.overlaps (interval range1)
                      (interval range2))
      :cljs (t/overlaps? range1 range2)))
+
+(defn today []
+  #?(:clj (t/local-date)
+     :cljs (t/today)))
+
+(defn day-of-month
+  [local-date]
+  #?(:clj (.getValue (t/day-of-month local-date))
+     :cljs (t/day local-date)))
