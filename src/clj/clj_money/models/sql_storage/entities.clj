@@ -5,8 +5,6 @@
                                       from]]
             [stowaway.sql :refer [apply-limit
                                   apply-sort]]
-            [java-time.api :as t]
-            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model

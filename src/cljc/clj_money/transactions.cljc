@@ -152,7 +152,7 @@
   {:start-date start-date
    :end-date end-date
    :quantity (->> items
-                  (filter #(dates/within? start-date end-date (:transaction-date %)))
+                  (filter #(dates/within? [start-date end-date] (:transaction-date %)))
                   (map :polarized-quantity)
                   (reduce + 0M))})
 

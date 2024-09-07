@@ -10,8 +10,7 @@
             [honeysql.helpers :as h]
             [clj-time.core :as t]
             [clj-time.coerce :refer [to-sql-date
-                                     to-sql-time
-                                     to-local-date]]
+                                     to-sql-time]]
             [stowaway.sql :as storage]
             [dgknght.app-lib.core :refer [update-in-if]])
   (:import [java.sql PreparedStatement]

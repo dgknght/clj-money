@@ -3,7 +3,6 @@
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            #?(:cljs [cljs-time.coerce :as tc])
             #?(:cljs [cljs-time.periodic :as periodic])
             [dgknght.app-lib.core :refer [parse-int]])
   #?(:clj (:import [org.threeten.extra Interval]
@@ -47,10 +46,6 @@
                                           value)
                               rest
                               (map parse-int)))
-
-(def ^:private ->local-date
-  #?(:clj t/local-date
-     :cljs tc/to-local-date))
 
 (defn first-day-of-the-month
   [year month]
