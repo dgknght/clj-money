@@ -5,13 +5,10 @@
                :cljs [cljs-time.coerce :refer [to-local-date]])
             #?(:clj [clj-time.periodic :refer [periodic-seq]]
                :cljs [cljs-time.periodic :refer [periodic-seq]])
-            #?(:clj [clj-time.predicates :as tp :refer [last-day-of-the-month?]]
+            #?(:clj [clj-time.predicates :as tp]
                :cljs [cljs-time.predicates :as tp])
-            [clojure.set :refer [rename-keys]]))
-
-#?(:cljs (defn- last-day-of-the-month?
-           [d]
-           (t/equal? (t/last-day-of-the-month d) d)))
+            [clojure.set :refer [rename-keys]]
+            [clj-money.dates :as dates]))
 
 (defmulti ^:private since-last :interval-type)
 
@@ -55,13 +52,13 @@
                                       (t/days 1))
                         (take 31)
                         (filter #(if (or (= :last day)
-                                         (< (t/day (t/last-day-of-the-month %))
+                                         (< (t/day (dates/last-day-of-the-month %))
                                             day))
-                                   (last-day-of-the-month? %)
+                                   (dates/last-day-of-the-month? %)
                                    (= day (t/day %))))
                         first)]
     (cond->> (periodic-seq first-date (t/months interval-count))
-      (= :last day) (map t/last-day-of-the-month))))
+      (= :last day) (map dates/last-day-of-the-month))))
 
 ; spec - {:day [:monday :friday]}
 (def ^:private weekday-predicates

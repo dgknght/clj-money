@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.walk :refer [keywordize-keys]]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
@@ -10,7 +11,6 @@
                                           present?]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [clj-money.models :as models]))
 
 (declare find-by)
@@ -45,10 +45,10 @@
         (update-in-if [:settings] keywordize-keys)
         (update-in-if [:settings :monitored-account-ids] set)
         (update-in-if [:settings :inventory-method] keyword)
-        (update-in-if [:settings :earliest-transaction-date] unserialize-date)
-        (update-in-if [:settings :latest-transaction-date] unserialize-date)
-        (update-in-if [:settings :earliest-price-date] unserialize-date)
-        (update-in-if [:settings :latest-price-date] unserialize-date)
+        (update-in-if [:settings :earliest-transaction-date] t/local-date)
+        (update-in-if [:settings :latest-transaction-date] t/local-date)
+        (update-in-if [:settings :earliest-price-date] t/local-date)
+        (update-in-if [:settings :latest-price-date] t/local-date)
         (tag ::models/entity))))
 
 (defn select

@@ -3,14 +3,13 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [config.core :refer [env]]
-            [clj-time.core :as t]
-            [clj-time.coerce :as tc]
+            [java-time.api :as t]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage
                                                    with-transacted-storage]]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
-            [dgknght.app-lib.dates :as dates]
+            [clj-money.dates :as dates]
             [clj-money.find-in-chunks :as ch]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
@@ -150,8 +149,8 @@
 
 (defn- update-meta-for-change
   [after before]
-  (when-not (t/equal? (:trade-date after)
-                      (:trade-date before))
+  (when-not (t/= (:trade-date after)
+                 (:trade-date before))
     (update-accounts after {:price-as-of (:trade-date before)})
     (update-commodity after))
   after)
@@ -241,7 +240,7 @@
 (defn batch-fetch
   ([commodity-ids] (batch-fetch commodity-ids {}))
   ([commodity-ids opts]
-   (let [as-of (or (:as-of opts) (t/today))]
+   (let [as-of (or (:as-of opts) (t/local-date))]
      (ch/find commodity-ids
               (merge
                {:start-date as-of
@@ -255,7 +254,7 @@
                 :id-fn :commodity-id
                 :find-one-fn (fn [prices]
                                (apply max-key
-                                      (comp tc/to-long :trade-date)
+                                      (comp t/to-millis-from-epoch :trade-date)
                                       (filter #(or (= as-of (:trade-date %))
                                                    (t/before? (:trade-date %) as-of))
                                               prices)))}

@@ -42,18 +42,17 @@
 
 (defn- select-sql-with-downward-recursion
   [criteria options]
-  (map after-read
-       (-> (with-recursive [:raccounts
-                            {:union [(-> (apply select fields)
-                                         (from :accounts)
-                                         (apply-criteria criteria (merge options
-                                                                         {:target :account}))
-                                         (apply-limit options))
-                                     (-> (apply select fields)
-                                         (from :accounts)
-                                         (join [:raccounts :p] [:= :p.id :accounts.parent_id]))]}])
-           (select :*)
-           (from :raccounts))))
+  (-> (with-recursive [:raccounts
+                       {:union [(-> (apply select fields)
+                                    (from :accounts)
+                                    (apply-criteria criteria (merge options
+                                                                    {:target :account}))
+                                    (apply-limit options))
+                                (-> (apply select fields)
+                                    (from :accounts)
+                                    (join [:raccounts :p] [:= :p.id :accounts.parent_id]))]}])
+      (select :*)
+      (from :raccounts)))
 
 (defn- select-sql
   [criteria options]
@@ -74,7 +73,7 @@
               (select-sql-with-downward-recursion criteria options)
               (select-sql criteria options))]
     (log/debugf "select %s" criteria)
-    (query db-spec sql)))
+    (map after-read (query db-spec sql))))
 
 (defmethod stg/insert ::models/account
   [account db-spec]

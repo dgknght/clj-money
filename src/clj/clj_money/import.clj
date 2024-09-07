@@ -6,12 +6,12 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [<! >! chan go pipe sliding-buffer] :as async]
             [config.core :refer [env]]
-            [clj-time.core :as t]
-            [clj-time.predicates :refer [last-day-of-the-month?]]
+            [java-time.api :as t]
             [stowaway.core :refer [tagged?]]
             [stowaway.implicit :refer [with-storage
                                        with-transacted-storage]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.dates :as dates]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.models.settings :as settings]
@@ -369,9 +369,9 @@
 
 (defn- infer-date-spec-day
   [date]
-  (if (last-day-of-the-month? date)
+  (if (dates/last-day-of-the-month? date)
     :last
-    (t/day date)))
+    (t/day-of-month date)))
 
 (defn- infer-date-spec
   [{:keys [start-date last-occurrence interval-type]}]
