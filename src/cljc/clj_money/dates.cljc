@@ -170,11 +170,17 @@
 
 (defn earliest
   [& ds]
-  (first (sort t/before? ds)))
+  (->> ds
+       (filter identity)
+       (sort t/before?)
+       first))
 
 (defn latest
   [& ds]
-  (first (sort t/after? ds)))
+  (->> ds
+       (filter identity)
+       (sort t/after?)
+       first))
 
 (defn within?
   [date [start end]]

@@ -123,7 +123,9 @@
   (let [jan (t/local-date 2015 1 1)
         feb (t/local-date 2015 2 1)]
     (is (= jan (dates/earliest jan feb)))
-    (is (= jan (dates/earliest feb jan)))))
+    (is (= jan (dates/earliest feb jan)))
+    (is (= jan (dates/earliest nil jan)))
+    (is (= jan (dates/earliest jan nil)))))
 
 (deftest get-the-latest-date-from-a-sequence
   (let [jan (t/local-date 2015 1 1)
