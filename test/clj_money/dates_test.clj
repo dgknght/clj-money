@@ -141,6 +141,10 @@
   (is (= (t/local-date 2015 4 30)
          (dates/last-day-of-the-month 2015 4))))
 
+(deftest evaluate-last-day-of-the-month
+  (is (dates/last-day-of-the-month? (t/local-date 2000 3 31)))
+  (is (not (dates/last-day-of-the-month? (t/local-date 2000 3 30)))))
+
 (deftest see-if-a-date-is-in-a-range
   (are [date range expected] (= expected (dates/within? date range))
 

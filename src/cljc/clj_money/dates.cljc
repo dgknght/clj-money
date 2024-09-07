@@ -9,7 +9,7 @@
   #?(:clj (:import [org.threeten.extra Interval]
                    [java.time ZoneOffset LocalDate Instant])))
 
-(def ^:private equal?
+(def equal?
   #?(:clj t/=
      :cljs t/equal?))
 
@@ -57,10 +57,18 @@
   (t/local-date year month 1))
 
 (defn last-day-of-the-month
-  [year month]
-  (t/minus (t/plus (first-day-of-the-month year month)
-                   (t/months 1))
-           (t/days 1)))
+  ([local-date]
+   (last-day-of-the-month (t/year local-date)
+                          (t/month local-date)))
+  ([year month]
+   (t/minus (t/plus (first-day-of-the-month year month)
+                    (t/months 1))
+            (t/days 1))))
+
+(defn last-day-of-the-month?
+  [local-date]
+  (not= (t/month local-date)
+        (t/month (t/plus local-date (t/days 1)))))
 
 (defn parse-range
   "Accepts a date range in a variety of formats and returns
