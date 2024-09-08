@@ -1,7 +1,7 @@
 (ns clj-money.partitioning-test
   (:require [clojure.test :refer [deftest testing is]]
             [clojure.java.jdbc :as jdbc]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-money.partitioning :as prt]))
 
 (defmacro ^:private with-cmd-intercept
