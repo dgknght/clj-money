@@ -4,7 +4,7 @@
             [clojure.core.async :as a :refer [go chan go-loop >! <! <!! buffer]]
             [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [ragtime.jdbc :refer [sql-database
                                   load-resources]]
             [ragtime.repl :as rt]
@@ -12,7 +12,6 @@
             [clojure.java.jdbc :as jdbc]
             [honeysql.core :as sql]
             [honeysql.helpers :refer [select from where limit]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [clj-money.core]
             [clj-money.models.settings :as settings]
             [clj-money.partitioning :refer [create-partition-tables]]))
@@ -57,11 +56,15 @@
                       date
                       t/after?))
 
+(defn- parse-date
+  [date-str]
+  (t/local-date (t/formatter :iso-date) date-str))
+
 (defn create-partitions
   [& args]
   (let [{:keys [arguments options]} (parse-opts args create-partitions-options)
-        start-date (-> arguments first unserialize-date)
-        end-date (or (-> arguments second unserialize-date)
+        start-date (-> arguments first parse-date)
+        end-date (or (-> arguments second parse-date)
                      start-date)]
     (create-partition-tables start-date end-date options)
     (put-earliest-partition-date start-date)
