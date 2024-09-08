@@ -2,11 +2,11 @@
   (:require [clojure.test :refer [use-fixtures deftest is]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.web :refer [path
-                                         serialize-date]]
+            [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
+            [clj-money.dates :refer [serialize-local-date]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
@@ -222,11 +222,11 @@
         transaction (find-transaction ctx (t/local-date 2016 2 1) "Paycheck")
         response (-> (req/request :patch (path :api
                                                :transactions
-                                               (serialize-date (:transaction-date transaction))
+                                               (serialize-local-date (:transaction-date transaction))
                                                (:id transaction)))
                      (req/json-body (-> transaction
                                         (assoc :description "Just got paid today")
-                                        (update-in [:transaction-date] serialize-date)
+                                        (update-in [:transaction-date] serialize-local-date)
                                         (update-in [:items] update-items)))
                      (add-auth user)
                      app)
@@ -260,7 +260,7 @@
 (deftest a-user-can-update-a-transaction-in-his-entity
   (assert-successful-update (update-a-transaction "john@doe.com")))
 
-(deftest a-user-cannot-update-a-transaction-in-aothers-entity
+(deftest a-user-cannot-update-a-transaction-in-anothers-entity
   (assert-blocked-update (update-a-transaction "jane@doe.com")))
 
 (defn- delete-a-transaction
