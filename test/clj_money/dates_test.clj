@@ -229,6 +229,10 @@
         (t/local-date 2000 2 29)]
        false))
 
+(deftest format-a-local-date
+  (is (= "1/1/2000"
+         (dates/format-local-date (t/local-date 2000 1 1)))))
+
 (deftest serialize-a-local-date
   (is (= "2000-01-01"
          (dates/serialize-local-date (t/local-date 2000 1 1)))))
@@ -236,3 +240,7 @@
 (deftest unserialize-a-local-date
   (is (= (t/local-date 2000 1 1)
          (dates/unserialize-local-date "2000-01-01"))))
+
+(deftest get-the-number-of-days-in-a-period
+  (is (= 3 (dates/days-between (t/local-date 2000 1 1)
+                               (t/local-date 2000 1 4)))))

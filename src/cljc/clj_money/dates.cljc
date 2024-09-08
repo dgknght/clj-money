@@ -7,7 +7,8 @@
             #?(:cljs [cljs-time.periodic :as periodic])
             [dgknght.app-lib.core :refer [parse-int]])
   #?(:clj (:import [org.threeten.extra Interval]
-                   [java.time ZoneOffset LocalDate Instant])))
+                   [java.time ZoneOffset LocalDate Instant]
+                   [java.time.temporal ChronoUnit])))
 
 (def equal?
   #?(:clj t/=
@@ -201,7 +202,9 @@
 
 (defn within?
   [date [start end]]
-  #?(:clj (.contains (Interval/of (instant start) (instant end)) (instant date))
+  #?(:clj (or (t/= start date)
+              (t/= end date)
+              (t/before? start date end))
      :cljs (t/within? start end date)))
 
 (defn overlaps?
@@ -228,3 +231,13 @@
   [date-str]
   #?(:clj (t/local-date (t/formatter :iso-date) date-str)
      :cljs (tf/parse-local-date (tf/formatters :date) date-str)))
+
+(defn format-local-date
+  [local-date]
+  #?(:clj (t/format (t/formatter "M/d/yyyy") local-date)
+     :cljs (tf/unparse-local-date (tf/formatters "M/d/yyyy") local-date)))
+
+(defn days-between
+  [d1 d2]
+  #?(:clj (.between ChronoUnit/DAYS d1 d2)
+     :cljs (t/in-days (t/interval d1 d2))))
