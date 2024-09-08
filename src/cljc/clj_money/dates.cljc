@@ -3,6 +3,7 @@
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            #?(:cljs [cljs-time.format :as tf])
             #?(:cljs [cljs-time.periodic :as periodic])
             [dgknght.app-lib.core :refer [parse-int]])
   #?(:clj (:import [org.threeten.extra Interval]
@@ -217,3 +218,13 @@
   [local-date]
   #?(:clj (.getValue (t/day-of-month local-date))
      :cljs (t/day local-date)))
+
+(defn serialize-local-date
+  [local-date]
+  #?(:clj (t/format (t/formatter :iso-date) local-date)
+     :cljs (tf/unparse-local-date (tf/formatters :date) local-date)))
+
+(defn unserialize-local-date
+  [date-str]
+  #?(:clj (t/local-date (t/formatter :iso-date) date-str)
+     :cljs (tf/parse-local-date (tf/formatters :date) date-str)))

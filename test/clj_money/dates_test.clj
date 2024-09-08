@@ -228,3 +228,11 @@
        [(t/local-date 2000 2 1)
         (t/local-date 2000 2 29)]
        false))
+
+(deftest serialize-a-local-date
+  (is (= "2000-01-01"
+         (dates/serialize-local-date (t/local-date 2000 1 1)))))
+
+(deftest unserialize-a-local-date
+  (is (= (t/local-date 2000 1 1)
+         (dates/unserialize-local-date "2000-01-01"))))
