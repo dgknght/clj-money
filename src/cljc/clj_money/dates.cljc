@@ -23,6 +23,16 @@
           [instant]
           instant))
 
+(def year
+  #?(:clj (comp #(.getValue %)
+                t/year)
+     :cljs t/year))
+
+(def month
+  #?(:clj (comp #(.getValue %)
+                t/month)
+     :cljs t/month))
+
 (def instant
   #?(:clj (fn
             ([temporal]
@@ -48,8 +58,11 @@
                               (map parse-int)))
 
 (defn first-day-of-the-month
-  [year month]
-  (t/local-date year month 1))
+  ([local-date]
+   (first-day-of-the-month (t/year local-date)
+                           (t/month local-date)))
+  ([year month]
+   (t/local-date year month 1)))
 
 (defn last-day-of-the-month
   ([local-date]

@@ -4,6 +4,12 @@
             [java-time.api :as t]
             [clj-money.dates :as dates]))
 
+(deftest get-the-year-from-a-local-date
+  (is (= 2000 (dates/year (t/local-date 2000 1 1)))))
+
+(deftest get-the-month-from-a-local-date
+  (is (= 3 (dates/month (t/local-date 2000 3 1)))))
+
 (deftest parse-a-date-range
   (is (= [(t/local-date 2015 3 2)
           (t/local-date 2015 3 2)]
