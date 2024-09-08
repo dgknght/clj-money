@@ -1,6 +1,7 @@
 (ns clj-money.models.budgets
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
             [clojure.walk :refer [keywordize-keys]]
             [java-time.api :as t]
             [config.core :refer [env]]
@@ -102,7 +103,7 @@
    :quarter (t/months 3)})
 
 (defn period-seq
-  "Returns a sequence of the periods in the budget based on
+  "Returns a sequence of the java.time.Period instances in the budget based on
   :start-date, :period, :period-count"
   [budget]
   (when budget
@@ -115,7 +116,7 @@
                         {:start start
                          :end (t/minus next-start (t/days 1))
                          :index index
-                         :interval (dates/interval start next-start)}))
+                         :interval (t/period start next-start)}))
          (take (:period-count budget)))))
 
 (defn end-date
@@ -272,7 +273,7 @@
 (defn percent-of-period
   [budget as-of]
   (let [period (period-containing budget as-of)
-        days-in-period (.getDays (:interval period))
-        days (+ 1 (.getDays (dates/interval (:start period)
-                                            as-of)))]
+        days-in-period (inc (dates/days-between (:start period) (:end period)))
+        days (inc (dates/days-between (:start period)
+                                      as-of))]
     (with-precision 5 (/ days days-in-period))))

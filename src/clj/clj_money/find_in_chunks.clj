@@ -1,7 +1,6 @@
 (ns clj-money.find-in-chunks
   (:refer-clojure :exclude [find])
-  (:require [clj-time.core :as t]
-            [clj-time.coerce :as tc]
+  (:require [java-time.api :as t]
             [clj-money.dates :refer [desc-periodic-seq]]))
 
 
@@ -71,10 +70,11 @@
    {:keys [earliest-date start-date time-step]
     :or {time-step (t/months 1)}
     :as opts}]
-  {:pre [(:earliest-date opts)]}
+  {:pre [(:earliest-date opts)
+         (t/local-date? (:earliest-date opts))]}
 
-  (let [earliest (tc/to-date-time earliest-date)
-        final (->> (desc-periodic-seq (tc/to-date-time start-date)
+  (let [earliest (t/local-date earliest-date)
+        final (->> (desc-periodic-seq (t/local-date start-date)
                                       time-step)
                    (take-while #(or (= earliest %)
                                     (t/before? earliest %)))

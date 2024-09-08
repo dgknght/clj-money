@@ -6,6 +6,7 @@
             [stowaway.sql :refer [apply-limit
                                   apply-sort
                                   select-count]]
+            [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [deep-contains?]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
@@ -18,12 +19,24 @@
   [price]
   (update-in price [:trade-date] t/local-date))
 
+(defmulti ->sql-date type)
+
+(defmethod ->sql-date clojure.lang.PersistentVector
+  [[oper & vs]]
+  (apply vector oper (map ->sql-date vs)))
+
+(defmethod ->sql-date :default
+  [d]
+  (t/sql-date d))
+
 (defmethod stg/select ::models/price
   [criteria options db-spec]
   {:pre [(deep-contains? criteria :trade-date)]}
   (let [sql (-> (select :prices.*)
                 (from :prices)
-                (apply-criteria criteria {:target :price})
+                (apply-criteria (criteria/apply-to criteria
+                                                   #(update-in % [:trade-date] ->sql-date))
+                                {:target :price})
                 (apply-limit options)
                 (apply-sort options)
                 (select-count options))]

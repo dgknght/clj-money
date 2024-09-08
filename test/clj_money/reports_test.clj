@@ -3,11 +3,11 @@
             [clojure.pprint :refer [pprint]]
             [clojure.data :refer [diff]]
             [clojure.edn :as edn]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [clj-money.core]
+            [clj-money.dates :as dates]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             realize
@@ -451,7 +451,7 @@
       (is (= expected actual) "The report contains the correct data"))))
 
 (def ^:private budget-fixtures
-  (edn/read {:readers {'local-date unserialize-date
+  (edn/read {:readers {'local-date dates/unserialize-local-date
                        'repeat (fn [[n x]]
                                  (repeat n x))}}
             (PushbackReader.
@@ -641,37 +641,37 @@
                        :account-id "IRA"
                        :commodity-id "AAPL"
                        :shares 200M
-                       :value 2000M}
+                       :value 2000M} ; $10.00/share
                       {:trade-date (t/local-date 2015 3 1)
                        :type :purchase
                        :account-id "IRA"
                        :commodity-id "AAPL"
                        :shares 100M
-                       :value 1100M}
+                       :value 1100M} ; $11.00/share
                       {:trade-date (t/local-date 2015 4 1)
                        :type :sale
                        :account-id "IRA"
                        :commodity-id "AAPL"
                        :shares 100M
-                       :value 1200M}
+                       :value 1200M} ; $12.00/share
                       {:trade-date (t/local-date 2015 2 1)
                        :type :purchase
                        :account-id "401k"
                        :commodity-id "MSFT"
                        :shares 400M
-                       :value 2000M}
+                       :value 2000M} ; $4.00/share
                       {:trade-date (t/local-date 2015 3 1)
                        :type :purchase
                        :account-id "401k"
                        :commodity-id "MSFT"
                        :shares 200M
-                       :value 800M}
+                       :value 800M} ; $4.00/share
                       {:trade-date (t/local-date 2015 4 1)
                        :type :purchase
                        :account-id "401k"
                        :commodity-id "MSFT"
                        :shares 100M
-                       :value 300M}])))
+                       :value 300M}]))) ; $3.00/share
 
 (def portfolio-fixture
   (read-string (slurp "resources/fixtures/reports_test/portfolio.edn")))

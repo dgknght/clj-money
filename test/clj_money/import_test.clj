@@ -4,7 +4,7 @@
             [clojure.java.io :as io]
             [clojure.core.async :refer [go-loop <! chan]]
             [clojure.string :as s]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [safe-nth]]

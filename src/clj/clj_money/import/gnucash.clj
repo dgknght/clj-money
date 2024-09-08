@@ -14,8 +14,7 @@
              :as async]
             [clojure.data.xml :as xml]
             [config.core :refer [env]]
-            [clj-time.core :as t]
-            [clj-time.coerce :as tc]
+            [java-time.api :as t]
             [dgknght.app-lib.core :refer [uuid
                                           update-in-if
                                           parse-int
@@ -27,6 +26,7 @@
             GZIPOutputStream]
            [java.io File FileInputStream
             FileOutputStream]
+           [java.time Instant ZoneId]
            [clojure.data.xml.event StartElementEvent
             CharsEvent
             EndElementEvent]))
@@ -592,9 +592,8 @@
 
 (defn- seconds-to-date
   [seconds]
-  (-> (t/plus (t/epoch) (t/seconds seconds))
-      (t/to-time-zone (t/time-zone-for-id "America/Chicago")) ; TODO: Need to know the time zone for the file for this
-      tc/to-local-date))
+  (.atZone (Instant/ofEpochSecond seconds)
+           (ZoneId/of "America/Chicago")))
 
 (defmethod ^:private process-record :reconciliation
   [reconciliation _]

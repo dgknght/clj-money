@@ -1,15 +1,14 @@
 (ns clj-money.reports
   (:require [clojure.set :refer [rename-keys
                                  intersection]]
+            [clojure.pprint :refer [pprint]]
             [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [clj-time.core :as t]
-            [clj-time.format :as tf]
-            [clj-time.coerce :as tc]
+            [java-time.api :as t]
             [clj-money.find-in-chunks :as ch]
-            [dgknght.app-lib.web :refer [format-date]]
             [dgknght.app-lib.inflection :refer [humanize]]
             [clj-money.util :refer [earliest]]
+            [clj-money.dates :as dates]
             [clj-money.models.accounts :as accounts]
             [clj-money.accounts :refer [nest
                                         unnest
@@ -117,8 +116,8 @@
   "Returns the data used to populate an income statement report"
   ([entity]
    (income-statement entity
-                     (t/first-day-of-the-month (t/today))
-                     (t/last-day-of-the-month (t/today))))
+                     (dates/first-day-of-the-month (t/local-date))
+                     (dates/last-day-of-the-month (t/local-date))))
   ([entity start end]
    (->> (accounts/search {:entity-id (:id entity)
                           :type ["income" "expense"]})
@@ -304,7 +303,7 @@
 (defn balance-sheet
   "Returns the data used to populate a balance sheet report"
   ([entity]
-   (balance-sheet entity (t/today)))
+   (balance-sheet entity (t/local-date)))
   ([entity as-of]
    (-> {:entity entity
         :as-of as-of
@@ -506,14 +505,14 @@
                         :actual-per-period (/ actual period-count)}]))))
 
 (defn- end-of-last-month []
-  (-> (t/today)
+  (-> (t/local-date)
       (t/minus (t/months 1))
-      t/last-day-of-the-month))
+      dates/last-day-of-the-month))
 
 (defn- default-budget-end-date
   [{:keys [start-date end-date]}]
   (->> [(end-of-last-month)
-        (t/last-day-of-the-month (t/today))
+        (dates/last-day-of-the-month (t/local-date))
         end-date]
        (filter #(t/before? start-date %))
        (apply earliest)))
@@ -544,8 +543,8 @@
      {:items items
       :title (format "%s: %s to %s"
                      (:name budget)
-                     (tf/unparse-local-date (tf/formatter "MMMM") (:start-date budget))
-                     (tf/unparse-local-date (tf/formatter "MMMM") as-of))})))
+                     (t/format (t/formatter "MMMM") (:start-date budget))
+                     (t/format (t/formatter "MMMM") as-of))})))
 
 (defn- monitor-item
   [budget actual percentage]
@@ -577,11 +576,9 @@
         percent-of-total (with-precision 5
                            (->> [as-of (:end-date budget)]
                                 (map (comp inc
-                                           t/in-days
-                                           #(t/interval
-                                             (tc/to-date-time (:start-date budget))
-                                             %)
-                                           tc/to-date-time))
+                                           #(dates/days-between
+                                             (:start-date budget)
+                                             %)))
                                 (apply /)))]
     (with-precision 5
       {:caption (:name account)
@@ -623,7 +620,7 @@
 (defn monitor
   "Returns a mini-report for a specified account against a budget period"
   ([account]
-   (monitor account (t/today)))
+   (monitor account (t/local-date)))
   ([account as-of]
    (if-let [budget (budgets/find-by-date (:entity-id account) as-of)]
      (monitor-from-budget {:account account
@@ -631,7 +628,7 @@
                            :budget budget})
      {:caption (:name account)
       :account account
-      :message (format "There is no budget for %s" (format-date as-of))})))
+      :message (format "There is no budget for %s" (dates/format-local-date as-of))})))
 
 (defn- summarize-commodity
   [[commodity-id lots]]
@@ -655,7 +652,7 @@
 
 (defn commodities-account-summary
   ([account]
-   (commodities-account-summary account (t/today)))
+   (commodities-account-summary account (t/local-date)))
   ([account as-of]
    (let [data (conj (->> (lots/search {:account-id (:id account)})
                          (filter #(not= 0M (:shares-owned %)))
@@ -819,7 +816,7 @@
        (map #(assoc %
                     :parents #{commodity-id}
                     :style :data
-                    :caption (format-date (:purchase-date %))))
+                    :caption (dates/format-local-date (:purchase-date %))))
        (sort-by :purchase-date t/after?)
        (cons (summarize-gains {:caption (get-in commodities [commodity-id :name])
                                :id commodity-id
@@ -922,7 +919,7 @@
   [options]
   {:pre [(:entity options)]}
 
-  (-> (merge {:as-of (t/today)
+  (-> (merge {:as-of (t/local-date)
               :aggregate :by-commodity}
              options)
       append-lots

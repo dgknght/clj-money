@@ -253,9 +253,9 @@
                 :transform-fn :price
                 :id-fn :commodity-id
                 :find-one-fn (fn [prices]
-                               (apply max-key
-                                      (comp t/to-millis-from-epoch :trade-date)
-                                      (filter #(or (= as-of (:trade-date %))
-                                                   (t/before? (:trade-date %) as-of))
-                                              prices)))}
+                               (->> prices
+                                    (filter #(or (= (:trade-date %) as-of)
+                                                 (t/before? (:trade-date %) as-of)))
+                                    (sort-by t/after?)
+                                    first))}
                opts)))))
