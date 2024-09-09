@@ -3,7 +3,7 @@
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.authorization

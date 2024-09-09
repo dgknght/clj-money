@@ -3,8 +3,8 @@
   (:require [clj-http.client :as client]
             [clojure.set :refer [rename-keys]]
             [clojure.string :refer [blank?]]
-            [clj-time.format :as tf]
-            [clj-time.coerce :as tc]))
+            [java-time.api :as t])
+  (:import [java.time.format DateTimeFormatter]))
 
 (def ^:private url-format
   "http://dev.markitondemand.com/MODApis/Api/v2/Quote/json?symbol=%s")
@@ -28,9 +28,7 @@
                                (get match 6)
                                (get match 4)
                                (get match 5))]
-        (->> new-string
-             (tf/parse (tf/formatters :rfc822))
-             (tc/to-local-date))))))
+        (t/zoned-date-time DateTimeFormatter/RFC_1123_DATE_TIME new-string)))))
 
 (def ^:private transformations
   [{:key :trade-date

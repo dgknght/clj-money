@@ -8,14 +8,11 @@
                                             ->kebab-case-keyword]]
             [honeysql.core :as sql]
             [honeysql.helpers :as h]
-            [clj-time.core :as t]
-            [clj-time.coerce :refer [to-sql-date
-                                     to-sql-time]]
+            [java-time.api :as t]
             [stowaway.sql :as storage]
             [dgknght.app-lib.core :refer [update-in-if]])
   (:import [java.sql PreparedStatement]
            org.postgresql.util.PGobject
-           [org.joda.time LocalDate DateTime]
            [clojure.lang PersistentArrayMap PersistentVector Keyword]))
 
 (defn- ->json
@@ -38,15 +35,7 @@
 
   PersistentVector
   (sql-value [v]
-    (into-array v))
-
-  LocalDate
-  (sql-value [v]
-    (to-sql-date v))
-
-  DateTime
-  (sql-value [v]
-    (to-sql-time v)))
+    (into-array v)))
 
 (extend-protocol jdbc/ISQLParameter
   PersistentArrayMap
@@ -82,7 +71,7 @@
                                   [(first options) (rest options)])
         updated-model (-> model
                           (select-keys allowed-keys)
-                          (assoc :updated-at (t/now)))
+                          (assoc :updated-at (t/sql-timestamp)))
         where-clause (update-in (sql/format (h/where criteria))
                                 [0]
                                 string/replace

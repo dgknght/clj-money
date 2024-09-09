@@ -38,7 +38,8 @@
   [account]
   (-> account
       (update-in-if [:earliest-transaction-date] t/local-date)
-      (update-in-if [:latest-transaction-date] t/local-date)))
+      (update-in-if [:latest-transaction-date] t/local-date)
+      (update-in-if [:price-as-of] t/local-date)))
 
 (defn- select-sql-with-downward-recursion
   [criteria options]

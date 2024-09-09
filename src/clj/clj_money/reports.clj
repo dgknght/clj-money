@@ -159,13 +159,14 @@
 
   (let [accounts (if (map? accounts)
                    (vals accounts)
-                   accounts)]
-    (assoc ctx :balances (if (seq accounts)
-                           (fetch-balances (->> accounts
-                                                (map :id)
-                                                set)
-                                           as-of)
-                           {}))))
+                   accounts)
+        balances (if (seq accounts)
+                   (fetch-balances (->> accounts
+                                        (map :id)
+                                        set)
+                                   as-of)
+                   {})]
+    (assoc ctx :balances balances)))
 
 (defn- append-retained-earnings
   [mapped-accounts]
@@ -829,8 +830,7 @@
 
 (defn- flatten-and-summarize-account
   [[account-id groups] {:keys [accounts balances] :as ctx}]
-  (let [cash-value (or (get-in balances [account-id :balance])
-                       0M)
+  (let [cash-value (get-in balances [account-id :balance] 0M)
         children (cons
                   {:caption "Cash"
                    :style :subheader

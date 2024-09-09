@@ -21,6 +21,12 @@
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.accounts/format-quantity
+                                                      clj-money.tasks/compile-sass
+                                                      clj-money.tasks/export-user-tags
+                                                      clj-money.tasks/import-user-tags
+                                                      clj-money.tasks/migrate-account
+                                                      clj-money.tasks/recalc
+                                                      clj-money.tasks/update-commodity-price-ranges
                                                       clj-money.views.reconciliations/load-working-reconciliation
                                                       clj-money.views.reconciliations/reconciliation-form}}
            :unresolved-var {:exclude [honeysql.helpers/select

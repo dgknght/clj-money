@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.java.jdbc :as jdbc]
+            [java-time.api :as t]
             [honeysql.helpers :refer [select
                                       sset
                                       update
@@ -16,24 +17,31 @@
                                                           query
                                                           apply-criteria]]))
 
+(defn- after-read
+  [lot-transaction]
+  (update-in lot-transaction [:transaction-date] t/local-date))
+
 (defmethod stg/select ::models/lot-transaction
   [criteria options db-spec]
-  (query db-spec (-> (select :lots_transactions.*)
-                     (from :lots_transactions)
-                     (select-count options)
-                     (apply-criteria criteria {:target :lot-transaction})
-                     (apply-limit options))))
+  (map after-read
+       (query db-spec
+              (-> (select :lots_transactions.*)
+                  (from :lots_transactions)
+                  (select-count options)
+                  (apply-criteria criteria {:target :lot-transaction})
+                  (apply-limit options)))))
 
 (defmethod stg/insert ::models/lot-transaction
   [lot-transaction db-spec]
-  (insert-model db-spec :lots_transactions lot-transaction
-                :lot-id
-                :transaction-id
-                :transaction-date
-                :lot-action
-                :shares
-                :price
-                :action))
+  (after-read
+    (insert-model db-spec :lots_transactions lot-transaction
+                  :lot-id
+                  :transaction-id
+                  :transaction-date
+                  :lot-action
+                  :shares
+                  :price
+                  :action)))
 
 (defmethod stg/update ::models/lot-transaction
   [{:keys [lot-id

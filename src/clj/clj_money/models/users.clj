@@ -3,8 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as string]
             [slingshot.slingshot :refer [throw+]]
-            [clj-time.core :as t]
-            [clj-time.coerce :refer [to-sql-date]]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [buddy.hashers :as hashers]
             [stowaway.core :refer [tag]]
@@ -101,7 +100,7 @@
   "Returns the user having the specified, unexpired password reset token"
   [token]
   (find-by {:password-reset-token token
-            :token-expires-at [:> (to-sql-date (t/now))]}))
+            :token-expires-at [:> (t/sql-date (t/instant))]}))
 
 (defn authenticate
   "Returns the user with the specified username and password.
@@ -139,7 +138,7 @@
     (-> user
         (tag ::models/user)
         (assoc :password-reset-token token
-               :token-expires-at (-> 24 t/hours t/from-now to-sql-date))
+               :token-expires-at (t/plus (t/instant) (t/hours 24)))
         update)
     token))
 

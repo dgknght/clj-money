@@ -4,8 +4,8 @@
             [dgknght.app-lib.models :as models]
             [dgknght.app-lib.web :refer [format-decimal]]
             #?(:cljs [dgknght.app-lib.decimal :as decimal])
-            #?(:clj [clj-time.coerce :as tc]
-               :cljs [cljs-time.coerce :as tc])))
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])))
 
 (def account-types
   "The list of valid account types in standard presentation order"
@@ -123,13 +123,13 @@
                          (or (->> account
                                   (map :earliest-transaction-date)
                                   (filter identity)
-                                  (sort-by tc/to-long)
+                                  (sort-by t/before?)
                                   first)
                              earliest-date)
                          (or (->> account
                                   (map :latest-transaction-date)
                                   (filter identity)
-                                  (sort-by tc/to-long >)
+                                  (sort-by t/after?)
                                   first)
                              latest-date)]}
      {:account-id (:id account)
