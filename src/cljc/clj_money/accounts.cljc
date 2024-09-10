@@ -1,6 +1,8 @@
 (ns clj-money.accounts
   (:refer-clojure :exclude [+ - * / abs])
   (:require [clojure.string :as string]
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.models :as models]
             [dgknght.app-lib.web :refer [format-decimal]]
             #?(:cljs [dgknght.app-lib.decimal :as decimal])
@@ -123,13 +125,13 @@
                          (or (->> account
                                   (map :earliest-transaction-date)
                                   (filter identity)
-                                  (sort-by t/before?)
+                                  (sort t/before?)
                                   first)
                              earliest-date)
                          (or (->> account
                                   (map :latest-transaction-date)
                                   (filter identity)
-                                  (sort-by t/after?)
+                                  (sort t/after?)
                                   first)
                              latest-date)]}
      {:account-id (:id account)
