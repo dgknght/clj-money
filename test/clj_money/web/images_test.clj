@@ -1,7 +1,7 @@
 (ns clj-money.web.images-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [ring.mock.request :as req]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [basic-context
