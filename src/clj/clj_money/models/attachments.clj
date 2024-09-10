@@ -1,6 +1,7 @@
 (ns clj-money.models.attachments
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core

@@ -1,6 +1,7 @@
 (ns clj-money.api.attachments-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.java.io :as io]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [cheshire.core :as json]
             [ring.mock.request :as req]
