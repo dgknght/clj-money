@@ -1,14 +1,14 @@
 (ns clj-money.api.attachments-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [clojure.java.io :as io]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [lambdaisland.uri :refer [map->query-string]]
-            [dgknght.app-lib.web :refer [path
-                                         serialize-date]]
+            [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.test :refer [parse-json-body]]
+            [clj-money.dates :as dates]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                build-multipart-request]]
@@ -38,7 +38,7 @@
         response (-> (req/request :post (path :api
                                               :transactions
                                               (:id transaction)
-                                              (serialize-date (:transaction-date transaction))
+                                              (dates/serialize-local-date (:transaction-date transaction))
                                               :attachments))
                      (merge (build-multipart-request {:file {:file file
                                                              :content-type "image/jpg"}}))

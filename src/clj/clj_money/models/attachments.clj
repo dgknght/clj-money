@@ -1,6 +1,7 @@
 (ns clj-money.models.attachments
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core
              :refer [tag]]
@@ -12,12 +13,11 @@
             [dgknght.app-lib.validation :refer [with-validation]]
             [clj-money.models :as models]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.images :as images])
-  (:import org.joda.time.LocalDate))
+            [clj-money.models.images :as images]))
 
 (s/def ::id integer?)
 (s/def ::transaction-id uuid?)
-(s/def ::transaction-date #(instance? LocalDate %))
+(s/def ::transaction-date t/local-date?)
 (s/def ::image-id integer?)
 (s/def ::caption string?)
 (s/def ::new-attachment (s/keys :req-un [::transaction-id

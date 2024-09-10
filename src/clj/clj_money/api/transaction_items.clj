@@ -5,9 +5,9 @@
                                           parse-int
                                           parse-bool
                                           uuid]]
-            [dgknght.app-lib.web :refer [unserialize-date ]]
             [dgknght.app-lib.authorization :refer [+scope]]
             [dgknght.app-lib.api :as api]
+            [clj-money.dates :as dates]
             [clj-money.util :refer [presence]]
             [clj-money.transactions :refer [summarize-items]]
             [clj-money.models :as models]
@@ -20,8 +20,8 @@
   [criteria]
   (update-in criteria [:transaction-date] (fn [v]
                                             (if (vector? v)
-                                              [:between> (unserialize-date (first v)) (unserialize-date (second v))]
-                                              (unserialize-date v)))))
+                                              [:between> (dates/unserialize-local-date (first v)) (dates/unserialize-local-date (second v))]
+                                              (dates/unserialize-local-date v)))))
 
 (defn- apply-child-inclusion
   [{:keys [account-id] :as criteria} include-children?]
@@ -82,8 +82,8 @@
   (-> params
       (update-in-if [:interval-type] keyword)
       (update-in-if [:interval-count] parse-int)
-      (update-in-if [:transaction-date 0] unserialize-date)
-      (update-in-if [:transaction-date 1] unserialize-date))) ; TODO: Ensure start and end date
+      (update-in-if [:transaction-date 0] dates/unserialize-local-date)
+      (update-in-if [:transaction-date 1] dates/unserialize-local-date))) ; TODO: Ensure start and end date
 
 (defn- summarize
   [{:keys [authenticated] :as req}]

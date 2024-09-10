@@ -5,12 +5,12 @@
             [stowaway.core :refer [tag]]
             [dgknght.app-lib.core :refer [uuid
                                           update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.authorization
              :as auth
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
+            [clj-money.dates :as dates]
             [clj-money.util :refer [nominative-variations
                                     symbolic-comparatives]]
             [clj-money.io :refer [read-bytes]]
@@ -21,7 +21,7 @@
 
 (defn- unserialize-transaction-date
   [criteria]
-  (reduce #(update-in-if %1 [%2] unserialize-date)
+  (reduce #(update-in-if %1 [%2] dates/unserialize-local-date)
           criteria
           (nominative-variations :transaction-date)))
 
@@ -46,7 +46,7 @@
   (-> params
       (select-keys [:transaction-id :transaction-date])
       (update-in [:transaction-id] uuid)
-      (update-in [:transaction-date] unserialize-date)
+      (update-in [:transaction-date] dates/unserialize-local-date)
       (tag ::models/attachment)))
 
 (defn- create-image

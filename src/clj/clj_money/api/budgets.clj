@@ -4,13 +4,13 @@
             [stowaway.core :as stow]
             [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.authorization
              :as auth
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.transactions :refer [summarize-items]]
             [clj-money.models.transactions :as trans]
@@ -28,7 +28,7 @@
   [item]
   (-> item
       (update-in-if [:periods] #(map bigdec %))
-      (update-in-if [:spec :start-date] unserialize-date)))
+      (update-in-if [:spec :start-date] dates/unserialize-local-date)))
 
 (defn- extract-budget
   [{:keys [body]}]
@@ -40,7 +40,7 @@
                     :items])
       (update-in-if [:items] #(map prepare-item %))
       (update-in-if [:period] keyword)
-      (update-in-if [:start-date] unserialize-date)))
+      (update-in-if [:start-date] dates/unserialize-local-date)))
 
 (defn- ->budget-item
   [[account-id tran-items]
@@ -92,7 +92,7 @@
       budgets/create ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
       (auto-create-items (-> body
                              :auto-create-start-date
-                             unserialize-date))
+                             dates/unserialize-local-date))
       api/creation-response))
 
 (defn- find-and-auth

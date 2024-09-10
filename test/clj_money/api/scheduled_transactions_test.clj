@@ -2,10 +2,9 @@
   (:require [clojure.test :refer [use-fixtures deftest is]]
             [ring.mock.request :as req]
             [clj-time.core :as t]
-            [dgknght.app-lib.web :refer [path
-                                         unserialize-date
-                                         serialize-date]]
+            [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
+            [clj-money.dates :as dates]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-json-body]]
             [clj-money.factories.user-factory]
@@ -129,7 +128,7 @@
                                          (:id entity)
                                          :scheduled-transactions))
                 (req/json-body (-> attr
-                                   (update-in [:start-date] serialize-date)
+                                   (update-in [:start-date] dates/serialize-local-date)
                                    (assoc-in [:items 0 :account-id] (:id checking))
                                    (assoc-in [:items 1 :account-id] (:id salary))))
                 (add-auth user)
@@ -377,7 +376,7 @@
 (defn- comparable-trans
   [trans from-json?]
   (cond-> (select-keys trans [:transaction-date :description])
-    from-json? (update-in [:transaction-date] unserialize-date)))
+    from-json? (update-in [:transaction-date] dates/unserialize-local-date)))
 
 (defn- assert-successful-mass-realization
   [[response retrieved]]

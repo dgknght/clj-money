@@ -1,6 +1,7 @@
 (ns clj-money.models.sql-storage.lot-transactions
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [clojure.java.jdbc :as jdbc]
             [java-time.api :as t]
             [honeysql.helpers :refer [select
@@ -23,13 +24,15 @@
 
 (defmethod stg/select ::models/lot-transaction
   [criteria options db-spec]
-  (map after-read
-       (query db-spec
-              (-> (select :lots_transactions.*)
-                  (from :lots_transactions)
-                  (select-count options)
-                  (apply-criteria criteria {:target :lot-transaction})
-                  (apply-limit options)))))
+  (let [result (query db-spec
+                      (-> (select :lots_transactions.*)
+                          (from :lots_transactions)
+                          (select-count options)
+                          (apply-criteria criteria {:target :lot-transaction})
+                          (apply-limit options)))]
+    (if (:count options)
+      result
+      (map after-read result))))
 
 (defmethod stg/insert ::models/lot-transaction
   [lot-transaction db-spec]

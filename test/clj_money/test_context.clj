@@ -1,5 +1,6 @@
 (ns clj-money.test-context
   (:require [clojure.string :as string]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.validation :as v]

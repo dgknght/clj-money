@@ -4,10 +4,10 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
-            [dgknght.app-lib.web :refer [path
-                                         serialize-date]]
+            [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
             [java-time.api :as t]
+            [clj-money.dates :as dates]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             realize
@@ -135,7 +135,7 @@
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :patch (path :api
                                                :prices
-                                               (serialize-date (:trade-date price))
+                                               (dates/serialize-local-date (:trade-date price))
                                                (:id price)))
                      (req/json-body {:trade-date "2016-02-27"
                                      :price 9.99})
@@ -178,7 +178,7 @@
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :delete (path :api
                                                 :prices
-                                                (serialize-date (:trade-date price))
+                                                (dates/serialize-local-date (:trade-date price))
                                                 (:id price)))
                      (add-auth user)
                      app)

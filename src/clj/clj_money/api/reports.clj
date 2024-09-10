@@ -1,9 +1,9 @@
 (ns clj-money.api.reports
   (:require [compojure.core :refer [defroutes GET]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.authorization :refer [+scope]]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.entities :as entities]
             [clj-money.models.budgets :as budgets]
@@ -23,8 +23,8 @@
   (if-let [entity (fetch-entity req)]
     (api/response
       (rpt/income-statement entity
-                            (unserialize-date start-date)
-                            (unserialize-date end-date)))
+                            (dates/unserialize-local-date start-date)
+                            (dates/unserialize-local-date end-date)))
     api/not-found))
 
 (defn- balance-sheet
@@ -32,7 +32,7 @@
   (if-let [entity (fetch-entity req)]
     (api/response
       (rpt/balance-sheet entity
-                         (unserialize-date (:as-of params))))
+                         (dates/unserialize-local-date (:as-of params))))
     api/not-found))
 
 (defn- portfolio
@@ -41,7 +41,7 @@
     (api/response (rpt/portfolio (-> params
                                      (select-keys [:aggregate :as-of])
                                      (update-in-if [:aggregate] keyword)
-                                     (update-in-if [:as-of] unserialize-date)
+                                     (update-in-if [:as-of] dates/unserialize-local-date)
                                      (assoc :entity entity))))
     api/not-found))
 
@@ -54,7 +54,7 @@
       (rpt/budget budget (-> params
                              (select-keys [:as-of :tags])
                              (update-in-if [:tags] #(mapv keyword %))
-                             (update-in-if [:as-of] unserialize-date))))
+                             (update-in-if [:as-of] dates/unserialize-local-date))))
     api/not-found))
 
 (defn- flatten-ratio

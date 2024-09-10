@@ -6,11 +6,11 @@
                                           uuid
                                           parse-decimal
                                           parse-int]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.authorization :refer [+scope
                                              authorize]
              :as authorization]
             [dgknght.app-lib.api :as api]
+            [clj-money.dates :as dates]
             [clj-money.prices :as p]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.prices.alpha-vantage :as alpha-vantage]
@@ -25,7 +25,7 @@
   {:pre [(:trade-date params)]}
 
   (->  params
-      (update-in [:trade-date] #(apply vector :between> (map unserialize-date %)))
+      (update-in [:trade-date] #(apply vector :between> (map dates/unserialize-local-date %)))
       (select-keys [:commodity-id :entity-id :trade-date])
       (+scope ::models/price authenticated)))
 
@@ -40,7 +40,7 @@
   (-> params
       (merge body)
       (select-keys [:commodity-id :trade-date :price])
-      (update-in-if [:trade-date] unserialize-date)
+      (update-in-if [:trade-date] dates/unserialize-local-date)
       (update-in-if [:price] parse-decimal)
       (storage/tag ::models/price)))
 
@@ -55,7 +55,7 @@
 (defn- scoped-find
   [{:keys [params authenticated]} action]
   (authorize (prices/find (uuid (:id params))
-                          (unserialize-date (:trade-date params)))
+                          (dates/unserialize-local-date (:trade-date params)))
              action
              authenticated))
 
@@ -67,7 +67,7 @@
         (merge price (-> body
                          (select-keys [:price :trade-date])
                          (update-in-if [:price] bigdec)
-                         (update-in [:trade-date] unserialize-date)))))
+                         (update-in [:trade-date] dates/unserialize-local-date)))))
     api/not-found))
 
 (defn- delete
