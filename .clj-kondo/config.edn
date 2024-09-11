@@ -27,6 +27,8 @@
                                                       clj-money.tasks/migrate-account
                                                       clj-money.tasks/recalc
                                                       clj-money.tasks/update-commodity-price-ranges
+                                                      clj-money.util/pp->
+                                                      clj-money.util/pp->>
                                                       clj-money.views.reconciliations/load-working-reconciliation
                                                       clj-money.views.reconciliations/reconciliation-form}}
            :unresolved-var {:exclude [honeysql.helpers/select

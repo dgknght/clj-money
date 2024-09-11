@@ -1,6 +1,8 @@
 (ns clj-money.util
   (:refer-clojure :exclude [abs])
-  (:require [clojure.string :as string]))
+  (:require [clojure.string :as string]
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])))
 
 (defn abs
   [value]
@@ -223,3 +225,13 @@
   of the template merged with each map in the list"
   [template & series]
   (map #(merge template %) series))
+
+(defn pp->
+  [v m]
+  (pprint {m v})
+  v)
+
+(defn pp->>
+  [m v]
+  (pprint {m v})
+  v)
