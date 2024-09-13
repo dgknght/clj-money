@@ -201,17 +201,62 @@
        first))
 
 (defn within?
-  [date [start end]]
-  #?(:clj (or (t/= start date)
-              (t/= end date)
-              (t/before? start date end))
-     :cljs (t/within? start end date)))
+  "Return true if the date is in the range, which is inclusive on both ends"
+  ([date [start end]]
+   (within? date start end))
+  ([date start end]
+   {:pre [(t/before? start end)]}
+   ; false
+   ; x
+   ;  |---|
+   ;
+   ;      x
+   ; |---|
+   ;
+   ; true
+   ; x
+   ; |---|
+   ;
+   ;  x
+   ; |---|
+   ;
+   ;     x
+   ; |---|
+   (not (or (t/before? date start)
+            (t/before? end date)))))
 
 (defn overlaps?
-  [range1 range2]
-  #?(:clj (.overlaps (interval range1)
-                     (interval range2))
-     :cljs (t/overlaps? range1 range2)))
+  "Returns true if the two intervals overlap. Date ranges are inclusive on both ends"
+  ([[s1 e1] [s2 e2]]
+   (overlaps? s1 e1 s2 e2))
+  ([s1 e1 s2 e2]
+   {:pre [(t/before? s1 e1)
+          (t/before? s2 e2)]}
+   ; false
+   ; |---|
+   ;       |---|
+   ;
+   ;       |---|
+   ; |---|
+
+   ; true
+   ; |---|
+   ; |---|
+   ;
+   ;   |---|
+   ; |---|
+   ;
+   ;     |---|
+   ; |---|
+   ;
+   ; |---|
+   ;   |---|
+   ;
+   ; |---|
+   ;     |---|
+
+   (not (or (t/before? e1 s2)
+            (t/before? e2 s1)))))
 
 (defn today []
   #?(:clj (t/local-date)
