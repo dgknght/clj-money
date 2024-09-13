@@ -1,6 +1,6 @@
 (ns clj-money.prices.api-client-test
   (:require [clojure.test :refer [deftest is]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-http.client :as client]
             [clj-money.prices.api-client :as prices-client]))
 

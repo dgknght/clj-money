@@ -3,7 +3,7 @@
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.factories.user-factory]

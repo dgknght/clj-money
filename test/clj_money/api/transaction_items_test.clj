@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]

@@ -14,7 +14,8 @@
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            with-fixed-time]]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
@@ -231,7 +232,7 @@
                                              :regularMarketPrice 10.01M
                                              :regularMarketTime (t/local-date 2015 3 2)})
                                           symbols))]
-      (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
+      (with-fixed-time "2015-03-02T12:00:00Z"
         (-> (req/request :get (str (path :api
                                          :prices
                                          :fetch)

@@ -1,6 +1,6 @@
 (ns clj-money.models.lots-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test]
             [clj-money.factories.user-factory]

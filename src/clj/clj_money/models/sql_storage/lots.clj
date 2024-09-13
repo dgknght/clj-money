@@ -1,5 +1,6 @@
 (ns clj-money.models.sql-storage.lots
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [clojure.java.jdbc :as jdbc]
             [java-time.api :as t]
             [honeysql.helpers :refer [select
@@ -25,16 +26,25 @@
   [d]
   (t/sql-date d))
 
+(defn- after-read
+  [lot]
+  (pprint {::after-read lot})
+  (-> lot
+      (update-in [:purchase-date] t/local-date)
+      (update-in-if [:latest-price] t/local-date)
+      (update-in-if [:earliest-price] t/local-date)))
+
 (defmethod stg/select ::models/lot
   [criteria options db-spec]
   (log/debugf "select %s" (prn-str criteria))
-  (query db-spec (-> (select :*)
-                     (from :lots)
-                     (apply-criteria (criteria/apply-to criteria
-                                                        #(update-in-if % [:purchase-date] update-purchase-date))
-                                     {:target :lot})
-                     (apply-limit options)
-                     (apply-sort options))))
+  (map after-read
+       (query db-spec (-> (select :*)
+                          (from :lots)
+                          (apply-criteria (criteria/apply-to criteria
+                                                             #(update-in-if % [:purchase-date] update-purchase-date))
+                                          {:target :lot})
+                          (apply-limit options)
+                          (apply-sort options)))))
 
 (defmethod stg/insert ::models/lot
   [lot db-spec]

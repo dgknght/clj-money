@@ -1,7 +1,7 @@
 (ns clj-money.api.reconciliations-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [ring.mock.request :as req]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [cheshire.core :as json]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web :refer [path]]

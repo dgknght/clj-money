@@ -237,8 +237,9 @@
                                       %)))))
 
 (defn- fetch-lot-items
-  [transaction-id]
-  (l-t/search {:transaction-id transaction-id}))
+  [transaction-id transaction-date]
+  (l-t/search {:transaction-id transaction-id
+               :transaction-date transaction-date}))
 
 (defn search-items
   "Returns transaction items matching the specified criteria"
@@ -259,7 +260,8 @@
 (defn- append-lot-items
   [transaction]
   (when transaction
-    (if-let [lot-items (seq (fetch-lot-items (:id transaction)))]
+    (if-let [lot-items (seq (fetch-lot-items (:id transaction)
+                                             (:transaction-date transaction)))]
       (assoc transaction
              :lot-items
              (->> lot-items

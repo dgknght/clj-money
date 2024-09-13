@@ -1,7 +1,7 @@
 (ns clj-money.prices.yahoo-test
   (:require [clojure.test :refer [deftest is]]
             [clojure.java.io :as io]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.test]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
             [clj-money.prices.yahoo :as yahoo]))

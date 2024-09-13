@@ -12,6 +12,8 @@
             [honeysql.core :as sql]
             [stowaway.sql :refer [apply-limit
                                   select-count]]
+            [stowaway.criteria :as criteria]
+            [dgknght.app-lib.core :refer [deep-contains?]]
             [clj-money.models :as models]
             [clj-money.models.sql-storage :as stg]
             [clj-money.models.storage.sql-helpers :refer [insert-model
@@ -22,13 +24,27 @@
   [lot-transaction]
   (update-in lot-transaction [:transaction-date] t/local-date))
 
+(defmulti ->sql-date type)
+
+(defmethod ->sql-date clojure.lang.PersistentVector
+  [[oper & vs]]
+  (apply vector oper (map ->sql-date vs)))
+
+(defmethod ->sql-date :default
+  [d]
+  (t/sql-date d))
+
 (defmethod stg/select ::models/lot-transaction
   [criteria options db-spec]
+  {:pre [(deep-contains? criteria :transaction-date)]}
+
   (let [result (query db-spec
                       (-> (select :lots_transactions.*)
                           (from :lots_transactions)
                           (select-count options)
-                          (apply-criteria criteria {:target :lot-transaction})
+                          (apply-criteria (criteria/apply-to criteria
+                                                             #(update-in % [:transaction-date] ->sql-date))
+                                          {:target :lot-transaction})
                           (apply-limit options)))]
     (if (:count options)
       result

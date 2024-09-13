@@ -1,6 +1,6 @@
 (ns clj-money.api.budgets-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-time.periodic :refer [periodic-seq]]
             [cheshire.core :as json]
             [ring.mock.request :as req]

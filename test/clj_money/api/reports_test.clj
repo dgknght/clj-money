@@ -2,10 +2,11 @@
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [realize
                                             basic-context
@@ -80,15 +81,15 @@
   (let [ctx (realize report-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
-        response (t/do-at (t/date-time 2016 2 2)
-                          (-> (req/request :get (path :api
-                                                      :entities
-                                                      (:id entity)
-                                                      :reports
-                                                      :balance-sheet
-                                                      "end-of-previous-month"))
-                              (add-auth user)
-                              app))
+        response (with-fixed-time "2016-02-02T00:00:00Z"
+                   (-> (req/request :get (path :api
+                                               :entities
+                                               (:id entity)
+                                               :reports
+                                               :balance-sheet
+                                               "end-of-previous-month"))
+                       (add-auth user)
+                       app))
         body (json/parse-string (:body response) true)]
     [response body]))
 
@@ -163,14 +164,14 @@
   (let [ctx (realize monitor-context)
         user (find-user ctx email)
         entity (find-entity ctx "Personal")
-        response (t/do-at (t/date-time 2016 1 7)
-                          (-> (req/request :get (path :api
-                                                      :entities
-                                                      (:id entity)
-                                                      :reports
-                                                      :budget-monitors))
-                              (add-auth user)
-                              app))
+        response (with-fixed-time "2016-01-07T00:00:00Z"
+                   (-> (req/request :get (path :api
+                                               :entities
+                                               (:id entity)
+                                               :reports
+                                               :budget-monitors))
+                       (add-auth user)
+                       app))
         body (json/parse-string (:body response) true)]
     [response body]))
 
