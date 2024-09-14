@@ -1,12 +1,12 @@
 (ns clj-money.api.budgets-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
             [java-time.api :as t]
-            [clj-time.periodic :refer [periodic-seq]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.test]
+            [clj-money.dates :refer [periodic-seq]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-json-body]]
