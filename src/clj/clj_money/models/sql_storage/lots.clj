@@ -28,7 +28,6 @@
 
 (defn- after-read
   [lot]
-  (pprint {::after-read lot})
   (-> lot
       (update-in [:purchase-date] t/local-date)
       (update-in-if [:latest-price] t/local-date)
