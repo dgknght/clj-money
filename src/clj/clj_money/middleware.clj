@@ -74,32 +74,32 @@
   (fn [req]
     (handler (update-in req [:params] normalize-collection-params))))
 
-(defmulti handle-exception :type)
+(defmulti handle-exception (comp :type ex-data))
 
 (defmethod handle-exception ::authorization/unauthorized
-  [data]
-  (if (:opaque? data)
+  [e]
+  (if (:opaque? (ex-data e))
     api/not-found
     api/forbidden))
 
 (defmethod handle-exception ::authorization/not-found
-  [_data]
+  [_]
   api/not-found)
 
 (defmethod handle-exception ::authorization/no-rules
-  [_data]
+  [_]
   (-> {:message "no authorization rules"}
       response
       (status 500)
       (header "Content-Type" "application/json")))
 
 (defmethod handle-exception ::models/not-found
-  [_data]
+  [_]
   api/not-found)
 
 (defmethod handle-exception :default
-  [data]
-  (log/warnf "Unexpected ExceptionInfo was raised: %s" data)
+  [e]
+  (log/error e "Unexpected ExceptionInfo was while hanlding the web request.")
   api/internal-server-error)
 
 ; TODO: Move this to the api namespace
@@ -109,7 +109,7 @@
     (try
      (handler request)
      (catch clojure.lang.ExceptionInfo e
-       (handle-exception (ex-data e)))
+       (handle-exception e))
      (catch Exception e
        (log-error e "unexpected error")
        ; TODO: only do this if in local development mode
