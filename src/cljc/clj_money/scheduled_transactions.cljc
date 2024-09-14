@@ -15,7 +15,7 @@
     (t/plus last-occurrence (t/years interval-count))))
 
 (defmethod since-last :month
-  [{:keys [last-occurrence interval-count] :as x}]
+  [{:keys [last-occurrence interval-count]}]
   {:pre [(dates/local-date? last-occurrence)]}
 
   (when last-occurrence
