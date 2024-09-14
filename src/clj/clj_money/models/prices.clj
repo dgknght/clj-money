@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [config.core :refer [env]]
             [java-time.api :as t]
             [stowaway.core :refer [tag]]

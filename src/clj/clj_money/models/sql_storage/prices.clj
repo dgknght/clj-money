@@ -1,5 +1,6 @@
 (ns clj-money.models.sql-storage.prices
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [honeysql.helpers :refer [select
                                       from]]
@@ -7,7 +8,8 @@
                                   apply-sort
                                   select-count]]
             [stowaway.criteria :as criteria]
-            [dgknght.app-lib.core :refer [deep-contains?]]
+            [dgknght.app-lib.core :refer [deep-contains?
+                                          update-in-if]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
@@ -35,7 +37,7 @@
   (let [sql (-> (select :prices.*)
                 (from :prices)
                 (apply-criteria (criteria/apply-to criteria
-                                                   #(update-in % [:trade-date] ->sql-date))
+                                                   #(update-in-if % [:trade-date] ->sql-date))
                                 {:target :price})
                 (apply-limit options)
                 (apply-sort options)
