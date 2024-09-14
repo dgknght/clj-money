@@ -1,6 +1,7 @@
 (ns clj-money.models.scheduled-transactions
   (:refer-clojure :exclude [find update])
   (:require [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
             [clojure.set :refer [difference
                                  rename-keys]]
             [java-time.api :as t]
@@ -53,7 +54,7 @@
 (s/def ::interval-type #{:day :week :month :year})
 (s/def ::interval-count greater-than-zero?)
 (s/def ::start-date t/local-date?)
-(s/def ::end-date v/nilable-local-date?)
+(s/def ::end-date (s/nilable t/local-date?))
 (s/def ::date-spec map?)
 (s/def ::scheduled-transaction (s/keys :req-un [::entity-id
                                                 ::description

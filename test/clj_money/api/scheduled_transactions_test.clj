@@ -1,5 +1,6 @@
 (ns clj-money.api.scheduled-transactions-test
   (:require [clojure.test :refer [use-fixtures deftest is]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
