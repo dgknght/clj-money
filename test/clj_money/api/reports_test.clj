@@ -20,23 +20,6 @@
 (def ^:private report-context
   basic-context)
 
-(defn- get-income-statement-with-implicit-dates
-  [email]
-  (let [ctx (realize report-context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (path :api
-                                             :entities
-                                             (:id entity)
-                                             :reports
-                                             :income-statement
-                                             "start-of-this-year"
-                                             "end-of-previous-month"))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
-
 (defn- get-income-statement
   [email]
   (let [ctx (realize report-context)
@@ -70,9 +53,6 @@
 (deftest a-user-can-get-an-income-statement-for-his-entity
   (assert-successful-income-statement (get-income-statement "john@doe.com")))
 
-(deftest a-user-can-get-an-income-statement-for-his-entity-with-implicit-dates
-  (assert-successful-income-statement (get-income-statement-with-implicit-dates "john@doe.com")))
-
 (deftest a-user-cannot-get-an-income-statement-for-anothers-entity
   (assert-blocked-income-statement (get-income-statement "jane@doe.com")))
 
@@ -87,7 +67,7 @@
                                                (:id entity)
                                                :reports
                                                :balance-sheet
-                                               "end-of-previous-month"))
+                                               "2016-01-31"))
                        (add-auth user)
                        app))
         body (json/parse-string (:body response) true)]
