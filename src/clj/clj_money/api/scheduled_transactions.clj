@@ -4,13 +4,13 @@
             [java-time.api :as t]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
             [dgknght.app-lib.authorization :refer [authorize
                                              allowed?
                                              +scope]
              :as authorization]
+            [clj-money.dates :as dates]
             [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.models.entities :as entities]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))
@@ -37,9 +37,9 @@
   (-> body
       (update-in-if [:items] #(map ->sched-trans-item %))
       (update-in-if [:interval-type] keyword)
-      (update-in-if [:start-date] unserialize-date)
-      (update-in-if [:end-date] unserialize-date)
-      (update-in-if [:last-occurrence] unserialize-date)
+      (update-in-if [:start-date] dates/unserialize-local-date)
+      (update-in-if [:end-date] dates/unserialize-local-date)
+      (update-in-if [:last-occurrence] dates/unserialize-local-date)
       (storage/tag ::models/scheduled-transaction)))
 
 (defn- create
