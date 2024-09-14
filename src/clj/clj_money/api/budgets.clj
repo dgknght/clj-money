@@ -1,6 +1,7 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update find])
-  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+  (:require [clojure.pprint :refer [pprint]]
+            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
             [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
@@ -57,17 +58,15 @@
 
 (defn- create-items-from-history
   [{:keys [entity-id period period-count] :as budget} start-date]
-  (let [end-date (t/minus
-                   (t/plus start-date
-                           ((case period
-                              :month t/months
-                              :year t/years
-                              :week t/weeks)
-                            period-count))
-                   (t/days 1))]
+  (let [end-date (t/plus start-date
+                         ((case period
+                            :month t/months
+                            :year t/years
+                            :week t/weeks)
+                          period-count))]
     (->> (trans/search-items {[:transaction :entity-id] entity-id
                               [:account :type] [:in #{:income :expense}]
-                              :transaction-date [:between start-date end-date]})
+                              :transaction-date [:between> start-date end-date]})
          (group-by :account-id)
          (map #(->budget-item % budget start-date end-date)))))
 
@@ -78,7 +77,7 @@
     (-> budget
         (assoc :items (create-items-from-history
                         budget
-                        start-date))
+                        (dates/unserialize-local-date start-date)))
         budgets/update)
     budget))
 
@@ -90,9 +89,7 @@
       (stow/tag ::models/budget)
       (authorize ::auth/create authenticated)
       budgets/create ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (auto-create-items (-> body
-                             :auto-create-start-date
-                             dates/unserialize-local-date))
+      (auto-create-items (:auto-create-start-date body))
       api/creation-response))
 
 (defn- find-and-auth
