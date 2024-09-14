@@ -1,10 +1,13 @@
 (ns clj-money.prices.yahoo-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is] :as test]
             [clojure.java.io :as io]
             [java-time.api :as t]
+            [clj-http.core :as http]
             [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
-            [clj-money.prices.yahoo :as yahoo]))
+            [clj-money.prices.yahoo :as yahoo]
+            [clojure.core :as c]))
 
 (def mocks
   {#"yh-finance\.p\.rapidapi\.com\/market\/v2\/get-quotes"
@@ -24,8 +27,8 @@
                              :regularMarketTime (t/local-date 2021 12 10)
                              :regularMarketPrice 177.78M}]
                            (yahoo/get-quotes ["AMD" "IBM" "AAPL"])))
-    (is (called-with-headers? {"X-Rapidapi-Host" "yh-finance.p.rapidapi.com"
-                               "X-Rapidapi-Key" "yahoo-api-key"}
-                              :once
-                              calls)
+    (is (called-with-headers? :once
+                              calls
+                              {"X-Rapidapi-Host" "yh-finance.p.rapidapi.com"
+                               "X-Rapidapi-Key" "yahoo-api-key"})
         "It includes the headers required by the API")))

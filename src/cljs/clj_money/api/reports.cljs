@@ -15,7 +15,7 @@
        report))
 
 (defn income-statement
-  [{:keys [start-date end-date]} xf]
+  [{:keys [start-date end-date]} & xf]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
@@ -23,24 +23,24 @@
                      (serialize-date start-date)
                      (serialize-date end-date))
            {}
-           {:transform (comp (map after-read)
-                             xf)
+           {:transform (apply comp
+                              (map after-read)
+                              xf)
             :handle-ex (handle-ex "Unable to retrieve the income statement: %s")}))
 
 (defn balance-sheet
-  [{:keys [as-of]} xf]
+  [{:keys [as-of]} & xf]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
                      :balance-sheet
                      (serialize-date as-of))
            {}
-           {:transform (comp (map after-read)
-                             xf)
+           {:transform (cons (map after-read) xf)
             :handle-ex (handle-ex "Unable to retrieve the balance sheet: %s")}))
 
 (defn budget
-  [{:keys [budget-id] :as opts} xf]
+  [{:keys [budget-id] :as opts} & xf]
   (let [url (str
               (assoc
                 (uri (api/path :reports
@@ -52,12 +52,12 @@
                            map->query-string)))]
     (api/get url
              {}
-             {:transform (comp (map #(update-in % [:items] after-read))
+             {:transform (cons (map #(update-in % [:items] after-read))
                                xf)
               :handle-ex (handle-ex "Unable to retrieve the budget report: %s")})))
 
 (defn budget-monitors
-  [xf]
+  [& xf]
   (api/get (api/path :entities
                      (:id @current-entity)
                      :reports
@@ -73,7 +73,7 @@
 (defn portfolio
   ([xf]
    (portfolio {:aggregate :by-account} xf))
-  ([options xf]
+  ([options xf & xfs]
    (api/get (str (api/path :entities
                            (:id @current-entity)
                            :reports
@@ -84,6 +84,6 @@
                      (update-in-if [:aggregate] name)
                      map->query-string))
             {}
-            {:transform (comp (map after-portfolio-read)
-                  xf)
+            {:transform (cons (map after-portfolio-read)
+                              (cons xf xfs))
              :handle-ex (handle-ex "Unable to retrieve the portfolio report: %s")})))

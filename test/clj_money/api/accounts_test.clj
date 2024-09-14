@@ -5,6 +5,7 @@
             [lambdaisland.uri :refer [map->query-string]]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
+            [dgknght.app-lib.test-assertions]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             basic-context

@@ -1,9 +1,10 @@
 (ns clj-money.trading-test
   (:require [clojure.test :refer [use-fixtures deftest is testing]]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-entity
@@ -499,7 +500,7 @@
                    :account-id (:id lt-capital-gains)
                    :quantity 125M
                    :memo "Sell 25 shares of AAPL at 15.000"}]]
-    (is (comparable? expected gains-items) "The capital gains account is credited the correct amount")))
+    (is (seq-of-maps-like? expected gains-items) "The capital gains account is credited the correct amount")))
 
 (deftest selling-a-commodity-for-a-profit-before-1-year-credits-short-term-capital-gains
   (let [context (realize sale-context)
@@ -516,7 +517,7 @@
                    :account-id (:id st-capital-gains)
                    :quantity 125M
                    :memo "Sell 25 shares of AAPL at 15.000"}]]
-    (is (comparable? expected gains-items) "The capital gains account is credited the correct amount")))
+    (is (seq-of-maps-like? expected gains-items) "The capital gains account is credited the correct amount")))
 
 ; Selling a commodity updates a lot record (FILO updates the most recent, FIFO updates the oldest)
 

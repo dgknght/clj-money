@@ -13,7 +13,7 @@
                                       merge-join
                                       left-join
                                       where]]
-            [honeysql.format :as sql]
+            [honeysql.core :as sql]
             [camel-snake-kebab.core :refer [->snake_case_string]]
             [stowaway.sql :refer [apply-sort
                                   apply-limit

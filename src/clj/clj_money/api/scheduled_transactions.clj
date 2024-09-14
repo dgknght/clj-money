@@ -5,12 +5,13 @@
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
-            [clj-money.models :as models]
+            [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.authorization :refer [authorize
                                              allowed?
                                              +scope]
              :as authorization]
             [clj-money.dates :as dates]
+            [clj-money.models :as models]
             [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.models.entities :as entities]
             [clj-money.authorization.scheduled-transactions :as sched-trans-auth]))

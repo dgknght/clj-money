@@ -5,6 +5,40 @@ Clojure cloud accounting application
 
 ## Running locally
 
+### Setup the database:
+You'll need PostgreSQL installed.
+
+```bash
+createdb money_development
+lein migrate
+lein partition <start-date> <end-date>
+
+createdb money_test
+lein with-profile test migrate
+lein with-profile partition 2015-01-01 2017-12-31
+```
+
+### Start local services
+Create a `profiles.clj` file with the following:
+```clojure
+{:profiles/dev
+  {:env
+    {:google-client-id "<look it up>"
+     :google-client-secret "<look it up>"}}}
+```
+Start the web server with
+```bash
+lein repl
+```
+then
+```clojure
+(start-server)
+```
+Start the client with:
+```bash
+lein figwheel
+```
+
 In a terminal:
 ```bash
 lein repl

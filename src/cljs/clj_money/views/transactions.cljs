@@ -12,11 +12,11 @@
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal ]]
             [dgknght.app-lib.inflection :refer [humanize]]
-            [dgknght.app-lib.html :refer [set-focus
-                                          space
-                                          special-char
-                                          shift-key?
-                                          key-code]]
+            [dgknght.app-lib.dom :refer [set-focus
+                                         key-code
+                                         shift-key?]]
+            [dgknght.app-lib.html :refer [space
+                                          special-char]]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]

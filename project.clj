@@ -74,16 +74,18 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
-                 [com.github.dgknght/app-lib "0.1.35" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server org.eclipse.jetty/jetty-util com.google.javascript/closure-compiler-externs camel-snake-kebab cheshire commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core]]
+                 [com.github.dgknght/app-lib "0.3.14" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server org.eclipse.jetty/jetty-util com.google.javascript/closure-compiler-externs camel-snake-kebab cheshire commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core]]
                  [lambdaisland/uri "1.4.54"]
                  [stowaway "0.1.20" :exclusions [org.clojure/spec.alpha
                                                  org.clojure/clojure
                                                  org.clojure/core.specs.alpha
                                                  org.clojure/tools.logging]]]
+  :repl-options {:init-ns clj-money.repl
+                 :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
   :plugins [[lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
             [lein-cljfmt "0.7.0"]
-            [lein-figwheel "0.5.16"]]
+            [lein-figwheel "0.5.20"]]
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :aot [clj-money.web.server]

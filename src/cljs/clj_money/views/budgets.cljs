@@ -7,9 +7,11 @@
             [cljs-time.periodic :refer [periodic-seq]]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.calendar :as cal]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.state :refer [app-state
                                      current-entity
@@ -49,7 +51,7 @@
   [page-state budget]
   (-busy)
   (swap! page-state assoc :detailed-budget budget)
-  (html/set-focus "account-id"))
+  (set-focus "account-id"))
 
 (defn- load-budget-details
   [budget page-state]
@@ -66,7 +68,7 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-light {:on-click (fn []
                                                (swap! page-state assoc :selected budget)
-                                               (html/set-focus "name"))
+                                               (set-focus "name"))
                                    :title "Click here to edit this budget"}
       (bs/icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-light {:on-click #(load-budget-details budget page-state)
@@ -111,7 +113,7 @@
                                                    :selected
                                                    {:period :month
                                                     :period-count 12})
-                                            (html/set-focus "name"))
+                                            (set-focus "name"))
                                 :disabled @busy?}
                          :icon :plus
                          :caption "Add"
@@ -134,30 +136,35 @@
   (let [selected (r/cursor page-state [:selected])
         auto-create (r/cursor selected [:auto-create-items])]
     (fn []
-      [:div {:class (when-not @selected "d-none")}
-       [:form {:on-submit #(.preventDefault %)
-               :no-validate true}
-        [forms/text-field selected [:name] {:validate [:required]}]
-        [forms/date-field selected [:start-date] {:validate [:required]}]
-        [forms/select-field selected [:period] (->> budgets/periods
-                                                    (map name)
-                                                    sort)]
-        [forms/integer-field selected [:period-count]]
-        [forms/checkbox-field selected [:auto-create-items]]
-        [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]]
-       [:div
-        [bs/busy-button {:html {:class "btn-primary"
-                                :on-click #(save-budget page-state)
-                                :title "Click here to save this budget."}
-                         :icon :check
-                         :caption "Save"
-                         :busy? busy?}]
-        [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                :title "Click here to cancel this operation."
-                                :on-click #(swap! page-state dissoc :selected)}
-                         :icon :x
-                         :caption "Cancel"
-                         :busy? busy?}]]])))
+      (when @selected
+        [:form {:on-submit (fn [e]
+                             (.preventDefault e)
+                             (v/validate selected)
+                             (when (v/valid? selected)
+                               (save-budget page-state)))
+                :no-validate true}
+         [forms/text-field selected [:name] {:validations #{::v/required}}]
+         [forms/date-field selected [:start-date] {:validations #{::v/required}}]
+         [forms/select-field selected [:period] (->> budgets/periods
+                                                     (map name)
+                                                     sort)]
+         [forms/integer-field selected [:period-count] {:validations #{::v/required}}]
+         [forms/checkbox-field selected [:auto-create-items]]
+         [forms/date-field selected [:auto-create-start-date] {:disabled-fn #(not @auto-create)}]
+         [:div.mt-3
+          [bs/busy-button {:html {:class "btn-primary"
+                                  :type :submit
+                                  :title "Click here to save this budget."}
+                           :icon :check
+                           :caption "Save"
+                           :busy? busy?}]
+          [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                  :type :button
+                                  :title "Click here to cancel this operation."
+                                  :on-click #(swap! page-state dissoc :selected)}
+                           :icon :x
+                           :caption "Cancel"
+                           :busy? busy?}]]]))))
 
 (defn- post-delete-budget-item
   [page-state budget]
@@ -195,7 +202,7 @@
 (defn- select-budget-item
   [item page-state]
   (swap! page-state assoc :selected-item (ensure-spec item))
-  (html/set-focus "account-id"))
+  (set-focus "account-id"))
 
 (defn- abbreviate
   [account-name]
