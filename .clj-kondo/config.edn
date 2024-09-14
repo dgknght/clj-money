@@ -56,6 +56,7 @@
            :unused-referred-var {:exclude {clojure.pprint [pprint]
                                            cljs.pprint [pprint]}}
            :unused-namespace {:exclude [dgknght.app-lib.validation-tests
+                                        clj-http.core
                                         clojure.pprint
                                         cljs.pprint]}}
  :output {:exclude-files ["data_readers.clj"]}}
