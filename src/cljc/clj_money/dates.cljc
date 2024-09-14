@@ -132,11 +132,14 @@
                   (t/plus start (t/years 1)))))))
 
 (defn periodic-seq
-  [start period]
-  #?(:cljs (periodic/periodic-seq start period)
-     :clj (lazy-seq (cons start
-                          (periodic-seq (t/plus start period)
-                                        period)))))
+  ([start end period]
+   (take-while #(not (t/after? % end))
+               (periodic-seq start period)))
+  ([start period]
+   #?(:cljs (periodic/periodic-seq start period)
+      :clj (lazy-seq (cons start
+                           (periodic-seq (t/plus start period)
+                                         period))))))
 
 (defn intervals
   [start period]
