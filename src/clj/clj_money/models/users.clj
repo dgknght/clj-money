@@ -100,7 +100,7 @@
   "Returns the user having the specified, unexpired password reset token"
   [token]
   (find-by {:password-reset-token token
-            :token-expires-at [:> (t/sql-date (t/instant))]}))
+            :token-expires-at [:> (t/instant)]}))
 
 (defn authenticate
   "Returns the user with the specified username and password.
