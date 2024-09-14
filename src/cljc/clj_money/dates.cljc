@@ -59,7 +59,12 @@
                               rest
                               (map parse-int)))
 
+(defn today []
+  #?(:clj (t/local-date)
+     :cljs (t/today)))
+
 (defn first-day-of-the-month
+  ([] (first-day-of-the-month (today)))
   ([local-date]
    (first-day-of-the-month (t/year local-date)
                            (t/month local-date)))
@@ -67,6 +72,7 @@
    (t/local-date year month 1)))
 
 (defn last-day-of-the-month
+  ([] (last-day-of-the-month (today)))
   ([local-date]
    (last-day-of-the-month (t/year local-date)
                           (t/month local-date)))
@@ -260,10 +266,6 @@
 
    (not (or (t/before? e1 s2)
             (t/before? e2 s1)))))
-
-(defn today []
-  #?(:clj (t/local-date)
-     :cljs (t/today)))
 
 (defn day-of-month
   [local-date]
