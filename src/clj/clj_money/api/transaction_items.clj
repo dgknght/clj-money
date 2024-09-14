@@ -1,6 +1,7 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
-  (:require [compojure.core :refer [defroutes GET]]
+  (:require [clojure.pprint :refer [pprint]]
+            [compojure.core :refer [defroutes GET]]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-int
                                           parse-bool
@@ -18,10 +19,14 @@
 
 (defn- translate-dates
   [criteria]
-  (update-in criteria [:transaction-date] (fn [v]
-                                            (if (vector? v)
-                                              [:between> (dates/unserialize-local-date (first v)) (dates/unserialize-local-date (second v))]
-                                              (dates/unserialize-local-date v)))))
+  (update-in-if criteria
+                [:transaction-date]
+                (fn [v]
+                  (if (vector? v)
+                    [:between>
+                     (dates/unserialize-local-date (first v))
+                     (dates/unserialize-local-date (second v))]
+                    (dates/unserialize-local-date v)))))
 
 (defn- apply-child-inclusion
   [{:keys [account-id] :as criteria} include-children?]
