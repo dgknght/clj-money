@@ -698,7 +698,7 @@
   (let [ctx (realize portfolio-context)]
     (testing "most recent"
       (test-portfolio ctx (t/local-date 2015 4 30) :by-account))
-    #_(testing "1 month ago"
+    (testing "1 month ago"
       (test-portfolio ctx (t/local-date 2015 3 31) :by-account))))
 
 (deftest get-a-portfolio-report-by-commodity
