@@ -68,6 +68,9 @@
         (when (> (swap! count-sought - (count items))
                  0)
           (go (>! ctl-ch :fetch-more)))
+        ; When the first call returns more than the count sought,
+        ; we put the items here, but they aren't received on the
+        ; other end until the :quit command forces it through
         (xf ch items)))))
 
 (defn load-in-chunks

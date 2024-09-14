@@ -171,7 +171,8 @@
       wrap-request-logging))
 
 (defn -main [& [port]]
-  (let [port (Integer. (or port (env :port) 5000))]
+  (let [port (Integer. (or port (env :port) 3000))]
+    (log/infof "Starting eb server on port %s" port)
     (jetty/run-jetty #'app {:port port :join? false})
     (log/infof "Web server listening on port %s" port)))
 

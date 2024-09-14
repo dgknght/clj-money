@@ -232,9 +232,9 @@
                          (map #(some (fn [k] (k %)) [:value :quantity])) ; TODO this should already be :value
                          (reduce +)))
       (update-in [:lot-items] #(when %
-                                 (map (fn [i]
-                                        (update-in i [:lot-action] name))
-                                      %)))))
+                                 (mapv (fn [i]
+                                         (update-in i [:lot-action] name))
+                                       %)))))
 
 (defn- fetch-lot-items
   [transaction-id]
@@ -263,9 +263,9 @@
       (assoc transaction
              :lot-items
              (->> lot-items
-                  (map #(-> %
-                            (dissoc :transaction-id)
-                            (update-in [:lot-action] keyword)))))
+                  (mapv #(-> %
+                             (dissoc :transaction-id)
+                             (update-in [:lot-action] keyword)))))
       transaction)))
 
 (defn- after-read

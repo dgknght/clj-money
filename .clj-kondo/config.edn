@@ -21,6 +21,14 @@
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.accounts/format-quantity
+                                                      clj-money.tasks/compile-sass
+                                                      clj-money.tasks/export-user-tags
+                                                      clj-money.tasks/import-user-tags
+                                                      clj-money.tasks/migrate-account
+                                                      clj-money.tasks/recalc
+                                                      clj-money.tasks/update-commodity-price-ranges
+                                                      clj-money.util/pp->
+                                                      clj-money.util/pp->>
                                                       clj-money.views.reconciliations/load-working-reconciliation
                                                       clj-money.views.reconciliations/reconciliation-form}}
            :unresolved-var {:exclude [honeysql.helpers/select
@@ -45,5 +53,10 @@
                                             sx
                                             gnc
                                             cd]}
-           :unused-namespace {:exclude [dgknght.app-lib.validation-tests]}}
+           :unused-referred-var {:exclude {clojure.pprint [pprint]
+                                           cljs.pprint [pprint]}}
+           :unused-namespace {:exclude [dgknght.app-lib.validation-tests
+                                        clj-http.core
+                                        clojure.pprint
+                                        cljs.pprint]}}
  :output {:exclude-files ["data_readers.clj"]}}

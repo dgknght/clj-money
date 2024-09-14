@@ -11,7 +11,7 @@ tmux send-keys 'lein figwheel' C-m
 
 # Code window
 tmux new-window -t $session:1 -n $session
-tmux send-keys 'vim' C-m
+tmux send-keys 'nvim' C-m
 tmux split-window -h
 tmux send-keys 'git status' C-m
 

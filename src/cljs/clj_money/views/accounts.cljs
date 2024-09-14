@@ -14,9 +14,11 @@
                                          format-date
                                          format-decimal]]
             [dgknght.app-lib.inflection :refer [humanize]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
+            [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs :refer [nav-tabs]]
             [clj-money.components :refer [load-on-scroll]]
@@ -127,7 +129,7 @@
       (bs/icon :collection {:size :small})]
      [:button.btn.btn-light.btn-sm {:on-click (fn []
                                                (swap! page-state assoc :selected account)
-                                               (html/set-focus "parent-id"))
+                                               (set-focus "parent-id"))
                                    :title "Click here to edit this account."}
       (bs/icon :pencil {:size :small})]
      [:button.btn.btn-light {:on-click #(swap! page-state assoc :allocation {:account (prepare-for-allocation account)
@@ -328,12 +330,16 @@
            [:th.col-md-3.text-end.d-none.d-sm-table-cell "Value"]
            [:th.col-md-1.d-none.d-md-table-cell (html/space)]
            [:th.col-md-2 (html/space)]]]
-         (if @accounts
-           (if (seq @accounts)
-             [account-and-type-rows page-state]
-             [:tbody
-              [:tr
-               [:td {:col-span 4} "No accounts"]]])
+         (cond
+           (seq @accounts)
+           [account-and-type-rows page-state]
+
+           @accounts
+           [:tbody
+            [:tr
+             [:td {:col-span 4} "No accounts"]]]
+
+           :else
            [:tbody
             [:tr
              [:td {:col-span 4}
@@ -343,21 +349,25 @@
         [:button.btn.btn-primary {:on-click (fn []
                                               (swap! page-state assoc :selected {:entity-id (:id @current-entity)
                                                                                  :type :asset})
-                                              (html/set-focus "parent-id"))
+                                              (set-focus "parent-id"))
                                   :disabled @busy?}
          (bs/icon-with-text :plus "Add")]]
-        [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
-         [bulk-edit-form page-state]]])))
+       [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
+        [bulk-edit-form page-state]]])))
 
 (defn- prepare-for-save
-  [account]
-  (update-in account
-             [:allocations]
-             (fn [allocations]
-               (when allocations
-                 (->> allocations
-                      (remove (fn [[_ v]] (decimal/zero? v)))
-                      (into {}))))))
+  [{:keys [parent-id] :as account}]
+  (let [parent (->> @accounts
+                    (filter #(= (:id %) parent-id))
+                    first)]
+    (cond-> (update-in account
+                       [:allocations]
+                       (fn [allocations]
+                         (when allocations
+                           (->> allocations
+                                (remove (fn [[_ v]] (decimal/zero? v)))
+                                (into {})))))
+      parent (merge (select-keys parent [:type])))))
 
 (defn- save-account
   [page-state]
@@ -374,91 +384,97 @@
   [page-state]
   (let [account (r/cursor page-state [:selected])
         user-tags (r/cursor account [:user-tags])
-        accounts  (r/cursor page-state [:accounts])
         all-user-tags (make-reaction #(->> @accounts
                                            (mapcat :user-tags)
                                            set))
-        commodities (r/cursor page-state [:commodities])]
+        commodities (r/cursor page-state [:commodities])
+        hide-type? (make-reaction #(:parent-id @account))]
     (fn []
-      [:div.row {:class (when-not @account "d-none")}
-       [:div.col-md-6
-        [:h2 (if (:id @account) "Edit" "New")]
-        [:form {:no-validate true
-                :on-submit (fn [e]
-                             (.preventDefault e)
-                             (save-account page-state))}
-         [forms/typeahead-field
-          account
-          [:parent-id]
-          {:search-fn (fn [input callback]
-                        (callback (find-by-path input @accounts)))
-           :caption-fn :path
-           :value-fn :id
-           :find-fn (fn [id callback]
-                      (->> @accounts
-                           (filter #(= id (:id %)))
-                           first
-                           callback))}]
-         [forms/select-field account
-          [:type]
-          (map (juxt name humanize) account-types)
-          {:class (when (:parent-id @account) "hidden")}]
-         [forms/text-field account [:name] {:validate [:required]}]
-         [forms/typeahead-field
-          account
-          [:commodity-id]
-          {:search-fn (fn [input callback]
-                        (let [term (string/lower-case input)]
-                          (->> @commodities
-                               vals
-                               (filter #(or (string/includes? (string/lower-case (:name %))
-                                                              term)
-                                            (string/includes? (string/lower-case (:symbol %))
-                                                              term)))
-                               callback)))
-           :caption-fn :name
-           :value-fn :id
-           :find-fn (fn [id callback]
-                      (callback (get-in @commodities [id])))}]
-         [forms/checkbox-field
-          account
-          [:trading]
-          {:caption "Check here if this account is used to trade commodities"
-           :form-group-attr {:class (when-not (= :asset (:type @account)) "d-none")}}]
-         [:fieldset
-          [:legend "Tags"]
-          [forms/typeahead-input
-           account
-           [:working-tag]
-           {:search-fn (fn [term callback]
-                         (let [existing (:user-tags @account)]
-                           (->> @all-user-tags
-                                (remove existing)
-                                (map name)
-                                (filter #(string/includes? % term))
-                                callback)))
-            :caption-fn name
-            :value-fn name
-            :find-fn keyword
-            :create-fn keyword
-            :on-change (fn [tag]
-                         (swap! account #(-> %
-                                             (update-in [:user-tags] (fnil conj #{}) tag)
-                                             (dissoc :working-tag))))}]
-          (tag-elems @user-tags {:remove-fn #(swap! account
-                                                    update-in
-                                                    [:user-tags]
-                                                    disj
-                                                    %)})]
-         [:div
-          [:button.btn.btn-primary {:type :submit
-                                    :title "Click here to save the account."}
-           (bs/icon-with-text :check "Save")]
+      (when @account
+        [:div.row {:class (when-not @account "d-none")}
+         [:div.col-md-6
+          [:h2 (if (:id @account) "Edit" "New")]
+          [:form {:no-validate true
+                  :on-submit (fn [e]
+                               (.preventDefault e)
+                               (v/validate account)
+                               (when (v/valid? account)
+                                 (save-account page-state)))}
+           [forms/typeahead-field
+            account
+            [:parent-id]
+            {:search-fn (fn [input callback]
+                          (->> @accounts
+                               (find-by-path input)
+                               callback))
+             :caption-fn (comp (partial string/join "/") :path)
+             :value-fn :id
+             :find-fn (fn [id callback]
+                        (->> @accounts
+                             (filter #(= id (:id %)))
+                             first
+                             callback))}]
+           [forms/select-field account
+            [:type]
+            (map (juxt name humanize) account-types)
+            {:hide? hide-type?}]
+           [forms/text-field account [:name] {:validations #{::v/required}}]
+           [forms/typeahead-field
+            account
+            [:commodity-id]
+            {:search-fn (fn [input callback]
+                          (let [term (string/lower-case input)]
+                            (->> @commodities
+                                 vals
+                                 (filter #(or (string/includes? (string/lower-case (:name %))
+                                                                term)
+                                              (string/includes? (string/lower-case (:symbol %))
+                                                                term)))
+                                 callback)))
+             :caption-fn :name
+             :value-fn :id
+             :find-fn (fn [id callback]
+                        (callback (get-in @commodities [id])))
+             :validations #{::v/required}}]
+           [forms/checkbox-field
+            account
+            [:trading]
+            {:caption "Check here if this account is used to trade commodities"
+             :form-group-attr {:class (when-not (= :asset (:type @account)) "d-none")}}]
+           [:fieldset
+            [:legend "Tags"]
+            [forms/typeahead-input
+             account
+             [:working-tag]
+             {:search-fn (fn [term callback]
+                           (let [existing (:user-tags @account)]
+                             (->> @all-user-tags
+                                  (remove existing)
+                                  (map name)
+                                  (filter #(string/includes? % term))
+                                  callback)))
+              :caption-fn name
+              :value-fn name
+              :find-fn keyword
+              :create-fn keyword
+              :on-change (fn [tag]
+                           (swap! account #(-> %
+                                               (update-in [:user-tags] (fnil conj #{}) tag)
+                                               (dissoc :working-tag))))}]
+            (tag-elems @user-tags {:remove-fn #(swap! account
+                                                      update-in
+                                                      [:user-tags]
+                                                      disj
+                                                      %)})]
+           [:div
+            [:button.btn.btn-primary {:type :submit
+                                      :title "Click here to save the account."}
+             (bs/icon-with-text :check "Save")]
 
-          [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :selected)
-                                        :type :button
-                                        :title "Click here to return to the list of accounts."}
-           (bs/icon-with-text :x "Cancel")]]]]])))
+            [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :selected)
+                                             :type :button
+                                             :title "Click here to return to the list of accounts."}
+             (bs/icon-with-text :x "Cancel")]]]]]))))
 
 (defn- new-transaction
   [page-state]
@@ -469,7 +485,7 @@
                           :transaction-date (t/today)
                           :account-id account-id}
                          ::trns/simple)))
-  (html/set-focus "transaction-date"))
+  (set-focus "transaction-date"))
 
 (defn- account-buttons
   [page-state]
@@ -485,12 +501,11 @@
                      (swap! page-state dissoc :items)
                      (recs/load-working-reconciliation page-state)
                      (trns/load-unreconciled-items page-state)
-                     (html/set-focus "end-of-period"))
+                     (set-focus "end-of-period"))
          :title "Click here to reconcile this account"}
         (bs/icon-with-text :check-box "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
                                                     (trns/stop-item-loading page-state)
-                                                    (go (>! (:ctl-chan @page-state) :quit))
                                                     (swap! page-state dissoc
                                                            :view-account
                                                            :items
@@ -767,7 +782,7 @@
                                                        :account-id parent-id
                                                        :commodity-id commodity-id
                                                        :commodity-account-id (:id @account)})
-                                               (html/set-focus "trade-date"))}
+                                               (set-focus "trade-date"))}
           (bs/icon-with-text :plus "Buy/Sell")]
          (html/space)
          [:button.btn.btn-light {:title "Click here to return the the account list."

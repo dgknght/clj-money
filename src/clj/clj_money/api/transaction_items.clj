@@ -74,8 +74,10 @@
 
 (defn- index
   [req]
-  (api/response (transactions/search-items (extract-criteria req)
-                                           (extract-options req))))
+  (-> req
+      extract-criteria
+      (transactions/search-items (extract-options req))
+      api/response))
 
 (defn- extract-summary-criteria
   [{:keys [params]}]

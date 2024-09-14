@@ -4,6 +4,7 @@
             [reagent.ratom :refer [make-reaction]]
             [reagent.format :refer [currency-format]]
             [dgknght.app-lib.inflection :refer [title-case]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
@@ -170,7 +171,7 @@
          [monitor-form state]
          [:button.btn.btn-secondary {:on-click (fn []
                                                  (swap! state assoc :new-monitor {})
-                                                 (html/set-focus "account-id"))
+                                                 (set-focus "account-id"))
                                      :title "Click here to add a new budget monitor"}
           "Add"])])))
 

@@ -1,8 +1,10 @@
 (ns clj-money.prices.alpha-vantage-test
-  (:require [clojure.test :refer [deftest is]]
+  (:require [clojure.test :refer [deftest is] :as test]
             [clojure.java.io :as io]
             [clj-time.core :as t]
+            [clj-http.core :as http]
             [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.web-mocks :refer [with-web-mocks]]
             [clj-money.prices.alpha-vantage :as alpha-vantage]))
 
@@ -34,8 +36,9 @@
                                                                     :market-cap 51784.11857M}
                                                              :volume 51784.11857M}}}
                      (alpha-vantage/get-quote "BTC")))
-    (is (called-with-headers? {"X-Rapidapi-Host" "alpha-vantage.p.rapidapi.com"
-                               "X-Rapidapi-Key" "alpha-vantage-api-key"}
-                              :once
-                              calls)
+    (is (called-with-headers?
+          :once
+          calls
+          {"X-Rapidapi-Host" "alpha-vantage.p.rapidapi.com"
+           "X-Rapidapi-Key" "alpha-vantage-api-key"})
         "It includes the headers required by the API")))

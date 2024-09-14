@@ -135,7 +135,8 @@
                 (add-auth user)
                 app
                 parse-json-body)
-        retrieved (sched-trans/search {:entity-id (:id entity)})]
+        retrieved (when-let [id (get-in res [:json-body :id])]
+                    (sched-trans/find id))]
     [res retrieved]))
 
 (defn- assert-sched-tran-created
@@ -156,7 +157,11 @@
                              :memo "salary"}]}
                    json-body)
       "The return value contains the created schedule transaction")
-  (is (seq-with-map-like? attr retrieved)
+  (is (comparable? attr (update-in retrieved
+                                   [:items]
+                                   (fn [items]
+                                     (mapv #(select-keys % [:action :quantity :memo])
+                                          items))))
       "The scheduled transaction can be retrieved"))
 
 (defn- assert-blocked-create

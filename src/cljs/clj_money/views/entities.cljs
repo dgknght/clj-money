@@ -1,8 +1,10 @@
 (ns clj-money.views.entities
   (:require [reagent.core :as r]
             [secretary.core :as secretary :include-macros true]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
+            [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [clj-money.api.entities :as entities]
             [clj-money.state :as state :refer [app-state
@@ -52,25 +54,32 @@
   [page-state]
   (let [entity (r/cursor page-state [:selected])]
     (fn []
-      [:div.card
-       [:div.card-header [:strong (str (if (:id @entity) "Edit" "New") " Entity")]]
-       [:div.card-body
-        [:form
-         [text-field entity [:name] {:validate [:required]}]
-         #_[radio-buttons [:settings :inventory-method] ["fifo" "lifo"]]]]
-       [:div.card-footer
-        [bs/busy-button {:html {:on-click #(save-entity page-state)
-                                :title "Click here to save this entity."
-                                :class "btn-primary"}
-                         :icon :check
-                         :caption "Save"
-                         :busy? busy?}]
-        [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                :title "Click here to cancel this operation."
-                                :on-click #(swap! page-state dissoc :selected)}
-                         :icon :x
-                         :caption "Cancel"
-                         :busy? busy?}]]])))
+      [:form {:no-validate true
+              :on-submit (fn [e]
+                           (.preventDefault e)
+                           (v/validate entity)
+                           (when (v/valid? entity)
+                             (save-entity page-state)))}
+       [:div.card
+        [:div.card-header [:strong (str (if (:id @entity) "Edit" "New") " Entity")]]
+        [:div.card-body
+
+         [text-field entity [:name] {:validations #{::v/required}}]
+         #_[radio-buttons [:settings :inventory-method] ["fifo" "lifo"]]]
+        [:div.card-footer
+         [bs/busy-button {:html {:title "Click here to save this entity."
+                                 :type :submit
+                                 :class "btn-primary"}
+                          :icon :check
+                          :caption "Save"
+                          :busy? busy?}]
+         [bs/busy-button {:html {:class "btn-secondary ms-2"
+                                 :type :button
+                                 :title "Click here to cancel this operation."
+                                 :on-click #(swap! page-state dissoc :selected)}
+                          :icon :x
+                          :caption "Cancel"
+                          :busy? busy?}]]]])))
 
 (defn- entity-row
   [entity page-state busy?]
@@ -81,7 +90,7 @@
     [:div.btn-group
      [:button.btn.btn-sm.btn-light {:on-click (fn []
                                                 (swap! page-state assoc :selected entity)
-                                                (html/set-focus "name"))
+                                                (set-focus "name"))
                                     :disabled busy?
                                     :title "Click here to edit this entity."}
       (bs/icon :pencil {:size :small})]
@@ -112,7 +121,7 @@
       [:<>
        [:h1.mt-3 "Entities"]
        [:div.row
-        [:div.col-md-6
+        [:div.col-md-6 {:class (when @selected "d-none d-md-block")}
          [entity-table page-state]
          [bs/busy-button {:html {:class "btn-primary"
                                  :title "Click here to create a new entity."
@@ -121,7 +130,7 @@
                                                     assoc
                                                     :selected
                                                     {:entity-id (:id @current-entity)})
-                                             (html/set-focus "name"))}
+                                             (set-focus "name"))}
                           :disabled selected
                           :busy? busy?
                           :icon :plus

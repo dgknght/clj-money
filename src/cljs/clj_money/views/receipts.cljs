@@ -7,10 +7,12 @@
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.web :refer [format-date
                                          format-decimal]]
+            [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [dgknght.app-lib.forms-validation :as v]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -23,10 +25,12 @@
 
 (defn- new-receipt
   [page-state]
-  (let [transaction-date (get-in @page-state [:receipt :transaction-date] (t/today))]
-    (swap! page-state assoc :receipt {:transaction-date transaction-date
-                                      :items [{}]})
-    (html/set-focus "transaction-date")))
+  (let [defaults (-> (get-in @page-state [:receipt])
+                     (select-keys [:transaction-date :account-id])
+                     (update-in [:transaction-date] (fnil identity (t/today)))
+                     (assoc :items [{}]))]
+    (swap! page-state assoc :receipt defaults)
+    (set-focus "transaction-date")))
 
 (defn- ->transaction-item
   [item]
@@ -55,7 +59,7 @@
                   (not for-reuse?) (concat [:id :transaction-date]))]
      (merge (select-keys transaction retain)
             {:account-id (:account-id credit)
-             :items (mapv #(select-keys % [:account-id :quantity])
+             :items (mapv #(select-keys % [:account-id :quantity :memo])
                           debit)}))))
 
 (defn- create-transaction
@@ -88,12 +92,19 @@
                                    receipts)))
                      (new-receipt page-state)))))
 
+(defn- remove-empty-items
+  [items]
+  (remove (every-pred #(nil? (:account-id %))
+                      #(nil? (:quantity %)))
+          items))
+
 (defn- save-transaction
   [page-state]
-  (let [{:keys [receipt]} @page-state]
-    (if (:id receipt)
-      (update-transaction receipt page-state)
-      (create-transaction receipt page-state))))
+  (let [{:keys [receipt]} @page-state
+        to-save (update-in receipt [:items] remove-empty-items)]
+    (if (:id to-save)
+      (update-transaction to-save page-state)
+      (create-transaction to-save page-state))))
 
 (defn- search-accounts []
   (fn [input callback]
@@ -122,8 +133,7 @@
    [:td [forms/typeahead-input
          receipt
          [:items index :account-id]
-         {:validate [:required]
-          :search-fn (search-accounts)
+         {:search-fn (search-accounts)
           :find-fn (fn [id callback]
                      (callback (@accounts-by-id id)))
           :on-change #(ensure-blank-item page-state)
@@ -132,23 +142,27 @@
    [:td [forms/decimal-input
          receipt
          [:items index :quantity]
-         {:validate [:required]
-          :on-accept #(ensure-blank-item page-state)}]]])
+         {:on-accept #(ensure-blank-item page-state)}]]
+   [:td [forms/text-input
+         receipt
+         [:items index :memo]
+         {:on-change #(ensure-blank-item page-state)}]]])
 
 (defn- reuse-trans
   [state transaction]
-  (-> state
-      (dissoc :transaction-search)
-      (update-in [:receipt] merge (->receipt transaction {:for-reuse? true}))))
+  ; The on-change will return the selected item when an item is selected
+  ; and will return the simple text value if no item is selected
+  (if (map? transaction)
+    (-> state
+        (dissoc :transaction-search)
+        (update-in [:receipt] merge (->receipt transaction {:for-reuse? true})))
+    state))
 
 (defn- receipt-form
   [page-state]
   (let [receipt (r/cursor page-state [:receipt])
         item-count (make-reaction #(count (:items @receipt)))
         transactions (r/cursor page-state [:transactions])
-        search (r/cursor page-state [:transaction-search])
-        hide-description? (make-reaction #(boolean @search))
-        hide-search-term? (make-reaction #(not @search))
         total (make-reaction #(->> (:items @receipt)
                                    (map :quantity)
                                    decimal/sum))]
@@ -156,28 +170,15 @@
       [:form {:no-validate true
               :on-submit (fn [e]
                            (.preventDefault e)
-                           (save-transaction page-state))}
-       [forms/date-field receipt [:transaction-date] {:validate [:required]}]
-       [forms/text-field
+                           (v/validate receipt)
+                           (when (v/valid? receipt)
+                             (save-transaction page-state)))}
+       [forms/date-field receipt [:transaction-date] {:validations #{::v/required}}]
+       [forms/typeahead-field
         receipt
         [:description]
-        {:validation [:required]
-         :prepend [:button.btn.btn-secondary
-                   {:title "Click here to find a previous transaction to re-use."
-                    :on-click (fn [e]
-                                (.preventDefault e)
-                                (swap! page-state assoc :transaction-search {})
-                                (js/setTimeout
-                                  #(html/set-focus "search-term")
-                                  250))}
-                   (bs/icon :search {:size :small})]
-         :html {:auto-complete :off}
-         :hide? hide-description?}]
-       [forms/typeahead-field
-        search
-        [:search-term]
-        {:validate [:required]
-         :hide? hide-search-term?
+        {:mode :direct
+         :validations #{::v/required}
          :caption "Description"
          :search-fn #(search-transactions @transactions %1 %2)
          :find-fn (constantly nil)
@@ -187,17 +188,11 @@
                                         (format-decimal (:value %))
                                         (:description %))
          :on-change #(swap! page-state reuse-trans %)
-         :value-fn :description
-         :prepend [:button.btn.btn-secondary
-                   {:title "Click here to cancel the search."
-                    :on-click (fn [e]
-                                (.preventDefault e)
-                                (swap! page-state dissoc :transaction-search))}
-                   (bs/icon :x {:size :small})]}]
+         :value-fn :description}]
        [forms/typeahead-field
         receipt
         [:account-id]
-        {:validate [:required]
+        {:validations #{::v/required}
          :caption "Payment Method"
          :search-fn (search-accounts)
          :find-fn (fn [id callback]
@@ -208,7 +203,8 @@
         [:thead
          [:tr
           [:th "Category"]
-          [:th "Amount"]]]
+          [:th "Amount"]
+          [:th "Memo"]]]
         [:tbody
          (->> (range @item-count)
               (map #(receipt-item-row % receipt page-state))
@@ -231,7 +227,7 @@
                                 :title "Click here to discard this receipt."
                                 :on-click (fn []
                                             (swap! receipt select-keys [:transaction-date])
-                                            (html/set-focus "transaction-date"))}
+                                            (set-focus "transaction-date"))}
                          :icon :x
                          :caption "Cancel"
                          :busy? busy?}]]])))
