@@ -268,16 +268,20 @@
            :current-value current-value
            :gains (- current-value cost-basis))))
 
+(defn- fetch-latest-prices
+  [commodity-ids as-of]
+  (->> commodity-ids
+       (map (comp (fn [c]
+                    [(:id c)
+                     (:price (prices/most-recent c as-of))])
+                  commodities/find))
+       (into {})))
+
 (defn- update-lots
   [{:keys [lots as-of] :as ctx}]
   (let [lot-transactions (fetch-lot-transactions ctx)
-        prices (if (seq lots)
-                 (prices/batch-fetch (->> lots
-                                          (map :commodity-id)
-                                          set)
-                                     {:as-of as-of
-                                      :earliest-date (t/local-date 1900 1 1)}) ; TODO: get this from the entity
-                 {})]
+        prices (fetch-latest-prices (set (map :commodity-id lots))
+                                    as-of)]
     (update-in ctx
                [:lots]
                #(map (partial update-lot lot-transactions prices)
