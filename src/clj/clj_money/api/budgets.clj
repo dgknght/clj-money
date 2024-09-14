@@ -68,7 +68,7 @@
                               [:account :type] [:in #{:income :expense}]
                               :transaction-date [:between> start-date end-date]})
          (group-by :account-id)
-         (map #(->budget-item % budget start-date end-date)))))
+         (map #(->budget-item % budget start-date (t/minus end-date (t/days 1)))))))
 
 (defn- auto-create-items
   [budget start-date]
