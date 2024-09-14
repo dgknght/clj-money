@@ -8,7 +8,12 @@
             [dgknght.app-lib.core :refer [parse-int]])
   #?(:clj (:import [org.threeten.extra Interval]
                    [java.time ZoneOffset LocalDate Instant]
-                   [java.time.temporal ChronoUnit])))
+                   [java.time.temporal ChronoUnit])
+     :cljs (:import [goog.date Date])))
+
+(def local-date?
+  #?(:clj t/local-date?
+     :cljs (partial instance? Date)))
 
 (def equal?
   #?(:clj t/=
