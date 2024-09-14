@@ -738,7 +738,7 @@
   (when-not (->> [before after]
                  (map :transaction-date)
                  (apply =))
-    (when-let [lot-item (->> (fetch-lot-items (:id after))
+    (when-let [lot-item (->> (fetch-lot-items (:id after) transaction-date)
                              (filter #(= :buy (:lot-action %)))
                              first)]
       (l-t/update (assoc lot-item :transaction-date transaction-date))
