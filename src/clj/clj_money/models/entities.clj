@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.walk :refer [keywordize-keys]]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [update-in-if

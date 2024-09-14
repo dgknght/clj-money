@@ -27,18 +27,17 @@ jobs:
           - 5432:5432
     steps:
       - name: Checkout source code
-        uses: actions/checkout@v2
+        uses: actions/checkout@v4
       - name: Install dependencies
         run: lein deps
-      - name: Install clj-kondo
-        uses: DeLaGuardo/setup-clj-kondo@master
+      - name: Lint with clj-kondo
+        uses: DeLaGuardo/clojure-lint-action@master
         with:
-          version: '2020.04.05'
-      - name: Run linter
-        run: clj-kondo --lint src:test --dependencies
+          clj-kondo-args: --lint src:test
+          github_token: ${{ secrets.GITHUB_TOKEN }}
       - name: Run database migrations
-        run: lein with-profile test migrate
+        run: lein with-profile +test migrate
       - name: Create database partitions
-        run: lein with-profile test partition 2015-01-01 2017-12-31
+        run: lein with-profile +test partition 2015-01-01 2017-12-31
       - name: Run tests
         run: lein test

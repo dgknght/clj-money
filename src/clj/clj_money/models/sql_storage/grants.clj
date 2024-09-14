@@ -1,4 +1,4 @@
-(ns clj-money.models.sql-storage.accounts
+(ns clj-money.models.sql-storage.grants
   (:require [clojure.java.jdbc :as jdbc]
             [honeysql.helpers :refer [select
                                       from]]

@@ -1,4 +1,5 @@
 (ns clj-money.util
+  (:refer-clojure :exclude [abs])
   (:require [clojure.string :as string]))
 
 (defn abs
@@ -58,28 +59,10 @@
                                (vec (cons (-> value first ensure-keyword)
                                           (map f (rest value)))))))
 
-(defn assoc-unless
-  "Performs an assoc if the specified key is not already present in the map."
-  [m k v]
-  (if (get-in m [k])
-    m
-    (assoc m k v)))
-
 (defn- includes-time?
   [date]
   #?(:clj (instance? org.joda.time.DateTime date)
      :cljs (instance? goog.date.DateTime date)))
-
-(defn nominal-keys
-  "Given a canonical key, return all of the nominal variants"
-  [canonical]
-  (let [str-key (name canonical)
-        [_  base-key] (re-find #"^(.*)(?:-on|-at)$" str-key)]
-    (map keyword [str-key
-                  (str base-key "-before")
-                  (str str-key "-or-before")
-                  (str base-key "-after")
-                  (str str-key "-or-after")])))
 
 (defn- nominal-key
   [key-base value]

@@ -1,5 +1,5 @@
 (ns clj-money.import.gnucash
-  (:refer-clojure :exclude [update])
+  (:refer-clojure :exclude [update abs])
   (:require [clojure.tools.logging :as log]
             [clojure.java.io :as io]
             [clojure.set :refer [rename-keys]]
@@ -13,7 +13,7 @@
                      >!!]
              :as async]
             [clojure.data.xml :as xml]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [dgknght.app-lib.core :refer [uuid

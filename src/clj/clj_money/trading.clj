@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [clj-time.core :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
             [dgknght.app-lib.web :refer [format-decimal]]

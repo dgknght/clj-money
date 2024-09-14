@@ -1,6 +1,6 @@
 (ns clj-money.mailers
   (:require [postal.core :refer [send-message]]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [selmer.parser :refer [render]]
             [clj-money.models.users :as users]))
 

@@ -19,7 +19,7 @@
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.middleware.not-modified :refer [wrap-not-modified]]
             [co.deps.ring-etag-middleware :as etag]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
             [clj-money.core]

@@ -5,7 +5,7 @@
             [clj-time.coerce :refer [from-long
                                      to-local-date]]
             [clj-http.client :as http]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [lambdaisland.uri :refer [uri
                                       map->query-string]]

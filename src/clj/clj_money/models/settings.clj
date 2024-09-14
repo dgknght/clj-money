@@ -1,6 +1,6 @@
 (ns clj-money.models.settings
   (:refer-clojure :exclude [update get])
-  (:require [environ.core :refer [env]]
+  (:require [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [clj-money.models.sql-storage-ref]

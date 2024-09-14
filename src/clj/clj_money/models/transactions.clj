@@ -6,7 +6,7 @@
             [clojure.tools.logging :as log]
             [clojure.core.async :as a]
             [clj-time.core :as t]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
             [dgknght.app-lib.core :refer [uuid
@@ -173,7 +173,7 @@
    (-> item
        (update-in [:value] #(or % (:quantity item)))
        (assoc :balance (bigdec 0))
-       (update-in [:index] (fnil identity (Integer/MAX_VALUE))))
+       (update-in [:index] (fnil identity Integer/MAX_VALUE)))
 
     (string? (:account-id item))
     (update-in [:account-id] #(Integer. %))

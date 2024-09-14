@@ -4,7 +4,7 @@
             [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [clj-time.periodic :refer [periodic-seq]]
-            [environ.core :refer [env]]))
+            [config.core :refer [env]]))
 
 (defmulti ^:private suffix :interval-type)
 

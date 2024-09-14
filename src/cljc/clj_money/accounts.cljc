@@ -1,5 +1,5 @@
 (ns clj-money.accounts
-  (:refer-clojure :exclude [+ - * /])
+  (:refer-clojure :exclude [+ - * / abs])
   (:require [clojure.string :as string]
             [dgknght.app-lib.models :as models]
             [dgknght.app-lib.web :refer [format-decimal]]
@@ -81,19 +81,10 @@
 
   (#{:asset :expense} (:type account)))
 
-(def right-side? (comp left-side?))
-
 (defn- polarizer
   [transaction-item account]
   (* (if (left-side? account) 1 -1)
      (if (= :debit (:action transaction-item)) 1 -1)))
-
-(defn polarize-item
-  [transaction-item account]
-  (let [polarizer (polarizer transaction-item account)]
-    (assoc transaction-item
-           :polarized-quantity (* polarizer (:quantity transaction-item))
-           :polarized-value    (* polarizer (:value transaction-item)))))
 
 (defn polarize-quantity
   "Adjusts the polarity of a quantity as appropriate given

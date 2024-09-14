@@ -2,7 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.string :as string]
-            [environ.core :refer [env]]
+            [config.core :refer [env]]
             [buddy.sign.jwt :as jwt]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.authorization :refer [authorize] :as authorization]
