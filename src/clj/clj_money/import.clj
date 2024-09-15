@@ -88,6 +88,8 @@
                     (dissoc :id)
                     (assoc :balance 0M)
                     recs/create)]
+    (when (v/has-error? created)
+      (throw (ex-info (format "Unable to create reconciliation: %s" (v/error-messages created)) created)))
     (update-in context [:account-recons]
                (fnil assoc {})
                (:account-id created) (:id created))))
