@@ -5,7 +5,7 @@
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test_assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.transactions :refer [change-date]]
             [clj-money.models.accounts :as accounts]

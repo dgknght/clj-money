@@ -51,9 +51,9 @@
                                                :path [:items]})
 
 (defn- not-a-trading-transaction?
-  [{:keys [id transaction-date]}]
+  [{:keys [id original-transaction-date]}]
   (zero? (l-t/count {:transaction-id id
-                     :transaction-date transaction-date})))
+                     :transaction-date original-transaction-date})))
 
 (v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
                                         :path []})

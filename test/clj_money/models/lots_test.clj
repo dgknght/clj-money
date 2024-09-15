@@ -2,7 +2,7 @@
   (:require [clojure.test :refer [deftest use-fixtures is]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test_assertions]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [realize
                                             find-account
@@ -120,7 +120,7 @@
                                 (assoc :purchase-date "not-a-date")))
         lots (lots/select-by-commodity-id (:id commodity))]
     (is (nil? (:id result)) "The result does not receive an ID value")
-    (is (invalid? result [:purchase-date] "Purchase date must be a date"))
+    (is (invalid? result [:purchase-date] "Purchase date is invalid"))
     (is (empty? lots) "The value is not retrieved after create")))
 
 (deftest shares-purchased-is-required
