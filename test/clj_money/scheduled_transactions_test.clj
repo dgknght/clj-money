@@ -31,7 +31,9 @@
     (testing "start date does not match the spec"
       (is (= expected
              (with-fixed-time "2021-03-03T00:00:00Z"
-               (st/next-transaction-dates (assoc sched-tran :start-date (t/local-date 2020 1 1)))))))))
+               (st/next-transaction-dates (assoc sched-tran
+                                                 :start-date
+                                                 (t/local-date 2020 1 1)))))))))
 
 (deftest get-the-next-monthly-transaction-dates
   (let [sched-tran {:interval-type :month

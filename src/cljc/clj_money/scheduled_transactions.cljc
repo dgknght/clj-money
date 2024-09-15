@@ -7,28 +7,24 @@
             [clojure.set :refer [rename-keys]]
             [clj-money.dates :as dates]))
 
-(defmulti ^:private since-last :interval-type)
+(defmulti ^:private period :interval-type)
 
-(defmethod since-last :year
-  [{:keys [last-occurrence interval-count]}]
-  (when last-occurrence
-    (t/plus last-occurrence (t/years interval-count))))
+(defmethod period :year
+  [{:keys [interval-count]}]
+  (t/years interval-count))
 
-(defmethod since-last :month
-  [{:keys [last-occurrence interval-count]}]
-  {:pre [(dates/local-date? last-occurrence)]}
+(defmethod period :month
+  [{:keys [interval-count]}]
+  (t/months interval-count))
 
-  (when last-occurrence
-    (t/plus last-occurrence (t/months interval-count))))
-
-(defmethod since-last :week
-  [{:keys [last-occurrence]}]
-  (when last-occurrence
-    (t/plus last-occurrence (t/days 1))))
+(defmethod period :week
+  [_]
+  (t/days 1))
 
 (defn- seq-start
-  [{:keys [start-date] :as sched-tran}]
-  (or (since-last sched-tran)
+  [{:keys [start-date last-occurrence] :as sched-tran}]
+  (or (when last-occurrence
+        (t/plus last-occurrence (period sched-tran)))
       start-date))
 
 (defmulti ^:private date-seq :interval-type)
@@ -39,7 +35,7 @@
   (let [first-date (->> (dates/periodic-seq (seq-start sched-tran)
                                       (t/days 1))
                         (take 366)
-                        (filter #(and (= month (t/month %))
+                        (filter #(and (= month (dates/month %))
                                       (= day (dates/day-of-month %))))
                         first)]
     (dates/periodic-seq first-date (t/years interval-count))))
