@@ -20,7 +20,7 @@
                                           update-in-if
                                           parse-int
                                           parse-bool]]
-            [clj-money.util :refer [presence]]
+            [clj-money.util :as util :refer [presence]]
             [clj-money.core]
             [clj-money.import :refer [read-source]])
   (:import [java.util.zip GZIPInputStream

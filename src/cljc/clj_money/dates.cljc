@@ -277,6 +277,11 @@
   #?(:clj (.getValue (t/day-of-month local-date))
      :cljs (t/day local-date)))
 
+(defn day-of-week
+  [local-date]
+  #?(:clj (.getValue (t/day-of-week local-date))
+     :cljs (t/day-of-week local-date)))
+
 (defn serialize-local-date
   [local-date]
   #?(:clj (t/format (t/formatter :iso-date) local-date)

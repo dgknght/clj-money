@@ -381,9 +381,9 @@
   (let [date (or last-occurrence start-date)]
     (case interval-type
       :year {:day (infer-date-spec-day date)
-             :month (t/month date)}
+             :month (dates/month date)}
       :month {:day (infer-date-spec-day date)}
-      :week {:days [(nth day-keys (t/day-of-week date))]})))
+      :week {:days [(nth day-keys (dates/day-of-week date))]})))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity accounts] :as context} sched-tran]
