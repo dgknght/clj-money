@@ -1,6 +1,7 @@
 (ns clj-money.import.gnucash
   (:refer-clojure :exclude [update abs])
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [clojure.java.io :as io]
             [clojure.set :refer [rename-keys]]
             [clojure.string :as s]
@@ -590,18 +591,15 @@
                                                                       keyword)))))))
         (vary-meta assoc :ignore? (contains? ignored-accounts (:name account))))))
 
-(defn- seconds-to-date
-  [seconds]
-  (.atZone (Instant/ofEpochSecond seconds)
-           (ZoneId/of "America/Chicago")))
-
 (defmethod ^:private process-record :reconciliation
   [reconciliation _]
   (-> reconciliation
       (rename-keys {:last-date :end-of-period})
       (assoc :id (s/replace (str (uuid)) #"-" ""))
       (update-in-if [:include-children] parse-bool)
-      (update-in-if [:end-of-period] (comp seconds-to-date
+      (update-in-if [:end-of-period] (comp t/local-date
+                                           #(.atZone % (ZoneId/of "America/Chicago"))
+                                           #(Instant/ofEpochSecond %)
                                            parse-int))))
 
 (defmulti ^:private refine-trading-transaction
