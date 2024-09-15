@@ -1,6 +1,7 @@
 (ns clj-money.models.lot-transactions
   (:refer-clojure :exclude [update find count])
-  (:require [config.core :refer [env]]
+  (:require [clojure.pprint :refer [pprint]]
+            [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [clj-money.models :as models]))
@@ -47,7 +48,7 @@
   [lot-transaction]
   (with-storage (env :db)
     (storage/update lot-transaction))
-  (find-by (select-keys lot-transaction [:lot-id :transaction-id])))
+  (find-by (select-keys lot-transaction [:lot-id :transaction-date])))
 
 (defn delete
   [lot-transaction]

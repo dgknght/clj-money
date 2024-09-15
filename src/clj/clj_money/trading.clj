@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
             [config.core :refer [env]]
             [java-time.api :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
@@ -555,7 +556,8 @@
 ; TODO: Simplify this by updating stowaway to allow operators in mass update
 (defn- apply-split-to-lot
   [ratio lot]
-  (doseq [trx (lot-trans/search {:lot-id (:id lot)})]
+  (doseq [trx (lot-trans/search {:lot-id (:id lot)
+                                 :transaction-date (:purchase-date lot)})]
     (lot-trans/update (-> trx
                           (update-in [:price] #(with-precision 4 (/ % ratio)))
                           (update-in [:shares] #(* % ratio)))))
