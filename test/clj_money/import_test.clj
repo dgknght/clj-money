@@ -8,7 +8,7 @@
             [clj-factory.core :refer [factory]]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [safe-nth]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
             [clj-money.io :refer [read-bytes
                                   file-ext
                                   file-name]]
