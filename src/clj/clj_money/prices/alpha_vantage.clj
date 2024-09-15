@@ -15,7 +15,7 @@
 (def rapidapi-host "alpha-vantage.p.rapidapi.com")
 
 (def date-time-formatter
-  (t/formatter :iso-date-time))
+  (t/formatter "yyyy-MM-dd HH:mm:ss"))
 
 (def date-formatter
   (t/formatter :iso-date))
@@ -78,7 +78,7 @@
     (-> (get-in res [:body])
         extract-daily-currency-maps
         adj-keys
-        (update-in [:meta-data :last-refreshed] (partial t/instant date-time-formatter)))))
+        (update-in [:meta-data :last-refreshed] (partial t/local-date-time date-time-formatter)))))
 
 (defn cache
   [price]

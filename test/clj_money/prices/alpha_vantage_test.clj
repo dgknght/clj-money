@@ -21,7 +21,7 @@
                                   :digital-currency-name "Bitcoin"
                                   :market-code "USD"
                                   :market-name "United States Dollar"
-                                  :last-refreshed (t/instant (t/formatter :iso-instant) "2022-01-06T00:00:00Z")
+                                  :last-refreshed (t/local-date-time 2022 1 6 0 0 0)
                                   :time-zone "UTC"}
                       :time-series {(t/local-date 2022 1 6) {"USD" {:open 43451.14M
                                                                     :high 43689.99M
