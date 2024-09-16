@@ -38,7 +38,7 @@
                                                org.clojure/tools.reader]]
                  [reagent-forms "0.5.41"]
                  [reagent-utils "0.3.1"]
-                 [org.clojure/clojurescript "1.11.132" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/clojurescript "1.10.238" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "22.0" :exclusions [com.google.code.findbugs/jsr305
                                                              org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
