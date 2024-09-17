@@ -21,6 +21,9 @@
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.accounts/format-quantity
+                                                      clj-money.repl/start-server
+                                                      clj-money.repl/stop-server
+                                                      clj-money.repl/create-user
                                                       clj-money.tasks/compile-sass
                                                       clj-money.tasks/export-user-tags
                                                       clj-money.tasks/import-user-tags

@@ -1,6 +1,7 @@
 (ns clj-money.models.sql-storage
   (:refer-clojure :exclude [update count])
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.pprint :refer [pprint]]
             [clj-postgresql.types]
             [stowaway.core :as storage :refer [Storage]]))
 
