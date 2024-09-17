@@ -22,11 +22,12 @@
 
 (defn index []
   (html5
-    [:html.h-100 {:lang "en"}
+    [:html.h-100 {:lang "en"
+                  :data-bs-theme "dark"}
      (head)
      [:body.h-100
       [:div#app.h-100
-       [:nav.navbar.navbar-expand-lg.navbar-light.bg-light
+       [:nav.navbar.navbar-expand-lg.bg-body-tertiary
         [:div.container
          [:img {:src "/images/logo.svg"
                 :alt "abacus logo"

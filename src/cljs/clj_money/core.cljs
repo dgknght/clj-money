@@ -98,7 +98,7 @@
 
 (defn navbar
   [items {:keys [profile-photo-url]}]
-  [:nav.navbar.navbar-expand-lg.navbar-light.bg-light.d-print-none
+  [:nav.navbar.navbar-expand-lg.bg-body-tertiary.d-print-none
    [:div.container
     [:a.navbar-brand {:href "/"}
      [:img {:src "/images/logo.svg"
