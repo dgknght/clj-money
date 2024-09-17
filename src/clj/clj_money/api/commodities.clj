@@ -1,6 +1,6 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count])
-  (:require [clj-time.core :as t]
+  (:require [java-time.api :as t]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [dgknght.app-lib.authorization :refer [authorize

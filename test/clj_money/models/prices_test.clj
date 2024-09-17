@@ -1,6 +1,6 @@
 (ns clj-money.models.prices-test
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test]
             [dgknght.app-lib.validation :as v]
@@ -100,7 +100,7 @@
                                                           (t/local-date 2017 12 13)]))]
     (is (nil? (:id price))
         "The result does not contain an ID value")
-    (is (invalid? price [:trade-date] "Trade date must be a date"))
+    (is (invalid? price [:trade-date] "Trade date is invalid"))
     (is (nil? retrieved)
         "The price cannot be retrieved after create")))
 

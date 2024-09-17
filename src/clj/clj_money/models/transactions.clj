@@ -4,8 +4,9 @@
             [clojure.set :refer [difference
                                  rename-keys]]
             [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
@@ -13,7 +14,7 @@
                                           index-by]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
-            [dgknght.app-lib.dates :as dates]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.accounts :as accounts]
@@ -21,8 +22,7 @@
             [clj-money.models.lot-transactions :as l-t]
             [clj-money.models.lots :as lots]
             [clj-money.models.entities :as entities]
-            [clj-money.accounts :refer [polarize-quantity]])
-  (:import org.joda.time.LocalDate))
+            [clj-money.accounts :refer [polarize-quantity]]))
 
 (declare reload)
 
@@ -51,8 +51,9 @@
                                                :path [:items]})
 
 (defn- not-a-trading-transaction?
-  [transaction]
-  (zero? (l-t/count {:transaction-id (:id transaction)})))
+  [{:keys [id original-transaction-date]}]
+  (zero? (l-t/count {:transaction-id id
+                     :transaction-date original-transaction-date})))
 
 (v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
                                         :path []})
@@ -94,7 +95,7 @@
 (s/def ::value v/positive-big-dec?)
 (s/def ::description v/non-empty-string?)
 (s/def ::memo #(or (nil? %) (string? %)))
-(s/def ::transaction-date (partial instance? LocalDate))
+(s/def ::transaction-date t/local-date?)
 (s/def ::id uuid?)
 (s/def ::entity-id integer?)
 (s/def ::lot-id integer?)
@@ -237,8 +238,9 @@
                                        %)))))
 
 (defn- fetch-lot-items
-  [transaction-id]
-  (l-t/search {:transaction-id transaction-id}))
+  [transaction-id transaction-date]
+  (l-t/search {:transaction-id transaction-id
+               :transaction-date transaction-date}))
 
 (defn search-items
   "Returns transaction items matching the specified criteria"
@@ -259,7 +261,8 @@
 (defn- append-lot-items
   [transaction]
   (when transaction
-    (if-let [lot-items (seq (fetch-lot-items (:id transaction)))]
+    (if-let [lot-items (seq (fetch-lot-items (:id transaction)
+                                             (:transaction-date transaction)))]
       (assoc transaction
              :lot-items
              (->> lot-items
@@ -532,9 +535,10 @@
                          ((juxt :index :quantity) base-item)
                          [0 0M]))]
      (when (not (nil? last-index))
-       (let [value (account-value balance (-> account
-                                              (update-in [:earliest-transaction-date] dates/earliest earliest-date)
-                                              (update-in [:latest-transaction-date] dates/latest last-date)))
+       (let [value (account-value
+                     balance (-> account
+                                 (update-in [:earliest-transaction-date] dates/earliest earliest-date)
+                                 (update-in [:latest-transaction-date] dates/latest last-date)))
              updated (-> account
                          (assoc :quantity balance
                                 :value value)
@@ -735,7 +739,7 @@
   (when-not (->> [before after]
                  (map :transaction-date)
                  (apply =))
-    (when-let [lot-item (->> (fetch-lot-items (:id after))
+    (when-let [lot-item (->> (fetch-lot-items (:id after) transaction-date)
                              (filter #(= :buy (:lot-action %)))
                              first)]
       (l-t/update (assoc lot-item :transaction-date transaction-date))

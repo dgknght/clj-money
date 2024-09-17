@@ -3,8 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.tools.logging :as log]
             [config.core :refer [env]]
-            [clj-time.coerce :refer [to-local-date
-                                     to-sql-date]]
+            [java-time.api :as t]
             [stowaway.core :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.models :refer [->id]]
@@ -24,7 +23,7 @@
 (s/def ::account-id (s/and integer?
                            asset-account?))
 (s/def ::commodity-id integer?)
-(s/def ::purchase-date v/local-date?)
+(s/def ::purchase-date t/local-date?)
 (s/def ::purchase-price decimal?)
 (s/def ::shares-purchased decimal?)
 (s/def ::shares-owned decimal?)
@@ -44,7 +43,7 @@
   [lot]
   (-> lot
       (tag ::models/lot)
-      (update-in [:purchase-date] to-local-date)))
+      (update-in [:purchase-date] t/local-date)))
 
 (defn search
   ([criteria]
@@ -69,7 +68,7 @@
   [lot]
   (-> lot
       (tag ::models/lot)
-      (update-in [:purchase-date] to-sql-date)
+      (update-in [:purchase-date] t/sql-date)
       (update-in [:shares-owned] (fnil identity (:shares-purchased lot)))))
 
 (defn create

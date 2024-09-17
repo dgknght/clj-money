@@ -5,12 +5,12 @@
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [uuid
                                      update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.api :as api]
-            [clj-money.models :as models]
             [dgknght.app-lib.authorization :refer [authorize
                                              +scope]
              :as authorization]
+            [clj-money.dates :refer [unserialize-local-date]]
+            [clj-money.models :as models]
             [clj-money.models.transactions :as trans]
             [clj-money.authorization.transactions]
             [clj-money.transactions :refer [expand]]))
@@ -19,8 +19,8 @@
   [{:keys [params authenticated]}]
   (-> params
       (assoc :transaction-date [:between
-                                (unserialize-date (:start params))
-                                (unserialize-date (:end params))])
+                                (unserialize-local-date (:start params))
+                                (unserialize-local-date (:end params))])
       (select-keys [:entity-id :transaction-date])
       (+scope ::models/transaction authenticated)))
 
@@ -37,7 +37,7 @@
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (let [trans-date (unserialize-date
+  (let [trans-date (unserialize-local-date
                      (some #(params %)
                            [:original-transaction-date
                             :transaction-date]))]
@@ -80,7 +80,7 @@
   (api/creation-response
     (-> body
         expand
-        (update-in-if [:transaction-date] unserialize-date)
+        (update-in-if [:transaction-date] unserialize-local-date)
         (update-in-if [:items] #(map parse-item %))
         (select-keys attribute-keys)
         (assoc :entity-id (:entity-id params))
@@ -105,8 +105,8 @@
   [transaction body]
   (-> transaction
       (merge (-> body
-                 (update-in-if [:transaction-date] unserialize-date)
-                 (update-in-if [:original-transaction-date] unserialize-date)
+                 (update-in-if [:transaction-date] unserialize-local-date)
+                 (update-in-if [:original-transaction-date] unserialize-local-date)
                  (update-in-if [:id] uuid)))
       (select-keys attribute-keys)
       (update-in [:items] apply-item-updates (:items body))))

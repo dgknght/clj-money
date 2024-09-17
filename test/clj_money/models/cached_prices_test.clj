@@ -1,6 +1,6 @@
 (ns clj-money.models.cached-prices-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.core]
             [clj-money.factories.user-factory]

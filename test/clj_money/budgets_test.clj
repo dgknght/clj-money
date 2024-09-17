@@ -1,6 +1,6 @@
 (ns clj-money.budgets-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-money.budgets :as budgets]))
 
 (deftest get-a-period-description

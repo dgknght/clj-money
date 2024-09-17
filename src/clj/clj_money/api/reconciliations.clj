@@ -3,15 +3,15 @@
   (:require [compojure.core :refer [defroutes GET POST PATCH]]
             [stowaway.core :as stow]
             [dgknght.app-lib.core :refer [update-in-if
-                                     parse-int
-                                     uuid]]
+                                          parse-int
+                                          uuid]]
             [dgknght.app-lib.dates :refer [symbolic-comparatives]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.authorization
              :as auth
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.reconciliations :as recs]
             [clj-money.authorization.reconciliations]))
@@ -19,8 +19,8 @@
 (defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
-      (update-in-if [:end-of-period-or-before] unserialize-date) ; TODO: include all posibilities
-      (update-in-if [:end-of-period-or-after] unserialize-date)
+      (update-in-if [:end-of-period-or-before] dates/unserialize-local-date) ; TODO: include all posibilities
+      (update-in-if [:end-of-period-or-after] dates/unserialize-local-date)
       (symbolic-comparatives :end-of-period)
       (select-keys [:account-id :status :end-of-period])
       (+scope ::models/reconciliation authenticated)))
@@ -48,7 +48,7 @@
   [item-ref]
   (-> item-ref
       (update-in [0] uuid)
-      (update-in [1] unserialize-date)))
+      (update-in [1] dates/unserialize-local-date)))
 
 (defn- create
   [{:keys [params body authenticated]}]
@@ -60,7 +60,7 @@
                                 :item-refs]))
       (update-in [:status] keyword)
       (update-in [:balance] bigdec)
-      (update-in [:end-of-period] unserialize-date)
+      (update-in [:end-of-period] dates/unserialize-local-date)
       (update-in [:item-refs] #(map unserialize-item-ref %))
       (stow/tag ::models/reconciliation)
       (authorize ::auth/create authenticated)
@@ -73,11 +73,11 @@
       (dissoc :id)
       (update-in-if [:status] keyword)
       (update-in-if [:balance] bigdec)
-      (update-in-if [:end-of-period] unserialize-date)
+      (update-in-if [:end-of-period] dates/unserialize-local-date)
       (update-in-if [:item-refs] (fn [item-refs]
                                    (map #(-> %
                                              (update-in [0] uuid)
-                                             (update-in [1] unserialize-date))
+                                             (update-in [1] dates/unserialize-local-date))
                                         item-refs)))))
 
 (defn- find-and-auth

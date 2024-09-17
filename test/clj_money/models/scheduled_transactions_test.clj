@@ -1,10 +1,11 @@
 (ns clj-money.models.scheduled-transactions-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [stowaway.core :refer [tag]]
             [dgknght.app-lib.test]
             [clj-money.models :as models]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            with-fixed-time]]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-account
@@ -245,8 +246,8 @@
   [date]
   (let [ctx (realize update-context)
         sched-tran (find-scheduled-transaction ctx "Paycheck")]
-    [(t/do-at date
-              (sched-trans/realize sched-tran))
+    [(with-fixed-time date
+       (sched-trans/realize sched-tran))
      (trans/search {:description "Paycheck"
                     :transaction-date [:between> (t/local-date 2016 1 1) (t/local-date 2017 1 1)]
                     :entity-id (:entity-id sched-tran)})
@@ -274,4 +275,4 @@
        "The transaction can be retrieved")))
 
 (deftest realize-a-scheduled-transaction-after-the-date
-  (assert-successful-realization (realize-tran (t/date-time 2016 2 2))))
+  (assert-successful-realization (realize-tran "2016-02-02T00:00:00Z")))

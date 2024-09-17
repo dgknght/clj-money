@@ -2,7 +2,8 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.java.jdbc :as jdbc]
-            [clj-time.core :as t]
+            [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [honeysql.helpers :refer [with-recursive
                                       select
                                       update
@@ -17,9 +18,11 @@
             [stowaway.sql :refer [apply-sort
                                   apply-limit
                                   select-count]]
+            [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [deep-contains?
-                                     deep-get
-                                     deep-dissoc]]
+                                          deep-get
+                                          deep-dissoc
+                                          update-in-if]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
@@ -39,6 +42,10 @@
                                     (from [:accounts :a])
                                     (join [:raccounts :p] [:= :p.id :a.parent_id]))]}])
       (join :raccounts [:= :raccounts.id :transaction_items.account_id])))
+
+(defn- after-read
+  [item]
+  (update-in item [:transaction-date] t/local-date))
 
 (defmethod stg/select ::models/transaction-item
   [criteria {:keys [include-children?] :as options} db-spec]
@@ -60,32 +67,37 @@
                 (apply-limit options)
                 (apply-sort options)
                 (select-count options))]
-    (query db-spec sql)))
+    (map after-read (query db-spec sql))))
+
+(defn- before-save
+  [item]
+  (update-in item [:transaction-date] t/sql-date))
 
 (defmethod stg/insert ::models/transaction-item
   [item db-spec]
   {:pre [(:transaction-date item)]}
-  (insert-model db-spec
-                :transaction_items
-                item
-                :transaction-id
-                :transaction-date
-                :account-id
-                :reconciliation-id
-                :action
-                :quantity
-                :negative
-                :value
-                :index
-                :balance
-                :memo))
+  (after-read
+    (insert-model db-spec
+                  :transaction_items
+                  (before-save item)
+                  :transaction-id
+                  :transaction-date
+                  :account-id
+                  :reconciliation-id
+                  :action
+                  :quantity
+                  :negative
+                  :value
+                  :index
+                  :balance
+                  :memo)))
 
 (defn- update-item
   [item db-spec]
   {:pre [(:transaction-date item)]}
   (update-model db-spec
                 :transaction_items
-                item
+                (before-save item)
                 :transaction-date
                 :reconciliation-id
                 :quantity
@@ -109,14 +121,28 @@
     :reconciliation-id
     :negative})
 
+(defmulti update-trx-date type)
+
+(defmethod update-trx-date clojure.lang.PersistentVector
+  [[oper & vs]]
+  (apply vector oper (map update-trx-date vs)))
+
+(defmethod update-trx-date :default
+  [d]
+  (t/sql-date d))
+
 (defn- update-items
   [attr criteria db-spec]
   {:pre [(deep-contains? criteria :transaction-date)]}
   (let [sql (-> (update :transaction_items)
                 (sset (-> attr
+                          (update-in-if [:transaction-date] t/sql-date)
                           (select-keys allowed-keys)
-                          (assoc :updated-at (t/now))))
-                (apply-criteria criteria)
+                          (assoc :updated-at (t/sql-timestamp))))
+                (apply-criteria
+                  (criteria/apply-to
+                    criteria
+                    #(update-in-if % [:transaction-date] update-trx-date)))
                 sql/format)]
     (log/debugf "update transaction_items %s %s -> %s" attr criteria sql)
     (first (jdbc/execute! db-spec sql {:entities ->snake_case_string}))))

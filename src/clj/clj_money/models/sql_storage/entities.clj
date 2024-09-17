@@ -1,5 +1,6 @@
 (ns clj-money.models.sql-storage.entities
   (:require [clojure.java.jdbc :as jdbc]
+            [clojure.pprint :refer [pprint]]
             [honeysql.helpers :refer [select
                                       from]]
             [stowaway.sql :refer [apply-limit

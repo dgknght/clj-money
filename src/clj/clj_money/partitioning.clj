@@ -1,32 +1,32 @@
 ; should this really exist in sql-storage?
 (ns clj-money.partitioning
   (:require [clojure.java.jdbc :as jdbc]
-            [clj-time.core :as t]
-            [clj-time.coerce :as tc]
-            [clj-time.periodic :refer [periodic-seq]]
-            [config.core :refer [env]]))
+            [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
+            [config.core :refer [env]]
+            [clj-money.dates :as dates]))
 
 (defmulti ^:private suffix :interval-type)
 
 (defmethod ^:private suffix :year
   [{:keys [interval-count] [start-date next-start-date] :dates}]
   (if (= 1 interval-count)
-    (format "_y%s" (t/year start-date))
+    (format "_y%s" (dates/year start-date))
     (format "_y%s_y%s"
-            (t/year start-date)
-            (t/year (t/minus next-start-date
-                             (t/days 1))))))
+            (dates/year start-date)
+            (dates/year (t/minus next-start-date
+                                 (t/days 1))))))
 
 (defmethod ^:private suffix :month
   [{:keys [interval-count] [start-date next-start-date] :dates}]
-  (let [[year month] ((juxt t/year t/month) start-date)]
+  (let [[year month] ((juxt dates/year dates/month) start-date)]
     (if (= 1 interval-count)
       (format "_y%04d_m%02d" year month)
       (format "_y%04d_m%02d_m%02d"
               year
               month
-              (t/month (t/minus next-start-date
-                                (t/days 1))))))) ; assuming we won't cross a year boundary here
+              (dates/month (t/minus next-start-date
+                                    (t/days 1))))))) ; assuming we won't cross a year boundary here
 
 (defmulti period-like :interval-type)
 
@@ -54,13 +54,13 @@
 
 (defmethod period-range :year
   [{:keys [date]}]
-  (let [start-of-period (t/local-date (t/year date) 1 1)]
+  (let [start-of-period (t/local-date (dates/year date) 1 1)]
     [start-of-period                         ; The lower boundary is inclusive
      (t/plus start-of-period (t/years 1))])) ; The upper boundary is exclusive
 
 (defmethod period-range :month
   [{:keys [date]}]
-  (let [start-of-period (t/first-day-of-the-month date)]
+  (let [start-of-period (dates/first-day-of-the-month date)]
     [start-of-period
      (t/plus start-of-period (t/months 1))]))
 
@@ -89,8 +89,8 @@
   [date {:keys [interval-count]}]
   (if (= 1 interval-count)
     date
-    (let [offset (mod (Math/abs (- (t/year date)
-                                   (t/year anchor-point)))
+    (let [offset (mod (Math/abs (- (dates/year date)
+                                   (dates/year anchor-point)))
                       interval-count)]
       (t/minus date (t/years offset)))))
 
@@ -98,12 +98,10 @@
   [date {:keys [interval-count]}]
   (if (= 1 interval-count)
     date
-    (let [offset (mod (->> [anchor-point date]
-                           (map (comp tc/from-date
-                                      tc/to-date))
-                           (sort #(t/before? %1 %2))
-                           (apply t/interval)
-                           t/in-months)
+    (let [offset (mod (.getMonths
+                        (apply t/period
+                               (sort #(t/before? %1 %2)
+                                     [anchor-point date])))
                       interval-count)]
       (t/minus date (t/months offset)))))
 
@@ -113,13 +111,15 @@
   the commands to create them"
   [start-date end-date options]
   (->> tables
-       (map #(assoc (second %) :table (first %) :table-name (name (first %)))) ; turn the k-v pairs into a map
+       (map #(assoc (second %)
+                    :table (first %)
+                    :table-name (name (first %)))) ; turn the k-v pairs into a map
        (map #(merge % (get-in options [:rules (:table %)]))) ; allow for override of default rules
        (mapcat (fn [opts]
-                 (->> (periodic-seq (anchor start-date opts)
-                                    (period-like opts))
+                 (->> (dates/periodic-seq (anchor start-date opts)
+                                          (period-like opts))
                       (partition 2 1)
-                      (take-while #(t/after? end-date (first %)))
+                      (take-while #(t/before? (first %) end-date))
                       (map #(assoc opts :dates %)))))
        (map #(assoc % :suffix (suffix %)))
        (map create-table-cmd)))

@@ -1,9 +1,9 @@
 (ns clj-money.models.users-test
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
-            [clj-time.core :as t]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
             [clj-money.models.users :as users]
-            [clj-money.test-helpers :refer [reset-db]]))
+            [clj-money.test-helpers :refer [reset-db
+                                            with-fixed-time]]))
 
 (use-fixtures :each reset-db)
 
@@ -97,9 +97,9 @@
 
 (deftest cannot-retrieve-a-user-with-an-expired-token
   (let [user (users/create attributes)
-        token (t/do-at (t/date-time 2017 3 2 12 0 0)
+        token (with-fixed-time "2017-03-02T12:00:00Z"
                        (users/create-password-reset-token user))
-        retrieved (t/do-at (t/date-time 2017 3 3 12 0 0)
+        retrieved (with-fixed-time "2017-03-03T12:00:00Z"
                            (users/find-by-token token))]
     (is (nil? retrieved)
         "The user is not returned if the token has expired")))

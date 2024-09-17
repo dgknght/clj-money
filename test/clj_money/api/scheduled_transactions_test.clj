@@ -1,11 +1,11 @@
 (ns clj-money.api.scheduled-transactions-test
   (:require [clojure.test :refer [use-fixtures deftest is]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
-            [clj-time.core :as t]
-            [dgknght.app-lib.web :refer [path
-                                         unserialize-date
-                                         serialize-date]]
+            [java-time.api :as t]
+            [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
+            [clj-money.dates :as dates]
             [clj-money.api.test-helper :refer [add-auth
                                                parse-json-body]]
             [clj-money.factories.user-factory]
@@ -15,7 +15,8 @@
                                             find-entity
                                             find-account
                                             find-scheduled-transaction]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            with-fixed-time]]
             [clj-money.models.transactions :as trans]
             [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.web.server :refer [app]]))
@@ -129,7 +130,7 @@
                                          (:id entity)
                                          :scheduled-transactions))
                 (req/json-body (-> attr
-                                   (update-in [:start-date] serialize-date)
+                                   (update-in [:start-date] dates/serialize-local-date)
                                    (assoc-in [:items 0 :account-id] (:id checking))
                                    (assoc-in [:items 1 :account-id] (:id salary))))
                 (add-auth user)
@@ -268,7 +269,7 @@
   (let [ctx (realize update-context)
         user (find-user ctx user-email)
         sched-tran (find-scheduled-transaction ctx "Paycheck")
-        res (t/do-at (t/date-time 2016 2 2)
+        res (with-fixed-time "2016-02-02T00:00:00Z"
                      (-> (req/request :post (path :api
                                                   :scheduled-transactions
                                                   (:id sched-tran)
@@ -364,7 +365,7 @@
   (let [ctx (realize mass-realize-context)
         user (find-user ctx user-email)
         entity (find-entity ctx "Personal")
-        res (t/do-at (t/date-time 2016 2 2)
+        res (with-fixed-time "2016-02-02T00:00:00Z"
                      (-> (req/request :post (path :api
                                                   :entities
                                                   (:id entity)
@@ -382,7 +383,7 @@
 (defn- comparable-trans
   [trans from-json?]
   (cond-> (select-keys trans [:transaction-date :description])
-    from-json? (update-in [:transaction-date] unserialize-date)))
+    from-json? (update-in [:transaction-date] dates/unserialize-local-date)))
 
 (defn- assert-successful-mass-realization
   [[response retrieved]]

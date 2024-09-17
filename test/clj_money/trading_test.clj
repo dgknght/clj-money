@@ -1,7 +1,7 @@
 (ns clj-money.trading-test
   (:require [clojure.test :refer [use-fixtures deftest is testing]]
             [clojure.pprint :refer [pprint]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.test-assertions]

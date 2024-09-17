@@ -4,17 +4,18 @@
             [ring.mock.request :as req]
             [clj-factory.core :refer [factory]]
             [lambdaisland.uri :refer [map->query-string]]
-            [dgknght.app-lib.web :refer [path
-                                         serialize-date]]
+            [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
+            [clj-money.dates :as dates]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             realize
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.test-helpers :refer [reset-db
+                                            with-fixed-time]]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
@@ -135,7 +136,7 @@
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :patch (path :api
                                                :prices
-                                               (serialize-date (:trade-date price))
+                                               (dates/serialize-local-date (:trade-date price))
                                                (:id price)))
                      (req/json-body {:trade-date "2016-02-27"
                                      :price 9.99})
@@ -178,7 +179,7 @@
         price (find-price ctx "AAPL" (t/local-date 2016 2 27))
         response (-> (req/request :delete (path :api
                                                 :prices
-                                                (serialize-date (:trade-date price))
+                                                (dates/serialize-local-date (:trade-date price))
                                                 (:id price)))
                      (add-auth user)
                      app)
@@ -231,9 +232,7 @@
                                              :regularMarketPrice 10.01M
                                              :regularMarketTime (t/local-date 2015 3 2)})
                                           symbols))]
-      (t/do-at
-        (t/date-time 2015 3 2 12)
-
+      (with-fixed-time "2015-03-02T12:00:00Z"
         (-> (req/request :get (str (path :api
                                          :prices
                                          :fetch)
@@ -287,8 +286,7 @@
                                                :regularMarketTime (t/local-date 2015 3 2)
                                                :fullExchangeName "NasdaqGS"})
                                             symbols))]
-        (t/do-at
-          (t/date-time 2015 3 2 12)
+        (t/with-clock (t/fixed-clock (t/instant (t/formatter :iso-instant) "2015-03-02T12:00:00Z"))
           (-> (req/request :get (str (path :api
                                            :prices
                                            :fetch)

@@ -1,16 +1,16 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.authorization :refer [authorize
                                              allowed?
                                              +scope]
              :as authorization]
+            [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.scheduled-transactions :as sched-trans]
             [clj-money.models.entities :as entities]
@@ -38,9 +38,9 @@
   (-> body
       (update-in-if [:items] #(map ->sched-trans-item %))
       (update-in-if [:interval-type] keyword)
-      (update-in-if [:start-date] unserialize-date)
-      (update-in-if [:end-date] unserialize-date)
-      (update-in-if [:last-occurrence] unserialize-date)
+      (update-in-if [:start-date] dates/unserialize-local-date)
+      (update-in-if [:end-date] dates/unserialize-local-date)
+      (update-in-if [:last-occurrence] dates/unserialize-local-date)
       (storage/tag ::models/scheduled-transaction)))
 
 (defn- create
@@ -92,7 +92,7 @@
     (->> (sched-trans/search {:entity-id (:id entity)
                               :enabled true})
          (filter #(and (or (nil? (:end-date %))
-                           (t/before? (t/today) (:end-date %)))
+                           (t/before? (t/local-date) (:end-date %)))
                        (allowed? % ::sched-trans-auth/realize authenticated)))
          (mapcat sched-trans/realize)
          (sort-by :transaction-date t/before?)

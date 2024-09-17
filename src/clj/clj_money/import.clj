@@ -1,17 +1,18 @@
 (ns clj-money.import
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [clojure.string :as string]
             [clojure.java.io :as io]
             [clojure.core.async :refer [<! >! chan go pipe sliding-buffer] :as async]
             [config.core :refer [env]]
-            [clj-time.core :as t]
-            [clj-time.predicates :refer [last-day-of-the-month?]]
+            [java-time.api :as t]
             [stowaway.core :refer [tagged?]]
             [stowaway.implicit :refer [with-storage
                                        with-transacted-storage]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.dates :as dates]
             [clj-money.trading :as trading]
             [clj-money.accounts :refer [->criteria]]
             [clj-money.models.settings :as settings]
@@ -87,6 +88,8 @@
                     (dissoc :id)
                     (assoc :balance 0M)
                     recs/create)]
+    (when (v/has-error? created)
+      (throw (ex-info (format "Unable to create reconciliation: %s" (v/error-messages created)) created)))
     (update-in context [:account-recons]
                (fnil assoc {})
                (:account-id created) (:id created))))
@@ -369,18 +372,18 @@
 
 (defn- infer-date-spec-day
   [date]
-  (if (last-day-of-the-month? date)
+  (if (dates/last-day-of-the-month? date)
     :last
-    (t/day date)))
+    (t/day-of-month date)))
 
 (defn- infer-date-spec
   [{:keys [start-date last-occurrence interval-type]}]
   (let [date (or last-occurrence start-date)]
     (case interval-type
       :year {:day (infer-date-spec-day date)
-             :month (t/month date)}
+             :month (dates/month date)}
       :month {:day (infer-date-spec-day date)}
-      :week {:days [(nth day-keys (t/day-of-week date))]})))
+      :week {:days [(nth day-keys (dates/day-of-week date))]})))
 
 (defmethod import-record* :scheduled-transaction
   [{:keys [entity accounts] :as context} sched-tran]

@@ -1,10 +1,10 @@
 (ns clj-money.api.trading
   (:require [compojure.core :refer [defroutes POST]]
             [stowaway.core :as storage]
-            [dgknght.app-lib.web :refer [unserialize-date]]
             [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
             [dgknght.app-lib.authorization :refer [authorize] :as authorization]
+            [clj-money.dates :as dates]
             [clj-money.authorization.trades]
             [clj-money.trading :as trading]))
 
@@ -21,7 +21,7 @@
           (merge (-> body
                      (update-in [:value] bigdec)
                      (update-in [:shares] bigdec)
-                     (update-in [:trade-date] unserialize-date)))
+                     (update-in [:trade-date] dates/unserialize-local-date)))
           (select-keys create-attributes)
           (storage/tag ::models/trade)
           (authorize ::authorization/create authenticated)

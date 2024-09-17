@@ -2,8 +2,9 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
             [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
             [config.core :refer [env]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [stowaway.implicit :refer [with-transacted-storage]]
             [dgknght.app-lib.web :refer [format-decimal]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
@@ -25,9 +26,9 @@
 (s/def ::lt-capital-loss-account-id  (s/nilable integer?))
 (s/def ::st-capital-gains-account-id (s/nilable integer?))
 (s/def ::st-capital-loss-account-id  (s/nilable integer?))
-(s/def ::trade-date v/local-date?)
-(s/def ::transfer-date v/local-date?)
-(s/def ::split-date v/local-date?)
+(s/def ::trade-date t/local-date?)
+(s/def ::transfer-date t/local-date?)
+(s/def ::split-date t/local-date?)
 (s/def ::shares decimal?)
 (s/def ::value decimal?)
 (s/def ::shares-gained decimal?)
@@ -555,7 +556,8 @@
 ; TODO: Simplify this by updating stowaway to allow operators in mass update
 (defn- apply-split-to-lot
   [ratio lot]
-  (doseq [trx (lot-trans/search {:lot-id (:id lot)})]
+  (doseq [trx (lot-trans/search {:lot-id (:id lot)
+                                 :transaction-date (:purchase-date lot)})]
     (lot-trans/update (-> trx
                           (update-in [:price] #(with-precision 4 (/ % ratio)))
                           (update-in [:shares] #(* % ratio)))))

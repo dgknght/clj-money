@@ -1,7 +1,7 @@
 (ns clj-money.prices.alpha-vantage-test
   (:require [clojure.test :refer [deftest is] :as test]
             [clojure.java.io :as io]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-http.core :as http]
             [dgknght.app-lib.test]
             [dgknght.app-lib.test-assertions]
@@ -21,7 +21,7 @@
                                   :digital-currency-name "Bitcoin"
                                   :market-code "USD"
                                   :market-name "United States Dollar"
-                                  :last-refreshed (t/date-time 2022 1 6)
+                                  :last-refreshed (t/local-date-time 2022 1 6 0 0 0)
                                   :time-zone "UTC"}
                       :time-series {(t/local-date 2022 1 6) {"USD" {:open 43451.14M
                                                                     :high 43689.99M

@@ -3,12 +3,10 @@
             [clojure.set :refer [intersection]]
             [dgknght.app-lib.inflection :refer [title-case]]
             [clj-money.accounts :as acts]
-            #?(:clj [clj-time.core :as t]
+            #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            #?(:clj [clj-time.format :as tf]
-               :cljs [cljs-time.format :as tf])
-            #?(:clj [clj-time.coerce :as tc]
-               :cljs [cljs-time.coerce :as tc])
+            #?(:cljs [cljs-time.format :as tf])
+            #?(:cljs [cljs-time.coerce :as tc])
             #?(:cljs [dgknght.app-lib.decimal :as decimal])))
 
 (def periods #{:month :quarter :year})
@@ -19,8 +17,9 @@
 
 (defmethod period-description :month
   [index {:keys [start-date]}]
-  (tf/unparse (tf/formatter "MMM YYYY")
-              (tc/to-date-time (t/plus start-date (t/months index)))))
+  #?(:clj (t/format (t/formatter "MMM YYYY") (t/plus start-date (t/months index)))
+     :cljs (tf/unparse (tf/formatter "MMM YYYY")
+              (tc/to-date-time (t/plus start-date (t/months index))))))
 
 (defmethod period-description :quarter
   [index {:keys [start-date]}]

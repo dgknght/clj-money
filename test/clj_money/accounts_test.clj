@@ -1,6 +1,6 @@
 (ns clj-money.accounts-test
   (:require [clojure.test :refer [deftest is testing]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.core :refer [index-by]]
             [clj-money.accounts :as accounts]))
 

@@ -1,6 +1,6 @@
 (ns clj-money.models.budgets-test
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.models.budgets :as budgets]
             [clj-money.test-context :refer [realize

@@ -7,7 +7,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
             [clj-money.factories.user-factory]
-            [clj-time.core :as t]
+            [java-time.api :as t]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [realize
                                             find-user

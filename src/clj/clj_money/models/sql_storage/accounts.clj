@@ -1,11 +1,14 @@
 (ns clj-money.models.sql-storage.accounts
   (:require [clojure.java.jdbc :as jdbc]
             [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [honeysql.helpers :refer [with-recursive
                                       select
                                       from
                                       join]]
             [stowaway.sql :refer [apply-limit]]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.models :as models]
             [clj-money.models.storage.sql-helpers :refer [query
                                                           insert-model
@@ -30,6 +33,13 @@
    :accounts.latest_transaction_date
    :accounts.created_at
    :accounts.updated_at])
+
+(defn- after-read
+  [account]
+  (-> account
+      (update-in-if [:earliest-transaction-date] t/local-date)
+      (update-in-if [:latest-transaction-date] t/local-date)
+      (update-in-if [:price-as-of] t/local-date)))
 
 (defn- select-sql-with-downward-recursion
   [criteria options]
@@ -64,24 +74,25 @@
               (select-sql-with-downward-recursion criteria options)
               (select-sql criteria options))]
     (log/debugf "select %s" criteria)
-    (query db-spec sql)))
+    (map after-read (query db-spec sql))))
 
 (defmethod stg/insert ::models/account
   [account db-spec]
-  (insert-model db-spec :accounts account
-                :name
-                :type
-                :system-tags
-                :user-tags
-                :commodity-id
-                :entity-id
-                :parent-id
-                :allocations
-                :quantity
-                :value
-                :price-as-of
-                :earliest-transaction-date
-                :latest-transaction-date))
+  (after-read
+    (insert-model db-spec :accounts account
+                  :name
+                  :type
+                  :system-tags
+                  :user-tags
+                  :commodity-id
+                  :entity-id
+                  :parent-id
+                  :allocations
+                  :quantity
+                  :value
+                  :price-as-of
+                  :earliest-transaction-date
+                  :latest-transaction-date)))
 
 (defmethod stg/update ::models/account
   [account db-spec]
