@@ -1,7 +1,10 @@
 (ns clj-money.dates-test
-  (:require [clojure.test :refer [deftest testing is are]]
-            [clojure.pprint :refer [pprint]]
-            [java-time.api :as t]
+  (:require #?(:clj [clojure.test :refer [deftest testing is are]]
+               :cljs [cljs.test :refer [deftest is]])
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])
             [clj-money.dates :as dates]))
 
 (deftest get-the-year-from-a-local-date
