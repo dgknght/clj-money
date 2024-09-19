@@ -25,6 +25,9 @@
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
                  [compojure "1.6.1" :exclusions [joda-time clj-time org.clojure/tools.reader]]
+                 [org.eclipse.jetty/jetty-util "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
+                 [org.eclipse.jetty/jetty-io "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
+                 [org.eclipse.jetty/jetty-server "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
                  [ring/ring-core "1.8.0" :exclusions [ring/ring-codec]]
                  [ring/ring-jetty-adapter "1.6.3" :exclusions [joda-time clj-time org.clojure/tools.reader]]
                  [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
@@ -39,7 +42,7 @@
                                                org.clojure/tools.reader]]
                  [reagent-forms "0.5.41"]
                  [reagent-utils "0.3.1"]
-                 [org.clojure/clojurescript "1.10.238" :exclusions [org.clojure/tools.reader]]
+                 [org.clojure/clojurescript "1.11.4" :exclusions [org.clojure/tools.reader]]
                  [com.google.guava/guava "22.0" :exclusions [com.google.code.findbugs/jsr305
                                                              org.clojure/tools.reader]]
                  [clojure-guava "0.0.8" :exclusions [org.clojure/clojure
@@ -74,44 +77,17 @@
                  [org.mindrot/jbcrypt "0.3m"]
                  [co.deps/ring-etag-middleware "0.2.1" :exclusions [joda-time clj-time]]
                  [camel-snake-kebab "0.4.3"]
-                 [com.github.dgknght/app-lib "0.3.14" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server org.eclipse.jetty/jetty-util com.google.javascript/closure-compiler-externs camel-snake-kebab cheshire commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core]]
+                 [com.github.dgknght/app-lib "0.3.14" :exclusions [com.cognitect/transit-java com.google.protobuf/protobuf-java com.google.errorprone/error_prone_annotations org.clojure/google-closure-library-third-party com.fasterxml.jackson.dataformat/jackson-dataformat-smile ring/ring-core org.apache.httpcomponents/httpasyncclient com.fasterxml.jackson.dataformat/jackson-dataformat-cbor org.eclipse.jetty/jetty-http ring/ring-codec org.apache.httpcomponents/httpmime org.eclipse.jetty/jetty-io org.eclipse.jetty/jetty-server com.google.javascript/closure-compiler-externs com.cognitect/transit-cljs cljs-http camel-snake-kebab cheshire noencore commons-io commons-codec clj-http joda-time clj-time com.google.jsinterop/jsinterop-annotations org.apache.httpcomponents/httpclient com.google.code.findbugs/jsr305 com.cognitect/transit-clj org.clojure/google-closure-library org.apache.httpcomponents/httpcore-nio ring/ring-servlet com.google.javascript/closure-compiler-unshaded org.clojure/clojurescript org.apache.httpcomponents/httpclient-cache org.apache.httpcomponents/httpcore ring/ring-jetty-adapter com.fasterxml.jackson.core/jackson-core]]
                  [lambdaisland/uri "1.4.54"]
-                 [stowaway "0.1.20" :exclusions [org.clojure/spec.alpha
-                                                 org.clojure/clojure
-                                                 org.clojure/core.specs.alpha
-                                                 org.clojure/tools.logging]]]
+                 [stowaway "0.1.20" :exclusions [org.clojure/spec.alpha org.clojure/clojure potemkin org.clojure/core.specs.alpha org.clojure/tools.logging]]]
   :repl-options {:init-ns clj-money.repl
                  :welcome (println "Welcome to better money management!")}
   :min-lein-version "2.0.0"
-  :plugins [[lein-cljsbuild "1.1.6" :exclusions [org.clojure/tools.reader]]
-            [lein-cljfmt "0.7.0"]
-            [lein-figwheel "0.5.20"]]
+  :plugins [[lein-cljfmt "0.7.0"]]
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :aot [clj-money.web.server]
-  :clean-targets ^{:protect false} [:target-path
-                                    [:cljsbuild :builds :app :compiler :output-dir]
-                                    [:cljsbuild :builds :app :compiler :output-to]]
   :source-paths ["src"]
-
-  :cljsbuild {:builds [{:id :production
-                        :source-paths ["src"]
-                        :compiler {:output-to  "target/cljsbuild/public/js/prod/app.js"
-                                   :output-dir "target/cljsbuild/public/js/prod"
-                                   :source-map "target/cljsbuild/public/js/prod/app.js.map"
-                                   :optimizations :advanced
-                                   :pretty-print false}}
-                       {:id :development
-                        :figwheel true
-                        :source-paths ["src"]
-                        :compiler {:main "clj-money.core"
-                                   :asset-path "/js/app"
-                                   :output-to  "resources/public/js/app/main.js"
-                                   :output-dir "resources/public/js/app"
-                                   :source-map true
-                                   :optimizations :none
-                                   :pretty-print true}}]}
-
   :aliases {"migrate"                       ["run" "-m" "clj-money.db/migrate"]
             "rollback"                      ["run" "-m" "clj-money.db/rollback"]
             "remigrate"                     ["run" "-m" "clj-money.db/remigrate"]
@@ -125,13 +101,18 @@
             "migrate-account"               ["run" "-m" "clj-money.tasks/migrate-account"]
             "export-user-tags"              ["run" "-m" "clj-money.tasks/export-user-tags"]
             "import-user-tags"              ["run" "-m" "clj-money.tasks/import-user-tags"]
-            "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]}
+            "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]
+            "fig:build"                     ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
+            "fig:min"                       ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
+            "fig:test"                      ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "fw-main.test-runner"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:test {:dependencies [[ring/ring-mock "0.4.0"]
                                    [peridot "0.5.2"]]
-                    :resource-paths ^:replace ["env/test" "resources" "target/cljsbuild"]}
-             :dev {:resource-paths ^:replace ["env/dev" "resources" "target/cljsbuild"]}
+                    :resource-paths ^:replace ["env/test" "resources" "target"]}
+             :dev {:dependencies [[com.bhauman/figwheel-main "0.2.17" :exclusions [ring/ring-anti-forgery ring/ring-devel com.google.errorprone/error_prone_annotations ring/ring-core org.eclipse.jetty/jetty-http ring/ring-codec org.eclipse.jetty/jetty-io com.google.guava/guava org.eclipse.jetty/jetty-server ring commons-codec joda-time clj-time org.slf4j/slf4j-api]]
+                                  [org.slf4j/slf4j-nop "1.7.30" :exclusions [org.slf4j/slf4j-api]]
+                                  [com.bhauman/rebel-readline-cljs "0.1.4"]]
+                   :resource-paths ^:replace ["env/dev" "resources" "target"]}
              :uberjar {:prep-tasks ["compile"
-                                    ["cljsbuild" "once"]
                                     "sass"]}})
