@@ -172,9 +172,12 @@
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 3000))]
-    (log/infof "Starting eb server on port %s" port)
-    (jetty/run-jetty #'app {:port port :join? false})
-    (log/infof "Web server listening on port %s" port)))
+    (println (format "Starting web server on port %s..." port))
+    (log/infof "Starting web server on port %s" port)
+    (let [server (jetty/run-jetty #'app {:port port :join? false})]
+      (log/infof "Web server listening on port %s" port)
+      (println (format "Web server listening on port %s." port))
+      server)))
 
 ;; For interactive development:
 ;; (.stop server)
