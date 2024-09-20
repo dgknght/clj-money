@@ -105,7 +105,7 @@
             "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]
             "fig:build"                     ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"                       ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
-            "fig:test"                      ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "fw-main.test-runner"]}
+            "fig:test"                      ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
 
   :jvm-opts ["-Duser.timezone=UTC"]
   :profiles {:test {:dependencies [[ring/ring-mock "0.4.0"]

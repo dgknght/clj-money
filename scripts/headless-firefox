@@ -1,0 +1,4 @@
+#!/bin/sh
+
+GTK_MODULES="" firefox --headless "$@"
+# GTK_MODULES="" firefox "$@"

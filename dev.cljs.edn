@@ -2,5 +2,5 @@
   :css-dirs ["resources/public/css"]
   :open-url false
   :log-file "log/figwheel-main.log"
-  :auto-testing true}
+  :auto-testing false}
 {:main clj-money.core}
