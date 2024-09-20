@@ -142,7 +142,9 @@
     (if query-string
       (log/infof "Request %s: %s?%s" request-method uri query-string)
       (log/infof "Request %s: %s" request-method uri))
-    (handler req)))
+    (let [res (handler req)]
+      (log/infof "Response %s: %s -> %s" request-method uri (:status res))
+      res)))
 
 (defroutes app
   (-> (routes apps/routes
