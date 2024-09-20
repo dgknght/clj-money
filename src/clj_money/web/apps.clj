@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [compojure.core :refer [defroutes
                                     GET]]
+            [config.core :refer [env]]
             [hiccup.page :refer [html5 include-js]]))
 
 (defn- head []
@@ -38,7 +39,9 @@
          [:div.spinner-border {:role :status}
           [:span.visually-hidden
            "Loading..."]]]]]
-      (include-js "/js/app/main.js")]]))
+      (include-js (if (env :dev?)
+                    "/cljs-out/dev-main.js"
+                    "/js/app/main.js"))]]))
 
 (defroutes routes
   (GET "/" [] (index)))
