@@ -87,6 +87,7 @@
   :hooks []
   :uberjar-name "clj-money-standalone.jar"
   :aot [clj-money.web.server]
+  :clean-targets ^{:protect false} [:target-path]
   :source-paths ["src"]
   :aliases {"migrate"                       ["run" "-m" "clj-money.db/migrate"]
             "rollback"                      ["run" "-m" "clj-money.db/rollback"]
