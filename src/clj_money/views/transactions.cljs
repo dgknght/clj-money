@@ -20,7 +20,7 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.notifications :as notify]
-            [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.icons :refer [icon]]
             [clj-money.state :refer [accounts
                                      accounts-by-id
                                      +busy
@@ -210,7 +210,7 @@
      [:td.text-center.d-none.d-md-table-cell
       (if @reconciliation
         [forms/checkbox-input reconciliation [:item-refs (:id item)] {::forms/decoration ::forms/none}]
-        (bs/icon
+        (icon
          (case (:reconciliation-status item)
            :completed :check-box
            :new       :dot
@@ -224,7 +224,7 @@
         [:div.btn-group
          [:button.btn.btn-light.btn-sm {:on-click #(edit-transaction item page-state)
                                        :title "Click here to edit this transaction."}
-          (bs/icon :pencil {:size :small})]
+          (icon :pencil {:size :small})]
          [:button.btn.btn-light.btn-sm.d-none.d-md-block
           {:on-click (fn []
                        (swap! page-state
@@ -234,11 +234,11 @@
                        (load-attachments page-state))
            :title "Click here to view attachments for this transaction"}
           (if (zero? attachment-count)
-            (bs/icon :paperclip {:size :small})
+            (icon :paperclip {:size :small})
             [:span.badge.bg-secondary attachment-count])]
          [:button.btn.btn-danger.btn-sm {:on-click #(delete-transaction item page-state)
                                          :title "Click here to remove this transaction."}
-          (bs/icon :x-circle {:size :small})]]])]))
+          (icon :x-circle {:size :small})]]])]))
 
 (defn items-table
   [page-state]
