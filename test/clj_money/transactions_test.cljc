@@ -1,6 +1,8 @@
 (ns clj-money.transactions-test
-  (:require [clojure.test :refer [deftest testing is]]
-            [java-time.api :as t]
+  (:require #?(:clj [clojure.test :refer [deftest is testing]]
+               :cljs [cljs.test :refer [deftest is testing]])
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])
             [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [clj-money.transactions :as trx]))
 
