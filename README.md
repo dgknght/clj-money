@@ -19,12 +19,11 @@ lein with-profile partition 2015-01-01 2017-12-31
 ```
 
 ### Start local services
-Create a `profiles.clj` file with the following:
+Create a `env/dev/config.edn` file with the following:
 ```clojure
-{:profiles/dev
-  {:env
-    {:google-client-id "<look it up>"
-     :google-client-secret "<look it up>"}}}
+{:dev? true
+ :google-client-id "<look it up>"
+ :google-client-secret "<look it up>"}
 ```
 Start the web server with
 ```bash
@@ -34,28 +33,18 @@ then
 ```clojure
 (start-server)
 ```
-Start the client with:
-```bash
-lein figwheel
-```
-
-In a terminal:
-```bash
-lein repl
-```
-In another terminal:
-```bash
-lein figwheel
-```
-
-Inside the repl:
-```clojure
-(start-server)
-```
-
 To stop
 ```clojure
 (stop-server)
+
+```
+Start the client with:
+```bash
+lein fig:wheel
+```
+Stop the client with:
+```
+:cljs/quit
 ```
 
 ## Running on Heroku
@@ -69,12 +58,17 @@ heroku run lein partition <start-date> <end-date>
 heroku open
 ```
 
-## Running tests
+## Running server tests
 ```bash
 createdb money_test
 lein with-profile test migrate
 lein with-profile test partition 2015-01-01 2017-12-31
 lein test
+```
+
+## Running client tests
+```bash
+lein fig:test
 ```
 
 ## License
