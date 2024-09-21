@@ -1,6 +1,8 @@
 (ns clj-money.util-test
-  (:require [clojure.test :refer [deftest is are]]
-            [java-time.api :as t]
+  (:require #?(:clj [clojure.test :refer [deftest is]]
+               :cljs [cljs.test :refer [deftest is]])
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])
             [clj-money.util :as util]))
 
 (deftest convert-nominal-comparatives-to-symbolic
