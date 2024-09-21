@@ -1,8 +1,11 @@
 (ns clj-money.budgets
   (:require [clojure.string :as string]
             [clojure.set :refer [intersection]]
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.inflection :refer [title-case]]
             [clj-money.accounts :as acts]
+            [clj-money.transactions :as txns]
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.format :as tf])
@@ -136,3 +139,22 @@
     (if (seq tags)
       (render-tagged items tags)
       (render-untagged items))))
+
+(defn- ->budget-item
+  [[account-id tran-items]
+   {:keys [period]}
+   start-date
+   end-date]
+  {:account-id account-id
+   :periods (->> tran-items
+                 (txns/summarize-items {:interval-type period
+                                        :interval-count 1
+                                        :start-date start-date
+                                        :end-date end-date})
+                 (map :quantity))})
+
+(defn create-items-from-history
+  [budget start-date end-date trx-items]
+  (->> trx-items
+       (group-by :account-id)
+       (map #(->budget-item % budget start-date (t/minus end-date (t/days 1))))))
