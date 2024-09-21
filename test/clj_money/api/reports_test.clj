@@ -5,8 +5,8 @@
             [java-time.api :as t]
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test]
-            [clj-money.test-helpers :refer [reset-db
-                                            with-fixed-time]]
+            [clj-money.dates :refer [with-fixed-time]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [realize
                                             basic-context

@@ -17,6 +17,8 @@
    :cljs (derive cljs.core.PersistentArrayMap ::map))
 #?(:clj (derive clojure.lang.PersistentHashMap ::map)
    :cljs (derive cljs.core.PersistentHashMap ::map))
+#?(:clj (derive java.lang.String ::string)
+   :cljs (derive js/String ::string))
 
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
@@ -325,3 +327,15 @@
   [d1 d2]
   #?(:clj (.between ChronoUnit/DAYS d1 d2)
      :cljs (t/in-days (t/interval d1 d2))))
+
+(defmulti ->instant type)
+
+(defmethod ->instant ::string
+  [s]
+  #?(:clj (t/instant (t/formatter :iso-instant) s)
+     :cljs (tf/parse-local-date (tf/formatters :date-time) s)))
+
+(defmacro with-fixed-time
+  [time & body]
+  #?(:clj `(t/with-clock (t/fixed-clock (->instant ~time)) ~@body)
+     :cljs `(t/do-at (->instant ~time) ~@body)))

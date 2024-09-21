@@ -1,7 +1,9 @@
 (ns clj-money.scheduled-transactions-test
-  (:require [clojure.test :refer [deftest testing is]]
-            [java-time.api :as t]
-            [clj-money.test-helpers :refer [with-fixed-time]]
+  (:require #?(:clj [clojure.test :refer [deftest is testing]]
+               :cljs [cljs.test :refer [deftest is testing]])
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])
+            [clj-money.dates :refer [with-fixed-time]]
             [clj-money.scheduled-transactions :as st]))
 
 (deftest get-the-next-yearly-transaction-dates

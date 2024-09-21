@@ -1,9 +1,9 @@
 (ns clj-money.models.users-test
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
-            [clj-money.test-helpers :refer [reset-db
-                                            with-fixed-time]]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
