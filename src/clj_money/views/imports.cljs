@@ -15,6 +15,7 @@
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.icons :refer [icon icon-with-text]]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
                                                +busy
@@ -33,7 +34,7 @@
   [imp page-state]
   (+busy)
   (imports/delete imp
-                  (map (fn []
+                  (map (fn [_]
                          (-busy)
                          (load-imports page-state)))))
 
@@ -142,19 +143,19 @@
      [:button.btn.btn-success.btn-sm {:disable (str (:entity-exists? imp))
                                       :on-click #(start-import imp page-state)
                                       :title "Click here to start the import."}
-      (bs/icon :play {:size :small})]
+      (icon :play {:size :small})]
      [:button.btn.btn-light.btn-sm {:on-click (fn []
                                                 (swap! page-state assoc :active imp)
                                                 (reset! auto-refresh true)
                                                 (load-import page-state))
                                     :disable busy?
                                     :title "Click here to view this import."}
-      (bs/icon :eye {:size :small})]
+      (icon :eye {:size :small})]
      [:button.btn.btn-danger.btn-sm {:on-click #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
                                                   (delete-import imp page-state))
                                      :disable busy?
                                      :title "Click here to remove this import."}
-      (bs/icon :x-circle {:size :small})]]]])
+      (icon :x-circle {:size :small})]]]])
 
 (defn- import-table
   [page-state]
@@ -187,7 +188,7 @@
                                   (load-import page-state)))}
        (if @busy?
          (bs/spinner {:size :small})
-         (bs/icon @icon-image {:size :small}))])))
+         (icon @icon-image {:size :small}))])))
 
 (defn- progress-card
   [page-state]
@@ -198,7 +199,7 @@
      [:div.card-footer
       [:button.btn.btn-secondary.me-2 {:title "Click here to return the list of imports."
                                        :on-click #(swap! page-state dissoc :active)}
-       (bs/icon-with-text :x "Cancel")]
+       (icon-with-text :x "Cancel")]
       [refresh-button page-state]]]))
 
 (defn- errors-card
@@ -274,20 +275,16 @@
           [:div "Drop files here"]]]
         [file-list import-data]
         [:div.card-footer
-         [bs/busy-button {:html {:type :submit
-                                 :class "btn-success"
-                                 :title "Click here to begin the import."}
-                          :busy? busy?
-                          :icon :file-arrow-up
-                          :caption "Import"}]
-
-         [bs/busy-button {:html {:on-click #(swap! page-state dissoc :import-data)
-                                 :type :button
-                                 :class "btn-secondary ms-2"
-                                 :title "Click here to discard this import."}
-                          :busy? busy?
-                          :icon :x
-                          :caption "Cancel"}]]]])))
+         [:button.btn-success
+          {:type :submit
+           :title "Click here to begin the import."}
+          (icon-with-text :file-arrow-up
+                          "Import")]
+         [:button.btn-secondary.ms-2
+          {:on-click #(swap! page-state dissoc :import-data)
+           :type :button
+           :title "Click here to discard this import."}
+          (icon-with-text :x "Cancel")]]]])))
 
 (defn- import-list []
   (let [page-state (r/atom {:import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
@@ -301,17 +298,15 @@
        [:div.row
         [:div.col-md-6 {:class (when @import-data "d-none d-md-block")}
          [import-table page-state]
-         [bs/busy-button {:html {:title "Click here to import a new entity from another system."
-                                 :class "btn-primary"
-                                 :on-click (fn []
-                                             (swap! page-state assoc
-                                                    :import-data {:user-id (:id @state/current-user)
-                                                                  :options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
-                                                                            :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
-                                             (set-focus "entity-name"))}
-                          :busy? busy?
-                          :icon :plus
-                          :caption "Add"}]]
+         [:button.btn-primary
+          {:title "Click here to import a new entity from another system."
+           :on-click (fn []
+                       (swap! page-state assoc
+                              :import-data {:user-id (:id @state/current-user)
+                                            :options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
+                                                      :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
+                       (set-focus "entity-name"))}
+          (icon-with-text :plus "Add")]]
         (when (present? @import-data)
           [:div.col-md-6
            [import-form page-state]])

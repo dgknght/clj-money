@@ -14,13 +14,14 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.icons :refer [icon
+                                     icon-with-text]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts-by-id
                                      +busy
                                      -busy
-                                     -busy-x
-                                     busy?]]
+                                     -busy-x]]
             [clj-money.budgets :refer [period-description]]
             [clj-money.api.budgets :as bdt]
             [clj-money.api.reports :as rpt]))
@@ -243,7 +244,7 @@
        {:on-click #(apply-to-budget item page-state)
         :title "Click here to update the budget with recorded actual values."
         :style {:cursor :pointer}}
-       (bs/icon :gear {:size :small})])
+       (icon :gear {:size :small})])
     [:span.flex-fill.text-end (format-decimal difference)]]
    [:td.text-end.d-none.d-md-table-cell (format-percent percent-difference)]
    [:td.text-end.d-none.d-md-table-cell (format-decimal actual-per-period)]])
@@ -334,18 +335,13 @@
              [:td.text-end {:col-span 2} (format-decimal @original-total)]
              [:td.text-end (format-decimal @item-total)]]]]]]
         [:div.card-footer
-         [bs/busy-button {:html {:class "btn-primary"
-                                 :title "Click here to save this budget item."
-                                 :on-click #(save-budget page-state)}
-                          :icon :check
-                          :caption "Save"
-                          :busy? busy?}]
-         [bs/busy-button {:html {:class "btn-light ms-2"
-                                 :title "Click here to cancel this edit."
-                                 :on-click #(swap! page-state update-in [:budget] dissoc :apply-info)}
-                          :icon :x
-                          :caption "Cancel"
-                          :busy? busy?}]]]])))
+         [:button.btn-primary {:title "Click here to save this budget item."
+                               :on-click #(save-budget page-state)}
+          (icon-with-text :check "Save")]
+         [:button.btn-light.ms-2
+          {:title "Click here to cancel this edit."
+           :on-click #(swap! page-state update-in [:budget] dissoc :apply-info)}
+          (icon-with-text :x "Cancel")]]]])))
 
 (defn- budget-header
   [page-state]
@@ -555,13 +551,10 @@
            :budget           [budget-options options page-state]
            :portfolio        [portfolio-options options page-state])
          [:div.mt-3
-          [bs/busy-button {:html {:class "btn-primary"
-                                  :type :submit
-                                  :data-bs-dismiss :offcanvas
-                                  :title "Click here to show the report with the specified parameters"}
-                           :caption "Show"
-                           :icon :arrow-repeat
-                           :busy? busy?}]]]]])))
+          [:button.btn-primary {:type :submit
+                                :data-bs-dismiss :offcanvas
+                                :title "Click here to show the report with the specified parameters"}
+           (icon-with-text :arrow-repeat "Show")]]]]])))
 
 (defn- init-state []
   (r/atom {:selected :balance-sheet
@@ -597,7 +590,7 @@
           :data-bs-toggle "offcanvas"
           :data-bs-target "#report-options"
           :aria-controls "report-options" }
-         (bs/icon :gear)]]
+         (icon :gear)]]
 
        [:div.d-none.d-print-block.text-center
         [:h1 (humanize @selected)]

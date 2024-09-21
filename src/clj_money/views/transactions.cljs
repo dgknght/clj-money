@@ -158,7 +158,7 @@
   [item page-state]
   (when (js/confirm "Are you sure you want to delete this transaction?")
     (transactions/delete (item->tkey item)
-                         (map #(reset-item-loading page-state)))))
+                         (map (fn [_] (reset-item-loading page-state))))))
 
 (defn- post-item-row-drop
   [page-state item {:keys [body]}]

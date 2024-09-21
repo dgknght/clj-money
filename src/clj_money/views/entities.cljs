@@ -5,12 +5,12 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.forms-validation :as v]
-            [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.icons :refer  [icon
+                                      icon-with-text]]
             [clj-money.api.entities :as entities]
             [clj-money.state :as state :refer [app-state
                                                +busy
-                                               -busy
-                                               busy?]]))
+                                               -busy]]))
 
 (defn- delete
   [entity]
@@ -20,12 +20,6 @@
                      (map (fn []
                             (-busy)
                             (state/remove-entity entity))))))
-
-(defn find-entity
-  [id]
-  (->> (:entities @state/app-state)
-       (filter #(= id (:id %)))
-       first))
 
 (defn- relay-updated-entity
   "Accepts an entity and replaces the corresponding enty
@@ -67,19 +61,15 @@
          [text-field entity [:name] {:validations #{::v/required}}]
          #_[radio-buttons [:settings :inventory-method] ["fifo" "lifo"]]]
         [:div.card-footer
-         [bs/busy-button {:html {:title "Click here to save this entity."
-                                 :type :submit
-                                 :class "btn-primary"}
-                          :icon :check
-                          :caption "Save"
-                          :busy? busy?}]
-         [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                 :type :button
-                                 :title "Click here to cancel this operation."
-                                 :on-click #(swap! page-state dissoc :selected)}
-                          :icon :x
-                          :caption "Cancel"
-                          :busy? busy?}]]]])))
+         [:button.btn-primary
+          {:title "Click here to save this entity."
+           :type :submit}
+          (icon-with-text :check "Save")]
+         [:button.btn-secondary.ms-2
+          {:type :button
+           :title "Click here to cancel this operation."
+           :on-click #(swap! page-state dissoc :selected)}
+          (icon-with-text :x "Cancel")]]]])))
 
 (defn- entity-row
   [entity page-state busy?]
@@ -93,11 +83,11 @@
                                                 (set-focus "name"))
                                     :disabled busy?
                                     :title "Click here to edit this entity."}
-      (bs/icon :pencil {:size :small})]
+      (icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-danger {:on-click #(delete entity)
                                      :disabled busy?
                                      :title "Click here to remove this entity."}
-      (bs/icon :x-circle {:size :small})]]]])
+      (icon :x-circle {:size :small})]]]])
 
 (defn- entity-table
   [page-state]
@@ -123,24 +113,19 @@
        [:div.row
         [:div.col-md-6 {:class (when @selected "d-none d-md-block")}
          [entity-table page-state]
-         [bs/busy-button {:html {:class "btn-primary"
-                                 :title "Click here to create a new entity."
-                                 :on-click (fn []
-                                             (swap! page-state
-                                                    assoc
-                                                    :selected
-                                                    {:entity-id (:id @current-entity)})
-                                             (set-focus "name"))}
-                          :disabled selected
-                          :busy? busy?
-                          :icon :plus
-                          :caption "Add"}]
-         [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                 :title "Click here to import an entity from another accounting system."
-                                 :on-click #(secretary/dispatch! "/imports")}
-                          :icon :file-arrow-up
-                          :busy? busy?
-                          :caption "Import"}]]
+         [:button.btn-primary
+          {:title "Click here to create a new entity."
+           :on-click (fn []
+                       (swap! page-state
+                              assoc
+                              :selected
+                              {:entity-id (:id @current-entity)})
+                       (set-focus "name"))}
+          (icon-with-text :plus "Add")]
+         [:button.btn-secondary.ms-2
+          {:title "Click here to import an entity from another accounting system."
+           :on-click #(secretary/dispatch! "/imports")}
+          (icon-with-text :file-arrow-up "Import")]]
         (when @selected
           [:div.col-md-6
            [entity-form page-state]])]])))
