@@ -178,6 +178,16 @@
                            (periodic-seq (t/plus start period)
                                          period))))))
 
+(defn ranges
+  [start interval & {:keys [inclusive]}]
+  (let [adj (if inclusive
+              #(t/minus % (t/days 1))
+              identity)]
+    (->> (periodic-seq start interval)
+         (partition 2 1)
+         (map (fn [[s e]]
+                [s (adj e)])))))
+
 (defn desc-periodic-seq
   ([end period-like]
    (lazy-seq (cons end

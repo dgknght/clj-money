@@ -66,6 +66,29 @@
                     (dates/parse-interval "2015"))
       "A year yields an interval for that year"))
 
+(deftest get-a-sequence-of-date-ranges
+  (is (dates/equal?
+        [[(t/local-date 2015 1 1)
+          (t/local-date 2015 2 1)]
+         [(t/local-date 2015 2 1)
+          (t/local-date 2015 3 1)]
+         [(t/local-date 2015 3 1)
+          (t/local-date 2015 4 1)]]
+        (take 3 (dates/ranges (t/local-date 2015 1 1)
+                              (t/months 1))))
+      "A sequence of date tuples (exclusive upper bound) of the given size and within the given range is returned")
+  (is (dates/equal?
+        [[(t/local-date 2015 1 1)
+          (t/local-date 2015 1 31)]
+         [(t/local-date 2015 2 1)
+          (t/local-date 2015 2 28)]
+         [(t/local-date 2015 3 1)
+          (t/local-date 2015 3 31)]]
+        (take 3 (dates/ranges (t/local-date 2015 1 1)
+                              (t/months 1)
+                              :inclusive true)))
+      "A sequence of date tuples (exclusive upper bound) of the given size and within the given range is returned"))
+
 (deftest get-a-descending-sequence-of-periodic-dates
   (testing "bounded result"
     (are [start end interval expected] (dates/equal?
