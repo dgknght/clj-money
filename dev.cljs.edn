@@ -1,0 +1,6 @@
+^{:watch-dirs ["test" "src"]
+  :css-dirs ["resources/public/css"]
+  :open-url false
+  :log-file "log/figwheel-main.log"
+  :auto-testing false}
+{:main clj-money.core}

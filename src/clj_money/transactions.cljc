@@ -160,7 +160,9 @@
   [{:keys [interval-type interval-count start-date end-date]
     :or {interval-count 1}}
    items]
-  (->> (dates/ranges start-date (dates/period interval-type interval-count))
+  (->> (dates/ranges start-date
+                     (dates/period interval-type interval-count)
+                     :inclusive true)
        (take-while #(apply dates/overlaps? start-date end-date %))
        (map #(summarize-period % items))))
 

@@ -142,7 +142,9 @@
     (if query-string
       (log/infof "Request %s: %s?%s" request-method uri query-string)
       (log/infof "Request %s: %s" request-method uri))
-    (handler req)))
+    (let [res (handler req)]
+      (log/infof "Response %s: %s -> %s" request-method uri (:status res))
+      res)))
 
 (defroutes app
   (-> (routes apps/routes
@@ -172,9 +174,12 @@
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 3000))]
-    (log/infof "Starting eb server on port %s" port)
-    (jetty/run-jetty #'app {:port port :join? false})
-    (log/infof "Web server listening on port %s" port)))
+    (println (format "Starting web server on port %s..." port))
+    (log/infof "Starting web server on port %s" port)
+    (let [server (jetty/run-jetty #'app {:port port :join? false})]
+      (log/infof "Web server listening on port %s" port)
+      (println (format "Web server listening on port %s." port))
+      server)))
 
 ;; For interactive development:
 ;; (.stop server)

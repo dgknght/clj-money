@@ -1,8 +1,37 @@
 (ns clj-money.dates-test
-  (:require [clojure.test :refer [deftest testing is are]]
-            [clojure.pprint :refer [pprint]]
-            [java-time.api :as t]
+  (:require #?(:clj [clojure.test :refer [deftest testing is are]]
+               :cljs [cljs.test :refer [deftest is testing are]])
+            #?(:clj [clojure.pprint :refer [pprint]]
+               :cljs [cljs.pprint :refer [pprint]])
+            #?(:clj [java-time.api :as t]
+               :cljs [cljs-time.core :as t])
             [clj-money.dates :as dates]))
+
+(deftest compare-two-local-dates-for-equality
+  (testing "simple dates"
+    (is (dates/equal? (t/local-date 2000 1 1)
+                      (t/local-date 2000 1 1))
+        "Two instances of the same calendar date are equal")
+    (is (not (dates/equal? (t/local-date 2000 1 1)
+                           (t/local-date 2000 1 2)))
+        "Two instances of the different calendar date are not equal"))
+  (testing "sequences of dates"
+    (is (dates/equal? [(t/local-date 2000 1 1)
+                       (t/local-date 2000 1 2)]
+                      [(t/local-date 2000 1 1)
+                       (t/local-date 2000 1 2)])
+        "Two sequences containing the same dates are equal")
+    (is (not (dates/equal? [(t/local-date 2000 1 1)
+                            (t/local-date 2000 1 2)]
+                           [(t/local-date 2000 1 2)
+                            (t/local-date 2000 1 3)]))
+        "Two sequences containing the different dates are not equal")
+    (is (not (dates/equal? [(t/local-date 2000 1 1)
+                            (t/local-date 2000 1 2)]
+                           [(t/local-date 2000 1 1)
+                            (t/local-date 2000 1 2)
+                            (t/local-date 2000 1 3)]))
+        "Two sequences containing a different number of dates are not equal")))
 
 (deftest get-the-year-from-a-local-date
   (is (= 2000 (dates/year (t/local-date 2000 1 1)))))
@@ -11,55 +40,60 @@
   (is (= 3 (dates/month (t/local-date 2000 3 1)))))
 
 (deftest parse-a-date-range
-  (is (= [(t/local-date 2015 3 2)
-          (t/local-date 2015 3 2)]
-         (dates/parse-range "2015-03-02"))
-      "A single date is both the start and the end")
-  (is (= [(t/local-date 2015 3 1)
-          (t/local-date 2015 3 31)]
-         (dates/parse-range "2015-03"))
-      "A month-year is parsed as the first and last dates of the month")
-  (is (= [(t/local-date 2015 1 1)
-          (t/local-date 2015 12 31)]
-         (dates/parse-range "2015"))
-         "A year is parsed as the first and last dates of the year"))
+  (let [[start end] (dates/parse-range "2015-03-02")]
+    (is (dates/equal? (t/local-date 2015 3 2) start)
+        "The start is the specified date")
+    (is (dates/equal? (t/local-date 2015 3 2) end)
+        "The end is the specified date"))
+  (let [[start end] (dates/parse-range "2015-03")]
+    (is (dates/equal? (t/local-date 2015 3 1) start)
+        "The start is the first day of a specified month")
+    (is (dates/equal? (t/local-date 2015 3 31) end)
+        "The end is the last day of a specified month"))
+  (let [[start end] (dates/parse-range "2015")]
+    (is (dates/equal? (t/local-date 2015 1 1) start)
+        "The start is the first day of a specified year")
+    (is (dates/equal? (t/local-date 2015 12 31) end)
+        "The end is the last day of a specified year")))
 
 (deftest parse-an-interval
-  (is (= (dates/interval (dates/instant 2015 3 1)
-                         (dates/instant 2015 4 1))
-         (dates/parse-interval "2015-03"))
+  (is (dates/equal? [(t/local-date 2015 3 1)
+                     (t/local-date 2015 4 1)] 
+                    (dates/parse-interval "2015-03"))
       "A year-month yields an interval for that month")
-  (is (= (dates/interval (dates/instant 2015 1 1)
-                         (dates/instant 2016 1 1))
-         (dates/parse-interval "2015"))
-      "A year yields an interval for that month"))
- 
-(deftest get-a-sequence-of-intervals
-  (is (= [(dates/interval (dates/instant 2015 1 1)
-                          (dates/instant 2015 2 1))
-          (dates/interval (dates/instant 2015 2 1)
-                          (dates/instant 2015 3 1))
-          (dates/interval (dates/instant 2015 3 1)
-                          (dates/instant 2015 4 1))]
-         (take 3 (dates/intervals (t/local-date 2015 1 1)
-                                  (t/months 1))))
-      "A sequence of intervals of the given size and within the given range is returned"))
+  (is (dates/equal? [(t/local-date 2015 1 1)
+                     (t/local-date 2016 1 1)]
+                    (dates/parse-interval "2015"))
+      "A year yields an interval for that year"))
 
 (deftest get-a-sequence-of-date-ranges
-  (is (= [[(t/local-date 2015 1 1)
-           (t/local-date 2015 1 31)]
-          [(t/local-date 2015 2 1)
-           (t/local-date 2015 2 28)]
-          [(t/local-date 2015 3 1)
-           (t/local-date 2015 3 31)]]
-         (take 3 (dates/ranges (t/local-date 2015 1 1)
-                               (t/months 1))))
-      "A sequence of date tuples of the given size and within the given range is returned"))
+  (is (dates/equal?
+        [[(t/local-date 2015 1 1)
+          (t/local-date 2015 2 1)]
+         [(t/local-date 2015 2 1)
+          (t/local-date 2015 3 1)]
+         [(t/local-date 2015 3 1)
+          (t/local-date 2015 4 1)]]
+        (take 3 (dates/ranges (t/local-date 2015 1 1)
+                              (t/months 1))))
+      "A sequence of date tuples (exclusive upper bound) of the given size and within the given range is returned")
+  (is (dates/equal?
+        [[(t/local-date 2015 1 1)
+          (t/local-date 2015 1 31)]
+         [(t/local-date 2015 2 1)
+          (t/local-date 2015 2 28)]
+         [(t/local-date 2015 3 1)
+          (t/local-date 2015 3 31)]]
+        (take 3 (dates/ranges (t/local-date 2015 1 1)
+                              (t/months 1)
+                              :inclusive true)))
+      "A sequence of date tuples (exclusive upper bound) of the given size and within the given range is returned"))
 
 (deftest get-a-descending-sequence-of-periodic-dates
   (testing "bounded result"
-    (are [start end interval expected] (= expected
-                                          (dates/desc-periodic-seq start end interval))
+    (are [start end interval expected] (dates/equal?
+                                         expected
+                                         (dates/desc-periodic-seq start end interval))
          (t/local-date 2015 9 1)
          (t/local-date 2015 12 1)
          (t/months 1)
@@ -74,8 +108,9 @@
          [(t/local-date 2015 12 1)
           (t/local-date 2015 10 1)]))
   (testing "unbounded result"
-    (are [start interval expected] (= expected
-                                          (take 3 (dates/desc-periodic-seq start interval)))
+    (are [start interval expected] (dates/equal?
+                                     expected
+                                     (take 3 (dates/desc-periodic-seq start interval)))
          (t/local-date 2015 12 1)
          (t/months 1)
          [(t/local-date 2015 12 1)
@@ -90,8 +125,9 @@
 
 (deftest get-a-descending-sequence-of-date-ranges
   (testing "bounded result"
-    (are [start end interval expected] (= expected
-                                          (dates/desc-ranges start end interval))
+    (are [start end interval expected] (dates/equal?
+                                         expected
+                                         (dates/desc-ranges start end interval))
          (t/local-date 2015 9 1)
          (t/local-date 2015 12 1)
          (t/months 1)
@@ -105,14 +141,15 @@
          (t/months 2)
          [[(t/local-date 2015 10 2) (t/local-date 2015 12 2)]
           [(t/local-date 2015  8 2) (t/local-date 2015 10 2)]]
-         
+
          (t/local-date 2015 12 1)
          (t/local-date 2015 12 1)
          (t/months 1)
          [[(t/local-date 2015 12 1) (t/local-date 2015 12 2)]]))
   (testing "unbounded result"
-    (are [start interval expected] (= expected
-                                          (take 3 (dates/desc-ranges start interval)))
+    (are [start interval expected] (dates/equal?
+                                     expected
+                                     (take 3 (dates/desc-ranges start interval)))
          (t/local-date 2015 12 1)
          (t/months 1)
          [[(t/local-date 2015 11 2) (t/local-date 2015 12 2)] ; must include the end date, top number is exclusive
@@ -128,24 +165,24 @@
 (deftest get-the-earliest-date-from-a-sequence
   (let [jan (t/local-date 2015 1 1)
         feb (t/local-date 2015 2 1)]
-    (is (= jan (dates/earliest jan feb)))
-    (is (= jan (dates/earliest feb jan)))
-    (is (= jan (dates/earliest nil jan)))
-    (is (= jan (dates/earliest jan nil)))))
+    (is (dates/equal? jan (dates/earliest jan feb)))
+    (is (dates/equal? jan (dates/earliest feb jan)))
+    (is (dates/equal? jan (dates/earliest nil jan)))
+    (is (dates/equal? jan (dates/earliest jan nil)))))
 
 (deftest get-the-latest-date-from-a-sequence
   (let [jan (t/local-date 2015 1 1)
         feb (t/local-date 2015 2 1)]
-    (is (= feb (dates/latest jan feb)))
-    (is (= feb (dates/latest feb jan)))))
+    (is (dates/equal? feb (dates/latest jan feb)))
+    (is (dates/equal? feb (dates/latest feb jan)))))
 
 (deftest get-the-first-day-of-a-month
-  (is (= (t/local-date 2015 4 1)
-         (dates/first-day-of-the-month 2015 4))))
+  (is (dates/equal? (t/local-date 2015 4 1)
+                    (dates/first-day-of-the-month 2015 4))))
 
 (deftest get-the-last-day-of-a-month
-  (is (= (t/local-date 2015 4 30)
-         (dates/last-day-of-the-month 2015 4))))
+  (is (dates/equal? (t/local-date 2015 4 30)
+                    (dates/last-day-of-the-month 2015 4))))
 
 (deftest evaluate-last-day-of-the-month
   (is (dates/last-day-of-the-month? (t/local-date 2000 3 31)))
@@ -238,8 +275,8 @@
          (dates/serialize-local-date (t/local-date 2000 1 1)))))
 
 (deftest unserialize-a-local-date
-  (is (= (t/local-date 2000 1 1)
-         (dates/unserialize-local-date "2000-01-01"))))
+  (is (dates/equal? (t/local-date 2000 1 1)
+                    (dates/unserialize-local-date "2000-01-01"))))
 
 (deftest get-the-number-of-days-in-a-period
   (is (= 3 (dates/days-between (t/local-date 2000 1 1)

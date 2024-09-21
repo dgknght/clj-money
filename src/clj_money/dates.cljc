@@ -9,15 +9,45 @@
   #?(:clj (:import [org.threeten.extra Interval]
                    [java.time ZoneOffset LocalDate Instant]
                    [java.time.temporal ChronoUnit])
-     :cljs (:import [goog.date Date])))
+     :cljs (:import [goog.date Date DateTime])))
+
+#?(:clj (derive clojure.lang.PersistentVector ::vector)
+   :cljs (derive cljs.core.PersistentVector ::vector))
+#?(:clj (derive clojure.lang.PersistentArrayMap ::map)
+   :cljs (derive cljs.core.PersistentArrayMap ::map))
+#?(:clj (derive clojure.lang.PersistentHashMap ::map)
+   :cljs (derive cljs.core.PersistentHashMap ::map))
+
+#?(:cljs (extend-protocol IPrintWithWriter
+           Date
+           (-pr-writer [date writer _]
+             (write-all writer "#local-date \"" (tf/unparse (tf/formatters :date) date) "\""))
+           DateTime
+           (-pr-writer [date writer _]
+             (write-all writer "#local-date-time \"" (tf/unparse (tf/formatters :date-time) date) "\""))))
 
 (def local-date?
   #?(:clj t/local-date?
      :cljs (partial instance? Date)))
 
-(def equal?
-  #?(:clj t/=
-     :cljs t/equal?))
+(defmulti equal?
+  (fn [d1 _d2]
+    (type d1)))
+
+(defmethod equal? :default
+  [d1 d2]
+  #?(:clj (t/= d1 d2)
+     :cljs (t/equal? d1 d2)))
+
+(defmethod equal? ::vector
+  [l1 l2]
+  (and (= (count l1)
+          (count l2))
+       (->> l2
+            (interleave l1)
+            (partition 2)
+            (every? (fn [[d1 d2]]
+                      (equal? d1 d2))))))
 
 #?(:clj (defmulti instant* type))
 
@@ -116,31 +146,27 @@
        (t/local-date year 12 31)])))
 
 (defn parse-interval
-  "Takes a string containing a date or partial date and returns a corresponding
-  org.threeten.extra.Interval
+  "Takes a string containing a date or partial date and returns a tuple
+  containing the inclusive start and exclusive end dates, like [start end].
 
-  2015       => (ten/interval (t/instant 2015 1 1) (t/instant 2016 1 1))
-  2015-03    => (ten/interval (t/instant 2015 3 1) (t/instant 2015 4 1))
-  2015-03-02 => (ten/interval (t/instant 2015 3 2) (t/instant 2015 3 3))"
+  2015       => [(t/local-date 2015 1 1) (t/local-date 2016 1 1)]
+  2015-03    => [(t/local-date 2015 3 1) (t/local-date 2015 4 1)]
+  2015-03-02 => [(t/local-date 2015 3 2) (t/local-date 2015 3 3)]"
   [value]
   (let [[year month day] (parse-partial value)]
     (cond
 
       day
       (let [start (t/local-date year month day)]
-        (interval start
-                  (t/plus start
-                                   (t/days 1))))
+        [start (t/plus start (t/days 1))])
 
       month
       (let [start (t/local-date year month 1)]
-        (interval start
-                  (t/plus start (t/months 1))))
+        [start (t/plus start (t/months 1))])
 
       :else
       (let [start (t/local-date year 1 1)]
-        (interval start
-                  (t/plus start (t/years 1)))))))
+        [start (t/plus start (t/years 1))]))))
 
 (defn periodic-seq
   ([start end period]
@@ -152,17 +178,15 @@
                            (periodic-seq (t/plus start period)
                                          period))))))
 
-(defn intervals
-  [start period]
-  (->> (periodic-seq start period)
-       (partition 2 1)
-       (map #(apply interval %))))
-
 (defn ranges
-  [start interval]
-  (->> (periodic-seq start interval)
-       (partition 2 1)
-       (map (fn [[s e]] [s (t/minus e (t/days 1))]))))
+  [start interval & {:keys [inclusive]}]
+  (let [adj (if inclusive
+              #(t/minus % (t/days 1))
+              identity)]
+    (->> (periodic-seq start interval)
+         (partition 2 1)
+         (map (fn [[s e]]
+                [s (adj e)])))))
 
 (defn desc-periodic-seq
   ([end period-like]
@@ -295,7 +319,7 @@
 (defn format-local-date
   [local-date]
   #?(:clj (t/format (t/formatter "M/d/yyyy") local-date)
-     :cljs (tf/unparse-local-date (tf/formatters "M/d/yyyy") local-date)))
+     :cljs (tf/unparse-local-date (tf/formatter "M/d/yyyy") local-date)))
 
 (defn days-between
   [d1 d2]

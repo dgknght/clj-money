@@ -1,0 +1,4 @@
+#!/bin/sh
+
+pkill firefox
+GTK_MODULES="" firefox --headless "$@"
