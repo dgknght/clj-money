@@ -35,6 +35,8 @@ jobs:
         with:
           clj-kondo-args: --lint src:test
           github_token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Run ClojureScript tests
+        run: lein fig:test
       - name: Run database migrations
         run: lein with-profile +test migrate
       - name: Create database partitions
