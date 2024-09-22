@@ -16,6 +16,8 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.icons :refer [icon
+                                     icon-with-text]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
@@ -128,15 +130,15 @@
                           :on-click #(realize sched-tran page-state)}
       (if busy?
         (bs/spinner {:size :small})
-        (bs/icon :gear {:size :small}))]
+        (icon :gear {:size :small}))]
      [:button.btn.btn-light.btn-sm {:title "Click here to edit this scheduled transaction."
                                    :on-click (fn [_]
                                                (swap! page-state assoc :selected (->editable sched-tran))
                                                (set-focus "description"))}
-      (bs/icon :pencil {:size :small})]
+      (icon :pencil {:size :small})]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this scheduled transaction."
                                      :on-click #(delete-sched-tran sched-tran page-state)}
-      (bs/icon :x {:size :small})]]]])
+      (icon :x {:size :small})]]]])
 
 (defn- date-compare
   [d1 d2]
@@ -169,7 +171,7 @@
                                           "text-dark"
                                           "text-muted")
                                :on-click #(reset! sort-on (:key h))}
-                      (bs/icon :sort-down-alt)]]))
+                      (icon :sort-down-alt)]]))
              doall)
         [:th (html/space)]]])))
 
@@ -361,11 +363,11 @@
        [forms/checkbox-field sched-tran [:enabled]]
        [:button.btn.btn-primary {:type :submit
                                  :title "Click here to save this scheduled transaction."}
-        (bs/icon-with-text :check "Save")]
+        (icon-with-text :check "Save")]
        [:button.btn.btn-secondary.ms-2 {:type :button
                                         :title "Click here to cancel this operation."
                                         :on-click #(swap! page-state dissoc :selected)}
-        (bs/icon-with-text :x-circle "Cancel")]])))
+        (icon-with-text :x-circle "Cancel")]])))
 
 (defn- created-row
   [{:keys [id transaction-date description value]}]
@@ -421,7 +423,7 @@
                                                        :items [{:debit-quantity nil}
                                                                {:credit-quantity nil}]})
                                                (set-focus "description"))}
-          (bs/icon-with-text :plus "Add")]
+          (icon-with-text :plus "Add")]
          [:button.btn.btn-secondary.ms-2 {:title "Click here to new transactions from the schedule."
                                           :type :button
                                           :disabled @busy?
@@ -431,7 +433,7 @@
              [:div.spinner-border.spinner-border-sm {:role :status}
               [:span.visually-hidden "Working..."]]
              [:span.ms-1 "Realize"]]
-            (bs/icon-with-text :gear "Realize"))]]
+            (icon-with-text :gear "Realize"))]]
         [created page-state]]
        [:div {:class (when-not @selected "d-none")}
         [sched-tran-form page-state]]])))

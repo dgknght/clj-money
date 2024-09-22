@@ -14,16 +14,17 @@
             [dgknght.app-lib.decimal :as decimal]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.icons :refer [icon]]
             [clj-money.dates :as dates]
-            [clj-money.components :refer [load-in-chunks
+            [clj-money.components :refer [button
+                                          load-in-chunks
                                           load-on-scroll]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.prices :as prices]
             [clj-money.state :refer [app-state
                                      current-entity
                                      +busy
-                                     -busy
-                                     busy? ]]))
+                                     -busy]]))
 
 (defn- load-commodities
   [page-state]
@@ -69,19 +70,17 @@
            [forms/text-field commodity [:name] {:validations #{::v/required}}]
            [forms/checkbox-field commodity [:price-config :enabled] {:caption "Download prices"}]]
           [:div.card-footer
-           [bs/busy-button {:html {:class "btn-primary"
-                                   :type :submit
-                                   :title "Click here to save this commodity"}
-                            :icon :check
-                            :caption "Save"
-                            :busy? busy?}]
-           [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                   :title "Click here to discontinue this edit operation."
-                                   :type :button
-                                   :on-click #(swap! page-state dissoc :selected)}
-                            :icon :x
-                            :caption "Cancel"
-                            :busy? busy?}]]]]))))
+           [button {:html {:class "btn-primary"
+                           :type :submit
+                           :title "Click here to save this commodity"}
+                    :icon :check
+                    :caption "Save"}]
+           [button {:html {:class "btn-secondary ms-2"
+                           :title "Click here to discontinue this edit operation."
+                           :type :button
+                           :on-click #(swap! page-state dissoc :selected)}
+                    :icon :x
+                    :caption "Cancel"}]]]]))))
 
 (defn- delete
   [commodity page-state]
@@ -141,7 +140,8 @@
   (js/setTimeout
     (fn []
       (swap! page-state assoc :prices-commodity commodity)
-      (init-price-loading page-state)
+      (when (every? commodity [:earliest-price :latest-price])
+        (init-price-loading page-state))
       (-busy))
     100))
 
@@ -164,16 +164,16 @@
                                                                         (dissoc :prices-commodity)
                                                                         (assoc :selected commodity)))
                                                  (set-focus "type"))}
-        (bs/icon :pencil {:size :small})]
+        (icon :pencil :size :small)]
        [:button.btn.btn-light.btn-sm {:title "Click here to view prices for this commodity."
                                      :disabled default?
                                      :on-click #(select-prices-commodity page-state
                                                                          commodity)}
-        (bs/icon :collection {:size :small})]
+        (icon :collection :size :small)]
        [:button.btn.btn-danger.btn-sm {:title "Click here to delete this commodity."
                                        :disabled default?
                                        :on-click #(delete commodity page-state)}
-        (bs/icon :x-circle {:size :small})]]]]))
+        (icon :x-circle :size :small)]]]]))
 
 (defn- match-commodity
   [pattern]
@@ -195,11 +195,11 @@
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state assoc :page-index 0)}
-         (bs/icon :chevron-bar-left {:size :small})]]
+         (icon :chevron-bar-left :size :small)]]
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state update-in [:page-index] (fmin dec 0))}
-         (bs/icon :chevron-left {:size :small})]]
+         (icon :chevron-left :size :small)]]
        [:li.page-item
         [:a.page-link {:href "#"}
          (+ 1 @page-index)
@@ -208,11 +208,11 @@
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state update-in [:page-index] (fmax inc @max-index))}
-         (bs/icon :chevron-right {:size :small})]]
+         (icon :chevron-right :size :small)]]
        [:li.page-item
         [:a.page-link {:href "#"
                        :on-click #(swap! page-state assoc :page-index @max-index)}
-         (bs/icon :chevron-bar-right {:size :small})]]])))
+         (icon :chevron-bar-right :size :small)]]])))
 
 (defn- shares-owned?
   [{:keys [shares-owned]}]
@@ -261,12 +261,12 @@
        [:div
         [:div.input-group
          [:span.input-group-text
-          (bs/icon :search {:size :small})]
+          (icon :search :size :small)]
          [forms/text-input page-state [:search-term]]
          [:div.input-group-append {:class (when-not @search-term "d-none")
                                    :on-click #(swap! page-state dissoc :search-term)}
           [:button.btn.btn-secondary
-           (bs/icon :x {:size :small})]]]]
+           (icon :x :size :small)]]]]
        [:table.table.table-striped.table-hover
         [:thead
          [:tr
@@ -287,28 +287,26 @@
            [:tr
             [:td.text-center {:col-span 6} [bs/spinner]]])]]
        [pagination page-state filtered]
-       [bs/busy-button {:html {:class "btn-primary"
-                               :title "Click here to add a new commodity."
-                               :on-click (fn []
-                                           (swap! page-state
-                                                  assoc
-                                                  :selected
-                                                  {:entity-id (:id @current-entity)
-                                                   :type "stock"
-                                                   :exchange "nyse"
-                                                   :price-config {:enabled true}})
-                                           (set-focus "type"))}
-                        :busy? busy?
-                        :icon :plus
-                        :caption "Add"
-                        :disabled? selected}]
-       [bs/busy-button {:html {:class "btn-light ms-2"
-                               :title "Click here to download recent prices for each commodity."
-                               :on-click #(download-prices page-state)}
-                        :busy? busy?
-                        :icon :download
-                        :disabled? selected
-                        :caption "Fetch Prices"}]])))
+       [button {:html {:class "btn-primary"
+                       :title "Click here to add a new commodity."
+                       :on-click (fn []
+                                   (swap! page-state
+                                          assoc
+                                          :selected
+                                          {:entity-id (:id @current-entity)
+                                           :type "stock"
+                                           :exchange "nyse"
+                                           :price-config {:enabled true}})
+                                   (set-focus "type"))}
+                :icon :plus
+                :caption "Add"
+                :disabled? selected}]
+       [button {:html {:class "btn-light ms-2"
+                       :title "Click here to download recent prices for each commodity."
+                       :on-click #(download-prices page-state)}
+                :icon :download
+                :disabled? selected
+                :caption "Fetch Prices"}]])))
 
 (defn- post-delete-price
   [page-state price]
@@ -339,10 +337,10 @@
                                    :on-click (fn []
                                                (swap! page-state assoc :selected-price price)
                                                (set-focus "trade-date"))}
-      (bs/icon :pencil {:size :small})]
+      (icon :pencil :size :small)]
      [:button.btn.btn-danger.btn-sm {:title "Click here to remove this price."
                                      :on-click #(delete-price price page-state)}
-      (bs/icon :x-circle {:size :small})]]]])
+      (icon :x-circle :size :small)]]]])
 
 (defn- price-list
   [page-state]
@@ -365,23 +363,21 @@
             (doall (map #(price-row % page-state) @prices))
             [:tr [:td {:col-span 3} [:span.inline-status "Loading..."]]])]]]
        [:div.card-footer.d-flex.align-items-center
-        [bs/busy-button {:html {:class "btn-primary"
-                                :title "Click here to add a new price for this commodity."
-                                :on-click (fn []
-                                            (swap! page-state
-                                                   assoc
-                                                   :selected-price
-                                                   {:commodity-id (:id @commodity)
-                                                    :trade-date (t/today)})
-                                            (set-focus "trade-date"))}
-                         :icon :plus
-                         :caption "Add"
-                         :busy? busy?}]
-        [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                :on-click #(swap! page-state dissoc :prices-commodity)}
-                         :icon :x
-                         :caption "Close"
-                         :busy? busy?}]
+        [button {:html {:class "btn-primary"
+                        :title "Click here to add a new price for this commodity."
+                        :on-click (fn []
+                                    (swap! page-state
+                                           assoc
+                                           :selected-price
+                                           {:commodity-id (:id @commodity)
+                                            :trade-date (t/today)})
+                                    (set-focus "trade-date"))}
+                 :icon :plus
+                 :caption "Add"}]
+        [button {:html {:class "btn-secondary ms-2"
+                        :on-click #(swap! page-state dissoc :prices-commodity)}
+                 :icon :x
+                 :caption "Close"}]
         [:span.ms-auto
          [load-on-scroll {:target "prices-container"
                           :all-items-fetched? @all-prices-fetched?
@@ -438,19 +434,17 @@
            [forms/date-field price [:trade-date] {:validations #{::v/required}}]
            [forms/decimal-field price [:price] {:validations #{::v/required}}]]
           [:div.card-footer
-           [bs/busy-button {:html {:class "btn-primary"
+           [button {:html {:class "btn-primary"
                                    :title "Click here to save this price."
                                    :type :submit}
                             :icon :check
-                            :caption "Save"
-                            :busy? busy?}]
-           [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                   :title "Click here to cancel this update."
-                                   :type :button
-                                   :on-click #(swap! page-state dissoc :selected-price)}
-                            :icon :x
-                            :caption "Cancel"
-                            :busy? busy?}]]]]))))
+                            :caption "Save"}]
+           [button {:html {:class "btn-secondary ms-2"
+                           :title "Click here to cancel this update."
+                           :type :button
+                           :on-click #(swap! page-state dissoc :selected-price)}
+                    :icon :x
+                    :caption "Cancel"}]]]]))))
 
 (defn- filter-container
   [page-state]
@@ -484,7 +478,7 @@
                                  :data-bs-toggle "offcanvas"
                                  :data-bs-target "#filter"
                                  :aria-controls "filter"}
-          (bs/icon :funnel {:size :small})]]]
+          (icon :funnel :size :small)]]]
        [filter-container page-state]
        [:div.row
         [:div.col-md-8

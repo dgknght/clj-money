@@ -3,9 +3,8 @@
   (:require [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [unserialize-date
                                          unserialize-date-time]]
-            [dgknght.app-lib.api-async :as api]
             [clj-money.state :refer [current-entity]]
-            [clj-money.api :refer [handle-ex]]))
+            [clj-money.api :as api :refer [handle-ex]]))
 
 (defn count
   [xf]

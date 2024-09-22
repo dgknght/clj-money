@@ -4,7 +4,7 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.forms-validation :as v]
-            [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.icons :refer [icon-with-text]]
             [clj-money.html :refer [google-g]]
             [clj-money.state :as state :refer [app-state]]
             [clj-money.api.users :as users]
@@ -50,7 +50,7 @@
           [forms/password-field credentials [:password] {:validations #{::v/required}}]
           [:button.btn.btn-primary {:type :submit
                                     :title "Click here to sign in."}
-           (bs/icon-with-text :box-arrow-in-left "Sign in")]]]
+           (icon-with-text :box-arrow-in-left "Sign in")]]]
         [:div.col-md-6
          [:h3.mt-3 "Other sign in options:"]
          [:ul.list-group

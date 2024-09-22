@@ -3,8 +3,9 @@
             [dgknght.app-lib.web :refer [format-date
                                          path]]
             [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.dom :as dom]
             [dgknght.app-lib.forms :as forms]
-            [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.icons :refer [icon]]
             [clj-money.state :refer [+busy
                                      -busy]]
             [clj-money.api.attachments :as attachments]))
@@ -36,18 +37,18 @@
                                  :href (path :images
                                              (:image-id attachment))
                                  :target "_blank"}
-      (bs/icon :eye {:size :small})]
+      (icon :eye {:size :small})]
      [:button.btn.btn-sm.btn-light {:title "Click here to edit this attachment"
                                    :on-click (fn []
                                                (swap! page-state
                                                       assoc
                                                       :selected-attachment
                                                       attachment)
-                                               (html/set-focus "caption"))}
-      (bs/icon :pencil {:size :small})]
+                                               (dom/set-focus "caption"))}
+      (icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-danger {:title "Click here to remove this attachment"
                                      :on-click #(delete-attachment attachment page-state)}
-      (bs/icon :x-circle {:size :small})]]]])
+      (icon :x-circle {:size :small})]]]])
 
 (defn- attachments-table
   [page-state]

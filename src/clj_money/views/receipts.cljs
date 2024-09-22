@@ -13,13 +13,14 @@
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms-validation :as v]
+            [clj-money.icons :refer [icon
+                                     icon-with-text]]
             [clj-money.state :refer [app-state
                                      current-entity
                                      accounts
                                      accounts-by-id
                                      +busy
-                                     -busy
-                                     busy?]]
+                                     -busy]]
             [clj-money.accounts :refer [find-by-path]]
             [clj-money.api.transactions :as trn]))
 
@@ -214,23 +215,17 @@
           [:td.text-end {:col-span 2}
            (format-decimal @total)]]]]
        [:div.mb-2
-        [bs/busy-button {:html {:class "btn-primary"
-                                :type :submit
-                                :disabled @busy?
-                                :title "Click here to create this transaction."}
-                         :icon :check
-                         :caption "Enter"
-                         :busy? busy?}]
-        [bs/busy-button {:html {:class "btn-secondary ms-2"
-                                :type :button
-                                :disabled @busy?
-                                :title "Click here to discard this receipt."
-                                :on-click (fn []
-                                            (swap! receipt select-keys [:transaction-date])
-                                            (set-focus "transaction-date"))}
-                         :icon :x
-                         :caption "Cancel"
-                         :busy? busy?}]]])))
+        [:button.btn-primary
+         {:type :submit
+          :title "Click here to create this transaction."}
+         (icon-with-text :check "Enter")]
+        [:button.btn-secondary.ms-2
+         {:type :button
+          :title "Click here to discard this receipt."
+          :on-click (fn [_]
+                      (swap! receipt select-keys [:transaction-date])
+                      (set-focus "transaction-date"))}
+         (icon-with-text :x "Cancel")]]])))
 
 (defn- result-row
   [transaction page-state]
@@ -243,7 +238,7 @@
     [:button.btn.btn-sm.btn-light
      {:title "Click here to edit this transaction."
       :on-click #(swap! page-state assoc :receipt (->receipt transaction))}
-     (bs/icon :pencil {:size :small})]]])
+     (icon :pencil {:size :small})]]])
 
 (defn- results-table
   [page-state]

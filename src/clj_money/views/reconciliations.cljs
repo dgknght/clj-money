@@ -3,8 +3,8 @@
             [reagent.ratom :refer [make-reaction]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.decimal :as decimal]
-            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.forms :as forms]
+            [clj-money.icons :refer [icon-with-text]]
             [clj-money.accounts :as accounts]
             [clj-money.views.transactions :as trns]
             [clj-money.api.reconciliations :as recs]))
@@ -122,13 +122,13 @@
        [:div.card-footer
         [:button.btn.btn-success {:on-click #(finish-reconciliation page-state)
                                   :disabled (not @balanced?)}
-         (bs/icon-with-text :check "Finish")]
+         (icon-with-text :check "Finish")]
         (html/space)
         [:button.btn.btn-info {:on-click #(save-reconciliation page-state)}
-         (bs/icon-with-text :download "Save")]
+         (icon-with-text :download "Save")]
         (html/space)
         [:button.btn.btn-secondary {:on-click (fn []
                                                 (swap! page-state dissoc :reconciliation)
                                                 (trns/reset-item-loading page-state))
                                     :title "Click here to cancel this reconciliation."}
-         (bs/icon-with-text :x "Cancel")]]])))
+         (icon-with-text :x "Cancel")]]])))
