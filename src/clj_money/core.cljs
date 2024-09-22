@@ -1,4 +1,4 @@
-(ns clj-money.core
+(ns ^:figwheel-hooks clj-money.core
   (:require [reagent.core :as r]
             [reagent.cookies :as cookies]
             [secretary.core :as secretary :include-macros true]
@@ -221,7 +221,8 @@
   (users/me (map #(swap! app-state assoc :current-user %))))
 
 (defn- sign-in-from-cookie []
-  (when-not @current-user
+  (if @current-user
+    (fetch-entities)
     (when-let [auth-token (cookies/get :auth-token)]
       (swap! app-state assoc :auth-token auth-token)
       (fetch-current-user)
