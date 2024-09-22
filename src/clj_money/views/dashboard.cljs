@@ -8,6 +8,7 @@
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :as forms]
             [dgknght.app-lib.bootstrap-5 :as bs]
+            [clj-money.icons :refer [icon]]
             [clj-money.state :refer [current-entity
                                      accounts
                                      accounts-by-id
@@ -132,7 +133,7 @@
      :style {:margin "0.5em"
              :cursor "pointer"}
      :title "Click here to remove this budget monitor."}
-    (bs/icon :x-circle {:size :small})]])
+    (icon :x-circle {:size :small})]])
 
 (defn- monitor-nav-tab
   [scope state]
@@ -178,6 +179,8 @@
 (defn dashboard []
   [:div.row.mt-3
    [:div.col-md-9
-    "probably put a simplified balance sheet here"]
+    (if @current-entity
+      "probably put a simplified balance sheet here"
+      [:a {:href "/entities"} "Create an entity"])]
    [:div.col-md-3
     [monitors]]])
