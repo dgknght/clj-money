@@ -3,8 +3,7 @@
   (:require [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date
                                          unserialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]
+            [clj-money.api :as api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]
             [clj-money.api.transactions :as trans]))
 

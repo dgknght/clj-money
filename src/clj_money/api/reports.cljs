@@ -2,8 +2,7 @@
   (:require [lambdaisland.uri :refer [map->query-string uri]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [serialize-date]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]
+            [clj-money.api :as api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]))
 
 (defn- after-read

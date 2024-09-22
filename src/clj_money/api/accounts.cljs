@@ -5,8 +5,7 @@
             [dgknght.app-lib.core :refer [parse-int
                                           update-in-if]]
             [dgknght.app-lib.decimal :as decimal :refer [->decimal]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]
+            [clj-money.api :as api :refer [handle-ex]]
             [clj-money.state :refer [current-entity]]))
 
 (defn- set-flags ; TODO: maybe the checkbox form fn should be able to handle keywords in a set?
