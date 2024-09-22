@@ -140,7 +140,8 @@
   (js/setTimeout
     (fn []
       (swap! page-state assoc :prices-commodity commodity)
-      (init-price-loading page-state)
+      (when (every? commodity [:earliest-price :latest-price])
+        (init-price-loading page-state))
       (-busy))
     100))
 
