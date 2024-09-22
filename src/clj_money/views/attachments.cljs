@@ -3,6 +3,7 @@
             [dgknght.app-lib.web :refer [format-date
                                          path]]
             [dgknght.app-lib.html :as html]
+            [dgknght.app-lib.dom :as dom]
             [dgknght.app-lib.forms :as forms]
             [clj-money.icons :refer [icon]]
             [clj-money.state :refer [+busy
@@ -43,7 +44,7 @@
                                                       assoc
                                                       :selected-attachment
                                                       attachment)
-                                               (html/set-focus "caption"))}
+                                               (dom/set-focus "caption"))}
       (icon :pencil {:size :small})]
      [:button.btn.btn-sm.btn-danger {:title "Click here to remove this attachment"
                                      :on-click #(delete-attachment attachment page-state)}
