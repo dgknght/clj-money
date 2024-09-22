@@ -18,10 +18,11 @@
     (apply notify/dangerf msg (.-message e) args)))
 
 (defn get
-  [url payload options]
-  (api/get url
-           payload
-           (assoc options :oauth-token @auth-token)))
+  ([url options] (get url {} options))
+  ([url payload options]
+   (api/get url
+            payload
+            (assoc options :oauth-token @auth-token))))
 
 (defn post
   [url payload options]
