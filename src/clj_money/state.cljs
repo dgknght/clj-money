@@ -1,10 +1,19 @@
 (ns clj-money.state
   (:require [reagent.core :as r]
             [reagent.ratom :refer [make-reaction]]
+            [reagent.cookies :as cookies]
             [dgknght.app-lib.core :as lib]))
 
-(defonce app-state (r/atom {:mounted? false
-                            :bg-proc-count 0}))
+(defonce app-state (r/atom (merge {:mounted? false
+                                   :bg-proc-count 0}
+                                  (cookies/get :state))))
+
+(add-watch app-state
+           ::init
+           (fn [_ _ _ state]
+             (cookies/set! :state (select-keys state [:current-user
+                                                      :auth-token]))))
+
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
 (def auth-token (r/cursor app-state [:auth-token]))
