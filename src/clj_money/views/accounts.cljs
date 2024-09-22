@@ -21,7 +21,10 @@
             [dgknght.app-lib.forms-validation :as v]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.bootstrap-5 :as bs :refer [nav-tabs]]
-            [clj-money.components :refer [load-on-scroll]]
+            [clj-money.icons :refer [icon
+                                     icon-with-text]]
+            [clj-money.components :refer [load-on-scroll
+                                          button]]
             [clj-money.api.commodities :as commodities]
             [clj-money.api.accounts :as accounts]
             [clj-money.api.lots :as lots]
@@ -110,10 +113,10 @@
          [:span.toggle-ctl {:on-click #(toggle-account (:id account) page-state)
                             :class (when-not (:has-children? account)
                                      "invisible")}
-          (bs/icon (if (expanded id)
+          (icon (if (expanded id)
                      :arrows-collapse
                      :arrows-expand)
-                   {:size :small})]
+                   :size :small)]
          (abbr-acct-name account)]]
    [:td.text-end.d-none.d-sm-table-cell.value-depth
     [:span {:class (str "value-depth-" (count parent-ids))}
@@ -126,24 +129,24 @@
     [:div.btn-group
      [:button.btn.btn-light.btn-sm {:on-click #(swap! page-state assoc :view-account account)
                                     :title "Click here to view transactions for this account."}
-      (bs/icon :collection {:size :small})]
+      (icon :collection :size :small)]
      [:button.btn.btn-light.btn-sm {:on-click (fn []
                                                (swap! page-state assoc :selected account)
                                                (set-focus "parent-id"))
                                    :title "Click here to edit this account."}
-      (bs/icon :pencil {:size :small})]
+      (icon :pencil :size :small)]
      [:button.btn.btn-light {:on-click #(swap! page-state assoc :allocation {:account (prepare-for-allocation account)
                                                                              :cash (:value account)
                                                                              :withdrawal 0M})
                              :disabled (not (system-tags :trading))
                              :title "Click here to manage asset allocation for this account."}
-      (bs/icon (if (system-tags :trading)
+      (icon (if (system-tags :trading)
                  :pie-chart-fill
                  :pie-chart)
-               {:size :small})]
+               :size :small)]
      [:button.btn.btn-danger.btn-sm {:on-click #(delete account)
                                      :title "Click here to remove this account."}
-      (bs/icon :x-circle {:size :small})]]]])
+      (icon :x-circle :size :small)]]]])
 
 (defn- account-type-row
   [account-type group expanded page-state]
@@ -152,10 +155,10 @@
    [:td
     [:span.toggle-ctl {:aria-hidden true
                        :on-click #(toggle-account account-type page-state)}
-     (bs/icon (if (expanded account-type)
+     (icon (if (expanded account-type)
                 :arrows-collapse
                 :arrows-expand)
-              {:size :small})]
+              :size :small)]
     (name account-type)]
    [:td.text-end.d-none.d-sm-table-cell
     (currency-format (->> group
@@ -244,7 +247,7 @@
      [:a.ms-auto {:href "#"
                   :title "Click here to remove this tag"
                   :on-click (fn [] (remove-fn tag))}
-      (bs/icon :x {:size :small})]]))
+      (icon :x :size :small)]]))
 
 (defn- tag-elems
   [tags opts]
@@ -300,18 +303,17 @@
                        (apply-tag bulk-edit tag))}]
         (tag-elems @user-tags {:remove-fn #(swap! user-tags disj %)})]
        [forms/checkbox-field bulk-edit [:merge-user-tags?] {:caption "Keep existing tags"}]
-       [:button.btn.btn-primary.me-2 {:title "Click here to apply these changes to the selected accounts."
-                                      :type :submit}
-        (if @busy?
-          [:div
-           (bs/spinner {:size :small})
-           (html/space)
-           "Save"]
-          (bs/icon-with-text :check "Save"))]
-       [:button.btn.btn-secondary {:title "Click here to cancel this edit operation."
-                                   :type :button
-                                   :on-click #(swap! page-state dissoc :bulk-edit)}
-        (bs/icon-with-text :x-circle "Cancel")]])))
+       [button {:html {:title "Click here to apply these changes to the selected accounts."
+                       :class "btn-primary"
+                       :type :submit}
+                :caption "Save"
+                :icon :check}]
+       [button {:html {:title "Click here to cancel this edit operation."
+                       :class "btn-secondary ms-2"
+                       :type :button
+                       :on-click #(swap! page-state dissoc :bulk-edit)}
+                :caption "Cancel"
+                :icon :x}]])))
 
 (defn- accounts-table
   [page-state]
@@ -346,12 +348,14 @@
               [:div.d-flex.justify-content-center.m2
                [:div.spinner-border {:role :status}
                 [:span.visually-hidden "Loading"]]]]]])]
-        [:button.btn.btn-primary {:on-click (fn []
-                                              (swap! page-state assoc :selected {:entity-id (:id @current-entity)
-                                                                                 :type :asset})
-                                              (set-focus "parent-id"))
-                                  :disabled @busy?}
-         (bs/icon-with-text :plus "Add")]]
+        [button {:html {:class "btn-primary"
+                        :on-click (fn []
+                                    (swap! page-state assoc :selected {:entity-id (:id @current-entity)
+                                                                       :type :asset})
+                                    (set-focus "parent-id"))
+                        :disabled @busy?}
+                 :caption "Add"
+                 :icon :plus}]]
        [:div.col-lg-4 {:class (when-not (seq @bulk-select) "d-none")}
         [bulk-edit-form page-state]]])))
 
@@ -467,14 +471,17 @@
                                                       disj
                                                       %)})]
            [:div
-            [:button.btn.btn-primary {:type :submit
-                                      :title "Click here to save the account."}
-             (bs/icon-with-text :check "Save")]
-
-            [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :selected)
-                                             :type :button
-                                             :title "Click here to return to the list of accounts."}
-             (bs/icon-with-text :x "Cancel")]]]]]))))
+            [button {:html {:type :submit
+                            :class "btn-primary"
+                            :title "Click here to save the account."}
+                     :caption "Save"
+                     :icon :check}]
+            [button {:html {:on-click #(swap! page-state dissoc :selected)
+                            :class "btn-secondary ms-2"
+                            :type :button
+                            :title "Click here to return to the list of accounts."}
+                     :caption "Cancel"
+                     :icon :x}]]]]]))))
 
 (defn- new-transaction
   [page-state]
@@ -494,7 +501,7 @@
       [:div.d-flex.justify-content-between
        [:button.btn.btn-primary {:on-click #(new-transaction page-state)
                                  :disabled (not (nil? @transaction))}
-        (bs/icon-with-text :plus "Add")]
+        (icon-with-text :plus "Add")]
        [:button.btn.btn-secondary.ms-2.d-none.d-md-block
         {:on-click (fn []
                      (trns/stop-item-loading page-state)
@@ -503,7 +510,7 @@
                      (trns/load-unreconciled-items page-state)
                      (set-focus "end-of-period"))
          :title "Click here to reconcile this account"}
-        (bs/icon-with-text :check-box "Reconcile")]
+        (icon-with-text :check-box "Reconcile")]
        [:button.btn.btn-secondary.ms-2 {:on-click (fn []
                                                     (trns/stop-item-loading page-state)
                                                     (swap! page-state dissoc
@@ -511,7 +518,7 @@
                                                            :items
                                                            :all-items-fetched?))
                                         :title "Click here to return to the account list."}
-        (bs/icon-with-text :arrow-left-short "Back")]])))
+        (icon-with-text :arrow-left-short "Back")]])))
 
 (defn- refresh-accounts
   [page-state]
@@ -604,10 +611,10 @@
        [:div
         [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
                                   :title "Click here to save the transaction"}
-         (bs/icon-with-text :check "Save")]
+         (icon-with-text :check "Save")]
         [:button.btn.btn-secondary.ms-2 {:on-click #(swap! page-state dissoc :transaction)
                                          :title "Click here to cancel this transaction"}
-         (bs/icon-with-text :x "Cancel")]]])))
+         (icon-with-text :x "Cancel")]]])))
 
 (defn- check-all-items
   ([page-state]  (check-all-items page-state true))
@@ -635,10 +642,10 @@
        [:div.d-flex.flex-row-reverse {:class (when-not @reconciliation "d-none")}
         [:button.btn.btn-light {:on-click #(check-all-items page-state)
                                 :title "Click here to mark all items as reconciled"}
-         (bs/icon :check-box {:size :small})]
+         (icon :check-box :size :small)]
         [:button.btn.btn-light.ms-2 {:on-click #(uncheck-all-items page-state)
                                      :title "Click here to mark all items as unreconciled"}
-         (bs/icon :unchecked-box {:size :small})]]
+         (icon :unchecked-box :size :small)]]
 
        [:div.d-flex.flex-column.h-75
         [:div#items-container.flex-grow-1.overflow-auto {:style {:height "0"}}
@@ -783,11 +790,11 @@
                                                        :commodity-id commodity-id
                                                        :commodity-account-id (:id @account)})
                                                (set-focus "trade-date"))}
-          (bs/icon-with-text :plus "Buy/Sell")]
+          (icon-with-text :plus "Buy/Sell")]
          (html/space)
          [:button.btn.btn-light {:title "Click here to return the the account list."
                                 :on-click #(swap! page-state dissoc :view-account)}
-          (bs/icon-with-text :arrow-left-short "Back")]]]])))
+          (icon-with-text :arrow-left-short "Back")]]]])))
 
 (defn- tradable-account-details
   [page-state]
@@ -807,11 +814,11 @@
             [:div.card-footer
              [:button.btn.btn-primary {:on-click #(trns/save-transaction page-state (post-transaction-save page-state))
                                        :title "Click here to save the transaction"}
-              (bs/icon-with-text :check "Save")]
+              (icon-with-text :check "Save")]
              (html/space)
              [:button.btn.btn-secondary {:on-click #(swap! page-state dissoc :transaction)
                                          :title "Click here to cancel this transaction"}
-              (bs/icon-with-text :x "Cancel")]]]]]]
+              (icon-with-text :x "Cancel")]]]]]]
         [tradable-account-items page-state]))))
 
 (defn- account-details
@@ -895,10 +902,10 @@
        [:div
         [:button.btn.btn-primary {:title "Click here to save these allocations."
                                   :on-click #(save-account page-state)}
-         (bs/icon-with-text :check "Save")]
+         (icon-with-text :check "Save")]
         [:button.btn.btn-secondary.ms-2 {:title "Click here to to cancel and return to the account list."
                                          :on-click #(swap! page-state dissoc :allocation)}
-         (bs/icon-with-text :x-circle "Cancel")]]])))
+         (icon-with-text :x-circle "Cancel")]]])))
 
 (defn- load-commodities
   [page-state]
@@ -989,7 +996,7 @@
                                   :data-bs-toggle "offcanvas"
                                   :data-bs-target "#account-filter"
                                   :aria-controls "account-filter"}
-           (bs/icon :funnel {:size :small})]]]]
+           (icon :funnel :size :small)]]]]
        [account-filter-container page-state]
        [accounts-table page-state]
        [account-form page-state]
