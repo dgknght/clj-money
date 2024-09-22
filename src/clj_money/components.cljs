@@ -113,14 +113,22 @@
      {:ctl-ch ctl-ch
       :items-ch fetch-ch})))
 
+(def ^:private spinner-size
+  {:small "spinner-border-sm"})
+
+(defn spinner
+  [& {:keys [size]}]
+  [:div.spinner-border.spinner-border-sm
+   {:role :status
+    :class (spinner-size size)}
+   [:span.visually-hidden "Loading..."]])
+
 (defn button
   [{:keys [html icon caption]}]
   (fn []
     [:button.btn html
      [:span.d-flex.align-items-center
       (if @busy?
-        [:div.spinner-border.spinner-border-sm
-         {:role :status}
-         [:span.visually-hidden "Loading..."]]
+        [spinner :size :small]
         (icons/icon icon :size :small))
       [:span.ms-2 caption]]]))
