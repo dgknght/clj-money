@@ -1,8 +1,7 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
   (:require [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.api-async :as api]
-            [clj-money.api :refer [handle-ex]]))
+            [clj-money.api :as api :refer [handle-ex]]))
 
 (defn- after-read
   [entity]
