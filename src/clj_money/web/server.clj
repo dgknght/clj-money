@@ -1,12 +1,11 @@
 (ns clj-money.web.server
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [compojure.core :refer [defroutes
-                                    wrap-routes
-                                    routes
-                                    GET
-                                    ANY]]
             [cheshire.generate]
+            [reitit.ring :as ring]
+            [ring.middleware.defaults :refer [wrap-defaults
+                                              site-defaults
+                                              api-defaults]]
             [ring.util.response :refer [header] :as res]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.cookies :refer [wrap-cookies]]
@@ -48,32 +47,6 @@
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.apps :as apps]))
-
-(defroutes api-routes
-  (-> (routes users-api/routes
-              imports-api/routes
-              entities-api/routes
-              accounts-api/routes
-              budgets-api/routes
-              reports-api/routes
-              transactions-api/routes
-              transaction-items-api/routes
-              sched-trans-api/routes
-              att-api/routes
-              recs-api/routes
-              commodities-api/routes
-              lots-api/routes
-              prices-api/routes
-              trading-api/routes
-              (ANY "/api/*" req
-                (do
-                  (log/debugf "unable to match API route for %s \"%s\"." (:request-method req) (:uri req))
-                  api/not-found)))
-      (wrap-routes wrap-integer-id-params)
-      (wrap-json-body {:keywords? true :bigdecimals? true})
-      (api/wrap-authentication {:authenticate-fn find-user-by-auth-token})
-      wrap-exceptions
-      wrap-json-response))
 
 (defn- not-found []
   (-> (slurp "resources/404.html")
@@ -146,7 +119,38 @@
       (log/infof "Response %s: %s -> %s" request-method uri (:status res))
       res)))
 
-(defroutes app
+(def app
+  (ring/ring-handler
+    (ring/router
+      [["/" {:middleware []}
+        ]
+       ["/api" {:middleware [wrap-request-logging
+                             [wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
+                             [wrap-integer-id-params]
+                             [wrap-json-body {:keywords? true :bigdecimal? true}]
+                             [api/wrap-authentication {:authenticate-fn find-user-by-auth-token}]
+                             wrap-exceptions
+                             wrap-json-response]}
+        users-api/routes
+        imports-api/routes
+        entities-api/routes
+        accounts-api/routes
+        budgets-api/routes
+        reports-api/routes
+        transactions-api/routes
+        transaction-items-api/routes
+        sched-trans-api/routes
+        att-api/routes
+        recs-api/routes
+        commodities-api/routes
+        lots-api/routes
+        prices-api/routes
+        trading-api/routes]])
+    (ring/routes
+      (ring/create-resource-handler {:path "/"})
+      (ring/create-default-henadler))))
+
+#_(defroutes app
   (-> (routes apps/routes
               web-auth/routes
               (wrap-routes users-api/unauthenticated-routes
