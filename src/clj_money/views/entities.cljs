@@ -6,8 +6,7 @@
             [dgknght.app-lib.forms :refer [text-field]]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.components :refer [button]]
-            [clj-money.icons :refer  [icon
-                                      icon-with-text]]
+            [clj-money.icons :refer  [icon]]
             [clj-money.api.entities :as entities]
             [clj-money.state :as state :refer [app-state
                                                +busy
