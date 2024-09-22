@@ -33,6 +33,18 @@
                  [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-anti-forgery "1.2.0" :exclusions [org.clojure/tools.reader]]
+                 [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
+                                                      org.clojure/spec.alpha
+                                                      com.bhauman/spell-spec
+                                                      ring/ring-core
+                                                      ring/ring-codec
+                                                      crypto-equality
+                                                      commons-io
+                                                      commons-codec
+                                                      expound
+                                                      com.cognitect/transit-clj
+                                                      prismatic/schema
+                                                      com.fasterxml.jackson.core/jackson-core]]
                  [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader]]
                  [selmer "1.11.7" :exclusions [joda-time
