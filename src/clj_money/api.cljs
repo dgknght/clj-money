@@ -25,10 +25,11 @@
             (assoc options :oauth-token @auth-token))))
 
 (defn post
-  [url payload options]
-  (api/post url
-            payload
-            (assoc options :oauth-token @auth-token)))
+  ([url options] (post url {} options))
+  ([url payload options]
+   (api/post url
+             payload
+             (assoc options :oauth-token @auth-token))))
 
 (defn patch
   [url payload options]
