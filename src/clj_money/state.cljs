@@ -7,6 +7,7 @@
                             :bg-proc-count 0}))
 (def current-user (r/cursor app-state [:current-user]))
 (def current-entity (r/cursor app-state [:current-entity]))
+(def auth-token (r/cursor app-state [:auth-token]))
 (def accounts (r/cursor app-state [:accounts]))
 (def accounts-by-id (make-reaction #(when @accounts (lib/index-by :id @accounts))))
 (def bg-proc-count (r/cursor app-state [:bg-proc-count]))
