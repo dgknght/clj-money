@@ -13,7 +13,7 @@
             [dgknght.app-lib.api :as api]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
-            [clj-money.transactions :refer [summarize-items]]
+            [clj-money.budgets :refer [create-items-from-history]]
             [clj-money.models.transactions :as trans]
             [clj-money.models.budgets :as budgets]
             [clj-money.authorization.budgets]))
@@ -43,39 +43,29 @@
       (update-in-if [:period] keyword)
       (update-in-if [:start-date] dates/unserialize-local-date)))
 
-(defn- ->budget-item
-  [[account-id tran-items]
-   {:keys [period]}
-   start-date
-   end-date]
-  {:account-id account-id
-   :periods (->> tran-items
-                 (summarize-items {:interval-type period
-                                   :interval-count 1
-                                   :start-date start-date
-                                   :end-date end-date})
-                 (map :quantity))})
-
-(defn- create-items-from-history
+(defn- auto-create-items
   [{:keys [entity-id period period-count] :as budget} start-date]
   (let [end-date (t/plus start-date
                          ((case period
                             :month t/months
                             :year t/years
                             :week t/weeks)
-                          period-count))]
-    (->> (trans/search-items {[:transaction :entity-id] entity-id
-                              [:account :type] [:in #{:income :expense}]
-                              :transaction-date [:between> start-date end-date]})
-         (group-by :account-id)
-         (map #(->budget-item % budget start-date (t/minus end-date (t/days 1)))))))
+                          period-count))
+        items (trans/search-items {[:transaction :entity-id] entity-id
+                                   [:account :type] [:in #{:income :expense}]
+                                   :transaction-date [:between> start-date end-date]})]
+    (create-items-from-history
+      budget
+      start-date
+      end-date
+      items)))
 
-(defn- auto-create-items
+(defn- append-items
   [budget start-date]
   (if (and (not (v/has-error? budget))
            start-date)
     (-> budget
-        (assoc :items (create-items-from-history
+        (assoc :items (auto-create-items
                         budget
                         (dates/unserialize-local-date start-date)))
         budgets/update)
@@ -89,7 +79,7 @@
       (stow/tag ::models/budget)
       (authorize ::auth/create authenticated)
       budgets/create ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (auto-create-items (:auto-create-start-date body))
+      (append-items (:auto-create-start-date body))
       api/creation-response))
 
 (defn- find-and-auth

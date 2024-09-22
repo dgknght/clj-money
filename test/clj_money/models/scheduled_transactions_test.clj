@@ -3,9 +3,9 @@
             [java-time.api :as t]
             [stowaway.core :refer [tag]]
             [dgknght.app-lib.test]
+            [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models :as models]
-            [clj-money.test-helpers :refer [reset-db
-                                            with-fixed-time]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [realize
                                             find-entity
                                             find-account

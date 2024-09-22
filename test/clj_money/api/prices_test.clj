@@ -7,15 +7,14 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
             [java-time.api :as t]
-            [clj-money.dates :as dates]
+            [clj-money.dates :as dates :refer [with-fixed-time]]
             [clj-money.api.test-helper :refer [add-auth]]
             [clj-money.test-context :refer [with-context
                                             realize
                                             find-user
                                             find-price
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db
-                                            with-fixed-time]]
+            [clj-money.test-helpers :refer [reset-db]]
             [clj-money.prices.yahoo :as yahoo]
             [clj-money.models.prices :as prices]
             [clj-money.web.server :refer [app]]))
