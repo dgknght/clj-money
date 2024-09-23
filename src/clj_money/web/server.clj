@@ -98,32 +98,33 @@
        (log-error e "unexpected error")
        (internal-error)))))
 
-(defroutes protected-web-routes
-  (-> images/routes
-      (wrap-routes wrap-integer-id-params)
-      (api/wrap-authentication {:authenticate-fn find-user-by-auth-token})
-      wrap-web-exceptions))
-
-(defn- wrap-no-cache-header
-  [handler]
-  (fn [req]
-    (header (handler req) "Cache-Control" "no-cache")))
-
 (defn- wrap-request-logging
   [handler]
   (fn [{:keys [request-method uri query-string] :as req}]
     (if query-string
-      (log/infof "Request %s: %s?%s" request-method uri query-string)
-      (log/infof "Request %s: %s" request-method uri))
+      (log/infof "Request %s \"%s?%s\"" request-method uri query-string)
+      (log/infof "Request %s \"%s\"" request-method uri))
     (let [res (handler req)]
-      (log/infof "Response %s: %s -> %s" request-method uri (:status res))
+      (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
       res)))
 
 (def app
   (ring/ring-handler
+    (ring/router ["/" {:middleware [wrap-request-logging]}
+                  apps/routes])
+    (ring/routes
+      (ring/create-resource-handler {:path "/"})
+      (ring/create-default-handler))))
+
+#_(def app
+  (ring/ring-handler
     (ring/router
       [["/" {:middleware []}
-        ]
+        users-api/unauthenticated-routes
+        apps/routes]
+       ["/images" {:middleware [[api/wrap-authentication {:authenticate-fn find-user-by-auth-token}]
+                                wrap-integer-id-params
+                                wrap-web-exceptions]}]
        ["/api" {:middleware [wrap-request-logging
                              [wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
                              [wrap-integer-id-params]
@@ -148,7 +149,7 @@
         trading-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
-      (ring/create-default-henadler))))
+      (ring/create-default-handler))))
 
 #_(defroutes app
   (-> (routes apps/routes
@@ -184,7 +185,3 @@
       (log/infof "Web server listening on port %s" port)
       (println (format "Web server listening on port %s." port))
       server)))
-
-;; For interactive development:
-;; (.stop server)
-;; (def server (-main))

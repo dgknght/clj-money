@@ -1,8 +1,6 @@
 (ns clj-money.web.apps
   (:refer-clojure :exclude [update])
-  (:require [compojure.core :refer [defroutes
-                                    GET]]
-            [config.core :refer [env]]
+  (:require [config.core :refer [env]]
             [hiccup.page :refer [html5 include-js]]))
 
 (defn- head []
@@ -21,27 +19,29 @@
 
    [:link {:rel "stylesheet" :href "/css/site.css"}]])
 
-(defn index []
-  (html5
-    [:html.h-100 {:lang "en"
-                  :data-bs-theme "dark"}
-     (head)
-     [:body.h-100
-      [:div#app.h-100
-       [:nav.navbar.navbar-expand-lg.bg-body-tertiary
-        [:div.container
-         [:img {:src "/images/logo.svg"
-                :alt "abacus logo"
-                :width 24
-                :height 24}]]]
-       [:div.container.mt-3
-        [:div.d-flex.justify-content-around
-         [:div.spinner-border {:role :status}
-          [:span.visually-hidden
-           "Loading..."]]]]]
-      (include-js (if (env :dev?)
-                    "/cljs-out/dev-main.js"
-                    "/js/app/main.js"))]]))
+(defn index
+  [_req]
+  {:status 200
+   :body (html5
+           [:html.h-100 {:lang "en"
+                         :data-bs-theme "dark"}
+            (head)
+            [:body.h-100
+             [:div#app.h-100
+              [:nav.navbar.navbar-expand-lg.bg-body-tertiary
+               [:div.container
+                [:img {:src "/images/logo.svg"
+                       :alt "abacus logo"
+                       :width 24
+                       :height 24}]]]
+              [:div.container.mt-3
+               [:div.d-flex.justify-content-around
+                [:div.spinner-border {:role :status}
+                 [:span.visually-hidden
+                  "Loading..."]]]]]
+             (include-js (if (env :dev?)
+                           "/cljs-out/dev-main.js"
+                           "/js/app/main.js"))]])})
 
-(defroutes routes
-  (GET "/" [] (index)))
+(def routes
+  ["" {:get {:handler index}}])
