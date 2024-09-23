@@ -1,5 +1,6 @@
 (ns clj-money.api.users-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
             [cheshire.core :as json]
             [ring.mock.request :as req]
             [dgknght.app-lib.web :refer [path]]
@@ -41,7 +42,7 @@
 
 (deftest a-user-signs-in-directly
   (realize context)
-  (let [response (-> (req/request :post (path :api
+  (let [response (-> (req/request :post (path :oapi
                                               :users
                                               :authenticate))
                      (req/json-body {:email "john@doe.com"

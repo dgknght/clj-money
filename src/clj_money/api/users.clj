@@ -23,7 +23,7 @@
     api/not-found))
 
 (def routes
-  ["/users/me" {:get {:handler find}}])
+  ["users/me" {:get {:handler find}}])
 
 (def unauthenticated-routes
-  ["/users/authenticate" {:post {:handler authenticate}}])
+  ["users/authenticate" {:post {:handler authenticate}}])

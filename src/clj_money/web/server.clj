@@ -1,7 +1,9 @@
 (ns clj-money.web.server
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [cheshire.generate]
+            [reitit.core :as reitit]
             [reitit.ring :as ring]
             [ring.middleware.defaults :refer [wrap-defaults
                                               site-defaults
@@ -111,7 +113,14 @@
 (def app
   (ring/ring-handler
     (ring/router ["/" {:middleware [wrap-request-logging]}
-                  apps/routes])
+                  apps/routes
+                  ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimal? true}]
+                                         wrap-json-response]}
+                   users-api/unauthenticated-routes]
+                  ["api/" {:middleware [[api/wrap-authentication
+                                         {:authenticate-fn find-user-by-auth-token}]
+                                        wrap-json-response]}
+                   users-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
@@ -176,6 +185,14 @@
       etag/wrap-file-etag
       wrap-not-modified
       wrap-request-logging))
+
+(defn print-routes []
+  (pprint
+    (map (comp #(take 2 %)
+               #(update-in % [1] dissoc :middleware))
+         (-> app
+             ring/get-router
+             reitit/compiled-routes))))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 3000))]

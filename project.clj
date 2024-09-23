@@ -115,6 +115,7 @@
             "export-user-tags"              ["run" "-m" "clj-money.tasks/export-user-tags"]
             "import-user-tags"              ["run" "-m" "clj-money.tasks/import-user-tags"]
             "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]
+            "routes"                        ["run" "-m" "clj-money.web.server/print-routes"]
             "fig:build"                     ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"                       ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
             "fig:test"                      ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}
