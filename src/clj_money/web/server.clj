@@ -110,17 +110,27 @@
       (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
       res)))
 
+(defn- wrap-merge-path-params
+  [handler]
+  (fn [{:keys [path-params] :as req}]
+    (handler (update-in req [:params] merge path-params))))
+
 (def app
   (ring/ring-handler
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
                   ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimal? true}]
+                                         wrap-merge-path-params
                                          wrap-json-response]}
                    users-api/unauthenticated-routes]
-                  ["api/" {:middleware [[api/wrap-authentication
+                  ["api/" {:middleware [[wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
+                                        wrap-merge-path-params
+                                        [api/wrap-authentication
                                          {:authenticate-fn find-user-by-auth-token}]
-                                        wrap-json-response]}
-                   users-api/routes]])
+                                        wrap-json-response
+                                        [wrap-json-body {:keywords? true :bigdecimal? true}]]}
+                   users-api/routes
+                   entities-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
