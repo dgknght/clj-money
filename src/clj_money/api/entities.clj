@@ -1,6 +1,7 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
+            [reitit.coercion.spec]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
@@ -63,4 +64,6 @@
    ["" {:get {:handler index}
         :post {:handler create}}]
    ["/:id" {:patch {:handler update}
-            :delete {:handler delete}}]])
+            :delete {:handler delete}
+            :coercion reitit.coercion.spec/coercion
+            :parameters {:path {:id ::entities/id}}}]])

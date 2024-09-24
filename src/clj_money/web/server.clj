@@ -5,6 +5,8 @@
             [cheshire.generate]
             [reitit.core :as reitit]
             [reitit.ring :as ring]
+            [reitit.coercion :as coercion]
+            [reitit.ring.coercion :as ring-coercion]
             [ring.middleware.defaults :refer [wrap-defaults
                                               site-defaults
                                               api-defaults]]
@@ -100,7 +102,7 @@
        (log-error e "unexpected error")
        (internal-error)))))
 
-(defn- wrap-request-logging
+(defn- wrap-logging
   [handler]
   (fn [{:keys [request-method uri query-string] :as req}]
     (if query-string
@@ -117,20 +119,22 @@
 
 (def app
   (ring/ring-handler
-    (ring/router ["/" {:middleware [wrap-request-logging]}
+    (ring/router ["/" {:middleware [wrap-logging]}
                   apps/routes
                   ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimal? true}]
                                          wrap-merge-path-params
                                          wrap-json-response]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [[wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
+                                        ring-coercion/coerce-request-middleware
                                         wrap-merge-path-params
                                         [api/wrap-authentication
                                          {:authenticate-fn find-user-by-auth-token}]
                                         wrap-json-response
                                         [wrap-json-body {:keywords? true :bigdecimal? true}]]}
                    users-api/routes
-                   entities-api/routes]])
+                   entities-api/routes]]
+                 #_{:compile coercion/compile-request-coercers})
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
@@ -144,7 +148,7 @@
        ["/images" {:middleware [[api/wrap-authentication {:authenticate-fn find-user-by-auth-token}]
                                 wrap-integer-id-params
                                 wrap-web-exceptions]}]
-       ["/api" {:middleware [wrap-request-logging
+       ["/api" {:middleware [wrap-logging
                              [wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
                              [wrap-integer-id-params]
                              [wrap-json-body {:keywords? true :bigdecimal? true}]
@@ -194,7 +198,7 @@
       wrap-no-cache-header
       etag/wrap-file-etag
       wrap-not-modified
-      wrap-request-logging))
+      wrap-logging))
 
 (defn print-routes []
   (pprint
