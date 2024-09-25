@@ -121,10 +121,12 @@
                   apps/routes
                   ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimal? true}]
                                          wrap-merge-path-params
+                                         wrap-integer-id-params
                                          wrap-json-response]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [[wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
                                         wrap-merge-path-params
+                                        wrap-integer-id-params
                                         [api/wrap-authentication
                                          {:authenticate-fn find-user-by-auth-token}]
                                         wrap-json-response
