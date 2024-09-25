@@ -136,42 +136,8 @@
                    users-api/routes
                    entities-api/routes
                    accounts-api/routes
-                   transactions-api/routes]])
-    (ring/routes
-      (ring/create-resource-handler {:path "/"})
-      (ring/create-default-handler))))
-
-#_(def app
-  (ring/ring-handler
-    (ring/router
-      [["/" {:middleware []}
-        users-api/unauthenticated-routes
-        apps/routes]
-       ["/images" {:middleware [[api/wrap-authentication {:authenticate-fn find-user-by-auth-token}]
-                                wrap-integer-id-params
-                                wrap-web-exceptions]}]
-       ["/api" {:middleware [wrap-request-logging
-                             [wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
-                             [wrap-integer-id-params]
-                             [wrap-json-body {:keywords? true :bigdecimal? true}]
-                             [api/wrap-authentication {:authenticate-fn find-user-by-auth-token}]
-                             wrap-exceptions
-                             wrap-json-response]}
-        users-api/routes
-        imports-api/routes
-        entities-api/routes
-        accounts-api/routes
-        budgets-api/routes
-        reports-api/routes
-        transactions-api/routes
-        transaction-items-api/routes
-        sched-trans-api/routes
-        att-api/routes
-        recs-api/routes
-        commodities-api/routes
-        lots-api/routes
-        prices-api/routes
-        trading-api/routes]])
+                   transactions-api/routes
+                   att-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))

@@ -1,7 +1,6 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :refer [tag]]
             [dgknght.app-lib.core :refer [uuid
                                           update-in-if]]
@@ -101,8 +100,9 @@
       (api/response))
     api/not-found))
 
-(defroutes routes
-  (POST "/api/transactions/:transaction-id/:transaction-date/attachments" req (create req))
-  (GET "/api/attachments" req (index req))
-  (PATCH "/api/attachments/:id" req (update req))
-  (DELETE "/api/attachments/:id" req (delete req)))
+(def routes
+  [["transactions/:transaction-id/:transaction-date/attachments" {:post {:handler create}}]
+   ["attachments"
+    ["" {:get {:handler index}}]
+    ["/:id" {:patch {:handler update}
+             :delete {:handler delete}}]]])
