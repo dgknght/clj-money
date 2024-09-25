@@ -135,7 +135,8 @@
                                         [wrap-json-body {:keywords? true :bigdecimal? true}]]}
                    users-api/routes
                    entities-api/routes
-                   accounts-api/routes]])
+                   accounts-api/routes
+                   transactions-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))

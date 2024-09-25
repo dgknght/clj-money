@@ -274,7 +274,7 @@
                                                 (:id transaction)))
                      (add-auth user)
                      app)
-        retrieved (trans/find (:id transaction) (:transaction-date transaction))]
+        retrieved (trans/find transaction)]
     [response retrieved]))
 
 (defn- assert-successful-delete
