@@ -1,5 +1,6 @@
 (ns clj-money.api.accounts-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
             [cheshire.core :as json]
             [lambdaisland.uri :refer [map->query-string]]
@@ -34,26 +35,27 @@
                                        :type "asset"
                                        :commodity-id (:id usd)})
                        (add-auth user)
-                       app)
-          body (json/parse-string (:body response) true)
-          retrieved (accounts/search {:entity-id (:id entity)})]
-      [response body retrieved])))
+                       app
+                       parse-json-body)
+          retrieved (when-let [id (get-in response [:json-body :id])]
+                      (accounts/find id))]
+      [response retrieved])))
 
 (defn- assert-successful-create
-  [[response body retrieved]]
+  [[{:keys [json-body] :as response} retrieved]]
   (is (http-success? response))
   (is (comparable? {:name "Savings"
                     :type "asset"}
-                   body)
+                   json-body)
       "The created account is returned in the response")
-  (is (some #(= "Savings" (:name %)) retrieved)
+  (is (comparable? {:name "Savings"
+                    :type :asset} retrieved)
       "The created account can be retrieved from the data store"))
 
 (defn- assert-blocked-create
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
-  (is (not-any? #(= "Savings" (:name %)) retrieved)
-      "The account is not created"))
+  (is (nil? retrieved) "The account is not created"))
 
 (deftest a-user-can-create-an-account-in-his-entity
   (assert-successful-create (create-an-account "john@doe.com")))
@@ -161,25 +163,25 @@
                                           (assoc :name "New Name")
                                           (select-keys [:name :type :commodity-id :parent-id])))
                        (add-auth user)
-                       app)
-          body (json/parse-string (:body response) true)
+                       app
+                       parse-json-body)
           retrieved (accounts/find account)]
-      [response body retrieved])))
+      [response retrieved])))
 
 (defn- assert-successful-update
-  [[response body retrieved]]
+  [[{:keys [json-body] :as response} retrieved]]
   (is (http-success? response))
-  (is (empty? (:dgknght.app-lib.validation/errors body))
+  (is (empty? (:dgknght.app-lib.validation/errors json-body))
       "There are no validation errors")
   (is (comparable? {:name "New Name"}
-                   body)
+                   json-body)
       "The updated account is returned in the response")
   (is (comparable? {:name "New Name"}
                    retrieved)
       "The retrieved value has the updated attributes"))
 
 (defn- assert-blocked-update
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
   (is (comparable? {:name "Checking"}
                    retrieved)
