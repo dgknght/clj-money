@@ -1,5 +1,5 @@
 (ns clj-money.api.budgets
-  (:refer-clojure :exclude [update find])
+  (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
@@ -89,7 +89,7 @@
                                              authenticated))]
     (authorize budget action authenticated)))
 
-(defn- find
+(defn- show
   [req]
   (if-let [budget (find-and-auth req ::auth/show)]
     (api/response budget)
@@ -112,9 +112,9 @@
       (api/response))
     api/not-found))
 
-(defroutes routes
-  (GET "/api/entities/:entity-id/budgets" req (index req))
-  (POST "/api/entities/:entity-id/budgets" req (create req))
-  (GET "/api/budgets/:id" req (find req))
-  (PATCH "/api/budgets/:id" req (update req))
-  (DELETE "/api/budgets/:id" req (delete req)))
+(def routes
+  [["entities/:entity-id/budgets" {:get {:handler index}
+                                   :post {:handler create}}]
+   ["budgets/:id" {:get {:handler show}
+                   :patch {:handler update}
+                   :delete {:handler delete}}]])

@@ -138,7 +138,8 @@
                    entities-api/routes
                    accounts-api/routes
                    transactions-api/routes
-                   att-api/routes]])
+                   att-api/routes
+                   budgets-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
