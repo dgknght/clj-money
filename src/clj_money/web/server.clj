@@ -142,7 +142,8 @@
                    budgets-api/routes
                    imports-api/routes
                    prices-api/routes
-                   lots-api/routes]])
+                   lots-api/routes
+                   recs-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
