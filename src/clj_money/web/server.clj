@@ -146,7 +146,8 @@
                    lots-api/routes
                    recs-api/routes
                    reports-api/routes
-                   trading-api/routes]]
+                   trading-api/routes
+                   transaction-items-api/routes]]
                  {:conflicts (fn [conflicts]
                                (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))})
     (ring/routes

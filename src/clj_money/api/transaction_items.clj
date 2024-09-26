@@ -1,7 +1,6 @@
 (ns clj-money.api.transaction-items
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [compojure.core :refer [defroutes GET]]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-int
                                           parse-bool
@@ -109,6 +108,6 @@
                                   :end-date end-date))
                        items))))
 
-(defroutes routes
-  (GET "/api/accounts/:account-id/transaction-items" req (index req))
-  (GET "/api/entities/:entity-id/transaction-items/summarize" req (summarize req)))
+(def routes
+  [["accounts/:account-id/transaction-items" {:get {:handler index}}]
+   ["entities/:entity-id/transaction-items/summarize" {:get {:handler summarize}}]])
