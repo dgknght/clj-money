@@ -33,7 +33,8 @@
                                                       clj-money.util/pp->
                                                       clj-money.util/pp->>
                                                       clj-money.views.reconciliations/load-working-reconciliation
-                                                      clj-money.views.reconciliations/reconciliation-form}}
+                                                      clj-money.views.reconciliations/reconciliation-form
+                                                      clj-money.web.server/print-routes}}
            :unresolved-var {:exclude [honeysql.helpers/select
                                       honeysql.helpers/merge-select
                                       honeysql.helpers/from
