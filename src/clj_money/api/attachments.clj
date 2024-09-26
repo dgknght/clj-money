@@ -1,6 +1,7 @@
 (ns clj-money.api.attachments
   (:refer-clojure :exclude [update find])
   (:require [clojure.set :refer [rename-keys]]
+            [clojure.pprint :refer [pprint]]
             [stowaway.core :refer [tag]]
             [dgknght.app-lib.core :refer [uuid
                                           update-in-if]]

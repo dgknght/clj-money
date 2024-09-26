@@ -12,7 +12,6 @@
             [ring.adapter.jetty :as jetty]
             [ring.middleware.cookies :refer [wrap-cookies]]
             [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.multipart-params :refer [wrap-multipart-params]]
             [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.json :refer [wrap-json-body
                                           wrap-json-response]]
@@ -125,7 +124,9 @@
                                          wrap-json-response
                                          wrap-exceptions]}
                    users-api/unauthenticated-routes]
-                  ["api/" {:middleware [[wrap-defaults (assoc-in api-defaults [:security :anti-forgery] false)]
+                  ["api/" {:middleware [[wrap-defaults (-> api-defaults
+                                                           (assoc-in [:params :multipart] true)
+                                                           (assoc-in [:security :anti-forgery] false))]
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         [api/wrap-authentication
