@@ -7,36 +7,24 @@
             [reitit.ring :as ring]
             [reitit.exception :refer [format-exception]]
             [ring.middleware.defaults :refer [wrap-defaults
-                                              site-defaults
                                               api-defaults]]
-            [ring.util.response :refer [header] :as res]
+            [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.json :refer [wrap-json-body
                                           wrap-json-response]]
-            [ring.middleware.resource :refer [wrap-resource]]
-            [ring.middleware.content-type :refer [wrap-content-type]]
-            [ring.middleware.not-modified :refer [wrap-not-modified]]
-            [co.deps.ring-etag-middleware :as etag]
             [config.core :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
             [clj-money.core]
             [clj-money.json]
-            [clj-money.web.auth :as web-auth]
-            [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-integer-id-params
-                                          wrap-exceptions
-                                          wrap-collection-params]]
+                                          wrap-exceptions]]
             [clj-money.models :as models]
             [clj-money.api :refer [find-user-by-auth-token
                                    log-error]]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
-            [clj-money.api.commodities :as commodities-api]
             [clj-money.api.prices :as prices-api]
             [clj-money.api.accounts :as accounts-api]
             [clj-money.api.budgets :as budgets-api]
@@ -44,7 +32,6 @@
             [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
-            [clj-money.api.scheduled-transactions :as sched-trans-api]
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
@@ -153,32 +140,6 @@
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
-
-#_(defroutes app
-  (-> (routes apps/routes
-              web-auth/routes
-              (wrap-routes users-api/unauthenticated-routes
-                           #(-> %
-                                (wrap-json-body {:keywords? true})
-                                wrap-json-response))
-              api-routes
-              protected-web-routes
-              (GET "*" _ (res/redirect "/"))
-              (ANY "*" req
-                   (do
-                     (log/debugf "unable to match route for \"%s\"." (:uri req))
-                     (not-found))))
-      (wrap-resource "public")
-      wrap-cookies
-      wrap-keyword-params
-      wrap-collection-params
-      wrap-multipart-params
-      wrap-content-type
-      wrap-params
-      wrap-no-cache-header
-      etag/wrap-file-etag
-      wrap-not-modified
-      wrap-request-logging))
 
 (defn print-routes []
   (pprint
