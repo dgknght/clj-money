@@ -1,6 +1,5 @@
 (ns clj-money.api.lots
-  (:require [compojure.core :refer [defroutes GET]]
-            [dgknght.app-lib.core :refer [update-in-if
+  (:require [dgknght.app-lib.core :refer [update-in-if
                                      parse-float]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.authorization :refer [+scope]]
@@ -19,6 +18,6 @@
                      (+scope ::models/lot authenticated))
                  {:sort [[:purchase-date :asc]]})))
 
-(defroutes routes
-  (GET "/api/accounts/:account-id/lots" req (index req))
-  (GET "/api/lots" req (index req)))
+(def routes
+  [["accounts/:account-id/lots" {:get {:handler index}}]
+   ["lots" {:get {:handler index}}]])
