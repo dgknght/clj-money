@@ -5,6 +5,7 @@
             [cheshire.generate]
             [reitit.core :as reitit]
             [reitit.ring :as ring]
+            [reitit.exception :refer [format-exception]]
             [ring.middleware.defaults :refer [wrap-defaults
                                               site-defaults
                                               api-defaults]]
@@ -143,7 +144,10 @@
                    imports-api/routes
                    prices-api/routes
                    lots-api/routes
-                   recs-api/routes]])
+                   recs-api/routes
+                   reports-api/routes]]
+                 {:conflicts (fn [conflicts]
+                               (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))})
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
