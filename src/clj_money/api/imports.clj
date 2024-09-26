@@ -133,9 +133,10 @@
     (launch-and-track-import imp)
     (api/response imp)))
 
-(defroutes routes
-  (GET "/api/imports" req (index req))
-  (POST "/api/imports" req (create req))
-  (GET "/api/imports/:id" req (show req))
-  (PATCH "/api/imports/:id" req (start req))
-  (DELETE "/api/imports/:id" req (delete req)))
+(def routes
+  [["imports"
+    ["" {:get {:handler index}
+         :post {:handler create}}]
+    ["/:id" {:get {:handler show}
+             :patch {:handler start}
+             :delete {:handler delete}}]]])
