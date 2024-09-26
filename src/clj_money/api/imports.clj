@@ -4,7 +4,6 @@
             [clojure.core.async :refer [go-loop <! chan]]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.api :as api]

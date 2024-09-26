@@ -1,7 +1,6 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as stow]
             [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
