@@ -118,29 +118,30 @@
   (ring/ring-handler
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
-                  ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimal? true}]
+                  ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimals? true}]
+                                         wrap-json-response
                                          wrap-merge-path-params
                                          wrap-integer-id-params
-                                         wrap-json-response
                                          wrap-exceptions]}
                    users-api/unauthenticated-routes]
                   ["api/" {:middleware [[wrap-defaults (-> api-defaults
                                                            (assoc-in [:params :multipart] true)
                                                            (assoc-in [:security :anti-forgery] false))]
+                                        wrap-json-response
                                         wrap-merge-path-params
                                         wrap-integer-id-params
                                         [api/wrap-authentication
                                          {:authenticate-fn find-user-by-auth-token}]
-                                        wrap-json-response
                                         wrap-exceptions
-                                        [wrap-json-body {:keywords? true :bigdecimal? true}]]}
+                                        [wrap-json-body {:keywords? true :bigdecimals? true}]]}
                    users-api/routes
                    entities-api/routes
                    accounts-api/routes
                    transactions-api/routes
                    att-api/routes
                    budgets-api/routes
-                   imports-api/routes]])
+                   imports-api/routes
+                   prices-api/routes]])
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
