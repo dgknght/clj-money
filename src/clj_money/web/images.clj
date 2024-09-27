@@ -1,6 +1,6 @@
 (ns clj-money.web.images
   (:require [clojure.java.io :as io]
-            [compojure.core :refer [defroutes GET]]
+            [clojure.pprint :refer [pprint]]
             [ring.util.response :refer [response content-type]]
             [clj-money.models.images :as images]
             [clj-money.authorization.images]
@@ -18,5 +18,5 @@
         response
         (content-type "text/plain"))))
 
-(defroutes routes
-  (GET "/images/:id" req (show req)))
+(def routes
+  ["images/:id" {:get {:handler show}}])
