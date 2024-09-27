@@ -7,11 +7,13 @@
             [reitit.ring :as ring]
             [reitit.exception :refer [format-exception]]
             [ring.middleware.defaults :refer [wrap-defaults
+                                              site-defaults
                                               api-defaults]]
             [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
             [ring.middleware.json :refer [wrap-json-body
                                           wrap-json-response]]
+            [ring.middleware.session.cookie :refer [cookie-store]]
             [config.core :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
@@ -20,8 +22,7 @@
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-exceptions]]
             [clj-money.models :as models]
-            [clj-money.api :refer [find-user-by-auth-token
-                                   log-error]]
+            [clj-money.api :refer [log-error]]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
@@ -35,6 +36,8 @@
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
+            [clj-money.web.users :refer [find-user-by-auth-token]]
+            [clj-money.web.images :as images]
             [clj-money.web.apps :as apps]))
 
 (defn- not-found []
@@ -102,10 +105,22 @@
   (fn [{:keys [path-params] :as req}]
     (handler (update-in req [:params] merge path-params))))
 
+(defn- wrap-site []
+  (let [c-store (cookie-store)]
+    [wrap-defaults (update-in site-defaults
+                              [:session]
+                              merge
+                              {:store c-store
+                               :cookie-attrs {:same-site :lax
+                                              :http-only true}})]))
+
 (def app
   (ring/ring-handler
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
+                  [images/routes {:middleware [wrap-site
+                                               [api/wrap-authentication
+                                                {:authenticate-fn find-user-by-auth-token}]]}]
                   ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimals? true}]
                                          wrap-json-response
                                          wrap-merge-path-params
