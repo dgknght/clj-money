@@ -19,6 +19,8 @@
             [dgknght.app-lib.api :as api]
             [clj-money.core]
             [clj-money.json]
+            [clj-money.web.auth :as web-auth]
+            [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-integer-id-params
                                           wrap-exceptions]]
             [clj-money.models :as models]
@@ -39,7 +41,6 @@
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
             [clj-money.web.users :refer [find-user-by-auth-token]]
-            [clj-money.web.images :as images]
             [clj-money.web.apps :as apps]))
 
 (defn- not-found []
@@ -120,6 +121,7 @@
   (ring/ring-handler
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
+                  web-auth/routes
                   [(assoc-in
                      images/routes
                      [1 :middleware]

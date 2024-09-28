@@ -1,6 +1,5 @@
 (ns clj-money.web.auth
-  (:require [compojure.core :refer [defroutes GET]]
-            [ring.util.response :as res]
+  (:require [ring.util.response :as res]
             [buddy.sign.jwt :as jwt]
             [clj-http.client :as http]
             [config.core :refer [env]]
@@ -78,10 +77,11 @@
   [{{:keys [error]} :params}]
   (res/redirect (str "/?error=" error)))
 
-(defn- start []
+(defn- start [_]
   (let [state (str (uuid))]
     (res/redirect (redirect-url state))))
 
-(defroutes routes
-  (GET "/auth/google/start" [] (start) )
-  (GET "/auth/google/callback" req (callback req)))
+(def routes
+  ["auth/google"
+   ["/start" {:get {:handler start}}]
+   ["/callback" {:get {:handler callback}}]])
