@@ -33,6 +33,7 @@
             [clj-money.api.trading :as trading-api]
             [clj-money.api.transactions :as transactions-api]
             [clj-money.api.transaction-items :as transaction-items-api]
+            [clj-money.api.scheduled-transactions :as sched-trans-api]
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
@@ -154,7 +155,8 @@
                    recs-api/routes
                    reports-api/routes
                    trading-api/routes
-                   transaction-items-api/routes]]
+                   transaction-items-api/routes
+                   sched-trans-api/routes]]
                  {:conflicts (fn [conflicts]
                                (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))})
     (ring/routes
