@@ -118,9 +118,14 @@
   (ring/ring-handler
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
-                  [images/routes {:middleware [wrap-site
-                                               [api/wrap-authentication
-                                                {:authenticate-fn find-user-by-auth-token}]]}]
+                  [(assoc-in
+                     images/routes
+                     [1 :middleware]
+                     [(wrap-site)
+                      wrap-merge-path-params
+                      wrap-integer-id-params
+                      [api/wrap-authentication
+                       {:authenticate-fn find-user-by-auth-token}]])]
                   ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimals? true}]
                                          wrap-json-response
                                          wrap-merge-path-params
