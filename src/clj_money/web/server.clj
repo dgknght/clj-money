@@ -26,6 +26,7 @@
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
+            [clj-money.api.commodities :as commodities-api]
             [clj-money.api.prices :as prices-api]
             [clj-money.api.accounts :as accounts-api]
             [clj-money.api.budgets :as budgets-api]
@@ -145,6 +146,7 @@
                                         [wrap-json-body {:keywords? true :bigdecimals? true}]]}
                    users-api/routes
                    entities-api/routes
+                   commodities-api/routes
                    accounts-api/routes
                    transactions-api/routes
                    att-api/routes
