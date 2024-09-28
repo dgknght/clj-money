@@ -7,3 +7,7 @@
 (defmethod authorization/allowed? [::models/image ::authorization/manage]
   [image action user]
   (owner-or-granted? image user action))
+
+(defmethod authorization/scope ::models/image
+  [_ user]
+  {:user-id (:id user)})
