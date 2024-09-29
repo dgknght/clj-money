@@ -16,6 +16,7 @@
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
             [clj-money.icons :refer [icon icon-with-text]]
+            [clj-money.components :refer [button]]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
                                                +busy
@@ -143,19 +144,19 @@
      [:button.btn.btn-success.btn-sm {:disable (str (:entity-exists? imp))
                                       :on-click #(start-import imp page-state)
                                       :title "Click here to start the import."}
-      (icon :play {:size :small})]
+      (icon :play :size :small)]
      [:button.btn.btn-light.btn-sm {:on-click (fn []
                                                 (swap! page-state assoc :active imp)
                                                 (reset! auto-refresh true)
                                                 (load-import page-state))
                                     :disable busy?
                                     :title "Click here to view this import."}
-      (icon :eye {:size :small})]
+      (icon :eye :size :small)]
      [:button.btn.btn-danger.btn-sm {:on-click #(when (js/confirm (str "Are you sure you want to delete the import \"" (:entity-name imp) "\"?"))
                                                   (delete-import imp page-state))
                                      :disable busy?
                                      :title "Click here to remove this import."}
-      (icon :x-circle {:size :small})]]]])
+      (icon :x-circle :size :small)]]]])
 
 (defn- import-table
   [page-state]
@@ -177,18 +178,18 @@
         title (make-reaction #(if @auto-refresh
                                 "Click here to stop the auto-refresh."
                                 "Click here to auto-refresh the page."))
+        caption (make-reaction #(if @auto-refresh "Stop" "Auto Refresh"))
         icon-image (make-reaction #(if @auto-refresh :stop :arrow-repeat))]
     (fn []
-      [:button.btn {:type :button
-                    :class @css-class
-                    :title @title
-                    :on-click (fn []
-                                (swap! auto-refresh not)
-                                (when @auto-refresh
-                                  (load-import page-state)))}
-       (if @busy?
-         (bs/spinner {:size :small})
-         (icon @icon-image {:size :small}))])))
+      [button {:html {:type :button
+                      :class @css-class
+                      :title @title
+                      :on-click (fn []
+                                  (swap! auto-refresh not)
+                                  (when @auto-refresh
+                                    (load-import page-state)))}
+               :icon @icon-image
+               :caption @caption}])))
 
 (defn- progress-card
   [page-state]
@@ -197,9 +198,11 @@
      [:div.card-header [import-title page-state]]
      [progress-table page-state]
      [:div.card-footer
-      [:button.btn.btn-secondary.me-2 {:title "Click here to return the list of imports."
-                                       :on-click #(swap! page-state dissoc :active)}
-       (icon-with-text :x "Cancel")]
+      [button {:html {:title "Click here to return the list of imports."
+                      :class "btn-secondary me-2"
+                      :on-click #(swap! page-state dissoc :active)}
+               :icon :x
+               :caption "Cancel"}]
       [refresh-button page-state]]]))
 
 (defn- errors-card
@@ -275,16 +278,17 @@
           [:div "Drop files here"]]]
         [file-list import-data]
         [:div.card-footer
-         [:button.btn-success
-          {:type :submit
-           :title "Click here to begin the import."}
-          (icon-with-text :file-arrow-up
-                          "Import")]
-         [:button.btn-secondary.ms-2
-          {:on-click #(swap! page-state dissoc :import-data)
-           :type :button
-           :title "Click here to discard this import."}
-          (icon-with-text :x "Cancel")]]]])))
+         [button {:html {:type :submit
+                         :class "btn-success"
+                         :title "Click here to begin the import."}
+                  :icon :upload
+                  :caption "Import"}]
+         [button {:html {:on-click #(swap! page-state dissoc :import-data)
+                         :class "btn-secondary ms-2"
+                         :type :button
+                         :title "Click here to discard this import."}
+                  :icon :x
+                  :caption "Cancel"}]]]])))
 
 (defn- import-list []
   (let [page-state (r/atom {:import-data {:options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
@@ -298,15 +302,17 @@
        [:div.row
         [:div.col-md-6 {:class (when @import-data "d-none d-md-block")}
          [import-table page-state]
-         [:button.btn-primary
-          {:title "Click here to import a new entity from another system."
-           :on-click (fn []
-                       (swap! page-state assoc
-                              :import-data {:user-id (:id @state/current-user)
-                                            :options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
-                                                      :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
-                       (set-focus "entity-name"))}
-          (icon-with-text :plus "Add")]]
+         [button
+          {:html {:title "Click here to import a new entity from another system."
+                  :class "btn-primary"
+                  :on-click (fn []
+                              (swap! page-state assoc
+                                     :import-data {:user-id (:id @state/current-user)
+                                                   :options {:lt-capital-gains-account-id "Investment Income/Long Term Gains"
+                                                             :st-capital-gains-account-id "Investment Income/Short Term Gains"}})
+                              (set-focus "entity-name"))}
+           :icon :plus
+           :caption "Add"}]]
         (when (present? @import-data)
           [:div.col-md-6
            [import-form page-state]])
