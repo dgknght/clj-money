@@ -5,6 +5,8 @@
                                                            http-not-found?
                                                            http-unauthorized?
                                                            http-forbidden?
+                                                           http-redirect-to?
+                                                           http-response-with-cookie?
                                                            valid?
                                                            invalid?
                                                            comparable?
