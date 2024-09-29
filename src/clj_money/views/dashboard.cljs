@@ -156,7 +156,10 @@
                                                                   :scope @scope))
                                                      (sort-by #(get-in % [:account :path]))))))]
     (load-monitors state)
-    (add-watch current-entity ::monitors (fn [& _] (load-monitors state)))
+    (add-watch current-entity ::monitors (fn [_ _ _ entity]
+                                           (if entity
+                                             (load-monitors state)
+                                             (swap! state dissoc :monitors))))
     (fn []
       [:div
        [:h3 "Monitors"]
