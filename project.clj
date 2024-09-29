@@ -24,7 +24,6 @@
                                                  org.clojure/tools.reader]]
                  [org.threeten/threeten-extra "1.8.0"]
                  [clojure.java-time "1.4.2"]
-                 [compojure "1.6.1" :exclusions [joda-time clj-time org.clojure/tools.reader]]
                  [org.eclipse.jetty/jetty-util "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
                  [org.eclipse.jetty/jetty-io "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
                  [org.eclipse.jetty/jetty-server "9.4.36.v20210114" :exclusions [org.slf4j/slf4j-api]]
@@ -33,6 +32,18 @@
                  [ring/ring-codec "1.1.1" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-json "0.4.0" :exclusions [org.clojure/tools.reader]]
                  [ring/ring-anti-forgery "1.2.0" :exclusions [org.clojure/tools.reader]]
+                 [metosin/reitit "0.7.2" :exclusions [com.cognitect/transit-java
+                                                      org.clojure/spec.alpha
+                                                      com.bhauman/spell-spec
+                                                      ring/ring-core
+                                                      ring/ring-codec
+                                                      crypto-equality
+                                                      commons-io
+                                                      commons-codec
+                                                      expound
+                                                      com.cognitect/transit-clj
+                                                      prismatic/schema
+                                                      com.fasterxml.jackson.core/jackson-core]]
                  [hiccup "1.0.5" :exclusions [org.clojure/tools.reader]]
                  [cljs-http "0.1.45" :exclusions [org.clojure/tools.reader]]
                  [selmer "1.11.7" :exclusions [joda-time
@@ -103,6 +114,7 @@
             "export-user-tags"              ["run" "-m" "clj-money.tasks/export-user-tags"]
             "import-user-tags"              ["run" "-m" "clj-money.tasks/import-user-tags"]
             "update-commodity-price-ranges" ["run" "-m" "clj-money.tasks/update-commodity-price-ranges"]
+            "routes"                        ["run" "-m" "clj-money.web.server/print-routes"]
             "fig:build"                     ["trampoline" "run" "-m" "figwheel.main" "-b" "dev" "-r"]
             "fig:min"                       ["run" "-m" "figwheel.main" "-O" "advanced" "-bo" "dev"]
             "fig:test"                      ["run" "-m" "figwheel.main" "-co" "test.cljs.edn" "-m" "clj-money.test-runner"]}

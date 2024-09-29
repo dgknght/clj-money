@@ -1,6 +1,6 @@
 (ns clj-money.api.prices
   (:refer-clojure :exclude [update])
-  (:require [compojure.core :refer [defroutes GET DELETE POST PATCH]]
+  (:require [clojure.pprint :refer [pprint]]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if
                                           uuid
@@ -117,6 +117,7 @@
   prices)
 
 (defn- fetch
+  "Return prices for a specified list of commodities"
   [{:keys [params]}]
   (->> (:commodity-id params)
        (map (comp commodities/find
@@ -128,9 +129,10 @@
        (map :price)
        api/response))
 
-(defroutes routes
-  (POST "/api/commodities/:commodity-id/prices" req (create req))
-  (GET "/api/prices" req (index req))
-  (GET "/api/prices/fetch" req (fetch req))
-  (PATCH "/api/prices/:trade-date/:id" req (update req))
-  (DELETE "/api/prices/:trade-date/:id" req (delete req)))
+(def routes
+  [["commodities/:commodity-id/prices" {:post {:handler create}}]
+   ["prices"
+    ["" {:get {:handler index}}]
+    ["/fetch" {:get {:handler fetch}}]
+    ["/:trade-date/:id" {:patch {:handler update}
+                         :delete {:handler delete}}]]])

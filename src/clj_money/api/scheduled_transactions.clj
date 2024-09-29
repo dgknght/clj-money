@@ -1,14 +1,13 @@
 (ns clj-money.api.scheduled-transactions
   (:refer-clojure :exclude [update])
-  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
-            [java-time.api :as t]
+  (:require [java-time.api :as t]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.authorization :refer [authorize
-                                             allowed?
-                                             +scope]
+                                                   allowed?
+                                                   +scope]
              :as authorization]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
@@ -33,7 +32,7 @@
       (update-in-if [:quantity] bigdec)
       (update-in-if [:action] keyword)))
 
-(defn- ->sched-tran
+(defn- extract-sched-tran
   [body]
   (-> body
       (update-in-if [:items] #(map ->sched-trans-item %))
@@ -46,7 +45,7 @@
 (defn- create
   [{:keys [params authenticated body]}]
   (-> body
-      ->sched-tran
+      extract-sched-tran
       (assoc :entity-id (:entity-id params))
       (authorize ::authorization/create authenticated)
       sched-trans/create
@@ -63,7 +62,7 @@
   [{:keys [body] :as req}]
   (if-let [sched-tran (find-and-authorize req ::authorization/update)]
     (-> sched-tran
-        (merge (->sched-tran body))
+        (merge (extract-sched-tran body))
         sched-trans/update
         api/response)
     api/not-found))
@@ -99,10 +98,12 @@
          api/creation-response)
     api/not-found))
 
-(defroutes routes
-  (GET "/api/entities/:entity-id/scheduled-transactions" req (index req))
-  (POST "/api/entities/:entity-id/scheduled-transactions" req (create req))
-  (POST "/api/entities/:entity-id/scheduled-transactions/realize" req (mass-realize req))
-  (PATCH "/api/scheduled-transactions/:id" req (update req))
-  (DELETE "/api/scheduled-transactions/:id" req (delete req))
-  (POST "/api/scheduled-transactions/:id/realize" req (realize req)))
+(def routes
+  [["entities/:entity-id/scheduled-transactions"
+    ["" {:get {:handler index}
+         :post {:handler create}}]
+    ["/realize" {:post {:handler mass-realize}}]]
+   ["scheduled-transactions/:id"
+    ["" {:patch {:handler update}
+         :delete {:handler delete}}]
+    ["/realize" {:post {:handler realize}}]]])

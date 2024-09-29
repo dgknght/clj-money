@@ -1,7 +1,6 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count])
   (:require [java-time.api :as t]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [stowaway.core :as storage]
             [dgknght.app-lib.authorization :refer [authorize
                                              +scope]
@@ -119,10 +118,11 @@
       (api/response))
     api/not-found))
 
-(defroutes routes
-  (GET "/api/entities/:entity-id/commodities/count" req (count req))
-  (GET "/api/entities/:entity-id/commodities" req (index req))
-  (POST "/api/entities/:entity-id/commodities" req (create req))
-  (GET "/api/commodities/:id" req (show req))
-  (PATCH "/api/commodities/:id" req (update req))
-  (DELETE "/api/commodities/:id" req (delete req)))
+(def routes
+  [["entities/:entity-id/commodities"
+    ["" {:get {:handler index}
+         :post {:handler create}}]
+    ["/count" {:get {:handler count}}]]
+   ["commodities/:id" {:get {:handler show}
+                       :patch {:handler update}
+                       :delete {:handler delete}}]])

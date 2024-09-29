@@ -1,6 +1,5 @@
 (ns clj-money.api.reports
-  (:require [compojure.core :refer [defroutes GET]]
-            [dgknght.app-lib.core :refer [update-in-if]]
+  (:require [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.authorization :refer [+scope]]
             [clj-money.dates :as dates]
@@ -83,19 +82,10 @@
                        (get-in entity [:settings :monitored-account-ids])))
     api/not-found))
 
-(defroutes routes
-  (GET "/api/entities/:entity-id/reports/income-statement/:start-date/:end-date"
-    req
-    (income-statement req))
-  (GET "/api/entities/:entity-id/reports/balance-sheet/:as-of"
-    req
-    (balance-sheet req))
-  (GET "/api/entities/:entity-id/reports/budget-monitors"
-    req
-    (monitors req))
-  (GET "/api/entities/:entity-id/reports/portfolio"
-    req
-    (portfolio req))
-  (GET "/api/reports/budget/:budget-id"
-    req
-    (budget req)))
+(def routes
+  [["entities/:entity-id/reports"
+    ["/income-statement/:start-date/:end-date" {:get {:handler income-statement}}]
+    ["/balance-sheet/:as-of" {:get {:handler balance-sheet}}]
+    ["/budget-monitors" {:get {:handler monitors}}]
+    ["/portfolio" {:get {:handler portfolio}}]]
+   ["reports/budget/:budget-id" {:get {:handler budget}}]])

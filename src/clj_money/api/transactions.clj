@@ -1,7 +1,7 @@
 (ns clj-money.api.transactions
   (:refer-clojure :exclude [update])
   (:require [clojure.set :refer [rename-keys]]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+            [clojure.pprint :refer [pprint]]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [uuid
                                      update-in-if]]
@@ -128,9 +128,10 @@
       (api/response))
     api/not-found))
 
-(defroutes routes
-  (GET "/api/entities/:entity-id/:start/:end/transactions" req (index req))
-  (POST "/api/entities/:entity-id/transactions" req (create req))
-  (GET "/api/transactions/:transaction-date/:id" req (show req))
-  (PATCH "/api/transactions/:transaction-date/:id" req (update req))
-  (DELETE "/api/transactions/:transaction-date/:id" req (delete req)))
+(def routes
+  [["entities/:entity-id"
+    ["/transactions" {:post {:handler create}}]
+    ["/:start/:end/transactions" {:get {:handler index}}]]
+   ["transactions/:transaction-date/:id" {:get {:handler show}
+                                          :patch {:handler update}
+                                          :delete {:handler delete}}]])

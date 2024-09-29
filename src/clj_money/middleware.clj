@@ -1,6 +1,7 @@
 (ns clj-money.middleware
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
+            [clojure.pprint :refer [pprint]]
             [ring.util.response :refer [response status header]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
@@ -24,7 +25,9 @@
 (defmethod ^:private integerize :string
   [value]
   (try
-    (Integer. value)
+    (if (re-find #"^\d+$" value)
+      (Integer. value)
+      value)
     (catch NumberFormatException _
       value)))
 

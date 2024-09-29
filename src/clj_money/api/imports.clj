@@ -4,7 +4,6 @@
             [clojure.core.async :refer [go-loop <! chan]]
             [clojure.tools.logging :as log]
             [cheshire.core :as json]
-            [compojure.core :refer [defroutes GET POST PATCH DELETE]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.api :as api]
@@ -133,9 +132,10 @@
     (launch-and-track-import imp)
     (api/response imp)))
 
-(defroutes routes
-  (GET "/api/imports" req (index req))
-  (POST "/api/imports" req (create req))
-  (GET "/api/imports/:id" req (show req))
-  (PATCH "/api/imports/:id" req (start req))
-  (DELETE "/api/imports/:id" req (delete req)))
+(def routes
+  [["imports"
+    ["" {:get {:handler index}
+         :post {:handler create}}]
+    ["/:id" {:get {:handler show}
+             :patch {:handler start}
+             :delete {:handler delete}}]]])

@@ -36,7 +36,8 @@
   (let [ctx (realize image-context)
         image (find-image ctx "attachment.jpg")
         user (when email (find-user ctx email))]
-    (-> (req/request :get (path :images
+    (-> (req/request :get (path :app
+                                :images
                                 (:id image)))
         (add-auth-cookie user)
         app)))

@@ -1,6 +1,6 @@
 (ns clj-money.api.entities
   (:refer-clojure :exclude [update])
-  (:require [compojure.core :refer [defroutes GET POST PATCH DELETE]]
+  (:require [clojure.pprint :refer [pprint]]
             [stowaway.core :as storage]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.api :as api]
@@ -58,8 +58,9 @@
       (api/response))
     api/not-found))
 
-(defroutes routes
-  (GET "/api/entities" req (index req))
-  (PATCH "/api/entities/:id" req (update req))
-  (DELETE "/api/entities/:id" req (delete req))
-  (POST "/api/entities" req (create req)))
+(def routes
+  ["entities"
+   ["" {:get {:handler index}
+        :post {:handler create}}]
+   ["/:id" {:patch {:handler update}
+            :delete {:handler delete}}]])

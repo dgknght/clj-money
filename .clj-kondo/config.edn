@@ -5,6 +5,8 @@
                                                            http-not-found?
                                                            http-unauthorized?
                                                            http-forbidden?
+                                                           http-redirect-to?
+                                                           http-response-with-cookie?
                                                            valid?
                                                            invalid?
                                                            comparable?
@@ -33,7 +35,8 @@
                                                       clj-money.util/pp->
                                                       clj-money.util/pp->>
                                                       clj-money.views.reconciliations/load-working-reconciliation
-                                                      clj-money.views.reconciliations/reconciliation-form}}
+                                                      clj-money.views.reconciliations/reconciliation-form
+                                                      clj-money.web.server/print-routes}}
            :unresolved-var {:exclude [honeysql.helpers/select
                                       honeysql.helpers/merge-select
                                       honeysql.helpers/from

@@ -1,6 +1,5 @@
 (ns clj-money.api.trading
-  (:require [compojure.core :refer [defroutes POST]]
-            [stowaway.core :as storage]
+  (:require [stowaway.core :as storage]
             [dgknght.app-lib.api :as api]
             [clj-money.models :as models]
             [dgknght.app-lib.authorization :refer [authorize] :as authorization]
@@ -28,5 +27,5 @@
           f
           (select-keys [:transaction :lot :lots])))))
 
-(defroutes routes
-  (POST "/api/entities/:entity-id/trades" req (create req)))
+(def routes
+  ["entities/:entity-id/trades" {:post {:handler create}}])

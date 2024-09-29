@@ -1,7 +1,6 @@
 (ns clj-money.api.reconciliations
   (:refer-clojure :exclude [update])
-  (:require [compojure.core :refer [defroutes GET POST PATCH]]
-            [stowaway.core :as stow]
+  (:require [stowaway.core :as stow]
             [dgknght.app-lib.core :refer [update-in-if
                                           parse-int
                                           uuid]]
@@ -98,7 +97,7 @@
         api/update-response)
     api/not-found))
 
-(defroutes routes
-  (GET "/api/accounts/:account-id/reconciliations" req (index req))
-  (POST "/api/accounts/:account-id/reconciliations" req (create req))
-  (PATCH "/api/reconciliations/:id" req (update req)))
+(def routes
+  [["accounts/:account-id/reconciliations" {:get {:handler index}
+                                            :post {:handler create}}]
+   ["reconciliations/:id" {:patch {:handler update}}]])

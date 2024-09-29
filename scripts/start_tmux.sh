@@ -20,8 +20,8 @@ tmux new-window -t $session:2 -n 'database' 'psql -h localhost -U app_user -d mo
 
 # Log window
 tmux new-window -t $session:3 -n 'logs'
-tmux send-keys 'tail -f log/clj-money.log | grep -e ERROR -e WARN -e dbk' C-m
+tmux send-keys 'tail -f log/development.log | grep -e ERROR -e WARN -e dbk' C-m
 tmux split-window -v
-tmux send-keys 'tail -f log/clj-money.log' C-m
+tmux send-keys 'tail -f log/development.log' C-m
 
 tmux attach -t $session:1

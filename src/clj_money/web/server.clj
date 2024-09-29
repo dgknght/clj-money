@@ -1,24 +1,20 @@
 (ns clj-money.web.server
   (:refer-clojure :exclude [update])
   (:require [clojure.tools.logging :as log]
-            [compojure.core :refer [defroutes
-                                    wrap-routes
-                                    routes
-                                    GET
-                                    ANY]]
+            [clojure.pprint :refer [pprint]]
             [cheshire.generate]
-            [ring.util.response :refer [header] :as res]
+            [reitit.core :as reitit]
+            [reitit.ring :as ring]
+            [reitit.exception :refer [format-exception]]
+            [reitit.middleware :as middleware]
+            [ring.middleware.defaults :refer [wrap-defaults
+                                              site-defaults
+                                              api-defaults]]
+            [ring.util.response :as res]
             [ring.adapter.jetty :as jetty]
-            [ring.middleware.cookies :refer [wrap-cookies]]
-            [ring.middleware.params :refer [wrap-params]]
-            [ring.middleware.multipart-params :refer [wrap-multipart-params]]
-            [ring.middleware.keyword-params :refer [wrap-keyword-params]]
             [ring.middleware.json :refer [wrap-json-body
                                           wrap-json-response]]
-            [ring.middleware.resource :refer [wrap-resource]]
-            [ring.middleware.content-type :refer [wrap-content-type]]
-            [ring.middleware.not-modified :refer [wrap-not-modified]]
-            [co.deps.ring-etag-middleware :as etag]
+            [ring.middleware.session.cookie :refer [cookie-store]]
             [config.core :refer [env]]
             [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
@@ -27,11 +23,9 @@
             [clj-money.web.auth :as web-auth]
             [clj-money.web.images :as images]
             [clj-money.middleware :refer [wrap-integer-id-params
-                                          wrap-exceptions
-                                          wrap-collection-params]]
+                                          wrap-exceptions]]
             [clj-money.models :as models]
-            [clj-money.api :refer [find-user-by-auth-token
-                                   log-error]]
+            [clj-money.api :refer [log-error]]
             [clj-money.api.users :as users-api]
             [clj-money.api.imports :as imports-api]
             [clj-money.api.entities :as entities-api]
@@ -47,33 +41,8 @@
             [clj-money.api.attachments :as att-api]
             [clj-money.api.reconciliations :as recs-api]
             [clj-money.api.lots :as lots-api]
+            [clj-money.web.users :refer [find-user-by-auth-token]]
             [clj-money.web.apps :as apps]))
-
-(defroutes api-routes
-  (-> (routes users-api/routes
-              imports-api/routes
-              entities-api/routes
-              accounts-api/routes
-              budgets-api/routes
-              reports-api/routes
-              transactions-api/routes
-              transaction-items-api/routes
-              sched-trans-api/routes
-              att-api/routes
-              recs-api/routes
-              commodities-api/routes
-              lots-api/routes
-              prices-api/routes
-              trading-api/routes
-              (ANY "/api/*" req
-                (do
-                  (log/debugf "unable to match API route for %s \"%s\"." (:request-method req) (:uri req))
-                  api/not-found)))
-      (wrap-routes wrap-integer-id-params)
-      (wrap-json-body {:keywords? true :bigdecimals? true})
-      (api/wrap-authentication {:authenticate-fn find-user-by-auth-token})
-      wrap-exceptions
-      wrap-json-response))
 
 (defn- not-found []
   (-> (slurp "resources/404.html")
@@ -125,52 +94,91 @@
        (log-error e "unexpected error")
        (internal-error)))))
 
-(defroutes protected-web-routes
-  (-> images/routes
-      (wrap-routes wrap-integer-id-params)
-      (api/wrap-authentication {:authenticate-fn find-user-by-auth-token})
-      wrap-web-exceptions))
-
-(defn- wrap-no-cache-header
-  [handler]
-  (fn [req]
-    (header (handler req) "Cache-Control" "no-cache")))
-
 (defn- wrap-request-logging
   [handler]
   (fn [{:keys [request-method uri query-string] :as req}]
     (if query-string
-      (log/infof "Request %s: %s?%s" request-method uri query-string)
-      (log/infof "Request %s: %s" request-method uri))
+      (log/infof "Request %s \"%s?%s\"" request-method uri query-string)
+      (log/infof "Request %s \"%s\"" request-method uri))
     (let [res (handler req)]
-      (log/infof "Response %s: %s -> %s" request-method uri (:status res))
+      (log/infof "Response %s \"%s\" -> %s" request-method uri (:status res))
       res)))
 
-(defroutes app
-  (-> (routes apps/routes
-              web-auth/routes
-              (wrap-routes users-api/unauthenticated-routes
-                           #(-> %
-                                (wrap-json-body {:keywords? true})
-                                wrap-json-response))
-              api-routes
-              protected-web-routes
-              (GET "*" _ (res/redirect "/"))
-              (ANY "*" req
-                   (do
-                     (log/debugf "unable to match route for \"%s\"." (:uri req))
-                     (not-found))))
-      (wrap-resource "public")
-      wrap-cookies
-      wrap-keyword-params
-      wrap-collection-params
-      wrap-multipart-params
-      wrap-content-type
-      wrap-params
-      wrap-no-cache-header
-      etag/wrap-file-etag
-      wrap-not-modified
-      wrap-request-logging))
+(defn- wrap-merge-path-params
+  [handler]
+  (fn [{:keys [path-params] :as req}]
+    (handler (update-in req [:params] merge path-params))))
+
+(defn- wrap-site []
+  (let [c-store (cookie-store)]
+    [wrap-defaults (update-in site-defaults
+                              [:session]
+                              merge
+                              {:store c-store
+                               :cookie-attrs {:same-site :lax
+                                              :http-only true}})]))
+
+(def app
+  (ring/ring-handler
+    (ring/router ["/" {:middleware [wrap-request-logging]}
+                  apps/routes
+                  ["auth/" {:middleware [:site
+                                         wrap-merge-path-params]}
+                   web-auth/routes]
+                  ["app/" {:middleware [:site
+                                        wrap-merge-path-params
+                                        wrap-integer-id-params
+                                        :authentication]}
+                   images/routes]
+                  ["oapi/" {:middleware [:api
+                                         wrap-json-response
+                                         wrap-merge-path-params
+                                         wrap-integer-id-params
+                                         wrap-exceptions
+                                         :json-body]}
+                   users-api/unauthenticated-routes]
+                  ["api/" {:middleware [:api
+                                        wrap-json-response
+                                        wrap-merge-path-params
+                                        wrap-integer-id-params
+                                        :authentication
+                                        wrap-exceptions
+                                        :json-body]}
+                   users-api/routes
+                   entities-api/routes
+                   commodities-api/routes
+                   accounts-api/routes
+                   transactions-api/routes
+                   att-api/routes
+                   budgets-api/routes
+                   imports-api/routes
+                   prices-api/routes
+                   lots-api/routes
+                   recs-api/routes
+                   reports-api/routes
+                   trading-api/routes
+                   transaction-items-api/routes
+                   sched-trans-api/routes]]
+                 {:conflicts (fn [conflicts]
+                               (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))
+                  ::middleware/registry {:site (wrap-site)
+                                         :api [wrap-defaults (-> api-defaults
+                                                                 (assoc-in [:params :multipart] true)
+                                                                 (assoc-in [:security :anti-forgery] false))]
+                                         :json-body [wrap-json-body {:keywords? true :bigdecimals? true}]
+                                         :authentication [api/wrap-authentication
+                                                          {:authenticate-fn find-user-by-auth-token}]}})
+    (ring/routes
+      (ring/create-resource-handler {:path "/"})
+      (ring/create-default-handler))))
+
+(defn print-routes []
+  (pprint
+    (map (comp #(take 2 %)
+               #(update-in % [1] dissoc :middleware))
+         (-> app
+             ring/get-router
+             reitit/compiled-routes))))
 
 (defn -main [& [port]]
   (let [port (Integer. (or port (env :port) 3000))]
@@ -180,7 +188,3 @@
       (log/infof "Web server listening on port %s" port)
       (println (format "Web server listening on port %s." port))
       server)))
-
-;; For interactive development:
-;; (.stop server)
-;; (def server (-main))

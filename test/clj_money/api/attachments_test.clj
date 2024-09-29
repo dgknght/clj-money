@@ -46,7 +46,8 @@
                      (add-auth user)
                      app
                      parse-json-body)
-        retrieved (att/find-by {:transaction-id (:id transaction)})]
+        retrieved (when-let [id (get-in response [:json-body :id])]
+                    (att/find id))]
     [response retrieved]))
 
 (defn- assert-successful-create
