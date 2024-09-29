@@ -1,5 +1,6 @@
 (ns clj-money.web.auth
-  (:require [ring.util.response :as res]
+  (:require [clojure.pprint :refer [pprint]]
+            [ring.util.response :as res]
             [buddy.sign.jwt :as jwt]
             [clj-http.client :as http]
             [config.core :refer [env]]
@@ -82,6 +83,6 @@
     (res/redirect (redirect-url state))))
 
 (def routes
-  ["auth/google"
+  ["google"
    ["/start" {:get {:handler start}}]
    ["/callback" {:get {:handler callback}}]])

@@ -6,6 +6,7 @@
             [reitit.core :as reitit]
             [reitit.ring :as ring]
             [reitit.exception :refer [format-exception]]
+            [reitit.middleware :as middleware]
             [ring.middleware.defaults :refer [wrap-defaults
                                               site-defaults
                                               api-defaults]]
@@ -121,31 +122,28 @@
   (ring/ring-handler
     (ring/router ["/" {:middleware [wrap-request-logging]}
                   apps/routes
-                  web-auth/routes
-                  [(assoc-in
-                     images/routes
-                     [1 :middleware]
-                     [(wrap-site)
-                      wrap-merge-path-params
-                      wrap-integer-id-params
-                      [api/wrap-authentication
-                       {:authenticate-fn find-user-by-auth-token}]])]
-                  ["oapi/" {:middleware [[wrap-json-body {:keywords? true :bigdecimals? true}]
+                  ["auth/" {:middleware [:site
+                                         wrap-merge-path-params]}
+                   web-auth/routes]
+                  ["app/" {:middleware [:site
+                                        wrap-merge-path-params
+                                        wrap-integer-id-params
+                                        :authentication]}
+                   images/routes]
+                  ["oapi/" {:middleware [:api
                                          wrap-json-response
                                          wrap-merge-path-params
                                          wrap-integer-id-params
-                                         wrap-exceptions]}
+                                         wrap-exceptions
+                                         :json-body]}
                    users-api/unauthenticated-routes]
-                  ["api/" {:middleware [[wrap-defaults (-> api-defaults
-                                                           (assoc-in [:params :multipart] true)
-                                                           (assoc-in [:security :anti-forgery] false))]
+                  ["api/" {:middleware [:api
                                         wrap-json-response
                                         wrap-merge-path-params
                                         wrap-integer-id-params
-                                        [api/wrap-authentication
-                                         {:authenticate-fn find-user-by-auth-token}]
+                                        :authentication
                                         wrap-exceptions
-                                        [wrap-json-body {:keywords? true :bigdecimals? true}]]}
+                                        :json-body]}
                    users-api/routes
                    entities-api/routes
                    commodities-api/routes
@@ -162,7 +160,14 @@
                    transaction-items-api/routes
                    sched-trans-api/routes]]
                  {:conflicts (fn [conflicts]
-                               (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))})
+                               (log/warnf "The application has conflicting routes: %s" (format-exception :path-conflicts nil  conflicts)))
+                  ::middleware/registry {:site (wrap-site)
+                                         :api [wrap-defaults (-> api-defaults
+                                                                 (assoc-in [:params :multipart] true)
+                                                                 (assoc-in [:security :anti-forgery] false))]
+                                         :json-body [wrap-json-body {:keywords? true :bigdecimals? true}]
+                                         :authentication [api/wrap-authentication
+                                                          {:authenticate-fn find-user-by-auth-token}]}})
     (ring/routes
       (ring/create-resource-handler {:path "/"})
       (ring/create-default-handler))))
