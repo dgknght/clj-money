@@ -3,9 +3,9 @@
   (:require [cljs-http.client :as http]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.web :refer [unserialize-date-time]]
-            [dgknght.app-lib.api-async :as api]
+            [dgknght.app-lib.api-async :as lib-api]
             [clj-money.state :refer [app-state]]
-            [clj-money.api :refer [handle-ex]]))
+            [clj-money.api :as api :refer [handle-ex]]))
 
 (defn- ->multipart-params
   [{:keys [files] :as import-data}]
@@ -39,10 +39,10 @@
                    (update-in-if [:options] (comp #(.stringify js/JSON %)
                                                   clj->js)))]
     (http/post (api/path :imports)
-               (-> (api/request {:transform (comp (api/apply-fn after-create)
+               (-> (lib-api/request {:transform (comp (api/apply-fn after-create)
                                                   xf)
                                  :handle-ex (handle-ex "Unable to create the import: %s")})
-                   (api/multipart-params params)
+                   (lib-api/multipart-params params)
                    (assoc :oauth-token (:auth-token @app-state))))))
 
 (defn get
@@ -69,7 +69,7 @@
   [{id :id} xf]
   (let [path (api/path :imports id)]
     (http/patch path
-                (assoc (api/request
+                (assoc (lib-api/request
                          {:transform (transform xf)
                           :handle-ex (handle-ex "Unable to start the import: %s")})
                        :oauth-token (:auth-token @app-state)))))
