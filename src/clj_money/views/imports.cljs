@@ -12,10 +12,9 @@
             [dgknght.app-lib.dom :refer [set-focus]]
             [dgknght.app-lib.html :as html]
             [dgknght.app-lib.forms :refer [text-field]]
-            [dgknght.app-lib.bootstrap-5 :as bs]
             [dgknght.app-lib.notifications :as notify]
             [dgknght.app-lib.forms-validation :as v]
-            [clj-money.icons :refer [icon icon-with-text]]
+            [clj-money.icons :refer [icon]]
             [clj-money.components :refer [button]]
             [clj-money.dnd :as dnd]
             [clj-money.state :as state :refer [app-state
