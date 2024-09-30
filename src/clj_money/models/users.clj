@@ -12,7 +12,7 @@
                                           present? ]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
-            [clj-money.models.sql-storage-ref]
+            [clj-money.db :as db]
             [clj-money.models :as models])
   (:import java.util.UUID))
 
@@ -72,14 +72,17 @@
   [email]
   (find-by {:email email}))
 
+(defn- put
+  [user]
+  (db/put (db/storage) [user]))
+
 (defn create
   [user]
-  (with-storage (env :db)
-    (with-validation user ::new-user
+  (with-validation user ::new-user
       (-> user
           before-save
-          storage/create
-          after-read))))
+          put
+          after-read)))
 
 (defn select
   "Lists the users in the database"

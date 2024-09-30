@@ -17,9 +17,9 @@
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
                                          (clj-money.tasks/with-options)]}
-           :clojure-lsp/unused-public-var {:exclude #{clj-money.db/remigrate
-                                                      clj-money.db/create-partitions
-                                                      clj-money.db/check-transaction-balances
+           :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
+                                                      clj-money.db.sql.tasks/create-partitions
+                                                      clj-money.db.sql.tasks/check-transaction-balances
                                                       clj-money.import.gnucash/chunk-file
                                                       clj-money.util/debounce
                                                       clj-money.accounts/format-quantity

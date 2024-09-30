@@ -1,194 +1,80 @@
 (ns clj-money.db
-  (:refer-clojure :exclude [update])
-  (:require [clojure.tools.cli :refer [parse-opts]]
-            [clojure.core.async :as a :refer [go chan go-loop >! <! <!! buffer]]
-            [clojure.pprint :refer [pprint]]
-            [clojure.java.io :as io]
-            [java-time.api :as t]
-            [ragtime.jdbc :refer [sql-database
-                                  load-resources]]
-            [ragtime.repl :as rt]
-            [config.core :refer [env]]
-            [clojure.java.jdbc :as jdbc]
-            [honeysql.core :as sql]
-            [honeysql.helpers :refer [select from where limit]]
-            [clj-money.core]
-            [clj-money.models.settings :as settings]
-            [clj-money.partitioning :refer [create-partition-tables]]))
+  (:require [config.core :refer [env]]
+            [clojure.set :refer [union]]))
 
-(defn ragtime-config []
-  {:datastore (sql-database (env :db))
-   :migrations (load-resources "migrations")})
+(def ^:dynamic *storage* nil)
 
-(defn migrate
-  []
-  (rt/migrate (ragtime-config)))
+(defn storage []
+  (or *storage*
+      (let [active-key (get-in env [:db :active])]
+        (-> env
+            (get-in [:db :strategies active-key])
+            resolve-config-refs
+            reify-storage))))
 
-(defn rollback
-  []
-  (rt/rollback (ragtime-config)))
+(defprotocol Storage
+  "Defines the functions necessary to store and retrieve data"
+  (put [this models] "Saves the specified models to the data store")
+  (select [this criteria options] "Retrieves models from the data store")
+  (delete [this models] "Removes models from the data store")
+  (close [this] "Releases resources hold by the connection")
+  (reset [this] "Deletes all data in the data store")) ; This is only ever needed for testing. Maybe there's a better way than putting it here?
 
-(defn remigrate []
-  (rollback)
-  (migrate))
+(defmulti reify-storage 
+  (fn [config & _]
+    (::provider config)))
 
-(def ^:private create-partitions-options
-  [["-n" "--dry-run" "Dry run"]
-   ["-s" "--silent" "Do not output SQL commands"]])
+(defmacro with-db
+  "Establshes a connection to the data store, executes the body, and closes the connection."
+  [bindings & body]
+  `(let [storage# (reify-storage ~(first bindings))]
+     (try
+       (binding [*storage* storage#]
+         ~@body)
+       (finally
+         (close storage#)))))
 
-(defn put-partition-date
-  [setting-name date compare-fn]
-  (when (if-let [existing (settings/get setting-name)]
-          (when (compare-fn date existing)
-            date)
-          date)
-    (settings/put setting-name date)))
+(declare model-type)
 
-(defn- put-earliest-partition-date
-  [date]
-  (put-partition-date "earliest-partition-date"
-                      date
-                      t/before?))
+(defn type-dispatch
+  [x & _]
+  (model-type x))
 
-(defn- put-latest-partition-date
-  [date]
-  (put-partition-date "latest-partition-date"
-                      date
-                      t/after?))
+(defn- extract-model-type
+  [m-or-t]
+  (if (keyword? m-or-t)
+    m-or-t
+    (model-type m-or-t)))
 
-(defn- parse-date
-  [date-str]
-  (t/local-date (t/formatter :iso-date) date-str))
+(defn- namespaces
+  "Given a criteria (map or vector containing an operator an maps) return
+   all of the namespaces from the map keys in a set."
+  [x]
+ (cond
+   (map? x) (->> (keys x)
+                 (map namespace)
+                 (filter identity)
+                 (map keyword)
+                 set)
+   (sequential? x) (->> x
+                        (map namespaces)
+                        (reduce union))) )
 
-(defn create-partitions
-  [& args]
-  (let [{:keys [arguments options]} (parse-opts args create-partitions-options)
-        start-date (-> arguments first parse-date)
-        end-date (or (-> arguments second parse-date)
-                     start-date)]
-    (create-partition-tables start-date end-date options)
-    (put-earliest-partition-date start-date)
-    (put-latest-partition-date end-date)))
+(defn- single-ns
+  "Give a criteria (map or vector), return the single namespace if
+  only one namespace is present. Otherwise, return nil."
+  [x]
+  (let [namespaces (namespaces x)]
+    (when (= 1 (count namespaces))
+      (first namespaces))))
 
-(def ^:private check-transaction-balances-options
-  [["-e" "--entity" "The entity for which balances are to be checked"
-    :required "The name of the entity for which balances are to be checked"
-    :id :entity-name]
-   ["-u" "--user" "The user email for which balances are to be checked"
-    :required "The email of the user that owns the entity for which balances are to be checked"
-    :id :user-email]])
-
-(defn- out-of-balance?
-  [transaction query]
-  (let [items (query (-> (select :action :value :quantity :account_id)
-                         (from :transaction_items)
-                         (where [:and [:= :transaction_id (:id transaction)]
-                                 [:= :transaction_date (:transaction_date transaction)]])))
-        {:keys [credit debit]} (->> items
-                                    (map #(update-in % [:action] keyword))
-                                    (group-by :action)
-                                    (map (fn [entry]
-                                           (update-in entry [1] #(->> %
-                                                                      (map :value)
-                                                                      (reduce + 0M)))))
-                                    (into {}))]
-    (when (and credit
-               debit
-               (not= credit debit))
-      (assoc transaction
-             :items items
-             :total-credits credit
-             :total-debits debit))))
-
-(defn- resolve-account-fn
-  [query]
-  (let [accounts (atom {})]
-    (fn [{:keys [account_id] :as item}]
-      (assoc item :account (or (get-in @accounts [account_id])
-                               (let [account (first
-                                              (query
-                                               (-> (select :*)
-                                                   (from :accounts)
-                                                   (where [:= :id account_id])
-                                                   (limit 1))))]
-                                 (swap! accounts assoc account_id account)
-                                 account))))))
-
-(defn- write-out-of-balance-file
-  [out-of-balance query]
-  (let [resolve-account (resolve-account-fn query)]
-    (pprint
-     (map (fn [trns]
-            (-> trns
-                (select-keys [:id
-                              :transaction_date
-                              :description
-                              :items
-                              :total-credits
-                              :total-debits])
-                (update-in [:items] (fn [items]
-                                      (map (comp #(select-keys % [:account-name
-                                                                  :action
-                                                                  :quantity
-                                                                  :value])
-                                                 #(assoc % :account-name (get-in % [:account :name]))
-                                                 resolve-account)
-                                           items)))))
-          out-of-balance)
-     (io/writer "./target/out-of-balance.edn"))))
-
-(defn- trace
-  [progress f]
-  (completing
-   (fn [acc trns]
-     (go (>! progress (if trns "X" ".")))
-     (f acc trns))))
-
-(defn- check-transactions
-  [{:keys [user-email entity-name]}]
-  {:pre [user-email entity-name]}
-  (println "Begin checking transactions...")
-  (jdbc/with-db-connection [db (env :db)]
-    (let [query #(jdbc/query db (sql/format %))
-          _ (println "get the entity")
-          entity (first
-                  (query (-> (select :*)
-                             (from :entities)
-                             (where [:= :name entity-name])
-                             (limit 1))))
-          _ (println "get the transactions")
-          transactions (query (-> (select :*)
-                                  (from :transactions)
-                                  (where [:= :entity_id (:id entity)])))
-          progress (chan (buffer 100))
-          _ (go-loop []
-              (print (<! progress))
-              (flush)
-              (recur))
-          _ (println "check the transactions")
-          out-of-balance (<!! (go (->> transactions
-                                       (map #(out-of-balance? % query))
-                                       (transduce (comp (partial trace progress)
-                                                        (filter identity))
-                                                  conj
-                                                  []))))]
-      (when (seq out-of-balance)
-        (write-out-of-balance-file out-of-balance query))
-      (println (format "\nDone. Found %s transaction(s) out of balance." (count out-of-balance))))))
-
-(defn check-transaction-balances
-  [& args]
-  (let [{:keys [options errors summary]} (parse-opts
-                                          args
-                                          check-transaction-balances-options)]
-    (try
-      (check-transactions options)
-      (catch AssertionError _
-        (println "")
-        (println "USAGE")
-        (println "lein check-trans -ue")
-        (when errors
-          (println "")
-          (println "ERRORS")
-          (println errors))
-        (println summary)))))
+(defn model-type
+  "The 1 arity retrieves the type for the given model. The 2 arity sets
+  the type for the given model in the meta data. The 2nd argument is either a
+  key identyfying the model type, or another model from which the type is to be
+  extracted"
+  ([m]
+   (or (-> m meta ::type)
+       (single-ns m)))
+  ([m model-or-type]
+   (vary-meta m assoc ::type (extract-model-type model-or-type))))
