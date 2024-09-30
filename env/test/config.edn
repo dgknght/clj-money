@@ -1,6 +1,12 @@
 {:alpha-vantage-api-key "alpha-vantage-api-key"
  :application-name "clj-money"
- :db "postgresql://app_user:please01@localhost/money_test"
+ :db {:sql {:clj-money.db/sql {:host "localhost"
+                                :post 5432
+                                :user "app_user"
+                                :password "please01"
+                                :dbtype "postgresql"
+                                :dbname "money_test"}}
+      :active :sql}
  :detailed-import-logging? "false"
  :google-client-id "google-id"
  :google-client-secret "google-client-secret"

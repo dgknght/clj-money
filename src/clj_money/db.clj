@@ -4,14 +4,6 @@
 
 (def ^:dynamic *storage* nil)
 
-(defn storage []
-  (or *storage*
-      (let [active-key (get-in env [:db :active])]
-        (-> env
-            (get-in [:db :strategies active-key])
-            resolve-config-refs
-            reify-storage))))
-
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
   (put [this models] "Saves the specified models to the data store")
@@ -23,6 +15,14 @@
 (defmulti reify-storage 
   (fn [config & _]
     (::provider config)))
+
+(defn storage []
+  (or *storage*
+      (let [active-key (get-in env [:db :active])]
+        (-> env
+            (get-in [:db :strategies active-key])
+            #_resolve-config-refs ; TODO: add this back in when we move to k8s
+            reify-storage))))
 
 (defmacro with-db
   "Establshes a connection to the data store, executes the body, and closes the connection."
