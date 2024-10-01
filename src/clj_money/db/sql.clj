@@ -56,7 +56,7 @@
 
 (defn- reset*
   [ds]
-  (jdbc/execute! ds ["truncate table users cascade"]))
+  (jdbc/execute! ds ["truncate table cached_prices; truncate table users cascade"]))
 
 (defmethod db/reify-storage ::db/sql
   [config]
