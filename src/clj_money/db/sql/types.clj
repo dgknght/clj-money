@@ -1,7 +1,7 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
             [clojure.string :as string]
-            [multi-money.util :as utl]))
+            [dgknght.app-lib.models :refer [->id]]))
 
 (derive java.lang.Integer ::integer)
 (derive java.lang.Long ::integer)
@@ -20,7 +20,7 @@
   "Given a model or an id, returns true if the model has a temporary
   id or if the specified id is a temporary id"
   [id-or-model]
-  (let [id (utl/->id id-or-model)]
+  (let [id (->id id-or-model)]
     (and (string? id)
          (string/starts-with? id "temp-"))))
 
