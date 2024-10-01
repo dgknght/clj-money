@@ -58,3 +58,16 @@
   (let [d1 (t/local-date 2020 3 2)
         d2 (t/local-date 2020 2 27)]
     (is (= d2 (util/earliest d1 d2)))))
+
+(deftest extract-a-qualifier
+  (is (= "user" (util/qualifier {:user/name "John"}))
+      "A single qualifier is taken directly")
+  (is (= "user" (util/qualifier {:id 101
+                                 :user/name "John"}))
+      "Nil namespaces are ignored")
+  (is (thrown-with-msg?
+        #?(:clj AssertionError
+           :cljs js/Error)
+        #"more than one keyword namespace"
+        (util/qualifier {:user/name "John"
+                         :address/line-1 "1234 Main St"}))))
