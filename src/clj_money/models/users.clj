@@ -4,12 +4,11 @@
             [clojure.string :as string]
             [slingshot.slingshot :refer [throw+]]
             [java-time.api :as t]
-            [config.core :refer [env]]
             [buddy.hashers :as hashers]
             [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [assoc-if
-                                          present? ]]
+                                          present?
+                                          update-in-if]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.db :as db]
@@ -18,14 +17,14 @@
 
 (declare find-by)
 
-(defn- unique?
+(defn- email-is-unique?
   [{:keys [id email]}]
   (-> {:email email}
       (assoc-if :id (when id [:!= id]))
       find-by
       nil?))
-(v/reg-spec unique? {:message "%s is already in use"
-                     :path [:email]})
+(v/reg-spec email-is-unique? {:message "%s is already in use"
+                              :path [:email]})
 
 (s/def ::first-name (s/and string?
                            present?))
@@ -36,68 +35,40 @@
 (s/def ::email (s/and string?
                       present?
                       v/email?))
-(s/def ::new-user (s/and (s/keys :req-un [::first-name ::last-name ::password ::email])
-                         unique?))
-(s/def ::existing-user (s/and (s/keys :req-un [::id ::first-name ::last-name ::email]
-                                      :opt-un [::password])
-                              unique?))
+(s/def ::user (s/and (s/keys :req [::first-name ::last-name ::email]
+                             :opt [::password])
+                     email-is-unique?))
+
 
 (defn- before-save
   [user]
-  (-> user
-      (tag ::models/user)
-      (update-in [:password] hashers/derive)))
+  (update-in-if user [:password] hashers/derive))
 
-(defn- after-read
-  [user]
-  (tag user ::models/user))
-
-(defn search
-  [criteria options]
-  (with-storage (env :db)
-    (map after-read
-         (storage/select (tag criteria ::models/user)
-                         options))))
+(defn select
+  ([] (select {}))
+  ([criteria] (select criteria {}))
+  ([criteria options]
+   (db/select (db/storage)
+              (tag criteria ::models/user)
+              options)))
 
 (defn find-by
   ([criteria]
    (find-by criteria {}))
   ([criteria options]
    {:pre [(map? criteria) (map? options)]}
-   (first (search criteria
+   (first (select criteria
                   (merge options {:limit 1})))))
-
-(defn find-by-email
-  "Returns the user having the specified email"
-  [email]
-  (find-by {:email email}))
-
-(defn- put
-  [user]
-  (db/put (db/storage) [user]))
-
-(defn create
-  [user]
-  (with-validation user ::new-user
-      (-> user
-          before-save
-          put
-          after-read)))
-
-(defn select
-  "Lists the users in the database"
-  ([]
-   (select {}))
-  ([criteria]
-   (select criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (storage/select (tag criteria ::models/user) options))))
 
 (defn find
   "Returns the user having the specified id"
   [id-or-entity]
   (find-by {:id (->id id-or-entity)}))
+
+(defn find-by-email
+  "Returns the user having the specified email"
+  [email]
+  (find-by {:email email}))
 
 (defn find-by-token
   "Returns the user having the specified, unexpired password reset token"
@@ -105,33 +76,30 @@
   (find-by {:password-reset-token token
             :token-expires-at [:> (t/instant)]}))
 
+(defn put
+  [user]
+  {:pre [(or (:id user) (:user/password user))]}
+  (with-validation user ::user
+    (db/put (db/storage)
+            [(before-save user)])))
+
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
   needs to operate"
   [{:keys [username password]}]
-  (with-storage (env :db)
-    (when-let [user (find-by {:email username} {:include-password? true})]
-      (when (hashers/check password (:password user))
-        (-> user
-            (dissoc :password)
-            (assoc :type :cemerick.friend/auth
-                   :identity (:id user)
-                   :roles #{:user}))))))
+  (when-let [user (find-by {:email username} {:include-password? true})]
+    (when (hashers/check password (:password user))
+      (-> user
+          (dissoc :password)
+          (assoc :type :cemerick.friend/auth
+                 :identity (:id user)
+                 :roles #{:user})))))
 
 (defn full-name
   "Returns the user's full name"
   [user]
   (format "%s %s" (:first-name user) (:last-name user)))
-
-(defn update
-  [user]
-  (with-storage (env :db)
-    (with-validation user ::existing-user
-      (-> user
-          before-save
-          storage/update)
-      (find user))))
 
 (defn create-password-reset-token
   "Creates and sets the user's password reset token and expiration,
@@ -142,7 +110,7 @@
         (tag ::models/user)
         (assoc :password-reset-token token
                :token-expires-at (t/plus (t/instant) (t/hours 24)))
-        update)
+        put)
     token))
 
 (defn reset-password
@@ -154,7 +122,7 @@
         (assoc :password password
                :password-reset-token nil
                :token-expires-at nil)
-        update)
+        put)
     (throw+ {:type ::models/not-found})))
 
 (defn find-or-create-from-profile
