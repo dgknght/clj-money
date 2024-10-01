@@ -14,7 +14,7 @@
 
 (defmulti reify-storage 
   (fn [config & _]
-    (::provider config)))
+    (::strategy config)))
 
 (defn storage []
   (or *storage*
