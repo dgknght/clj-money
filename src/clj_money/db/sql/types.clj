@@ -1,7 +1,6 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.string :as string]
-            [dgknght.app-lib.models :refer [->id]]))
+            [clojure.string :as string]))
 
 (derive java.lang.Integer ::integer)
 (derive java.lang.Long ::integer)
@@ -15,6 +14,8 @@
   "Generates a new temporary id"
   []
   (str "temp-" (random-uuid)))
+
+(def ^:private ->id (some-fn :id identity))
 
 (defn temp-id?
   "Given a model or an id, returns true if the model has a temporary

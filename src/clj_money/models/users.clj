@@ -5,12 +5,11 @@
             [slingshot.slingshot :refer [throw+]]
             [java-time.api :as t]
             [buddy.hashers :as hashers]
-            [stowaway.core :refer [tag]]
             [dgknght.app-lib.core :refer [assoc-if
                                           present?
                                           update-in-if]]
             [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.db :as db]
             [clj-money.models :as models])
   (:import java.util.UUID))
@@ -18,38 +17,38 @@
 (declare find-by)
 
 (defn- email-is-unique?
-  [{:keys [id email]}]
-  (-> {:email email}
+  [{:keys [id] :as user}]
+  (-> (select-keys user [:user/email])
       (assoc-if :id (when id [:!= id]))
       find-by
       nil?))
 (v/reg-spec email-is-unique? {:message "%s is already in use"
-                              :path [:email]})
+                              :path [:user/email]})
 
-(s/def ::first-name (s/and string?
+(s/def :user/first-name (s/and string?
                            present?))
-(s/def ::last-name (s/and string?
+(s/def :user/last-name (s/and string?
                           present?))
-(s/def ::password (s/and string?
+(s/def :user/password (s/and string?
                          present?))
-(s/def ::email (s/and string?
+(s/def :user/email (s/and string?
                       present?
                       v/email?))
-(s/def ::user (s/and (s/keys :req [::first-name ::last-name ::email]
-                             :opt [::password])
+(s/def ::user (s/and (s/keys :req [:user/first-name :user/last-name :user/email]
+                             :opt [:user/password])
                      email-is-unique?))
 
 
 (defn- before-save
   [user]
-  (update-in-if user [:password] hashers/derive))
+  (update-in-if user [:user/password] hashers/derive))
 
 (defn select
   ([] (select {}))
   ([criteria] (select criteria {}))
   ([criteria options]
    (db/select (db/storage)
-              (tag criteria ::models/user)
+              (db/model-type criteria :user)
               options)))
 
 (defn find-by
@@ -79,7 +78,7 @@
 (defn put
   [user]
   {:pre [(or (:id user) (:user/password user))]}
-  (with-validation user ::user
+  (with-ex-validation user ::user
     (db/put (db/storage)
             [(before-save user)])))
 
@@ -107,7 +106,7 @@
   [user]
   (let [token (string/replace (.toString (UUID/randomUUID)) "-" "")]
     (-> user
-        (tag ::models/user)
+        (db/model-type :user)
         (assoc :password-reset-token token
                :token-expires-at (t/plus (t/instant) (t/hours 24)))
         put)

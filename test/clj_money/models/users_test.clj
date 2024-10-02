@@ -1,5 +1,6 @@
 (ns clj-money.models.users-test
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
+            [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
             [clj-money.db.sql]
             [clj-money.dates :refer [with-fixed-time]]
@@ -15,22 +16,12 @@
 
 (deftest create-a-user
   (let [user (users/put attributes)]
-    (testing "An created user can be retreived"
-      (let [users (->> (users/select)
-                       (map #(select-keys % [:first-name
-                                             :last-name
-                                             :email])))
-            expected [{:first-name "John"
-                       :last-name "Doe"
-                       :email "john@doe.com"}]]
-        (is (= expected users))))
-    (testing "It returns a user map"
-      (is (number? (:id user)) "The id should be a number")
-      (is (= {:first-name "John"
-              :last-name "Doe"
-              :email "john@doe.com"}
-             (select-keys user [:first-name :last-name :email]))
-          "The map should contain the user properties"))))
+    (is (valid? user))
+    (is (:id user) "The result has an :id attributes")
+    (is (comparable? attributes user)
+        "The result contains the specified attribute values")
+    (is (comparable? attributes (users/find user))
+        "The user can be retrieved from the data store.")))
 
 (deftest first-name-is-required
   (is (invalid? (users/put (dissoc attributes :first-name))
