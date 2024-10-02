@@ -4,6 +4,8 @@
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
+(defn type-dispatch [x & _] (type x))
+
 (defn abs
   [value]
   #?(:clj (.abs value) ; we're assuming BigDecimal here
@@ -247,3 +249,31 @@
     (assert (= 1 (count n))
             "The map contains more than one keyword namespace, so the qualifier cannot be inferred.")
     (first n)))
+
+(defmulti qualify-key type-dispatch)
+
+(defmethod qualify-key :default
+  [x & _]
+  x)
+
+(defmethod qualify-key ::map-entry
+  [[k :as x] nspace {:keys [ignore?]}]
+  (if (ignore? k)
+    x
+    (update-in x [0] #(keyword nspace (name %)))))
+
+(defn qualify-keys
+  "Creates fully-qualified entity attributes by applying
+  the :model-type from the meta data to the keys of the map."
+  [m ns-key & {:keys [ignore]}]
+  {:pre [(map? m)]}
+  (let [qualifier (if (keyword? ns-key)
+            (name ns-key)
+            ns-key)
+        ignore? (if ignore
+                  (some-fn ignore namespace)
+                  namespace)]
+    (update-keys m (fn [k]
+                     (if (ignore? k)
+                       k
+                       (keyword qualifier (name k)))))))

@@ -71,3 +71,17 @@
         #"more than one keyword namespace"
         (util/qualifier {:user/name "John"
                          :address/line-1 "1234 Main St"}))))
+
+(deftest qualify-map-keys
+  (is (= {:entity/name "Personal"}
+         (util/qualify-keys {:name "Personal"} :entity))
+      "Unqualified keys are qualified with the model type")
+  (is (= {:db/id "x"}
+         (util/qualify-keys {:db/id "x"} :entity))
+      "Qualified keys are left as-is")
+  (is (= {:id 101
+          :user/name "John"}
+         (util/qualify-keys {:id 101 :name "John"}
+                           :user
+                           :ignore #{:id}))
+      "Keys can be explicitly ignored"))
