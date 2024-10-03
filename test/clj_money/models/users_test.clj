@@ -2,6 +2,7 @@
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.validation :as v]
             [clj-money.db.sql]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
@@ -31,59 +32,66 @@
         "The user can be retrieved from the data store.")))
 
 (deftest first-name-is-required
-  (is (invalid? (users/put (dissoc attributes :first-name))
-                [:first-name]
-                "First name is required")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/first-name ["First name is required"]}}
+        (users/put (dissoc attributes :user/first-name)))))
 
 (deftest first-name-cannot-be-empty
-  (is (invalid? (users/put (assoc attributes :first-name ""))
-                [:first-name]
-                "First name is required")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/first-name ["First name is required"]}}
+        (users/put (assoc attributes :user/first-name "")))))
 
 (deftest last-name-is-required
-  (is (invalid? (users/put (dissoc attributes :last-name))
-                [:last-name]
-                "Last name is required")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/last-name ["Last name is required"]}}
+        (users/put (dissoc attributes :user/last-name)))))
 
 (deftest last-name-cannot-be-empty
-  (is (invalid? (users/put (assoc attributes :last-name ""))
-                [:last-name]
-                "Last name is required")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/last-name ["Last name is required"]}}
+        (users/put (assoc attributes :user/last-name "")))))
 
 (deftest email-is-required
-  (is (invalid? (users/put (dissoc attributes :email))
-                [:email]
-                "Email is required")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/email ["Email is required"]}}
+        (users/put (dissoc attributes :user/email)))))
 
 (deftest email-cannot-be-empty
-  (is (invalid? (users/put (assoc attributes :email ""))
-                [:email]
-                "Email is required")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/email ["Email is required"]}}
+        (users/put (assoc attributes :user/email "")))))
 
 (deftest email-is-unique
   (users/put attributes)
-  (is (invalid? (users/put attributes)
-                [:email]
-                "Email is already in use")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/email ["Email is already in use"]}}
+        (users/put attributes))))
 
 (deftest email-must-be-well-formed
-  (is (invalid? (users/put (assoc attributes :email "notvalid"))
-                [:email]
-                "Email must be a valid email address")))
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors {:user/email ["Email must be a valid email address"]}}
+        (users/put (assoc attributes :user/email "notvalid")))))
 
 (deftest authenticate-a-user
   (let [user (users/put attributes)
         expected {:identity (:id user)
+                  :roles #{:user}
                   :id (:id user)
-                  :email "john@doe.com"
-                  :first-name "John"
-                  :last-name "Doe"
-                  :roles #{:user}}
-        actual (select-keys (users/authenticate {:username "john@doe.com"
-                                                 :password "please01"})
-
-                            (keys expected))]
-    (is (= expected actual) "The returned value should be the user information")))
+                  :user/email "john@doe.com"
+                  :user/first-name "John"
+                  :user/last-name "Doe"}]
+    (is (comparable? expected
+                     (users/authenticate {:username "john@doe.com"
+                                          :password "please01"}))
+        "The returned value should be the user information")))
 
 (deftest set-a-password-reset-token
   (let [user (users/put attributes)

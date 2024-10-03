@@ -49,10 +49,11 @@
     :user/password})
 
 (defn- after-read
-  [user {:keys [with-password?]}]
-  (let [ks (cond-> sensitive-keys
-             with-password? (disj :user/password))]
-    (apply dissoc user ks)))
+  ([user] (after-read user {}))
+  ([user {:keys [include-password?]}]
+   (let [ks (cond-> sensitive-keys
+              include-password? (disj :user/password))]
+     (apply dissoc user ks))))
 
 (defn select
   ([] (select {}))
@@ -113,10 +114,10 @@
   The returned map contains the information cemerick friend
   needs to operate"
   [{:keys [username password]}]
-  (when-let [user (find-by {:email username} {:include-password? true})]
-    (when (hashers/check password (:password user))
+  (when-let [user (find-by {:user/email username} {:include-password? true})]
+    (when (hashers/check password (:user/password user))
       (-> user
-          (dissoc :password)
+          after-read
           (assoc :type :cemerick.friend/auth
                  :identity (:id user)
                  :roles #{:user})))))
