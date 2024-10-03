@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [find update])
   (:require [clojure.spec.alpha :as s]
             [clojure.string :as string]
+            [clojure.pprint :refer [pprint]]
             [slingshot.slingshot :refer [throw+]]
             [java-time.api :as t]
             [buddy.hashers :as hashers]
@@ -38,18 +39,29 @@
                              :opt [:user/password])
                      email-is-unique?))
 
-
 (defn- before-save
   [user]
   (update-in-if user [:user/password] hashers/derive))
+
+(def ^:private sensitive-keys
+  #{:user/password-reset-token
+    :user/token-expires-at
+    :user/password})
+
+(defn- after-read
+  [user {:keys [with-password?]}]
+  (let [ks (cond-> sensitive-keys
+             with-password? (disj :user/password))]
+    (apply dissoc user ks)))
 
 (defn select
   ([] (select {}))
   ([criteria] (select criteria {}))
   ([criteria options]
-   (db/select (db/storage)
-              (db/model-type criteria :user)
-              options)))
+   (map #(after-read % options)
+        (db/select (db/storage)
+                   (db/model-type criteria :user)
+                   options))))
 
 (defn find-by
   ([criteria]
@@ -61,8 +73,9 @@
 
 (defn find
   "Returns the user having the specified id"
-  [id-or-entity]
-  (find-by {:id (->id id-or-entity)}))
+  [id-or-user]
+  {:pre [(or (:id id-or-user) id-or-user)]}
+  (find-by {:id (->id id-or-user)}))
 
 (defn find-by-email
   "Returns the user having the specified email"
@@ -75,12 +88,25 @@
   (find-by {:password-reset-token token
             :token-expires-at [:> (t/instant)]}))
 
+(defn- yield-or-find
+  [m-or-id]
+  ; if we have a map, assume it's a model and return it
+  ; if we don't, assume it's an ID and look it up
+  (if (map? m-or-id)
+    m-or-id
+    (find m-or-id)))
+
+(defn- resolve-put-result
+  [records]
+  (some yield-or-find records)) ; This is because when adding a user, identities are inserted first, so the primary record isn't the first one returned
+
 (defn put
   [user]
   {:pre [(or (:id user) (:user/password user))]}
   (with-ex-validation user ::user
-    (db/put (db/storage)
-            [(before-save user)])))
+    (let [records-or-ids (db/put (db/storage)
+                                 [(before-save user)])]
+      (resolve-put-result records-or-ids))))
 
 (defn authenticate
   "Returns the user with the specified username and password.

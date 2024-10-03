@@ -15,12 +15,19 @@
                        :password "please01"})
 
 (deftest create-a-user
-  (let [user (users/put attributes)]
+  (let [user (users/put attributes)
+        expected (dissoc attributes :user/password)]
     (is (valid? user))
     (is (:id user) "The result has an :id attributes")
-    (is (comparable? attributes user)
+    (is (not (:password user))
+        "The password is not returned")
+    (is (not (:password-reset-token user))
+        "The password reset token is not returned")
+    (is (not (:token-expires-at user))
+        "The token expiration is not returned")
+    (is (comparable? expected user)
         "The result contains the specified attribute values")
-    (is (comparable? attributes (users/find user))
+    (is (comparable? expected (users/find user))
         "The user can be retrieved from the data store.")))
 
 (deftest first-name-is-required

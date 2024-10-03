@@ -4,14 +4,13 @@
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
             [next.jdbc :as jdbc]
-            [next.jdbc.plan :refer [select!
-                                    select-one!]]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
                                            for-delete]]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.inflection :refer [plural]]
+            [dgknght.app-lib.inflection :refer [plural
+                                                singular]]
             [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query]]
@@ -120,7 +119,8 @@
                     before-save))
          (reduce (partial execute-and-aggregate tx)
                  {:saved []
-                  :id-map {}}))))
+                  :id-map {}})
+         :saved)))
 
 (defn- id-key
   [x]
@@ -135,6 +135,16 @@
     (cond-> (crt/apply-to m #(update-in-if % [:id] coerce-id))
       k (rename-keys {:id k}))))
 
+(defn- refine-qualifiers
+  "Singularize qualifiers based on plural table names and strip
+  the qualifier from the :id attribute"
+  [m]
+  (update-keys m #(let [q (namespace %)
+                        k (name %)]
+                    (if (= "id" k)
+                      :id
+                      (keyword (singular q) k)))))
+
 (defn- select*
   [ds criteria options]
   (let [query (-> criteria
@@ -147,17 +157,15 @@
     (log/debugf "database select %s with options %s -> %s" criteria options query)
 
     (if (:count options)
-      (select-one! ds
-                   :record-count
-                   query
-                   jdbc/unqualified-snake-kebab-opts)
+      (jdbc/execute-one! ds
+                         query
+                         jdbc/unqualified-snake-kebab-opts)
       (let [q (db/model-type criteria)]
         (map (comp after-read
-                   #(util/qualify-keys % q :ignore #{:id}))
-             (select! ds
-                      (attributes q)
-                      query
-                      jdbc/snake-kebab-opts))))))
+                   refine-qualifiers)
+             (jdbc/execute! ds
+                            query
+                            jdbc/snake-kebab-opts))))))
 
 (defn- delete* [_ds _models])
 
