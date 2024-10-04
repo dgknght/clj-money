@@ -4,6 +4,25 @@
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
+(derive #?(:clj java.lang.String
+           :cljs js/String)
+        ::string)
+(derive #?(:clj java.lang.String
+           :cljs js/String)
+        ::string)
+(derive #?(:clj clojure.lang.PersistentVector
+           :cljs cljs.core/PersistentVector)
+        ::vector)
+(derive #?(:clj clojure.lang.PersistentArrayMap
+           :cljs cljs.core/PersistentArrayMap)
+        ::map)
+(derive #?(:clj clojure.lang.PersistentHashMap
+           :cljs cljs.core/PersistentHashMap)
+        ::map)
+(derive #?(:clj clojure.lang.MapEntry
+           :cljs cljs.core/MapEntry)
+        ::map-entry)
+
 (defn type-dispatch [x & _] (type x))
 
 (defn abs

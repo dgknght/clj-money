@@ -86,8 +86,8 @@
 (defn find-by-token
   "Returns the user having the specified, unexpired password reset token"
   [token]
-  (find-by {:password-reset-token token
-            :token-expires-at [:> (t/instant)]}))
+  (find-by #:user{:password-reset-token token
+                  :token-expires-at [:> (t/instant)]}))
 
 (defn- yield-or-find
   [m-or-id]
@@ -133,9 +133,8 @@
   [user]
   (let [token (string/replace (.toString (UUID/randomUUID)) "-" "")]
     (-> user
-        (db/model-type :user)
-        (assoc :password-reset-token token
-               :token-expires-at (t/plus (t/instant) (t/hours 24)))
+        (assoc :user/password-reset-token token
+               :user/token-expires-at (t/plus (t/instant) (t/hours 24)))
         put)
     token))
 

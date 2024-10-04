@@ -26,8 +26,6 @@
 (defmulti prepare-criteria db/model-type)
 (defmethod prepare-criteria :default [m] m)
 
-(defmulti attributes identity)
-
 (def ^:private infer-table-name
   (comp keyword
         plural
@@ -160,12 +158,11 @@
       (jdbc/execute-one! ds
                          query
                          jdbc/unqualified-snake-kebab-opts)
-      (let [q (db/model-type criteria)]
-        (map (comp after-read
-                   refine-qualifiers)
-             (jdbc/execute! ds
-                            query
-                            jdbc/snake-kebab-opts))))))
+      (map (comp after-read
+                 refine-qualifiers)
+           (jdbc/execute! ds
+                          query
+                          jdbc/snake-kebab-opts)))))
 
 (defn- delete* [_ds _models])
 

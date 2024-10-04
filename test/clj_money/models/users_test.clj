@@ -4,6 +4,7 @@
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.db.sql]
+            [clj-money.db.sql.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
             [clj-money.test-context :refer [with-context
@@ -102,13 +103,14 @@
           "The returned value should be the user information"))))
 
 (deftest set-a-password-reset-token
-  (let [user (users/put attributes)
-        token (users/create-password-reset-token user)
-        retrieved (users/find-by-token token)]
-    (is (re-matches #"^[a-z0-9]{32}$" token)
-        "A valid tokenis returned")
-    (is (= (:id user) (:id retrieved))
-        "The user can be retrieved using the token")))
+  (with-context existing-user-ctx
+    (let [user (find-user "john@doe.com")
+          token (users/create-password-reset-token user)
+          retrieved (users/find-by-token token)]
+      (is (re-matches #"^[a-z0-9]{32}$" token)
+          "A valid tokenis returned")
+      (is (= (:id user) (:id retrieved))
+          "The user can be retrieved using the token"))))
 
 (deftest cannot-retrieve-a-user-with-an-expired-token
   (let [user (users/put attributes)
