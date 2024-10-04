@@ -6,6 +6,8 @@
             [clj-money.db.sql]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
+            [clj-money.test-context :refer [with-context
+                                            find-user]]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
@@ -67,12 +69,18 @@
         {::v/errors {:user/email ["Email is required"]}}
         (users/put (assoc attributes :user/email "")))))
 
+(def ^:private existing-user-ctx
+  {:users [#:user{:first-name "John"
+                  :last-name "Doe"
+                  :email "john@doe.com"
+                  :password "please01"}]})
+
 (deftest email-is-unique
-  (users/put attributes)
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/email ["Email is already in use"]}}
-        (users/put attributes))))
+  (with-context existing-user-ctx
+    (is (thrown-with-ex-data?
+          "Validation failed"
+          {::v/errors {:user/email ["Email is already in use"]}}
+          (users/put attributes)))))
 
 (deftest email-must-be-well-formed
   (is (thrown-with-ex-data?
@@ -81,17 +89,17 @@
         (users/put (assoc attributes :user/email "notvalid")))))
 
 (deftest authenticate-a-user
-  (let [user (users/put attributes)
-        expected {:identity (:id user)
-                  :roles #{:user}
-                  :id (:id user)
-                  :user/email "john@doe.com"
-                  :user/first-name "John"
-                  :user/last-name "Doe"}]
-    (is (comparable? expected
-                     (users/authenticate {:username "john@doe.com"
-                                          :password "please01"}))
-        "The returned value should be the user information")))
+  (with-context existing-user-ctx
+    (let [user (find-user "john@doe.com")
+          expected {:identity (:id user)
+                    :roles #{:user}
+                    :user/email "john@doe.com"
+                    :user/first-name "John"
+                    :user/last-name "Doe"}]
+      (is (comparable? expected
+                       (users/authenticate {:username "john@doe.com"
+                                            :password "please01"}))
+          "The returned value should be the user information"))))
 
 (deftest set-a-password-reset-token
   (let [user (users/put attributes)

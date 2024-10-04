@@ -82,7 +82,7 @@
 (defn find-user
   ([email] (find-user *context* email))
   ([context email]
-   (find-in-context context :users :email email)))
+   (find-in-context context :users :user/email email)))
 
 (defn- context+
   [args]
@@ -221,7 +221,7 @@
 (defn- create-users
   [users]
   (mapv (fn [attributes]
-          (throw-on-invalid (users/create attributes)))
+          (throw-on-invalid (users/put attributes)))
         users))
 
 (defn- realize-users
