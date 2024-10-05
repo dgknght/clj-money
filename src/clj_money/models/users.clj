@@ -144,12 +144,12 @@
   [token password]
   (if-let [user (find-by-token token)]
     (-> user
-        (assoc :password password
-               :password-reset-token nil
-               :token-expires-at nil)
+        (assoc :user/password password
+               :user/password-reset-token nil
+               :user/token-expires-at nil)
         put)
     (throw+ {:type ::models/not-found})))
 
 (defn find-or-create-from-profile
   [profile]
-  (find-by (select-keys profile [:email])))
+  (find-by (select-keys profile [:user/email])))
