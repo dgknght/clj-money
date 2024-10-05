@@ -11,6 +11,7 @@
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.inflection :refer [plural
                                                 singular]]
+            [dgknght.app-lib.models :refer [->id]]
             [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query]]
@@ -179,3 +180,15 @@
       (delete [_ models] (delete* ds models))
       (close [_]) ; this is a no-op for next-jdbc
       (reset [_] (reset* ds)))))
+
+(defmacro def->sql-refs
+  [fn-name & keys]
+  (let [id-keys (mapv #(keyword (namespace %)
+                                (str (name %) "-id"))
+                      keys)
+        key-map (zipmap keys id-keys)]
+    `(defn- ~fn-name
+       [model#]
+       (reduce #(update-in-if %1 [%2] ->id)
+               (rename-keys model# ~key-map)
+               ~id-keys))))

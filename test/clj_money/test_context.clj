@@ -251,7 +251,7 @@
             attributes
             (-> attributes
                 (resolve-user context)
-                entities/create
+                entities/put
                 throw-on-invalid)))
         entities))
 
