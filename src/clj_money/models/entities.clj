@@ -1,17 +1,14 @@
 (ns clj-money.models.entities
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [clojure.walk :refer [keywordize-keys]]
             [clojure.pprint :refer [pprint]]
-            [java-time.api :as t]
             [config.core :refer [env]]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [update-in-if
                                           assoc-if
                                           present?]]
             [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
+            [clj-money.db :as db]
             [clj-money.models :as models]))
 
 (declare find-by)
@@ -39,7 +36,7 @@
 (s/def ::existing-entity (s/and (s/keys :req-un [::id ::name] :opt-un [::user-id ::settings])
                                 name-is-unique?))
 
-(defn- after-read
+#_(defn- after-read
   [entity]
   (when entity
     (-> entity
@@ -57,10 +54,9 @@
   ([criteria]
    (select criteria {}))
   ([criteria options]
-   (with-storage (env :db)
-     (map after-read
-          (storage/select (tag criteria ::models/entity)
-                          options)))))
+   (db/select  (db/storage)
+              (db/model-type criteria :entity)
+              options)))
 
 (defn find-by
   "Returns the first entity that matches the specified criteria"
@@ -74,16 +70,11 @@
   [id-or-entity]
   (find-by {:id (->id id-or-entity)}))
 
-(defn reload
-  "Reloads the specified entity"
-  [entity]
-  (find entity))
-
 (defn- before-validation
   [entity]
   (update-in entity [:settings] (fnil identity {})))
 
-(defn- before-save
+#_(defn- before-save
   [entity]
   (-> entity
       (tag ::models/entity)
@@ -93,15 +84,25 @@
       (update-in-if [:settings :earliest-price-date] #(t/format (t/formatter :iso-date) %))
       (update-in-if [:settings :latest-price-date] #(t/format (t/formatter :iso-date) %))))
 
-(defn create
+(defn- yield-or-find
+  [m-or-id]
+  ; if we have a map, assume it's a model and return it
+  ; if we don't, assume it's an ID and look it up
+  (if (map? m-or-id)
+    m-or-id
+    (find m-or-id)))
+
+(defn- resolve-put-result
+  [records]
+  (some yield-or-find records)) ; This is because when adding a user, identities are inserted first, so the primary record isn't the first one returned
+
+(defn put
   [entity]
-  (with-storage (env :db)
-    (let [entity (before-validation entity)]
-      (with-validation entity ::new-entity
-        (-> entity
-            before-save
-            storage/create
-            after-read)))))
+  (let [entity (before-validation entity)]
+    (with-ex-validation entity ::new-entity
+      (let [records-or-ids (db/put (db/storage)
+                                   entity)]
+        (resolve-put-result records-or-ids)))))
 
 (defn find-or-create
   "Finds the entity with the specified name for the

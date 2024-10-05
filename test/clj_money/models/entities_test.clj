@@ -1,6 +1,7 @@
 (ns clj-money.models.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.validation :as v]
             [clj-money.test-context :refer [realize
                                             find-user
                                             find-entity]]
@@ -24,7 +25,7 @@
   (testing "An entity can be created with valid attributes"
     (let [context (realize entity-context)
           [user other-user] (:users context)
-          actual (entities/create (attributes context))
+          actual (entities/put (attributes context))
           expected {:name "Personal"
                     :user-id (:id user)}]
       (testing "The new entity is returned"
@@ -32,20 +33,22 @@
                (select-keys actual [:name :user-id]))
             "The returned map should have the correct content."))
       (testing "The name can be duplicated between two different users"
-        (let [other-entity (entities/create (assoc (attributes context) :user-id (:id other-user)))]
+        (let [other-entity (entities/put (assoc (attributes context) :user-id (:id other-user)))]
           (is (number? (:id other-entity))))))))
 
 (deftest attempt-to-create-an-invalid-entity
   (let [context (realize entity-context)]
     (testing "Name is required"
-      (is (invalid? (entities/create (dissoc (attributes context) :name))
-                    [:name]
-                    "Name is required")))
+      (is (thrown-with-ex-data?
+            "Validation failed"
+            {::v/errors {:entity/name ["Name is required"]}}
+            (entities/put (dissoc (attributes context) :name)))))
     (testing "Name must be unique"
-      (entities/create (attributes context))
-      (is (invalid? (entities/create (attributes context))
-          [:name]
-          "Name is already in use")))))
+      (entities/put (attributes context))
+      (is (thrown-with-ex-data?
+            "Validation failed"
+            {::v/errors {:entity/name ["Name is already in use"]}}
+            (entities/put (attributes context)))))))
 
 (def ^:private list-context
   (-> entity-context
@@ -88,20 +91,20 @@
 
 (deftest delete-an-entity
   (let [context (realize entity-context)
-        entity (entities/create (attributes context))
+        entity (entities/put (attributes context))
         _ (entities/delete entity)
         retrieved (entities/find entity)]
     (is (nil? retrieved) "The entity is not returned after delete")))
 
 (deftest inventory-method-can-be-lifo
   (let [context (realize entity-context)]
-    (is (valid? (entities/create (-> context
+    (is (valid? (entities/put (-> context
                                      attributes
                                      (assoc :settings {:inventory-method :lifo})))))))
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
   (let [context (realize entity-context)]
-    (is (invalid? (entities/create (-> context
+    (is (invalid? (entities/put (-> context
                                        attributes
                                        (assoc :settings {:inventory-method :not-valid})))
                   [:settings :inventory-method]
