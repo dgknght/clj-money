@@ -1,9 +1,7 @@
 (ns clj-money.test-context
-  (:require [clojure.string :as string]
-            [clojure.pprint :refer [pprint]]
+  (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
-            [dgknght.app-lib.validation :as v]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models.users :as users]
@@ -74,10 +72,13 @@
 
 (defn- find-in-context
   [context model-group-key model-id-key model-id]
-  (->> context
-       model-group-key
-       (filter #(= model-id (model-id-key %)))
-       first))
+  (or (->> context
+           model-group-key
+           (filter #(= model-id (model-id-key %)))
+           first)
+      (throw (ex-info "Model not found" {:model-id model-id
+                                         :model-id-key model-id-key
+                                         :model-group-key model-group-key}))))
 
 (defn find-user
   ([email] (find-user *context* email))
@@ -90,20 +91,10 @@
     args
     (cons *context* args)))
 
-(defn find-users
-  [& args]
-  (let [[context & emails] (context+ args)]
-    (map #(find-user context %) emails)))
-
 (defn find-entity
   ([entity-name] (find-entity *context* entity-name))
   ([context entity-name]
-   (find-in-context context :entities :name entity-name)))
-
-(defn find-entities
-  [& args]
-  (let [[context & entity-names] (context+ args)]
-    (map #(find-entity context %) entity-names)))
+   (find-in-context context :entities :entity/name entity-name)))
 
 (defn find-import
   ([entity-name] (find-import *context* entity-name))
@@ -210,39 +201,17 @@
                         (= end-of-period (:end-of-period %))))
           first))))
 
-(defn- throw-on-invalid
-  [model]
-  (if (v/has-error? model)
-    (throw (ex-info (format "Unable to create the model: %s"
-                            (string/join ", " (v/flat-error-messages model)))
-                    model))
-    model))
-
-(defn- create-users
-  [users]
-  (mapv (fn [attributes]
-          (throw-on-invalid (users/put attributes)))
-        users))
-
 (defn- realize-users
   [context]
-  (update-in context [:users] #(create-users %)))
-
-(defn- create-cached-prices
-  [cached-prices]
-  (mapv (fn [attributes]
-          (throw-on-invalid (cached-prices/create attributes)))
-        cached-prices))
+  (update-in context [:users] #(mapv users/put %)))
 
 (defn- realize-cached-prices
   [context]
-  (update-in context [:cached-prices] #(create-cached-prices %)))
+  (update-in context [:cached-prices] #(mapv cached-prices/create %)))
 
 (defn- resolve-user
-  [model context]
-  (assoc model :user-id (:id (if-let [id (:user-id model)]
-                               (find-user context id)
-                               (-> context :users first)))))
+  [model context k]
+  (update-in model [k] #(find-user context %)))
 
 (defn- create-entities
   [entities context]
@@ -250,9 +219,8 @@
           (if (:id attributes)
             attributes
             (-> attributes
-                (resolve-user context)
-                entities/put
-                throw-on-invalid)))
+                (resolve-user context :entity/user)
+                entities/put)))
         entities))
 
 (defn- realize-entities
@@ -270,7 +238,7 @@
   [context grants]
   (mapv (fn [attributes]
           (grants/create (-> attributes
-                             (resolve-user context)
+                             (resolve-user context :grant/user)
                              (resolve-entity context))))
         grants))
 
@@ -349,8 +317,7 @@
       (resolve-entity context)
       expand
       (prepare-items context)
-      transactions/create
-      throw-on-invalid))
+      transactions/create))
 
 (defn- create-transactions
   [context transactions]
@@ -365,8 +332,7 @@
   (-> sched-tran
       (resolve-entity context)
       (prepare-items context)
-      sched-trans/create
-      throw-on-invalid))
+      sched-trans/create))
 
 (defn- create-scheduled-transactions
   [context sched-trans]
@@ -410,8 +376,7 @@
              (resolve-transaction context)
              rearrange-transaction-attributes
              (resolve-image context)
-             attachments/create
-             throw-on-invalid)
+             attachments/create)
         attachments))
 
 (defn- realize-attachments
@@ -431,8 +396,7 @@
           (-> attributes
               (resolve-entity context)
               (resolve-budget-items context)
-              budgets/create
-              throw-on-invalid))
+              budgets/create))
         budgets))
 
 (defn- realize-budgets
@@ -445,8 +409,7 @@
           (-> attributes
               (resolve-entity context)
               (update-in [:price-config] (fnil identity {:enabled true}))
-              commodities/create
-              throw-on-invalid))
+              commodities/create))
         commodities))
 
 (defn- realize-commodities
@@ -471,8 +434,7 @@
           (-> attributes
               (resolve-commodity context)
               (resolve-account context)
-              (lots/create)
-              throw-on-invalid))
+              (lots/create)))
         lots))
 
 (defn- realize-lots
@@ -506,8 +468,7 @@
           (-> attributes
               (resolve-account context)
               (resolve-item-refs context)
-              reconciliations/create
-              throw-on-invalid))
+              reconciliations/create))
         reconciliations))
 
 (defn- realize-reconciliations
@@ -526,9 +487,8 @@
   [context images]
   (mapv (fn [attributes]
           (-> attributes
-              (resolve-user context)
-              create-image-from-file
-              throw-on-invalid))
+              (resolve-user context :image/user)
+              create-image-from-file))
         images))
 
 (defn- realize-images
@@ -539,10 +499,9 @@
   [context imports]
   (mapv (fn [attributes]
           (-> attributes
-              (resolve-user context)
+              (resolve-user context :import/user)
               (resolve-images context)
-              imports/create
-              throw-on-invalid))
+              imports/create))
         imports))
 
 (defn- realize-imports
@@ -566,8 +525,7 @@
         (resolve-account context :lt-capital-loss-account-id)
         (resolve-account context :st-capital-loss-account-id)
         (resolve-commodity context)
-        f
-        throw-on-invalid)))
+        f)))
 
 (defn- execute-trades
   [trades context]
@@ -581,7 +539,7 @@
   [idents context]
   {:pre [(sequential? idents)]}
 
-  (mapv #(idents/create (resolve-user % context))
+  (mapv #(idents/create (resolve-user % context :identity/user))
         idents))
 
 (defn- realize-identities
@@ -601,17 +559,17 @@
   [{:keys [entities] :as context}]
   (-> context
       (assoc :monitored-account-ids (extract-monitored-account-ids entities))
-      (assoc :entities (map #(update-in % [:settings] dissoc :monitored-account-ids)
+      (assoc :entities (map #(update-in % [:entity/settings] dissoc :monitored-account-ids)
                             entities))))
 
 (defn- apply-monitored-account-ids
   [entity {:keys [monitored-account-ids] :as context}]
   (if-let [account-ids (get-in monitored-account-ids [(:name entity)])]
-    (entities/update (assoc-in entity [:settings :monitored-account-ids]
-                               (->> account-ids
-                                    (map (comp :id
-                                               #(find-account context %)))
-                                    set)))
+    (entities/put (assoc-in entity [:entity/settings :settings/monitored-account-ids]
+                            (->> account-ids
+                                 (map (comp :id
+                                            #(find-account context %)))
+                                 set)))
     entity))
 
 (defn- update-monitored-account-ids
