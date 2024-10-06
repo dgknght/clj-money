@@ -36,19 +36,6 @@
                                :opt [:entity/settings])
                        name-is-unique?))
 
-; (defn- after-read
-;   [entity]
-;   (when entity
-;     (-> entity
-;         (update-in-if [:settings] keywordize-keys)
-;         (update-in-if [:settings :monitored-account-ids] set)
-;         (update-in-if [:settings :inventory-method] keyword)
-;         (update-in-if [:settings :earliest-transaction-date] t/local-date)
-;         (update-in-if [:settings :latest-transaction-date] t/local-date)
-;         (update-in-if [:settings :earliest-price-date] t/local-date)
-;         (update-in-if [:settings :latest-price-date] t/local-date)
-;         (tag ::models/entity))))
-
 (defn select
   "Returns entities for the specified user"
   ([criteria]
@@ -69,16 +56,6 @@
   "Finds the entity with the specified ID"
   [id-or-entity]
   (find-by {:id (->id id-or-entity)}))
-
-; (defn- before-save
-;   [entity]
-;   (-> entity
-;       (tag ::models/entity)
-;       (update-in-if [:settings :monitored-account-ids] set)
-;       (update-in-if [:settings :earliest-transaction-date] #(t/format (t/formatter :iso-date) %))
-;       (update-in-if [:settings :latest-transaction-date] #(t/format (t/formatter :iso-date) %))
-;       (update-in-if [:settings :earliest-price-date] #(t/format (t/formatter :iso-date) %))
-;       (update-in-if [:settings :latest-price-date] #(t/format (t/formatter :iso-date) %))))
 
 (defn- yield-or-find
   [m-or-id]

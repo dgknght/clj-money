@@ -1,6 +1,7 @@
 (ns clj-money.models.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.test-context :refer [with-context
@@ -29,18 +30,31 @@
   #:entity{:name "Personal"
            :user (find-user "john@doe.com")})
 
+(defn- test-entity-creation
+  [attr]
+  (let [created (entities/put attr)
+        expected (update-in attr [:entity/user] select-keys [:id])]
+    (is (:id created)
+        "The return value has an :id attribute")
+    (is (comparable? expected created)
+        "The returned value has the specified attributes")
+    (is (comparable? expected (entities/find created))
+        "A retrieved value has the specified attributes")))
+
 (deftest create-an-entity
   (with-context entity-context
-    (testing "An entity can be created with valid attributes"
-      (let [attr (attributes)
-            created (entities/put attr)
-            expected (update-in attr [:entity/user] select-keys [:id])]
-        (is (:id created)
-            "The return value has an :id attribute")
-        (is (comparable? expected created)
-            "The returned value has the specified attributes")
-        (is (comparable? expected (entities/find created))
-            "A retrieved value has the specified attributes")))))
+    (testing "An entity can be created with minimal attributes"
+      (test-entity-creation (attributes)))
+    (testing "An entity can be created with all attributes"
+      (test-entity-creation
+        #:entity{:name "Business"
+                 :user (find-user "john@doe.com")
+                 :settings #:settings{:inventory-method :fifo
+                                      :monitored-account-ids #{1 2 3}
+                                      :earliest-transaction-date (t/local-date 2020 1 1)
+                                      :latest-transaction-date (t/local-date 2020 12 31)
+                                      :earliest-price-date (t/local-date 2020 1 1)
+                                      :latest-price-date (t/local-date 2020 12 31)}}))))
 
 (deftest name-is-required
   (with-context entity-context
