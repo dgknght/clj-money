@@ -226,8 +226,12 @@
                             ~id-keys)
                     ~key-map))))
 
-(defn ->jsonb
+(defn ->json
   [x]
   (doto (PGobject.)
     (.setType "jsonb")
     (.setValue (json/generate-string x))))
+
+(defn json->map
+  [^org.postgresql.util.PGobject x]
+  (json/parse-string (.getValue x) true))

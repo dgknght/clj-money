@@ -1,6 +1,7 @@
 (ns clj-money.db.sql.entities
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.criteria :as criteria]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]))
 
 (declare ->sql-refs)
@@ -16,9 +17,12 @@
 (defmethod sql/before-save :entity
   [entity]
   (-> entity
-      (update-in [:entity/settings] sql/->jsonb)
+      (update-in [:entity/settings] sql/->json)
       ->sql-refs))
 
 (defmethod sql/after-read :entity
   [entity]
-  (->model-refs entity))
+  (-> entity
+      (update-in [:entity/settings] sql/json->map)
+      (update-in-if [:entity/settings :settings/monitored-account-ids] set)
+      ->model-refs))

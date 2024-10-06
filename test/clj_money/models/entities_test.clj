@@ -75,7 +75,7 @@
   (with-context list-context
     (let [entity (find-entity "Personal")
           updates #:entity{:name "Entity Y"
-                           :settings {:monitored-account-ids #{1 2}}}]
+                           :settings {:settings/monitored-account-ids #{1 2}}}]
       (is (comparable? updates (entities/put (merge entity updates)))
           "The return value contains the updated attributes")
       (is (comparable? updates (entities/find entity))
