@@ -2,16 +2,11 @@
   (:refer-clojure :exclude [update count find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [camel-snake-kebab.core :refer [->kebab-case-keyword]]
-            [camel-snake-kebab.extras :refer [transform-keys]]
-            [stowaway.core :refer [tag]]
-            [dgknght.app-lib.core :refer [update-in-if
-                                          assoc-if]]
+            [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.db :as db]
-            [clj-money.models.sql-storage-ref]
-            [clj-money.models :as models]))
+            [clj-money.models.sql-storage-ref]))
 
 (declare find-by)
 
@@ -56,22 +51,6 @@
                                   :opt [:commodity/price-config])
                               name-is-unique?
                               symbol-is-unique?))
-
-(defn- before-save
-  [commodity]
-  (-> commodity
-      (tag ::models/commodity)
-      (update-in-if [:exchange] name)
-      (update-in [:type] name)))
-
-(defn- after-read
-  [commodity]
-  (when commodity
-    (-> commodity
-        (tag ::models/commodity)
-        (update-in-if [:exchange] keyword)
-        (update-in [:type] keyword)
-        (update-in [:price-config] #(transform-keys ->kebab-case-keyword %)))))
 
 (defn search
   "Returns commodities matching the specified criteria"

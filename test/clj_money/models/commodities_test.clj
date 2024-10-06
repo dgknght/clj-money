@@ -108,11 +108,11 @@
 
 (def existing-context
   (assoc commodity-context
-         :commodities [{:name "Apple, Inc."
-                        :symbol "AAPL"
-                        :exchange :nasdaq
-                        :type :stock
-                        :entity-id "Personal"}]))
+         :commodities [#:commodity{:name "Apple, Inc."
+                                   :symbol "AAPL"
+                                   :exchange :nasdaq
+                                   :type :stock
+                                   :entity "Personal"}]))
 
 (deftest name-is-unique-for-an-entity-and-exchange
   (with-context existing-context
@@ -268,11 +268,10 @@
 
 (deftest a-commodity-can-be-deleted
   (with-context existing-context
-    (let [commodity (find-commodity "AAPL")
-          _ (commodities/delete commodity)
-          retrieved (commodities/find commodity)]
-      (is (not retrieved)
-          "The commodity cannot be retrieved after delete"))))
+    (let [commodity (find-commodity "AAPL")]
+      (commodities/delete commodity)
+      (is (nil? (commodities/find commodity))
+          "The commodity cannot be retrieved after delete."))))
 
 (def ^:private count-context
   (assoc commodity-context :commodities [{:name "Microsoft, Inc."

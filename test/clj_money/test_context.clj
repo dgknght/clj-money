@@ -138,7 +138,7 @@
 (defn find-commodity
   ([symbol] (find-commodity *context* symbol))
   ([context symbol]
-   (find-in-context context :commodities :symbol symbol)))
+   (find-in-context context :commodities :commodity/symbol symbol)))
 
 (defn find-commodities
   [& args]
@@ -228,11 +228,11 @@
   (update-in context [:entities] create-entities context))
 
 (defn- resolve-entity
-  [model context]
-  (update-in model [:entity-id] (fn [entity-name]
-                                  (if entity-name
-                                    (:id (find-entity context entity-name))
-                                    (-> context :entities first :id)))))
+  [model context k]
+  (update-in model [k] (fn [entity-name]
+                         (if entity-name
+                           (find-entity context entity-name)
+                           (-> context :entities first)))))
 
 (defn create-grants
   [context grants]
@@ -394,7 +394,7 @@
   [context budgets]
   (mapv (fn [attributes]
           (-> attributes
-              (resolve-entity context)
+              (resolve-entity context :budget/entity)
               (resolve-budget-items context)
               budgets/create))
         budgets))
@@ -407,8 +407,8 @@
   [context commodities]
   (mapv (fn [attributes]
           (-> attributes
-              (resolve-entity context)
-              (update-in [:price-config] (fnil identity {:enabled true}))
+              (resolve-entity context :commodity/entity)
+              (update-in [:commodity/price-config] (fnil identity {:price-config/enabled true}))
               commodities/put))
         commodities))
 
