@@ -409,7 +409,7 @@
           (-> attributes
               (resolve-entity context)
               (update-in [:price-config] (fnil identity {:enabled true}))
-              commodities/create))
+              commodities/put))
         commodities))
 
 (defn- realize-commodities
