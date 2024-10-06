@@ -63,7 +63,7 @@
     (get-in result [(keyword (name table) "id")])))
 
 (defn delete-one
-  [db m]
+  [ds m]
   (let [s (for-delete (infer-table-name m)
                       {:id (:id m)} ; TODO: find the id attribute
                       {})]
@@ -71,7 +71,7 @@
     ; TODO: scrub sensitive data
     (log/debugf "database delete %s -> %s" m s)
 
-    (jdbc/execute! db s)
+    (jdbc/execute! ds s)
     1))
 
 (defn- put-one
@@ -113,15 +113,18 @@
       (assoc-in [:id-map (:id m)]
                 saved))))
 
-(s/def ::models (s/coll-of map?))
+(s/def ::operation #{::db/insert ::db/update ::db/delete})
+(s/def ::putable (s/or :map map?
+                       :operation (s/tuple ::operation map?)))
+(s/def ::putables (s/coll-of ::putable))
 (defn- put*
   [ds models]
-  {:pre [(s/valid? ::models models)]}
+  {:pre [(s/valid? ::putables models)]}
 
   (jdbc/with-transaction [tx ds]
     (->> models
-         (map (comp wrap-oper
-                    before-save))
+         (map (comp #(update-in % [1] before-save)
+                    wrap-oper))
          (reduce (partial execute-and-aggregate tx)
                  {:saved []
                   :id-map {}})
@@ -171,7 +174,15 @@
                           query
                           jdbc/snake-kebab-opts)))))
 
-(defn- delete* [_ds _models])
+(defn- delete*
+  [ds models]
+  {:pre [(s/valid? (s/coll-of map?) models)]}
+
+  (->> models
+       (interleave (repeat ::db/delete))
+       (partition 2)
+       (map vec)
+       (put* ds)))
 
 (defn- reset*
   [ds]
@@ -228,10 +239,12 @@
 
 (defn ->json
   [x]
-  (doto (PGobject.)
-    (.setType "jsonb")
-    (.setValue (json/generate-string x))))
+  (when x
+    (doto (PGobject.)
+      (.setType "jsonb")
+      (.setValue (json/generate-string x)))))
 
 (defn json->map
   [^org.postgresql.util.PGobject x]
-  (json/parse-string (.getValue x) true))
+  (when x
+    (json/parse-string (.getValue x) true)))

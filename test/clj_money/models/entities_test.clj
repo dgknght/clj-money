@@ -1,6 +1,7 @@
 (ns clj-money.models.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.pprint :refer [pprint]]
+            [clojure.tools.logging :as log]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.test-context :refer [with-context
@@ -47,7 +48,7 @@
     (is (thrown-with-ex-data?
           "Validation failed"
           {::v/errors {:entity/name ["Name is required"]}}
-          (entities/put (dissoc (attributes) :name))))))
+          (entities/put (dissoc (attributes) :entity/name))))))
 
 (deftest name-is-unique-for-a-user
   (with-context list-context
@@ -59,7 +60,7 @@
 (deftest name-can-be-duplicated-between-users
   (with-context list-context
     (let [attr (assoc (attributes)
-                      :user (find-user "jane@doe.com"))]
+                      :entity/user (find-user "jane@doe.com"))]
       (is (comparable? attr (entities/put attr))))))
 
 (deftest get-a-list-of-entities

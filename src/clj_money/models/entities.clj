@@ -18,7 +18,7 @@
       find-by
       nil?))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
-                             :path [:name]})
+                             :path [:entity/name]})
 
 (s/def :entity/name (s/and string?
                      present?))
@@ -112,7 +112,7 @@
 (defn delete
   "Removes the specifiedy entity and all related records from storage"
   [entity]
-  (db/delete (db/storage) entity))
+  (db/delete (db/storage) [entity]))
 
 (defn entity?
   [model]
