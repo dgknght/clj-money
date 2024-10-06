@@ -1,5 +1,6 @@
 (ns clj-money.models.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
+            [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.test-context :refer [with-context
@@ -32,12 +33,13 @@
   (with-context entity-context
     (testing "An entity can be created with valid attributes"
       (let [attr (attributes)
-            created (entities/put attr)]
+            created (entities/put attr)
+            expected (update-in attr [:entity/user] select-keys [:id])]
         (is (:id created)
             "The return value has an :id attribute")
-        (is (comparable? attr created)
+        (is (comparable? expected created)
             "The returned value has the specified attributes")
-        (is (comparable? attr (entities/find created))
+        (is (comparable? expected (entities/find created))
             "A retrieved value has the specified attributes")))))
 
 (deftest name-is-required

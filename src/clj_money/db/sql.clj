@@ -3,6 +3,8 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.spec.alpha :as s]
+            [cheshire.core :as json]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
@@ -16,7 +18,8 @@
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query]]
             [clj-money.db.sql.types :refer [temp-id?
-                                            coerce-id]]))
+                                            coerce-id]])
+  (:import org.postgresql.util.PGobject))
 
 (defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m] m)
@@ -110,8 +113,11 @@
       (assoc-in [:id-map (:id m)]
                 saved))))
 
+(s/def ::models (s/coll-of map?))
 (defn- put*
   [ds models]
+  {:pre [(s/valid? ::models models)]}
+
   (jdbc/with-transaction [tx ds]
     (->> models
          (map (comp wrap-oper
@@ -182,6 +188,8 @@
       (reset [_] (reset* ds)))))
 
 (defmacro def->sql-refs
+  "Give a model map, covert the values at the specified keys into
+  simple id values and add the -id suffix to the key"
   [fn-name & keys]
   (let [id-keys (mapv #(keyword (namespace %)
                                 (str (name %) "-id"))
@@ -192,3 +200,34 @@
        (reduce #(update-in-if %1 [%2] ->id)
                (rename-keys model# ~key-map)
                ~id-keys))))
+
+(defn ->model-ref
+  ([x] (->model-ref x identity))
+  ([x coerce]
+   (if (map? x)
+     (-> x
+         (select-keys [:id])
+         (update-in-if [:id] coerce))
+     {:id (coerce x)})))
+
+(defmacro def->model-refs
+  "Given a model map, convert the values at the specified keys into
+  model reference maps like {:id 123} and remove the -id suffix
+  from the key"
+  [fn-name & keys]
+  (let [id-keys (mapv #(keyword (namespace %)
+                                (str (name %) "-id"))
+                      keys)
+        key-map (zipmap id-keys keys)]
+    `(defn- ~fn-name
+       [model#]
+       (rename-keys (reduce #(update-in-if %1 [%2] ->model-ref)
+                            model#
+                            ~id-keys)
+                    ~key-map))))
+
+(defn ->jsonb
+  [x]
+  (doto (PGobject.)
+    (.setType "jsonb")
+    (.setValue (json/generate-string x))))

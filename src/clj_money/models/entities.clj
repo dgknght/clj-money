@@ -26,9 +26,10 @@
 (s/def :settings/monitored-account-ids (s/coll-of integer? :kind set?))
 (s/def :settings/inventory-method #{:fifo :lifo})
 (s/def :settings/default-commodity-id integer?)
-(s/def :entity/settings (s/keys :opt [:settings/inventory-method
-                                      :settings/monitored-account-ids
-                                      :settings/default-commodity-id]))
+(s/def :entity/settings (s/nilable
+                          (s/keys :opt [:settings/inventory-method
+                                        :settings/monitored-account-ids
+                                        :settings/default-commodity-id])))
 
 (s/def ::entity (s/and (s/keys :req [:entity/name
                                      :entity/user]
@@ -69,10 +70,6 @@
   [id-or-entity]
   (find-by {:id (->id id-or-entity)}))
 
-(defn- before-validation
-  [entity]
-  (update-in entity [:settings] (fnil identity {})))
-
 ; (defn- before-save
 ;   [entity]
 ;   (-> entity
@@ -97,11 +94,10 @@
 
 (defn put
   [entity]
-  (let [entity (before-validation entity)]
-    (with-ex-validation entity ::entity
-      (let [records-or-ids (db/put (db/storage)
-                                   entity)]
-        (resolve-put-result records-or-ids)))))
+  (with-ex-validation entity ::entity
+    (let [records-or-ids (db/put (db/storage)
+                                 [entity])]
+      (resolve-put-result records-or-ids))))
 
 (def ^:private find-or-create*
   (some-fn find-by put))
