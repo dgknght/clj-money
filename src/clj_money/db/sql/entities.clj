@@ -25,4 +25,5 @@
   (-> entity
       (update-in [:entity/settings] sql/json->map)
       (update-in-if [:entity/settings :settings/monitored-account-ids] set)
+      (update-in-if [:entity/settings :settings/inventory-method] keyword)
       ->model-refs))

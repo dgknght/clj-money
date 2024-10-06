@@ -1,7 +1,6 @@
 (ns clj-money.models.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures testing]]
             [clojure.pprint :refer [pprint]]
-            [clojure.tools.logging :as log]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
             [clj-money.test-context :refer [with-context
@@ -59,16 +58,19 @@
 
 (deftest name-can-be-duplicated-between-users
   (with-context list-context
-    (let [attr (assoc (attributes)
-                      :entity/user (find-user "jane@doe.com"))]
-      (is (comparable? attr (entities/put attr))))))
+    (let [user (find-user "jane@doe.com")
+          attr (assoc (attributes)
+                      :entity/user user)]
+      (is (comparable? (assoc attr
+                              :entity/user {:id (:id user)})
+                       (entities/put attr))))))
 
 (deftest get-a-list-of-entities
   (with-context list-context
     (let [user (find-user "john@doe.com")]
       (is (seq-of-maps-like? [{:entity/name "Business"}
                               {:entity/name "Personal"}]
-                             (entities/select {:user user}
+                             (entities/select {:entity/user user}
                                               {:order-by [[:entity/name :asc]]}))
           "Entities matching the criteria are returned"))))
 
@@ -91,14 +93,16 @@
 
 (deftest inventory-method-can-be-lifo
   (with-context entity-context
-    (is (comparable? {:settings {:inventory-method :lifo}}
+    (is (comparable? {:entity/settings {:settings/inventory-method :lifo}}
                      (entities/put (assoc (attributes)
-                                          :settings {:inventory-method :lifo}))))))
+                                          :entity/settings {:settings/inventory-method :lifo}))))))
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
   (with-context entity-context
     (is (thrown-with-ex-data?
           "Validation failed"
-          {::v/errors {:entity/settings ["Inventory method must be fifo or lifo"]}}
+          {::v/errors {:entity/settings
+                       {:settings/inventory-method
+                        ["Inventory method must be fifo or lifo"]}}}
           (entities/put (assoc (attributes)
-                               :settings {:inventory-method :not-valid}))))))
+                               :entity/settings {:settings/inventory-method :not-valid}))))))
