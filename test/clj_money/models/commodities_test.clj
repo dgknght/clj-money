@@ -28,68 +28,56 @@
               :symbol "AAPL"
               :price-config {:price-config/enabled true}})
 
+(defn- assert-creation
+  [attr]
+  (let [result (commodities/put attr)
+        expected (update-in attr [:commodity/entity] select-keys [:id])]
+    (is (comparable? expected result)
+        "The result matches the input")
+    (is (comparable? expected (commodities/find (:id result)))
+        "The retrieved matches the input")))
+
+(defn- assert-invalid
+  [attr errors]
+  (is (thrown-with-ex-data?
+        "Validation failed"
+        {::v/errors errors}
+        (commodities/put attr))))
+
 (deftest create-a-commodity
   (with-context commodity-context
-    (let [attr (attributes)
-          result (commodities/put attr)
-          expected (update-in attr [:commodity/entity] select-keys [:id])]
-      (is (comparable? expected result)
-          "The result matches the input")
-      (is (comparable? expected (commodities/find (:id result)))
-          "The retrieved matches the input"))))
+    (assert-creation (attributes))))
 
 (deftest entity-id-is-required
   (with-context commodity-context
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:commodity/entity ["Entity is required"]}}
-          (commodities/put (dissoc (attributes) :commodity/entity))))))
+    (assert-invalid (dissoc (attributes) :commodity/entity)
+                    {:commodity/entity ["Entity is required"]})))
 
 (deftest type-is-required
   (with-context commodity-context
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:commodity/type ["Type is required"]}}
-          (commodities/put (dissoc (attributes) :commodity/type))))))
+    (assert-invalid (dissoc (attributes) :commodity/type)
+                    {:commodity/type ["Type is required"]})))
 
 (deftest type-can-be-currency
   (with-context commodity-context
-    (let [commodity (commodities/put
-                      (merge (attributes)
-                             #:commodity{:type :currency
-                                         :name "US Dollar"
-                                         :symbol "USD"}))]
-      (is (comparable? #:commodity{:type :currency
-                                   :name "US Dollar"
-                                   :symbol "USD"}
-                       commodity)
-          "The commodity is created with the specified attributes"))))
+    (assert-creation (merge (attributes)
+                            #:commodity{:type :currency
+                                        :name "US Dollar"
+                                        :symbol "USD"}))))
 
 (deftest type-can-be-stock
   (with-context commodity-context
-    (let [commodity (commodities/put
-                      (merge (attributes)
-                             #:commodity{:type :stock
-                                         :name "Apple Inc."
-                                         :symbol "AAPL"}))]
-      (is (comparable? #:commodity{:type :stock
-                                   :name "Apple Inc."
-                                   :symbol "AAPL"}
-                       commodity)
-          "The commodity is created with the specified attributes"))))
+    (assert-creation (merge (attributes)
+                            #:commodity{:type :stock
+                                        :name "Apple Inc."
+                                        :symbol "AAPL"}))))
 
 (deftest type-can-be-fund
   (with-context commodity-context
-    (let [commodity (commodities/put
-                      (merge (attributes)
-                             #:commodity{:type :fund
-                                         :name "Vanguard S&P 500 Index Fund"
-                                         :symbol "VFIAX"}))]
-      (is (comparable? #:commodity{:type :fund
-                                   :name "Vanguard S&P 500 Index Fund"
-                                   :symbol "VFIAX"}
-                       commodity)
-          "The commodity is created with the specified attributes"))))
+    (assert-creation (merge (attributes)
+                            #:commodity{:type :fund
+                                        :name "Vanguard S&P 500 Index Fund"
+                                        :symbol "VFIAX"}))))
 
 (deftest type-cannot-be-invalid
   (with-context commodity-context
@@ -203,44 +191,32 @@
 
 (deftest exchange-is-not-required-for-currencies
   (with-context commodity-context
-    (let [entity (find-entity "Personal")
-          commodity {:entity-id (:id entity)
-                     :name "US Dollar"
-                     :symbol "USD"
-                     :type :currency
-                     :price-config {:enabled false}}
-          result (commodities/put commodity)
-          retrieved (commodities/find-by {:entity-id (:id entity)
-                                          :symbol "USD"})]
-      (is (valid? result))
-      (is retrieved "The commodity is retrieved after create"))))
+    (assert-creation #:commodity{:entity (find-entity "Personal")
+                                 :name "US Dollar"
+                                 :symbol "USD"
+                                 :type :currency
+                                 :price-config {:price-config/enabled false}})))
 
 (deftest exchange-can-be-nasdaq
   (with-context commodity-context
-    (let [commodity (assoc (attributes)
-                           :exchange :nasdaq
-                           :symbol "AAPL"
-                           :name "Apple")
-          result (commodities/put commodity)]
-      (is (valid? result)))))
+    (assert-creation (assoc (attributes)
+                            :commodity/exchange :nasdaq
+                            :commodity/symbol "AAPL"
+                            :commodity/name "Apple"))))
 
 (deftest exchange-can-be-nyse
   (with-context commodity-context
-    (let [commodity (assoc (attributes)
-                           :exchange :nyse
-                           :symbol "HD"
-                           :name "Home Depot")
-          result (commodities/put commodity)]
-      (is (valid? result)))))
+    (assert-creation (assoc (attributes)
+                            :commodity/exchange :nyse
+                            :commodity/symbol "HD"
+                            :commodity/name "Home Depot"))))
 
 (deftest exchange-can-be-otc
   (with-context commodity-context
-    (let [commodity (assoc (attributes)
-                           :exchange :otc
-                           :symbol "GBTC"
-                           :name "Grayscale Bitcoin Trust")
-          result (commodities/put commodity)]
-      (is (valid? result)))))
+    (assert-creation (assoc (attributes)
+                           :commodity/exchange :otc
+                           :commodity/symbol "GBTC"
+                           :commodity/name "Grayscale Bitcoin Trust"))))
 
 (deftest exchange-must-be-valid
   (with-context commodity-context

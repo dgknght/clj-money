@@ -19,7 +19,7 @@
 (defmethod sql/before-save :commodity
   [commodity]
   (-> commodity
-      (update-in [:commodity/exchange] name)
+      (update-in-if [:commodity/exchange] name)
       (update-in [:commodity/type] name)
       (update-in [:commodity/price-config] sql/->json)
       ->sql-refs))
@@ -27,7 +27,7 @@
 (defmethod sql/after-read :commodity
   [commodity]
   (-> commodity
-      (update-in [:commodity/exchange] keyword)
+      (update-in-if [:commodity/exchange] keyword)
       (update-in [:commodity/type] keyword)
       (update-in [:commodity/price-config] sql/json->map)
       ->model-refs))
