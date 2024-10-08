@@ -28,7 +28,7 @@
               :symbol "AAPL"
               :price-config {:price-config/enabled true}})
 
-(defn- assert-creation
+(defn- assert-created
   [attr]
   (let [result (commodities/put attr)
         expected (update-in attr [:commodity/entity] select-keys [:id])]
@@ -46,7 +46,7 @@
 
 (deftest create-a-commodity
   (with-context commodity-context
-    (assert-creation (attributes))))
+    (assert-created (attributes))))
 
 (deftest entity-id-is-required
   (with-context commodity-context
@@ -60,21 +60,21 @@
 
 (deftest type-can-be-currency
   (with-context commodity-context
-    (assert-creation (merge (attributes)
+    (assert-created (merge (attributes)
                             #:commodity{:type :currency
                                         :name "US Dollar"
                                         :symbol "USD"}))))
 
 (deftest type-can-be-stock
   (with-context commodity-context
-    (assert-creation (merge (attributes)
+    (assert-created (merge (attributes)
                             #:commodity{:type :stock
                                         :name "Apple Inc."
                                         :symbol "AAPL"}))))
 
 (deftest type-can-be-fund
   (with-context commodity-context
-    (assert-creation (merge (attributes)
+    (assert-created (merge (attributes)
                             #:commodity{:type :fund
                                         :name "Vanguard S&P 500 Index Fund"
                                         :symbol "VFIAX"}))))
@@ -191,7 +191,7 @@
 
 (deftest exchange-is-not-required-for-currencies
   (with-context commodity-context
-    (assert-creation #:commodity{:entity (find-entity "Personal")
+    (assert-created #:commodity{:entity (find-entity "Personal")
                                  :name "US Dollar"
                                  :symbol "USD"
                                  :type :currency
@@ -199,21 +199,21 @@
 
 (deftest exchange-can-be-nasdaq
   (with-context commodity-context
-    (assert-creation (assoc (attributes)
+    (assert-created (assoc (attributes)
                             :commodity/exchange :nasdaq
                             :commodity/symbol "AAPL"
                             :commodity/name "Apple"))))
 
 (deftest exchange-can-be-nyse
   (with-context commodity-context
-    (assert-creation (assoc (attributes)
+    (assert-created (assoc (attributes)
                             :commodity/exchange :nyse
                             :commodity/symbol "HD"
                             :commodity/name "Home Depot"))))
 
 (deftest exchange-can-be-otc
   (with-context commodity-context
-    (assert-creation (assoc (attributes)
+    (assert-created (assoc (attributes)
                            :commodity/exchange :otc
                            :commodity/symbol "GBTC"
                            :commodity/name "Grayscale Bitcoin Trust"))))
