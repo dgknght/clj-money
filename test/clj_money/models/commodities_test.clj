@@ -81,18 +81,13 @@
 
 (deftest type-cannot-be-invalid
   (with-context commodity-context
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:commodity/type ["Type must be one of :currency, :stock, or :fund"]}}
-          (commodities/put (assoc (attributes)
-                                     :commodity/type :not-a-valid-type))))))
+    (assert-invalid (assoc (attributes) :commodity/type :not-a-valid-type)
+                    {:commodity/type ["Type must be one of fund, currency, or stock"]})))
 
 (deftest name-is-required
   (with-context commodity-context
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:commodity/name ["Name is required"]}}
-          (commodities/put (dissoc (attributes) :commodity/name))))))
+    (assert-invalid (dissoc (attributes) :commodity/name)
+                    {:commodity/name ["Name is required"]})))
 
 (def existing-context
   (assoc commodity-context
@@ -104,10 +99,8 @@
 
 (deftest name-is-unique-for-an-entity-and-exchange
   (with-context existing-context
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:commodity/name ["Name is already in use"]}}
-          (commodities/put (attributes))))))
+    (assert-invalid (attributes)
+                    {:commodity/name ["Name is already in use"]})))
 
 (deftest name-can-be-duplicated-between-exchanges
   (with-context existing-context
@@ -132,38 +125,24 @@
   (with-context commodity-context
     (is (thrown-with-ex-data?
           "Validation failed"
-          {::v/errors {:commodity/name ["Name is required"]}}
+          {::v/errors {:commodity/symbol ["Symbol is required"]}}
           (commodities/put (dissoc (attributes) :commodity/symbol))))))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
   (with-context existing-context
-    (let [commodity (assoc (attributes) :name "New Name")
-          result (commodities/put commodity)
-          retrieved (commodities/search (select-keys commodity [:entity-id :symbol]))]
-      (is (invalid? result [:symbol] "Symbol is already in use"))
-      (is (= 1 (count retrieved))
-          "The commodity exists only once after both calls to create"))))
+    (assert-invalid (assoc (attributes) :name "New Name")
+                    {:commodity/symbol ["Symbol is already in use"]})))
 
 (deftest symbol-can-be-duplicated-between-exchanges
   (with-context existing-context
-    (let [result (commodities/put (assoc (attributes)
-                                            :name "Apply"
-                                            :exchange :nyse))
-          retrieved (commodities/search {:symbol (:symbol result)})]
-      (is (valid? result))
-      (is (= {:nyse 1
-              :nasdaq 1}
-             (->> retrieved
-                  (map :exchange)
-                  frequencies))
-          "The value can be retrieved after create"))))
+    (assert-created (assoc (attributes)
+                           :name "Apply"
+                           :exchange :nyse))))
 
 (deftest symbol-can-be-duplicated-between-entities
   (with-context existing-context
-    (let [entity (find-entity "Business")
-          result (commodities/put (assoc (attributes)
-                                            :entity-id (:id entity)))]
-      (is (valid? result)))))
+    (assert-created (assoc (attributes)
+                           :entity (find-entity "Business")))))
 
 (deftest exchange-is-required-for-stocks
   (with-context commodity-context
@@ -220,27 +199,26 @@
 
 (deftest exchange-must-be-valid
   (with-context commodity-context
-    (let [commodity (assoc (attributes)
-                           :exchange :not-valid
-                           :symbol "NUNYA"
-                           :name "None of your business")
-          result (commodities/put commodity)]
-      (is (invalid? result [:exchange] "Exchange must be amex, nasdaq, nyse, or otc")))))
+    (assert-invalid (assoc (attributes)
+                           :commodity/exchange :not-valid
+                           :commodity/symbol "NUNYA"
+                           :commodity/name "None of your business")
+                    {:commodity/exchange ["Exchange must be nasdaq, nyse, or otc"]})))
 
 (deftest a-commodity-can-be-updated
   (with-context existing-context
     (let [commodity (find-commodity "AAPL")
           result (commodities/put (-> commodity
                                          (assoc :name "New name")
-                                         (assoc-in [:price-config :enabled] false)))
-          retrieved (commodities/find commodity)]
-      (is (valid? result))
-      (is (= "New name" (:name result)) "The return value has the correct name")
-      (is (not (get-in result [:price-config :enabled]))
-          "The return value contains the updated price config")
-      (is (= "New name" (:name retrieved)) "The retrieved value has the correct name")
-      (is (not (get-in retrieved[:price-config :enabled]))
-          "The retrieved value contains the updated price config"))))
+                                         (assoc-in [:price-config :enabled] false)))]
+      (is (comparable? {:commodity/name "New name"
+                        :commodity/price-config {:price-config/enabled false}}
+                       result)
+          "The return value has the updated attributes")
+      (is (comparable? {:commodity/name "New name"
+                        :commodity/price-config {:price-config/enabled false}}
+                       (commodities/find commodity))
+          "The retrieved value has the updated attributes"))))
 
 (deftest a-commodity-can-be-deleted
   (with-context existing-context
@@ -250,27 +228,26 @@
           "The commodity cannot be retrieved after delete."))))
 
 (def ^:private count-context
-  (assoc commodity-context :commodities [{:name "Microsoft, Inc."
-                                          :entity-id "Personal"
-                                          :symbol "MSFT"
-                                          :type :stock
-                                          :exchange :nasdaq}
-                                         {:name "Apple, Inc."
-                                          :entity-id "Personal"
-                                          :symbol "AAPL"
-                                          :type :stock
-                                          :exchange :nasdaq}
-                                         {:name "United States Dollar"
-                                          :entity-id "Personal"
-                                          :symbol "USD"
-                                          :type :currency}
-                                         {:name "British Pound"
-                                          :entity-id "Business"
-                                          :symbol "GBP"
-                                          :type :currency}]))
+  (assoc commodity-context
+         :commodities [#:commodity{:name "Microsoft, Inc."
+                                   :entity "Personal"
+                                   :symbol "MSFT"
+                                   :type :stock
+                                   :exchange :nasdaq}
+                       #:commodity{:name "Apple, Inc."
+                                   :entity "Personal"
+                                   :symbol "AAPL"
+                                   :type :stock
+                                   :exchange :nasdaq}
+                       #:commodity{:name "United States Dollar"
+                                   :entity "Personal"
+                                   :symbol "USD"
+                                   :type :currency}
+                       #:commodity{:name "British Pound"
+                                   :entity "Business"
+                                   :symbol "GBP"
+                                   :type :currency}]))
 
 (deftest get-a-count-of-commodities
   (with-context count-context
-    (let [entity (find-entity "Personal")
-          result (commodities/count {:entity-id (:id entity)})]
-      (is  (= 3 result)))))
+    (is  (= 3 (commodities/count {:entity (find-entity "Personal")})))))

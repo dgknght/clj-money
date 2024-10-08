@@ -40,6 +40,7 @@
 (s/def :commodity/name string?)
 (s/def :commodity/symbol string?)
 (s/def :commodity/type #{:currency :stock :fund})
+(s/def :commodity/exchange (s/nilable #{:nasdaq :nyse :otc}))
 
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
@@ -48,7 +49,8 @@
                                         :commodity/name
                                         :commodity/symbol
                                         :commodity/entity]
-                                  :opt [:commodity/price-config])
+                                  :opt [:commodity/price-config
+                                        :commodity/exchange])
                               name-is-unique?
                               symbol-is-unique?))
 
