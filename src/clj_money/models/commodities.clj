@@ -36,6 +36,13 @@
 (v/reg-spec symbol-is-unique? {:message "%s is already in use"
                                :path [:commodity/symbol]})
 
+(defn- exchange-is-satisfied?
+  [{:commodity/keys [type exchange]}]
+  (or (= :currency type)
+      exchange))
+(v/reg-spec exchange-is-satisfied? {:message "%s is required"
+                                    :path [:commodity/exchange]})
+
 (s/def :commodity/entity map?)
 (s/def :commodity/name string?)
 (s/def :commodity/symbol string?)
@@ -45,20 +52,15 @@
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
 
-(defmulti commodity-base :commodity/type)
-(defmethod commodity-base :currency [_]
-  (s/keys :req []))
-(defmethod commodity-base :default [_]
-  (s/keys :req [:commodity/exchange]))
-
-(s/def ::commodity (s/and (s/merge (s/multi-spec commodity-base :commodity/type)
-                                   (s/keys :req [:commodity/type
-                                                 :commodity/name
-                                                 :commodity/symbol
-                                                 :commodity/entity]
-                                           :opt [:commodity/price-config]))
-                              name-is-unique?
-                              symbol-is-unique?))
+(s/def ::commodity (s/and (s/keys :req [:commodity/type
+                                        :commodity/name
+                                        :commodity/symbol
+                                        :commodity/entity]
+                                  :opt [:commodity/price-config
+                                        :commodity/exchange])
+                          name-is-unique?
+                          symbol-is-unique?
+                          exchange-is-satisfied?))
 
 (defn search
   "Returns commodities matching the specified criteria"
