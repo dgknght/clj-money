@@ -82,7 +82,7 @@
 (deftest type-cannot-be-invalid
   (with-context commodity-context
     (assert-invalid (assoc (attributes) :commodity/type :not-a-valid-type)
-                    {:commodity/type ["Type must be one of fund, currency, or stock"]})))
+                    {:commodity/type ["Type must be fund, currency, or stock"]})))
 
 (deftest name-is-required
   (with-context commodity-context
@@ -130,43 +130,31 @@
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
   (with-context existing-context
-    (assert-invalid (assoc (attributes) :name "New Name")
+    (assert-invalid (assoc (attributes) :commodity/name "New Name")
                     {:commodity/symbol ["Symbol is already in use"]})))
 
 (deftest symbol-can-be-duplicated-between-exchanges
   (with-context existing-context
     (assert-created (assoc (attributes)
-                           :name "Apply"
-                           :exchange :nyse))))
+                           :commodity/name "Apply"
+                           :commodity/exchange :nyse))))
 
 (deftest symbol-can-be-duplicated-between-entities
   (with-context existing-context
     (assert-created (assoc (attributes)
-                           :entity (find-entity "Business")))))
+                           :commodity/entity (find-entity "Business")))))
 
 (deftest exchange-is-required-for-stocks
   (with-context commodity-context
-    (let [entity (find-entity "Personal")
-          commodity (dissoc (attributes) :exchange)
-          result (commodities/put commodity)
-          retrieved (commodities/find-by {:entity-id (:id entity)
-                                          :symbol (:symbol commodity)})]
-      (is (invalid? result [:exchange] "Exchange is required"))
-      (is (nil? retrieved)
-          "The commodity is not retrieved after create"))))
+    (assert-invalid (dissoc (attributes) :commodity/exchange)
+                    {:commodity/exchange ["Exchange is required"]})))
 
 (deftest exchange-is-required-for-funds
   (with-context commodity-context
-    (let [entity (find-entity "Personal")
-          commodity (-> (attributes)
-                        (assoc :type :fund)
-                        (dissoc :exchange))
-          result (commodities/put commodity)
-          retrieved (commodities/find-by {:entity-id (:id entity)
-                                          :symbol (:symbol commodity)})]
-      (is (invalid? result [:exchange] "Exchange is required"))
-      (is (nil? retrieved)
-          "The commodity is not retrieved after create"))))
+    (assert-invalid (-> (attributes)
+                        (assoc :commodity/type :fund)
+                        (dissoc :commodiity/exchange))
+                    {:commodity/exchange ["Exchange is required"]})))
 
 (deftest exchange-is-not-required-for-currencies
   (with-context commodity-context
@@ -209,8 +197,8 @@
   (with-context existing-context
     (let [commodity (find-commodity "AAPL")
           result (commodities/put (-> commodity
-                                         (assoc :name "New name")
-                                         (assoc-in [:price-config :enabled] false)))]
+                                         (assoc :commodity/name "New name")
+                                         (assoc-in [:commodity/price-config :price-config/enabled] false)))]
       (is (comparable? {:commodity/name "New name"
                         :commodity/price-config {:price-config/enabled false}}
                        result)
@@ -250,4 +238,4 @@
 
 (deftest get-a-count-of-commodities
   (with-context count-context
-    (is  (= 3 (commodities/count {:entity (find-entity "Personal")})))))
+    (is  (= 3 (commodities/count {:commodity/entity (find-entity "Personal")})))))

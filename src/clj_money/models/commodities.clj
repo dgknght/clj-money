@@ -45,12 +45,18 @@
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
 
-(s/def ::commodity (s/and (s/keys :req [:commodity/type
-                                        :commodity/name
-                                        :commodity/symbol
-                                        :commodity/entity]
-                                  :opt [:commodity/price-config
-                                        :commodity/exchange])
+(defmulti commodity-base :commodity/type)
+(defmethod commodity-base :currency [_]
+  (s/keys :req []))
+(defmethod commodity-base :default [_]
+  (s/keys :req [:commodity/exchange]))
+
+(s/def ::commodity (s/and (s/merge (s/multi-spec commodity-base :commodity/type)
+                                   (s/keys :req [:commodity/type
+                                                 :commodity/name
+                                                 :commodity/symbol
+                                                 :commodity/entity]
+                                           :opt [:commodity/price-config]))
                               name-is-unique?
                               symbol-is-unique?))
 
@@ -96,9 +102,7 @@
 (defn count
   "Returns the number of commodities matching the specified criteria"
   [criteria]
-  (-> (search criteria {:count true})
-      first
-      :record-count))
+  (:record-count (search criteria {:count true})))
 
 (defn delete
   "Removes a commodity from the system"
