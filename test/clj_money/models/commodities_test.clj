@@ -153,7 +153,7 @@
   (with-context commodity-context
     (assert-invalid (-> (attributes)
                         (assoc :commodity/type :fund)
-                        (dissoc :commodiity/exchange))
+                        (dissoc :commodity/exchange))
                     {:commodity/exchange ["Exchange is required"]})))
 
 (deftest exchange-is-not-required-for-currencies
