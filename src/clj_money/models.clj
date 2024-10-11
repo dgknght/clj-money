@@ -41,6 +41,10 @@
   [model]
   (first (put-many model)))
 
+(defn delete-many
+  [& models]
+  (db/delete (db/storage) models))
+
 (defn delete
   [model]
-  (db/delete (db/storage) model))
+  (delete-many model))
