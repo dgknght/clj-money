@@ -3,6 +3,7 @@
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
             [clj-money.model-helpers :refer [assert-invalid]]
+            [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
@@ -18,7 +19,7 @@
                        :password "please01"})
 
 (deftest create-a-user
-  (let [user (users/put attributes)
+  (let [user (models/put attributes)
         expected (dissoc attributes :user/password)]
     (is (:id user) "The result has an :id attributes")
     (is (not (:password user))
@@ -29,7 +30,7 @@
         "The token expiration is not returned")
     (is (comparable? expected user)
         "The result contains the specified attribute values")
-    (is (comparable? expected (users/find user))
+    (is (comparable? expected (models/find user))
         "The user can be retrieved from the data store.")))
 
 (deftest first-name-is-required
@@ -95,7 +96,7 @@
           "The user can be retrieved using the token"))))
 
 (deftest cannot-retrieve-a-user-with-an-expired-token
-  (let [user (users/put attributes)
+  (let [user (models/put attributes)
         token (with-fixed-time "2017-03-02T12:00:00Z"
                        (users/create-password-reset-token user))
         retrieved (with-fixed-time "2017-03-03T12:00:00Z"
@@ -104,7 +105,7 @@
         "The user is not returned if the token has expired")))
 
 (deftest reset-a-password
-  (let [user (users/put  attributes)
+  (let [user (models/put  attributes)
         token (users/create-password-reset-token user)
         _ (users/reset-password token "newpassword")
         new-auth (users/authenticate {:username "john@doe.com"
@@ -125,7 +126,7 @@
 
 (deftest find-or-create-a-user-by-oauth-profile
   (testing "an existing user without identity"
-    (let [user (users/put attributes)
+    (let [user (models/put attributes)
           result (users/find-or-create-from-profile profile)]
       ; TODO: assert that the identity record is created
 

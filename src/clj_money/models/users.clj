@@ -10,8 +10,7 @@
                                           present?
                                           update-in-if]]
             [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
-            [clj-money.db :as db]
+            [dgknght.app-lib.validation :as v]
             [clj-money.models :as models])
   (:import java.util.UUID))
 
@@ -21,7 +20,7 @@
   [{:keys [id] :as user}]
   (-> (select-keys user [:user/email])
       (assoc-if :id (when id [:!= id]))
-      find-by
+      models/find-by
       nil?))
 (v/reg-spec email-is-unique? {:message "%s is already in use"
                               :path [:user/email]})
@@ -35,11 +34,11 @@
 (s/def :user/email (s/and string?
                       present?
                       v/email?))
-(s/def ::user (s/and (s/keys :req [:user/first-name :user/last-name :user/email]
-                             :opt [:user/password])
-                     email-is-unique?))
+(s/def ::models/user (s/and (s/keys :req [:user/first-name :user/last-name :user/email]
+                                    :opt [:user/password])
+                            email-is-unique?))
 
-(defn- before-save
+(defmethod models/before-save :user
   [user]
   (update-in-if user [:user/password] hashers/derive))
 
@@ -48,76 +47,45 @@
     :user/token-expires-at
     :user/password})
 
-(defn- after-read
-  ([user] (after-read user {}))
-  ([user {:keys [include-password?]}]
-   (let [ks (cond-> sensitive-keys
-              include-password? (disj :user/password))]
-     (apply dissoc user ks))))
+(defmethod models/after-read :user
+  [user {:keys [include-password?]}]
+  (let [ks (cond-> sensitive-keys
+             include-password? (disj :user/password))]
+    (apply dissoc user ks)))
 
-(defn select
-  ([] (select {}))
-  ([criteria] (select criteria {}))
-  ([criteria options]
-   (map #(after-read % options)
-        (db/select (db/storage)
-                   (db/model-type criteria :user)
-                   options))))
-
-(defn find-by
+(defn ^:deprecated find-by
   ([criteria]
    (find-by criteria {}))
   ([criteria options]
    {:pre [(map? criteria) (map? options)]}
-   (first (select criteria
+   (first (models/select criteria
                   (merge options {:limit 1})))))
 
-(defn find
+(defn ^:deprecated find
   "Returns the user having the specified id"
   [id-or-user]
   {:pre [(or (:id id-or-user) id-or-user)]}
-  (find-by {:id (->id id-or-user)}))
+  (models/find-by {:id (->id id-or-user)}))
 
 (defn find-by-email
   "Returns the user having the specified email"
   [email]
-  (find-by {:email email}))
+  (models/find-by {:email email}))
 
 (defn find-by-token
   "Returns the user having the specified, unexpired password reset token"
   [token]
-  (find-by #:user{:password-reset-token token
+  (models/find-by #:user{:password-reset-token token
                   :token-expires-at [:> (t/instant)]}))
-
-(defn- yield-or-find
-  [m-or-id]
-  ; if we have a map, assume it's a model and return it
-  ; if we don't, assume it's an ID and look it up
-  (if (map? m-or-id)
-    m-or-id
-    (find m-or-id)))
-
-(defn- resolve-put-result
-  [records]
-  (some yield-or-find records)) ; This is because when adding a user, identities are inserted first, so the primary record isn't the first one returned
-
-(defn put
-  [user]
-  {:pre [(or (:id user) (:user/password user))]}
-  (with-ex-validation user ::user
-    (let [records-or-ids (db/put (db/storage)
-                                 [(before-save user)])]
-      (resolve-put-result records-or-ids))))
 
 (defn authenticate
   "Returns the user with the specified username and password.
   The returned map contains the information cemerick friend
   needs to operate"
   [{:keys [username password]}]
-  (when-let [user (find-by {:user/email username} {:include-password? true})]
+  (when-let [user (models/find-by {:user/email username} {:include-password? true})]
     (when (hashers/check password (:user/password user))
       (-> user
-          after-read
           (assoc :type :cemerick.friend/auth
                  :identity (:id user)
                  :roles #{:user})))))
@@ -135,7 +103,7 @@
     (-> user
         (assoc :user/password-reset-token token
                :user/token-expires-at (t/plus (t/instant) (t/hours 24)))
-        put)
+        models/put)
     token))
 
 (defn reset-password
@@ -147,9 +115,9 @@
         (assoc :user/password password
                :user/password-reset-token nil
                :user/token-expires-at nil)
-        put)
+        models/put)
     (throw+ {:type ::models/not-found})))
 
 (defn find-or-create-from-profile
-  [profile]
-  (find-by (select-keys profile [:user/email])))
+  [{:keys [email]}]
+  (models/find-by {:user/email email}))

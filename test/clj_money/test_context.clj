@@ -4,11 +4,9 @@
             [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
-            [clj-money.models.users :as users]
-            [clj-money.models.entities :as entities]
+            [clj-money.models :as models]
             [clj-money.models.grants :as grants]
             [clj-money.models.accounts :as accounts]
-            [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]
             [clj-money.models.cached-prices :as cached-prices]
             [clj-money.models.lots :as lots]
@@ -203,7 +201,7 @@
 
 (defn- realize-users
   [context]
-  (update-in context [:users] #(mapv users/put %)))
+  (update-in context [:users] #(mapv models/put %)))
 
 (defn- realize-cached-prices
   [context]
@@ -220,7 +218,7 @@
             attributes
             (-> attributes
                 (resolve-user context :entity/user)
-                entities/put)))
+                models/put)))
         entities))
 
 (defn- realize-entities
@@ -239,7 +237,7 @@
   (mapv (fn [attributes]
           (grants/create (-> attributes
                              (resolve-user context :grant/user)
-                             (resolve-entity context))))
+                             (resolve-entity context :grant/entity))))
         grants))
 
 (defn- realize-grants
@@ -267,7 +265,7 @@
   (if (:id attributes)
     attributes
     (accounts/create (-> attributes
-                         (resolve-entity context)
+                         (resolve-entity context :account/entity)
                          (resolve-commodity context)
                          resolve-parent))))
 
@@ -314,7 +312,7 @@
 (defn- create-transaction
   [transaction context]
   (-> transaction
-      (resolve-entity context)
+      (resolve-entity context :transaction/entity)
       expand
       (prepare-items context)
       transactions/create))
@@ -330,7 +328,7 @@
 (defn- create-scheduled-transaction
   [sched-tran context]
   (-> sched-tran
-      (resolve-entity context)
+      (resolve-entity context :scheduled-transaction/entity)
       (prepare-items context)
       sched-trans/create))
 
@@ -409,7 +407,7 @@
           (-> attributes
               (resolve-entity context :commodity/entity)
               (update-in [:commodity/price-config] (fnil identity {:price-config/enabled true}))
-              commodities/put))
+              models/put))
         commodities))
 
 (defn- realize-commodities
@@ -518,7 +516,7 @@
             :sell     trading/sell
             :sale     trading/sell)]
     (-> trade
-        (resolve-entity context)
+        (resolve-entity context :entity)
         (resolve-account context)
         (resolve-account context :lt-capital-gains-account-id)
         (resolve-account context :st-capital-gains-account-id)
@@ -565,11 +563,11 @@
 (defn- apply-monitored-account-ids
   [entity {:keys [monitored-account-ids] :as context}]
   (if-let [account-ids (get-in monitored-account-ids [(:name entity)])]
-    (entities/put (assoc-in entity [:entity/settings :settings/monitored-account-ids]
-                            (->> account-ids
-                                 (map (comp :id
-                                            #(find-account context %)))
-                                 set)))
+    (models/put (assoc-in entity [:entity/settings :settings/monitored-account-ids]
+                          (->> account-ids
+                               (map (comp :id
+                                          #(find-account context %)))
+                               set)))
     entity))
 
 (defn- update-monitored-account-ids

@@ -52,15 +52,15 @@
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
 
-(s/def ::commodity (s/and (s/keys :req [:commodity/type
-                                        :commodity/name
-                                        :commodity/symbol
-                                        :commodity/entity]
-                                  :opt [:commodity/price-config
-                                        :commodity/exchange])
-                          name-is-unique?
-                          symbol-is-unique?
-                          exchange-is-satisfied?))
+(s/def ::models/commodity (s/and (s/keys :req [:commodity/type
+                                               :commodity/name
+                                               :commodity/symbol
+                                               :commodity/entity]
+                                         :opt [:commodity/price-config
+                                               :commodity/exchange])
+                                 name-is-unique?
+                                 symbol-is-unique?
+                                 exchange-is-satisfied?))
 
 (defn ^:deprecated search
   "Returns commodities matching the specified criteria"
@@ -110,10 +110,3 @@
   "Removes a commodity from the system"
   [commodity]
   (db/delete (db/storage) [commodity]))
-
-(defmethod models/validate :commodity
-  [commodity]
-  (let [validated (v/validate commodity ::commodity)]
-    (when (seq (::v/errors validated))
-      (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
-  commodity)
