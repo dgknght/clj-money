@@ -4,6 +4,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
@@ -31,19 +32,7 @@
 
 (defn- assert-created
   [attr]
-  (let [result (models/put attr)
-        expected (update-in attr [:commodity/entity] select-keys [:id])]
-    (is (comparable? expected result)
-        "The result matches the input")
-    (is (comparable? expected (models/find result))
-        "The retrieved matches the input")))
-
-(defn- assert-invalid
-  [attr errors]
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors errors}
-        (models/put attr))))
+  (helpers/assert-created attr :refs [:commodity/entity]))
 
 (deftest create-a-commodity
   (with-context commodity-context

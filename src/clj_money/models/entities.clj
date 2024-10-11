@@ -6,6 +6,7 @@
                                           present?]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
+            [clj-money.models :as models]
             [clj-money.db :as db]))
 
 (declare find-by)
@@ -94,3 +95,10 @@
 (defn entity?
   [model]
   (= :entity (db/model-type model)))
+
+(defmethod models/validate :entity
+  [entity]
+  (let [validated (v/validate entity ::entity)]
+    (when (seq (::v/errors validated))
+      (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
+  entity)

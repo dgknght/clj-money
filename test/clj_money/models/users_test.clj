@@ -2,8 +2,7 @@
   (:require [clojure.test :refer [deftest testing use-fixtures is]]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.test-assertions]
-            [dgknght.app-lib.validation :as v]
-            [clj-money.db.sql]
+            [clj-money.model-helpers :refer [assert-invalid]]
             [clj-money.db.sql.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models.users :as users]
@@ -21,7 +20,6 @@
 (deftest create-a-user
   (let [user (users/put attributes)
         expected (dissoc attributes :user/password)]
-    (is (valid? user))
     (is (:id user) "The result has an :id attributes")
     (is (not (:password user))
         "The password is not returned")
@@ -35,40 +33,28 @@
         "The user can be retrieved from the data store.")))
 
 (deftest first-name-is-required
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/first-name ["First name is required"]}}
-        (users/put (dissoc attributes :user/first-name)))))
+  (assert-invalid (dissoc attributes :user/first-name)
+                  {:user/first-name ["First name is required"]}))
 
 (deftest first-name-cannot-be-empty
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/first-name ["First name is required"]}}
-        (users/put (assoc attributes :user/first-name "")))))
+  (assert-invalid (assoc attributes :user/first-name "")
+                  {:user/first-name ["First name is required"]}))
 
 (deftest last-name-is-required
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/last-name ["Last name is required"]}}
-        (users/put (dissoc attributes :user/last-name)))))
+  (assert-invalid (dissoc attributes :user/last-name)
+                  {:user/last-name ["Last name is required"]}))
 
 (deftest last-name-cannot-be-empty
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/last-name ["Last name is required"]}}
-        (users/put (assoc attributes :user/last-name "")))))
+  (assert-invalid (assoc attributes :user/last-name "")
+                  {:user/last-name ["Last name is required"]}))
 
 (deftest email-is-required
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/email ["Email is required"]}}
-        (users/put (dissoc attributes :user/email)))))
+  (assert-invalid (dissoc attributes :user/email)
+                  {:user/email ["Email is required"]}))
 
 (deftest email-cannot-be-empty
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/email ["Email is required"]}}
-        (users/put (assoc attributes :user/email "")))))
+  (assert-invalid (assoc attributes :user/email "")
+                  {:user/email ["Email is required"]}))
 
 (def ^:private existing-user-ctx
   {:users [#:user{:first-name "John"
@@ -78,16 +64,12 @@
 
 (deftest email-is-unique
   (with-context existing-user-ctx
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:user/email ["Email is already in use"]}}
-          (users/put attributes)))))
+    (assert-invalid attributes
+                    {:user/email ["Email is already in use"]})))
 
 (deftest email-must-be-well-formed
-  (is (thrown-with-ex-data?
-        "Validation failed"
-        {::v/errors {:user/email ["Email must be a valid email address"]}}
-        (users/put (assoc attributes :user/email "notvalid")))))
+  (assert-invalid (assoc attributes :user/email "notvalid")
+                  {:user/email ["Email must be a valid email address"]}))
 
 (deftest authenticate-a-user
   (with-context existing-user-ctx
