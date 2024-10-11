@@ -258,7 +258,9 @@
   v)
 
 (defn qualifier
-  "Give a map, returns the namespace from the keys"
+  "Given a map, returns the namespace from the keys. If there is more than one
+  namespace, an exception is thrown. If none of the keys are qualified, nil is
+  returned."
   [m]
   {:pre [(map? m)]}
   (let [n (->> (keys m)

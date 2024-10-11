@@ -108,7 +108,7 @@
                       (seq id-map) (resolve-temp-ids id-map)
                       (temp-id? m) (dissoc :id))
         saved (put-one ds [operator id-resolved])]
-    (cond-> (update-in result [:saved] conj saved)
+    (cond-> (update-in result [:saved] conj (assoc id-resolved :id saved))
       (temp-id? m)
       (assoc-in [:id-map (:id m)]
                 saved))))
@@ -128,7 +128,8 @@
          (reduce (partial execute-and-aggregate tx)
                  {:saved []
                   :id-map {}})
-         :saved)))
+         :saved
+         (map after-read))))
 
 (defn- id-key
   [x]

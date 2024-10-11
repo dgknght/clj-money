@@ -6,7 +6,7 @@
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
             [clj-money.db :as db]
-            [clj-money.models.sql-storage-ref]))
+            [clj-money.models :as models]))
 
 (declare find-by)
 
@@ -62,7 +62,7 @@
                           symbol-is-unique?
                           exchange-is-satisfied?))
 
-(defn search
+(defn ^:deprecated search
   "Returns commodities matching the specified criteria"
   ([criteria]
    (search criteria {}))
@@ -71,13 +71,13 @@
               (db/model-type criteria :commodity)
               options)))
 
-(defn find-by
+(defn ^:deprecated find-by
   ([criteria]
    (find-by criteria {}))
   ([criteria options]
    (first (search criteria (merge options {:limit 1})))))
 
-(defn find
+(defn ^:deprecated find
   "Returns the commodity having the specified ID"
   [id-or-commodity]
   (find-by {:id (->id id-or-commodity)}))
@@ -94,19 +94,26 @@
   [records]
   (some yield-or-find records)) ; This is because when adding a user, identities are inserted first, so the primary record isn't the first one returned
 
-(defn put
+(defn ^:deprecated put
   [commodity]
   (with-ex-validation commodity ::commodity
     (let [records-or-ids (db/put (db/storage)
                                  [commodity])]
       (resolve-put-result records-or-ids))))
 
-(defn count
+(defn ^:deprecated count
   "Returns the number of commodities matching the specified criteria"
   [criteria]
   (:record-count (search criteria {:count true})))
 
-(defn delete
+(defn ^:deprecated delete
   "Removes a commodity from the system"
   [commodity]
   (db/delete (db/storage) [commodity]))
+
+(defmethod models/validate :commodity
+  [commodity]
+  (let [validated (v/validate commodity ::commodity)]
+    (when (seq (::v/errors validated))
+      (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
+  commodity)

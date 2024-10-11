@@ -1,15 +1,16 @@
 (ns clj-money.models.commodities-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
+            [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
+            [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-entity
                                             find-commodity]]
-            [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.models.commodities :as commodities]))
+            [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
 
@@ -30,11 +31,11 @@
 
 (defn- assert-created
   [attr]
-  (let [result (commodities/put attr)
+  (let [result (models/put attr)
         expected (update-in attr [:commodity/entity] select-keys [:id])]
     (is (comparable? expected result)
         "The result matches the input")
-    (is (comparable? expected (commodities/find (:id result)))
+    (is (comparable? expected (models/find result))
         "The retrieved matches the input")))
 
 (defn- assert-invalid
@@ -42,7 +43,7 @@
   (is (thrown-with-ex-data?
         "Validation failed"
         {::v/errors errors}
-        (commodities/put attr))))
+        (models/put attr))))
 
 (deftest create-a-commodity
   (with-context commodity-context
@@ -104,7 +105,7 @@
 
 (deftest name-can-be-duplicated-between-exchanges
   (with-context existing-context
-    (let [commodity (commodities/put
+    (let [commodity (models/put
                       (assoc (attributes)
                              :commodity/exchange :nyse
                              :commodity/symbol "AAPL"))]
@@ -114,7 +115,7 @@
 
 (deftest name-can-be-duplicated-between-entities
   (with-context existing-context
-    (let [commodity (commodities/put
+    (let [commodity (models/put
                       (assoc (attributes)
                              :commodity/entity (find-entity "Business")))]
       (is (comparable? #:commodity{:name "Apple, Inc."
@@ -126,7 +127,7 @@
     (is (thrown-with-ex-data?
           "Validation failed"
           {::v/errors {:commodity/symbol ["Symbol is required"]}}
-          (commodities/put (dissoc (attributes) :commodity/symbol))))))
+          (models/put (dissoc (attributes) :commodity/symbol))))))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
   (with-context existing-context
@@ -196,7 +197,7 @@
 (deftest a-commodity-can-be-updated
   (with-context existing-context
     (let [commodity (find-commodity "AAPL")
-          result (commodities/put (-> commodity
+          result (models/put (-> commodity
                                          (assoc :commodity/name "New name")
                                          (assoc-in [:commodity/price-config :price-config/enabled] false)))]
       (is (comparable? {:commodity/name "New name"
@@ -205,14 +206,14 @@
           "The return value has the updated attributes")
       (is (comparable? {:commodity/name "New name"
                         :commodity/price-config {:price-config/enabled false}}
-                       (commodities/find commodity))
+                       (models/find commodity))
           "The retrieved value has the updated attributes"))))
 
 (deftest a-commodity-can-be-deleted
   (with-context existing-context
     (let [commodity (find-commodity "AAPL")]
-      (commodities/delete commodity)
-      (is (nil? (commodities/find commodity))
+      (models/delete commodity)
+      (is (nil? (models/find commodity))
           "The commodity cannot be retrieved after delete."))))
 
 (def ^:private count-context
@@ -238,4 +239,4 @@
 
 (deftest get-a-count-of-commodities
   (with-context count-context
-    (is  (= 3 (commodities/count {:commodity/entity (find-entity "Personal")})))))
+    (is  (= 3 (models/count {:commodity/entity (find-entity "Personal")})))))
