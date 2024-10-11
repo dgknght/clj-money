@@ -78,3 +78,7 @@
        (single-ns m)))
   ([m model-or-type]
    (vary-meta m assoc ::type (extract-model-type model-or-type))))
+
+(defn model-type-dispatch
+  [m & _]
+  (model-type m))
