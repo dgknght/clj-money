@@ -4,7 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
             [clj-money.models :as models]))
 
@@ -13,7 +13,7 @@
 (defn- name-is-unique?
   [{:keys [id] :as commodity}]
   (nil?
-    (find-by
+    (models/find-by
       (-> commodity
           (select-keys [:commodity/name
                         :commodity/exchange
@@ -26,7 +26,7 @@
 (defn- symbol-is-unique?
   [{:keys [id] :as commodity}]
   (nil?
-    (find-by
+    (models/find-by
       (-> commodity
           (select-keys [:commodity/symbol
                         :commodity/exchange
@@ -43,7 +43,7 @@
 (v/reg-spec exchange-is-satisfied? {:message "%s is required"
                                     :path [:commodity/exchange]})
 
-(s/def :commodity/entity map?)
+(s/def :commodity/entity ::models/model-ref)
 (s/def :commodity/name string?)
 (s/def :commodity/symbol string?)
 (s/def :commodity/type #{:currency :stock :fund})
@@ -80,31 +80,12 @@
 (defn ^:deprecated find
   "Returns the commodity having the specified ID"
   [id-or-commodity]
-  (find-by {:id (->id id-or-commodity)}))
-
-(defn- yield-or-find
-  [m-or-id]
-  ; if we have a map, assume it's a model and return it
-  ; if we don't, assume it's an ID and look it up
-  (if (map? m-or-id)
-    m-or-id
-    (find m-or-id)))
-
-(defn- resolve-put-result
-  [records]
-  (some yield-or-find records)) ; This is because when adding a user, identities are inserted first, so the primary record isn't the first one returned
-
-(defn ^:deprecated put
-  [commodity]
-  (with-ex-validation commodity ::commodity
-    (let [records-or-ids (db/put (db/storage)
-                                 [commodity])]
-      (resolve-put-result records-or-ids))))
+  (models/find-by {:id (->id id-or-commodity)}))
 
 (defn ^:deprecated count
   "Returns the number of commodities matching the specified criteria"
   [criteria]
-  (:record-count (search criteria {:count true})))
+  (:record-count (models/select criteria {:count true})))
 
 (defn ^:deprecated delete
   "Removes a commodity from the system"

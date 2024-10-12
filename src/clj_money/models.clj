@@ -7,6 +7,10 @@
             [clj-money.db :as db]))
 
 (s/def ::exchange #{:nyse :nasdaq :amex :otc})
+(s/def ::model-ref (s/and map? #(contains? % :id)))
+
+(defmulti prepare-criteria db/model-type-dispatch)
+(defmethod prepare-criteria :default [m] m)
 
 (defmulti before-save db/model-type-dispatch)
 (defmethod before-save :default [m & _] m)
@@ -19,6 +23,7 @@
   (let [validated (v/validate model (keyword "clj-money.models"
                                              (name (db/model-type model))))]
     (when (seq (::v/errors validated))
+      (pprint {::invalid validated})
       (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
   model)
 
@@ -26,7 +31,9 @@
   ([criteria] (select criteria {}))
   ([criteria options]
    (map #(after-read % options)
-        (db/select (db/storage) criteria options))))
+        (db/select (db/storage)
+                   (prepare-criteria criteria)
+                   options))))
 
 (defn count
   [criteria]

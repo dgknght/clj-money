@@ -6,7 +6,6 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.grants :as grants]
-            [clj-money.models.accounts :as accounts]
             [clj-money.models.prices :as prices]
             [clj-money.models.cached-prices :as cached-prices]
             [clj-money.models.lots :as lots]
@@ -74,9 +73,11 @@
            model-group-key
            (filter #(= model-id (model-id-key %)))
            first)
-      (throw (ex-info "Model not found" {:model-id model-id
-                                         :model-id-key model-id-key
-                                         :model-group-key model-group-key}))))
+      (do
+        (pprint {::context context})
+        (throw (ex-info "Model not found" {:model-id model-id
+                                           :model-id-key model-id-key
+                                           :model-group-key model-group-key})))))
 
 (defn find-user
   ([email] (find-user *context* email))
@@ -116,7 +117,7 @@
 (defn find-account
   ([account-name] (find-account *context* account-name))
   ([context account-name]
-   (find-in-context context :accounts :name account-name)))
+   (find-in-context context :accounts :account/name account-name)))
 
 (defn find-accounts
   [& args]
@@ -245,29 +246,32 @@
   (update-in context [:grants] #(create-grants context %)))
 
 (defn- resolve-parent
-  [account]
-  (if (:parent-id account)
-    (let [parent (accounts/find-by-name (:entity-id account) (:parent-id account))]
-      (assoc account :parent-id (:id parent)))
+  [{:account/keys [parent entity] :as account}]
+  (if parent
+    (assoc account :parent (models/find-by {:account/name parent
+                                            :account/entity entity}))
     account))
 
 (defn- resolve-commodity
-  [model context]
-  (update-in model [:commodity-id] (fn [symbol]
-                                     (if symbol
-                                       (:id (find-commodity context symbol))
-                                       (->> (:commodities context)
-                                            (filter #(= :currecy (:type %)))
-                                            first)))))
+  [model context k]
+  (update-in model [k] (fn [symbol]
+                         (or (if symbol
+                               (find-commodity context symbol)
+                               (->> (:commodities context)
+                                    (filter #(and (= :currency (:commodity/type %))
+                                                  (= (get-in % [:commodity/entity :id])
+                                                     (get-in model [:account/entity :id]))))
+                                    first))
+                             (throw (ex-info "Could not resolve commodity" model))))))
 
 (defn- create-account
   [context attributes]
   (if (:id attributes)
     attributes
-    (accounts/create (-> attributes
-                         (resolve-entity context :account/entity)
-                         (resolve-commodity context)
-                         resolve-parent))))
+    (models/put (-> attributes
+                    (resolve-entity context :account/entity)
+                    (resolve-commodity context :account/commodity)
+                    (resolve-parent)))))
 
 (defn- create-accounts
   "Creates the specified accounts.
@@ -418,7 +422,7 @@
   [context prices]
   (mapv (fn [attributes]
           (-> attributes
-              (resolve-commodity context)
+              (resolve-commodity context :price/commodity)
               prices/create))
         prices))
 
@@ -430,7 +434,7 @@
   [context lots]
   (mapv (fn [attributes]
           (-> attributes
-              (resolve-commodity context)
+              (resolve-commodity context :lot/commodity)
               (resolve-account context)
               (lots/create)))
         lots))
@@ -522,7 +526,7 @@
         (resolve-account context :st-capital-gains-account-id)
         (resolve-account context :lt-capital-loss-account-id)
         (resolve-account context :st-capital-loss-account-id)
-        (resolve-commodity context)
+        (resolve-commodity context :trade/commodity)
         f)))
 
 (defn- execute-trades

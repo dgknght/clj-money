@@ -5,7 +5,7 @@
             [dgknght.app-lib.core :refer [assoc-if
                                           present?]]
             [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-ex-validation]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.models :as models]
             [clj-money.db :as db]))
 
@@ -16,21 +16,21 @@
   (-> entity
       (select-keys [:entity/name :entity/user])
       (assoc-if :id (when id [:!= id]))
-      find-by
+      models/find-by
       nil?))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:entity/name]})
 
 (s/def :entity/name (s/and string?
                      present?))
-(s/def :entity/user map?) ; TODO: Make this more specific?
+(s/def :entity/user ::models/model-ref)
 (s/def :settings/monitored-account-ids (s/coll-of integer? :kind set?))
 (s/def :settings/inventory-method #{:fifo :lifo})
-(s/def :settings/default-commodity-id integer?)
+(s/def :settings/default-commodity ::models/model-ref)
 (s/def :entity/settings (s/nilable
                           (s/keys :opt [:settings/inventory-method
                                         :settings/monitored-account-ids
-                                        :settings/default-commodity-id])))
+                                        :settings/default-commodity])))
 
 (s/def ::models/entity (s/and (s/keys :req [:entity/name
                                             :entity/user]
@@ -51,31 +51,12 @@
   ([criteria]
    (find-by criteria {}))
   ([criteria options]
-   (first (select criteria (merge options {:limit 1})))))
+   (first (models/select criteria (merge options {:limit 1})))))
 
 (defn ^:deprecated find
   "Finds the entity with the specified ID"
   [id-or-entity]
   (models/find-by {:id (->id id-or-entity)}))
-
-(defn- yield-or-find
-  [m-or-id]
-  ; if we have a map, assume it's a model and return it
-  ; if we don't, assume it's an ID and look it up
-  (if (map? m-or-id)
-    m-or-id
-    (models/find m-or-id)))
-
-(defn- resolve-put-result
-  [records]
-  (some yield-or-find records)) ; This is because when adding a user, identities are inserted first, so the primary record isn't the first one returned
-
-(defn ^:deprecated put
-  [entity]
-  (with-ex-validation entity ::entity
-    (let [records-or-ids (db/put (db/storage)
-                                 [entity])]
-      (resolve-put-result records-or-ids))))
 
 (def ^:private find-or-create*
   (some-fn models/find-by models/put))
