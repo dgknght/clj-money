@@ -30,7 +30,7 @@
 
 (defn count
   [criteria]
-  (:record-count (select criteria {:count true})))
+  (:record-count (db/select (db/storage) criteria {:count true})))
 
 (defn find-by
   ([criteria] (find-by criteria {}))
