@@ -246,6 +246,6 @@
       (.setValue (json/generate-string x)))))
 
 (defn json->map
-  [^org.postgresql.util.PGobject x]
+  [^org.postgresql.util.PGobject x & {:keys [key-fn] :or {key-fn true}}]
   (when x
-    (json/parse-string (.getValue x) true)))
+    (json/parse-string (.getValue x) key-fn)))

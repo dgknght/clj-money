@@ -1,6 +1,7 @@
 (ns clj-money.models.accounts
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
             [config.core :refer [env]]
             [stowaway.core :as stow :refer [tag]]
             [stowaway.implicit :as storage :refer [with-storage]]
@@ -10,21 +11,19 @@
             [dgknght.app-lib.models :refer [->id
                                             extract-nested]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
-            [clj-money.models :as models]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.commodities :as commodities]))
+            [clj-money.models :as models]))
 
 (declare find-by find)
 
 (defn- name-is-unique?
   [{:keys [id] :as account}]
-  (nil? (models/find-by (-> account
-                            (select-keys [:account/entity
-                                          :account/parent
-                                          :account/name
-                                          :account/type])
-                            (update-in [:account/parent] identity) ; Ensure that nil is included, as it matters for this query
-                            (assoc-if :id (when id [:!= id]))))))
+  (= 0 (models/count (-> account
+                         (select-keys [:account/entity
+                                       :account/parent
+                                       :account/name
+                                       :account/type])
+                         (update-in [:account/parent] identity) ; Ensure that nil is included, as it matters for this query
+                         (assoc-if :id (when id [:!= id]))))))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:account/name]})
 
@@ -34,7 +33,7 @@
   [{:account/keys [parent type]}]
   (or (nil? parent)
       (= type
-         (:type (find parent)))))
+         (:account/type (models/find parent)))))
 (v/reg-spec parent-has-same-type? {:message "%s must match the parent type"
                                    :path [:account/type]})
 
@@ -43,15 +42,15 @@
 (s/def :account/type #{:asset :liability :equity :income :expense})
 (s/def :account/commodity ::models/model-ref)
 (s/def :account/parent (s/nilable ::models/model-ref))
-(s/def :account/system-tags (s/coll-of keyword? :kind set?))
-(s/def :account/user-tags (s/coll-of keyword? :kind set?))
-(s/def :account/allocations (s/nilable (s/map-of ::id decimal?)))
+(s/def :account/system-tags (s/nilable (s/coll-of keyword? :kind set?)))
+(s/def :account/user-tags (s/nilable (s/coll-of keyword? :kind set?)))
+(s/def :account/allocations (s/nilable (s/map-of integer? decimal?)))
 
 (s/def ::models/account (s/and (s/keys :req [:account/entity
                                              :account/type
-                                             :account/name]
+                                             :account/name
+                                             :account/commodity]
                                          :opt [:account/parent
-                                               :account/commodity
                                                :account/system-tags
                                                :account/user-tags
                                                :account/allocations])
@@ -60,25 +59,38 @@
 ; :value and :children-value are not specified because they are always
 ; calculated and not passed in
 
-(defn- default-commodity-id
-  [entity-id]
-  (let [entity (entities/find entity-id)]
-    (or (-> entity :settings :default-commodity-id)
-        (->> {:entity-id entity-id
-              :type :currency}
-             commodities/search
-             first
-             :id))))
+(defn- default-commodity
+  [entity]
+  (if-let [ref (get-in entity [:entity/settings :settings/default-commodity])]
+    (models/find (:id ref) :commodity)
+    (models/find-by {:commodity/entity entity
+                     :commodity/type :currency})))
+
+(defn- resolve-entity
+  [{:account/keys [entity] :as account}]
+  (if entity
+    account
+    (assoc account :account/entity (models/find (:id entity) :entity))))
+
+(defn- append-default-commodity
+  [{:as account :account/keys [entity]}]
+  (assoc account :account/commodity (default-commodity entity)))
+
+(defmethod models/before-validation :account
+  [{:as account :account/keys [commodity]}]
+  (if commodity
+    account
+    (-> account resolve-entity append-default-commodity)))
 
 (declare find)
-(defn- before-validation
+#_(defn- before-validation
   "Adjust account data for validation"
   [account]
   (cond-> account
     ; If no entity is specified, try to look it up
     (and (:id account)
          (nil? (:entity-id account)))
-    (assoc :entity-id (:entity-id (find (:id account))))
+    (assoc :entity-id (:entity-id (models/find (:id account) :account)))
 
     ; strip out empty string for parent-id
     (and (string? (:parent-id account))
@@ -154,33 +166,26 @@
 (defn ^:deprecated find-by
   "Returns the first account that matches the specified criteria"
   [criteria]
-  (first (search criteria {:limit 1})))
+  (first (models/select criteria {:limit 1})))
 
 (defn ^:deprecated find
   "Returns the account having the specified id"
   [id-or-account]
-  (when id-or-account (find-by {:id (->id id-or-account)})))
-
-(defn ^:deprecated find-by-name
-  "Returns the account having the specified name"
-  [entity-id account-name]
-  (find-by {:entity-id entity-id
-            :name account-name}))
+  (when id-or-account (models/find (->id id-or-account) :account)))
 
 (defn ^:deprecated create
   [account]
   (with-storage (env :db)
-    (let [account (before-validation account)]
-      (with-validation account ::new-account
-        (-> account
-            before-save
-            storage/create
-            after-read)))))
+    (with-validation account ::new-account
+      (-> account
+          before-save
+          storage/create
+          after-read))))
 
 (defn ^:deprecated reload
   "Returns a fresh copy of the specified account from the data store"
   [model-or-id]
-  (find (->id model-or-id)))
+  (models/find (->id model-or-id) :account))
 
 (defn ^:deprecated update
   [account]
@@ -189,7 +194,7 @@
       (-> account
           before-save
           storage/update)
-      (find account))))
+      (models/find account))))
 
 (defn ^:deprecated delete
   "Removes the account from the system"

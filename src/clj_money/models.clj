@@ -12,6 +12,9 @@
 (defmulti prepare-criteria db/model-type-dispatch)
 (defmethod prepare-criteria :default [m] m)
 
+(defmulti before-validation db/model-type-dispatch)
+(defmethod before-validation :default [m & _] m)
+
 (defmulti before-save db/model-type-dispatch)
 (defmethod before-save :default [m & _] m)
 
@@ -23,7 +26,6 @@
   (let [validated (v/validate model (keyword "clj-money.models"
                                              (name (db/model-type model))))]
     (when (seq (::v/errors validated))
-      (pprint {::invalid validated})
       (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
   model)
 
@@ -56,7 +58,8 @@
   [& models]
   (->> models
        (map (comp before-save
-                  validate))
+                  validate
+                  before-validation))
        (db/put (db/storage))
        (map #(after-read % {}))))
 

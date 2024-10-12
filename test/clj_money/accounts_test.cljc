@@ -267,3 +267,38 @@
            (map :path (accounts/find-by-path "Rec/Eli" accounts))))
     (is (= [["Receivable" "Eli"]]
            (map :path (accounts/find-by-path "Rec:Eli" accounts))))))
+
+(defn- test-polarization
+  [account-type action quantity expected message]
+  (let [account {:type account-type}
+        item {:account account
+              :action action
+              :quantity quantity}]
+    (is (= expected (accounts/polarize-quantity item account)) message)))
+
+(deftest polarize-a-quantity
+  ; Debits
+  (test-polarization :asset     :debit 100M  100M "A debit in an asset account increases the balance")
+  (test-polarization :expense   :debit 100M  100M "A debit in an expense account increases the balance")
+  (test-polarization :liability :debit 100M -100M "A debit in an liability account decreases the balance")
+  (test-polarization :equity    :debit 100M -100M "A debit in an equity account decreases the balance")
+  (test-polarization :income    :debit 100M -100M "A debit in an income account decreases the balance")
+
+  ;; Credits
+  (test-polarization :asset     :credit 100M -100M "A credit in an asset account decreases the balance")
+  (test-polarization :expense   :credit 100M -100M "A credit in an expense account dereases the balance")
+  (test-polarization :liability :credit 100M  100M "A credit in an liability account increases the balance")
+  (test-polarization :equity    :credit 100M  100M "A credit in an equity account increases the balance")
+  (test-polarization :income    :credit 100M  100M "A credit in an income account increases the balance"))
+
+(deftest derive-action-from-quantity-and-account
+  (is (= :debit (accounts/derive-action 1 {:type :asset})))
+  (is (= :credit (accounts/derive-action -1 {:type :asset})))
+  (is (= :debit (accounts/derive-action 1 {:type :expense})))
+  (is (= :credit (accounts/derive-action -1 {:type :expense})))
+  (is (= :credit (accounts/derive-action 1 {:type :income})))
+  (is (= :debit (accounts/derive-action -1 {:type :income})))
+  (is (= :credit (accounts/derive-action 1 {:type :equity})))
+  (is (= :debit (accounts/derive-action -1 {:type :equity})))
+  (is (= :credit (accounts/derive-action 1 {:type :liability})))
+  (is (= :debit (accounts/derive-action -1 {:type :liability}))))
