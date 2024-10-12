@@ -248,8 +248,8 @@
 (defn- resolve-parent
   [{:account/keys [parent entity] :as account}]
   (if parent
-    (assoc account :parent (models/find-by {:account/name parent
-                                            :account/entity entity}))
+    (assoc account :account/parent (models/find-by {:account/name parent
+                                                    :account/entity entity}))
     account))
 
 (defn- resolve-commodity
