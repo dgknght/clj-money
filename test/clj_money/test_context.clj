@@ -24,48 +24,48 @@
 
 (def basic-context
   {:users (->> ["john@doe.com" "jane@doe.com"]
-               (mapv #(factory :user {:email %})))
-   :entities [{:name "Personal"
-               :user-id "john@doe.com"}
-              {:name "Business"
-               :user-id "jane@doe.com"}]
-   :commodities [{:name "US Dollar"
-                  :entity-id "Personal"
-                  :symbol "USD"
-                  :type :currency}
-                 {:name "US Dollar"
-                  :entity-id "Business"
-                  :symbol "USD"
-                  :type :currency}]
-   :accounts [{:name "Opening Balances"
-               :type :equity
-               :entity-id "Personal"}
-              {:name "Checking"
-               :entity-id "Personal"
-               :type :asset}
-              {:name "Salary"
-               :entity-id "Personal"
-               :type :income}
-              {:name "Rent"
-               :entity-id "Personal"
-               :type :expense}
-              {:name "Groceries"
-               :entity-id "Personal"
-               :type :expense}
-              {:name "Tax"
-               :entity-id "Personal"
-               :type :expense}
-              {:name "FIT"
-               :type :expense
-               :entity-id "Personal"
-               :parent-id "Tax"}
-              {:name "Medicare"
-               :type :expense
-               :entity-id "Personal"
-               :parent-id "Tax"}
-              {:name "Sales"
-               :entity-id "Business"
-               :type :income}]})
+               (mapv #(factory :user {:user/email %})))
+   :entities [#:entity{:name "Personal"
+                       :user-id "john@doe.com"}
+              #:entity{:name "Business"
+                       :user-id "jane@doe.com"}]
+   :commodities [#:commodity{:name "US Dollar"
+                             :entity-id "Personal"
+                             :symbol "USD"
+                             :type :currency}
+                 #:commodity{:name "US Dollar"
+                             :entity-id "Business"
+                             :symbol "USD"
+                             :type :currency}]
+   :accounts [#:account{:name "Opening Balances"
+                        :type :equity
+                        :entity-id "Personal"}
+              #:account{:name "Checking"
+                        :entity-id "Personal"
+                        :type :asset}
+              #:account{:name "Salary"
+                        :entity-id "Personal"
+                        :type :income}
+              #:account{:name "Rent"
+                        :entity-id "Personal"
+                        :type :expense}
+              #:account{:name "Groceries"
+                        :entity-id "Personal"
+                        :type :expense}
+              #:account{:name "Tax"
+                        :entity-id "Personal"
+                        :type :expense}
+              #:account{:name "FIT"
+                        :type :expense
+                        :entity-id "Personal"
+                        :parent-id "Tax"}
+              #:account{:name "Medicare"
+                        :type :expense
+                        :entity-id "Personal"
+                        :parent-id "Tax"}
+              #:account{:name "Sales"
+                        :entity-id "Business"
+                        :type :income}]})
 
 (defn- find-in-context
   [context model-group-key model-id-key model-id]
@@ -155,8 +155,8 @@
    (let [commodity (find-commodity context sym)]
      (->> context
           :prices
-          (filter #(and (= (:id commodity) (:commodity-id %))
-                        (= trade-date (:trade-date %))))
+          (filter #(and (= (:id commodity) (get-in % [:price/commodity :id]))
+                        (= trade-date (:price/trade-date %))))
           first))))
 
 (defn find-transaction
@@ -423,7 +423,7 @@
   (mapv (fn [attributes]
           (-> attributes
               (resolve-commodity context :price/commodity)
-              prices/create))
+              models/put))
         prices))
 
 (defn- realize-prices

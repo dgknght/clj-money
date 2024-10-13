@@ -18,6 +18,9 @@
 (defmulti before-save db/model-type-dispatch)
 (defmethod before-save :default [m & _] m)
 
+(defmulti after-save db/model-type-dispatch)
+(defmethod after-save :default [m & _] m)
+
 (defmulti after-read db/model-type-dispatch)
 (defmethod after-read :default [m & _] m)
 
@@ -61,7 +64,8 @@
                   validate
                   before-validation))
        (db/put (db/storage))
-       (map #(after-read % {}))))
+       (map (comp after-save
+                  #(after-read % {})))))
 
 (defn put
   [model]

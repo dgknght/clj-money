@@ -1,5 +1,6 @@
 (ns clj-money.db.sql.commodities
   (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]))
@@ -30,4 +31,6 @@
       (update-in-if [:commodity/exchange] keyword)
       (update-in [:commodity/type] keyword)
       (update-in [:commodity/price-config] sql/json->map)
+      (update-in-if [:commodity/earliest-price] t/local-date)
+      (update-in-if [:commodity/latest-price] t/local-date)
       ->model-refs))
