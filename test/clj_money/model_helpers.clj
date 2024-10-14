@@ -17,6 +17,15 @@
         "The retrieved matches the input")
     result))
 
+(defn assert-updated
+  [model attr]
+  {:pre [model attr]}
+  (let [result (models/put (merge model attr))]
+    (is (comparable? attr result)
+        "The return value contains the updated attributes")
+    (is (comparable? attr (models/find model))
+        "The retrieved value contains the updated attributes")))
+
 (defn assert-invalid
   [attr errors]
   (is (thrown-with-ex-data?

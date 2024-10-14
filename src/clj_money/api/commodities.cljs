@@ -37,7 +37,7 @@
   [id xf]
   (api/get (api/path :commodities id)
            {:transform (transform xf)
-            :handle-ex (handle-ex "Unable to retrieve the commdoity: %s")}))
+            :handle-ex (handle-ex "Unable to retrieve the commodity: %s")}))
 
 (defn create
   [commodity xf]

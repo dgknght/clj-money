@@ -28,32 +28,44 @@
 
 (defn- no-reconciled-quantities-changed?
   [transaction]
-  (let [existing (reload transaction)
-        submitted (->> (:items transaction)
+  (let [existing (models/find transaction)
+        submitted (->> (:transaction/items transaction)
                        (filter :id)
-                       (map #(select-keys % [:id :quantity :account-id :action]))
+                       (map #(select-keys % [:id
+                                             :transaction-item/quantity
+                                             :transaction-item/account
+                                             :transaction-item/action]))
                        (index-by :id))
-        invalid (->> (:items existing)
-                     (filter :reconciled?)
+        invalid (->> (:transaction/items existing)
+                     (filter :transaction-item/reconciled?)
                      (map (comp #(hash-map :before %
                                            :after (submitted (:id %)))
-                                #(select-keys % [:id :quantity :account-id :action])))
+                                #(select-keys % [:id
+                                                 :transaction-item/quantity
+                                                 :transaction-item/account
+                                                 :transaction-item/action])))
                      (remove #(= (:before %) (:after %))))]
     (log/warnf "Attempt to change reconciled item(s): %s %s %s"
                (->> invalid
-                    (map #(assoc % :account (:name (accounts/find (-> % :before :account-id)))))
+                    (map #(assoc %
+                                 :account (:account/name
+                                            (models/find
+                                              (get-in % [:before
+                                                         :transaction-item/account
+                                                         :id])
+                                              :account))))
                     (into []))
                submitted
                existing)
     (empty? invalid)))
 
 (v/reg-spec no-reconciled-quantities-changed? {:message "A reconciled quantity cannot be updated"
-                                               :path [:items]})
+                                               :path [:transaction/items]})
 
 (defn- not-a-trading-transaction?
-  [{:keys [id original-transaction-date]}]
-  (zero? (l-t/count {:transaction-id id
-                     :transaction-date original-transaction-date})))
+  [{:keys [id] :transaction/keys [original-transaction-date]}]
+  (zero? (models/count {:lot-transaction/transaction  {:id id}
+                        :lot-transaction/transaction-date original-transaction-date})))
 
 (v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
                                         :path []})
@@ -69,55 +81,61 @@
 (defn- sum-of-credits-equals-sum-of-debits?
   [items]
   (->> items
-       (group-by :action)
-       (map (comp #(sum-by :value %)
+       (group-by :transaction-item/action)
+       (map (comp #(sum-by :transaction-item/value %)
                   second))
        (apply =)))
 (v/reg-msg sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
 
 (defn- transaction-dates-match?
-  [{:keys [transaction-date items]}]
+  [{:transaction/keys [transaction-date items]}]
   (->> items
-       (map :transaction-date)
+       (map :transaction-item/transaction-date)
        (apply = transaction-date)))
 (v/reg-msg transaction-dates-match? "All transaction items must have the same date as the transaction")
 
-(s/def ::account-id integer?)
-(s/def ::action #{:debit :credit})
-(s/def ::quantity v/big-dec-not-less-than-zero?)
+(s/def :transaction-item/account ::models/model-ref)
+(s/def :transaction-item/action #{:debit :credit})
+(s/def :transaction-item/quantity v/big-dec-not-less-than-zero?)
 ; Balance is the running total of quantities for the account to which
 ; the item belongs
-(s/def ::balance (partial instance? BigDecimal))
+(s/def :transaction-item/balance (partial instance? BigDecimal))
 ; Value is the value of the line item expressed in the entity's
 ; default commodity. For most transactions, this will be the same
 ; as the quantity. For transactions involving foreign currencies
 ; and commodity purchases (like stock trades) it will be different.
-(s/def ::value v/positive-big-dec?)
-(s/def ::description v/non-empty-string?)
-(s/def ::memo #(or (nil? %) (string? %)))
-(s/def ::transaction-date t/local-date?)
+(s/def :transaction-item/value v/positive-big-dec?)
+(s/def :transaction-item/memo (s/nilable string?))
+(s/def :transaction-item/index integer?)
+
+(s/def :transaction/description v/non-empty-string?)
+(s/def :transaction/transaction-date t/local-date?)
 (s/def ::id uuid?)
-(s/def ::entity-id integer?)
-(s/def ::lot-id integer?)
-(s/def ::lot-action #{:buy :sell})
-(s/def ::shares decimal?)
-(s/def ::lot-item (s/keys :req-un [::lot-id ::shares ::lot-action ::price]))
-(s/def ::lot-items (s/coll-of ::lot-item))
-(s/def ::index integer?)
-(s/def ::transaction-item (s/keys :req-un [::account-id
-                                           ::action
-                                           ::quantity]
-                                  :opt-un [::balance
-                                           ::index
-                                           ::memo]))
-(s/def ::items (s/and (s/coll-of ::transaction-item :min-count 1)
-                      sum-of-credits-equals-sum-of-debits?))
-(s/def ::new-transaction (s/keys :req-un [::description
-                                          ::transaction-date
-                                          ::items
-                                          ::entity-id]
-                                 :opt-un [::memo
-                                          ::lot-items]))
+(s/def :transaction/entity ::models/model-ref)
+(s/def :transaction-lot-item/lot ::models/model-ref)
+(s/def :transaction-lot-item/lot-action #{:buy :sell})
+(s/def :transaction-lot-item/shares decimal?)
+(s/def ::models/transaction-lot-item (s/keys :req [:transaction-lot-item/lot
+                                                   :transaction-lot-item/shares
+                                                   :transaction-lot-item/lot-action
+                                                   :transaction-lot-item/price]))
+(s/def :transaction/lot-items (s/coll-of ::lot-item))
+
+(s/def ::models/transaction-item (s/keys :req [:transaction-item/account
+                                               :transaction-item/action
+                                               :transaction-item/quantity]
+                                         :opt [:transaction-item/balance
+                                               :transaction-item/index
+                                               :transaction-item/memo]))
+(s/def :transaction/items (s/and (s/coll-of ::transaction-item :min-count 2)
+                                 sum-of-credits-equals-sum-of-debits?))
+(s/def ::models/transaction (s/keys :req [:transaction/description
+                                          :transaction/transaction-date
+                                          :transaction/items
+                                          :transaction/entity]
+                                    :opt [:transaction/memo
+                                          :transaction/lot-items]))
+
 (s/def ::existing-transaction (s/and (s/keys :req-un [::id
                                                ::transaction-date
                                                ::items]
@@ -602,8 +620,8 @@
       (update-in [entity-id :earliest-date] dates/earliest transaction-date)
       (update-in [entity-id :latest-date] dates/latest transaction-date)))
 
-(defn- update-transaction-date-boundaries
-  [{:keys [entity-id transaction-date]}]
+#_(defn- update-transaction-date-boundaries
+  [{:transaction/keys [entity transaction-date]}]
   (let [entity (entities/find entity-id)
         updated (-> entity
                     (update-in [:settings :earliest-transaction-date] dates/earliest transaction-date)
@@ -612,7 +630,7 @@
     (when-not (= entity updated)
       (entities/update updated))))
 
-(defn- post-create
+#_(defn- post-create
   [{:keys [entity-id transaction-date] :as transaction}]
   (let [account-ids (extract-account-ids transaction)]
     (if (delay-balances? entity-id)
@@ -639,10 +657,11 @@
                             create-transaction-item*)
                        items)))
 
-(defn create
+(defn ^:deprecated create
   "Creates a new transaction"
-  [transaction]
-  (with-transacted-storage (env :db)
+  [_transaction]
+  (throw (UnsupportedOperationException. "Deprecated. Use clj-money.models/put instead.")))
+  #_(with-transacted-storage (env :db)
     (let [validated (validate transaction ::new-transaction)]
       (if (v/has-error? validated)
         validated
@@ -652,7 +671,7 @@
             (link-lots (:lot-items validated))
             (process-item-creation (:items validated))
             post-create
-            reload)))))
+            reload))))
 
 (defn find
   "Returns the specified transaction"

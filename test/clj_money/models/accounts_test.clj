@@ -11,10 +11,9 @@
                                             find-entity
                                             find-commodity
                                             find-account]]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid
+                                                         assert-updated]]
             [clj-money.models :as models]
-            [clj-money.accounts :refer [polarize-quantity
-                                        derive-action]]
             [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
@@ -36,15 +35,15 @@
                :entity "Personal"}])
 
 (def ^:private select-context
-  (concat account-context
-          [#:account{:name "Credit card"
-                     :entity "Personal"
-                     :type :liability
-                     :commodity "USD"}
-           #:account{:name "Checking"
-                     :entity "Personal"
-                     :type :asset
-                     :commodity "USD"}]))
+  (conj account-context
+        #:account{:name "Credit card"
+                  :entity "Personal"
+                  :type :liability
+                  :commodity "USD"}
+        #:account{:name "Checking"
+                  :entity "Personal"
+                  :type :asset
+                  :commodity "USD"}))
 
 (deftest select-accounts
   (with-context select-context
@@ -118,26 +117,26 @@
     (assert-created (attributes))))
 
 (def ^:private duplicate-name-context
-  (concat select-context
-          [#:entity{:name "Business"
-                    :user "john@doe.com"}
-           #:commodity{:symbol "USD"
-                       :name "US Dollar"
-                       :type :currency
-                       :entity "Business"}
-           #:account{:name "Savings"
-                     :type :asset
-                     :entity "Personal"
-                     :commodity "USD"}
-           #:account{:name "Household"
-                     :type :expense
-                     :entity "Personal"
-                     :commodity "USD"}
-           #:account{:name "Repairs"
-                     :type :expense
-                     :entity "Personal"
-                     :parent "Household"
-                     :commodity "USD"}]))
+  (conj select-context
+        #:entity{:name "Business"
+                 :user "john@doe.com"}
+        #:commodity{:symbol "USD"
+                    :name "US Dollar"
+                    :type :currency
+                    :entity "Business"}
+        #:account{:name "Savings"
+                  :type :asset
+                  :entity "Personal"
+                  :commodity "USD"}
+        #:account{:name "Household"
+                  :type :expense
+                  :entity "Personal"
+                  :commodity "USD"}
+        #:account{:name "Repairs"
+                  :type :expense
+                  :entity "Personal"
+                  :parent "Household"
+                  :commodity "USD"}))
 
 (deftest name-can-be-duplicated-across-entities
   (with-context duplicate-name-context
@@ -151,11 +150,11 @@
                            :account/name "Household"))))
 
 (def ^:private create-child-context
-  (concat select-context
-          [#:account{:name "Savings"
-                     :type :asset
-                     :commodity "USD"
-                     :entity "Personal"}]))
+  (conj select-context
+        #:account{:name "Savings"
+                  :type :asset
+                  :commodity "USD"
+                  :entity "Personal"}))
 
 (deftest create-a-child-account
   (with-context create-child-context
@@ -209,37 +208,26 @@
 
 (deftest update-an-account
   (with-context select-context
-    (let [account (find-account "Checking")
-          result (models/put (assoc account
-                                    :account/name "New name"
-                                    :account/allocations {1 50M ; we wouldn't really set them on checking, but rather IRA, or 401k
-                                                          2 50M}))]
-      (is (comparable? #:account{:name "New name"
-                                 :allocations {1 50M
-                                               2 50M}}
-                       result)
-          "The return value has the updated attributes")
-      (is (comparable? #:account{:name "New name"
-                                 :allocations {1 50M
-                                               2 50M}}
-                       (models/find account))
-          "A retrieved value has the updated attributes"))))
+    (assert-updated (find-account "Checking")
+                    #:account{:name "New name"
+                              :allocations {1 50M
+                                            2 50M}})))
 
 (def same-parent-context
-  (concat select-context 
-          [#:account{:name "Current assets"
-                     :type :asset
-                     :entity "Personal"
-                     :commodity "USD"}
-           #:account{:name "Fixed assets"
-                     :type :asset
-                     :entity "Personal"
-                     :commodity "USD"}
-           #:account{:name "House"
-                     :type :asset
-                     :parent "Current assets"
-                     :entity "Personal"
-                     :commodity "USD"}]))
+  (conj select-context 
+        #:account{:name "Current assets"
+                  :type :asset
+                  :entity "Personal"
+                  :commodity "USD"}
+        #:account{:name "Fixed assets"
+                  :type :asset
+                  :entity "Personal"
+                  :commodity "USD"}
+        #:account{:name "House"
+                  :type :asset
+                  :parent "Current assets"
+                  :entity "Personal"
+                  :commodity "USD"}))
 
 (deftest change-an-account-parent
   (with-context same-parent-context

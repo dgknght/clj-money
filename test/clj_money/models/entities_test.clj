@@ -8,7 +8,8 @@
                                             find-user
                                             find-entity]]
             [clj-factory.core :refer [factory]]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid
+                                                         assert-updated]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
@@ -21,11 +22,11 @@
    (factory :user {:user/email "jane@doe.com"})])
 
 (def ^:private list-context
-  (concat entity-context
-          [#:entity{:name "Personal"
-                    :user "john@doe.com"}
-           #:entity{:name "Business"
-                    :user "john@doe.com"}]))
+  (conj entity-context
+        #:entity{:name "Personal"
+                 :user "john@doe.com"}
+        #:entity{:name "Business"
+                 :user "john@doe.com"}))
 
 (defn- attributes []
   #:entity{:name "Personal"
@@ -77,13 +78,9 @@
 
 (deftest update-an-entity
   (with-context list-context
-    (let [entity (find-entity "Personal")
-          updates #:entity{:name "Entity Y"
-                           :settings {:settings/monitored-account-ids #{1 2}}}]
-      (is (comparable? updates (models/put (merge entity updates)))
-          "The return value contains the updated attributes")
-      (is (comparable? updates (models/find entity))
-          "The retrieved value has the updated attributes"))))
+    (assert-updated (find-entity "Personal")
+                    #:entity{:name "Entity Y"
+                             :settings {:settings/monitored-account-ids #{1 2}}})))
 
 (deftest delete-an-entity
   (with-context list-context

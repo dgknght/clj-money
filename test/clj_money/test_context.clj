@@ -369,18 +369,6 @@
   [context]
   (update-in context [:budgets] #(create-budgets context %)))
 
-(defn- create-prices
-  [context prices]
-  (mapv (fn [attributes]
-          (-> attributes
-              (resolve-commodity context :price/commodity)
-              models/put))
-        prices))
-
-(defn- realize-prices
-  [context]
-  (update-in context [:prices] #(create-prices context %)))
-
 (defn- create-lots
   [context lots]
   (mapv (fn [attributes]
@@ -549,6 +537,10 @@
   (-> commodity
       (update-in [:commodity/entity] #(find-entity ctx %))
       (update-in [:commodity/price-config] (fnil identity {:price-config/enabled true}))))
+
+(defmethod prepare :price
+  [price ctx]
+  (update-in price [:price/commodity] #(find-commodity ctx %)))
 
 (defmethod prepare :account
   [account ctx]

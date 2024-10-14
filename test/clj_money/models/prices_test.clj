@@ -7,7 +7,8 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.core]
             [clj-money.models :as models]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid
+                                                         assert-updated]]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
@@ -17,28 +18,25 @@
                                             find-commodity
                                             find-price]]
             [clj-money.test-helpers :refer [reset-db]]
-            [clj-money.models.commodities :as commodities]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.entities :as entities]
             [clj-money.models.prices :as prices]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private price-context
-  {:users [(factory :user {:user/email "john@doe.com"})]
-   :entities [#:entity{:name "Personal"
-                       :user "john@doe.com"}
-              #:entity{:name "Business"
-                       :user "john@doe.com"}]
-   :commodities [#:commodity{:name "Apple"
-                             :symbol "AAPL"
-                             :type :stock
-                             :exchange :nasdaq
-                             :entity "Personal"}
-                 #:commodity{:name "US Dollar"
-                             :symbol "USD"
-                             :type :currency
-                             :entity "Personal"}]})
+  [(factory :user {:user/email "john@doe.com"})
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:entity{:name "Business"
+            :user "john@doe.com"}
+   #:commodity{:name "Apple"
+               :symbol "AAPL"
+               :type :stock
+               :exchange :nasdaq
+               :entity "Personal"}
+   #:commodity{:name "US Dollar"
+               :symbol "USD"
+               :type :currency
+               :entity "Personal"}])
 
 (defn- attributes []
   #:price{:trade-date (t/local-date 2017 3 2)
@@ -80,9 +78,9 @@
                     {:price/trade-date ["Trade date is invalid"]})))
 
 (def ^:private existing-price-context
-  (assoc price-context :prices [#:price{:commodity "AAPL"
-                                        :trade-date (t/local-date 2017 3 2)
-                                        :price 12.34M}]))
+  (conj price-context #:price{:commodity "AAPL"
+                              :trade-date (t/local-date 2017 3 2)
+                              :price 12.34M}))
 
 (deftest trade-date-must-be-unique
   (with-context existing-price-context
@@ -101,15 +99,8 @@
 
 (deftest update-a-price
   (with-context existing-price-context
-    (let [price (find-price "AAPL" (t/local-date 2017 3 2))
-          _ (assert price)
-          result (models/put (assoc price :price/price 10M))]
-      (is (comparable? {:price/price 10M}
-                       result)
-          "The return valud has the updated attributes")
-      (is (comparable? {:price/price 10.00M}
-                       (models/find price))
-          "The retrieved value has the correct values"))))
+    (assert-updated (find-price "AAPL" (t/local-date 2017 3 2))
+                    {:price/price 10M})))
 
 (deftest delete-a-price
   (with-context existing-price-context
@@ -119,15 +110,16 @@
           "The model is not retrieved after delete"))))
 
 (def ^:private multi-price-context
-  (assoc price-context :prices [#:price{:commodity "AAPL"
-                                        :trade-date (t/local-date 2017 2 27)
-                                        :price 12.34M}
-                                #:price{:commodity "AAPL"
-                                        :trade-date (t/local-date 2017 3 2)
-                                        :price 12.20M}
-                                #:price{:commodity "AAPL"
-                                        :trade-date (t/local-date 2017 3 1)
-                                        :price 12.00M}]))
+  (conj price-context
+        #:price{:commodity "AAPL"
+                :trade-date (t/local-date 2017 2 27)
+                :price 12.34M}
+        #:price{:commodity "AAPL"
+                :trade-date (t/local-date 2017 3 2)
+                :price 12.20M}
+        #:price{:commodity "AAPL"
+                :trade-date (t/local-date 2017 3 1)
+                :price 12.00M}))
 
 (deftest get-the-most-recent-price-for-a-commodity
   (with-context multi-price-context
@@ -155,33 +147,32 @@
       (is (empty? (models/select criteria))
           "The commodity prices are absent after delete"))))
 
-#_(def ^:private account-meta-context
-  (-> basic-context
-      (update-in [:commodities] concat [#:commodity{:name "Apple, Inc."
-                                                    :type :stock
-                                                    :symbol "AAPL"
-                                                    :exchange :nasdaq
-                                                    :entity "Personal"}])
-      (update-in [:accounts] concat [#:account{:name "IRA"
-                                               :entity "Personal"
-                                               :type :asset}])
-      (assoc :trades [#:trade{:type :buy
-                              :commodity "AAPL"
-                              :account "IRA"
-                              :trade-date (t/local-date 2015 1 1)
-                              :shares 100M
-                              :value 1000M}])))
-
-(deftest creating-a-price-updates-account-meta-data
-  (is false "Need to restore this test")
-  #_(with-context account-meta-context
-    (assert-created #:price{:commodity (find-commodity "AAPL")
-                            :trade-date (t/local-date 2015 1 2)
-                            :price 12M})
-    (is (comparable? #:account{:value 1200M}
-                     (models/find (find-account "IRA")))
-        "The account value reflects the new price after the price is created")))
-
+; (def ^:private account-meta-context
+;   (conj basic-context
+;         #:commodity{:name "Apple, Inc."
+;                     :type :stock
+;                     :symbol "AAPL"
+;                     :exchange :nasdaq
+;                     :entity "Personal"}
+;         #:account{:name "IRA"
+;                   :entity "Personal"
+;                   :type :asset}
+;         #:trade{:type :buy
+;                 :commodity "AAPL"
+;                 :account "IRA"
+;                 :trade-date (t/local-date 2015 1 1)
+;                 :shares 100M
+;                 :value 1000M}))
+; 
+; (deftest creating-a-price-updates-account-meta-data
+;   (with-context account-meta-context
+;     (assert-created #:price{:commodity (find-commodity "AAPL")
+;                             :trade-date (t/local-date 2015 1 2)
+;                             :price 12M})
+;     (is (comparable? #:account{:value 1200M}
+;                      (models/find (find-account "IRA")))
+;         "The account value reflects the new price after the price is created")))
+; 
 ; (def ^:private account-meta-context-for-update
 ;   (-> account-meta-context
 ;       (assoc :prices [{:trade-date (t/local-date 2015 2 1)
