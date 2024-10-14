@@ -6,7 +6,6 @@
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
             [clj-money.models.grants :as grants]
-            [clj-money.models.prices :as prices]
             [clj-money.models.cached-prices :as cached-prices]
             [clj-money.models.lots :as lots]
             [clj-money.models.budgets :as budgets]
