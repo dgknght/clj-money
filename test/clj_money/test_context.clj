@@ -1,7 +1,7 @@
 (ns clj-money.test-context
+  (:refer-clojure :exclude [find])
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [clj-factory.core :refer [factory]]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
@@ -22,66 +22,84 @@
 (def ^:dynamic *context* nil)
 
 (def basic-context
-  {:users (->> ["john@doe.com" "jane@doe.com"]
-               (mapv #(factory :user {:user/email %})))
-   :entities [#:entity{:name "Personal"
-                       :user-id "john@doe.com"}
-              #:entity{:name "Business"
-                       :user-id "jane@doe.com"}]
-   :commodities [#:commodity{:name "US Dollar"
-                             :entity-id "Personal"
-                             :symbol "USD"
-                             :type :currency}
-                 #:commodity{:name "US Dollar"
-                             :entity-id "Business"
-                             :symbol "USD"
-                             :type :currency}]
-   :accounts [#:account{:name "Opening Balances"
-                        :type :equity
-                        :entity-id "Personal"}
-              #:account{:name "Checking"
-                        :entity-id "Personal"
-                        :type :asset}
-              #:account{:name "Salary"
-                        :entity-id "Personal"
-                        :type :income}
-              #:account{:name "Rent"
-                        :entity-id "Personal"
-                        :type :expense}
-              #:account{:name "Groceries"
-                        :entity-id "Personal"
-                        :type :expense}
-              #:account{:name "Tax"
-                        :entity-id "Personal"
-                        :type :expense}
-              #:account{:name "FIT"
-                        :type :expense
-                        :entity-id "Personal"
-                        :parent-id "Tax"}
-              #:account{:name "Medicare"
-                        :type :expense
-                        :entity-id "Personal"
-                        :parent-id "Tax"}
-              #:account{:name "Sales"
-                        :entity-id "Business"
-                        :type :income}]})
+  [#:user{:email "john@doe.com"
+          :first-name "John"
+          :last-name "Doe"
+          :password "Please001!"}
+   #:user {:email "jane@doe.com"
+           :first-name "Jane"
+           :last-name "Doe"
+           :password "Please001!"}
+   #:entity{:name "Personal"
+            :user-id "john@doe.com"}
+   #:entity{:name "Business"
+            :user-id "jane@doe.com"}
+   #:commodity{:name "US Dollar"
+               :entity-id "Personal"
+               :symbol "USD"
+               :type :currency}
+   #:commodity{:name "US Dollar"
+               :entity-id "Business"
+               :symbol "USD"
+               :type :currency}
+   #:account{:name "Opening Balances"
+             :type :equity
+             :entity-id "Personal"}
+   #:account{:name "Checking"
+             :entity-id "Personal"
+             :type :asset}
+   #:account{:name "Salary"
+             :entity-id "Personal"
+             :type :income}
+   #:account{:name "Rent"
+             :entity-id "Personal"
+             :type :expense}
+   #:account{:name "Groceries"
+             :entity-id "Personal"
+             :type :expense}
+   #:account{:name "Tax"
+             :entity-id "Personal"
+             :type :expense}
+   #:account{:name "FIT"
+             :type :expense
+             :entity-id "Personal"
+             :parent-id "Tax"}
+   #:account{:name "Medicare"
+             :type :expense
+             :entity-id "Personal"
+             :parent-id "Tax"}
+   #:account{:name "Sales"
+             :entity-id "Business"
+             :type :income}])
 
-(defn- find-in-context
-  [context model-group-key model-id-key model-id]
-  (or (->> context
-           model-group-key
-           (filter #(= model-id (model-id-key %)))
-           first)
-      (do
-        (pprint {::context context})
-        (throw (ex-info "Model not found" {:model-id model-id
-                                           :model-id-key model-id-key
-                                           :model-group-key model-group-key})))))
+(defn- kv-pred
+  [& kvs]
+  {:pre [(even? (count kvs))]}
+  (apply every-pred
+         (->> kvs
+              (partition 2)
+              (mapv (fn [[k v]]
+                      #(= v (k %)))))))
+
+(defn- find
+  ([context k v & kvs]
+   (or (find context (apply kv-pred k v kvs))
+       (do
+         (pprint {::context context})
+         (throw (ex-info "Model not found" (->> kvs
+                                                (concat [k v])
+                                                (partition-all 2)
+                                                (map vec)
+                                                (into {})))))))
+  ([context f]
+   (->> context
+        (filter f)
+        first)))
 
 (defn find-user
   ([email] (find-user *context* email))
   ([context email]
-   (find-in-context context :users :user/email email)))
+   (find context :user/email email)))
 
 (defn- context+
   [args]
@@ -92,12 +110,12 @@
 (defn find-entity
   ([entity-name] (find-entity *context* entity-name))
   ([context entity-name]
-   (find-in-context context :entities :entity/name entity-name)))
+   (find context :entity/name entity-name)))
 
 (defn find-import
   ([entity-name] (find-import *context* entity-name))
   ([context entity-name]
-   (find-in-context context :imports :entity-name entity-name)))
+   (find context :entity-name entity-name)))
 
 (defn find-imports
   [& args]
@@ -105,18 +123,14 @@
     (map #(find-import context %) entity-names)))
 
 (defn find-grant
-  ([entity-id user-id] (find-grant *context* entity-id user-id))
-  ([context entity-id user-id]
-   (->> context
-        :grants
-        (filter #(and (= entity-id (:entity-id %))
-                      (= user-id (:user-id %))))
-        first)))
+  ([entity user] (find-grant *context* entity user))
+  ([context entity user]
+   (find context :grant/entity entity :grant/user user)))
 
 (defn find-account
   ([account-name] (find-account *context* account-name))
   ([context account-name]
-   (find-in-context context :accounts :account/name account-name)))
+   (find context :account/name account-name)))
 
 (defn find-accounts
   [& args]
@@ -126,17 +140,17 @@
 (defn find-attachment
   ([caption] (find-attachment *context* caption))
   ([context caption]
-   (find-in-context context :attachments :caption caption)))
+   (find context :attachment/caption caption)))
 
 (defn find-image
   ([original-filename] (find-image *context* original-filename))
   ([context original-filename]
-   (find-in-context context :images :original-filename original-filename)))
+   (find context :image/original-filename original-filename)))
 
 (defn find-commodity
   ([symbol] (find-commodity *context* symbol))
   ([context symbol]
-   (find-in-context context :commodities :commodity/symbol symbol)))
+   (find context :commodity/symbol symbol)))
 
 (defn find-commodities
   [& args]
@@ -146,27 +160,23 @@
 (defn find-budget
   ([budget-name] (find-budget *context* budget-name))
   ([context budget-name]
-   (find-in-context context :budgets :name budget-name)))
+   (find context :budget/name budget-name)))
 
 (defn find-price
   ([sym trade-date] (find-price *context* sym trade-date))
   ([context sym trade-date]
    (let [commodity (find-commodity context sym)]
-     (->> context
-          :prices
-          (filter #(and (= (:id commodity) (get-in % [:price/commodity :id]))
-                        (= trade-date (:price/trade-date %))))
-          first))))
+     (find context #(and (= (:id commodity) (get-in % [:price/commodity :id]))
+                         (= trade-date (:price/trade-date %)))))))
 
 (defn find-transaction
   ([transaction-date description] (find-transaction *context* transaction-date description))
   ([context transaction-date description]
    {:pre [(string? description) (t/local-date? transaction-date)]}
 
-   (->> (:transactions context)
-        (filter #(and (= transaction-date (:transaction-date %))
-                      (= description (:description %))))
-        first)))
+   (find context
+         :transaction/transaction-date transaction-date
+         :transaction/description description)))
 
 (defn find-transaction-item
   ([transaction-date quantity account-id]
@@ -175,7 +185,7 @@
                           quantity
                           account-id))
   ([context transaction-date quantity account-id]
-   (->> (:transactions context)
+   (->> context
         (filter #(= transaction-date (:transaction-date %)))
         (mapcat :items)
         (filter #(and (= account-id (:account-id %))
@@ -185,23 +195,18 @@
 (defn find-scheduled-transaction
   ([description] (find-scheduled-transaction *context* description))
   ([context description]
-   (find-in-context context :scheduled-transactions :description description)))
+   (find context :scheduled-transaction/description description)))
 
 (defn find-recon
   ([account-name end-of-period]
    (find-recon *context*
                account-name
                end-of-period))
-  ([{:keys [reconciliations] :as ctx} account-name end-of-period]
+  ([ctx account-name end-of-period]
    (let [account (find-account ctx account-name)]
-     (->> reconciliations
-          (filter #(and (= (:id account) (:account-id %))
-                        (= end-of-period (:end-of-period %))))
-          first))))
-
-(defn- realize-users
-  [context]
-  (update-in context [:users] #(mapv models/put %)))
+     (find ctx
+           :reconciliation/account account
+           :reconciliation/end-of-period end-of-period))))
 
 (defn- realize-cached-prices
   [context]
@@ -210,20 +215,6 @@
 (defn- resolve-user
   [model context k]
   (update-in model [k] #(find-user context %)))
-
-(defn- create-entities
-  [entities context]
-  (mapv (fn [attributes]
-          (if (:id attributes)
-            attributes
-            (-> attributes
-                (resolve-user context :entity/user)
-                models/put)))
-        entities))
-
-(defn- realize-entities
-  [context]
-  (update-in context [:entities] create-entities context))
 
 (defn- resolve-entity
   [model context k]
@@ -404,19 +395,6 @@
   [context]
   (update-in context [:budgets] #(create-budgets context %)))
 
-(defn- create-commodities
-  [context commodities]
-  (mapv (fn [attributes]
-          (-> attributes
-              (resolve-entity context :commodity/entity)
-              (update-in [:commodity/price-config] (fnil identity {:price-config/enabled true}))
-              models/put))
-        commodities))
-
-(defn- realize-commodities
-  [context]
-  (update-in context [:commodities] #(create-commodities context %)))
-
 (defn- create-prices
   [context prices]
   (mapv (fn [attributes]
@@ -582,29 +560,32 @@
                         entities)))
       (dissoc :monitored-account-ids)))
 
+(defmulti ^:private prepare
+  (fn [m _ctx]
+    (-> m keys first namespace keyword)))
+
+(defmethod prepare :default [m _] m)
+
+(defmethod prepare :entity
+  [entity ctx]
+  (update-in entity [:entity/user] #(find-user ctx %)))
+
+(defmethod prepare :commodity
+  [commodity ctx]
+  (-> commodity
+      (resolve-entity ctx :commodity/entity)
+      (update-in [:commodity/price-config] (fnil identity {:price-config/enabled true}))))
+
 (defn realize
   "Realizes a test context"
   [input]
-  (-> input
-      realize-cached-prices
-      realize-users
-      realize-images
-      realize-imports
-      stash-monitored-account-ids
-      realize-entities
-      realize-grants
-      realize-commodities
-      realize-accounts
-      update-monitored-account-ids
-      realize-lots
-      realize-budgets
-      realize-scheduled-transactions
-      realize-transactions
-      realize-trades
-      realize-prices
-      realize-attachments
-      realize-reconciliations
-      realize-identities))
+  (reduce (fn [ctx m]
+            (conj ctx
+                  (-> m
+                      (prepare ctx)
+                      models/put)))
+          []
+          input))
 
 (defmacro with-context
   [& args]

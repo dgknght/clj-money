@@ -16,11 +16,11 @@
 (use-fixtures :each reset-db)
 
 (def ^:private commodity-context
-  {:users [(factory :user {:user/email "john@doe.com"})]
-   :entities [{:entity/name "Personal"
-               :entity/user "john@doe.com"}
-              {:entity/name "Business"
-               :entity/user "john@doe.com"}]})
+  [(factory :user {:user/email "john@doe.com"})
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:entity{:name "Business"
+            :user "john@doe.com"}])
 
 (defn- attributes []
   #:commodity{:entity (find-entity "Personal")
@@ -79,13 +79,13 @@
     (assert-invalid (dissoc (attributes) :commodity/name)
                     {:commodity/name ["Name is required"]})))
 
-(def existing-context
-  (assoc commodity-context
-         :commodities [#:commodity{:name "Apple, Inc."
-                                   :symbol "AAPL"
-                                   :exchange :nasdaq
-                                   :type :stock
-                                   :entity "Personal"}]))
+(def ^:private existing-context
+  (concat commodity-context
+          [#:commodity{:name "Apple, Inc."
+                       :symbol "AAPL"
+                       :exchange :nasdaq
+                       :type :stock
+                       :entity "Personal"}]))
 
 (deftest name-is-unique-for-an-entity-and-exchange
   (with-context existing-context
@@ -206,25 +206,25 @@
           "The commodity cannot be retrieved after delete."))))
 
 (def ^:private count-context
-  (assoc commodity-context
-         :commodities [#:commodity{:name "Microsoft, Inc."
-                                   :entity "Personal"
-                                   :symbol "MSFT"
-                                   :type :stock
-                                   :exchange :nasdaq}
-                       #:commodity{:name "Apple, Inc."
-                                   :entity "Personal"
-                                   :symbol "AAPL"
-                                   :type :stock
-                                   :exchange :nasdaq}
-                       #:commodity{:name "United States Dollar"
-                                   :entity "Personal"
-                                   :symbol "USD"
-                                   :type :currency}
-                       #:commodity{:name "British Pound"
-                                   :entity "Business"
-                                   :symbol "GBP"
-                                   :type :currency}]))
+  (concat commodity-context
+          [#:commodity{:name "Microsoft, Inc."
+                       :entity "Personal"
+                       :symbol "MSFT"
+                       :type :stock
+                       :exchange :nasdaq}
+           #:commodity{:name "Apple, Inc."
+                       :entity "Personal"
+                       :symbol "AAPL"
+                       :type :stock
+                       :exchange :nasdaq}
+           #:commodity{:name "United States Dollar"
+                       :entity "Personal"
+                       :symbol "USD"
+                       :type :currency}
+           #:commodity{:name "British Pound"
+                       :entity "Business"
+                       :symbol "GBP"
+                       :type :currency}]))
 
 (deftest get-a-count-of-commodities
   (with-context count-context
