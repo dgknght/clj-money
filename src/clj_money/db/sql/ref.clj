@@ -6,4 +6,5 @@
             clj-money.db.sql.prices
             clj-money.db.sql.accounts
             clj-money.db.sql.transactions
-            clj-money.db.sql.transaction-items))
+            clj-money.db.sql.transaction-items
+            clj-money.db.sql.budgets))

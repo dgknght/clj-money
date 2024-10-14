@@ -32,45 +32,45 @@
            :last-name "Doe"
            :password "Please001!"}
    #:entity{:name "Personal"
-            :user-id "john@doe.com"}
+            :user "john@doe.com"}
    #:entity{:name "Business"
-            :user-id "jane@doe.com"}
+            :user "jane@doe.com"}
    #:commodity{:name "US Dollar"
-               :entity-id "Personal"
+               :entity "Personal"
                :symbol "USD"
                :type :currency}
    #:commodity{:name "US Dollar"
-               :entity-id "Business"
+               :entity "Business"
                :symbol "USD"
                :type :currency}
    #:account{:name "Opening Balances"
              :type :equity
-             :entity-id "Personal"}
+             :entity "Personal"}
    #:account{:name "Checking"
-             :entity-id "Personal"
+             :entity "Personal"
              :type :asset}
    #:account{:name "Salary"
-             :entity-id "Personal"
+             :entity "Personal"
              :type :income}
    #:account{:name "Rent"
-             :entity-id "Personal"
+             :entity "Personal"
              :type :expense}
    #:account{:name "Groceries"
-             :entity-id "Personal"
+             :entity "Personal"
              :type :expense}
    #:account{:name "Tax"
-             :entity-id "Personal"
+             :entity "Personal"
              :type :expense}
    #:account{:name "FIT"
              :type :expense
-             :entity-id "Personal"
-             :parent-id "Tax"}
+             :entity "Personal"
+             :parent "Tax"}
    #:account{:name "Medicare"
              :type :expense
-             :entity-id "Personal"
-             :parent-id "Tax"}
+             :entity "Personal"
+             :parent "Tax"}
    #:account{:name "Sales"
-             :entity-id "Business"
+             :entity "Business"
              :type :income}])
 
 (defn- kv-pred

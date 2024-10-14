@@ -12,34 +12,38 @@
                                           assoc-if]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.models.accounts :as accounts]))
 
 (defn- all-accounts-belong-to-budget-entity?
-  [{:keys [entity-id items]}]
+  [{:budget/keys [entity items]}]
   (if (seq items)
-    (when entity-id
+    (when entity
       (when-let [account-ids (->> items
-                                  (map :account-id)
+                                  (map :budget-item/account)
                                   (filter identity)
                                   seq)]
-        (let [entity-ids (->> (accounts/search {:id [:in account-ids]})
-                              (map :entity-id)
-                              set)]
-          (and (= 1 (count entity-ids))
-               (entity-ids entity-id)))))
+        (let [entities (->> (models/select
+                              (db/model-type
+                                {:id [:in account-ids]}
+                                :account))
+                            (map :account/entity)
+                            set)]
+          (and (= 1 (count entities))
+               (entities entity)))))
     true))
 
 (v/reg-spec all-accounts-belong-to-budget-entity?
             {:message "All accounts must belong to the budget entity"
-             :path [:items]})
+             :path [:budget/items]})
 
 (defn- period-counts-match?
-  [{:keys [items period-count]}]
+  [{:budget/keys [items period-count]}]
   (if (seq items)
     (let [item-period-counts (->> items
-                                  (map (comp count :periods))
+                                  (map (comp count :budget/periods))
                                   set)]
       (and (= 1 (count item-period-counts))
            (item-period-counts period-count)))
@@ -47,23 +51,29 @@
 
 (v/reg-spec period-counts-match?
             {:message "All items must have a number of periods that matches the budget period count"
-             :path [:items]})
+             :path [:budget/items]})
 
-(s/def ::periods (s/coll-of decimal? :min-count 1))
-(s/def ::account-id integer?)
-(s/def ::spec (some-fn nil? map?))
-(s/def ::budget-item (s/keys :req-un [::account-id ::periods] :opt-un [::spec]))
-(s/def ::items (s/coll-of ::budget-item))
-(s/def ::id integer?)
-(s/def ::name v/non-empty-string?)
-(s/def ::start-date t/local-date?)
-(s/def ::period #{:week :month})
-(s/def ::period-count v/positive-integer?)
-(s/def ::entity-id integer?)
-(s/def ::budget (s/and (s/keys :req-un [::name ::start-date ::period ::period-count ::entity-id]
-                            :opt-un [::items])
-                       all-accounts-belong-to-budget-entity?
-                       period-counts-match?))
+(s/def :budget-item/periods (s/coll-of decimal? :min-count 1))
+(s/def :budget-item/account ::models/model-ref)
+(s/def :budget-item/spec (s/nilable map?))
+(s/def ::models/budget-item (s/keys :req [:budget-item/account
+                                          :budget-item/periods]
+                                    :opt [:budget-item/spec]))
+
+(s/def :budget/items (s/coll-of ::models/budget-item))
+(s/def :budget/name v/non-empty-string?)
+(s/def :budget/start-date t/local-date?)
+(s/def :budget/period #{:week :month})
+(s/def :budget/period-count v/positive-integer?)
+(s/def :budget/entity ::models/model-ref)
+(s/def ::models/budget (s/and (s/keys :req [:budget/name
+                                            :budget/start-date
+                                            :budget/period
+                                            :budget/period-count
+                                            :budget/entity]
+                                      :opt [:budget/items])
+                              #_all-accounts-belong-to-budget-entity?
+                              #_period-counts-match?))
 
 (defn default-start-date
   []
