@@ -112,6 +112,7 @@
 (defn find-entity
   ([entity-name] (find-entity *context* entity-name))
   ([context entity-name]
+   {:pre [context entity-name]}
    (find context :entity/name entity-name)))
 
 (defn find-import
@@ -542,12 +543,36 @@
   [price ctx]
   (update-in price [:price/commodity] #(find-commodity ctx %)))
 
+(defn- resolve-account-commodity
+  [{:as account :account/keys [entity]} ctx]
+  (update-in account
+             [:account/commodity]
+             #(if %
+                (find-commodity ctx %)
+                (find ctx (fn [{:commodity/keys [type] :as m}]
+                            (and = (:currency type)
+                                 (= entity (:commodity/entity m))))))))
+
 (defmethod prepare :account
   [account ctx]
+  {:pre [(:account/entity account)]}
   (-> account
       (update-in [:account/entity] #(find-entity ctx %))
-      (update-in [:account/commodity] #(find-commodity ctx %))
+      (resolve-account-commodity ctx)
       (update-in-if [:account/parent] #(find-account ctx %))))
+
+(defmethod prepare :transaction
+  [trx ctx]
+  (-> trx
+      (update-in [:transaction/items]
+                 (fn [items]
+                   (map (fn [item]
+                          (-> item
+                              (update-in [:transaction-item/account]
+                                         #(find-account ctx %))))
+                        items)))
+      expand
+      (update-in [:transaction/entity] #(find-entity ctx %))))
 
 (defn realize
   "Realizes a test context"

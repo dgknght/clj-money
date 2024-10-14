@@ -7,7 +7,6 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
-            [dgknght.app-lib.validation :as v]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.models :as models]
@@ -68,11 +67,14 @@
                :symbol "USD"
                :type :currency}
    #:account{:name "Checking"
-             :type :asset}
+             :type :asset
+             :entity "Personal"}
    #:account{:name "Salary"
-             :type :income}
+             :type :income
+             :entity "Personal"}
    #:account{:name "Groceries"
-             :type :expense}])
+             :type :expense
+             :entity "Personal"}])
 
 (defn attributes []
   #:transaction{:transaction-date (t/local-date 2016 3 2)

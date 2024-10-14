@@ -173,14 +173,18 @@
       (assoc :transaction-date new-date)))
 
 (defn expand
-  [trx]
+  "Given a transaction with a quantity, debit account and credit acount, return
+  a transaction with two items, one for each account"
+  [{:as trx :transaction/keys [debit-account credit-account quantity]}]
   (if (:items trx)
     trx
     (-> trx
-        (assoc :items [{:action :debit
-                        :quantity (:quantity trx)
-                        :account-id (:debit-account-id trx)}
-                       {:action :credit
-                        :quantity (:quantity trx)
-                        :account-id (:credit-account-id trx)}])
-        (dissoc :quantity :debit-account-id :credit-account-id))))
+        (assoc :transaction/items [#:transaction-item{:action :debit
+                                                      :quantity quantity
+                                                      :account debit-account}
+                                   #:transaction-item{:action :credit
+                                                      :quantity quantity
+                                                      :account credit-account}])
+        (dissoc :transaction/quantity
+                :transaction/debit-account-id
+                :transaction/credit-account-id))))

@@ -115,11 +115,11 @@
 (s/def :transaction-lot-item/lot ::models/model-ref)
 (s/def :transaction-lot-item/lot-action #{:buy :sell})
 (s/def :transaction-lot-item/shares decimal?)
-(s/def ::models/transaction-lot-item (s/keys :req [:transaction-lot-item/lot
-                                                   :transaction-lot-item/shares
-                                                   :transaction-lot-item/lot-action
-                                                   :transaction-lot-item/price]))
-(s/def :transaction/lot-items (s/coll-of ::lot-item))
+(s/def ::models/lot-item (s/keys :req [:transaction-lot-item/lot
+                                       :transaction-lot-item/shares
+                                       :transaction-lot-item/lot-action
+                                       :transaction-lot-item/price]))
+(s/def :transaction/lot-items (s/coll-of ::models/lot-item))
 
 (s/def ::models/transaction-item (s/keys :req [:transaction-item/account
                                                :transaction-item/action
@@ -127,7 +127,7 @@
                                          :opt [:transaction-item/balance
                                                :transaction-item/index
                                                :transaction-item/memo]))
-(s/def :transaction/items (s/and (s/coll-of ::transaction-item :min-count 2)
+(s/def :transaction/items (s/and (s/coll-of ::models/transaction-item :min-count 2)
                                  sum-of-credits-equals-sum-of-debits?))
 (s/def ::models/transaction (s/keys :req [:transaction/description
                                           :transaction/transaction-date
@@ -163,14 +163,17 @@
           model
           keys))
 
-(defn- before-save-item
-  "Makes pre-save adjustments for a transaction item"
-  [item]
-  (-> item
-      (tag ::models/transaction-item)
-      (update-in [:value] (fnil identity (:quantity item))) ; TODO need to calculate the correct value
-      (update-in [:action] name)
-      (remove-empty-strings :memo)))
+(defmethod models/before-validation :transaction
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             (fn [items]
+               (map (fn [{:as item :transaction-item/keys [quantity]}]
+                      (-> item
+                          (update-in [:transaction-item/value]
+                                     (fnil identity quantity)) ; TODO need to calculate the correct value
+                          (remove-empty-strings :transaction-item/memo)))
+                    items))))
 
 (defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return
@@ -239,21 +242,30 @@
   (update-in transaction [:items] (fn [items]
                                     (map #(assoc % :transaction-date transaction-date)
                                          items))))
-(defn- before-save
-  "Returns a transaction ready for insertion into the
-  database"
-  [transaction]
+
+(defmethod models/before-save :transaction
+  [{:as transaction :transaction/keys [items transaction-date]}]
   (-> transaction
-      (tag ::models/transaction)
-      (dissoc :items)
-      (assoc :value (->> (:items transaction)
-                         (filter #(= :credit (:action %)))
-                         (map #(some (fn [k] (k %)) [:value :quantity])) ; TODO this should already be :value
-                         (reduce +)))
-      (update-in [:lot-items] #(when %
-                                 (mapv (fn [i]
-                                         (update-in i [:lot-action] name))
-                                       %)))))
+      (update-in ; TODO I think this really only needs to be done for SQL storage
+        [:transaction/items]
+        (fn [items]
+          (map (fn [item]
+                 (-> item
+                     (update-in [:transaction-item/transaction] {:id (:id transaction)})
+                     (update-in [:transaction-item/transaction-date]
+                                (fnil identity transaction-date))))
+               items)))
+      (assoc :transaction/value
+             (->> items
+                  (filter #(= :credit (:transaction-item/action %)))
+                  (map #(some (fn [k] (k %)) [:transaction-item/value
+                                              :transaction-item/quantity])) ; TODO this should already be :value
+                  (reduce +)))))
+
+(defmethod models/deconstruct :transaction
+  [{:as trx :transaction/keys [items]}]
+  (cons (dissoc trx :transaction/items)
+        items))
 
 (defn- fetch-lot-items
   [transaction-id transaction-date]
@@ -319,10 +331,11 @@
                   :transaction-date transaction-date})))
 
 ; This is public to support the unit test
-(defn upsert-item
+(defn ^:deprecated upsert-item
   "Updates the specified transaction item"
-  [{:keys [id transaction-date] :as item}]
-  (let [to-save (before-save-item item)]
+  [_]
+  (throw (UnsupportedOperationException. "upsert-item is deprecated"))
+  #_(let [to-save (before-save-item item)]
     (if id
       (do
         (storage/update to-save)
@@ -334,12 +347,13 @@
   (with-storage (env :db)
     (storage/update (tag attr ::models/transaction-item) criteria)))
 
-(defn update-item-index-and-balance
+(defn ^:deprecated update-item-index-and-balance
   "Updates only the index and balance of an item, returning true if
   the values where changed as a result of the update, or false if the specified
   values match the existing values"
-  [item]
-  (with-storage (env :db)
+  [_]
+  (throw (UnsupportedOperationException. "update-item-index-and-balance is deprecated"))
+  #_(with-storage (env :db)
     (let [records-affected (storage/update
                             (-> item
                                 before-save-item
@@ -430,7 +444,7 @@
   (with-storage (env :db)
     (search criteria {:count true})))
 
-(defn- create-transaction-item*
+#_(defn- create-transaction-item*
   [item]
   (->> item
        before-save-item
@@ -645,7 +659,7 @@
         (update-transaction-date-boundaries transaction))))
   transaction)
 
-(defn- process-item-creation
+#_(defn- process-item-creation
   [trans items]
   (assoc trans :items (mapv
                        #(-> %
@@ -738,13 +752,13 @@
                 {:id id
                  :search-date search-date})))))
 
-(defn- update-transaction*
+#_(defn- update-transaction*
   [transaction]
   (->> transaction
        before-save
        storage/update))
 
-(defn- update-full-transaction
+#_(defn- update-full-transaction
   "Update the transaction and associated items."
   [transaction]
   (update-transaction* transaction)
@@ -780,10 +794,11 @@
 ;   c. Recalculate statistics for each of the items identified in identified in
 ;      steps a and b.
 
-(defn update
+(defn ^:deprecated update
   "Updates the specified transaction"
-  [transaction]
-  (with-transacted-storage (env :db)
+  [_transaction]
+  (throw (Exception. "Deprecated. Use clj-money.models/put instead"))
+  #_(with-transacted-storage (env :db)
     (let [validated (validate transaction ::existing-transaction)]
       (if (v/has-error? validated)
         validated

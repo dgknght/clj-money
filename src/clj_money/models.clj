@@ -12,6 +12,9 @@
 (defmulti prepare-criteria db/model-type-dispatch)
 (defmethod prepare-criteria :default [m] m)
 
+(defmulti deconstruct db/model-type-dispatch)
+(defmethod deconstruct :default [m] [m])
+
 (defmulti before-validation db/model-type-dispatch)
 (defmethod before-validation :default [m & _] m)
 
@@ -63,6 +66,7 @@
        (map (comp before-save
                   validate
                   before-validation))
+       (mapcat deconstruct)
        (db/put (db/storage))
        (map (comp after-save
                   #(after-read % {})))))
