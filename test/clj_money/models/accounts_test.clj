@@ -27,22 +27,24 @@
             :system-tags #{:something-special}})
 
 (def ^:private account-context
-  {:users [(factory :user #:user{:email "john@doe.com"})]
-   :commodities [#:commodity{:symbol "USD"
-                             :type :currency
-                             :name "US Dollar"
-                             :entity "Personal"}]
-   :entities [#:entity{:name "Personal"
-                       :user "john@doe.com"}]})
+  [(factory :user #:user{:email "john@doe.com"})
+   #:entity{:name "Personal"
+            :user "john@doe.com"}
+   #:commodity{:symbol "USD"
+               :type :currency
+               :name "US Dollar"
+               :entity "Personal"}])
 
 (def ^:private select-context
-  (assoc account-context
-         :accounts [#:account{:name "Credit card"
-                              :entity "Personal"
-                              :type :liability}
-                    #:account{:name "Checking"
-                              :entity "Personal"
-                              :type :asset}]))
+  (concat account-context
+          [#:account{:name "Credit card"
+                     :entity "Personal"
+                     :type :liability
+                     :commodity "USD"}
+           #:account{:name "Checking"
+                     :entity "Personal"
+                     :type :asset
+                     :commodity "USD"}]))
 
 (deftest select-accounts
   (with-context select-context
@@ -116,23 +118,26 @@
     (assert-created (attributes))))
 
 (def ^:private duplicate-name-context
-  (-> select-context
-      (update-in [:entities] conj #:entity{:name "Business"
-                                           :user "john@doe.com"})
-      (update-in [:commodities] conj #:commodity{:symbol "USD"
-                                                 :name "US Dollar"
-                                                 :type :currency
-                                                 :entity "Business"})
-      (update-in [:accounts] concat [#:account{:name "Savings"
-                                               :type :asset
-                                               :entity "Personal"}
-                                     #:account{:name "Household"
-                                               :type :expense
-                                               :entity "Personal"}
-                                     #:account{:name "Repairs"
-                                               :type :expense
-                                               :entity "Personal"
-                                               :parent "Household"}])))
+  (concat select-context
+          [#:entity{:name "Business"
+                    :user "john@doe.com"}
+           #:commodity{:symbol "USD"
+                       :name "US Dollar"
+                       :type :currency
+                       :entity "Business"}
+           #:account{:name "Savings"
+                     :type :asset
+                     :entity "Personal"
+                     :commodity "USD"}
+           #:account{:name "Household"
+                     :type :expense
+                     :entity "Personal"
+                     :commodity "USD"}
+           #:account{:name "Repairs"
+                     :type :expense
+                     :entity "Personal"
+                     :parent "Household"
+                     :commodity "USD"}]))
 
 (deftest name-can-be-duplicated-across-entities
   (with-context duplicate-name-context
@@ -146,11 +151,11 @@
                            :account/name "Household"))))
 
 (def ^:private create-child-context
-  (update-in select-context [:accounts]
-             conj #:account{:name "Savings"
-                            :type :asset
-                            :commodity "USD"
-                            :entity "Personal"}))
+  (concat select-context
+          [#:account{:name "Savings"
+                     :type :asset
+                     :commodity "USD"
+                     :entity "Personal"}]))
 
 (deftest create-a-child-account
   (with-context create-child-context
@@ -221,20 +226,20 @@
           "A retrieved value has the updated attributes"))))
 
 (def same-parent-context
-  (update-in select-context [:accounts]
-             concat [#:account{:name "Current assets"
-                               :type :asset
-                               :entity "Personal"
-                               :commodity "USD"}
-                     #:account{:name "Fixed assets"
-                               :type :asset
-                               :entity "Personal"
-                               :commodity "USD"}
-                     #:account{:name "House"
-                               :type :asset
-                               :parent "Current assets"
-                               :entity "Personal"
-                               :commodity "USD"}]))
+  (concat select-context 
+          [#:account{:name "Current assets"
+                     :type :asset
+                     :entity "Personal"
+                     :commodity "USD"}
+           #:account{:name "Fixed assets"
+                     :type :asset
+                     :entity "Personal"
+                     :commodity "USD"}
+           #:account{:name "House"
+                     :type :asset
+                     :parent "Current assets"
+                     :entity "Personal"
+                     :commodity "USD"}]))
 
 (deftest change-an-account-parent
   (with-context same-parent-context

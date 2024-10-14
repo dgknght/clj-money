@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [find])
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
@@ -83,6 +84,7 @@
 
 (defn- find
   ([context k v & kvs]
+   {:pre [k v]}
    (or (find context (apply kv-pred k v kvs))
        (do
          (pprint {::context context})
@@ -253,34 +255,6 @@
                                                      (get-in model [:account/entity :id]))))
                                     first))
                              (throw (ex-info "Could not resolve commodity" model))))))
-
-(defn- create-account
-  [context attributes]
-  (if (:id attributes)
-    attributes
-    (models/put (-> attributes
-                    (resolve-entity context :account/entity)
-                    (resolve-commodity context :account/commodity)
-                    (resolve-parent)))))
-
-(defn- create-accounts
-  "Creates the specified accounts.
-  
-  Accounts can be a sequence of maps containing account properties,
-  or a map where the keys are account types and the values
-  are vectors of account properties"
-  [context accounts]
-  (let [account-list (if (map? accounts)
-                       (mapcat (fn [[account-type acct-list]]
-                                 (map #(assoc % :type account-type)
-                                      acct-list))
-                               accounts)
-                       accounts)]
-    (mapv #(create-account context %) account-list)))
-
-(defn- realize-accounts
-  [context]
-  (update-in context [:accounts] #(create-accounts context %)))
 
 (defn- resolve-account
   ([model context] (resolve-account model context :account-id))
@@ -573,8 +547,15 @@
 (defmethod prepare :commodity
   [commodity ctx]
   (-> commodity
-      (resolve-entity ctx :commodity/entity)
+      (update-in [:commodity/entity] #(find-entity ctx %))
       (update-in [:commodity/price-config] (fnil identity {:price-config/enabled true}))))
+
+(defmethod prepare :account
+  [account ctx]
+  (-> account
+      (update-in [:account/entity] #(find-entity ctx %))
+      (update-in [:account/commodity] #(find-commodity ctx %))
+      (update-in-if [:account/parent] #(find-account ctx %))))
 
 (defn realize
   "Realizes a test context"

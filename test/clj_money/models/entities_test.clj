@@ -17,15 +17,15 @@
 (use-fixtures :each reset-db)
 
 (def ^:private entity-context
-  {:users [(factory :user {:user/email "john@doe.com"})
-           (factory :user {:user/email "jane@doe.com"})]})
+  [(factory :user {:user/email "john@doe.com"})
+   (factory :user {:user/email "jane@doe.com"})])
 
 (def ^:private list-context
-  (assoc entity-context
-         :entities [#:entity{:name "Personal"
-                             :user "john@doe.com"}
-                    #:entity{:name "Business"
-                             :user "john@doe.com"}]))
+  (concat entity-context
+          [#:entity{:name "Personal"
+                    :user "john@doe.com"}
+           #:entity{:name "Business"
+                    :user "john@doe.com"}]))
 
 (defn- attributes []
   #:entity{:name "Personal"
