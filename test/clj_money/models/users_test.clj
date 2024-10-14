@@ -58,10 +58,10 @@
                   {:user/email ["Email is required"]}))
 
 (def ^:private existing-user-ctx
-  {:users [#:user{:first-name "John"
-                  :last-name "Doe"
-                  :email "john@doe.com"
-                  :password "please01"}]})
+  [#:user{:first-name "John"
+          :last-name "Doe"
+          :email "john@doe.com"
+          :password "please01"}])
 
 (deftest email-is-unique
   (with-context existing-user-ctx
