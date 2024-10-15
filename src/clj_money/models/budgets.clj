@@ -115,9 +115,9 @@
 (defn period-seq
   "Returns a sequence of the java.time.Period instances in the budget based on
   :start-date, :period, :period-count"
-  [budget]
+  [{:as budget :budget/keys [start-date period-count]}]
   (when budget
-    (->> (dates/periodic-seq (:start-date budget)
+    (->> (dates/periodic-seq start-date
                              (get-in period-map
                                      [(:period budget)]
                                      (t/months 1)))
@@ -127,7 +127,7 @@
                          :end (t/minus next-start (t/days 1))
                          :index index
                          :interval (t/period start next-start)}))
-         (take (:period-count budget)))))
+         (take period-count))))
 
 (defn end-date
   [budget]
@@ -137,12 +137,9 @@
       :end
       t/local-date))
 
-(defn- before-save
+(defmethod models/before-save :budget
   [budget]
-  (-> budget
-      (tag ::models/budget)
-      (assoc :end-date (end-date budget))
-      (dissoc :items)))
+  (assoc budget :budget/end-date (end-date budget)))
 
 (defn search
   "Returns a list of budgets matching the specified criteria"
@@ -198,11 +195,11 @@
                         (map #(assoc % :budget-id (:id budget))))]
         (storage/create item)))))
 
-(defn update
-  [budget]
-  {:pre [(:id budget)]}
+(defn ^:deprecated update
+  [_budget]
+  (throw (UnsupportedOperationException. "Use models/put instead"))
 
-  (with-transacted-storage (env :db)
+  #_(with-transacted-storage (env :db)
     (with-validation budget ::budget
       (-> budget
           before-save
@@ -210,7 +207,7 @@
       (update-items budget)
       (find budget))))
 
-(defn find-item-by
+(defn ^:deprecated find-item-by
   "Returns the budget item with the specified id"
   ([criteria]
    (find-item-by criteria {}))
@@ -236,9 +233,10 @@
     (filter #(ids (:account-id %))
             items)))
 
-(defn create
-  [budget]
-  (with-transacted-storage (env :db)
+(defn ^:deprecated create
+  [_budget]
+  (throw (UnsupportedOperationException. "Use models/put instead"))
+  #_(with-transacted-storage (env :db)
     (with-validation budget ::budget
       (let [created (-> budget
                         before-save

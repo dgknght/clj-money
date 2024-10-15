@@ -21,6 +21,9 @@
                                             coerce-id]])
   (:import org.postgresql.util.PGobject))
 
+(defmulti deconstruct db/type-dispatch)
+(defmethod deconstruct :default [m] [m])
+
 (defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m] m)
 
@@ -82,13 +85,16 @@
     ::db/delete (delete-one ds model)
     (throw (ex-info "Invalid operation" {:operation oper}))))
 
+(def ^:private id?
+  (every-pred identity (complement temp-id?)))
+
 (defn- wrap-oper
   "Ensure that what we are passing on is a tuple with a database
   operation in the 1st position and a model in the second."
-  [m]
+  [{:as m :keys [id]}]
   (cond
     (vector? m) m
-    (:id m)     [::db/update m]
+    (id? id)    [::db/update m]
     :else       [::db/insert m]))
 
 (defmulti resolve-temp-ids
@@ -123,6 +129,7 @@
 
   (jdbc/with-transaction [tx ds]
     (->> models
+         (mapcat deconstruct)
          (map (comp #(update-in % [1] before-save)
                     wrap-oper))
          (reduce (partial execute-and-aggregate tx)
