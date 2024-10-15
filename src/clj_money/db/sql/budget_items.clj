@@ -22,6 +22,7 @@
   [budget-item]
   (-> budget-item
       (update-in [:budget-item/periods] ->array)
+      (update-in [:budget-item/spec] sql/->json)
       (->sql-refs)))
 
 (defmethod sql/resolve-temp-ids :budget-item-item
@@ -30,4 +31,6 @@
 
 (defmethod sql/after-read :budget-item
   [budget-item]
-  (->model-refs budget-item))
+  (-> budget-item
+      (->model-refs)
+      (update-in [:budget-item/spec] sql/json->map)))

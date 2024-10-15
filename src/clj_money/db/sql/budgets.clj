@@ -1,5 +1,6 @@
 (ns clj-money.db.sql.budgets
   (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [stowaway.criteria :as criteria]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id]]))
@@ -37,5 +38,6 @@
 (defmethod sql/after-read :budget
   [budget]
   (-> budget
+      (update-in [:budget/start-date] t/local-date)
       (update-in [:budget/period] keyword)
       ->model-refs))
