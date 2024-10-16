@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [stowaway.criteria :as criteria]
+            [clj-money.db :as db]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id]]))
 
@@ -41,3 +42,11 @@
       (update-in [:budget/start-date] t/local-date)
       (update-in [:budget/period] keyword)
       ->model-refs))
+
+(defmethod sql/post-select :budget
+  [storage budgets]
+  (map #(assoc %
+               :budget/items
+               (db/select
+                 storage {:budget-item/budget %} {}))
+       budgets))

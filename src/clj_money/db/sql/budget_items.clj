@@ -1,7 +1,8 @@
 (ns clj-money.db.sql.budget-items
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.criteria :as criteria]
-            [clj-money.db.sql :as sql]))
+            [clj-money.db.sql :as sql])
+  (:import org.postgresql.jdbc.PgArray))
 
 (declare ->sql-refs)
 (sql/def->sql-refs ->sql-refs :budget-item/account)
@@ -29,8 +30,20 @@
   [budget-item-item id-map]
   (update-in budget-item-item [:budget-item-item/budget-item-id] id-map))
 
+(defmulti ^:private extract-bigdec-array type)
+
+(defmethod extract-bigdec-array :default
+  [x]
+  (into [] x))
+
+(defmethod extract-bigdec-array PgArray
+  [^PgArray pg-arr]
+  (into [] (.getArray pg-arr)))
+
 (defmethod sql/after-read :budget-item
   [budget-item]
   (-> budget-item
       (->model-refs)
-      (update-in [:budget-item/spec] sql/json->map)))
+      (update-in [:budget-item/spec] sql/json->map)
+      (update-in [:budget-item/periods] extract-bigdec-array)
+      (dissoc :budget-item/budget-id)))

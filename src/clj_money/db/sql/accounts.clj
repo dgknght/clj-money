@@ -2,7 +2,6 @@
   (:require [clojure.pprint :refer [pprint]]
             [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if parse-int]]
-            [cheshire.parse :as parse]
             [clj-money.db.sql :as sql])
   (:import org.postgresql.jdbc.PgArray))
 

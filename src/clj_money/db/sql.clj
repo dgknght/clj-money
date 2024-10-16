@@ -33,6 +33,12 @@
 (defmulti prepare-criteria db/model-type)
 (defmethod prepare-criteria :default [m] m)
 
+(defmulti post-select
+  (fn [_storage ms]
+    (when-let [fst (first ms)]
+      (db/model-type fst))))
+(defmethod post-select :default [_ ms] ms)
+
 (def ^:private infer-table-name
   (comp keyword
         plural
@@ -176,11 +182,13 @@
       (jdbc/execute-one! ds
                          query
                          jdbc/unqualified-snake-kebab-opts)
-      (map (comp after-read
-                 refine-qualifiers)
-           (jdbc/execute! ds
-                          query
-                          jdbc/snake-kebab-opts)))))
+      (post-select
+        (:storage options)
+        (map (comp after-read
+                   refine-qualifiers)
+             (jdbc/execute! ds
+                            query
+                            jdbc/snake-kebab-opts))))))
 
 (defn- delete*
   [ds models]
@@ -201,7 +209,7 @@
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
       (put [_ models] (put* ds models))
-      (select [_ criteria options] (select* ds criteria options))
+      (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ models] (delete* ds models))
       (close [_]) ; this is a no-op for next-jdbc
       (reset [_] (reset* ds)))))
