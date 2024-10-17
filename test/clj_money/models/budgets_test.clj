@@ -40,22 +40,21 @@
   (with-context basic-context
     (assert-created (attributes))))
 
-; (deftest entity-id-is-required
-;   (let [context (realize budget-context)]
-;     (is (invalid? (budgets/create (dissoc (attributes context) :entity-id))
-;                   [:entity-id]
-;                   "Entity is required"))))
-; 
-; (deftest name-is-required
-;   (let [context (realize budget-context)
-;         result (budgets/create  (dissoc (attributes context) :name))]
-;     (is (invalid? result [:name] "Name is required"))))
-; 
-; (deftest start-date-is-required
-;   (let [context (realize budget-context)
-;         result (budgets/create (dissoc (attributes context) :start-date))]
-;     (is (invalid? result [:start-date] "Start date is required"))))
-; 
+(deftest entity-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/entity)
+                    {:budget/entity ["Entity is required"]})))
+
+(deftest name-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/name)
+                    {:budget/name ["Name is required"]})))
+
+(deftest start-date-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/start-date)
+                    {:budget/start-date ["Start date is required"]})))
+
 ; (deftest period-is-required
 ;   (let [context (realize budget-context)
 ;         result (budgets/create (dissoc (attributes context) :period))]
