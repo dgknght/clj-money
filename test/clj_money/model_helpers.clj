@@ -1,16 +1,32 @@
 (ns clj-money.model-helpers
   (:require [clojure.test :refer [is]]
+            [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
+            [clj-money.util :as util]
             [clj-money.models :as models]))
+
+(defmulti ^:private simplify-refs util/type-dispatch)
+
+(defmethod simplify-refs :default
+  [x _]
+  x)
+
+(defmethod simplify-refs ::util/map
+  [model refs]
+  (reduce #(update-in-if %1 [%2] select-keys [:id])
+          (update-vals model #(simplify-refs % refs))
+          refs))
+
+(defmethod simplify-refs ::util/vector
+  [models refs]
+  (mapv #(simplify-refs % refs) models))
 
 (defn assert-created
   [attr & {:keys [refs] :or {refs []}}]
   (let [result (models/put attr)
-        expected (reduce #(update-in-if %1 [%2] select-keys [:id])
-                         attr
-                         refs)]
+        expected (simplify-refs attr refs)]
     (is (comparable? expected result)
         "The result matches the input")
     (is (comparable? expected (models/find result))

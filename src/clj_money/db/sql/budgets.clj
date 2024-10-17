@@ -47,18 +47,20 @@
   [storage budgets]
   (map #(assoc %
                :budget/items
-               (db/select
-                 storage {:budget-item/budget %} {}))
+               (vec (db/select
+                      storage {:budget-item/budget %} {})))
        budgets))
 
 (defmethod sql/reconstruct :budget
   [models]
   ; This logic assume the order established in deconstruct is maintained
-  (:budgets (reduce (fn [{:keys [current] :as res} mod]
-                      (if (:budget/name mod)
-                        (cond-> (assoc res :current mod)
-                          current (update-in [:budgets] conj current))
-                        (update-in res [:current :budget/items] (fnil conj []) mod)))
-                    {:current nil
-                     :budgets []}
-                    models)))
+  (let [{:keys [current budgets]}
+        (reduce (fn [{:keys [current] :as res} mod]
+                  (if (:budget/name mod)
+                    (cond-> (assoc res :current mod)
+                      current (update-in [:budgets] conj current))
+                    (update-in res [:current :budget/items] (fnil conj []) mod)))
+                {:current nil
+                 :budgets []}
+                models)]
+    (conj budgets current)))

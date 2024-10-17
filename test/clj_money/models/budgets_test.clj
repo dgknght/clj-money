@@ -34,7 +34,7 @@
 
 (defn- assert-created
   [attr]
-  (helpers/assert-created attr :refs [:budget/entity]))
+  (helpers/assert-created attr :refs [:budget/entity :budget-item/account]))
 
 (deftest create-a-budget
   (with-context basic-context

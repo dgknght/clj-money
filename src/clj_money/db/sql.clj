@@ -5,6 +5,7 @@
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
             [cheshire.core :as json]
+            [cheshire.generate :refer [add-encoder]]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
@@ -20,6 +21,11 @@
             [clj-money.db.sql.types :refer [temp-id?
                                             coerce-id]])
   (:import org.postgresql.util.PGobject))
+
+(add-encoder
+  BigDecimal
+  (fn [d gen]
+    (.writeString gen (format "%.2f" d))))
 
 (defmulti deconstruct db/type-dispatch)
 (defmethod deconstruct :default [m] [m])
