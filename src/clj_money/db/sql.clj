@@ -24,6 +24,12 @@
 (defmulti deconstruct db/type-dispatch)
 (defmethod deconstruct :default [m] [m])
 
+(defmulti reconstruct
+  (fn [ms]
+    (when-let [m1 (first ms)]
+      (db/model-type m1))))
+(defmethod reconstruct :default [ms] ms)
+
 (defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m] m)
 
@@ -35,8 +41,8 @@
 
 (defmulti post-select
   (fn [_storage ms]
-    (when-let [fst (first ms)]
-      (db/model-type fst))))
+    (when-let [m1 (first ms)]
+      (db/model-type m1))))
 (defmethod post-select :default [_ ms] ms)
 
 (def ^:private infer-table-name
@@ -142,7 +148,8 @@
                  {:saved []
                   :id-map {}})
          :saved
-         (map after-read))))
+         (map after-read)
+         (reconstruct))))
 
 (defn- id-key
   [x]
