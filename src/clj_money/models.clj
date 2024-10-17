@@ -9,22 +9,22 @@
 (s/def ::exchange #{:nyse :nasdaq :amex :otc})
 (s/def ::model-ref (s/and map? #(contains? % :id)))
 
-(defmulti prepare-criteria db/model-type-dispatch)
+(defmulti prepare-criteria db/type-dispatch)
 (defmethod prepare-criteria :default [m] m)
 
-(defmulti deconstruct db/model-type-dispatch)
+(defmulti deconstruct db/type-dispatch)
 (defmethod deconstruct :default [m] [m])
 
-(defmulti before-validation db/model-type-dispatch)
+(defmulti before-validation db/type-dispatch)
 (defmethod before-validation :default [m & _] m)
 
-(defmulti before-save db/model-type-dispatch)
+(defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m & _] m)
 
-(defmulti after-save db/model-type-dispatch)
+(defmulti after-save db/type-dispatch)
 (defmethod after-save :default [m & _] m)
 
-(defmulti after-read db/model-type-dispatch)
+(defmulti after-read db/type-dispatch)
 (defmethod after-read :default [m & _] m)
 
 (defn- validate
