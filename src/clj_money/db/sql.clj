@@ -127,17 +127,18 @@
   model)
 
 (defn- execute-and-aggregate
-  "Executes the database operation, saves the result and
-  updates the id map for resolving temporary ids"
-  [ds {:as result :keys [id-map]} [operator m]]
-  (let [id-resolved (cond-> m
-                      (seq id-map) (resolve-temp-ids id-map)
-                      (temp-id? m) (dissoc :id))
-        saved (put-one ds [operator id-resolved])]
-    (cond-> (update-in result [:saved] conj (assoc id-resolved :id saved))
-      (temp-id? m)
-      (assoc-in [:id-map (:id m)]
-                saved))))
+  "Returns a function that executes the database operation, saves the result
+  and updates the id map for resolving temporary ids"
+  [ds]
+  (fn [{:as result :keys [id-map]} [operator m]]
+    (let [id-resolved (cond-> m
+                        (seq id-map) (resolve-temp-ids id-map)
+                        (temp-id? m) (dissoc :id))
+          saved (put-one ds [operator id-resolved])]
+      (cond-> (update-in result [:saved] conj (assoc id-resolved :id saved))
+        (temp-id? m)
+        (assoc-in [:id-map (:id m)]
+                  saved)))))
 
 (s/def ::operation #{::db/insert ::db/update ::db/delete})
 (s/def ::putable (s/or :map map?
@@ -151,7 +152,7 @@
          (mapcat deconstruct)
          (map (comp #(update-in % [1] before-save)
                     wrap-oper))
-         (reduce (partial execute-and-aggregate tx)
+         (reduce (execute-and-aggregate tx)
                  {:saved []
                   :id-map {}})
          :saved
