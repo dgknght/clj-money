@@ -129,36 +129,30 @@
              (:budget-item/periods (find-item-by-account retrieved salary)))
           "The retrieved value has the updated items"))))
 
-; (deftest budget-item-requires-account-id
-;     (let [context (realize budget-context)
-;           attr (update-in (attributes context)
-;                           [:items 0]
-;                           dissoc
-;                           :account-id)
-;           result (budgets/create attr)]
-;       (is (invalid? result [:items 0 :account-id] "Account is required"))))
-; 
-; (deftest budget-item-account-must-belong-to-budget-entity
-;     (let [context (realize budget-context)
-;           account (find-account context "Sales")
-;           attributes (update-in (attributes context)
-;                                 [:items 0]
-;                                 assoc
-;                                 :account-id
-;                                 (:id account))
-;           result (budgets/create attributes)]
-;       (is (invalid? result [:items] "All accounts must belong to the budget entity"))))
-; 
-; (deftest budget-item-has-same-period-count-as-budget
-;     (let [context (realize budget-context)
-;           attributes (update-in (attributes context)
-;                                 [:items 0]
-;                                 assoc
-;                                 :periods
-;                                 [100M])
-;           result (budgets/create attributes)]
-;       (is (invalid? result [:items] "All items must have a number of periods that matches the budget period count"))))
-; 
+(deftest budget-item-requires-an-account
+  (with-context
+    (assert-invalid (update-in (attributes)
+                               [:budget/items 0]
+                               dissoc
+                               :budget-item/account)
+                    {:budget/items {0 {:budget-item/account ["Account is required"]}}})))
+
+(deftest budget-item-account-must-belong-to-budget-entity
+  (with-context
+    (assert-invalid (assoc-in (attributes)
+                              [:budget/items 0 :budget-item/account]
+                              (find-account "Sales")) ; Sales is in the Business entity
+                    {:budget/items ["All accounts must belong to the budget entity"]})))
+
+(deftest budget-item-has-same-period-count-as-budget
+  (with-context
+    (assert-invalid
+      (assoc-in (attributes)
+                [:budget/items 0 :budget-item/periods]
+                [100M])
+      {:budget/items
+       ["All items must have a number of periods that matches the budget period count"]})))
+
 ; ;; Periods
 ; 
 ; ; TODO: Move these to cljc?

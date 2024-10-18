@@ -21,18 +21,15 @@
   [{:budget/keys [entity items]}]
   (if (seq items)
     (when entity
-      (when-let [account-ids (->> items
-                                  (map :budget-item/account)
+      (when-let [accounts (->> items
+                                  (map (comp :id :budget-item/account))
                                   (filter identity)
                                   seq)]
-        (let [entities (->> (models/select
-                              (db/model-type
-                                {:id [:in account-ids]}
-                                :account))
-                            (map :account/entity)
+        (let [entities (->> (models/find-many accounts :account)
+                            (map (comp :id :account/entity))
                             set)]
           (and (= 1 (count entities))
-               (entities entity)))))
+               (entities (:id entity))))))
     true))
 
 (v/reg-spec all-accounts-belong-to-budget-entity?
@@ -43,7 +40,7 @@
   [{:budget/keys [items period-count]}]
   (if (seq items)
     (let [item-period-counts (->> items
-                                  (map (comp count :budget/periods))
+                                  (map (comp count :budget-item/periods))
                                   set)]
       (and (= 1 (count item-period-counts))
            (item-period-counts period-count)))
@@ -72,8 +69,8 @@
                                             :budget/period-count
                                             :budget/entity]
                                       :opt [:budget/items])
-                              #_all-accounts-belong-to-budget-entity?
-                              #_period-counts-match?))
+                              all-accounts-belong-to-budget-entity?
+                              period-counts-match?))
 
 (defn default-start-date
   []
