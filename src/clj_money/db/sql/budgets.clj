@@ -40,6 +40,7 @@
   [budget]
   (-> budget
       (update-in [:budget/start-date] t/local-date)
+      (update-in [:budget/end-date] t/local-date)
       (update-in [:budget/period] keyword)
       ->model-refs))
 
