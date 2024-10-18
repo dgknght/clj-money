@@ -3,6 +3,7 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.validation :as v]
+            [dgknght.app-lib.models :refer [->id]]
             [clj-money.util :as util]
             [clj-money.db :as db]))
 
@@ -51,6 +52,11 @@
   ([criteria] (find-by criteria {}))
   ([criteria options]
    (first (select criteria (assoc options :limit 1)))))
+
+(defn find-many
+  [m-or-ids model-type]
+  (select (db/model-type {:id [:in (mapv ->id m-or-ids)]}
+                         model-type)))
 
 (defn find
   ([{:keys [id] :as m}]
