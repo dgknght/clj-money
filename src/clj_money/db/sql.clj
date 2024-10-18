@@ -6,6 +6,7 @@
             [clojure.spec.alpha :as s]
             [cheshire.core :as json]
             [cheshire.generate :refer [add-encoder]]
+            [camel-snake-kebab.core :refer [->snake_case_keyword]]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
@@ -54,7 +55,7 @@
 (defmethod post-select :default [_ ms] ms)
 
 (def ^:private infer-table-name
-  (comp keyword
+  (comp ->snake_case_keyword
         plural
         util/qualifier))
 
