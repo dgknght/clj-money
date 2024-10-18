@@ -1,5 +1,6 @@
 (ns clj-money.models.budgets-test
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.db.sql.ref]
@@ -38,7 +39,12 @@
 
 (deftest create-a-budget
   (with-context basic-context
-    (assert-created (attributes))))
+    (let [created (assert-created (attributes))]
+      (is (every? :id (:budget/items created))
+          "The items have id values")
+      (is (t/= (t/local-date 2016 3 31)
+               (:budget/end-date created))
+          "The end date is calculated and included in the result"))))
 
 (deftest entity-is-required
   (with-context
@@ -93,6 +99,12 @@
   (with-context existing-context
     (assert-deleted (find-budget "2016"))))
 
+(defn- find-item-by-account
+  [{:budget/keys [items]} {:keys [id]}]
+  (->> items
+       (filter #(= id (get-in % [:budget-item/account :id])))
+       first))
+
 (deftest update-a-budget
   (with-context existing-context
     (let [budget (find-budget "2016")
@@ -105,22 +117,16 @@
           expected #:budget{:name "edited"
                             :start-date (t/local-date 2015 1 1)
                             :end-date (t/local-date 2015 12 31)}
-          retrieved (budgets/find budget)]
+          retrieved (models/find budget)]
       (is (comparable? expected result)
           "The return value has the updated attributes")
       (is (= (repeat 12 1100M)
-             (->> (:budget/items result)
-                  (filter #(= (:id salary)
-                              (get-in % [:budget-item/account :id])))
-                  (map :budget-item/periods)))
+             (:budget-item/periods (find-item-by-account result salary)))
           "The returned value reflects the updated items")
       (is (comparable? expected retrieved)
           "The retrieved value has the updated attributes")
       (is (= (repeat 12 1100M)
-             (->> (:budget/items retrieved)
-                  (filter #(= (:id salary)
-                              (get-in % [:budget-item/account :id])))
-                  (map :budget-item/periods)))
+             (:budget-item/periods (find-item-by-account retrieved salary)))
           "The retrieved value has the updated items"))))
 
 ; (deftest budget-item-requires-account-id
