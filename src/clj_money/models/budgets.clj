@@ -151,7 +151,7 @@
           (storage/select (tag criteria ::models/budget)
                           options)))))
 
-(defn find-by
+(defn ^:deprecated find-by
   ([criteria]
    (find-by criteria {}))
   ([criteria options]
@@ -159,19 +159,19 @@
                                   options
                                   {:limit 1})))))
 
-(defn find
+(defn ^:deprecated find
   "Returns the specified budget"
   [budget-or-id]
-  (find-by {:id (->id budget-or-id)}))
+  (throw (UnsupportedOperationException. "find is deprecated")))
 
 (defn find-by-date
   "Returns the budget containing the specified date"
-  [entity-id date]
-  (find-by {:start-date [:<= date]
-            :end-date [:>= date]
-            :entity-id entity-id}))
+  [entity date]
+  (models/find-by #:budget{:start-date [:<= date]
+                           :end-date [:>= date]
+                           :entity entity}))
 
-(defn reload
+(defn ^:deprecated reload
   "Returns the lastest version of the specified budget from the data store"
   [budget]
   (find budget))
