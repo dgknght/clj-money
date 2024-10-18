@@ -6,15 +6,13 @@
             [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage
-                                                   with-transacted-storage]]
+            [stowaway.implicit :as storage :refer [with-storage]]
             [dgknght.app-lib.core :refer [update-in-if
                                           assoc-if]]
-            [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-validation]]
-            [clj-money.db :as db]
+            [dgknght.app-lib.validation :as v]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
+            [clj-money.budgets :as budgets]
             [clj-money.models.accounts :as accounts]))
 
 (defn- all-accounts-belong-to-budget-entity?
@@ -72,11 +70,6 @@
                               all-accounts-belong-to-budget-entity?
                               period-counts-match?))
 
-(defn default-start-date
-  []
-  (let [now (t/instant)]
-    (t/local-date (+ 1 (t/year now)) 1 1)))
-
 (defn- after-item-read
   [item]
   (-> item
@@ -104,39 +97,9 @@
          (update-in [:end-date] t/local-date)
          (update-in [:period] keyword)))))
 
-(def period-map
-  {:month (t/months 1)
-   :week (t/weeks 1)
-   :quarter (t/months 3)})
-
-(defn period-seq
-  "Returns a sequence of the java.time.Period instances in the budget based on
-  :start-date, :period, :period-count"
-  [{:as budget :budget/keys [start-date period-count]}]
-  (when budget
-    (->> (dates/periodic-seq start-date
-                             (get-in period-map
-                                     [(:period budget)]
-                                     (t/months 1)))
-         (partition 2 1)
-         (map-indexed (fn [index [start next-start]]
-                        {:start start
-                         :end (t/minus next-start (t/days 1))
-                         :index index
-                         :interval (t/period start next-start)}))
-         (take period-count))))
-
-(defn end-date
-  [budget]
-  (-> budget
-      period-seq
-      last
-      :end
-      t/local-date))
-
 (defmethod models/before-save :budget
   [budget]
-  (assoc budget :budget/end-date (end-date budget)))
+  (assoc budget :budget/end-date (budgets/end-date budget)))
 
 (defn search
   "Returns a list of budgets matching the specified criteria"
@@ -158,7 +121,7 @@
 
 (defn ^:deprecated find
   "Returns the specified budget"
-  [budget-or-id]
+  [_budget-or-id]
   (throw (UnsupportedOperationException. "find is deprecated")))
 
 (defn find-by-date
@@ -167,11 +130,6 @@
   (models/find-by #:budget{:start-date [:<= date]
                            :end-date [:>= date]
                            :entity entity}))
-
-(defn ^:deprecated reload
-  "Returns the lastest version of the specified budget from the data store"
-  [budget]
-  (find budget))
 
 (defn- update-items
   [{:keys [items] :as budget}]
@@ -256,28 +214,9 @@
   (with-storage (env :db)
     (storage/delete item)))
 
-(defn- within-period?
-  "Returns a boolean value indicating whether or not
-  the specified date is in the specified period"
-  [period date]
-  (dates/within?
-    date
-    [(:start period)
-     (:end period)]))
-
-(defn period-containing
-  "Returns the budget period containing the specified date
-
-  This is a map containing :start-date, :end-date, :index, etc."
-  [budget date]
-  (->> (period-seq budget)
-       (map-indexed #(assoc %2 :index %1))
-       (filter #(within-period? % date))
-       first))
-
 (defn percent-of-period
   [budget as-of]
-  (let [period (period-containing budget as-of)
+  (let [period (budgets/period-containing budget as-of)
         days-in-period (inc (dates/days-between (:start period) (:end period)))
         days (inc (dates/days-between (:start period)
                                       as-of))]

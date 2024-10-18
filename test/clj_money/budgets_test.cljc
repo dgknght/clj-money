@@ -3,6 +3,8 @@
                :cljs [cljs.test :refer [deftest is testing]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [clj-money.util :as util]
+            [clj-money.dates :as dates]
             [clj-money.budgets :as budgets]))
 
 (deftest get-a-period-description
@@ -153,3 +155,69 @@
   (is (= expected-categorized-rendering
          (budgets/render budget {:find-account accounts
                                  :tags [:mandatory :discretionary]}))))
+
+(deftest get-a-budget-end-date
+  (testing "a monthly budget"
+    (is (dates/equal? (t/local-date 2017 12 31)
+                      (budgets/end-date #:budget{:period :month
+                                                 :period-count 12
+                                                 :start-date (t/local-date 2017 1 1)}))
+        "It returns the last date of the last month"))
+  (testing "a weekly budget"
+    (is (dates/equal? (t/local-date 2017 2 4)
+                      (budgets/end-date #:budget{:period :week
+                                                 :period-count 5
+                                                 :start-date (t/local-date 2017 1 1)}))
+        "It returns the last date of the last week")))
+
+(deftest get-the-index-of-the-period-containing-a-date
+  (let [all-tests [{:period :month
+                    :tests [{:date (t/local-date 2017 1 1)
+                             :expected 0}
+                            {:date (t/local-date 2017 1 31)
+                             :expected 0}
+                            {:date (t/local-date 2017 2 1)
+                             :expected 1}
+                            {:date (t/local-date 2017 2 28)
+                             :expected 1}
+                            {:date (t/local-date 2017 3 1)
+                             :expected 2}
+                            {:date (t/local-date 2017 12 31)
+                             :expected 11}
+                            {:date (t/local-date 2016 12 31)
+                             :expected nil}
+                            {:date (t/local-date 2018 1 1)
+                             :expected nil}]}
+                   {:period :week
+                    :tests [{:date (t/local-date 2017 1 1)
+                             :expected 0}
+                            {:date (t/local-date 2017 1 7)
+                             :expected 0}
+                            {:date (t/local-date 2017 1 8)
+                             :expected 1}
+                            {:date (t/local-date 2017 3 25)
+                             :expected 11}
+                            {:date (t/local-date 2016 12 31)
+                             :expected nil}
+                            {:date (t/local-date 2017 3 26)
+                             :expected nil}]}]
+        budget #:budget{:start-date (t/local-date 2017 1 1)
+                        :period-count 12}]
+    (doseq [{:keys [period tests]} all-tests]
+      (testing (util/format "period %s" period)
+        (doseq [{:keys [date expected]} tests]
+          (is (= expected (:index (budgets/period-containing
+                                    (assoc budget :budget/period period)
+                                    date)))
+              (util/format "Given a budget starting on 1/1/2017, %s produces %s" date expected)))))
+
+    (testing "monthly budget"
+      (is (= 3 (:index (budgets/period-containing
+                         (assoc budget :budget/period :month)
+                         (t/local-date 2017 4 3))))
+          "It returns the index of the period containing the date"))
+    (testing "weekly budget"
+      (is (= 3 (:index (budgets/period-containing
+                         (assoc budget :budget/period :week)
+                         (t/local-date 2017 1 25))))
+          "It returns the index of the period containing the date"))))

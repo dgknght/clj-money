@@ -1,6 +1,7 @@
 (ns clj-money.util
-  (:refer-clojure :exclude [abs])
+  (:refer-clojure :exclude [abs format])
   (:require [clojure.string :as string]
+            #?(:cljs [goog.string])
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
@@ -22,6 +23,11 @@
 (derive #?(:clj clojure.lang.MapEntry
            :cljs cljs.core/MapEntry)
         ::map-entry)
+
+(defn format
+  [msg & args]
+  #?(:clj (apply clojure.core/format msg args)
+     :cljs (goog.string/format msg args)))
 
 (defn type-dispatch [x & _] (type x))
 

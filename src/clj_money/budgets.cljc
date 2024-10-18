@@ -4,6 +4,7 @@
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.inflection :refer [title-case]]
+            [clj-money.dates :as dates]
             [clj-money.accounts :as acts]
             [clj-money.transactions :as txns]
             #?(:clj [java-time.api :as t]
@@ -158,3 +159,55 @@
   (->> trx-items
        (group-by :account-id)
        (map #(->budget-item % budget start-date (t/minus end-date (t/days 1))))))
+
+(def ^:private period-map
+  {:month (t/months 1)
+   :week (t/weeks 1)
+   :quarter (t/months 3)})
+
+(defn- period-seq
+  "Returns a sequence of the java.time.Period instances in the budget based on
+  :start-date, :period, :period-count"
+  [{:as budget :budget/keys [start-date period-count period]}]
+  {:pre [(:budget/start-date budget)
+         (:budget/period-count budget)
+         (:budget/period budget)]}
+
+  (when budget
+    (->> (dates/periodic-seq start-date
+                             (get-in period-map
+                                     [period]
+                                     (t/months 1)))
+         (partition 2 1)
+         (map-indexed (fn [index [start next-start]]
+                        {:start start
+                         :end (t/minus next-start (t/days 1))
+                         :index index
+                         :interval (t/period start next-start)}))
+         (take period-count))))
+
+(defn end-date
+  [budget]
+  (-> budget
+      period-seq
+      last
+      :end))
+
+(defn- within-period?
+  "Returns a boolean value indicating whether or not
+  the specified date is in the specified period"
+  [period date]
+  (dates/within?
+    date
+    [(:start period)
+     (:end period)]))
+
+(defn period-containing
+  "Returns the budget period containing the specified date
+
+  This is a map containing :start-date, :end-date, :index, etc."
+  [budget date]
+  (->> (period-seq budget)
+       (map-indexed #(assoc %2 :index %1))
+       (filter #(within-period? % date))
+       first))
