@@ -564,15 +564,25 @@
 (defmethod prepare :transaction
   [trx ctx]
   (-> trx
-      (update-in [:transaction/items]
-                 (fn [items]
-                   (map (fn [item]
-                          (-> item
-                              (update-in [:transaction-item/account]
-                                         #(find-account ctx %))))
-                        items)))
+      (update-in [:transaction/items] (fn [i] (map #(prepare % ctx) i)))
       expand
       (update-in [:transaction/entity] #(find-entity ctx %))))
+
+(defmethod prepare :transaction-item
+  [item ctx]
+  (update-in item
+             [:transaction-item/account]
+             #(find-account ctx %)))
+
+(defmethod prepare :budget
+  [budget ctx]
+  (-> budget
+      (update-in [:budget/entity] #(find-entity ctx %))
+      (update-in [:budget/items] (fn [i] (map #(prepare % ctx) i)))))
+
+(defmethod prepare :budget-item
+  [item ctx]
+  (update-in item [:budget-item/account] #(find-account ctx %)))
 
 (defn realize
   "Realizes a test context"

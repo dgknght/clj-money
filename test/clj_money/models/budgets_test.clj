@@ -3,11 +3,11 @@
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.db.sql.ref]
+            [clj-money.models :as models]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
-                                                         assert-updated]]
+                                                         assert-deleted]]
             [clj-money.models.budgets :as budgets]
             [clj-money.test-context :refer [with-context
-                                            realize
                                             basic-context
                                             find-entity
                                             find-account
@@ -55,85 +55,74 @@
     (assert-invalid (dissoc (attributes) :budget/start-date)
                     {:budget/start-date ["Start date is required"]})))
 
-; (deftest period-is-required
-;   (let [context (realize budget-context)
-;         result (budgets/create (dissoc (attributes context) :period))]
-;     (is (invalid? result [:period] "Period is required"))))
-; 
-; (deftest period-must-be-week-month-or-quarter
-;   (let [context (realize budget-context)
-;         result (budgets/create (assoc (attributes context) :period :not-a-period))]
-;     (is (invalid? result [:period] "Period must be week or month"))))
-; 
-; (deftest period-count-is-required
-;   (let [context (realize budget-context)
-;         result (budgets/create (dissoc (attributes context) :period-count))]
-;     (is (invalid? result [:period-count] "Period count is required"))))
-; 
-; (deftest period-count-must-be-greater-than-zero
-;   (let [context (realize budget-context)
-;         result (budgets/create (assoc (attributes context) :period-count 0))]
-;     (is (invalid? result [:period-count] "Period count must be greater than zero"))))
-; 
-; (def delete-context
-;   (assoc budget-context
-;          :budgets [{:name "2016"
-;                     :period :month
-;                     :period-count 12
-;                     :start-date (t/local-date 2016 1 1)
-;                     :items [{:account-id "Salary"
-;                              :periods (repeat 12 1000M)}
-;                             {:account-id "Rent"
-;                              :periods (repeat 12 500M)}
-;                             {:account-id "Groceries"
-;                              :periods (repeat 12 100M)}]}]))
-; 
-; (deftest delete-a-budget
-;   (let [context (realize delete-context)
-;         budget (-> context :budgets first)
-;         entity (-> context :entities first)]
-;     (is (= 1
-;            (count (budgets/search {:entity-id (:id entity)})))
-;         "The budget is returned before delete")
-;     (budgets/delete budget)
-;     (is (= 0
-;            (count (budgets/search {:entity-id (:id entity)})))
-;         "The budget is absent after delete")))
-; 
-; (deftest update-a-budget
-;   (let [ctx (realize delete-context)
-;         budget (find-budget ctx "2016")
-;         salary (find-account ctx "Salary")
-;         result (budgets/update
-;                 (-> budget
-;                     (assoc :name "edited")
-;                     (assoc :start-date (t/local-date 2015 1 1))
-;                     (assoc-in [:items 0 :periods] (repeat 12 1100M))))
-;         retrieved (budgets/find budget)]
-;     (is (valid? result))
-;     (is (= "edited" (:name result))
-;         "The returned value reflects the update")
-;     (is (= (t/local-date 2015 12 31)
-;            (:end-date result))
-;         "the returned value reflects the recalculated end date")
-;     (is (= (repeat 12 1100M)
-;            (->> (:items result)
-;                 (filter #(= (:id salary) (:account-id %)))
-;                 (map :periods)
-;                 first))
-;         "The returned value reflects the updated items")
-;     (is (= "edited" (:name retrieved))
-;         "The retrieved value reflects the updated")
-;     (is (= (t/local-date 2015 12 31)
-;            (:end-date retrieved))
-;         "The retrieved value reflects the recalculated end date")
-;     (is (= (repeat 12 1100M)
-;            (->> (:items retrieved)
-;                 (filter #(= (:id salary)  (:account-id %)))
-;                 (map :periods)
-;                 first))
-;         "The retrieved value reflects the updated items")))
-; 
+(deftest period-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/period)
+                    {:budget/period ["Period is required"]})))
+
+(deftest period-must-be-week-month-or-quarter
+  (with-context
+    (assert-invalid (assoc (attributes) :budget/period :not-a-period)
+                    {:budget/period ["Period must be week or month"]})))
+
+(deftest period-count-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :budget/period-count)
+                    {:budget/period-count ["Period count is required"]})))
+
+(deftest period-count-must-be-greater-than-zero
+  (with-context
+    (assert-invalid (assoc (attributes) :budget/period-count 0)
+                    {:budget/period-count ["Period count must be greater than zero"]})))
+
+(def existing-context
+  (conj basic-context
+        #:budget{:name "2016"
+                 :entity "Personal"
+                 :period :month
+                 :period-count 12
+                 :start-date (t/local-date 2016 1 1)
+                 :items [#:budget-item{:account "Salary"
+                                       :periods (repeat 12 1000M)}
+                         #:budget-item{:account "Rent"
+                                       :periods (repeat 12 500M)}
+                         #:budget-item{:account "Groceries"
+                                       :periods (repeat 12 100M)}]}))
+
+(deftest delete-a-budget
+  (with-context existing-context
+    (assert-deleted (find-budget "2016"))))
+
+(deftest update-a-budget
+  (with-context existing-context
+    (let [budget (find-budget "2016")
+          salary (find-account "Salary")
+          result (models/put
+                   (-> budget
+                       (assoc :budget/name "edited")
+                       (assoc :budget/start-date (t/local-date 2015 1 1))
+                       (assoc-in [:budget/items 0 :budget-item/periods] (repeat 12 1100M))))
+          expected #:budget{:name "edited"
+                            :start-date (t/local-date 2015 1 1)
+                            :end-date (t/local-date 2015 12 31)}
+          retrieved (budgets/find budget)]
+      (is (comparable? expected result)
+          "The return value has the updated attributes")
+      (is (= (repeat 12 1100M)
+             (->> (:budget/items result)
+                  (filter #(= (:id salary)
+                              (get-in % [:budget-item/account :id])))
+                  (map :budget-item/periods)))
+          "The returned value reflects the updated items")
+      (is (comparable? expected retrieved)
+          "The retrieved value has the updated attributes")
+      (is (= (repeat 12 1100M)
+             (->> (:budget/items retrieved)
+                  (filter #(= (:id salary)
+                              (get-in % [:budget-item/account :id])))
+                  (map :budget-item/periods)))
+          "The retrieved value has the updated items"))))
+
 ; (deftest budget-item-requires-account-id
 ;     (let [context (realize budget-context)
 ;           attr (update-in (attributes context)

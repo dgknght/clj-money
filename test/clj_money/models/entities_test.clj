@@ -9,7 +9,8 @@
                                             find-entity]]
             [clj-factory.core :refer [factory]]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
-                                                         assert-updated]]
+                                                         assert-updated
+                                                         assert-deleted]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
@@ -84,10 +85,7 @@
 
 (deftest delete-an-entity
   (with-context list-context
-    (let [entity (find-entity "Personal")]
-      (models/delete entity)
-      (is (nil? (models/find entity))
-          "The entity is not returned after delete"))))
+    (assert-deleted (find-entity "Personal"))))
 
 (deftest inventory-method-can-be-lifo
   (with-context entity-context

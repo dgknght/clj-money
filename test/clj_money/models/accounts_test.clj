@@ -12,7 +12,8 @@
                                             find-commodity
                                             find-account]]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
-                                                         assert-updated]]
+                                                         assert-updated
+                                                         assert-deleted]]
             [clj-money.models :as models]
             [clj-money.test-helpers :refer [reset-db]]))
 
@@ -244,7 +245,4 @@
 
 (deftest delete-an-account
   (with-context select-context
-    (let [account (find-account "Checking")]
-      (models/delete account)
-      (is (nil? (models/find account))
-          "The account cannot be retrieved after delete."))))
+    (assert-deleted (find-account "Checking"))))

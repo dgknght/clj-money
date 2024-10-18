@@ -42,6 +42,13 @@
     (is (comparable? attr (models/find model))
         "The retrieved value contains the updated attributes")))
 
+(defn assert-deleted
+  [model]
+  {:pre [model (:id model)]}
+  (models/delete model)
+  (is (nil? (models/find model))
+      "The model cannot be retrieved after being deleted"))
+
 (defn assert-invalid
   [attr errors]
   (is (thrown-with-ex-data?

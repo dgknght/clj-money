@@ -27,7 +27,9 @@
   (fn [d gen]
     (.writeString gen (format "%.2f" d))))
 
-(defmulti deconstruct db/type-dispatch)
+(defmulti deconstruct (fn [x]
+                        (when-not (vector? x)
+                          (db/model-type x))))
 (defmethod deconstruct :default [m] [m])
 
 (defmulti reconstruct
@@ -144,7 +146,6 @@
 (defn- put*
   [ds models]
   {:pre [(s/valid? ::putables models)]}
-
   (jdbc/with-transaction [tx ds]
     (->> models
          (mapcat deconstruct)

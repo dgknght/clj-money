@@ -4,7 +4,8 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
             [dgknght.app-lib.validation :as v]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid
+                                                         assert-deleted]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
@@ -200,10 +201,7 @@
 
 (deftest a-commodity-can-be-deleted
   (with-context existing-context
-    (let [commodity (find-commodity "AAPL")]
-      (models/delete commodity)
-      (is (nil? (models/find commodity))
-          "The commodity cannot be retrieved after delete."))))
+    (assert-deleted (find-commodity "AAPL"))))
 
 (def ^:private count-context
   (concat commodity-context
