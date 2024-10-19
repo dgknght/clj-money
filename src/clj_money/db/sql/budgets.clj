@@ -14,7 +14,11 @@
 
 (defmethod sql/prepare-criteria :budget
   [criteria]
-  (criteria/apply-to criteria ->sql-refs))
+  (-> criteria
+      (criteria/apply-to ->sql-refs)
+      (criteria/apply-to #(-> %
+                              (criteria/update-in [:budget/start-date] t/sql-date)
+                              (criteria/update-in [:budget/end-date] t/sql-date)))))
 
 (defmethod sql/before-save :budget
   [budget]

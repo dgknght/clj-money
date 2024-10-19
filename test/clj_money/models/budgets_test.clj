@@ -153,20 +153,20 @@
       {:budget/items
        ["All items must have a number of periods that matches the budget period count"]})))
 
-; (deftest find-a-budget-by-date
-;   (let [context (realize delete-context)
-;         entity-id (-> context :entities first :id)
-;         tests [{:description "before any budgets"
-;                 :date (t/local-date 2015 12 31)
-;                 :expected nil}
-;                {:description "start of a budget"
-;                 :date (t/local-date 2016 1 1)
-;                 :expected "2016"}]]
-;     (doseq [{:keys [expected date description]} tests]
-;       (testing description
-;         (is (= expected
-;                (:name (budgets/find-by-date entity-id date))))))))
-; 
+(deftest find-a-budget-by-date
+  (with-context existing-context
+    (let [entity (find-entity "Personal")
+          tests [{:description "before any budgets"
+                  :date (t/local-date 2015 12 31)
+                  :expected nil}
+                 {:description "start of a budget"
+                  :date (t/local-date 2016 1 1)
+                  :expected "2016"}]]
+      (doseq [{:keys [expected date description]} tests]
+        (testing description
+          (is (= expected
+                 (:budget/name (budgets/find-by-date entity date)))))))))
+
 ; (deftest calculate-a-percent-of-a-period
 ;   (let [tests [{:description "the first day of a month"
 ;                 :budget {:period :month
