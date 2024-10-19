@@ -3,6 +3,7 @@
                :cljs [cljs.test :refer [deftest is testing]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
+            [dgknght.app-lib.test-assertions]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.budgets :as budgets]))
@@ -280,3 +281,12 @@
     (doseq [{:keys [description budget date expected]} tests]
       (testing description
         (is (= expected (budgets/percent-of-period budget date)))))))
+
+(deftest find-an-item-by-its-account
+  (is (comparable? #:budget-item{:account {:id :groceries}
+                                 :periods [100M 100M]}
+                   (budgets/find-item-by-account #:budget{:items [#:budget-item{:account {:id :salary}
+                                                                                :periods [1000M 1000M]}
+                                                                  #:budget-item{:account {:id :groceries}
+                                                                                :periods [100M 100M]}]}
+                                                 {:id :groceries}))))

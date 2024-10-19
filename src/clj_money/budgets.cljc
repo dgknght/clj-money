@@ -219,3 +219,11 @@
         days (inc (dates/days-between (:start period)
                                       as-of))]
     (with-precision 5 (/ days days-in-period))))
+
+(defn find-item-by-account
+  "Finds the item in the specified budget associated with the specified account"
+  [{:budget/keys [items]} {:keys [id]}]
+  (->> items
+       (filter #(= id
+                   (get-in % [:budget-item/account :id])))
+       first))
