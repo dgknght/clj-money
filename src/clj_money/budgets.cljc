@@ -211,3 +211,11 @@
        (map-indexed #(assoc %2 :index %1))
        (filter #(within-period? % date))
        first))
+
+(defn percent-of-period
+  [budget as-of]
+  (let [period (period-containing budget as-of)
+        days-in-period (inc (dates/days-between (:start period) (:end period)))
+        days (inc (dates/days-between (:start period)
+                                      as-of))]
+    (with-precision 5 (/ days days-in-period))))

@@ -221,3 +221,62 @@
                          (assoc budget :budget/period :week)
                          (t/local-date 2017 1 25))))
           "It returns the index of the period containing the date"))))
+
+(deftest calculate-a-percent-of-a-period
+  (let [tests [{:description "the first day of a month"
+                :budget #:budget{:period :month
+                                 :period-count 12
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 1)
+                :expected 1/31}
+               {:description "the 15th day of a month"
+                :budget #:budget{:period :month
+                                 :period-count 12
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 4 15)
+                :expected 1/2}
+               {:description "the last day of a month"
+                :budget #:budget{:period :month
+                                 :period-count 12
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 31)
+                :expected 1/1}
+               {:description "the first day of a week"
+                :budget #:budget{:period :week
+                                 :period-count 8
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 1)
+                :expected 1/7}
+               {:description "the 4th day of a week"
+                :budget #:budget{:period :week
+                                 :period-count 8
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 4)
+                :expected 4/7}
+               {:description "the last day of a week"
+                :budget #:budget{:period :week
+                                 :period-count 8
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 7)
+                :expected 1/1}
+               {:description "the 1st day of a quarter"
+                :budget #:budget{:period :quarter
+                                 :period-count 4
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 1 1)
+                :expected 1/91}
+               {:description "the 1st day of the 2nd month of a quarter"
+                :budget #:budget{:period :quarter
+                                 :period-count 4
+                                 :start-date (t/local-date 2015 1 1)}
+                :date (t/local-date 2015 2 1)
+                :expected 16/45}
+               {:description "the last day of a quarter"
+                :budget #:budget{:period :quarter
+                                 :period-count 4
+                                 :start-date (t/local-date 2016 1 1)}
+                :date (t/local-date 2016 3 31)
+                :expected 1/1}]]
+    (doseq [{:keys [description budget date expected]} tests]
+      (testing description
+        (is (= expected (budgets/percent-of-period budget date)))))))

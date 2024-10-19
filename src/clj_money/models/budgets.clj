@@ -213,11 +213,3 @@
   [item]
   (with-storage (env :db)
     (storage/delete item)))
-
-(defn percent-of-period
-  [budget as-of]
-  (let [period (budgets/period-containing budget as-of)
-        days-in-period (inc (dates/days-between (:start period) (:end period)))
-        days (inc (dates/days-between (:start period)
-                                      as-of))]
-    (with-precision 5 (/ days days-in-period))))
