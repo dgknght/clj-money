@@ -10,6 +10,7 @@
             [dgknght.app-lib.core :refer [update-in-if
                                           assoc-if]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :as budgets]
@@ -178,14 +179,16 @@
 
 (defn find-items-by-account
   "Finds items in the specified match belonging to the specified account or its children."
-  [{:keys [items]} {:keys [child-ids id]}]
+  [{:budget/keys [items]} {:account/keys [child-ids] account-id :id}]
   (let [ids (if (seq child-ids)
-              (conj (into #{} child-ids) id)
-              (->> (accounts/search {:id id}
-                                    {:include-children? true})
+              (conj (into #{} child-ids) account-id)
+              (->> (models/select (db/model-type
+                                    {:id account-id}
+                                    :account)
+                                  {:include-children? true})
                    (map :id)
                    (into #{})))]
-    (filter #(ids (:account-id %))
+    (filter #(ids (get-in [:budget-item/account :id] %))
             items)))
 
 (defn ^:deprecated create

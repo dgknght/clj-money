@@ -167,39 +167,41 @@
           (is (= expected
                  (:budget/name (budgets/find-by-date entity date)))))))))
 
-; (def ^:private get-items-context
-;   (-> budget-context
-;       (update-in [:accounts] concat [{:name "Food"
-;                                       :parent-id "Groceries"
-;                                       :type :expense}
-;                                      {:name "Non-food"
-;                                       :parent-id "Groceries"
-;                                       :type :expense}])
-;       (assoc :budgets [{:entity-id "Personal"
-;                         :name "2015"
-;                         :start-date (t/local-date 2015 1 1)
-;                         :period-count 3
-;                         :period :month
-;                         :items [{:account-id "Food"
-;                                  :periods (repeat 3 100M)}
-;                                 {:account-id "Non-food"
-;                                  :periods (repeat 3 50M)}]}])))
-; 
-; (deftest get-items-by-account
-;   (let [ctx (realize get-items-context)
-;         budget (find-budget ctx "2015")]
-;     (testing "a leaf account"
-;       (let [account (find-account ctx "Food")
-;             expected [[100M 100M 100M]]
-;             actual (map :periods (budgets/find-items-by-account
-;                                   budget
-;                                   account))]
-;         (is (= expected actual) "The correct period values are returned")))
-;     (testing "a parent account"
-;       (let [account (find-account ctx "Groceries")
-;             expected [[100M 100M 100M]
-;                       [50M 50M 50M]]
-;             actual (map :periods (budgets/find-items-by-account
-;                                   budget
-;                                   account))]
-;         (is (= expected actual) "The correct period values are returned")))))
+(def ^:private get-items-context
+  (conj basic-context
+        #:account{:name "Food"
+                  :parent "Groceries"
+                  :entity "Personal"
+                  :type :expense}
+        #:account{:name "Non-food"
+                  :parent "Groceries"
+                  :entity "Personal"
+                  :type :expense}
+        #:budget{:entity "Personal"
+                 :name "2015"
+                 :start-date (t/local-date 2015 1 1)
+                 :period-count 3
+                 :period :month
+                 :items [#:budget-item{:account "Food"
+                                       :periods (repeat 3 100M)}
+                         #:budget-item{:account "Non-food"
+                                       :periods (repeat 3 50M)}]}))
+
+(deftest get-items-by-account
+  (with-context get-items-context
+    (let [budget (find-budget "2015")]
+      (testing "a leaf account"
+        (let [account (find-account "Food")
+              expected [[100M 100M 100M]]
+              actual (map :periods (budgets/find-items-by-account
+                                     budget
+                                     account))]
+          (is (= expected actual) "The correct period values are returned")))
+      (testing "a parent account"
+        (let [account (find-account "Groceries")
+              expected [[100M 100M 100M]
+                        [50M 50M 50M]]
+              actual (map :periods (budgets/find-items-by-account
+                                     budget
+                                     account))]
+          (is (= expected actual) "The correct period values are returned"))))))
