@@ -183,13 +183,17 @@
                       :id
                       (keyword (singular q) k)))))
 
+(def ^:private recursions
+  {:account [:parent-id :id]})
+
 (defn- select*
-  [ds criteria options]
-  (let [query (-> criteria
+  [ds criteria {:as options :keys [include-children?]}]
+  (let [model-type (db/model-type criteria)
+        query (-> criteria
                   (crt/apply-to massage-ids)
                   prepare-criteria
-                  (criteria->query (assoc options
-                                          :target (db/model-type criteria))))]
+                  (criteria->query (cond-> (assoc options :target model-type)
+                                     include-children? (assoc :recursion (recursions model-type)))))]
 
     ; TODO: scrub sensitive data
     (log/debugf "database select %s with options %s -> %s" criteria options query)

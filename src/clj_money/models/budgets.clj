@@ -188,7 +188,7 @@
                                   {:include-children? true})
                    (map :id)
                    (into #{})))]
-    (filter #(ids (get-in [:budget-item/account :id] %))
+    (filter #(ids (get-in % [:budget-item/account :id]))
             items)))
 
 (defn ^:deprecated create

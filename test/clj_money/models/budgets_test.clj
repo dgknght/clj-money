@@ -193,15 +193,15 @@
       (testing "a leaf account"
         (let [account (find-account "Food")
               expected [[100M 100M 100M]]
-              actual (map :periods (budgets/find-items-by-account
-                                     budget
-                                     account))]
-          (is (= expected actual) "The correct period values are returned")))
+              actual (map :budget-item/periods (budgets/find-items-by-account
+                                                 budget
+                                                 account))]
+          (is (seq-of-maps-like? expected actual) "The correct period values are returned")))
       (testing "a parent account"
         (let [account (find-account "Groceries")
               expected [[100M 100M 100M]
                         [50M 50M 50M]]
-              actual (map :periods (budgets/find-items-by-account
-                                     budget
-                                     account))]
+              actual (map :budget-item/periods (budgets/find-items-by-account
+                                                 budget
+                                                 account))]
           (is (= expected actual) "The correct period values are returned"))))))
