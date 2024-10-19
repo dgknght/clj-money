@@ -4,6 +4,20 @@
 
 (def ^:dynamic *storage* nil)
 
+(def model-types
+  #{:user
+    :identity
+    :entity
+    :commodity
+    :price
+    :account
+    :transaction
+    :transaction-item
+    :budget
+    :budget-item
+    :grant
+    :scheduled-transaction})
+
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
   (put [this models] "Saves the specified models to the data store")
@@ -77,4 +91,6 @@
    (or (-> m meta ::type)
        (single-ns m)))
   ([m model-or-type]
-   (vary-meta m assoc ::type (extract-model-type model-or-type))))
+   (let [t (extract-model-type model-or-type)]
+     (assert (model-types t))
+     (vary-meta m assoc ::type t))))
