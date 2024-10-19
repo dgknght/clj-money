@@ -129,6 +129,35 @@
              (:budget-item/periods (find-item-by-account retrieved salary)))
           "The retrieved value has the updated items"))))
 
+(deftest add-an-item
+  (with-context existing-context
+    (let [budget (find-budget "2016")
+          fit (find-account "FIT")
+          result (models/put
+                   (update-in budget
+                              [:budget/items]
+                              conj
+                              #:budget-item{:account fit
+                                            :periods (repeat 12 100M)}))]
+      (is (= 4 (count (:budget/items result)))
+          "The return value has the new item")
+      (is (= 4 (count (:budget/items (models/find budget))))
+          "The retrieved value has the new item"))))
+
+(deftest remove-an-item
+  (with-context existing-context
+    (let [budget (find-budget "2016")
+          groceries (select-keys (find-account "Groceries") [:id])]
+      (-> budget
+          (update-in [:budget/items]
+                     (fn [items]
+                       (remove #(= groceries
+                                   (:budget-item/account %))
+                               items)))
+          budgets/update-items)
+      (is (= 2 (count (:budget/items (models/find budget))))
+          "The retrieved value does not have the removed item"))))
+
 (deftest budget-item-requires-an-account
   (with-context
     (assert-invalid (update-in (attributes)
