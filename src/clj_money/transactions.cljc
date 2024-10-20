@@ -1,37 +1,38 @@
 (ns clj-money.transactions
   (:require [clojure.set :refer [rename-keys]]
-            [clj-money.util :as util]
+            [clojure.pprint :refer [pprint]]
+            [clj-money.util :as util :refer [->model-ref model=]]
             [clj-money.dates :as dates]
             [clj-money.accounts :refer [polarize-quantity
-                                        derive-item]]))
+                                        ->transaction-item]]))
 
 (defn can-simplify?
   "Returns true if the transaction can be simplified (which
   means it has two items) or false if not (which means it
   has more). It assumes a valid transaction."
-  [{:keys [items]}]
+  [{:transaction/keys [items]}]
   (= 2 (count items)))
 
-(defn simplify
-  "Accepts a standard transaction (with line items) and
-  returns a simplified transaction (with one quantity, one
-  debit account and one credit account). Note that the
-  transaction must have only two items."
-  [{:keys [items] :as transaction} ref-account]
-  {:pre [(can-simplify? transaction)]}
-  (let [[account-item
-         other-item] (sort-by #(if (= (:id ref-account)
-                                      (:account-id %))
-                                 0
-                                 1)
-                              items)]
-    (-> transaction
-            (assoc :other-account-id (:account-id other-item)
-                   :other-item-id (:id other-item)
-                   :account-id (:account-id account-item)
-                   :item-id (:id account-item)
-                   :quantity (polarize-quantity account-item ref-account))
-            (dissoc :items))))
+(defn accountify
+  "Accepts a standard transaction with two line items and
+  returns a simplified transaction vis a vis the specified
+  account, with the amount polarized.
+
+  If the transaction contains more or less than two items, an
+  exception is thrown."
+  [{:transaction/keys [items] :as trx} ref-account]
+  {:pre [(can-simplify? trx)]}
+  (let [{[account-item] true
+         [other-item] false} (group-by #(model= ref-account
+                                                (:transaction-item/account %))
+                                       items)]
+    (-> trx
+        (assoc :transaction/other-account (:transaction-item/account other-item)
+               :transaction/other-item (->model-ref other-item)
+               :transaction/account (:transaction-item/account account-item)
+               :transaction/item (->model-ref account-item)
+               :transaction/quantity (polarize-quantity account-item ref-account))
+        (dissoc :transaction/items))))
 
 (defn fullify
   "Accepts a simplified transaction (with one quantity, one debit
@@ -41,7 +42,7 @@
   {:pre [(:account-id transaction)]}
   (let [account (find-account-fn account-id)
         other-account (find-account-fn other-account-id)
-        item-1 (assoc (derive-item quantity account)
+        item-1 (assoc (->transaction-item quantity account)
                       :id item-id)]
     (-> transaction
         (assoc :items [item-1
@@ -188,3 +189,16 @@
         (dissoc :transaction/quantity
                 :transaction/debit-account-id
                 :transaction/credit-account-id))))
+
+(defn value
+  [{:transaction/keys [items]}]
+  (let [sums (->> items
+                  (filter :transaction-item/value)
+                  (group-by :transaction-item/action)
+                  (map (fn [[_ items]]
+                         (->> items
+                              (map :transaction-item/value)
+                              (reduce + 0M))))
+                  set)]
+    (when (= 1 (count sums))
+      (first sums))))

@@ -15,6 +15,7 @@
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
             [clj-money.dates :as dates]
+            [clj-money.transactions :as trxs]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
             [clj-money.models.accounts :as accounts]
@@ -244,23 +245,8 @@
                                          items))))
 
 (defmethod models/before-save :transaction
-  [{:as transaction :transaction/keys [items transaction-date]}]
-  (-> transaction
-      (update-in ; TODO I think this really only needs to be done for SQL storage
-        [:transaction/items]
-        (fn [items]
-          (map (fn [item]
-                 (-> item
-                     (update-in [:transaction-item/transaction] {:id (:id transaction)})
-                     (update-in [:transaction-item/transaction-date]
-                                (fnil identity transaction-date))))
-               items)))
-      (assoc :transaction/value
-             (->> items
-                  (filter #(= :credit (:transaction-item/action %)))
-                  (map #(some (fn [k] (k %)) [:transaction-item/value
-                                              :transaction-item/quantity])) ; TODO this should already be :value
-                  (reduce +)))))
+  [trx]
+  (assoc trx :transaction/value (trxs/value trx)))
 
 (defmethod models/deconstruct :transaction
   [{:as trx :transaction/keys [items]}]

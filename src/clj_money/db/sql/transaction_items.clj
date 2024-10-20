@@ -4,10 +4,10 @@
             [clj-money.db.sql :as sql]))
 
 (declare ->sql-refs)
-(sql/def->sql-refs ->sql-refs :transaction-item/account)
+(sql/def->sql-refs ->sql-refs :transaction-item/account :transaction-item/transaction)
 
 (declare ->model-refs)
-(sql/def->model-refs ->model-refs :transaction-item/account)
+(sql/def->model-refs ->model-refs :transaction-item/account :transaction-item/transaction)
 
 (defmethod sql/prepare-criteria :transaction-item
   [criteria]

@@ -13,6 +13,10 @@
   [criteria]
   (criteria/apply-to criteria ->sql-refs))
 
+(defmethod sql/deconstruct :transaction
+  [{:transaction/keys [items] :as trx}]
+  (cons trx items))
+
 (defmethod sql/before-save :transaction
   [trx]
   (->sql-refs trx))

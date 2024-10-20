@@ -91,12 +91,13 @@
 
 (defn- assert-created
   [attr]
-  (helpers/assert-created attr :refs :transaction/entity))
+  (helpers/assert-created attr :refs :transaction/entity :transaction-item/account))
 
 (deftest create-a-transaction
   (with-context base-context
     (assert-created (attributes))
     (testing "metadata"
+      ; TODO: test metadata on the accounts
       (is (comparable? #:settings{:earliest-transaction-date (t/local-date 2016 3 2)
                                 :latest-transaction-date (t/local-date 2016 3 2)}
                        (:entity/settings (models/find (find-entity "Personal"))))))))
