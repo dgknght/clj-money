@@ -6,10 +6,10 @@
   (:import org.postgresql.jdbc.PgArray))
 
 (declare ->sql-refs)
-(sql/def->sql-refs ->sql-refs :budget-item/account)
+(sql/def->sql-refs ->sql-refs :budget-item/account :budget-item/budget)
 
 (declare ->model-refs)
-(sql/def->model-refs ->model-refs :budget-item/account)
+(sql/def->model-refs ->model-refs :budget-item/account :budget-item/budget)
 
 (defmethod sql/prepare-criteria :budget-item
   [criteria]
