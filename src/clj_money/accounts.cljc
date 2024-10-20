@@ -96,6 +96,8 @@
   "Given a transaction item and an account, returns the quantity of the
   transaction item vis a vis the account (i.e., positive or negative)."
   [{:transaction-item/keys [quantity] :as item} account]
+  {:pre [item (:transaction-item/quantity item)
+         account (:account/type account)]}
   (* quantity
      (polarizer item account)))
 
