@@ -85,3 +85,18 @@
                            :user
                            :ignore #{:id}))
       "Keys can be explicitly ignored"))
+
+(deftest compare-two-models-for-equality
+  (is (util/model= {:id 101}
+                   {:id 101})
+      "Two maps with the same :id attribute are equal")
+  (is (util/model= {:id 101}
+                   {:id 101}
+                   {:id 101})
+      "Three maps with the same :id attribute are equal")
+  (is (util/model= {:id 101 :account/name "Checking"}
+                   {:id 101})
+      "A full model map is equal to a simplified model ref if the :id attribute is the same")
+  (is (not (util/model= {:id 101}
+                        {:id 102}))
+      "Two maps with different :id attributes are not equal"))

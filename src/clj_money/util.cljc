@@ -304,3 +304,13 @@
                      (if (ignore? k)
                        k
                        (keyword qualifier (name k)))))))
+
+(defn model=
+  [& models]
+  (->> models
+       (map :id)
+       (apply =)))
+
+(defn ->model-ref
+  [m]
+  (select-keys m [:id]))
