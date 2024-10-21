@@ -11,9 +11,9 @@
 
 (defn- index
   [& inputs]
-  (let [[->key models] (if (map? (first inputs))
-                         [util/->model-ref inputs]
-                         inputs)]
+  (let [[->key & models] (if (map? (first inputs))
+                           [util/->model-ref inputs]
+                           inputs)]
     (->> models
          (map (juxt ->key identity))
          (into {}))))
@@ -54,7 +54,6 @@
                                :account (accounts :checking)
                                :other-item {:id 2} :other-account (accounts :groceries)
                                :quantity -10M}]
-    (pprint {::accounts accounts})
     (is (= expected (trx/accountify trx (accounts :checking))))))
 
 (deftest unaccountify-a-transaction
@@ -77,15 +76,15 @@
                              :other-item {:id 2}
                              :other-account {:id :groceries}
                              :quantity -10M}]
-    (is (= expected (trx/unaccountify simple accounts)))
+    (is (= expected (trx/unaccountify simple (comp accounts :id))))
     (testing "two asset accounts"
       (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :savings})
              (trx/unaccountify (assoc simple :transaction/other-account {:id :savings})
-                               accounts))))
+                               (comp accounts :id)))))
     (testing "one asset, one liability"
       (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :credit-card})
              (trx/unaccountify (assoc simple :transaction/other-account {:id :credit-card})
-                               accounts))))))
+                               (comp accounts :id)))))))
 
 (deftest entryfy-a-transaction
   (let [transaction #:transaction{:transaction-date "2020-01-01"
