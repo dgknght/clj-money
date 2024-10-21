@@ -83,7 +83,7 @@
 (defn left-side?
   "Returns truthy if the specified account is asset or expense, falsey if anything else"
   [{:account/keys [type] :as account}]
-  {:pre [(:account/type account)]}
+  {:pre [account (:account/type account)]}
 
   (#{:asset :expense} type))
 
