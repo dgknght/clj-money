@@ -312,5 +312,7 @@
        (apply =)))
 
 (defn ->model-ref
-  [m]
-  (select-keys m [:id]))
+  [map-or-id]
+  (if (map? map-or-id)
+    (select-keys map-or-id [:id])
+    {:id map-or-id}))

@@ -100,3 +100,14 @@
   (is (not (util/model= {:id 101}
                         {:id 102}))
       "Two maps with different :id attributes are not equal"))
+
+(deftest convert-something-into-a-model-ref
+  (is (= {:id 101}
+         (util/->model-ref {:id 101 :account/name "Checking"}))
+      "A full model is simplified")
+  (is (= {:id 101}
+         (util/->model-ref {:id 101}))
+      "A simple model ref is returned as-is")
+  (is (= {:id 101}
+         (util/->model-ref 101))
+      "A naked ID is wrapped in a map"))
