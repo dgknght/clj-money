@@ -79,28 +79,33 @@
   (update-in transaction [:transaction/items] #(conj (mapv entryfy-item %)
                                                      {})))
 
+(def ^:private has-quantity?
+  (some-fn :transaction-item/debit-quantity
+            :transaction-item/credit-quantity))
+
 (def ^:private empty-item?
-  (complement
-   (some-fn :debit-quantity
-            :credit-quantity)))
+  (complement has-quantity?))
 
 (defn- unentryfy-item
-  [{:keys [debit-quantity credit-quantity] :as item}]
+  [{:transaction-item/keys [debit-quantity credit-quantity] :as item}]
   (let [quantity (or debit-quantity credit-quantity)]
     (-> item
-        (assoc :action (if debit-quantity
-                         :debit
-                         :credit)
-               :quantity quantity
-               :value quantity)
-        (dissoc :debit-quantity :credit-quantity))))
+        (assoc :transaction-item/action (if debit-quantity
+                                          :debit
+                                          :credit)
+               :transaction-item/quantity quantity
+               :transaction-item/value quantity)
+        (dissoc :transaction-item/debit-quantity
+                :transaction-item/credit-quantity))))
 
 (defn unentryfy
   "Reverses an entryfy operation"
-  [transaction]
-  (update-in transaction [:items] #(->> %
-                                        (remove empty-item?)
-                                        (mapv unentryfy-item))))
+  [trx]
+  (update-in trx
+             [:transaction/items]
+             #(->> %
+                   (remove empty-item?)
+                   (mapv unentryfy-item))))
 
 (defn ensure-empty-item
   "Given an entryfied transaction, ensures that there is

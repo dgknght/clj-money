@@ -101,37 +101,40 @@
                                        {}]}]
     (is (= expected (trx/entryfy transaction)))))
 
-; (deftest unentryfy-a-transaction
-;   (let [expected {:transaction-date date
-;                   :description "ACME Store"
-;                   :memo "transaction memo"
-;                   :items [{:account {:id 1}
-;                            :memo "checking memo"
-;                            :action :credit
-;                            :quantity 10M
-;                            :value 10M}
-;                           {:account {:id 2}
-;                            :memo "groceries memo"
-;                            :action :debit
-;                            :quantity 10M
-;                            :value 10M}]}
-;         transaction {:transaction-date date
-;                      :description "ACME Store"
-;                      :memo "transaction memo"
-;                      :items [{:account {:id 1}
-;                               :memo "checking memo"
-;                               :credit-quantity 10M
-;                               :debit-quantity nil}
-;                              {:account {:id 2}
-;                               :memo "groceries memo"
-;                               :credit-quantity nil
-;                               :debit-quantity 10M}
-;                              {}]}]
-;     (is (= expected (trx/unentryfy transaction)))
-;     (testing "transaction contains 'deleted' items"
-;       (is (= expected
-;              (trx/unentryfy (update-in transaction [:items] conj {:account {:id 3}})))))))
-; 
+(deftest unentryfy-a-transaction
+  (let [expected #:transaction{:transaction-date "2020-01-01"
+                               :description "ACME Store"
+                               :memo "transaction memo"
+                               :items [#:transaction-item{:account {:id 1}
+                                                          :memo "checking memo"
+                                                          :action :credit
+                                                          :quantity 10M
+                                                          :value 10M}
+                                       #:transaction-item{:account {:id 2}
+                                                          :memo "groceries memo"
+                                                          :action :debit
+                                                          :quantity 10M
+                                                          :value 10M}]}
+        transaction #:transaction{:transaction-date "2020-01-01"
+                                  :description "ACME Store"
+                                  :memo "transaction memo"
+                                  :items [#:transaction-item{:account {:id 1}
+                                                             :memo "checking memo"
+                                                             :credit-quantity 10M
+                                                             :debit-quantity nil}
+                                          #:transaction-item{:account {:id 2}
+                                                             :memo "groceries memo"
+                                                             :credit-quantity nil
+                                                             :debit-quantity 10M}
+                                          {}]}]
+    (is (= expected (trx/unentryfy transaction)))
+    (testing "transaction contains 'deleted' items"
+      (is (= expected
+             (trx/unentryfy (update-in transaction
+                                       [:transaction/items]
+                                       conj
+                                       {:transaction-item/account {:id 3}})))))))
+
 ; (deftest simplifiability
 ;   (testing "A two-item transaction can be simplified"
 ;     (is (trx/can-simplify? {:items [{:action :debit
@@ -195,8 +198,8 @@
 ;                   :exchange :nasdaq}]})
 ; 
 ; (deftest tradify-an-partial-transaction
-;   (let [date (t/local-date 2020 3 2)
-;         tradified (trx/tradify {:transaction-date date
+;   (let ["2020-01-01" (t/local-date 2020 3 2)
+;         tradified (trx/tradify {:transaction-date "2020-01-01"
 ;                                 :items [{:account-id "401k"
 ;                                          :action :credit}]}
 ;                                {:find-account (->> (:accounts trading-context)
@@ -205,28 +208,28 @@
 ;                                 :find-commodity (->> :commodities trading-context
 ;                                                      (map (juxt :id identity))
 ;                                                      (into {}))})]
-;     (is (= date (:trade-date tradified)) "The trade-date is taken from transaction-date")
+;     (is (= "2020-01-01" (:trade-date tradified)) "The trade-date is taken from transaction-date")
 ;     (is (= "401k" (:account-id tradified)) "The account-id is taken from the item for the trading account")
 ;     (is (= :buy (:action tradified)) "The action defauls to buy")
 ;     (is (nil? (:commodity-id tradified)) "The commodity id is nil")
 ;     (is (nil? (:shares tradified)) "The shares is nil")))
 ; 
 ; (deftest tradify-a-buy-transaction
-;   (let [date (t/local-date 2020 3 2)
+;   (let ["2020-01-01" (t/local-date 2020 3 2)
 ;         accounts (->> (:accounts trading-context)
 ;                       (map (juxt :id identity))
 ;                       (into {}))
 ;         commodities (->> :commodities trading-context
 ;                          (map (juxt :id identity))
 ;                          (into {}))
-;         standard {:transaction-date date
+;         standard {:transaction-date "2020-01-01"
 ;                   :items [{:account-id "401k"
 ;                            :action :credit
 ;                            :quantity 100M}
 ;                           {:account-id "aapl"
 ;                            :action :debit
 ;                            :quantity 100M}]}
-;         tradified {:trade-date date
+;         tradified {:trade-date "2020-01-01"
 ;                    :shares 100M
 ;                    :account-id "401k"
 ;                    :commodity-id "aapl"
@@ -244,21 +247,21 @@
 ;                                                                 (into {}))}))))))
 ; 
 ; (deftest tradify-a-sell-transaction
-;   (let [date (t/local-date 2020 3 2)
+;   (let ["2020-01-01" (t/local-date 2020 3 2)
 ;         accounts (->> (:accounts trading-context)
 ;                       (map (juxt :id identity))
 ;                       (into {}))
 ;         commodities (->> :commodities trading-context
 ;                          (map (juxt :id identity))
 ;                          (into {}))
-;         standard {:transaction-date date
+;         standard {:transaction-date "2020-01-01"
 ;                   :items [{:account-id "aapl"
 ;                            :action :credit
 ;                            :quantity 100M}
 ;                           {:account-id "401k"
 ;                            :action :debit
 ;                            :quantity 100M}]}
-;         tradified {:trade-date date
+;         tradified {:trade-date "2020-01-01"
 ;                    :shares 100M
 ;                    :account-id "401k"
 ;                    :commodity-id "aapl"
@@ -302,7 +305,7 @@
 ;                                 items)))))
 ; 
 ; (deftest expand-a-transaction
-;   (let [expected {:transaction-date date
+;   (let [expected {:transaction-date "2020-01-01"
 ;                   :description "ACME Store"
 ;                   :memo "transaction memo"
 ;                   :items [{:account-id (account-id :groceries)
@@ -311,7 +314,7 @@
 ;                           {:account-id (account-id :checking)
 ;                            :action :credit
 ;                            :quantity 10M}]}
-;         simple {:transaction-date date
+;         simple {:transaction-date "2020-01-01"
 ;                 :description "ACME Store"
 ;                 :memo "transaction memo"
 ;                 :debit-account-id (account-id :groceries)
