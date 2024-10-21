@@ -193,13 +193,13 @@
                      :account/name "401k"
                      :account/type :asset
                      :account/system-tags #{:trading}
-                     :account/commodity-id "usd"}
+                     :account/commodity {:id :usd}}
                     {:id :aapl
                      :account/parent-id 1
                      :account/name "AAPL"
                      :account/type :asset
                      :account/system-tags #{:tradable}
-                     :account/commodity-id "aapl"})
+                     :account/commodity {:id :aapl}})
    :commodities (index {:id :usd
                         :commodity/name "USD"
                         :commodity/symbol "USD"
@@ -222,38 +222,39 @@
     (is (nil? (:trade/commodity tradified)) "The commodity id is nil")
     (is (nil? (:trade/shares tradified)) "The shares is nil")))
 
-; (deftest tradify-a-buy-transaction
-;   (let ["2020-01-01" (t/local-date 2020 3 2)
-;         accounts (->> (:accounts trading-context)
-;                       (map (juxt :id identity))
-;                       (into {}))
-;         commodities (->> :commodities trading-context
-;                          (map (juxt :id identity))
-;                          (into {}))
-;         standard {:transaction-date "2020-01-01"
-;                   :items [{:account-id "401k"
-;                            :action :credit
-;                            :quantity 100M}
-;                           {:account-id "aapl"
-;                            :action :debit
-;                            :quantity 100M}]}
-;         tradified {:trade-date "2020-01-01"
-;                    :shares 100M
-;                    :account-id "401k"
-;                    :commodity-id "aapl"
-;                    :action :buy}]
-;     (testing "a standard transaction can be converted to a trade transaction"
-;       (is (= tradified
-;              (trx/tradify standard
-;                           {:find-account accounts
-;                            :find-commodity commodities}))))
-;     (testing "a trade transaction can be converted to a standard"
-;       (is (= standard
-;              (trx/untradify tradified
-;                             {:find-account-by-commodity-id (->> (:accounts trading-context)
-;                                                                 (map (juxt :commodity-id identity))
-;                                                                 (into {}))}))))))
-; 
+(deftest tradify-a-buy-transaction
+  (let [standard #:transaction{:transaction-date "2020-01-01"
+                               :items [#:transaction-item{:account {:id :401k}
+                                                          :action :credit
+                                                          :quantity 100M}
+                                       #:transaction-item{:account {:id :aapl}
+                                                          :action :debit
+                                                          :quantity 100M}]}
+        tradified #:trade{:trade-date "2020-01-01"
+                          :shares 100M
+                          :account {:id :401k}
+                          :commodity {:id :aapl}
+                          :action :buy}]
+    (testing "a standard transaction can be converted to a trade transaction"
+      (is (= tradified
+             (-> (trx/tradify standard
+                              {:find-account #(get-in trading-context [:accounts %])
+                               :find-commodity #(get-in trading-context [:commodities %])})
+                 (update-in [:trade/account] util/->model-ref)
+                 (update-in [:trade/commodity] util/->model-ref)))))
+    (testing "a trade transaction can be converted to a standard"
+      (is (= standard
+             (update-in (trx/untradify tradified
+                            {:find-account-with-commodity (->> (vals (:accounts trading-context))
+                                                               (map (juxt :account/commodity identity))
+                                                               (into {}))})
+                        [:transaction/items]
+                        (fn [items]
+                          (map #(update-in %
+                                           [:transaction-item/account]
+                                           util/->model-ref)
+                               items))))))))
+
 ; (deftest tradify-a-sell-transaction
 ;   (let ["2020-01-01" (t/local-date 2020 3 2)
 ;         accounts (->> (:accounts trading-context)
@@ -282,7 +283,7 @@
 ;     (testing "a trade transaction can be converted to a standard"
 ;       (is (= standard
 ;              (trx/untradify tradified
-;                             {:find-account-by-commodity-id (->> (:accounts trading-context)
+;                             {:find-account-with-commodity (->> (:accounts trading-context)
 ;                                                                 (map (juxt :commodity-id identity))
 ;                                                                 (into {}))}))))))
 ; 

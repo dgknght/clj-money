@@ -115,7 +115,7 @@
   (update-in transaction [:transaction/items] #(conj (vec (remove empty? %)) {})))
 
 (defn tradify
-  [{:transaction/keys [items] :as transaction} {:keys [find-account find-commodity]}]
+  [{:transaction/keys [items] :as trx} {:keys [find-account find-commodity]}]
   (let [{:keys [trading tradable]} (->> items
                                         (map #(update-in % [:transaction-item/account] find-account))
                                         (mapcat (fn [item]
@@ -124,7 +124,7 @@
                                                            :transaction-item/account
                                                            :account/system-tags))))
                                         (into {}))]
-    (-> transaction
+    (-> trx
         (rename-keys {:transaction/transaction-date :trade/trade-date})
         (assoc :trade/account (:transaction-item/account trading)
                :trade/commodity (when tradable
@@ -139,24 +139,21 @@
         (dissoc :transaction/items))))
 
 (defn untradify
-  [{:keys [shares action account-id] :as transaction}
-   {:keys [find-account-by-commodity-id]}]
-  (let [tradable-id (-> transaction
-                        :commodity-id
-                        find-account-by-commodity-id
-                        :id)
+  [{:trade/keys [shares action account commodity] :as trade}
+   {:keys [find-account-with-commodity]}]
+  (let [tradable (find-account-with-commodity commodity)
         items (->> [:credit :debit]
                    (interleave (if (= :buy action)
-                                 [account-id tradable-id]
-                                 [tradable-id account-id]))
+                                 [account tradable]
+                                 [tradable account]))
                    (partition 2)
-                   (map #(hash-map :account-id (first %)
-                                   :action (second %)
-                                   :quantity shares)))]
-    (-> transaction
-        (rename-keys {:trade-date :transaction-date})
-        (assoc :items items)
-        (dissoc :account-id :shares :action :commodity-id))))
+                   (map #(hash-map :transaction-item/account (first %)
+                                   :transaction-item/action (second %)
+                                   :transaction-item/quantity shares)))]
+    (-> trade
+        (rename-keys {:trade/trade-date :transaction/transaction-date})
+        (assoc :transaction/items items)
+        (dissoc :trade/account :trade/shares :trade/action :trade/commodity))))
 
 (defn- summarize-period
   [[start-date end-date] items]
