@@ -75,42 +75,42 @@
              (trx/unaccountify (assoc simple :transaction/other-account {:id :credit-card})
                                (comp accounts :id)))))))
 
-; (deftest entryfy-a-transaction
-;   (let [transaction {:transaction-date date
-;                      :description "ACME Store"
-;                      :memo "transaction memo"
-;                      :items [{:account-id 1
-;                               :memo "checking memo"
-;                               :action :credit
-;                               :quantity 10M}
-;                              {:account-id 2
-;                               :memo "groceries memo"
-;                               :action :debit
-;                               :quantity 10M}]}
-;         expected {:transaction-date date
-;                   :description "ACME Store"
-;                   :memo "transaction memo"
-;                   :items [{:account-id 1
-;                            :memo "checking memo"
-;                            :credit-quantity 10M
-;                            :debit-quantity nil}
-;                           {:account-id 2
-;                            :memo "groceries memo"
-;                            :credit-quantity nil
-;                            :debit-quantity 10M}
-;                           {}]}]
-;     (is (= expected (trx/entryfy transaction)))))
-; 
+(deftest entryfy-a-transaction
+  (let [transaction #:transaction{:transaction-date "2020-01-01"
+                                  :description "ACME Store"
+                                  :memo "transaction memo"
+                                  :items [#:transaction-item{:account {:id 1}
+                                                             :memo "checking memo"
+                                                             :action :credit
+                                                             :quantity 10M}
+                                          #:transaction-item{:account {:id 2}
+                                                             :memo "groceries memo"
+                                                             :action :debit
+                                                             :quantity 10M}]}
+        expected #:transaction{:transaction-date "2020-01-01"
+                               :description "ACME Store"
+                               :memo "transaction memo"
+                               :items [#:transaction-item{:account {:id 1}
+                                                          :memo "checking memo"
+                                                          :credit-quantity 10M
+                                                          :debit-quantity nil}
+                                       #:transaction-item{:account {:id 2}
+                                                          :memo "groceries memo"
+                                                          :credit-quantity nil
+                                                          :debit-quantity 10M}
+                                       {}]}]
+    (is (= expected (trx/entryfy transaction)))))
+
 ; (deftest unentryfy-a-transaction
 ;   (let [expected {:transaction-date date
 ;                   :description "ACME Store"
 ;                   :memo "transaction memo"
-;                   :items [{:account-id 1
+;                   :items [{:account {:id 1}
 ;                            :memo "checking memo"
 ;                            :action :credit
 ;                            :quantity 10M
 ;                            :value 10M}
-;                           {:account-id 2
+;                           {:account {:id 2}
 ;                            :memo "groceries memo"
 ;                            :action :debit
 ;                            :quantity 10M
@@ -118,11 +118,11 @@
 ;         transaction {:transaction-date date
 ;                      :description "ACME Store"
 ;                      :memo "transaction memo"
-;                      :items [{:account-id 1
+;                      :items [{:account {:id 1}
 ;                               :memo "checking memo"
 ;                               :credit-quantity 10M
 ;                               :debit-quantity nil}
-;                              {:account-id 2
+;                              {:account {:id 2}
 ;                               :memo "groceries memo"
 ;                               :credit-quantity nil
 ;                               :debit-quantity 10M}
@@ -130,25 +130,25 @@
 ;     (is (= expected (trx/unentryfy transaction)))
 ;     (testing "transaction contains 'deleted' items"
 ;       (is (= expected
-;              (trx/unentryfy (update-in transaction [:items] conj {:account-id 3})))))))
+;              (trx/unentryfy (update-in transaction [:items] conj {:account {:id 3}})))))))
 ; 
 ; (deftest simplifiability
 ;   (testing "A two-item transaction can be simplified"
 ;     (is (trx/can-simplify? {:items [{:action :debit
-;                                      :account-id 1
+;                                      :account {:id 1}
 ;                                      :quantity 10M}
 ;                                     {:action :credit
-;                                      :account-id 2
+;                                      :account {:id 2}
 ;                                      :quantity 10M}]})))
 ;   (testing "A transaction with more than two items cannot be simplified"
 ;     (is (not (trx/can-simplify? {:items [{:action :debit
-;                                           :account-id 1
+;                                           :account {:id 1}
 ;                                           :quantity 10M}
 ;                                          {:action :credit
-;                                           :account-id 2
+;                                           :account {:id 2}
 ;                                           :quantity 6M}
 ;                                          {:action :credit
-;                                           :account-id 3
+;                                           :account {:id 3}
 ;                                           :quantity 4M}]})))))
 ; 
 ; (deftest ensure-an-empty-item

@@ -62,21 +62,22 @@
                 :transaction/other-item))))
 
 (defn- entryfy-item
-  [{:keys [quantity action] :as item}]
+  [{:transaction-item/keys [quantity action] :as item}]
   (-> item
-      (assoc :debit-quantity (when (= :debit action)
+      (assoc :transaction-item/debit-quantity (when (= :debit action)
                                quantity)
-             :credit-quantity (when (= :credit action)
+             :transaction-item/credit-quantity (when (= :credit action)
                                 quantity))
-      (dissoc :action :quantity)))
+      (dissoc :transaction-item/action
+              :transaction-item/quantity)))
 
 (defn entryfy
   "Accepts a standard transaction and returns the transaction
   with line items adjusted for easy entry, with no :action
   attribute, one :credit-quantity and one :debit-quantity"
   [transaction]
-  (update-in transaction [:items] #(conj (mapv entryfy-item %)
-                                         {})))
+  (update-in transaction [:transaction/items] #(conj (mapv entryfy-item %)
+                                                     {})))
 
 (def ^:private empty-item?
   (complement
