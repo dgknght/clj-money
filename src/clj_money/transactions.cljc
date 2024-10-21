@@ -21,7 +21,8 @@
   If the transaction contains more or less than two items, an
   exception is thrown."
   [{:transaction/keys [items] :as trx} ref-account]
-  {:pre [(can-simplify? trx)]}
+  {:pre [(can-simplify? trx)
+         ref-account]}
   (let [{[account-item] true
          [other-item] false} (group-by #(model= ref-account
                                                 (:transaction-item/account %))
@@ -111,7 +112,7 @@
   "Given an entryfied transaction, ensures that there is
   exactly one empty row"
   [transaction]
-  (update-in transaction [:items] #(conj (vec (remove empty? %)) {})))
+  (update-in transaction [:transaction/items] #(conj (vec (remove empty? %)) {})))
 
 (defn tradify
   [{:keys [items] :as transaction} {:keys [find-account find-commodity]}]
