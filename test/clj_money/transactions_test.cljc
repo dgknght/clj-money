@@ -12,7 +12,7 @@
 (defn- index
   [& inputs]
   (let [[->key & models] (if (map? (first inputs))
-                           [util/->model-ref inputs]
+                           (cons util/->model-ref inputs)
                            inputs)]
     (->> models
          (map (juxt ->key identity))
@@ -210,20 +210,17 @@
                         :commodity/type :stock
                         :commodity/exchange :nasdaq})})
 
-(deftest tradify-an-partial-transaction
-  (let [date (t/local-date 2020 3 2)
-        tradified (trx/tradify {:transaction-date date
-                                :items [{:account-id "401k"
-                                         :action :credit}]}
+(deftest tradify-a-partial-transaction
+  (let [tradified (trx/tradify #:transaction{:transaction-date "2020-01-01"
+                                             :items [#:transaction-item{:account {:id :401k}
+                                                                        :action :credit}]}
                                {:find-account #(get-in trading-context [:accounts %])
-                                :find-commodity (->> :commodities trading-context
-                                                     (map (juxt :id identity))
-                                                     (into {}))})]
-    (is (= "2020-01-01" (:trade-date tradified)) "The trade-date is taken from transaction-date")
-    (is (= "401k" (:account-id tradified)) "The account-id is taken from the item for the trading account")
-    (is (= :buy (:action tradified)) "The action defauls to buy")
-    (is (nil? (:commodity-id tradified)) "The commodity id is nil")
-    (is (nil? (:shares tradified)) "The shares is nil")))
+                                :find-commodity #(get-in trading-context [:commodities %])})]
+    (is (= "2020-01-01" (:trade/trade-date tradified)) "The trade-date is taken from transaction-date")
+    (is (util/model= {:id :401k} (:trade/account tradified)) "The account is taken from the item for the trading account")
+    (is (= :buy (:trade/action tradified)) "The action defauls to buy")
+    (is (nil? (:trade/commodity tradified)) "The commodity id is nil")
+    (is (nil? (:trade/shares tradified)) "The shares is nil")))
 
 ; (deftest tradify-a-buy-transaction
 ;   (let ["2020-01-01" (t/local-date 2020 3 2)

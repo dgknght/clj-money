@@ -115,27 +115,28 @@
   (update-in transaction [:transaction/items] #(conj (vec (remove empty? %)) {})))
 
 (defn tradify
-  [{:keys [items] :as transaction} {:keys [find-account find-commodity]}]
+  [{:transaction/keys [items] :as transaction} {:keys [find-account find-commodity]}]
   (let [{:keys [trading tradable]} (->> items
-                                        (map #(assoc % :account (find-account (:account-id %))))
+                                        (map #(update-in % [:transaction-item/account] find-account))
                                         (mapcat (fn [item]
                                                   (map #(vector % item)
-                                                       (:system-tags (:account item)))))
+                                                       (-> item
+                                                           :transaction-item/account
+                                                           :account/system-tags))))
                                         (into {}))]
     (-> transaction
-        (rename-keys {:transaction-date :trade-date})
-        (assoc :account-id (:account-id trading)
-               :commodity-id (when tradable
-                               (-> tradable
-                                   :account
-                                   :commodity-id
-                                   find-commodity
-                                   :id))
-               :shares (some :quantity [tradable trading])
-               :action (if (= :credit (:action trading))
-                         :buy
-                         :sell))
-        (dissoc :items))))
+        (rename-keys {:transaction/transaction-date :trade/trade-date})
+        (assoc :trade/account (:transaction-item/account trading)
+               :trade/commodity (when tradable
+                                  (-> tradable
+                                      :transaction-item/account
+                                      :account/commodity
+                                      find-commodity))
+               :trade/shares (some :transaction-item/quantity [tradable trading])
+               :trade/action (if (= :credit (:transaction-item/action trading))
+                               :buy
+                               :sell))
+        (dissoc :transaction/items))))
 
 (defn untradify
   [{:keys [shares action account-id] :as transaction}
