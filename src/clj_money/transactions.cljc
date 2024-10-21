@@ -34,30 +34,32 @@
                :transaction/quantity (polarize-quantity account-item ref-account))
         (dissoc :transaction/items))))
 
-(defn fullify
+(defn unaccountify
   "Accepts a simplified transaction (with one quantity, one debit
   account, and one credit account) and returns a standard
   transaction (with line items)"
-  [{:keys [quantity account-id other-account-id item-id other-item-id] :as transaction} find-account-fn]
-  {:pre [(:account-id transaction)]}
-  (let [account (find-account-fn account-id)
-        other-account (find-account-fn other-account-id)
-        item-1 (assoc (->transaction-item quantity account)
-                      :id item-id)]
-    (-> transaction
-        (assoc :items [item-1
-                       {:id other-item-id
-                        :quantity (util/abs quantity)
-                        :action (if (= :credit
-                                       (:action item-1))
-                                  :debit
-                                  :credit)
-                        :account-id (:id other-account)}])
-        (dissoc :quantity
-                :account-id
-                :other-account-id
-                :item-id
-                :other-item-id))))
+  [{:transaction/keys [quantity account other-account item other-item] :as trx} find-account]
+  {:pre [(:transaction/account trx)
+         (:transaction/other-account trx)
+         (:transaction/item trx)
+         (:transaction/other-item trx)]}
+  (let [item-1 (merge item (->transaction-item quantity
+                                               (find-account account)))]
+    (-> trx
+        (assoc :transaction/items
+               [item-1
+                (merge other-item
+                       #:transaction-item{:quantity (util/abs quantity)
+                                          :action (if (= :credit
+                                                         (:transaction-item/action item-1))
+                                                    :debit
+                                                    :credit)
+                                          :account other-account})])
+        (dissoc :transaction/quantity
+                :transaction/account
+                :transaction/other-account
+                :transaction/item
+                :transaction/other-item))))
 
 (defn- entryfy-item
   [{:keys [quantity action] :as item}]

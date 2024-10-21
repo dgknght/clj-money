@@ -45,35 +45,35 @@
                                :quantity -10M}]
     (is (= expected (trx/accountify trx (accounts :checking))))))
 
-(deftest fullify-a-transaction
+(deftest unaccountify-a-transaction
   (let [expected #:transaction{:transaction-date "2020-01-01"
                                :description "ACME Store"
                                :memo "transaction memo"
-                               :items [#:transaction-item{:id 1
-                                                          :account {:id :checking}
-                                                          :action :credit
-                                                          :quantity 10M}
-                                       #:transaction-item{:id 2
-                                                          :account {:id :groceries}
-                                                          :action :debit
-                                                          :quantity 10M}]}
+                               :items [{:id 1
+                                        :transaction-item/account {:id :checking}
+                                        :transaction-item/action :credit
+                                        :transaction-item/quantity 10M}
+                                       {:id 2
+                                        :transaction-item/account {:id :groceries}
+                                        :transaction-item/action :debit
+                                        :transaction-item/quantity 10M}]}
         simple #:transaction{:transaction-date "2020-01-01"
                              :description "ACME Store"
                              :memo "transaction memo"
-                             :item-id 1
+                             :item {:id 1}
                              :account {:id :checking}
-                             :other-item-id 2
+                             :other-item {:id 2}
                              :other-account {:id :groceries}
                              :quantity -10M}]
-    (is (= expected (trx/fullify simple accounts)))
+    (is (= expected (trx/unaccountify simple (comp accounts :id))))
     (testing "two asset accounts"
-      (is (= (assoc-in expected [:items 1 :account] {:id :savings})
-             (trx/fullify (assoc simple :other-account-id {:id :savings})
-                          accounts))))
+      (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :savings})
+             (trx/unaccountify (assoc simple :transaction/other-account {:id :savings})
+                               (comp accounts :id)))))
     (testing "one asset, one liability"
-      (is (= (assoc-in expected [:items 1 :account-id] {:id :credit-card})
-             (trx/fullify (assoc simple :other-account-id {:id :credit-card})
-                          indexed-accounts))))))
+      (is (= (assoc-in expected [:transaction/items 1 :transaction-item/account] {:id :credit-card})
+             (trx/unaccountify (assoc simple :transaction/other-account {:id :credit-card})
+                               (comp accounts :id)))))))
 
 ; (deftest entryfy-a-transaction
 ;   (let [transaction {:transaction-date date
