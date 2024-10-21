@@ -31,36 +31,36 @@
 (deftest derive-an-item
   (testing "from a positive quantity"
     (let [quantity 10M]
-      (is (= #:transaction-item{:quantity 10M :action :debit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :asset}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :liability}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :equity}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :income}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :expense}))
           "The action is :debit")))
   (testing "from a negative quantity"
     (let [quantity -10M]
-      (is (= #:transaction-item{:quantity 10M :action :credit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :asset}))
           "The action is :credit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :liability}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :equity}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :debit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :debit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :income}))
           "The action is :debit")
-      (is (= #:transaction-item{:quantity 10M :action :credit :account-id 1}
+      (is (= #:transaction-item{:quantity 10M :action :credit :account {:id 1}}
              (accounts/->transaction-item quantity {:id 1 :account/type :expense}))
           "The action is :credit"))))
 

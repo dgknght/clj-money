@@ -118,7 +118,7 @@
   with appropriate attributes"
   [quantity account]
   #:transaction-item{:quantity (abs quantity)
-                     :account-id (:id account)
+                     :account (util/->model-ref account)
                      :action (derive-action quantity account)})
 
 (defn- singularize
