@@ -194,8 +194,8 @@
                                                       :quantity quantity
                                                       :account credit-account}])
         (dissoc :transaction/quantity
-                :transaction/debit-account-id
-                :transaction/credit-account-id))))
+                :transaction/debit-account
+                :transaction/credit-account))))
 
 (defn value
   [{:transaction/keys [items]}]

@@ -314,24 +314,24 @@
                                  :interval-count 1}
                                 items)))))
 
-; (deftest expand-a-transaction
-;   (let [expected {:transaction-date "2020-01-01"
-;                   :description "ACME Store"
-;                   :memo "transaction memo"
-;                   :items [{:account-id (account-id :groceries)
-;                            :action :debit
-;                            :quantity 10M}
-;                           {:account-id (account-id :checking)
-;                            :action :credit
-;                            :quantity 10M}]}
-;         simple {:transaction-date "2020-01-01"
-;                 :description "ACME Store"
-;                 :memo "transaction memo"
-;                 :debit-account-id (account-id :groceries)
-;                 :credit-account-id (account-id :checking)
-;                 :quantity 10M}]
-;     (is (= expected (trx/expand simple)))))
-; 
+(deftest expand-a-transaction
+  (let [expected #:transaction{:transaction-date "2020-01-01"
+                               :description "ACME Store"
+                               :memo "transaction memo"
+                               :items [#:transaction-item{:account {:id :groceries}
+                                                          :action :debit
+                                                          :quantity 10M}
+                                       #:transaction-item{:account {:id :checking}
+                                                          :action :credit
+                                                          :quantity 10M}]}
+        simple #:transaction{:transaction-date "2020-01-01"
+                             :description "ACME Store"
+                             :memo "transaction memo"
+                             :debit-account {:id :groceries}
+                             :credit-account {:id :checking}
+                             :quantity 10M}]
+    (is (= expected (trx/expand simple)))))
+
 ; (deftest calc-the-value-of-a-transaction
 ;   (is (= 100M (trx/value #:transaction{:items [#:transaction-item{:quantity 100M
 ;                                                                   :value 100M
