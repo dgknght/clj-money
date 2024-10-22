@@ -288,32 +288,32 @@
                           (mapv #(update-in % [:transaction-item/account] util/->model-ref)
                                 items))))))))
 
-; (deftest summarize-some-items
-;   (let [items [{:polarized-quantity 100M
-;                 :transaction-date (t/local-date 2016 1 2)}
-;                {:polarized-quantity 101M
-;                 :transaction-date (t/local-date 2016 1 16)}
-;                {:polarized-quantity 102M
-;                 :transaction-date (t/local-date 2016 3 1)}]
-;         expected [{:start-date (t/local-date 2016 1 1)
-;                    :end-date (t/local-date 2016 1 31)
-;                    :quantity 201M}
-;                   {:start-date (t/local-date 2016 2 1)
-;                    :end-date (t/local-date 2016 2 29)
-;                    :quantity 0M}
-;                   {:start-date (t/local-date 2016 3 1)
-;                    :end-date (t/local-date 2016 3 31)
-;                    :quantity 102M}
-;                   {:start-date (t/local-date 2016 4 1)
-;                    :end-date (t/local-date 2016 4 30)
-;                    :quantity 0M}]]
-;     (is (= expected
-;            (trx/summarize-items {:start-date (t/local-date 2016 1 1)
-;                                        :end-date (t/local-date 2016 4 30)
-;                                        :interval-type :month
-;                                        :interval-count 1}
-;                                 items)))))
-; 
+(deftest summarize-some-items
+  (let [items [#:transaction-item{:polarized-quantity 100M
+                                  :transaction-date (t/local-date 2016 1 2)}
+               #:transaction-item{:polarized-quantity 101M
+                                  :transaction-date (t/local-date 2016 1 16)}
+               #:transaction-item{:polarized-quantity 102M
+                                  :transaction-date (t/local-date 2016 3 1)}]
+        expected [{:start-date (t/local-date 2016 1 1)
+                   :end-date (t/local-date 2016 1 31)
+                   :quantity 201M}
+                  {:start-date (t/local-date 2016 2 1)
+                   :end-date (t/local-date 2016 2 29)
+                   :quantity 0M}
+                  {:start-date (t/local-date 2016 3 1)
+                   :end-date (t/local-date 2016 3 31)
+                   :quantity 102M}
+                  {:start-date (t/local-date 2016 4 1)
+                   :end-date (t/local-date 2016 4 30)
+                   :quantity 0M}]]
+    (is (= expected
+           (trx/summarize-items {:start-date (t/local-date 2016 1 1)
+                                 :end-date (t/local-date 2016 4 30)
+                                 :interval-type :month
+                                 :interval-count 1}
+                                items)))))
+
 ; (deftest expand-a-transaction
 ;   (let [expected {:transaction-date "2020-01-01"
 ;                   :description "ACME Store"
