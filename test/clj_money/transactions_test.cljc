@@ -332,22 +332,22 @@
                              :quantity 10M}]
     (is (= expected (trx/expand simple)))))
 
-; (deftest calc-the-value-of-a-transaction
-;   (is (= 100M (trx/value #:transaction{:items [#:transaction-item{:quantity 100M
-;                                                                   :value 100M
-;                                                                   :action :credit
-;                                                                   :account {:id :checking}}
-;                                                #:transaction-item{:quantity 100M
-;                                                                   :value 100M
-;                                                                   :action :debit
-;                                                                   :account {:id :groceries}}]}))
-;       "The value is the sum of credits (or debits)")
-;   (is (nil? (trx/value #:transaction{:items [#:transaction-item{:quantity 101M
-;                                                                 :value 101M
-;                                                                 :action :credit
-;                                                                 :account {:id :checking}}
-;                                              #:transaction-item{:quantity 100M
-;                                                                 :value 100M
-;                                                                 :action :debit
-;                                                                 :account {:id :groceries}}]}))
-;       "The value is nil (undeterminable) if the credits and debits do not match"))
+(deftest calc-the-value-of-a-transaction
+  (is (= 100M (trx/value #:transaction{:items [#:transaction-item{:quantity 100M
+                                                                  :value 100M
+                                                                  :action :credit
+                                                                  :account {:id :checking}}
+                                               #:transaction-item{:quantity 100M
+                                                                  :value 100M
+                                                                  :action :debit
+                                                                  :account {:id :groceries}}]}))
+      "The value is the sum of credits (or debits)")
+  (is (nil? (trx/value #:transaction{:items [#:transaction-item{:quantity 101M
+                                                                :value 101M
+                                                                :action :credit
+                                                                :account {:id :checking}}
+                                             #:transaction-item{:quantity 100M
+                                                                :value 100M
+                                                                :action :debit
+                                                                :account {:id :groceries}}]}))
+      "The value is nil (undeterminable) if the credits and debits do not match"))
