@@ -13,11 +13,11 @@
 (defmulti prepare-criteria db/type-dispatch)
 (defmethod prepare-criteria :default [m] m)
 
-(defmulti deconstruct db/type-dispatch)
-(defmethod deconstruct :default [m] [m])
-
 (defmulti before-validation db/type-dispatch)
 (defmethod before-validation :default [m & _] m)
+
+(defmulti propagate db/type-dispatch)
+(defmethod propagate :default [m] [m])
 
 (defmulti before-save db/type-dispatch)
 (defmethod before-save :default [m & _] m)
@@ -69,10 +69,10 @@
 (defn put-many
   [& models]
   (->> models
+       (mapcat propagate)
        (map (comp before-save
                   validate
                   before-validation))
-       (mapcat deconstruct)
        (db/put (db/storage))
        (map (comp after-save
                   #(after-read % {})))))

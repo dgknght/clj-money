@@ -248,11 +248,6 @@
   [trx]
   (assoc trx :transaction/value (trxs/value trx)))
 
-(defmethod models/deconstruct :transaction
-  [{:as trx :transaction/keys [items]}]
-  (cons (dissoc trx :transaction/items)
-        items))
-
 (defn- fetch-lot-items
   [transaction-id transaction-date]
   (l-t/search {:transaction-id transaction-id
@@ -918,3 +913,7 @@
        ; clean up the ambient settings as if we were never here
        (swap! ambient-settings dissoc ~entity-id)
        result#)))
+
+#_(defmethod models/propagate :transaction
+  [trx]
+  [trx])
