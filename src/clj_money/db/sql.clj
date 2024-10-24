@@ -120,8 +120,7 @@
 
 (defmulti resolve-temp-ids
   "In a model-specific way, replace temporary ids with proper ids after a save."
-  (fn [model _id-map]
-    (db/model-type model)))
+  db/type-dispatch)
 
 (defmethod resolve-temp-ids :default
   [model _id-map]
