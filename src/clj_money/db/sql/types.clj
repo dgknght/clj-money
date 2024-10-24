@@ -21,7 +21,7 @@
   "Given a model or an id, returns true if the model has a temporary
   id or if the specified id is a temporary id"
   [id-or-model]
-  (let [id (->id id-or-model)]
+  (when-let [id (->id id-or-model)]
     (and (string? id)
          (string/starts-with? id "temp-"))))
 

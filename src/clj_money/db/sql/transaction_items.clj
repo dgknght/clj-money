@@ -9,6 +9,10 @@
 (declare ->model-refs)
 (sql/def->model-refs ->model-refs :transaction-item/account :transaction-item/transaction)
 
+(defmethod sql/resolve-temp-ids :transaction-item
+  [item id-map]
+  (update-in item [:transaction-item/transaction-id] id-map))
+
 (defmethod sql/prepare-criteria :transaction-item
   [criteria]
   (criteria/apply-to criteria ->sql-refs))

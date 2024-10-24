@@ -18,7 +18,9 @@
   [{:transaction/keys [items transaction-date] :as trx}]
   (let [trx-id (or (:id trx)
                    (temp-id))]
-    (cons (dissoc trx :transaction/items)
+    (cons (-> trx
+              (assoc :id trx-id)
+              (dissoc :transaction/items))
         (map #(assoc %
                      :transaction-item/transaction-id trx-id
                      :transaction-item/transaction-date transaction-date)
