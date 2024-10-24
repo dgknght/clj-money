@@ -36,10 +36,6 @@
           (map #(assoc % :budget-item/budget-id budget-id)
                items))))
 
-(defmethod sql/resolve-temp-ids :budget-item
-  [budget-item id-map]
-  (update-in budget-item [:budget-item/budget-id] id-map))
-
 (defmethod sql/after-read :budget
   [budget]
   (-> budget

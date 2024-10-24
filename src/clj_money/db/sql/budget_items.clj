@@ -27,9 +27,9 @@
       (update-in [:budget-item/spec] sql/->json)
       (->sql-refs)))
 
-(defmethod sql/resolve-temp-ids :budget-item-item
-  [budget-item-item id-map]
-  (update-in budget-item-item [:budget-item-item/budget-item-id] id-map))
+(defmethod sql/resolve-temp-ids :budget-item
+  [budget-item id-map]
+  (update-in budget-item [:budget-item/budget-id] id-map))
 
 (defmulti ^:private extract-bigdec-array type)
 
