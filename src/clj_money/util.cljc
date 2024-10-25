@@ -316,3 +316,25 @@
   (if (map? map-or-id)
     (select-keys map-or-id [:id])
     {:id map-or-id}))
+
+(defn reconstruct
+  "Given a list of models and a few options, aggregates child models into their parents."
+  [{:keys [children-key parent? child?]} models]
+  {:pre [(seq models) children-key parent? child?]}
+  ; This logic assume the order established in deconstruct is maintained
+  (let [{:keys [current assembled]}
+        (reduce (fn [{:keys [current] :as res} mdl]
+                  (cond
+                    (child? mdl)
+                    (update-in res [:current children-key] (fnil conj []) mdl)
+
+                    (parent? mdl)
+                    (cond-> (assoc res :current mdl)
+                      current (update-in [:assembled] conj current))
+
+                    :else
+                    res))
+                {:current nil
+                 :assembled []}
+                models)]
+    (conj assembled current)))
