@@ -2,6 +2,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [stowaway.criteria :as criteria]
+            [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id]]))
@@ -54,14 +55,8 @@
 
 (defmethod sql/reconstruct :budget
   [models]
-  ; This logic assume the order established in deconstruct is maintained
-  (let [{:keys [current budgets]}
-        (reduce (fn [{:keys [current] :as res} mod]
-                  (if (:budget/name mod)
-                    (cond-> (assoc res :current mod)
-                      current (update-in [:budgets] conj current))
-                    (update-in res [:current :budget/items] (fnil conj []) mod)))
-                {:current nil
-                 :budgets []}
-                models)]
-    (conj budgets current)))
+  (->> models
+       (map #(dissoc % :budget-item/budget))
+       (util/reconstruct {:parent? :budget/name
+                          :child? :budget-item/account
+                          :children-key :budget/items})))
