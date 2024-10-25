@@ -62,9 +62,17 @@
   ([{:keys [id] :as m}]
    {:pre [(map? m) (:id m)]}
    (find id (keyword (util/qualifier m))))
-  ([id model-type]
-   {:pre [id (keyword? model-type)]}
-   (find-by (db/model-type {:id id} model-type))))
+  ([id-or-ref model-type]
+   {:pre [id-or-ref (keyword? model-type)]}
+   (find-by (db/model-type (util/->model-ref id-or-ref)
+                           model-type))))
+
+(defn realize
+  [model-or-ref model-type]
+  {:pre [(map? model-or-ref)]}
+  (if (= 1 (count model-or-ref))
+    (find model-or-ref model-type)
+    model-or-ref))
 
 (defn put-many
   [& models]

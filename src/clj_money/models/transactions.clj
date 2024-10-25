@@ -914,6 +914,22 @@
        (swap! ambient-settings dissoc ~entity-id)
        result#)))
 
-#_(defmethod models/propagate :transaction
-  [trx]
-  [trx])
+(defmethod models/propagate :transaction
+  [{:as trx :transaction/keys [transaction-date]}]
+  (let [updated (update-in trx
+                           [:transaction/items]
+                           (fn [items]
+                             (mapv (fn [item]
+                                     (assoc item :transaction-item/index 1))
+                                   items)))
+        entity (-> (:transaction/entity trx)
+                   (update-in [:entity/settings
+                               :settings/earliest-transaction-date]
+                              dates/earliest
+                              transaction-date)
+                   (update-in [:entity/settings
+                               :settings/latest-transaction-date]
+                              dates/latest
+                              transaction-date))]
+    [updated
+     entity]))

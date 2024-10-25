@@ -87,7 +87,8 @@
                                            :quantity 1000M}
                         #:transaction-item{:account (find-account "Salary")
                                            :action :credit
-                                           :quantity 1000M}]})
+                                           :quantity 1000M
+                                           :memo nil}]})
 
 (defn- assert-created
   [attr]
