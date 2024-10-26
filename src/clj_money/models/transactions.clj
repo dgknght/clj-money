@@ -929,24 +929,39 @@
       (update-in early-ks dates/earliest date)
       (update-in late-ks dates/latest date)))
 
+(defn- previous-item
+  [{:transaction-item/keys [account]} date]
+  (first (db/select (db/storage)
+                    {:transaction-item/account account
+                     :transaction/transaction-date [:< date]}
+                    {:sort [[:transaction-item/index :desc]]})))
+
 (defn- propagate-item
   [{:transaction/keys [transaction-date]}]
   (fn [ctx {:as item :transaction-item/keys [account quantity value]}]
     ; TODO: polarize the quantity
-    (-> ctx
-        (update-in [:items]
-                   conj
-                   (assoc item
-                          :transaction-item/index 0
-                          :transaction-item/balance (or quantity 0M))) ; TODO: Remove this or logic when we start with the account balance
-        (update-in [:accounts]
-                   conj
-                   (-> account
-                       (assoc :account/quantity quantity
-                              :account/value value)
-                       (push-date-boundaries transaction-date
-                                             [:account/earliest-transaction-date]
-                                             [:account/latest-transaction-date]))))))
+    (let [previous-item (or (previous-item item transaction-date)
+                            #:transaction-item{:index -1
+                                               :quantity 0M})]
+      (-> ctx
+          (update-in [:items] ; This still ain't right
+                     #(:items (reduce (fn [{:as res :keys [prev]} item]
+                                        (-> res
+                                            (update-in [:items] conj (assoc item
+                                                                            :transaction-item/index (+ (:transaction-item/index prev))
+                                                                            :transaction-item/balance (+ (:transaction-item/balance prev)
+                                                                                                         (:transaction-item/quantity item))))))
+                                      {:prev previous-item
+                                       :items []}
+                                      %)))
+          (update-in [:accounts]
+                     conj
+                     (-> account
+                         (assoc :account/quantity quantity
+                                :account/value value)
+                         (push-date-boundaries transaction-date
+                                               [:account/earliest-transaction-date]
+                                               [:account/latest-transaction-date])))))))
 
 (defn- propagate-items
   [{:transaction/keys [items] :as trx}]
