@@ -18,7 +18,6 @@
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.test-context :refer [with-context
-                                            *context*
                                             basic-context
                                             find-entity
                                             find-account
@@ -55,8 +54,8 @@
   [account]
   (transactions/items-by-account
     account
-    [(t/local-date 2015 1 1)
-     (t/local-date 2017 12 31)]))
+    :earliest-date (t/local-date 2015 1 1)
+    :latest-date (t/local-date 2017 12 31)))
 
 (def base-context
   [(factory :user, {:user/email "john@doe.com"})
@@ -96,7 +95,7 @@
 
 (deftest create-a-transaction
   (with-context base-context
-    (let [{:as trx :transaction/keys [items]} (assert-created (attributes))
+    (let [{:transaction/keys [items]} (assert-created (attributes))
           date (t/local-date 2016 3 2)]
       (testing "entity updates"
         (is (comparable? #:settings{:earliest-transaction-date date
@@ -150,109 +149,122 @@
 ;             (is (= 0 (count (items-by-account salary)))
 ;                 "The transaction item for salary should not be created"))
 ;           (assert-account-quantities checking 0M salary 0M))))))
-; 
-; (deftest transaction-date-is-required
-;   (with-context base-context
-;     (let [transaction (transactions/create (dissoc (attributes)
-;                                                    :transaction-date))]
-;       (is (invalid? transaction [:transaction-date] "Transaction date is required")))))
-; 
-; (deftest entity-id-is-required
-;   (with-context base-context
-;     (let [result (transactions/create (dissoc (attributes)
-;                                               :entity-id))]
-;       (is (invalid? result [:entity-id] "Entity is required")))))
-; 
-; (deftest items-are-required
-;   (with-context base-context
-;     (let [result (transactions/create (assoc (attributes) :items []))]
-;       (is (invalid? result [:items] "Items must contain at least 1 item(s)")))))
-; 
-; (deftest item-account-id-is-required
-;   (with-context base-context
-;     (let [transaction (transactions/create
-;                         (update-in
-;                           (attributes)
-;                           [:items 0]
-;                           #(dissoc % :account-id)))]
-;       (is (invalid? transaction [:items 0 :account-id] "Account is required")))))
-; 
-; (deftest item-quantity-is-required
-;   (with-context base-context
-;     (let [transaction (transactions/create
-;                         (update-in
-;                           (attributes)
-;                           [:items 0]
-;                           #(dissoc % :quantity)))]
-;       (is (invalid? transaction [:items 0 :quantity] "Quantity is required")))))
-; 
-; (deftest item-quantity-must-be-greater-than-zero
-;   (with-context base-context
-;     (let [transaction (transactions/create
-;                         (update-in
-;                           (attributes)
-;                           [:items 0]
-;                           #(assoc % :quantity -1000M)))]
-;       (is (invalid? transaction [:items 0 :quantity] "Quantity cannot be less than zero")))))
-; 
-; (deftest item-action-is-required
-;   (with-context base-context
-;     (let [transaction (transactions/create
-;                         (update-in
-;                           (attributes)
-;                           [:items 0]
-;                           #(dissoc % :action)))]
-;       (is (invalid? transaction [:items 0 :action] "Action is required")))))
-; 
-; (deftest item-action-must-be-debit-or-credit
-;   (with-context base-context
-;     (let [transaction (transactions/create
-;                         (update-in
-;                           (attributes)
-;                           [:items 0]
-;                           #(assoc % :action :not-valid)))]
-;       (is (invalid? transaction [:items 0 :action] "Action must be debit or credit")))))
-; 
-; (deftest sum-of-debits-must-equal-sum-of-credits
-;   (with-context base-context
-;     (let [transaction (transactions/create
-;                         (update-in
-;                           (attributes)
-;                           [:items 0]
-;                           #(assoc % :quantity 1001M)))]
-;       (is (invalid? transaction [:items] "Sum of debits must equal the sum of credits")))))
-; 
-; (def balance-context
-;   (conj base-context
-;         #:transaction{:transaction-date (t/local-date 2016 3 2)
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"
-;                       :quantity 1000M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 3)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 100M}))
-; 
-; (deftest item-balances-are-set-when-saved
-;   (with-context balance-context
-;     (let [[checking-items
-;            salary-items
-;            groceries-items] (items-by-account ["Checking"
-;                                                "Salary"
-;                                                "Groceries"])]
-;       ; Transactions are returned with most recent first
-;       (is (= [900M 1000M]
-;              (map :balance checking-items))
-;           "The checking account balances are correct")
-;       (is (= [1000M] (map :balance salary-items))
-;           "The salary account balances are correct")
-;       (is (= [100M] (map :balance groceries-items))
-;           "The groceries account balances are correct"))))
-; 
+
+(deftest transaction-date-is-required
+  (with-context base-context
+    (assert-invalid (dissoc (attributes)
+                            :transaction/transaction-date)
+                    {:transaction/transaction-date ["Transaction date is required"]})))
+
+(deftest entity-is-required
+  (with-context base-context
+    (assert-invalid (dissoc (attributes)
+                            :transaction/entity)
+                    {:transaction/entity ["Entity is required"]})))
+
+(deftest items-are-required
+  (with-context base-context
+    (assert-invalid (assoc (attributes) :transaction/items [])
+                    {:transaction/items ["Items must contain at least 2 item(s)"]})))
+
+(deftest item-account-is-required
+  (with-context base-context
+    (assert-invalid (update-in
+                      (attributes)
+                      [:transaction/items 0]
+                      dissoc
+                      :transaction-item/account)
+                    {:transaction/items
+                     {0
+                      {:transaction-item/account ["Account is invalid"]}}}))) ; TODO: Make this say "Account is required"
+
+(deftest item-quantity-is-required
+  (with-context base-context
+    (assert-invalid (update-in (attributes)
+                               [:transaction/items 0]
+                               #(-> %
+                                    (dissoc :transaction-item/quantity)
+                                    (assoc :transaction-item/value 1M)))
+                    {:transaction/items
+                     {0
+                      {:transaction-item/quantity ["Quantity is required"]}}})))
+
+(deftest item-quantity-must-be-greater-than-zero
+  (with-context base-context
+    (assert-invalid (assoc-in
+                          (attributes)
+                          [:transaction/items
+                           0
+                           :transaction-item/quantity]
+                          -1000M)
+                    {:transaction/items
+                     {0
+                      {:transaction-item/quantity ["Quantity is invalid"] ; TODO: Adjust this message to say "Quantity must be a positive number"
+                       :transaction-item/value ["Value is invalid"]}}})))
+
+(deftest item-action-is-required
+  (with-context base-context
+    (assert-invalid (update-in
+                          (attributes)
+                          [:transaction/items 0]
+                          #(dissoc % :transaction-item/action))
+                    {:transaction/items
+                     {0
+                      {:transaction-item/action ["Action is required"]}}})))
+
+(deftest item-action-must-be-debit-or-credit
+  (with-context base-context
+    (assert-invalid (assoc-in
+                      (attributes)
+                      [:transaction/items
+                       0
+                       :transaction-item/action]
+                      :not-valid)
+                    {:transaction/items
+                     {0
+                      {:transaction-item/action ["Action must be debit or credit"]}}})))
+
+(deftest sum-of-debits-must-equal-sum-of-credits
+  (with-context base-context
+    (assert-invalid (assoc-in
+                      (attributes)
+                      [:transaction/items
+                       0
+                       :transaction-item/quantity]
+                      1001M)
+                    {:transaction/items ["Sum of debits must equal the sum of credits"]})))
+
+(def balance-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2016 3 3)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 100M}))
+
+(deftest item-balances-are-set-when-saved
+  (with-context balance-context
+    (let [[checking-items
+           salary-items
+           groceries-items] (items-by-account ["Checking"
+                                               "Salary"
+                                               "Groceries"])]
+      ; Transactions are returned with most recent first
+      (is (= [900M 1000M]
+             (map :transaction-item/balance checking-items))
+          "The checking account balances are correct")
+      (is (= [1000M] (map :transaction-item/balance salary-items))
+          "The salary account balances are correct")
+      (is (= [100M] (map :transaction-item/balance groceries-items))
+          "The groceries account balances are correct"))))
+
 ; (deftest item-indexes-are-set-when-saved
 ;   (with-context balance-context
 ;     (let [[checking-items

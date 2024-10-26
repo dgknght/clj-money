@@ -14,8 +14,10 @@
                                           index-by]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.dates :as dates]
+            [clj-money.accounts :as acts]
             [clj-money.transactions :as trxs]
             [clj-money.models :as models]
             [clj-money.models.settings :as settings]
@@ -98,15 +100,15 @@
 
 (s/def :transaction-item/account ::models/model-ref)
 (s/def :transaction-item/action #{:debit :credit})
-(s/def :transaction-item/quantity v/big-dec-not-less-than-zero?)
+(s/def :transaction-item/quantity (s/and decimal? pos?))
 ; Balance is the running total of quantities for the account to which
 ; the item belongs
-(s/def :transaction-item/balance (partial instance? BigDecimal))
+(s/def :transaction-item/balance decimal?)
 ; Value is the value of the line item expressed in the entity's
 ; default commodity. For most transactions, this will be the same
 ; as the quantity. For transactions involving foreign currencies
 ; and commodity purchases (like stock trades) it will be different.
-(s/def :transaction-item/value v/positive-big-dec?)
+(s/def :transaction-item/value (s/and decimal? pos?))
 (s/def :transaction-item/memo (s/nilable string?))
 (s/def :transaction-item/index integer?)
 
@@ -697,18 +699,11 @@
 
 (defn items-by-account
   "Returns the transaction items for the specified account"
-  ([account-or-id date-spec]
-   (items-by-account account-or-id date-spec {}))
-  ([account-or-id date-spec options]
-   (search-items {:account-id (->id account-or-id)
-                  :transaction-date (if (coll? date-spec)
-                                      [:between
-                                       (first date-spec)
-                                       (second date-spec)]
-                                      date-spec)}
-                 (merge options
-                        {:sort [[:transaction-date :desc]
-                                [:index :desc]]}))))
+  [account & {:as options}]
+  (db/select (db/storage)
+             (acts/->criteria account options)
+             {:sort [[:transaction-item/transaction-date :desc]
+                     [:transaction-item/index :desc]]}))
 
 (defn unreconciled-items-by-account
   "Returns the unreconciled transaction items for the specified account"
@@ -943,7 +938,7 @@
                    conj
                    (assoc item
                           :transaction-item/index 0
-                          :transaction-item/balance quantity))
+                          :transaction-item/balance (or quantity 0M))) ; TODO: Remove this or logic when we start with the account balance
         (update-in [:accounts]
                    conj
                    (-> account
@@ -965,13 +960,13 @@
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
   (let [{:keys [accounts items]} (propagate-items trx)
-        entity (push-date-boundaries (models/find (:transaction/entity trx)
-                                                  :entity)
-                                     transaction-date
-                                     [:entity/settings
-                                      :settings/earliest-transaction-date]
-                                     [:entity/settings
-                                      :settings/latest-transaction-date])]
+        entity (when-let [e (:transaction/entity trx)]
+                 (push-date-boundaries (models/find e :entity)
+                                       transaction-date
+                                       [:entity/settings
+                                        :settings/earliest-transaction-date]
+                                       [:entity/settings
+                                        :settings/latest-transaction-date]))]
     (concat [(assoc trx :transaction/items items)
              entity]
             accounts)))

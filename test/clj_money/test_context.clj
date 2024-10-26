@@ -564,8 +564,8 @@
 (defmethod prepare :transaction
   [trx ctx]
   (-> trx
-      (update-in [:transaction/items] (fn [i] (map #(prepare % ctx) i)))
       expand
+      (update-in [:transaction/items] (fn [i] (map #(prepare % ctx) i)))
       (update-in [:transaction/entity] #(find-entity ctx %))))
 
 (defmethod prepare :transaction-item
