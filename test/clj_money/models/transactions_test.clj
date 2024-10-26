@@ -328,48 +328,52 @@
 ;                       find-account)
 ;                 ["Checking" "Salary" "Groceries"]))
 ;         "The accounts have the correct balances")))
-; 
-; (def multi-context
-;   (conj base-context
-;         #:account{:name "Bonus"
-;                   :type :income
-;                   :entity "Personal"
-;                   :commodity "USD"}
-;         #:transaction{:transaction-date (t/local-date 2016 3 2)
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :items [#:transaction-item{:action :debit
-;                                                  :account-id "Checking"
-;                                                  :quantity 1000}
-;                               #:transaction-item{:action :debit
-;                                                  :account-id "Checking"
-;                                                  :quantity 100}
-;                               #:transaction-item{:action :credit
-;                                                  :account-id "Salary"
-;                                                  :quantity 1000}
-;                               #:transaction-item{:action :credit
-;                                                  :account-id "Bonus"
-;                                                  :quantity 100}]}
-;         #:transaction{:transaction-date (t/local-date 2016 3 10)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 100M}))
-; 
-; (deftest create-a-transaction-with-multiple-items-for-one-account
-;   (with-context multi-context
-;     (let [checking-items (items-by-account "Checking")
-;           expected-checking-items #{{:transaction-date (t/local-date 2016 3 10) :quantity  100M}
-;                                     {:transaction-date (t/local-date 2016 3 2) :quantity 1000M}
-;                                     {:transaction-date (t/local-date 2016 3 2) :quantity  100M}}
-;           actual-checking-items (->> checking-items
-;                                      (map #(select-keys % [:transaction-date :quantity]))
-;                                      set)]
-;       (is (= expected-checking-items
-;              actual-checking-items)
-;           "The checking account items are correct"))))
-; 
+ 
+(def multi-context
+  (conj base-context
+        #:account{:name "Bonus"
+                  :type :income
+                  :entity "Personal"
+                  :commodity "USD"}
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :items [#:transaction-item{:action :debit
+                                                 :account-id "Checking"
+                                                 :quantity 1000M}
+                              #:transaction-item{:action :debit
+                                                 :account-id "Checking"
+                                                 :quantity 100M}
+                              #:transaction-item{:action :credit
+                                                 :account-id "Salary"
+                                                 :quantity 1000M}
+                              #:transaction-item{:action :credit
+                                                 :account-id "Bonus"
+                                                 :quantity 100M}]}
+        #:transaction{:transaction-date (t/local-date 2016 3 10)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 100M}))
+
+(deftest create-a-transaction-with-multiple-items-for-one-account
+  (with-context multi-context
+    (let [checking-items (items-by-account "Checking")
+          expected-checking-items #{{:transaction-item/transaction-date (t/local-date 2016 3 10)
+                                     :transaction-item/quantity  100M}
+                                    {:transaction-item/transaction-date (t/local-date 2016 3 2)
+                                     :transaction-item/quantity 1000M}
+                                    {:transaction-item/transaction-date (t/local-date 2016 3 2)
+                                     :transaction-item/quantity  100M}}
+          actual-checking-items (->> checking-items
+                                     (map #(select-keys % [:transaction-item/transaction-date
+                                                           :transaction-item/quantity]))
+                                     set)]
+      (is (= expected-checking-items
+             actual-checking-items)
+          "The checking account items are correct"))))
+
 ; (def delete-context
 ;   (conj base-context
 ;         #:transaction{:transaction-date (t/local-date 2016 3 2)
