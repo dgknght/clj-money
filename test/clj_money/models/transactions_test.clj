@@ -176,7 +176,7 @@
                       :transaction-item/account)
                     {:transaction/items
                      {0
-                      {:transaction-item/account ["Account is invalid"]}}}))) ; TODO: Make this say "Account is required"
+                      {:transaction-item/account ["Account is required"]}}})))
 
 (deftest item-quantity-is-required
   (with-context base-context

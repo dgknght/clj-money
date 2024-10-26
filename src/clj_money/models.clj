@@ -77,9 +77,11 @@
 (defn put-many
   [& models]
   (->> models
+       (map (comp validate
+                  before-validation))
        (mapcat propagate)
        (map (comp before-save
-                  validate
+                  validate ; TODO: Should it be possible for propagation to produce invalid models?
                   before-validation))
        (db/put (db/storage))
        (map (comp after-save
