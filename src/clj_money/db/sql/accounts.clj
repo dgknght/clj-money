@@ -1,5 +1,6 @@
 (ns clj-money.db.sql.accounts
   (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if parse-int]]
             [clj-money.db.sql :as sql])
@@ -57,4 +58,6 @@
       (update-in [:account/system-tags] ->keyword-set)
       (update-in [:account/user-tags] ->keyword-set)
       (update-in [:account/allocations] parse-allocations)
+      (update-in-if [:account/earliest-transaction-date] t/local-date)
+      (update-in-if [:account/latest-transaction-date] t/local-date)
       ->model-refs))
