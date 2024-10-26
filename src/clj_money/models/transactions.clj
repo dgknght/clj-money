@@ -14,6 +14,7 @@
                                           index-by]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
+            [clj-money.util :as util]
             [clj-money.dates :as dates]
             [clj-money.transactions :as trxs]
             [clj-money.models :as models]
@@ -914,22 +915,63 @@
        (swap! ambient-settings dissoc ~entity-id)
        result#)))
 
+(defn- find-account []
+  (let [accounts (atom {})]
+    (fn [ref]
+      (if (util/model-ref? ref)
+        (if-let [account (@accounts ref)]
+          account
+          (if-let [account (models/find ref :account)]
+            (do
+              (swap! accounts assoc ref account)
+              account)
+            (throw (ex-info "Account not found" {:ref ref}))))
+        ref))))
+
+(defn- push-date-boundaries
+  [model date early-ks late-ks]
+  (-> model
+      (update-in early-ks dates/earliest date)
+      (update-in late-ks dates/latest date)))
+
+(defn- propagate-item
+  [{:transaction/keys [transaction-date]}]
+  (fn [ctx {:as item :transaction-item/keys [account quantity value]}]
+    ; TODO: polarize the quantity
+    (-> ctx
+        (update-in [:items]
+                   conj
+                   (assoc item
+                          :transaction-item/index 0
+                          :transaction-item/balance quantity))
+        (update-in [:accounts]
+                   conj
+                   (-> account
+                       (assoc :account/quantity quantity
+                              :account/value value)
+                       (push-date-boundaries transaction-date
+                                             [:account/earliest-transaction-date]
+                                             [:account/latest-transaction-date]))))))
+
+(defn- propagate-items
+  [{:transaction/keys [items] :as trx}]
+  (let [find-act (find-account)]
+    (->> items
+         (map #(update-in % [:transaction-item/account] find-act))
+         (reduce (propagate-item trx)
+                 {:accounts #{}
+                  :items []}))))
+
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
-  (let [updated (update-in trx
-                           [:transaction/items]
-                           (fn [items]
-                             (mapv (fn [item]
-                                     (assoc item :transaction-item/index 1))
-                                   items)))
-        entity (-> (:transaction/entity trx)
-                   (update-in [:entity/settings
-                               :settings/earliest-transaction-date]
-                              dates/earliest
-                              transaction-date)
-                   (update-in [:entity/settings
-                               :settings/latest-transaction-date]
-                              dates/latest
-                              transaction-date))]
-    [updated
-     entity]))
+  (let [{:keys [accounts items]} (propagate-items trx)
+        entity (push-date-boundaries (models/find (:transaction/entity trx)
+                                                  :entity)
+                                     transaction-date
+                                     [:entity/settings
+                                      :settings/earliest-transaction-date]
+                                     [:entity/settings
+                                      :settings/latest-transaction-date])]
+    (concat [(assoc trx :transaction/items items)
+             entity]
+            accounts)))

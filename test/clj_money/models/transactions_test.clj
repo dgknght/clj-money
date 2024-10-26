@@ -96,13 +96,31 @@
 
 (deftest create-a-transaction
   (with-context base-context
-    (assert-created (attributes))
-    (testing "metadata"
-      ; TODO: test metadata on the accounts
-      ; TODO: test metadata on the transaction items
-      (is (comparable? #:settings{:earliest-transaction-date (t/local-date 2016 3 2)
-                                :latest-transaction-date (t/local-date 2016 3 2)}
-                       (:entity/settings (models/find (find-entity "Personal"))))))))
+    (let [{:as trx :transaction/keys [items]} (assert-created (attributes))
+          date (t/local-date 2016 3 2)]
+      (testing "entity updates"
+        (is (comparable? #:settings{:earliest-transaction-date date
+                                    :latest-transaction-date date}
+                         (:entity/settings (models/find (find-entity "Personal"))))
+            "The entity is updated with the transaction dates"))
+      (testing "account updates"
+        (is (comparable? #:account{:earliest-transaction-date date
+                                   :latest-transaction-date date}
+                         (models/find (find-account "Checking")))
+            "The debited account is updated with transaction dates")
+        (is (comparable? #:account{:earliest-transaction-date date
+                                   :latest-transaction-date date}
+                         (models/find (find-account "Salary")))
+            "The credited account is updated with transaction dates"))
+      (testing "item updates"
+        (is (comparable? #:transaction-item{:index 0
+                                            :balance 1000M}
+                         (first items))
+            "The first item has the correct summary data")
+        (is (comparable? #:transaction-item{:index 0
+                                            :balance 1000M}
+                         (second items))
+            "The first item has the correct summary data")))))
 
 ; (deftest rollback-on-failure
 ;   (let [call-count (atom 0)]
