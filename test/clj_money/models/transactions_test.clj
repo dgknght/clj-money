@@ -34,9 +34,9 @@
   (->> args
        (partition 2)
        (map (fn [[account balance]]
-              (is (= balance (:quantity (accounts/reload account)))
+              (is (= balance (:account/quantity (models/find account)))
                   (format "%s should have the quantity %s"
-                          (:name account)
+                          (:account/name account)
                           balance))))
        dorun))
 
@@ -265,29 +265,29 @@
       (is (= [100M] (map :transaction-item/balance groceries-items))
           "The groceries account balances are correct"))))
 
-; (deftest item-indexes-are-set-when-saved
-;   (with-context balance-context
-;     (let [[checking-items
-;            salary-items
-;            groceries-items] (items-by-account ["Checking"
-;                                                "Salary"
-;                                                "Groceries"])]
-;       (is (= [1 0] (map :index checking-items)) "The checking transaction items have correct indexes")
-;       (is (= [0] (map :index salary-items)) "The salary transaction items have the correct indexes")
-;       (is (= [0] (map :index groceries-items)) "The groceries transaction items have the correct indexes"))))
-; 
-; (deftest account-balances-are-set-when-saved
-;   (with-context balance-context
-;     (let [[checking
-;            salary
-;            groceries] (find-accounts "Checking"
-;                                      "Salary"
-;                                      "Groceries")]
-;       (assert-account-quantities
-;         checking 900M
-;         salary 1000M
-;         groceries 100M))))
-; 
+(deftest item-indexes-are-set-when-saved
+  (with-context balance-context
+    (let [[checking-items
+           salary-items
+           groceries-items] (items-by-account ["Checking"
+                                               "Salary"
+                                               "Groceries"])]
+      (is (= [1 0] (map :transaction-item/index checking-items)) "The checking transaction items have correct indexes")
+      (is (= [0]   (map :transaction-item/index salary-items)) "The salary transaction items have the correct indexes")
+      (is (= [0]   (map :transaction-item/index groceries-items)) "The groceries transaction items have the correct indexes"))))
+
+(deftest account-balances-are-set-when-saved
+  (with-context balance-context
+    (let [[checking
+           salary
+           groceries] (find-accounts "Checking"
+                                     "Salary"
+                                     "Groceries")]
+      (assert-account-quantities
+        checking 900M
+        salary 1000M
+        groceries 100M))))
+
 ; (def insert-context
 ;   (conj base-context
 ;         #:transaction{:transaction-date (t/local-date 2016 3 2)

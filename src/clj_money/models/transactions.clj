@@ -699,10 +699,9 @@
 (defn items-by-account
   "Returns the transaction items for the specified account"
   [account & {:as options}]
-  (db/select (db/storage)
-             (acts/->criteria account options)
-             {:sort [[:transaction-item/transaction-date :desc]
-                     [:transaction-item/index :desc]]}))
+  (models/select (acts/->criteria account options)
+                 {:sort [[:transaction-item/transaction-date :desc]
+                         [:transaction-item/index :desc]]}))
 
 (defn unreconciled-items-by-account
   "Returns the unreconciled transaction items for the specified account"
@@ -917,12 +916,12 @@
 
 (defn- previous-item
   [account date]
-  (first (db/select (db/storage)
-                    (db/model-type
-                      {:transaction-item/account account
-                       :transaction/transaction-date [:< date]}
-                      :transaction-item)
-                    {:sort [[:transaction-item/index :desc]]})))
+  (models/find-by
+    (db/model-type
+      {:transaction-item/account account
+       :transaction/transaction-date [:< date]}
+      :transaction-item)
+    {:sort [[:transaction-item/index :desc]]}))
 
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,
@@ -963,7 +962,7 @@
          (push-date-boundaries transaction-date
                                [:account/earliest-transaction-date]
                                [:account/latest-transaction-date])
-         (assoc :account/quantity (:transaction-item/quantity last-item)))
+         (assoc :account/quantity (:transaction-item/balance last-item)))
      (map #(dissoc % :polarized-quantity) updated-items)]))
 
 (defn- cache-fn
