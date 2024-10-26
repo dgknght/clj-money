@@ -317,6 +317,11 @@
     (select-keys map-or-id [:id])
     {:id map-or-id}))
 
+(defn model-ref?
+  [x]
+  (and (map? x)
+       (= #{:id} (set (keys x)))))
+
 (defn reconstruct
   "Given a list of models and a few options, aggregates child models into their parents."
   [{:keys [children-key parent? child?]} models]

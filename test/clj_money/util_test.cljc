@@ -164,3 +164,11 @@
                                                :quantity 1000M}
                             #:entity{:name "Personal"}]))
       "Each transaction receives the items until another transaction or the end of the list is encountered"))
+
+(deftest identity-a-model-ref
+  (is (util/model-ref? {:id 101})
+      "A  map with only an :id attribute is a model ref")
+  (is (not (util/model-ref? 101))
+      "A naked ID is not a model ref")
+  (is (not (util/model-ref? {:id 101 :account/name "Checking"}))
+      "A full model is not a model ref"))
