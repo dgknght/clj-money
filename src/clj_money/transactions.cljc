@@ -184,7 +184,7 @@
   "Given a transaction with a quantity, debit account and credit acount, return
   a transaction with two items, one for each account"
   [{:as trx :transaction/keys [debit-account credit-account quantity]}]
-  (if (:items trx)
+  (if (:transaction/items trx)
     trx
     (-> trx
         (assoc :transaction/items [#:transaction-item{:action :debit

@@ -330,7 +330,10 @@
                              :debit-account {:id :groceries}
                              :credit-account {:id :checking}
                              :quantity 10M}]
-    (is (= expected (trx/expand simple)))))
+    (is (= expected (trx/expand simple))
+        "A simple transaction is expanded")
+    (is (= expected (trx/expand expected))
+        "An expanded transaction is returned as-is")))
 
 (deftest calc-the-value-of-a-transaction
   (is (= 100M (trx/value #:transaction{:items [#:transaction-item{:quantity 100M
