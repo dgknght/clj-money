@@ -12,7 +12,6 @@
             [stowaway.implicit :as storage :refer [with-storage with-transacted-storage]]
             [dgknght.app-lib.core :refer [uuid
                                           index-by]]
-            [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
             [clj-money.util :as util]
@@ -926,7 +925,7 @@
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,
   update the index and balance attributes of the item."
-  [{:as item :keys [polarized-quantity]}
+  [{:as item ::keys [polarized-quantity]}
    {prev-index :transaction-item/index
     prev-balance :transaction-item/balance}]
   (assoc item
@@ -942,45 +941,85 @@
       #:transaction-item{:index -1
                          :balance 0M}))
 
-(defn- propagate-account-items
-  [{:transaction/keys [transaction-date]} _act-ref items]
-  (let [account (:transaction-item/account (first items))
-        updated-items (loop [prev (propagation-basis account transaction-date)
-                             remaining (map #(assoc %
-                                                    :polarized-quantity
-                                                    (polarize-quantity % account))
-                                            items)
-                             updated []]
-                        (if-let [item (first remaining)]
-                          (let [updated-item (apply-prev item prev)]
-                            (recur updated-item
-                                   (rest remaining)
-                                   (conj updated updated-item)))
-                          updated))
-        last-item (last updated-items)]
-    [(-> account
-         (push-date-boundaries transaction-date
-                               [:account/earliest-transaction-date]
-                               [:account/latest-transaction-date])
-         (assoc :account/quantity (:transaction-item/balance last-item)))
-     (map #(dissoc % :polarized-quantity) updated-items)]))
+(defn- polarize
+  [{:transaction-item/keys [account quantity action] :as item}]
+  (assoc item
+         ::polarized-quantity
+         (acts/polarize-quantity quantity
+                                 action
+                                 account)))
 
-(defn- propagate-items
-  [{:transaction/keys [items] :as trx}]
+(defn- re-index
+  "Given an account and a list of items, take the index and balance
+  of the 1st item and calculate indices and balances forward, then
+  apply the final to the account."
+  [account items]
+  (let [updated-items (loop [input items
+                             output []]
+                        (let [[prev current & remaining] input]
+                          (if current
+                            (let [updated (apply-prev current prev)]
+                              (recur (cons updated remaining)
+                                     (conj output updated)))
+                            output)))
+        last-item (last updated-items)]
+    [(assoc account
+            :account/quantity
+            (or (:transaction-item/balance last-item)
+                0M))
+     (map #(dissoc % ::polarized-quantity) updated-items)]))
+
+(defn- propagate-account-items
+  "Returns a function that takes a list of items for an account for a
+  transaction, and returns the items along with any other items affected
+  by the transaction, and the updated account."
+  [& {:keys [as-of delete?]}]
+  (fn [[_ [{:transaction-item/keys [account]} :as items]]]
+    (let [affected-items (->> (models/select (db/model-type
+                                               {:transaction-item/account account
+                                                :transaction/transaction-date [:>= as-of]}
+                                               :transaction-item)
+                                             {:sort [[:transaction-item/index :asc]]})
+                              ; TODO: This needs to be refined
+                              (remove #(util/model= (:transaction-item/transaction %)
+                                                    (:transaction-item/transaction (first items)) ))
+                              (map #(assoc % :transaction-item/account account)))]
+      (re-index (if delete?
+                  account
+                  (push-date-boundaries account as-of
+                                        [:account/earliest-transaction-date]
+                                        [:account/latest-transaction-date]))
+                (cons (propagation-basis account as-of)
+                      (map polarize (if delete?
+                                      affected-items
+                                      (concat items affected-items))))))))
+
+(defn- realize-accounts
+  "Given a list of items, lookup the associated account and assoc
+  it into the item"
+  [items]
   (let [find-account (comp (util/cache-fn
                              #(models/find % :account))
                            util/->model-ref)]
-    (->> items
-         (map #(update-in % [:transaction-item/account] find-account))
-         (group-by (comp util/->model-ref
-                         :transaction-item/account))
-         (map #(apply propagate-account-items trx %))
-         (reduce (fn [res [account items]]
-                   (-> res
-                       (update-in [:accounts] conj account)
-                       (update-in [:items] concat items)))
-                 {:accounts []
-                  :items []}))))
+    (map #(update-in % [:transaction-item/account] find-account)
+         items)))
+
+(defn- propagate-items
+  "Given a transaction, return a list of accounts and transaction items
+  that will also be affected by the operation."
+  [{:transaction/keys [items transaction-date]} & {:keys [delete?]}]
+  (->> items
+       realize-accounts
+       (group-by (comp util/->model-ref
+                       :transaction-item/account))
+       (map (propagate-account-items :as-of transaction-date
+                                     :delete? delete?))
+       (reduce (fn [res [account items]]
+                 (-> res
+                     (update-in [:accounts] conj account)
+                     (update-in [:items] concat items)))
+               {:accounts []
+                :items []})))
 
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
@@ -995,3 +1034,8 @@
     (concat [(assoc trx :transaction/items items)
              entity]
             accounts)))
+
+(defmethod models/propagate-delete :transaction
+  [trx]
+  (let [{:keys [accounts items]} (propagate-items trx :delete? true)]
+    (cons trx (concat accounts items))))

@@ -386,56 +386,49 @@
                                  (models/select {:sort [[:transaction-item/index :asc]]})))
           "The checking account items has sequential indices and a running balance"))))
 
-; (def delete-context
-;   (conj base-context
-;         #:transaction{:transaction-date (t/local-date 2016 3 2)
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"
-;                       :quantity 1000M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 3)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 100M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 4)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 102M}))
-; 
-; (deftest delete-a-transaction
-;   (with-context delete-context
-;     (let [checking (find-account "Checking")
-;           groceries (find-account "Groceries")
-;           checking-items-before (items-by-account (:id checking))
-;           trans (find-transaction (t/local-date 2016 3 3) "Kroger")
-;           _ (transactions/delete trans)
-;           checking-items-after (items-by-account (:id checking))]
-;       (testing "transaction item balances are adjusted"
-;         (let [expected-before [{:index 2 :quantity 102M :balance 797M}
-;                                {:index 1 :quantity 101M :balance 899M}
-;                                {:index 0 :quantity 1000M :balance 1000M}]
-;               actual-before (map #(select-keys % [:index :quantity :balance])
-;                                  checking-items-before)
-;               expected-after [{:index 1 :quantity 102M :balance 898M}
-;                               {:index 0 :quantity 1000M :balance 1000M}]
-;               actual-after (map #(select-keys % [:index :quantity :balance]) checking-items-after)]
-;           (is (= expected-before actual-before)
-;               "Checking should have the correct items before delete")
-;           (is (= expected-after actual-after)
-;               "Checking should have the correct items after delete")))
-;       (testing "account balances are adjusted"
-;         (let [checking-after (accounts/find checking)
-;               groceries-after (accounts/find groceries)]
-;           (is (= 898M (:quantity checking-after))
-;               "Checking should have the correct balance after delete")
-;           (is (= 102M (:quantity groceries-after))
-;               "Groceries should have the correct balance after delete"))))))
-; 
+(def delete-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2016 3 3)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 100M}
+        #:transaction{:transaction-date (t/local-date 2016 3 4)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 102M}))
+
+(deftest delete-a-transaction
+  (with-context delete-context
+    (let [checking-items-before (items-by-account "Checking")
+          trans (find-transaction (t/local-date 2016 3 3) "Kroger")
+          _ (models/delete trans)
+          checking-items-after (items-by-account "Checking")]
+      (testing "transaction item balances are adjusted"
+        (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity 102M :balance 797M}
+                                #:transaction-item{:index 1 :quantity 101M :balance 899M}
+                                #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
+                               checking-items-before)
+            "The item to be deleted is present before the delete")
+        (is (seq-of-maps-like? [#:transaction-item{:index 1 :quantity 102M :balance 898M}
+                                #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
+                               checking-items-after)
+            "The deleted item is absent after the delete"))
+      (testing "account balances are adjusted"
+        (is (= 898M (:account/quantity (reload-account "Checking")))
+            "The amount has been restored in the checking account")
+        (is (= 102M (:account/quantity (reload-account "Groceries")))
+            "The amount has been subscracted from the groceries account")))))
+
 ; (def delete-trading-transaction-context
 ;   (conj base-context
 ;         #:account{:name "IRA"

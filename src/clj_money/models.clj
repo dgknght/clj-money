@@ -28,6 +28,9 @@
 (defmulti after-read db/type-dispatch)
 (defmethod after-read :default [m & _] m)
 
+(defmulti propagate-delete db/type-dispatch)
+(defmethod propagate-delete :default [m & _] m)
+
 (defn- validate
   [model]
   (let [validated (v/validate model (keyword "clj-money.models"
@@ -93,7 +96,12 @@
 
 (defn delete-many
   [& models]
-  (db/delete (db/storage) models))
+  (->> models
+       (mapcat (comp (fn [[m & ms]]
+                       (cons [::db/delete m]
+                             ms))
+                  propagate-delete))
+       (db/put (db/storage))))
 
 (defn delete
   [model]
