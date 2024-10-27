@@ -88,18 +88,17 @@
   (#{:asset :expense} type))
 
 (defn- polarizer
-  [{:transaction-item/keys [action]} account]
+  [action account]
   (* (if (left-side? account) 1 -1)
      (if (= :debit action) 1 -1)))
 
 (defn polarize-quantity
   "Given a transaction item and an account, returns the quantity of the
   transaction item vis a vis the account (i.e., positive or negative)."
-  [{:transaction-item/keys [quantity] :as item} account]
-  {:pre [item (:transaction-item/quantity item)
-         account (:account/type account)]}
+  [quantity action account]
+  {:pre [quantity action account (:account/type account)]}
   (* quantity
-     (polarizer item account)))
+     (polarizer action account)))
 
 (defn derive-action
   "Given a quantity (either positve or negative) and an
