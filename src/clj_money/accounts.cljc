@@ -134,10 +134,13 @@
   ([{:keys [account-attribute
             date-attribute
             earliest-date
-            latest-date]
+            latest-date
+            model-type]
      :or {account-attribute :transaction-item/account
-          date-attribute :transaction-item/transaction-date}}
+          date-attribute :transaction/transaction-date
+          model-type :transaction-item}}
     accounts]
+   ^{:clj-money.db/type model-type}
    {account-attribute (->> accounts
                            (map util/->model-ref)
                            set
