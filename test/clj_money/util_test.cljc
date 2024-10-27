@@ -172,3 +172,19 @@
       "A naked ID is not a model ref")
   (is (not (util/model-ref? {:id 101 :account/name "Checking"}))
       "A full model is not a model ref"))
+
+(deftest cachify-a-function
+  (let [calls (atom [])
+        f (util/cache-fn
+            (fn [x]
+              (swap! calls conj x)
+              ({:one 1
+                :two 2} x)))]
+    (is (= 1 (f :one))
+        "The specified value is returned the first time")
+    (is (= 1 (count @calls))
+        "The original function is called the first time")
+    (is (= 1 (f :one))
+        "The specified value is returned the second time")
+    (is (= 1 (count @calls))
+        "The original function is not called the second time")))

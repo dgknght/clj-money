@@ -343,3 +343,16 @@
                  :assembled []}
                 models)]
     (conj assembled current)))
+
+(defn cache-fn
+  "Given a function that takes a single argument and returns a resource,
+  return a function that caches the result of the given function and returns
+  the cached value for subsequent calls."
+  [f]
+  (let [cache (atom {})]
+    (fn [id]
+      (if-let [cached (@cache id)]
+        cached
+        (let [retrieved (f id)]
+          (swap! cache assoc id retrieved)
+          retrieved)))))
