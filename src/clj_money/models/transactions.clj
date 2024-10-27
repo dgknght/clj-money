@@ -953,7 +953,7 @@
                              updated []]
                         (if-let [item (first remaining)]
                           (let [updated-item (apply-prev item prev)]
-                            (recur item
+                            (recur updated-item
                                    (rest remaining)
                                    (conj updated updated-item)))
                           updated))
@@ -965,28 +965,13 @@
          (assoc :account/quantity (:transaction-item/balance last-item)))
      (map #(dissoc % :polarized-quantity) updated-items)]))
 
-(defn- cache-fn
-  "Given a function that takes a single argument and returns a resource,
-  return a function that caches the result of the given function and returns
-  the cached value for subsequent calls."
-  [f]
-  (let [cache (atom {})]
-    (fn [id]
-      (if-let [cached (@cache id)]
-        cached
-        (let [retrieved (f id)]
-          (swap! cache assoc id retrieved)
-          retrieved)))))
-
 (defn- propagate-items
   [{:transaction/keys [items] :as trx}]
-  (let [find-account (cache-fn #(models/find (:transaction-item/account %)
-                                             :account))
-        realize-account #(if (util/model-ref? %)
-                           (find-account %)
-                           %)]
+  (let [find-account (comp (util/cache-fn
+                             #(models/find % :account))
+                           util/->model-ref)]
     (->> items
-         (map #(update-in % [:transaction-item/account] realize-account))
+         (map #(update-in % [:transaction-item/account] find-account))
          (group-by (comp util/->model-ref
                          :transaction-item/account))
          (map #(apply propagate-account-items trx %))

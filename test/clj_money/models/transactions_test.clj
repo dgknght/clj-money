@@ -7,6 +7,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
+            [clj-money.accounts :as acts]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.models :as models]
@@ -26,6 +27,10 @@
             [clj-money.test-helpers :refer [reset-db]]))
 
 (use-fixtures :each reset-db)
+
+(def ^:private reload-account
+  (comp models/find
+        find-account))
 
 (defn- assert-account-quantities
   [& args]
@@ -105,11 +110,11 @@
       (testing "account updates"
         (is (comparable? #:account{:earliest-transaction-date date
                                    :latest-transaction-date date}
-                         (models/find (find-account "Checking")))
+                         (reload-account "Checking"))
             "The debited account is updated with transaction dates")
         (is (comparable? #:account{:earliest-transaction-date date
                                    :latest-transaction-date date}
-                         (models/find (find-account "Salary")))
+                         (reload-account "Salary"))
             "The credited account is updated with transaction dates"))
       (testing "item updates"
         (is (comparable? #:transaction-item{:index 0
@@ -339,16 +344,16 @@
                       :entity "Personal"
                       :description "Paycheck"
                       :items [#:transaction-item{:action :debit
-                                                 :account-id "Checking"
+                                                 :account "Checking"
                                                  :quantity 1000M}
                               #:transaction-item{:action :debit
-                                                 :account-id "Checking"
+                                                 :account "Checking"
                                                  :quantity 100M}
                               #:transaction-item{:action :credit
-                                                 :account-id "Salary"
+                                                 :account "Salary"
                                                  :quantity 1000M}
                               #:transaction-item{:action :credit
-                                                 :account-id "Bonus"
+                                                 :account "Bonus"
                                                  :quantity 100M}]}
         #:transaction{:transaction-date (t/local-date 2016 3 10)
                       :entity "Personal"
@@ -359,20 +364,27 @@
 
 (deftest create-a-transaction-with-multiple-items-for-one-account
   (with-context multi-context
-    (let [checking-items (items-by-account "Checking")
-          expected-checking-items #{{:transaction-item/transaction-date (t/local-date 2016 3 10)
-                                     :transaction-item/quantity  100M}
-                                    {:transaction-item/transaction-date (t/local-date 2016 3 2)
-                                     :transaction-item/quantity 1000M}
-                                    {:transaction-item/transaction-date (t/local-date 2016 3 2)
-                                     :transaction-item/quantity  100M}}
-          actual-checking-items (->> checking-items
-                                     (map #(select-keys % [:transaction-item/transaction-date
-                                                           :transaction-item/quantity]))
-                                     set)]
-      (is (= expected-checking-items
-             actual-checking-items)
-          "The checking account items are correct"))))
+    (let [checking (reload-account "Checking")]
+      (is (comparable? {:account/earliest-transaction-date (t/local-date 2016 3 2)
+                        :account/latest-transaction-date (t/local-date 2016 3 10)}
+                       checking)
+          "The checking account transaction date boundaries reflect all transactions")
+      (is (seq-of-maps-like? [{:transaction-item/index 0
+                               :transaction-item/action :debit
+                               :transaction-item/quantity 1000M
+                               :transaction-item/balance 1000M}
+                              {:transaction-item/index 1
+                               :transaction-item/action :debit
+                               :transaction-item/quantity 100M
+                               :transaction-item/balance 1100M}
+                              {:transaction-item/index 2
+                               :transaction-item/action :credit
+                               :transaction-item/quantity 100M
+                               :transaction-item/balance 1000M}]
+                             (-> checking
+                                 acts/->criteria
+                                 (models/select {:sort [[:transaction-item/index :asc]]})))
+          "The checking account items has sequential indices and a running balance"))))
 
 ; (def delete-context
 ;   (conj base-context

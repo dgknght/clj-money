@@ -3,6 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.util :as util]
             [clj-money.factories.user-factory]
             [clj-money.io :refer [read-bytes]]
             [clj-money.models :as models]
@@ -565,11 +566,13 @@
   [trx ctx]
   (-> trx
       expand
-      (update-in [:transaction/items] (fn [i] (map #(prepare % ctx) i)))
+      (update-in [:transaction/items] (fn [i] (mapv #(prepare % ctx) i)))
       (update-in [:transaction/entity] #(find-entity ctx %))))
 
 (defmethod prepare :transaction-item
   [item ctx]
+  {:pre [(:transaction-item/account item)]}
+
   (update-in item
              [:transaction-item/account]
              #(find-account ctx %)))
