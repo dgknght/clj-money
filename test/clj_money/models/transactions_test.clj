@@ -485,47 +485,48 @@
           (is (= 2 (count (:transaction/items retrieved)))
               "The transaction items are included"))))))
 
-; (def search-context
-;   (conj base-context
-;         #:transaction{:transaction-date #local-date "2016-01-01"
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :quantity 160101M
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"}
-;         #:transaction{:transaction-date #local-date "2016-06-01"
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :quantity 160601M
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"}
-;         #:transaction{:transaction-date #local-date "2017-01-01"
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :quantity 170101M
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"}
-;         #:transaction{:transaction-date #local-date "2017-06-01"
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :quantity 170601M
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"}
-;         #:transaction{:transaction-date #local-date "2017-06-15"
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :quantity 170615
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"}))
-; 
-; (deftest search-by-date
-;   (with-context search-context
-;     (let [entity (find-entity "Personal")
-;           actual (transactions/search {:transaction-date (t/local-date 2017 6 15)
-;                                        :entity-id (:id entity)})]
-;       (is (= [(t/local-date 2017 6 15)] (map :transaction-date actual))
-;           "The transactions from the specified day are returned"))))
-; 
+(def search-context
+  (conj base-context
+        #:transaction{:transaction-date #local-date "2016-01-01"
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :quantity 160101M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}
+        #:transaction{:transaction-date #local-date "2016-06-01"
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :quantity 160601M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}
+        #:transaction{:transaction-date #local-date "2017-01-01"
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :quantity 170101M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}
+        #:transaction{:transaction-date #local-date "2017-06-01"
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :quantity 170601M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}
+        #:transaction{:transaction-date #local-date "2017-06-15"
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :quantity 170615M
+                      :debit-account "Checking"
+                      :credit-account "Salary"}))
+
+(deftest search-by-date
+  (with-context search-context
+    (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2017 6 15)
+                                          :description "Paycheck"
+                                          :value 170615M}]
+                           (models/select #:transaction{:transaction-date (t/local-date 2017 6 15)
+                                                        :entity (find-entity "Personal")}))
+        "The transactions from the specified day are returned")))
+
 ; (deftest search-by-date-vector
 ;   (with-context search-context
 ;     (let [entity (find-entity "Personal")
