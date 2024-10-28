@@ -453,43 +453,38 @@
 ;       (transactions/delete transaction)
 ;       (is (nil? (lots/find lot)) "The lot is not retreivable after deleting the transaction."))))
 ; 
-; (def update-context
-;   (conj base-context
-;         #:transaction{:transaction-date (t/local-date 2016 3 2)
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"
-;                       :quantity 1000M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 12)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 101M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 22)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 102M}))
-; 
-; (deftest get-a-transaction
-;   (with-context update-context
-;     (let [{:keys [id transaction-date]} (find-transaction (t/local-date 2016 3 2) "Paycheck")]
-;       (testing "items are not included if not specified"
-;         (let [transaction (first (transactions/search {:id id
-;                                                        :transaction-date transaction-date}))]
-;           (is transaction "The transaction is retrieved successfully")
-;           (is (nil? (:items transaction)) "The items are not included")
-;           (is (= 1000M (:value transaction)) "The correct value is returned")))
-;       (testing "items are included if specified"
-;         (let [transaction (first (transactions/search {:id id
-;                                                        :transaction-date transaction-date}
-;                                                       {:include-items? true}))]
-;           (is transaction "The transaction is retrieved successfully")
-;           (is (:items transaction) "The items are included"))))))
-; 
+(def update-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2016 3 12)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 101M}
+        #:transaction{:transaction-date (t/local-date 2016 3 22)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 102M}))
+
+(deftest get-a-transaction
+  (with-context update-context
+    (let [trx (find-transaction (t/local-date 2016 3 2) "Paycheck")]
+      (testing "items are not included if not specified"
+        (let [retrieved (models/find-by (select-keys trx [:id :transaction/transaction-date]))]
+          (is retrieved "a value is returned")
+          (is (= 1000M (:transaction/value retrieved))
+              "The transaction value can be retrieved")
+          (is (= 2 (count (:transaction/items retrieved)))
+              "The transaction items are included"))))))
+
 ; (def search-context
 ;   (conj base-context
 ;         #:transaction{:transaction-date #local-date "2016-01-01"
