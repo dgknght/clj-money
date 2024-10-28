@@ -975,14 +975,15 @@
   by the transaction, and the updated account."
   [& {:keys [as-of delete?]}]
   (fn [[_ [{:transaction-item/keys [account]} :as items]]]
-    (let [affected-items (->> (models/select (db/model-type
+    (let [ids (->> items
+                   (map :id)
+                   set)
+          affected-items (->> (models/select (db/model-type
                                                {:transaction-item/account account
                                                 :transaction/transaction-date [:>= as-of]}
                                                :transaction-item)
                                              {:sort [[:transaction-item/index :asc]]})
-                              ; TODO: This needs to be refined
-                              (remove #(util/model= (:transaction-item/transaction %)
-                                                    (:transaction-item/transaction (first items)) ))
+                              (remove #(ids (:id %)))
                               (map #(assoc % :transaction-item/account account)))]
       (re-index (if delete?
                   account
