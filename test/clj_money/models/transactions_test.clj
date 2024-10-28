@@ -527,18 +527,16 @@
                                                         :entity (find-entity "Personal")}))
         "The transactions from the specified day are returned")))
 
-; (deftest search-by-date-vector
-;   (with-context search-context
-;     (let [entity (find-entity "Personal")
-;           actual (transactions/search {:transaction-date [:between
-;                                                           (t/local-date 2017 6 1)
-;                                                           (t/local-date 2017 6 30)]
-;                                        :entity-id (:id entity)})]
-;       (is (= [(t/local-date 2017 6 1)
-;               (t/local-date 2017 6 15)]
-;              (map :transaction-date actual))
-;           "The transactions from the specified day are returned"))))
-; 
+(deftest search-by-date-vector
+  (with-context search-context
+    (is (seq-of-maps-like? [#:transaction{:transaction-date (t/local-date 2017 6 1)}
+                            #:transaction{:transaction-date (t/local-date 2017 6 15)}]
+                           (models/select #:transaction{:transaction-date [:between
+                                                                           (t/local-date 2017 6 1)
+                                                                           (t/local-date 2017 6 30)]
+                                                        :entity (find-entity "Personal")}))
+        "The transactions from the specified day are returned")))
+
 ; (defn- update-items
 ;   [{:keys [items] :as transaction} change-map]
 ;   (let [indexed-items (index-by :account-id items)
