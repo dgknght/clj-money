@@ -6,6 +6,7 @@
             [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
+            [clojure.java.io :as io]
             [java-time.api :as t]
             [config.core :refer [env]]
             [stowaway.core :refer [tag]]
@@ -1005,26 +1006,38 @@
     (map #(update-in % [:transaction-item/account] find-account)
          items)))
 
+(defn- belongs-to-trx?
+  [{:keys [id]}]
+  (fn [{:transaction-item/keys [transaction]}]
+    (= id (:id transaction))))
+
 (defn- propagate-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [{:transaction/keys [items transaction-date]} & {:keys [delete?]}]
-  (->> items
-       realize-accounts
-       (group-by (comp util/->model-ref
-                       :transaction-item/account))
-       (map (propagate-account-items :as-of transaction-date
-                                     :delete? delete?))
-       (reduce (fn [res [account items]]
-                 (-> res
-                     (update-in [:accounts] conj account)
-                     (update-in [:items] concat items)))
-               {:accounts []
-                :items []})))
+  [{:transaction/keys [items transaction-date] :as trx} & {:keys [delete?]}]
+  (let [belongs? (belongs-to-trx? trx)]
+    (->> items
+         realize-accounts
+         (group-by (comp util/->model-ref
+                         :transaction-item/account))
+         (map (propagate-account-items :as-of transaction-date
+                                       :delete? delete?))
+         (reduce (fn [res [account items]]
+                   (-> res
+                       (update-in [:accounts] conj account)
+                       (update-in [:affected-items]
+                                  concat
+                                  (filter (complement belongs?) items))
+                       (update-in [:transaction-items]
+                                  concat
+                                  (filter belongs? items))))
+                 {:accounts []
+                  :affected-items []
+                  :transaction-items []}))))
 
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
-  (let [{:keys [accounts items]} (propagate-items trx)
+  (let [{:keys [accounts transaction-items affected-items]} (propagate-items trx)
         entity (when-let [e (:transaction/entity trx)]
                  (push-date-boundaries (models/find e :entity)
                                        transaction-date
@@ -1032,8 +1045,9 @@
                                         :settings/earliest-transaction-date]
                                        [:entity/settings
                                         :settings/latest-transaction-date]))]
-    (concat [(assoc trx :transaction/items items)
+    (concat [(assoc trx :transaction/items transaction-items)
              entity]
+            affected-items
             accounts)))
 
 (defmethod models/propagate-delete :transaction
