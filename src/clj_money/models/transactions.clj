@@ -1043,6 +1043,7 @@
 
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
+  ; TODO: can we just return a sequence of models from propagate-items?
   (let [{:keys [accounts transaction-items affected-items]} (propagate-items trx)
         entity (when-let [e (:transaction/entity trx)]
                  (push-date-boundaries (models/find e :entity)

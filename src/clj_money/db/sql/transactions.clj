@@ -31,11 +31,11 @@
 
 (defmethod sql/reconstruct :transaction
   [models]
-  (->> models
-       (map #(dissoc % :transaction-item/transaction))
-       (util/reconstruct {:parent? :transaction/description
-                          :child? :transaction-item/action
-                          :children-key :transaction/items})))
+  ; TODO: should we remove :transaction-item/transaction to be consistent with Datomic?
+  (util/reconstruct {:parent? :transaction/description
+                     :child? :transaction-item/action
+                     :children-key :transaction/items}
+                    models))
 
 (defmethod sql/before-save :transaction
   [trx]
