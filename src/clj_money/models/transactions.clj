@@ -248,7 +248,9 @@
 
 (defmethod models/before-save :transaction
   [trx]
-  (assoc trx :transaction/value (trxs/value trx)))
+  (-> trx
+      (dissoc :transaction/original-transaction-date)
+      (assoc :transaction/value (trxs/value trx))))
 
 (defn- fetch-lot-items
   [transaction-id transaction-date]

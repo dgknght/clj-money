@@ -567,30 +567,29 @@
           "Expected the groceries account items to be updated.")
       (assert-account-quantities checking 798.01M groceries 201.99M))))
 
-; (deftest update-a-transaction-change-date
-;   (with-context update-context
-;     (let [checking (find-account "Checking")
-;           groceries (find-account "Groceries")
-;           trx (find-transaction (t/local-date 2016 3 22) "Kroger")
-;           result (-> trx
-;                      (change-date (t/local-date 2016 3 10))
-;                      transactions/update)]
-;       (is (valid? result))
-;       (is (seq-of-maps-like? [{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
-;                               {:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}
-;                               {:index 0 :transaction-date (t/local-date 2016 3 2)  :quantity 1000M :balance 1000M}]
-;                              (items-by-account (:id checking)))
-;           "Expected the checking items to be updated")
-;       (is (seq-of-maps-like? [{:index 1 :transaction-date (t/local-date 2016 3 12) :quantity 101M :balance 203M}
-;                               {:index 0 :transaction-date (t/local-date 2016 3 10) :quantity 102M :balance 102M}]
-;                              (items-by-account (:id groceries)))
-;           "Expected the groceries items to be updated")
-;       (assert-account-quantities checking 797M groceries 203M)
-;       (testing "transaction is updated"
-;         (is (= (t/local-date 2016 3 10)
-;                (:transaction-date (transactions/reload result)))
-;             "The transaction should be updated")))))
-; 
+(deftest update-a-transaction-change-date
+  (with-context update-context
+    (let [checking (find-account "Checking")
+          groceries (find-account "Groceries")
+          trx (find-transaction (t/local-date 2016 3 22) "Kroger")
+          result (-> trx
+                     (change-date (t/local-date 2016 3 10))
+                     models/put)]
+      (is (seq-of-maps-like? [#:transaction-item{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
+                              #:transaction-item{:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}
+                              #:transaction-item{:index 0 :transaction-date (t/local-date 2016 3 2)  :quantity 1000M :balance 1000M}]
+                             (items-by-account (:id checking)))
+          "The checking account items are updated")
+      (is (seq-of-maps-like? [#:transaction-item{:index 1 :transaction-date (t/local-date 2016 3 12) :quantity 101M :balance 203M}
+                              #:transaction-item{:index 0 :transaction-date (t/local-date 2016 3 10) :quantity 102M :balance 102M}]
+                             (items-by-account (:id groceries)))
+          "The groceries account items are updated")
+      (assert-account-quantities checking 797M groceries 203M)
+      (testing "transaction is updated"
+        (is (= (t/local-date 2016 3 10)
+               (:transaction/transaction-date (models/find result)))
+            "The updated transaction can be retrieved")))))
+
 ; (def ^:private trading-update-context
 ;   (conj basic-context
 ;         #:commodity{:name "Apple, Inc."
