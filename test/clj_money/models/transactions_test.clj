@@ -293,46 +293,44 @@
         salary 1000M
         groceries 100M))))
 
-; (def insert-context
-;   (conj base-context
-;         #:transaction{:transaction-date (t/local-date 2016 3 2)
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"
-;                       :quantity 1000M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 10)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 100M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 3)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 99M}))
-; 
-; (deftest insert-transaction-before-the-end
-;   (with-context insert-context
-;     (is (seq-of-maps-like? [{:index 2
-;                              :quantity 100M
-;                              :balance 801M}
-;                             {:index 1
-;                              :quantity 99M
-;                              :balance 901M}
-;                             {:index 0
-;                              :quantity 1000M
-;                              :balance 1000M}]
-;                            (items-by-account "Checking"))
-;         "The checking item balances should be correct")
-;     (is (= [801M 1000M 199M]
-;            (map (comp :quantity
-;                       accounts/find
-;                       find-account)
-;                 ["Checking" "Salary" "Groceries"]))
-;         "The accounts have the correct balances")))
+(def insert-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2016 3 10)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 100M}
+        #:transaction{:transaction-date (t/local-date 2016 3 3)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 99M}))
+
+(deftest insert-transaction-before-the-end
+  (with-context insert-context
+    (is (seq-of-maps-like? [#:transaction-item{:index 2
+                                               :quantity 100M
+                                               :balance 801M}
+                            #:transaction-item{:index 1
+                                               :quantity 99M
+                                               :balance 901M}
+                            #:transaction-item{:index 0
+                                               :quantity 1000M
+                                               :balance 1000M}]
+                           (items-by-account "Checking"))
+        "The checking item indexes and balances are adjusted")
+    (is (= 801M (:account/quantity (reload-account "Checking")))
+        "The checking account quantity is updated")
+    (is (= 199M (:account/quantity (reload-account "Groceries")))
+        "The groceries account quantity is updated")))
  
 (def multi-context
   (conj base-context
