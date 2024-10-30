@@ -23,7 +23,7 @@
   [{:transaction/keys [items] :as trx} ref-account]
   {:pre [(can-simplify? trx)
          ref-account]}
-  (let [{[account-item] true
+  (let [{[{:transaction-item/keys [quantity action] :as account-item}] true
          [other-item] false} (group-by #(model= ref-account
                                                 (:transaction-item/account %))
                                        items)]
@@ -32,7 +32,7 @@
                :transaction/other-item (->model-ref other-item)
                :transaction/account (:transaction-item/account account-item)
                :transaction/item (->model-ref account-item)
-               :transaction/quantity (polarize-quantity account-item ref-account))
+               :transaction/quantity (polarize-quantity quantity action ref-account))
         (dissoc :transaction/items))))
 
 (defn unaccountify
@@ -177,8 +177,8 @@
 (defn change-date
   [trx new-date]
   (-> trx
-      (rename-keys {:transaction-date :original-transaction-date})
-      (assoc :transaction-date new-date)))
+      (rename-keys {:transaction/transaction-date :transaction/original-transaction-date})
+      (assoc :transaction/transaction-date new-date)))
 
 (defn expand
   "Given a transaction with a quantity, debit account and credit acount, return
