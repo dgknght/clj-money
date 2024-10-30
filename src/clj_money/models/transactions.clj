@@ -171,12 +171,12 @@
   (update-in trx
              [:transaction/items]
              (fn [items]
-               (map (fn [{:as item :transaction-item/keys [quantity]}]
-                      (-> item
-                          (update-in [:transaction-item/value]
-                                     (fnil identity quantity)) ; TODO need to calculate the correct value
-                          (remove-empty-strings :transaction-item/memo)))
-                    items))))
+               (mapv (fn [{:as item :transaction-item/keys [quantity]}]
+                       (-> item
+                           (update-in [:transaction-item/value]
+                                      (fnil identity quantity)) ; TODO need to calculate the correct value
+                           (remove-empty-strings :transaction-item/memo)))
+                     items))))
 
 (defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return
@@ -1007,8 +1007,14 @@
          items)))
 
 (defn- belongs-to-trx?
-  [{:keys [id]}]
-  (fn [{:transaction-item/keys [transaction]}]
+  [{:keys [id] :as trx}]
+  (fn [{:transaction-item/keys [transaction] :as item}]
+    (when (and id
+               (not (:id transaction)))
+      (pprint {::trx trx
+               ::item item})
+      (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
+                                                                            :item item})))
     (= id (:id transaction))))
 
 (defn- propagate-items

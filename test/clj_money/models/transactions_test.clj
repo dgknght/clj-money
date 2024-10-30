@@ -7,6 +7,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
+            [clj-money.util :as util]
             [clj-money.accounts :as acts]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
@@ -33,17 +34,12 @@
         find-account))
 
 (defn- assert-account-quantities
-  [& args]
-  {:pre [(even? (count args))]}
-
-  (->> args
-       (partition 2)
-       (map (fn [[account balance]]
-              (is (= balance (:account/quantity (models/find account)))
-                  (format "%s should have the quantity %s"
-                          (:account/name account)
-                          balance))))
-       dorun))
+  [& {:as balances}]
+  (doseq [[account balance] balances]
+    (is (= balance (:account/quantity (models/find account)))
+        (format "%s should have the quantity %s"
+                (:account/name account)
+                balance))))
 
 (defmulti items-by-account type)
 
@@ -450,7 +446,7 @@
 ;       (is lot "The lot is present before deleting the transaction")
 ;       (transactions/delete transaction)
 ;       (is (nil? (lots/find lot)) "The lot is not retreivable after deleting the transaction."))))
-; 
+
 (def update-context
   (conj base-context
         #:transaction{:transaction-date (t/local-date 2016 3 2)
@@ -535,35 +531,42 @@
                                                         :entity (find-entity "Personal")}))
         "The transactions from the specified day are returned")))
 
-; (defn- update-items
-;   [{:keys [items] :as transaction} change-map]
-;   (let [indexed-items (index-by :account-id items)
-;         updated-items (reduce (fn [items [account-id item]]
-;                                 (update-in items [account-id] merge item))
-;                               indexed-items
-;                               change-map)]
-;     (assoc transaction :items (vals updated-items))))
-; 
-; (deftest update-a-transaction-change-quantity
-;   (with-context update-context
-;     (let [checking (find-account "Checking")
-;           groceries (find-account "Groceries")
-;           result (-> (find-transaction (t/local-date 2016 3 12) "Kroger")
-;                      (update-items {(:id groceries) {:quantity 99.99M}
-;                                     (:id checking) {:quantity 99.99M}})
-;                      transactions/update)]
-;       (is (valid? result))
-;       (is (seq-of-maps-like? [{:index 2 :quantity  102.00M :balance   798.01M}
-;                               {:index 1 :quantity   99.99M :balance   900.01M}
-;                               {:index 0 :quantity 1000.00M :balance 1000.00M}]
-;                              (items-by-account (:id checking)))
-;           "Expected the checking account items to be updated.")
-;       (is (seq-of-maps-like? [{:index 1 :quantity 102.00M :balance 201.99M}
-;                               {:index 0 :quantity  99.99M :balance  99.99M}]
-;                              (items-by-account (:id groceries)))
-;           "Expected the groceries account items to be updated.")
-;       (assert-account-quantities checking 798.01M groceries 201.99M))))
-; 
+(defn- update-items
+  [items change-map]
+  (let [indexed-items (index-by (comp util/->model-ref
+                                      :transaction-item/account)
+                                items)]
+    (->> change-map
+         (map #(update-in % [0] util/->model-ref))
+         (reduce (fn [items [account item]]
+                   (update-in items [account] merge item))
+                 indexed-items)
+         vals
+         (into []))))
+
+(defn- update-trx-items
+  [trx change-map]
+  (update-in trx [:transaction/items] update-items change-map))
+
+(deftest update-a-transaction-change-quantity
+  (with-context update-context
+    (let [checking (find-account "Checking")
+          groceries (find-account "Groceries")]
+      (-> (find-transaction (t/local-date 2016 3 12) "Kroger")
+          (update-trx-items {groceries {:transaction-item/quantity 99.99M}
+                             checking {:transaction-item/quantity 99.99M}})
+          models/put)
+      (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity  102.00M :balance   798.01M}
+                              #:transaction-item{:index 1 :quantity   99.99M :balance   900.01M}
+                              #:transaction-item{:index 0 :quantity 1000.00M :balance 1000.00M}]
+                             (items-by-account checking))
+          "Expected the checking account items to be updated.")
+      (is (seq-of-maps-like? [#:transaction-item{:index 1 :quantity 102.00M :balance 201.99M}
+                              #:transaction-item{:index 0 :quantity  99.99M :balance  99.99M}]
+                             (items-by-account groceries))
+          "Expected the groceries account items to be updated.")
+      (assert-account-quantities checking 798.01M groceries 201.99M))))
+
 ; (deftest update-a-transaction-change-date
 ;   (with-context update-context
 ;     (let [checking (find-account "Checking")
