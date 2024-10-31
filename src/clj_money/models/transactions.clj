@@ -1028,7 +1028,10 @@
          realize-accounts
          (group-by (comp util/->model-ref
                          :transaction-item/account))
-         (map (propagate-account-items :as-of transaction-date
+         (map (propagate-account-items :as-of (dates/earliest
+                                                transaction-date
+                                                (models/before trx
+                                                               :transaction/transaction-date))
                                        :delete? delete?))
          (reduce (fn [res [account items]]
                    (-> res

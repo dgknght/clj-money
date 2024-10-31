@@ -39,10 +39,22 @@
       (throw (ex-info "Validation failed" (select-keys validated [::v/errors])))))
   model)
 
+(defn before
+  [model k]
+  (-> model
+      meta
+      ::before
+      k))
+
+(defn- append-before
+  [model]
+  (vary-meta model assoc ::before model))
+
 (defn select
   ([criteria] (select criteria {}))
   ([criteria options]
-   (map #(after-read % options)
+   (map (comp append-before
+              #(after-read % options))
         (db/select (db/storage)
                    (prepare-criteria criteria)
                    options))))
@@ -87,7 +99,8 @@
                   validate ; TODO: Should it be possible for propagation to produce invalid models?
                   before-validation))
        (db/put (db/storage))
-       (map (comp after-save
+       (map (comp append-before
+                  after-save
                   #(after-read % {})))))
 
 (defn put

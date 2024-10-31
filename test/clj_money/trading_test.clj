@@ -832,3 +832,54 @@
                                  :purchase-price])
                 lots))
         "The lot is updated correctly.")))
+
+#_(def delete-trading-transaction-context
+  (conj base-context
+        #:account{:name "IRA"
+                  :type :asset
+                  :entity "Personal"}
+        #:commodity{:name "Apple, Inc."
+                    :symbol "AAPL"
+                    :exchange :nasdaq
+                    :type :stock
+                    :entity "Personal"}
+        #:trade{:type :buy
+                :commodity "AAPL"
+                :account "IRA"
+                :shares 100M
+                :value 1000M
+                :trade-date (t/local-date 2015 1 1)}))
+
+#_(deftest deleting-trading-transactions-deletes-lots-created-by-the-transaction
+  (with-context delete-trading-transaction-context
+    (let [[{:keys [transaction lot]}] (:trades *context*)]
+      (is lot "The lot is present before deleting the transaction")
+      (transactions/delete transaction)
+      (is (nil? (lots/find lot)) "The lot is not retreivable after deleting the transaction."))))
+
+#_(def ^:private trading-update-context
+  (conj basic-context
+        #:commodity{:name "Apple, Inc."
+                    :entity "Personal"
+                    :symbol "AAPL"
+                    :type :stock
+                    :exchange :nasdaq}
+        #:account{:name "IRA"
+                  :entity "Personal"
+                  :type :asset}
+        #:trade{:trade-date (t/local-date 2015 1 1)
+                :type :buy
+                :commodity "AAPL"
+                :account "IRA"
+                :shares 100M
+                :value 1000M}))
+
+#_(deftest update-a-trading-transaction
+  (with-context trading-update-context
+    ; TODO: are there parts that can be changed?
+    (testing "the date and quantiies cannot be updated"
+      (let [result (-> (get-in *context* [:trades 0 :transaction])
+                                (assoc :transaction-date (t/local-date 2015 2 1))
+                                transactions/update)]
+        (is (= ["A trading transaction cannot be updated."]
+               (v/flat-error-messages result)))))))

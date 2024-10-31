@@ -423,30 +423,6 @@
         (is (= 102M (:account/quantity (reload-account "Groceries")))
             "The amount has been subscracted from the groceries account")))))
 
-; (def delete-trading-transaction-context
-;   (conj base-context
-;         #:account{:name "IRA"
-;                   :type :asset
-;                   :entity "Personal"}
-;         #:commodity{:name "Apple, Inc."
-;                     :symbol "AAPL"
-;                     :exchange :nasdaq
-;                     :type :stock
-;                     :entity "Personal"}
-;         #:trade{:type :buy
-;                 :commodity "AAPL"
-;                 :account "IRA"
-;                 :shares 100M
-;                 :value 1000M
-;                 :trade-date (t/local-date 2015 1 1)}))
-; 
-; (deftest deleting-trading-transactions-deletes-lots-created-by-the-transaction
-;   (with-context delete-trading-transaction-context
-;     (let [[{:keys [transaction lot]}] (:trades *context*)]
-;       (is lot "The lot is present before deleting the transaction")
-;       (transactions/delete transaction)
-;       (is (nil? (lots/find lot)) "The lot is not retreivable after deleting the transaction."))))
-
 (def update-context
   (conj base-context
         #:transaction{:transaction-date (t/local-date 2016 3 2)
@@ -590,57 +566,29 @@
                (:transaction/transaction-date (models/find result)))
             "The updated transaction can be retrieved")))))
 
-; (def ^:private trading-update-context
-;   (conj basic-context
-;         #:commodity{:name "Apple, Inc."
-;                     :entity "Personal"
-;                     :symbol "AAPL"
-;                     :type :stock
-;                     :exchange :nasdaq}
-;         #:account{:name "IRA"
-;                   :entity "Personal"
-;                   :type :asset}
-;         #:trade{:trade-date (t/local-date 2015 1 1)
-;                 :type :buy
-;                 :commodity "AAPL"
-;                 :account "IRA"
-;                 :shares 100M
-;                 :value 1000M}))
-; 
-; (deftest update-a-trading-transaction
-;   (with-context trading-update-context
-;     ; TODO: are there parts that can be changed?
-;     (testing "the date and quantiies cannot be updated"
-;       (let [result (-> (get-in *context* [:trades 0 :transaction])
-;                                 (assoc :transaction-date (t/local-date 2015 2 1))
-;                                 transactions/update)]
-;         (is (= ["A trading transaction cannot be updated."]
-;                (v/flat-error-messages result)))))))
-; 
-; (deftest update-a-transaction-cross-partition-boundary
-;   (with-context update-context
-;     (let [checking (find-account "Checking")
-;           groceries (find-account "Groceries")
-;           trx (find-transaction (t/local-date 2016 3 12) "Kroger")
-;           result (-> trx
-;                      (assoc :transaction-date (t/local-date 2016 4 12))
-;                      transactions/update)]
-;       (is (valid? result))
-;       (is (seq-of-maps-like? [{:index 2 :quantity  101M :balance  797M}
-;                               {:index 1 :quantity  102M :balance  898M}
-;                               {:index 0 :quantity 1000M :balance 1000M}]
-;                              (items-by-account (:id checking)))
-;           "Expected the checking items to be updated")
-;       (is (seq-of-maps-like? [{:index 1 :quantity 101M :balance 203M}
-;                               {:index 0 :quantity 102M :balance 102M}]
-;                              (items-by-account (:id groceries)))
-;           "Expected the groceries items to be updated")
-;       (assert-account-quantities checking 797M groceries 203M)
-;       (testing "transaction is updated"
-;         (is (= (t/local-date 2016 4 12)
-;                (:transaction-date (transactions/reload result)))
-;             "The transaction should be updated")))))
-; 
+(deftest update-a-transaction-cross-partition-boundary
+  (with-context update-context
+    (let [checking (find-account "Checking")
+          groceries (find-account "Groceries")
+          trx (find-transaction (t/local-date 2016 3 12) "Kroger")
+          result (-> trx
+                     (assoc :transaction/transaction-date (t/local-date 2016 4 12))
+                     models/put)]
+      (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity  101M :balance  797M}
+                              #:transaction-item{:index 1 :quantity  102M :balance  898M}
+                              #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
+                             (items-by-account (:id checking)))
+          "The checking account items reflect the change in transaction date")
+      (is (seq-of-maps-like? [#:transaction-item{:index 1 :quantity 101M :balance 203M}
+                              #:transaction-item{:index 0 :quantity 102M :balance 102M}]
+                             (items-by-account (:id groceries)))
+          "The groceries account items reflect the change in transaction date")
+      (assert-account-quantities checking 797M groceries 203M)
+      (testing "transaction is updated"
+        (is (= (t/local-date 2016 4 12)
+               (:transaction/transaction-date (models/find result)))
+            "The retrieved transaction has the new date")))))
+
 ; (def short-circuit-context
 ;   (conj base-context
 ;         #:transaction{:transaction-date (t/local-date 2016 3 2)
