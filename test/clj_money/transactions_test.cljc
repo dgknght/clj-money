@@ -354,9 +354,3 @@
                                                                 :action :debit
                                                                 :account {:id :groceries}}]}))
       "The value is nil (undeterminable) if the credits and debits do not match"))
-
-(deftest change-the-date-of-a-transaction
-  (is (= #:transaction{:transaction-date "2000-12-31"
-                       :original-transaction-date "2000-01-01"}
-         (trx/change-date #:transaction{:transaction-date "2000-01-01"}
-                          "2000-12-31"))))

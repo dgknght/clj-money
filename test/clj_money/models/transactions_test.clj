@@ -12,7 +12,6 @@
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.models :as models]
-            [clj-money.transactions :refer [change-date]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
             [clj-money.models.lots :as lots]
@@ -549,7 +548,7 @@
           groceries (find-account "Groceries")
           trx (find-transaction (t/local-date 2016 3 22) "Kroger")
           result (-> trx
-                     (change-date (t/local-date 2016 3 10))
+                     (assoc :transaction/transaction-date (t/local-date 2016 3 10))
                      models/put)]
       (is (seq-of-maps-like? [#:transaction-item{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
                               #:transaction-item{:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}

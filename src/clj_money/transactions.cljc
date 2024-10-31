@@ -174,12 +174,6 @@
        (take-while #(apply dates/overlaps? start-date end-date %))
        (map #(summarize-period % items))))
 
-(defn change-date
-  [trx new-date]
-  (-> trx
-      (rename-keys {:transaction/transaction-date :transaction/original-transaction-date})
-      (assoc :transaction/transaction-date new-date)))
-
 (defn expand
   "Given a transaction with a quantity, debit account and credit acount, return
   a transaction with two items, one for each account"
