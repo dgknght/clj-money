@@ -139,16 +139,6 @@
                                     :opt [:transaction/memo
                                           :transaction/lot-items]))
 
-(s/def ::existing-transaction (s/and (s/keys :req-un [::id
-                                               ::transaction-date
-                                               ::items]
-                                      :opt-un [::entity-id
-                                               ::memo
-                                               ::lot-items])
-                                     not-a-trading-transaction?
-                                     no-reconciled-quantities-changed?
-                                     transaction-dates-match?))
-
 (def ambient-settings
   (atom {}))
 
@@ -1026,6 +1016,10 @@
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
   [{:transaction/keys [items transaction-date] :as trx} & {:keys [delete?]}]
+
+  ; TODO: Also propagate for any accounts that were referenced
+  ; but are no longer referened in the items
+
   (let [belongs? (belongs-to-trx? trx)]
     (->> items
          realize-accounts
@@ -1060,7 +1054,8 @@
                                         :settings/earliest-transaction-date]
                                        [:entity/settings
                                         :settings/latest-transaction-date]))]
-    (concat [(assoc trx :transaction/items transaction-items)
+    (concat [(cond-> trx
+               (seq transaction-items) (assoc :transaction/items transaction-items))
              entity]
             affected-items
             accounts)))
