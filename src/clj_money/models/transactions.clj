@@ -957,19 +957,22 @@
   of the 1st item and calculate indices and balances forward, then
   apply the final to the account."
   [account items]
-  (let [updated-items (loop [input items
+  (let [[short-circuited? updated-items] (loop [input items
                              output []]
                         (let [[prev current & remaining] input]
                           (if current
                             (let [updated (apply-prev current prev)]
-                              (recur (cons updated remaining)
-                                     (conj output updated)))
-                            output)))
+                              (if (= updated current) ; if the item is unchanged, we can stop propagating
+                                [true output]
+                                (recur (cons updated remaining)
+                                       (conj output updated))))
+                            [false output])))
         last-item (last updated-items)]
-    [(assoc account
-            :account/quantity
-            (or (:transaction-item/balance last-item)
-                0M))
+    [(when (not short-circuited?)
+       (assoc account
+              :account/quantity
+              (or (:transaction-item/balance last-item)
+                  0M)))
      (map #(dissoc % ::polarized-quantity) updated-items)]))
 
 (defn- propagate-account-items
@@ -1034,14 +1037,14 @@
                                                                :transaction/transaction-date))
                                        :delete? delete?))
          (reduce (fn [res [account items]]
-                   (-> res
-                       (update-in [:accounts] conj account)
-                       (update-in [:affected-items]
-                                  concat
-                                  (filter (complement belongs?) items))
-                       (update-in [:transaction-items]
-                                  concat
-                                  (filter belongs? items))))
+                   (cond-> (-> res
+                               (update-in [:affected-items]
+                                          concat
+                                          (filter (complement belongs?) items))
+                               (update-in [:transaction-items]
+                                          concat
+                                          (filter belongs? items)))
+                     account (update-in [:accounts] conj account)))
                  {:accounts []
                   :affected-items []
                   :transaction-items []}))))

@@ -144,7 +144,12 @@
 (s/def ::putable (s/or :map map?
                        :operation (s/tuple ::operation map?)))
 (s/def ::putables (s/coll-of ::putable))
-(defn- put*
+
+; This is only exposed publicly to support tests that enforce
+; short-circuting transaction propagation
+(defn put*
+  "Executes operations against the database. This function is not entended
+  to be used directly."
   [ds models]
   {:pre [(s/valid? ::putables models)]}
   (jdbc/with-transaction [tx ds]

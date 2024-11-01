@@ -8,18 +8,15 @@
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
             [clj-money.util :as util]
+            [clj-money.db :as db]
+            [clj-money.db.sql :as sql]
             [clj-money.accounts :as acts]
-            [clj-money.model-helpers :as helpers :refer [assert-invalid
-                                                         assert-updated]]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid]]
             [clj-money.models :as models]
-            [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]
-            [clj-money.models.lots :as lots]
-            [clj-money.models.entities :as entities]
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.test-context :refer [with-context
-                                            basic-context
                                             find-entity
                                             find-account
                                             find-accounts
@@ -588,80 +585,86 @@
                (:transaction/transaction-date (models/find result)))
             "The retrieved transaction has the new date")))))
 
-; (def short-circuit-context
-;   (conj base-context
-;         #:transaction{:transaction-date (t/local-date 2016 3 2)
-;                       :entity "Personal"
-;                       :description "Paycheck"
-;                       :debit-account "Checking"
-;                       :credit-account "Salary"
-;                       :quantity 1000M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 9)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 101M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 16)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 102M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 23)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 103M}
-;         #:transaction{:transaction-date (t/local-date 2016 3 30)
-;                       :entity "Personal"
-;                       :description "Kroger"
-;                       :debit-account "Groceries"
-;                       :credit-account "Checking"
-;                       :quantity 104M}))
-; 
-; (defn- record-update-call
-;   [item result]
-;   (update-in result
-;              [(:account-id item)]
-;              #((fnil conj #{}) % (select-keys item [:index
-;                                                     :quantity
-;                                                     :balance]))))
-; (def ^:dynamic update-item nil)
-; 
-; ; Trans. Date quantity  Debit     Credit
-; ; 2016-03-02    1000  Checking  Salary
-; ; 2016-03-09     101  Groceries Checking
-; ; 2016-03-16     102  Groceries Checking move this to 3/8
-; ; 2016-03-23     103  Groceries Checking
-; ; 2016-03-30     104  Groceries Checking
-; (deftest update-a-transaction-short-circuit-updates
-;   (with-context short-circuit-context
-;     (let [checking (find-account "Checking")
-;           trx (find-transaction (t/local-date 2016 3 16) "Kroger")
-;           updated (change-date trx (t/local-date 2016 3 8))
-;           update-calls (atom {})]
-;       (binding [update-item transactions/update-item-index-and-balance]
-;         (with-redefs [transactions/update-item-index-and-balance (fn [item]
-;                                                                    (swap! update-calls
-;                                                                           (partial record-update-call item))
-;                                                                    (update-item item))]
-;           (let [result (transactions/update updated)
-;                 expected #{{:index 1
-;                             :quantity 102M
-;                             :balance 898M}
-;                            {:index 2
-;                             :quantity 101M
-;                             :balance 797M}}
-;                 actual (get @update-calls (:id checking))]
-;             (is (valid? result))
-;             (testing "the expected transactions are updated"
-;               (is (= expected actual)
-;                   "Only items with changes are updated")
-;               (is (not-any? #(= (:index %) 4) actual) "The last item is never updated"))
-;             (assert-account-quantities checking 590M)))))))
-; 
+(def short-circuit-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2016 3 9)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 101M}
+        #:transaction{:transaction-date (t/local-date 2016 3 16)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 102M}
+        #:transaction{:transaction-date (t/local-date 2016 3 23)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 103M}
+        #:transaction{:transaction-date (t/local-date 2016 3 30)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 104M}))
+
+(defn- match-by-type
+  [type]
+  (fn [m]
+    (= type (db/model-type m))))
+
+; Trans. Date quantity  Debit     Credit
+; 2016-03-02    1000  Checking  Salary
+; 2016-03-09     101  Groceries Checking
+; 2016-03-16     102  Groceries Checking move this to 3/8
+; 2016-03-23     103  Groceries Checking
+; 2016-03-30     104  Groceries Checking
+(deftest update-a-transaction-short-circuit-updates
+  (with-context short-circuit-context
+    (let [calls (atom [])
+          orig-put sql/put*]
+      (with-redefs [sql/put* (fn [ds models]
+                               (swap! calls conj models)
+                               (orig-put ds models))]
+        (-> (find-transaction (t/local-date 2016 3 16) "Kroger")
+            (assoc :transaction/transaction-date (t/local-date 2016 3 8))
+            models/put)
+        (let [[c :as cs] @calls]
+          (is (= 1 (count cs))
+              "One call is made to write to storage")
+          (is (seq-of-maps-like? [#:transaction{:description "Kroger"
+                                                :transaction-date (t/local-date 2016 3 8)}]
+                                 (filter (match-by-type :transaction)
+                                         c))
+              "The updated transaction is written")
+          (is (seq-of-maps-like? [#:transaction-item{:index 1
+                                                     :quantity 102M
+                                                     :balance 898M}
+                                  #:transaction-item{:index 2
+                                                     :quantity 101M
+                                                     :balance 797M}]
+                                 (filter (match-by-type :transaction-item)
+                                         c))
+              "The affected transaction items are written")
+
+          (is (empty? (filter #(#{3 4} (:transaction-item/index %))
+                              c))
+              "The unaffected transaction items are not written")
+          (is (empty? (filter (match-by-type :account)
+                              c))
+              "The account is not updated")
+          (assert-account-quantities (find-account "Checking") 590M))))))
+
 ; (def change-account-context
 ;   (-> base-context
 ;       (update-in [:accounts] #(conj % {:name "Rent"
