@@ -945,30 +945,32 @@
 (defn- re-index
   "Given an account and a list of items, take the index and balance
   of the 1st item and calculate indices and balances forward, then
-  apply the final to the account."
+  apply the final to the account. Returns a sequence of all updated
+  models, which may be fewer than the input."
   [account items]
-  (let [[short-circuited? updated-items] (loop [input items
-                             output []]
-                        (let [[prev current & remaining] input]
-                          (if current
-                            (let [updated (apply-prev current prev)]
-                              (if (= updated current) ; if the item is unchanged, we can stop propagating
-                                [true output]
-                                (recur (cons updated remaining)
-                                       (conj output updated))))
-                            [false output])))
-        last-item (last updated-items)]
-    [(when (not short-circuited?)
-       (assoc account
-              :account/quantity
-              (or (:transaction-item/balance last-item)
-                  0M)))
-     (map #(dissoc % ::polarized-quantity) updated-items)]))
+  (let [updated-items (->> (rest items)
+                           (reduce (fn [output item]
+                                     (let [updated (apply-prev item (last output))]
+                                       (if (= item updated)
+                                         (reduced output)
+                                         (conj output updated))))
+                                   [(first items)])
+                           (drop 1)) ; the 1st is the basis and is not updated
+        to-return (map #(dissoc % ::polarized-quantity) updated-items)]
+    (if (= (count to-return)
+           (- (count items)
+              1))  ; this means a short-circuit did not take place
+      (cons (assoc account
+                   :account/quantity
+                   (or (:transaction-item/balance (last updated-items))
+                       0M))
+            to-return)
+      to-return)))
 
 (defn- propagate-account-items
-  "Returns a function that takes a list of items for an account for a
-  transaction, and returns the items along with any other items affected
-  by the transaction, and the updated account."
+  "Returns a function that takes a list of transaction items and returns the
+  items along with any other items affected by the transaction, and the updated
+  account, if the account is also updated"
   [& {:keys [as-of delete?]}]
   (fn [[_ [{:transaction-item/keys [account]} :as items]]]
     (let [ids (->> items
@@ -1003,50 +1005,36 @@
 
 (defn- belongs-to-trx?
   [{:keys [id] :as trx}]
-  (fn [{:transaction-item/keys [transaction] :as item}]
-    (when (and id
-               (not (:id transaction)))
-      (pprint {::trx trx
-               ::item item})
-      (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
-                                                                            :item item})))
-    (= id (:id transaction))))
+  (fn [model]
+    (when (db/model-type? model :transaction-item)
+      (let [{:transaction-item/keys [transaction] :as item} model]
+        (when (and id
+                   (not (:id transaction)))
+          (pprint {::trx trx
+                   ::item item})
+          (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
+                                                                                :item item})))
+        (= id (:id transaction))))))
 
 (defn- propagate-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
   [{:transaction/keys [items transaction-date] :as trx} & {:keys [delete?]}]
-
-  ; TODO: Also propagate for any accounts that were referenced
-  ; but are no longer referened in the items
-
-  (let [belongs? (belongs-to-trx? trx)]
-    (->> items
-         realize-accounts
-         (group-by (comp util/->model-ref
-                         :transaction-item/account))
-         (map (propagate-account-items :as-of (dates/earliest
-                                                transaction-date
-                                                (models/before trx
-                                                               :transaction/transaction-date))
-                                       :delete? delete?))
-         (reduce (fn [res [account items]]
-                   (cond-> (-> res
-                               (update-in [:affected-items]
-                                          concat
-                                          (filter (complement belongs?) items))
-                               (update-in [:transaction-items]
-                                          concat
-                                          (filter belongs? items)))
-                     account (update-in [:accounts] conj account)))
-                 {:accounts []
-                  :affected-items []
-                  :transaction-items []}))))
+  (->> items
+       realize-accounts
+       (group-by (comp util/->model-ref
+                       :transaction-item/account))
+       (mapcat (propagate-account-items :as-of (dates/earliest
+                                                 transaction-date
+                                                 (models/before trx
+                                                                :transaction/transaction-date))
+                                        :delete? delete?))))
 
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
-  ; TODO: can we just return a sequence of models from propagate-items?
-  (let [{:keys [accounts transaction-items affected-items]} (propagate-items trx)
+  (let [{transaction-items true
+         others nil} (group-by (belongs-to-trx? trx)
+                               (propagate-items trx))
         entity (when-let [e (:transaction/entity trx)]
                  (push-date-boundaries (models/find e :entity)
                                        transaction-date
@@ -1057,10 +1045,8 @@
     (concat [(cond-> trx
                (seq transaction-items) (assoc :transaction/items transaction-items))
              entity]
-            affected-items
-            accounts)))
+            others)))
 
 (defmethod models/propagate-delete :transaction
   [trx]
-  (let [{:keys [accounts items]} (propagate-items trx :delete? true)]
-    (cons trx (concat accounts items))))
+  (cons trx (propagate-items trx :delete? true)))
