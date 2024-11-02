@@ -1064,13 +1064,13 @@
   (let [{transaction-items true
          others false} (group-by (belongs-to-trx? trx)
                                  (propagate-items trx))
-        entity (when-let [e (:transaction/entity trx)]
-                 (push-date-boundaries (models/find e :entity)
-                                       transaction-date
-                                       [:entity/settings
-                                        :settings/earliest-transaction-date]
-                                       [:entity/settings
-                                        :settings/latest-transaction-date]))]
+        entity (-> (:transaction/entity trx)
+                   (models/find :entity)
+                   (push-date-boundaries transaction-date
+                                         [:entity/settings
+                                          :settings/earliest-transaction-date]
+                                         [:entity/settings
+                                          :settings/latest-transaction-date]))]
     (cons (cond-> trx
             (seq transaction-items)
             (assoc :transaction/items transaction-items))
