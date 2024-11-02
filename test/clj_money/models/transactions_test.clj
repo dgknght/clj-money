@@ -223,12 +223,17 @@
 
 (deftest sum-of-debits-must-equal-sum-of-credits
   (with-context base-context
-    (assert-invalid (assoc-in
-                      (attributes)
-                      [:transaction/items
-                       0
-                       :transaction-item/quantity]
-                      1001M)
+    (assert-invalid (assoc-in (attributes)
+                              [:transaction/items
+                               0
+                               :transaction-item/quantity]
+                              1001M)
+                    {:transaction/items ["Sum of debits must equal the sum of credits"]})
+    (assert-invalid (assoc-in (attributes)
+                              [:transaction/items
+                               0
+                               :transaction-item/action]
+                              :credit)
                     {:transaction/items ["Sum of debits must equal the sum of credits"]})))
 
 (def balance-context
@@ -709,68 +714,83 @@
           "The items in the added account reflect the addition")
       (assert-account-quantities groceries 204M rent 102M))))
 
-; (def change-action-context
-;   (merge
-;    base-context
-;    {:transactions [{:transaction-date (t/local-date 2016 3 2)
-;                     :entity "Personal"
-;                     :description "Paycheck"
-;                     :items [{:action :debit
-;                              :account-id "Checking"
-;                              :quantity 1000}
-;                             {:action :credit
-;                              :account-id "Salary"
-;                              :quantity 1000}]}
-;                    {:transaction-date (t/local-date 2016 3 9)
-;                     :entity "Personal"
-;                     :description "Kroger"
-;                     :items [{:action :debit
-;                              :account-id "Groceries"
-;                              :quantity 103}
-;                             {:action :credit
-;                              :account-id "Checking"
-;                              :quantity 103}]}
-;                    {:transaction-date (t/local-date 2016 3 16)
-;                     :entity "Personal"
-;                     :description "Kroger"
-;                     :items [{:action :debit
-;                              :account-id "Groceries"
-;                              :quantity 12}
-;                             {:action :credit
-;                              :account-id "Checking"
-;                              :quantity 12}]}
-;                    {:transaction-date (t/local-date 2016 3 23)
-;                     :entity "Personal"
-;                     :description "Kroger"
-;                     :items [{:action :debit
-;                              :account-id "Groceries"
-;                              :quantity 101}
-;                             {:action :credit
-;                              :account-id "Checking"
-;                              :quantity 101}]}]}))
-; 
-; (deftest update-a-transaction-change-action
-;   (with-context change-action-context
-;     (let [checking (find-account "Checking")
-;           groceries (find-account "Groceries")
-;           result (-> (find-transaction (t/local-date 2016 3 16) "Kroger")
-;                      (update-items {(:id groceries) {:action :credit}
-;                                     (:id checking) {:action :debit}})
-;                      transactions/update)]
-;       (is (valid? result))
-;       (is (seq-of-maps-like? [{:index 2
-;                                :quantity 101M
-;                                :balance 192M}
-;                               {:index 1
-;                                :quantity 12M
-;                                :balance 91M}
-;                               {:index 0
-;                                :quantity 103M
-;                                :balance 103M}]
-;                              (items-by-account (:id groceries)))
-;           "Expected the groceries items to be updated")
-;       (assert-account-quantities groceries 192M checking 808M))))
-; 
+(def change-action-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 3 2)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2016 3 9)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 103M}
+        #:transaction{:transaction-date (t/local-date 2016 3 16)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 12M}
+        #:transaction{:transaction-date (t/local-date 2016 3 23)
+                      :entity "Personal"
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 101M}))
+
+(deftest update-a-transaction-change-action
+  (with-context change-action-context
+    (let [checking (find-account "Checking")
+          groceries (find-account "Groceries")]
+      (-> (find-transaction (t/local-date 2016 3 16) "Kroger")
+          (update-trx-items groceries {:transaction-item/action :credit}
+                            checking {:transaction-item/action :debit})
+          models/put)
+      (is (= [#:transaction-item{:index 2
+                                 :quantity 101M
+                                 :action :debit
+                                 :balance 192M}
+              #:transaction-item{:index 1
+                                 :quantity 12M
+                                 :action :credit
+                                 :balance 91M}
+              #:transaction-item{:index 0
+                                 :quantity 103M
+                                 :action :debit
+                                 :balance 103M}]
+             (map #(select-keys % [:transaction-item/index
+                                   :transaction-item/action
+                                   :transaction-item/quantity
+                                   :transaction-item/balance])
+                  (items-by-account groceries)))
+          "The groceries balances reflect the change in action")
+      (is (= [#:transaction-item{:index 3
+                                 :action :credit
+                                 :quantity 101M
+                                 :balance 808M}
+              #:transaction-item{:index 2
+                                 :action :debit
+                                 :quantity 12M
+                                 :balance 909M}
+              #:transaction-item{:index 1
+                                 :action :credit
+                                 :quantity 103M
+                                 :balance 897M}
+              #:transaction-item{:index 0
+                                 :action :debit
+                                 :quantity 1000M
+                                 :balance 1000M}]
+             (map #(select-keys % [:transaction-item/index
+                                   :transaction-item/action
+                                   :transaction-item/quantity
+                                   :transaction-item/balance])
+                  (items-by-account checking)))
+          "The checking balances reflect the change in action")
+      (assert-account-quantities groceries 192M checking 808M))))
+
 ; (def add-remove-item-context
 ;   (-> base-context
 ;       (update-in [:accounts] #(conj % {:name "Pets"
