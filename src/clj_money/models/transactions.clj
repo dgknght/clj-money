@@ -1006,7 +1006,7 @@
 (defn- belongs-to-trx?
   [{:keys [id] :as trx}]
   (fn [model]
-    (when (db/model-type? model :transaction-item)
+    (if (db/model-type? model :transaction-item)
       (let [{:transaction-item/keys [transaction] :as item} model]
         (when (and id
                    (not (:id transaction)))
@@ -1014,7 +1014,8 @@
                    ::item item})
           (throw (ex-info "Unexpected transaction item without transaction id" {:transaction trx
                                                                                 :item item})))
-        (= id (:id transaction))))))
+        (= id (:id transaction)))
+      false)))
 
 (defn- propagate-items
   "Given a transaction, return a list of accounts and transaction items
@@ -1033,7 +1034,7 @@
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
   (let [{transaction-items true
-         others nil} (group-by (belongs-to-trx? trx)
+         others false} (group-by (belongs-to-trx? trx)
                                (propagate-items trx))
         entity (when-let [e (:transaction/entity trx)]
                  (push-date-boundaries (models/find e :entity)
@@ -1042,10 +1043,11 @@
                                         :settings/earliest-transaction-date]
                                        [:entity/settings
                                         :settings/latest-transaction-date]))]
-    (concat [(cond-> trx
-               (seq transaction-items) (assoc :transaction/items transaction-items))
-             entity]
-            others)))
+    (cons (cond-> trx
+            (seq transaction-items)
+            (assoc :transaction/items transaction-items))
+          (cons entity
+                others))))
 
 (defmethod models/propagate-delete :transaction
   [trx]
