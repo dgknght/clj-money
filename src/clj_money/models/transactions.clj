@@ -967,6 +967,14 @@
             to-return)
       to-return)))
 
+(defn- account-items-on-or-after
+  [account as-of]
+  (models/select (db/model-type
+                   {:transaction-item/account account
+                    :transaction/transaction-date [:>= as-of]}
+                   :transaction-item)
+                 {:sort [[:transaction-item/index :asc]]}))
+
 (defn- propagate-account-items
   "Returns a function that takes a list of transaction items and returns the
   items along with any other items affected by the transaction, and the updated
@@ -976,11 +984,7 @@
     (let [ids (->> items
                    (map :id)
                    set)
-          affected-items (->> (models/select (db/model-type
-                                               {:transaction-item/account account
-                                                :transaction/transaction-date [:>= as-of]}
-                                               :transaction-item)
-                                             {:sort [[:transaction-item/index :asc]]})
+          affected-items (->> (account-items-on-or-after account as-of)
                               (remove #(ids (:id %)))
                               (map #(assoc % :transaction-item/account account)))]
       (re-index (if delete?
