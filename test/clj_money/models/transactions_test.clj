@@ -617,11 +617,6 @@
                       :credit-account "Checking"
                       :quantity 104M}))
 
-(defn- match-by-type
-  [type]
-  (fn [m]
-    (= type (db/model-type m))))
-
 ; Trans. Date quantity  Debit     Credit
 ; 2016-03-02    1000  Checking  Salary
 ; 2016-03-09     101  Groceries Checking
@@ -643,7 +638,7 @@
               "One call is made to write to storage")
           (is (seq-of-maps-like? [#:transaction{:description "Kroger"
                                                 :transaction-date (t/local-date 2016 3 8)}]
-                                 (filter (match-by-type :transaction)
+                                 (filter (db/model-type? :transaction)
                                          c))
               "The updated transaction is written")
           (is (seq-of-maps-like? [#:transaction-item{:index 1
@@ -652,14 +647,14 @@
                                   #:transaction-item{:index 2
                                                      :quantity 101M
                                                      :balance 797M}]
-                                 (filter (match-by-type :transaction-item)
+                                 (filter (db/model-type? :transaction-item)
                                          c))
               "The affected transaction items are written")
 
           (is (empty? (filter #(#{3 4} (:transaction-item/index %))
                               c))
               "The unaffected transaction items are not written")
-          (is (empty? (filter (match-by-type :account)
+          (is (empty? (filter (db/model-type? :account)
                               c))
               "The account is not updated")
           (assert-account-quantities (find-account "Checking") 590M))))))
