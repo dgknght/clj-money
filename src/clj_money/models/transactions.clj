@@ -73,21 +73,18 @@
 (v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
                                         :path []})
 
-(defn- sum-by
-  "Returns the sum of values of the items in the transaction having
-  the specified action"
-  [attr items]
-  (->> items
-       (map attr)
-       (reduce + 0M)))
-
 (defn- sum-of-credits-equals-sum-of-debits?
   [items]
-  (->> items
-       (group-by :transaction-item/action)
-       (map (comp #(sum-by :transaction-item/value %)
-                  second))
-       (apply =)))
+  (let [{:keys [debit credit]}
+        (->> items
+             (group-by :transaction-item/action)
+             (map #(update-in % [1] (fn [itms]
+                                      (->> itms
+                                           (map :transaction-item/value)
+                                           (reduce + 0M)))))
+             (into {}))]
+    (= debit credit)))
+
 (v/reg-msg sum-of-credits-equals-sum-of-debits? "Sum of debits must equal the sum of credits")
 
 (defn- transaction-dates-match?
