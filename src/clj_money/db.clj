@@ -1,6 +1,7 @@
 (ns clj-money.db
-  (:require [config.core :refer [env]]
-            [clojure.set :refer [union]]))
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.set :refer [union]]
+            [config.core :refer [env]]))
 
 (def ^:dynamic *storage* nil)
 
@@ -89,8 +90,17 @@
   extracted"
   ([m]
    (or (-> m meta ::type)
-       (single-ns m)))
+       (single-ns (dissoc m :id))))
   ([m model-or-type]
    (let [t (extract-model-type model-or-type)]
      (assert (model-types t))
      (vary-meta m assoc ::type t))))
+
+(defn model-type?
+  "The 2 arity checks if the model has the specified type. The 1 arity
+  returns a predicate function that returns true if given an argument
+  that has the specified model type."
+  ([m-type]
+   #(model-type? % m-type))
+  ([model m-type]
+   (= m-type (model-type model))))
