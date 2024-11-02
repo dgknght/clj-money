@@ -1021,7 +1021,7 @@
         (= id (:id transaction)))
       false)))
 
-(defn- propagate-items
+(defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
   [{:transaction/keys [items transaction-date] :as trx} & {:keys [delete?]}]
@@ -1029,17 +1029,41 @@
        realize-accounts
        (group-by (comp util/->model-ref
                        :transaction-item/account))
-       (mapcat (propagate-account-items :as-of (dates/earliest
-                                                 transaction-date
-                                                 (models/before trx
-                                                                :transaction/transaction-date))
-                                        :delete? delete?))))
+       (mapcat (propagate-account-items
+                 :as-of (dates/earliest
+                          transaction-date
+                          (models/before trx :transaction/transaction-date))
+                 :delete? delete?))))
+
+(defn- propagate-dereferenced-account-items
+  [{:transaction/keys [items] :as trx}]
+  (let [act-ids (->> items
+                     (map (comp :id
+                                :transaction-item/account))
+                     set)]
+    (->> (models/before trx :transaction/items)
+         (remove (comp act-ids
+                       :id
+                       :transaction-item/account))
+         realize-accounts
+         (group-by (comp util/->model-ref
+                         :transaction-item/account))
+         (mapcat (propagate-account-items
+                   :as-of (models/before trx :transaction/transaction-date)
+                   :delete? true)))))
+
+(defn- propagate-items
+  "Given a transaction, return a list of accounts and transaction items
+  that will also be affected by the operation."
+  [trx & {:keys [delete?]}]
+  (concat (propagate-current-items trx :delete? delete?)
+          (propagate-dereferenced-account-items trx)))
 
 (defmethod models/propagate :transaction
   [{:as trx :transaction/keys [transaction-date]}]
   (let [{transaction-items true
          others false} (group-by (belongs-to-trx? trx)
-                               (propagate-items trx))
+                                 (propagate-items trx))
         entity (when-let [e (:transaction/entity trx)]
                  (push-date-boundaries (models/find e :entity)
                                        transaction-date
