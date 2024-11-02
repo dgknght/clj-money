@@ -95,9 +95,7 @@
        (map (comp validate
                   before-validation))
        (mapcat propagate)
-       (map (comp before-save
-                  validate ; TODO: Should it be possible for propagation to produce invalid models?
-                  before-validation))
+       (map before-save)
        (db/put (db/storage))
        (map (comp append-before
                   after-save
