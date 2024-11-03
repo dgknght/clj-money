@@ -1003,9 +1003,8 @@
                                         [:account/earliest-transaction-date]
                                         [:account/latest-transaction-date]))
                 (cons (propagation-basis account as-of)
-                      (->> (if delete?
-                             affected-items
-                             (concat items affected-items))
+                      (->> (cond->> affected-items
+                             (not delete?) (concat items))
                            (sort-by :transaction-item/transaction-date t/before?)
                            (map polarize)))))))
 
@@ -1036,9 +1035,11 @@
 (defn- propagate-current-items
   "Given a transaction, return a list of accounts and transaction items
   that will also be affected by the operation."
-  [{:transaction/keys [items transaction-date] :as trx} & {:keys [delete?]}]
+  [{:transaction/keys [items transaction-date] :keys [id] :as trx} & {:keys [delete?]}]
   (->> items
-       (map #(assoc % :transaction-item/transaction-date transaction-date))
+       (map #(cond-> %
+               true (assoc :transaction-item/transaction-date transaction-date)
+               id   (assoc :transaction-item/transaction {:id id})))
        realize-accounts
        (group-by (comp util/->model-ref
                        :transaction-item/account))

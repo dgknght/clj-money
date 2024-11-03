@@ -885,33 +885,34 @@
                                (find-account "Groceries") 306M
                                (find-account "Checking")  694M)))
 
-; (deftest update-a-transaction-add-item
-;   (with-context add-remove-item-context
-;     (let [[pets
-;            groceries
-;            checking] (find-accounts "Pets" "Groceries" "Checking")
-;           t2 (find-transaction (t/local-date 2016 3 9) "Kroger")
-;           to-update (-> t2
-;                         (update-items {(:id groceries) {:quantity 90M
-;                                                         :value 90M}})
-;                         (update-in [:items] #(conj % {:action :debit
-;                                                       :account-id (:id pets)
-;                                                       :quantity 13M
-;                                                       :value 13M})))
-;           _ (transactions/update to-update)
-;           expected-items [{:index 1
-;                            :quantity 12M
-;                            :balance 25M}
-;                           {:index 0
-;                            :quantity 13M
-;                            :balance 13M}]
-;           actual-items (map #(select-keys % [:index :quantity :balance])
-;                             (items-by-account (:id pets)))]
-;       (testing "item values are correct"
-;         (is (= expected-items actual-items)
-;             "The Pets account should have the correct items"))
-;       (assert-account-quantities pets 25M groceries 281M checking 694M))))
-; 
+(deftest update-a-transaction-add-item
+  (with-context add-remove-item-context
+    (let [[pets
+           groceries
+           checking] (find-accounts "Pets" "Groceries" "Checking")]
+      (-> (find-transaction (t/local-date 2016 3 9) "Kroger")
+          (update-trx-items groceries #:transaction-item{:quantity 90M
+                                                         :value 90M})
+          (update-in [:transaction/items]
+                     conj
+                     #:transaction-item{:action :debit
+                                        :account pets
+                                        :quantity 13M
+                                        :value 13M})
+          models/put)
+      (testing "item values are correct"
+        (is (seq-of-maps-like? [#:transaction-item{:index 1
+                                                   :quantity 12M
+                                                   :balance 25M}
+                                #:transaction-item{:index 0
+                                                   :quantity 13M
+                                                   :balance 13M}]
+                               (items-by-account "Pets"))
+            "The Pets account should have the correct items"))
+      (assert-account-quantities pets 25M
+                                 groceries 281M
+                                 checking 694M))))
+
 ; (def balance-delta-context
 ;   (merge
 ;    base-context
