@@ -155,15 +155,16 @@
 
 (defmethod models/before-validation :transaction
   [trx]
-  (update-in trx
-             [:transaction/items]
-             (fn [items]
-               (mapv (fn [{:as item :transaction-item/keys [quantity]}]
-                       (-> item
-                           (update-in [:transaction-item/value]
-                                      (fnil identity quantity)) ; TODO need to calculate the correct value
-                           (remove-empty-strings :transaction-item/memo)))
-                     items))))
+  (-> trx
+      trxs/expand
+      (update-in [:transaction/items]
+                 (fn [items]
+                   (mapv (fn [{:as item :transaction-item/keys [quantity]}]
+                           (-> item
+                               (update-in [:transaction-item/value]
+                                          (fnil identity quantity)) ; TODO need to calculate the correct value
+                               (remove-empty-strings :transaction-item/memo)))
+                         items)))))
 
 (defn- after-item-read
   "Makes adjustments to a transaction item in prepartion for return

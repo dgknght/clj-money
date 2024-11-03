@@ -1024,27 +1024,25 @@
 ;                :completed 3}]
 ;              @progress)
 ;           "The progress is reported during the process"))))
-; 
-; (deftest use-simplified-items
-;   (with-context base-context
-;     (let [entity (find-entity "Personal")
-;           [checking salary] (find-accounts "Checking" "Salary")
-;           trx (transactions/create {:entity-id (:id entity)
-;                                     :transaction-date (t/local-date 2017 3 2)
-;                                     :description "Paycheck"
-;                                     :quantity 1000M
-;                                     :debit-account-id (:id checking)
-;                                     :credit-account-id (:id salary)})
-;           actual-items (map #(select-keys % [:account-id :quantity :action]) (:items trx))
-;           expected-items [{:account-id (:id checking)
-;                            :action :debit
-;                            :quantity 1000M}
-;                           {:account-id (:id salary)
-;                            :action :credit
-;                            :quantity 1000M}]]
-;       (is (valid? trx))
-;       (is (= expected-items actual-items) "The items are created correctly"))))
-; 
+ 
+(deftest use-simplified-items
+  (with-context base-context
+    (let [entity (find-entity "Personal")
+          [checking salary] (find-accounts "Checking" "Salary")
+          trx (models/put #:transaction{:entity entity
+                                        :transaction-date (t/local-date 2017 3 2)
+                                        :description "Paycheck"
+                                        :quantity 1000M
+                                        :debit-account checking
+                                        :credit-account salary})]
+      (is (seq-of-maps-like? [#:transaction-item{:quantity 1000M
+                                                 :action :debit
+                                                 :account (util/->model-ref checking)}
+                              #:transaction-item{:quantity 1000M
+                                                 :action :credit
+                                                 :account (util/->model-ref salary)}]
+                             (:transaction/items trx))))))
+
 ; (deftest set-account-boundaries
 ;   (with-context base-context
 ;     (let [entity (find-entity "Personal")
