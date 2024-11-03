@@ -1,6 +1,8 @@
 (ns clj-money.db.sql.transaction-items
   (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [stowaway.criteria :as criteria]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id?]]))
 
@@ -30,4 +32,5 @@
   [item]
   (-> item
       (update-in [:transaction-item/action] keyword)
+      (update-in-if [:transaction-item/transaction-date] t/local-date)
       (->model-refs)))
