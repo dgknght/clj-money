@@ -24,10 +24,10 @@
     (cons (-> trx
               (assoc :id trx-id)
               (dissoc :transaction/items))
-        (map #(assoc %
-                     :transaction-item/transaction-id trx-id
-                     :transaction-item/transaction-date transaction-date)
-             items))))
+          (map #(assoc %
+                       :transaction-item/transaction-id trx-id
+                       :transaction-item/transaction-date transaction-date)
+               items))))
 
 (defmethod sql/reconstruct :transaction
   [models]
