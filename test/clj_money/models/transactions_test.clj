@@ -646,7 +646,10 @@
                                  (filter (db/model-type? :transaction)
                                          c))
               "The updated transaction is written")
-          (is (seq-of-maps-like? [#:transaction-item{:index 2
+          (is (seq-of-maps-like? [#:transaction-item {:index 1
+                                                      :quantity 101M
+                                                      :balance 203M}
+                                  #:transaction-item{:index 2
                                                      :quantity 101M
                                                      :balance 797M}]
                                  (filter (db/model-type? :transaction-item)
