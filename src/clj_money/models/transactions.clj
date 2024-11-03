@@ -822,32 +822,39 @@
       (doseq [account-id (extract-account-ids transaction)]
         (recalculate-account account-id (:transaction-date transaction))))))
 
-(defn- find-last-item-before
+(defn- last-account-item-before
   [account date]
-  (find-item-by {:account-id (:id account)
-                 :transaction-date [:between (:earliest-transaction-date account) (t/minus date (t/days 1))]}
-                {:sort [[:transactions.transaction-date :desc] [:transaction_items.index :desc]]}))
+  (models/find-by
+    (db/model-type
+      {:transaction-item/account account
+       :transaction/transaction-date [:< date]}
+      :transaction-item)
+    {:sort [[:transaction-item/index :desc]]}))
 
-(defn- find-last-item-on-or-before
-  [account date]
-  (find-item-by {:account-id (:id account)
-                 :transaction-date [:between (:earliest-transaction-date account) date]}
-                {:sort [[:transactions.transaction-date :desc]
-                        [:transaction_items.index :desc]]}))
+(defn- last-account-item-on-or-before
+  [{:as account :account/keys [earliest-transaction-date]} date]
+  (models/find-by (db/model-type
+                    {:transaction-item/account account
+                     :transaction/transaction-date [:between
+                                                    earliest-transaction-date
+                                                    date]}
+                    :transaction-item)
+                  {:sort [[:transaction/transaction-date :desc]
+                          [:transaction-item/index :desc]]}))
 
 (defn balance-delta
   "Returns the change in balance during the specified period for the specified account"
   [account start end]
-  (let [t1 (find-last-item-before account start)
-        t2 (find-last-item-on-or-before account end)]
-    (- (or (:balance t2) 0M)
-       (or (:balance t1) 0M))))
+  (let [t1 (last-account-item-before account start)
+        t2 (last-account-item-on-or-before account end)]
+    (- (or (:transaction-item/balance t2) 0M)
+       (or (:transaction-item/balance t1) 0M))))
 
 (defn balance-as-of
   "Returns the balance for the specified account as of the specified date"
   [account as-of]
-  (or (:balance
-       (find-last-item-on-or-before account as-of))
+  (or (:transaction-item/balance
+       (last-account-item-on-or-before account as-of))
       0M))
 
 (defn find-items-by-ids
@@ -903,15 +910,6 @@
       (update-in early-ks dates/earliest date)
       (update-in late-ks dates/latest date)))
 
-(defn- previous-item
-  [account date]
-  (models/find-by
-    (db/model-type
-      {:transaction-item/account account
-       :transaction/transaction-date [:< date]}
-      :transaction-item)
-    {:sort [[:transaction-item/index :desc]]}))
-
 (defn- apply-prev
   "Given a transaction item and the previous transaction item,
   update the index and balance attributes of the item."
@@ -927,7 +925,7 @@
   the date. If no such item exists, return a dummy item with
   starting index and balance values."
   [account date]
-  (or (previous-item account date)
+  (or (last-account-item-before account date)
       #:transaction-item{:index -1
                          :balance 0M}))
 

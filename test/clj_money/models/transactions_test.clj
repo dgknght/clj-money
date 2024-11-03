@@ -913,72 +913,63 @@
                                  groceries 281M
                                  checking 694M))))
 
-; (def balance-delta-context
-;   (merge
-;    base-context
-;    {:transactions [{:transaction-date (t/local-date 2016 1 1)
-;                     :description "Paycheck"
-;                     :items [{:action :debit
-;                              :account-id "Checking"
-;                              :quantity 1000M}
-;                             {:action :credit
-;                              :account-id "Salary"
-;                              :quantity 1000M}]}
-;                    {:transaction-date (t/local-date 2016 1 15)
-;                     :description "Paycheck"
-;                     :items [{:action :debit
-;                              :account-id "Checking"
-;                              :quantity 1001M}
-;                             {:action :credit
-;                              :account-id "Salary"
-;                              :quantity 1001M}]}
-;                    {:transaction-date (t/local-date 2016 2 1)
-;                     :description "Paycheck"
-;                     :items [{:action :debit
-;                              :account-id "Checking"
-;                              :quantity 1100M}
-;                             {:action :credit
-;                              :account-id "Salary"
-;                              :quantity 1100M}]}
-;                    {:transaction-date (t/local-date 2016 2 15)
-;                     :description "Paycheck"
-;                     :items [{:action :debit
-;                              :account-id "Checking"
-;                              :quantity 1102M}
-;                             {:action :credit
-;                              :account-id "Salary"
-;                              :quantity 1102M}]}
-;                    {:transaction-date (t/local-date 2016 3 1)
-;                     :description "Paycheck"
-;                     :items [{:action :debit
-;                              :account-id "Checking"
-;                              :quantity 1200M}
-;                             {:action :credit
-;                              :account-id "Salary"
-;                              :quantity 1200M}]}]}))
-; 
-; (deftest get-a-balance-delta
-;   (with-context balance-delta-context
-;     (let [salary (accounts/find-by {:name "Salary"})
-;           january (transactions/balance-delta salary
-;                                               (t/local-date 2016 1 1)
-;                                               (t/local-date 2016 1 31))
-;           february (transactions/balance-delta salary
-;                                                (t/local-date 2016 2 1)
-;                                                (t/local-date 2016 2 29))]
-;       (is (= 2001M january) "The January value is the sum of polarized quantitys for the period")
-;       (is (= 2202M february) "The February value is the sum of the polarized quantitys for the period"))))
-; 
-; (deftest get-a-balance-as-of
-;   (with-context balance-delta-context
-;     (let [checking (accounts/find-by {:name "Checking"})
-;           january (transactions/balance-as-of checking
-;                                               (t/local-date 2016 1 31))
-;           february (transactions/balance-as-of checking
-;                                                (t/local-date 2016 2 29))]
-;       (is (= 2001M january) "The January value is the balance for the last item in the period")
-;       (is (= 4203M february) "The February value is the balance for the last item in the period"))))
-; 
+(def balance-delta-context
+  (conj base-context
+        #:transaction{:transaction-date (t/local-date 2016 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2016 1 15)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1001M}
+        #:transaction{:transaction-date (t/local-date 2016 2 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1100M}
+        #:transaction{:transaction-date (t/local-date 2016 2 15)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1102M}
+        #:transaction{:transaction-date (t/local-date 2016 3 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1200M}))
+
+(deftest get-a-balance-delta
+  (with-context balance-delta-context
+    (let [salary (reload-account "Salary")
+          january (transactions/balance-delta salary
+                                              (t/local-date 2016 1 1)
+                                              (t/local-date 2016 1 31))
+          february (transactions/balance-delta salary
+                                               (t/local-date 2016 2 1)
+                                               (t/local-date 2016 2 29))]
+      (is (= 2001M january) "The January value is the sum of polarized quantitys for the period")
+      (is (= 2202M february) "The February value is the sum of the polarized quantitys for the period"))))
+
+(deftest get-a-balance-as-of
+  (with-context balance-delta-context
+    (let [checking (reload-account "Checking")]
+      (is (= 2001M
+             (transactions/balance-as-of checking
+                                         (t/local-date 2016 1 31)))
+          "The January value is the balance for the last item in the period")
+      (is (= 4203M
+             (transactions/balance-as-of checking
+                                         (t/local-date 2016 2 29)))
+          "The February value is the balance for the last item in the period"))))
+
 ; (deftest create-multiple-transactions-then-recalculate-balances
 ;   (with-context base-context
 ;     (let [entity (find-entity "Personal")
