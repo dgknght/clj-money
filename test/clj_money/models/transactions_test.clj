@@ -408,9 +408,9 @@
           trans (find-transaction (t/local-date 2016 3 3) "Kroger")
           _ (models/delete trans)
           checking-items-after (items-by-account "Checking")]
-      (testing "transaction item balances are adjusted"
-        (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity 102M :balance 797M}
-                                #:transaction-item{:index 1 :quantity 101M :balance 899M}
+      (testing "checking transaction item balances are adjusted"
+        (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity 102M :balance 798M}
+                                #:transaction-item{:index 1 :quantity 100M :balance 900M}
                                 #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
                                checking-items-before)
             "The item to be deleted is present before the delete")
@@ -552,13 +552,28 @@
           result (-> trx
                      (assoc :transaction/transaction-date (t/local-date 2016 3 10))
                      models/put)]
-      (is (seq-of-maps-like? [#:transaction-item{:index 2 :transaction-date (t/local-date 2016 3 12) :quantity 101M  :balance 797M}
-                              #:transaction-item{:index 1 :transaction-date (t/local-date 2016 3 10) :quantity 102M  :balance 898M}
-                              #:transaction-item{:index 0 :transaction-date (t/local-date 2016 3 2)  :quantity 1000M :balance 1000M}]
+      (is (seq-of-maps-like? [#:transaction-item{:index 2
+                                                 :transaction-date (t/local-date 2016 3 12)
+                                                 :quantity 101M
+                                                 :balance 797M}
+                              #:transaction-item{:index 1
+                                                 :transaction-date (t/local-date 2016 3 10)
+                                                 :quantity 102M
+                                                 :balance 898M}
+                              #:transaction-item{:index 0
+                                                 :transaction-date (t/local-date 2016 3 2)
+                                                 :quantity 1000M
+                                                 :balance 1000M}]
                              (items-by-account checking))
           "The checking account items are updated")
-      (is (seq-of-maps-like? [#:transaction-item{:index 1 :transaction-date (t/local-date 2016 3 12) :quantity 101M :balance 203M}
-                              #:transaction-item{:index 0 :transaction-date (t/local-date 2016 3 10) :quantity 102M :balance 102M}]
+      (is (seq-of-maps-like? [#:transaction-item{:index 1
+                                                 :transaction-date (t/local-date 2016 3 12)
+                                                 :quantity 101M
+                                                 :balance 203M}
+                              #:transaction-item{:index 0
+                                                 :transaction-date (t/local-date 2016 3 10)
+                                                 :quantity 102M
+                                                 :balance 102M}]
                              (items-by-account groceries))
           "The groceries account items are updated")
       (assert-account-quantities checking 797M groceries 203M)
@@ -574,13 +589,28 @@
           result (-> (find-transaction (t/local-date 2016 3 12) "Kroger")
                      (assoc :transaction/transaction-date (t/local-date 2016 4 12))
                      models/put)]
-      (is (seq-of-maps-like? [#:transaction-item{:index 2 :quantity  101M :balance  797M}
-                              #:transaction-item{:index 1 :quantity  102M :balance  898M}
-                              #:transaction-item{:index 0 :quantity 1000M :balance 1000M}]
+      (is (seq-of-maps-like? [#:transaction-item{:index 2
+                                                 :transaction-date (t/local-date 2016 4 12)
+                                                 :quantity 101M
+                                                 :balance 797M}
+                              #:transaction-item{:index 1
+                                                 :transaction-date (t/local-date 2016 3 22)
+                                                 :quantity 102M
+                                                 :balance 898M}
+                              #:transaction-item{:index 0
+                                                 :transaction-date (t/local-date 2016 3 2)
+                                                 :quantity 1000M
+                                                 :balance 1000M}]
                              (items-by-account checking))
           "The checking account items reflect the change in transaction date")
-      (is (seq-of-maps-like? [#:transaction-item{:index 1 :quantity 101M :balance 203M}
-                              #:transaction-item{:index 0 :quantity 102M :balance 102M}]
+      (is (seq-of-maps-like? [#:transaction-item{:index 1
+                                                 :transaction-date (t/local-date 2016 4 12)
+                                                 :quantity 101M
+                                                 :balance 203M}
+                              #:transaction-item{:index 0
+                                                 :transaction-date (t/local-date 2016 3 22)
+                                                 :quantity 102M
+                                                 :balance 102M}]
                              (items-by-account groceries))
           "The groceries account items reflect the change in transaction date")
       (assert-account-quantities checking 797M groceries 203M)

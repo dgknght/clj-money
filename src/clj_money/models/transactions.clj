@@ -939,12 +939,25 @@
                                  action
                                  account)))
 
+(defn- simplify
+  [m]
+  (if (sequential? m)
+    (map simplify m)
+    (select-keys m [:transaction-item/index
+                    :transaction-item/transaction-date
+                    :transaction-item/quantity
+                    :transaction-item/balance
+                    :transaction/description
+                    :account/name
+                    :entity/name])))
+
 (defn- re-index
   "Given an account and a list of items, take the index and balance
   of the 1st item and calculate indices and balances forward, then
   apply the final to the account. Returns a sequence of all updated
   models, which may be fewer than the input."
   [account items]
+
   (let [updated-items (->> (rest items)
                            (reduce (fn [output item]
                                      (let [updated (apply-prev item (last output))]
@@ -990,9 +1003,11 @@
                                         [:account/earliest-transaction-date]
                                         [:account/latest-transaction-date]))
                 (cons (propagation-basis account as-of)
-                      (map polarize (if delete?
-                                      affected-items
-                                      (concat items affected-items))))))))
+                      (->> (if delete?
+                             affected-items
+                             (concat items affected-items))
+                           (sort-by :transaction-item/transaction-date t/before?)
+                           (map polarize)))))))
 
 (defn- realize-accounts
   "Given a list of items, lookup the associated account and assoc
@@ -1023,6 +1038,7 @@
   that will also be affected by the operation."
   [{:transaction/keys [items transaction-date] :as trx} & {:keys [delete?]}]
   (->> items
+       (map #(assoc % :transaction-item/transaction-date transaction-date))
        realize-accounts
        (group-by (comp util/->model-ref
                        :transaction-item/account))
@@ -1076,4 +1092,4 @@
 
 (defmethod models/propagate-delete :transaction
   [trx]
-  (cons trx (propagate-items trx :delete? true)))
+  (cons trx (propagate-current-items trx :delete? true)))
