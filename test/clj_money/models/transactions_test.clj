@@ -7,6 +7,7 @@
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.core :refer [index-by]]
             [dgknght.app-lib.test_assertions]
+            [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]
@@ -1071,65 +1072,71 @@
                                   :latest-transaction-date (t/local-date 2017 3 2)}
                        (reload-account "Groceries"))))))
 
-; (def ^:private existing-reconciliation-context
-;   (-> base-context
-;       (update-in [:accounts] conj {:name "Rent"
-;                                    :type :expense
-;                                    :entity-id "Personal"})
-;       (assoc :transactions [{:transaction-date (t/local-date 2017 1 1)
-;                              :description "Paycheck"
-;                              :debit-account-id "Checking"
-;                              :credit-account-id "Salary"
-;                              :quantity 1000M}
-;                             {:transaction-date (t/local-date 2017 1 2)
-;                              :description "Landlord"
-;                              :debit-account-id "Rent"
-;                              :credit-account-id "Checking"
-;                              :quantity 500M}
-;                             {:transaction-date (t/local-date 2017 1 3)
-;                              :description "Kroger"
-;                              :debit-account-id "Groceries"
-;                              :credit-account-id "Checking"
-;                              :quantity 45M}
-;                             {:transaction-date (t/local-date 2017 1 10)
-;                              :description "Safeway"
-;                              :debit-account-id "Groceries"
-;                              :credit-account-id "Checking"
-;                              :quantity 53M}]
-;              :reconciliations
-;              [{:account-id "Checking"
-;                :end-of-period (t/local-date 2017 1 1)
-;                :balance 1000M
-;                :status :completed
-;                :item-refs [{:transaction-date (t/local-date 2017 1 1)
-;                             :quantity 1000M}]}])))
-; 
-; (deftest the-quantity-and-action-of-a-reconciled-item-cannot-be-changed
-;   (with-context existing-reconciliation-context
-;     (let [transaction (find-transaction (t/local-date 2017 1 1) "Paycheck")
-;           result1 (transactions/update (update-in transaction [:items]
-;                                                   #(map (fn [item]
-;                                                           (assoc item :quantity 1M))
-;                                                         %)))
-;           result2 (transactions/update (update-in transaction [:items]
-;                                                   #(map (fn [item]
-;                                                           (update-in item [:action] (fn [a] (if (= :credit a)
-;                                                                                               :debit
-;                                                                                               :credit))))
-;                                                         %)))]
-;       (is (invalid? result1 [:items] "A reconciled quantity cannot be updated"))
-;       (is (invalid? result2 [:items] "A reconciled quantity cannot be updated")))))
-; 
-; (deftest a-reconciled-transaction-item-cannot-be-deleted
-;   (with-context existing-reconciliation-context
-;     (let [[item-id date] (-> *context* :reconciliations first :item-refs first)
-;           transaction (transactions/find-by-item-id item-id date)]
-;       (is (thrown-with-msg? clojure.lang.ExceptionInfo #"A transaction with reconciled items cannot be deleted."
-;                             (transactions/delete transaction))
-;           "An exception is raised")
-;       (is (do
-;             (try
-;               (transactions/delete transaction)
-;               (catch clojure.lang.ExceptionInfo _ nil))
-;             (transactions/find-by-item-id item-id date))
-;           "The transaction can be retrieved after the delete has been denied"))))
+#_(def ^:private existing-reconciliation-context
+  (conj base-context
+        #:account{:name "Rent"
+                  :type :expense
+                  :entity "Personal"}
+        #:transaction{:transaction-date (t/local-date 2017 1 1)
+                      :description "Paycheck"
+                      :debit-account "Checking"
+                      :credit-account "Salary"
+                      :quantity 1000M}
+        #:transaction{:transaction-date (t/local-date 2017 1 2)
+                      :description "Landlord"
+                      :debit-account "Rent"
+                      :credit-account "Checking"
+                      :quantity 500M}
+        #:transaction{:transaction-date (t/local-date 2017 1 3)
+                      :description "Kroger"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 45M}
+        #:transaction{:transaction-date (t/local-date 2017 1 10)
+                      :description "Safeway"
+                      :debit-account "Groceries"
+                      :credit-account "Checking"
+                      :quantity 53M}
+        #:reconciliation{:account "Checking"
+                         :end-of-period (t/local-date 2017 1 1)
+                         :balance 1000M
+                         :status :completed
+                         :item-refs [{:transaction-date (t/local-date 2017 1 1)
+                                      :quantity 1000M}]}))
+
+#_(deftest the-quantity-and-action-of-a-reconciled-item-cannot-be-changed
+  (with-context existing-reconciliation-context
+    (let [transaction (find-transaction (t/local-date 2017 1 1) "Paycheck")]
+      (is
+        (thrown-with-ex-data?
+          "Validation failed"
+          {::v/errors {:transaction/items ["A reconciled quantity cannot be updated."]}}
+          (models/put (update-in
+                        transaction
+                        [:transaction/items]
+                        #(map (fn [item]
+                                (assoc item :transaction-item/quantity 1M))
+                              %)))))
+      (is
+        (thrown-with-ex-data?
+          "Validation failed"
+          {::v/errors {:transaction/items ["A reconciled quantity cannot be updated."]}}
+          (models/put (update-in
+                    transaction
+                    [:transaction/items]
+                    #(map (fn [item]
+                            (update-in item
+                                       [:transaction-item/action]
+                                       (fn [a]
+                                         (if (= :credit a)
+                                           :debit
+                                           :credit))))
+                          %))))))))
+
+#_(deftest a-reconciled-transaction-item-cannot-be-deleted
+  (with-context existing-reconciliation-context
+    (let [transaction (find-transaction (t/local-date 2017 1 1) "Paycheck")]
+      (is (thrown? IllegalStateException
+                   (models/delete transaction)))
+      (is (models/find transaction)
+          "The transaction can be retrieved after failed delete attempt"))))
