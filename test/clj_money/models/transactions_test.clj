@@ -1043,41 +1043,34 @@
                                                  :account (util/->model-ref salary)}]
                              (:transaction/items trx))))))
 
-; (deftest set-account-boundaries
-;   (with-context base-context
-;     (let [entity (find-entity "Personal")
-;           [checking
-;            salary
-;            groceries] (find-accounts "Checking" "Salary" "Groceries")
-;           created (->> [{:transaction-date (t/local-date 2017 2 27)
-;                          :description "Paycheck"
-;                          :quantity 1000M
-;                          :debit-account-id (:id checking)
-;                          :credit-account-id (:id salary)}
-;                         {:transaction-date (t/local-date 2017 3 2)
-;                          :description "Kroger"
-;                          :quantity 100M
-;                          :debit-account-id (:id groceries)
-;                          :credit-account-id (:id checking)}]
-;                        (map #(assoc % :entity-id (:id entity)))
-;                        (mapv transactions/create))
-;           [checking
-;            salary
-;            groceries] (map accounts/reload [checking salary groceries])]
-;       (is (valid? created))
-;       (is (= (t/local-date 2017 2 27) (:earliest-transaction-date checking))
-;           "The checking account's earliest is the paycheck")
-;       (is (= (t/local-date 2017 3 2) (:latest-transaction-date checking))
-;           "The checking account's latest is the grocery purchase")
-;       (is (= (t/local-date 2017 2 27) (:earliest-transaction-date salary))
-;           "The salary account's earliest is the paycheck")
-;       (is (= (t/local-date 2017 2 27) (:latest-transaction-date salary))
-;           "The salary account's latest is the paycheck")
-;       (is (= (t/local-date 2017 3 2) (:earliest-transaction-date groceries))
-;           "The groceries account's earliest is the grocery purchase")
-;       (is (= (t/local-date 2017 3 2) (:latest-transaction-date groceries))
-;           "The groceries account's latest is the grocery purchase"))))
-; 
+(deftest set-account-boundaries
+  (with-context base-context
+    (let [entity (find-entity "Personal")
+          [checking
+           salary
+           groceries] (find-accounts "Checking" "Salary" "Groceries")]
+      (->> [#:transaction{:transaction-date (t/local-date 2017 2 27)
+                          :description "Paycheck"
+                          :quantity 1000M
+                          :debit-account checking
+                          :credit-account salary}
+            #:transaction{:transaction-date (t/local-date 2017 3 2)
+                          :description "Kroger"
+                          :quantity 100M
+                          :debit-account groceries
+                          :credit-account checking}]
+           (map #(assoc % :transaction/entity entity))
+           (mapv models/put))
+      (is (comparable? #:account {:earliest-transaction-date (t/local-date 2017 2 27)
+                                  :latest-transaction-date (t/local-date 2017 3 2)}
+                       (reload-account "Checking")))
+      (is (comparable? #:account {:earliest-transaction-date (t/local-date 2017 2 27)
+                                  :latest-transaction-date (t/local-date 2017 2 27)}
+                       (reload-account "Salary")))
+      (is (comparable? #:account {:earliest-transaction-date (t/local-date 2017 3 2)
+                                  :latest-transaction-date (t/local-date 2017 3 2)}
+                       (reload-account "Groceries"))))))
+
 ; (def ^:private existing-reconciliation-context
 ;   (-> base-context
 ;       (update-in [:accounts] conj {:name "Rent"
