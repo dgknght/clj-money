@@ -27,6 +27,18 @@
             [clj-money.models.entities :as entities]
             [clj-money.accounts :as acts :refer [polarize-quantity]]))
 
+(defn- simplify
+  [m]
+  (if (sequential? m)
+    (map simplify m)
+    (select-keys m [:transaction-item/index
+                    :transaction-item/transaction-date
+                    :transaction-item/quantity
+                    :transaction-item/balance
+                    :transaction/description
+                    :account/name
+                    :entity/name])))
+
 (declare reload)
 
 (defn- no-reconciled-quantities-changed?
@@ -139,9 +151,9 @@
 (def ambient-settings
   (atom {}))
 
-(defn- delay-balances?
-  [entity-id]
-  (get-in @ambient-settings [entity-id]))
+(defn- ^:deprecated delay-balances?
+  [_entity-id]
+  (throw (Exception. "Deprecated.")))
 
 (defn- remove-empty-strings
   [model & keys]
@@ -600,13 +612,6 @@
           m
           account-ids))
 
-(defn- save-delayed-info
-  [m entity-id account-ids transaction-date]
-  (-> m
-      (apply-account-ids entity-id transaction-date account-ids)
-      (update-in [entity-id :earliest-date] dates/earliest transaction-date)
-      (update-in [entity-id :latest-date] dates/latest transaction-date)))
-
 #_(defn- update-transaction-date-boundaries
   [{:transaction/keys [entity transaction-date]}]
   (let [entity (entities/find entity-id)
@@ -864,47 +869,6 @@
    {:id ids
     :transaction-date (vec (concat [:between] date-range))}))
 
-(defmacro with-delayed-balancing
-  [entity-id progress-chan & body]
-  `(do
-     ; Make a note that balances should not be calculated
-     ; for this entity
-     (swap! ambient-settings
-            assoc
-            ~entity-id
-            {})
-     (let [result# (do ~@body)]
-       ; Recalculate balances for affected accounts
-       (let [accounts# (get-in @ambient-settings [~entity-id :accounts])
-             progress# {:total (count accounts#)
-                        :completed 0}]
-         (a/>!! ~progress-chan progress#)
-         (with-storage (env :db)
-           (let [dates# (->> accounts#
-                             (interleave (iterate inc 1))
-                             (partition 2)
-                             (map (fn [[index# [account-id# {earliest-date# :earliest-date}]]]
-                                    (let [recalculated# (recalculate-account account-id# earliest-date#)]
-                                      (a/>!! ~progress-chan (assoc progress# :completed index#))
-                                      recalculated#)))
-                             (reduce (fn [m# a#]
-                                       (-> m#
-                                           (update-in [:earliest-transaction-date]
-                                                      dates/earliest
-                                                      (:earliest-transaction-date a#))
-                                           (update-in [:latest-transaction-date]
-                                                      dates/latest
-                                                      (:latest-transaction-date a#))))
-                                     {}))]
-             (-> (entities/find ~entity-id)
-                 (update-in [:settings] merge dates#)
-                 entities/update)))
-         (a/close! ~progress-chan))
-
-       ; clean up the ambient settings as if we were never here
-       (swap! ambient-settings dissoc ~entity-id)
-       result#)))
-
 (defn- push-date-boundaries
   [model date early-ks late-ks]
   (-> model
@@ -937,18 +901,6 @@
          (acts/polarize-quantity quantity
                                  action
                                  account)))
-
-(defn- simplify
-  [m]
-  (if (sequential? m)
-    (map simplify m)
-    (select-keys m [:transaction-item/index
-                    :transaction-item/transaction-date
-                    :transaction-item/quantity
-                    :transaction-item/balance
-                    :transaction/description
-                    :account/name
-                    :entity/name])))
 
 (defn- re-index
   "Given an account and a list of items, take the index and balance
@@ -1072,7 +1024,9 @@
   (concat (propagate-current-items trx :delete? delete?)
           (propagate-dereferenced-account-items trx)))
 
-(defmethod models/propagate :transaction
+(def ^:dynamic *delayed* nil)
+
+(defn- propagate-transaction
   [{:as trx :transaction/keys [transaction-date]}]
   (let [{transaction-items true
          others false} (group-by (belongs-to-trx? trx)
@@ -1090,6 +1044,63 @@
           (cons entity
                 others))))
 
+(defn- append-delay-details
+  [m {:transaction/keys [items transaction-date]}]
+  (-> m
+      (update-in [:accounts] #(apply conj % (map (comp util/->model-ref
+                                                       :transaction-item/account)
+                                                 items)))
+      (update-in [:earliest-date] dates/earliest transaction-date)
+      (update-in [:latest-date] dates/latest transaction-date)))
+
+(defn- delay-propagation
+  "Given a transaction, appends dummy index and balance values
+  and saves account and date information for later use"
+  [trx]
+  (swap! *delayed* append-delay-details trx)
+  [(update-in trx
+              [:transaction/items]
+              #(map (fn [i]
+                      (assoc i
+                             :transaction-item/index 0
+                             :transaction-item/balance 0M))
+                    %))])
+
+(defmethod models/propagate :transaction
+  [trx]
+  (if *delayed*
+    (delay-propagation trx)
+    (propagate-transaction trx)))
+
 (defmethod models/propagate-delete :transaction
   [trx]
-  (cons trx (propagate-current-items trx :delete? true)))
+  (if *delayed*
+    (delay-propagation trx)
+    (cons trx (propagate-current-items trx :delete? true))))
+
+(defn process-delayed-balances*
+  [{:keys [accounts earliest-date]} progress-chan]
+  (a/>!! progress-chan
+         (->> accounts
+              (map (comp (fn [a]
+                           (let [basis (propagation-basis a earliest-date)
+                                 affected (map (comp polarize
+                                                     #(assoc % :transaction-item/account a))
+                                               (account-items-on-or-after a earliest-date))]
+                             (apply models/put-many
+                               (re-index a (cons basis affected)))))
+                         #(models/find % :account)))
+              (reduce (fn [prg _put-result]
+                        (a/>!! progress-chan prg)
+                        (update-in prg [:completed] inc))
+                      {:total (count accounts)
+                       :completed 0})))
+  (a/close! progress-chan))
+
+(defmacro with-delayed-balancing
+  [bindings & body]
+  `(binding [*delayed* (atom {:accounts #{}})]
+     (let [f# (fn* [] ~@body)
+           result# (f#)]
+       (process-delayed-balances* @*delayed* ~(first bindings))
+       result#)))

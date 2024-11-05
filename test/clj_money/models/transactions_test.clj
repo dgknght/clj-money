@@ -971,60 +971,50 @@
                                          (t/local-date 2016 2 29)))
           "The February value is the balance for the last item in the period"))))
 
-; (deftest create-multiple-transactions-then-recalculate-balances
-;   (with-context base-context
-;     (let [entity (find-entity "Personal")
-;           [checking
-;            salary
-;            groceries] (find-accounts "Checking" "Salary" "Groceries")
-;           progress-chan (chan)
-;           progress (atom [])]
-;       (go-loop [p (<! progress-chan)]
-;                (when p
-;                  (swap! progress conj p)
-;                  (recur (<! progress-chan))))
-;       (transactions/with-delayed-balancing (:id entity) progress-chan
-;         (transactions/create {:entity-id (:id entity)
-;                               :transaction-date (t/local-date 2017 1 1)
-;                               :description "Paycheck"
-;                               :items [{:action :debit
-;                                        :account-id (:id checking)
-;                                        :quantity 1000M}
-;                                       {:action :credit
-;                                        :account-id (:id salary)
-;                                        :quantity 1000M}]})
-;         (transactions/create {:entity-id (:id entity)
-;                               :transaction-date (t/local-date 2017 1 15)
-;                               :description "Market Street"
-;                               :items [{:action :debit
-;                                        :account-id (:id groceries)
-;                                        :quantity 100M}
-;                                       {:action :credit
-;                                        :account-id (:id checking)
-;                                        :quantity 100M}]})
-;         (transactions/create {:entity-id (:id entity)
-;                               :transaction-date (t/local-date 2017 2 1)
-;                               :description "Paycheck"
-;                               :items [{:action :debit
-;                                        :account-id (:id checking)
-;                                        :quantity 1000M}
-;                                       {:action :credit
-;                                        :account-id (:id salary)
-;                                        :quantity 1000M}]})
-;         (is (= 0M (:quantity (accounts/reload checking)))
-;             "The account balance is not recalculated before the form exits"))
-;       (is (= 1900M (:quantity (accounts/reload checking)))
-;           "The account balance is recalculated after the form exits")
-;       (is (= [{:total 3
-;                :completed 0}
-;               {:total 3
-;                :completed 1}
-;               {:total 3
-;                :completed 2}
-;               {:total 3
-;                :completed 3}]
-;              @progress)
-;           "The progress is reported during the process"))))
+(deftest create-multiple-transactions-then-recalculate-balances
+  (with-context base-context
+    (let [entity (find-entity "Personal")
+          [checking
+           salary
+           groceries] (find-accounts "Checking" "Salary" "Groceries")
+          progress-chan (chan)
+          progress (atom [])]
+      (go-loop [p (<! progress-chan)]
+               (when p
+                 (swap! progress conj p)
+                 (recur (<! progress-chan))))
+      (transactions/with-delayed-balancing [progress-chan]
+        (mapv (comp models/put
+                    #(assoc % :transaction/entity entity))
+              [#:transaction{:transaction-date (t/local-date 2017 1 1)
+                             :description "Paycheck"
+                             :debit-account checking
+                             :credit-account salary
+                             :quantity 1000M}
+               #:transaction{:transaction-date (t/local-date 2017 1 15)
+                             :description "Market Street"
+                             :debit-account groceries
+                             :credit-account checking
+                             :quantity 100M}
+               #:transaction{:transaction-date (t/local-date 2017 2 1)
+                             :description "Paycheck"
+                             :debit-account checking
+                             :credit-account salary
+                             :quantity 1000M}])
+        (is (= 0M (:account/quantity (reload-account "Checking")))
+            "The account balance is not recalculated before the form exits"))
+      (is (= 1900M (:account/quantity (reload-account "Checking")))
+          "The account balance is recalculated after the form exits")
+      (is (= [{:total 3
+               :completed 0}
+              {:total 3
+               :completed 1}
+              {:total 3
+               :completed 2}
+              {:total 3
+               :completed 3}]
+             @progress)
+          "The progress is reported during the process"))))
  
 (deftest use-simplified-items
   (with-context base-context
