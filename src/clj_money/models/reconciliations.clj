@@ -9,8 +9,10 @@
             [dgknght.app-lib.core :refer [assoc-if]]
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
-            [clj-money.accounts :refer [->criteria]]
+            [clj-money.util :as util]
+            [clj-money.db :as db]
             [clj-money.models :as models]
+            [clj-money.accounts :refer [->criteria]]
             [clj-money.models.accounts :as accounts]
             [clj-money.models.transactions :as transactions]))
 
@@ -19,17 +21,17 @@
          find-last-completed)
 
 (defn- in-balance?
-  [{:keys [balance] :as reconciliation}]
+  [{:reconciliation/keys [balance] :as reconciliation}]
   (let [starting-balance (get-in reconciliation
-                                 [::last-completed :balance]
+                                 [::last-completed :reconciliation/balance]
                                  0M)
         new-balance (->> (::all-items reconciliation)
-                         (map :polarized-quantity)
+                         (map :transaction-item/polarized-quantity)
                          (reduce + starting-balance))]
     (= balance new-balance)))
 
 (defn- in-progress?
-  [{:keys [status]}]
+  [{:reconciliation/keys [status]}]
   (not= :completed status))
 
 (def not-unbalanced?
@@ -37,14 +39,14 @@
 
 (v/reg-spec not-unbalanced?
             {:message "%s must match the calculated balance"
-             :path [:balance]})
+             :path [:reconciliation/balance]})
 
 (defn find-working
   "Returns the uncompleted reconciliation for the specified
   account, if one exists"
-  [account-id]
-  (find-by {:status "new"
-            :account-id account-id}))
+  [account]
+  (models/find-by #:reconciliation{:status :new
+                                   :account account}))
 
 (defn- working-reconciliation-exists?
   [{:keys [account-id id]}]
@@ -58,82 +60,87 @@
 
 (v/reg-spec no-working-conflict?
             {:message "%s already has a reconciliation in progress"
-             :path [:account-id]})
+             :path [:reconciliation/account]})
 
 (defn- items-belong-to-account?
-  [{:keys [account-id] :as reconciliation}]
+  [{:reconciliation/keys [account] :as reconciliation}]
   (or (empty? (::new-items reconciliation))
-      (let [account-ids (->> (accounts/search
-                              {:id account-id}
-                              {:include-children? true})
+      (let [account-ids (->> (models/select
+                               (db/model-type
+                                 {:id (:id account)}
+                                 :account)
+                               {:include-children? true})
                              (map :id)
                              set)]
         (->> (::new-items reconciliation)
-             (map :account-id)
+             (map (comp :id
+                        :reconciliation/account))
              (every? #(account-ids %))))))
 
 (v/reg-spec items-belong-to-account?
             {:message "All items must belong to the account being reconciled"
-             :path [:item-refs]})
+             :path [:reconciliation/item-refs]})
 
 (defn- items-not-already-reconciled?
   [{:keys [id] :as reconciliation}]
   (->> (::new-items reconciliation)
-       (map :reconciliation-id)
+       (map (comp :id :transaction-item/reconciliation))
        (remove (some-fn nil? #(= id %)))
        empty?))
 
 (v/reg-spec items-not-already-reconciled? {:message "No item can belong to another reconciliation"
-                                           :path [:item-refs]})
+                                           :path [:reconciliation/item-refs]})
 
 (defn- can-be-updated?
-  [{:keys [id]}]
-  (or (nil? id)
-      (= :new (:status (find id)))))
+  [recon]
+  (or (nil? (:id recon))
+      (= :new (:reconciliation/status (models/find recon)))))
 
 (v/reg-spec can-be-updated?
             {:message "A completed reconciliation cannot be updated"
-             :path [:status]})
+             :path [:reconciliation/status]})
 
 (defn- after-last-reconciliation?
   [{::keys [last-completed] :as reconciliation}]
   (or (nil? last-completed)
-      (t/before? (:end-of-period last-completed)
-                 (:end-of-period reconciliation))))
+      (t/before? (:reconciliation/end-of-period last-completed)
+                 (:reconciliation/end-of-period reconciliation))))
 
 (v/reg-spec after-last-reconciliation?
             {:message "%s must be after that latest reconciliation"
-             :path [:end-of-period]})
+             :path [:reconciliation/end-of-period]})
 
-(s/def ::account-id integer?)
-(s/def ::end-of-period t/local-date?)
-(s/def ::balance decimal?)
-(s/def ::status #{:new :completed})
-(s/def ::item-ref (s/tuple uuid? t/local-date?))
-(s/def ::item-refs (s/coll-of ::item-ref))
+(s/def :reconciliation/account util/model-ref?)
+(s/def :reconciliation/end-of-period t/local-date?)
+(s/def :reconciliation/balance decimal?)
+(s/def :reconciliation/status #{:new :completed})
+(s/def :reconciliation/item-ref (s/tuple uuid? t/local-date?))
+(s/def :reconciliation/item-refs (s/coll-of :reconciliation/item-ref))
 
-(s/def ::reconciliation (s/and (s/keys :req-un [::account-id ::end-of-period ::status ::balance]
-                                       :opt-un [::item-refs])
-                               not-unbalanced?
-                               no-working-conflict?
-                               items-belong-to-account?
-                               items-not-already-reconciled?
-                               can-be-updated?
-                               after-last-reconciliation?))
+(s/def ::models/reconciliation (s/and (s/keys :req [:reconciliation/account
+                                                    :reconciliation/end-of-period
+                                                    :reconciliation/status
+                                                    :reconciliation/balance]
+                                              :opt [:reconciliation/item-refs])
+                                      not-unbalanced?
+                                      no-working-conflict?
+                                      items-belong-to-account?
+                                      items-not-already-reconciled?
+                                      can-be-updated?
+                                      after-last-reconciliation?))
 
 (defn- resolve-item-refs
   [item-refs]
   (if (seq item-refs)
     (let [ids (map first item-refs)
-          date-range ((juxt first last) (sort (map second item-refs)))]
-      (transactions/find-items-by-ids
-       ids
-       date-range))
+          [start end] ((juxt first last) (sort (map second item-refs)))]
+      (models/select {:id [:in ids]
+                      :transaction-date [:between start end]}))
     []))
 
 (defn- fetch-items
   [{:keys [id account-id]}]
-  (if id
+  #_(if id
     (let [accounts (accounts/search {:id account-id}
                                     {:include-children? true})
           criteria (assoc (->criteria accounts)
@@ -176,7 +183,8 @@
 
 (defn- append-transaction-item-refs
   [reconciliation]
-  (when reconciliation
+  reconciliation
+  #_(when reconciliation
     (assoc reconciliation
            :item-refs
            (mapv (juxt :id :transaction-date)
@@ -226,7 +234,7 @@
 
 (defn- unreconcile-old-items
   [{:keys [id] :as reconciliation}]
-  (when (seq (::existing-items reconciliation))
+  #_(when (seq (::existing-items reconciliation))
     (let [[start end] (->date-range (::existing-items reconciliation)
                                     :transaction-date)]
       (transactions/update-items {:reconciliation-id nil}
@@ -235,7 +243,7 @@
 
 (defn- reconcile-all-items
   [{id :id all-items ::all-items}]
-  (when (seq all-items)
+  #_(when (seq all-items)
     (let [[start end] (->date-range all-items :transaction-date)]
       (transactions/update-items {:reconciliation-id id}
                                  {:id (map :id all-items)
@@ -267,9 +275,10 @@
               after-save
               after-read))))))
 
-(defn update
+(defn ^:deprecated update
   [recon]
-  (with-transacted-storage (env :db)
+  (throw (UnsupportedOperationException. "reconciliations/update is deprecated"))
+  #_(with-transacted-storage (env :db)
     (let [recon (before-validation recon)]
       (with-validation recon ::reconciliation
         (let [to-update (before-save recon)]
@@ -277,10 +286,11 @@
           (after-save to-update)
           (reload recon))))))
 
-(defn delete
+(defn ^:deprecated delete
   "Removes the specified reconciliation from the system. (Only the most recent may be deleted.)"
   [{:keys [account-id item-refs id] :as recon}]
-  (with-transacted-storage (env :db)
+  (throw (UnsupportedOperationException. "reconciliations/delete is deprecated"))
+  #_(with-transacted-storage (env :db)
     (let [most-recent (find-last account-id)
           [start end] (->date-range item-refs second)]
       (when (not= id (:id most-recent))

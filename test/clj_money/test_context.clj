@@ -577,6 +577,12 @@
              [:transaction-item/account]
              #(find-account ctx %)))
 
+(defmethod prepare :reconciliation
+  [trx ctx]
+  (-> trx
+      expand
+      (update-in [:reconciliation/account] #(find-account ctx %))))
+
 (defmethod prepare :budget
   [budget ctx]
   (-> budget
