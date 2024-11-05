@@ -35,6 +35,7 @@
                                          (dgknght.app-lib.test/with-mail-capture)
                                          (dgknght.app-lib.web-mocks/with-web-mocks)
                                          (clj-money.tasks/with-options)]}
+           :unused-private-var {:exclude #{clj-money.models.transactions/simplify}}
            :clojure-lsp/unused-public-var {:exclude #{clj-money.db.sql.tasks/remigrate
                                                       clj-money.db.sql.tasks/create-partitions
                                                       clj-money.db.sql.tasks/check-transaction-balances
