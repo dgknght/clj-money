@@ -77,35 +77,27 @@
                   (not-any? :transaction/recondiliation))
           "None of the transaction items should be marked as reconcilied"))))
 
-; (deftest create-a-completed-reconciliation
-;   (let [context (realize reconciliation-context)
-;         checking (-> context :accounts first)
-;         [paycheck
-;          landlord
-;          _
-;          safeway] (->> context
-;                        :transactions
-;                        (mapcat :items)
-;                        (filter #(= (:id checking) (:account-id %))))
-;         reconciliation {:account-id (:id checking)
-;                         :balance 447M
-;                         :end-of-period (t/local-date 2017 1 31)
-;                         :item-refs (map (juxt :id :transaction-date)
-;                                         [paycheck landlord safeway])
-;                         :status :completed}
-;         result (reconciliations/create reconciliation)
-;         retrieved (reconciliations/find-by {:account-id (:id checking)})]
-;     (is (valid? result))
-;     (is retrieved "The reconciliation can be retrieved")
-;     (testing "transaction items are marked as reconciled"
-;       (is (= [true true false true]
-;              (->> (:transactions context)
-;                   (map transactions/reload)
-;                   (mapcat :items)
-;                   (filter #(= (:id checking) (:account-id %)))
-;                   (map :reconciled?)))
-;           "Each transaction item included in the reconciliation should be marked as reconciled"))))
-; 
+(deftest create-a-completed-reconciliation
+  (with-context reconciliation-context
+    (let [checking (find-account "Checking")
+          checking-items (models/select {:transaction-item/account checking
+                                         :transaction-item/quantity [:!= 45]})]
+      (assert-created
+        #:reconciliation{:account checking
+                         :balance 447M
+                         :end-of-period (t/local-date 2017 1 31)
+                         :item-refs (map (juxt :id :transaction-item/transaction-date)
+                                         checking-items)  
+                         :status :completed})
+      (is (->> checking-items
+               (map models/find)
+               (mapcat :transaction/items)
+               (every? :transaction/recondiliation))
+          "specified transaction items are marked as reconciled")
+      (is (not-any? :transaction/reconciliation
+                      (models/select {:transaction-item/account [:!= checking]}))
+            "All other transaction items are not marked as reconcilied"))))
+
 ; (deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
 ;   (let [context (realize working-reconciliation-context)
 ;         checking (-> context :accounts first)

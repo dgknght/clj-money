@@ -1,6 +1,7 @@
 (ns clj-money.models.reconciliations
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
+            [clojure.pprint :refer [pprint]]
             [config.core :refer [env]]
             [java-time.api :as t]
             [stowaway.core :refer [tag]]
@@ -133,7 +134,10 @@
   [item-refs]
   (if (seq item-refs)
     (let [ids (map first item-refs)
-          [start end] ((juxt first last) (sort (map second item-refs)))]
+          [start end] (->> item-refs
+                           (map second)
+                           (sort)
+                           ((juxt first last)))]
       (models/select (db/model-type
                        {:id [:in ids]
                         :transaction/transaction-date [:between start end]}
