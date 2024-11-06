@@ -110,7 +110,7 @@
             {:message "%s must be after that latest reconciliation"
              :path [:reconciliation/end-of-period]})
 
-(s/def :reconciliation/account util/model-ref?)
+(s/def :reconciliation/account ::models/model-ref)
 (s/def :reconciliation/end-of-period t/local-date?)
 (s/def :reconciliation/balance decimal?)
 (s/def :reconciliation/status #{:new :completed})
@@ -134,8 +134,10 @@
   (if (seq item-refs)
     (let [ids (map first item-refs)
           [start end] ((juxt first last) (sort (map second item-refs)))]
-      (models/select {:id [:in ids]
-                      :transaction-date [:between start end]}))
+      (models/select (db/model-type
+                       {:id [:in ids]
+                        :transaction/transaction-date [:between start end]}
+                       :transaction-item)))
     []))
 
 (defn- fetch-items
@@ -150,36 +152,31 @@
 
 (defn- find-last-completed
   "Returns the last completed reconciliation for an account"
-  [{:keys [account-id id]}]
-  (when account-id
-    (find-by (assoc-if  {:account-id account-id
-                         :status "completed"}
-                       :id (when id [:!= id]))
-             {:sort [[:end-of-period :desc]]})))
+  [{:reconciliation/keys [account] :as recon}]
+  (when account
+    (models/find-by (cond-> {:reconciliation/account account
+                             :reconciliation/status :completed}
+                      (:id recon) (assoc :id [:!= (:id recon)]))
+                    {:sort [[:reconciliation/end-of-period :desc]]})))
 
-(defn- before-validation
-  [{:keys [item-refs] :as reconciliation}]
+(defmethod models/before-validation :reconciliation
+  [{:reconciliation/keys [item-refs] :as reconciliation}]
   (let [existing-items (fetch-items reconciliation)
-        ignore (->> existing-items
-                    (map :id)
-                    set)
+        ignore? (->> existing-items
+                     (map :id)
+                     set)
         new-items (->> item-refs
-                       (remove #(ignore (first %)))
+                       (remove #(ignore? (first %)))
                        resolve-item-refs
                        (into []))
         all-items (concat existing-items new-items)]
     (-> reconciliation
-        (update-in [:status] (fnil identity :new))
-        (assoc ::new-items new-items
-               ::all-items all-items
-               ::existing-items existing-items
-               ::last-completed (find-last-completed reconciliation)))))
-
-(defn- before-save
-  [reconciliation]
-  (-> reconciliation
-      (tag ::models/reconciliation)
-      (update-in [:status] name)))
+        (update-in [:reconciliation/status] (fnil identity :new))
+        (vary-meta
+          #(assoc % ::new-items new-items
+                  ::all-items all-items
+                  ::existing-items existing-items
+                  ::last-completed (find-last-completed reconciliation))))))
 
 (defn- append-transaction-item-refs
   [reconciliation]
@@ -242,12 +239,12 @@
                                   :transaction-date [:between start end]}))))
 
 (defn- reconcile-all-items
-  [{id :id all-items ::all-items}]
-  #_(when (seq all-items)
-    (let [[start end] (->date-range all-items :transaction-date)]
-      (transactions/update-items {:reconciliation-id id}
-                                 {:id (map :id all-items)
-                                  :transaction-date [:between start end]}))))
+  [recon]
+  (when-let [all-items (-> recon meta ::all-items seq)]
+    (let [[start end] (->date-range all-items :transaction-item/transaction-date)]
+      (models/update {:id [:in (map :id all-items)]
+                      :transaction/transaction-date [:between start end]}
+                     {:transaction-item/reconciliation (util/->model-ref recon)}))))
 
 (defn- after-save
   [reconciliation]
@@ -255,14 +252,16 @@
   (reconcile-all-items reconciliation)
   reconciliation)
 
-(defn reload
+(defn ^:deprecated reload
   "Returns the same reconciliation reloaded from the data store"
   [reconciliation]
+  (throw (UnsupportedOperationException. "reconciliations/reload is deprecated"))
   (find reconciliation))
 
-(defn create
+(defn ^:deprecated create
   [reconciliation]
-  (with-transacted-storage (env :db)
+  (throw (UnsupportedOperationException. "reconciliations/create is deprecated"))
+  #_(with-transacted-storage (env :db)
     (let [recon (before-validation reconciliation)]
       (with-validation recon ::reconciliation
         (let [to-create (before-save recon)
