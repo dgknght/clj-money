@@ -17,7 +17,8 @@
     :budget
     :budget-item
     :grant
-    :scheduled-transaction})
+    :scheduled-transaction
+    :reconciliation})
 
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"

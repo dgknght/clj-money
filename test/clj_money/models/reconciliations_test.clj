@@ -72,11 +72,9 @@
                                      :balance 447M
                                      :end-of-period (t/local-date 2017 1 31)})
     (testing "transaction items are not marked as reconciled"
-      (is (= #{false}
-             (->> (models/select {:transaction/entity (find-entity "Personal")})
+      (is (->> (models/select {:transaction/entity (find-entity "Personal")})
                   (mapcat :transaction/items)
-                  (map :transaction-item/reconciled?)
-                  set))
+                  (not-any? :transaction/recondiliation))
           "None of the transaction items should be marked as reconcilied"))))
 
 ; (deftest create-a-completed-reconciliation

@@ -76,7 +76,7 @@
 (defn find
   ([{:keys [id] :as m}]
    {:pre [(map? m) (:id m)]}
-   (find id (keyword (util/qualifier m))))
+   (find id (keyword (db/model-type m))))
   ([id-or-ref model-type]
    {:pre [id-or-ref (keyword? model-type)]}
    (find-by (db/model-type (util/->model-ref id-or-ref)

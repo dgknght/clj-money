@@ -1,5 +1,6 @@
 (ns clj-money.db.sql.reconciliations
-  (:require [stowaway.criteria :as criteria]
+  (:require [java-time.api :as t]
+            [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]))
 
@@ -23,7 +24,8 @@
   [recon]
   (-> recon
       ->model-refs
-      (update-in [:reconciliation/status] keyword)))
+      (update-in [:reconciliation/status] keyword)
+      (update-in [:reconciliation/end-of-period] t/local-date)))
 
 (defmethod sql/prepare-criteria :reconciliation
   [criteria]
