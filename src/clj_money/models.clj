@@ -1,5 +1,5 @@
 (ns clj-money.models
-  (:refer-clojure :exclude [find count])
+  (:refer-clojure :exclude [find count update])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.validation :as v]
@@ -82,13 +82,6 @@
    (find-by (db/model-type (util/->model-ref id-or-ref)
                            model-type))))
 
-(defn realize
-  [model-or-ref model-type]
-  {:pre [(map? model-or-ref)]}
-  (if (= 1 (count model-or-ref))
-    (find model-or-ref model-type)
-    model-or-ref))
-
 (defn put-many
   [& models]
   (->> models
@@ -117,3 +110,7 @@
 (defn delete
   [model]
   (delete-many model))
+
+(defn update
+  [_criteria _updates]
+  (throw (Exception. "Not implemented")))
