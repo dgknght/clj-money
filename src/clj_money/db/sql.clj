@@ -265,7 +265,7 @@
         key-map (zipmap keys id-keys)]
     `(defn- ~fn-name
        [model#]
-       (reduce #(update-in-if %1 [%2] ->id)
+       (reduce #(util/update-in-criteria %1 %2 ->id)
                (rename-keys model# ~key-map)
                ~id-keys))))
 
