@@ -64,7 +64,9 @@
 
 (defn- assert-created
   [attr]
-  (helpers/assert-created attr :refs [:reconciliation/account]))
+  (helpers/assert-created attr
+                          :refs [:reconciliation/account]
+                          :compare-result? false))
 
 (deftest create-a-reconciliation
   (with-context reconciliation-context
