@@ -199,15 +199,15 @@
                   ::last-completed (find-last-completed reconciliation))))))
 
 (defn- fetch-transaction-item-refs
-  [recon]
+  [{:as recon :reconciliation/keys [account]}]
   (->> (models/select (db/model-type
                         {:transaction-item/reconciliation recon}
                         :transaction))
-       (util/pp->> ::items)
        (mapcat (fn [{:transaction/keys [items transaction-date]}]
-                 (mapv (comp #(vector % transaction-date)
-                             :id)
-                       items)))))
+                 (mapv #(assoc % :transaction-item/transaction-date transaction-date)
+                       items)))
+       (filter #(util/model= account (:transaction-item/account %)))
+       (map (juxt :id :transaction-item/transaction-date))))
 
 (defn- append-transaction-item-refs
   [recon]
