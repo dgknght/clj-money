@@ -129,24 +129,13 @@
              :reconciliation/end-of-period (t/local-date 2016 12 31))
       {:reconciliation/end-of-period ["End of period must be after that latest reconciliation"]})))
 
-; (deftest status-must-be-new-or-completed
-;   (let [context (realize reconciliation-context)
-;         checking (-> context :accounts first)
-;         [paycheck
-;          landlord
-;          _
-;          safeway] (->> context
-;                        :transactions
-;                        (mapcat :items)
-;                        (filter #(= (:id checking) (:account-id %))))
-;         result (reconciliations/create {:account-id (:id checking)
-;                                         :end-of-period (t/local-date 2017 1 31)
-;                                         :status :bouncy
-;                                         :balance 447M
-;                                         :item-refs (map (juxt :id :transaction-date)
-;                                                         [paycheck landlord safeway])})]
-;     (is (invalid? result [:status] "Status must be new or completed"))))
-;
+(deftest status-must-be-new-or-completed
+  (with-context existing-reconciliation-context
+    (assert-invalid
+      (assoc (attributes)
+             :reconciliation/status :bouncy)
+      {:reconciliation/status ["Status must be new or completed"]})))
+
 ; (deftest item-refs-cannot-reference-items-that-belong-to-the-account-being-reconciled
 ;   (let [context (realize reconciliation-context)
 ;         [checking
