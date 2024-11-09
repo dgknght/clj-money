@@ -99,10 +99,11 @@
              :path [:reconciliation/status]})
 
 (defn- after-last-reconciliation?
-  [{::keys [last-completed] :as reconciliation}]
-  (or (nil? last-completed)
-      (t/before? (:reconciliation/end-of-period last-completed)
-                 (:reconciliation/end-of-period reconciliation))))
+  [reconciliation]
+  (let [last-completed (get-meta reconciliation ::last-completed)]
+    (or (nil? last-completed)
+        (t/before? (:reconciliation/end-of-period last-completed)
+                   (:reconciliation/end-of-period reconciliation)))))
 
 (v/reg-spec after-last-reconciliation?
             {:message "%s must be after that latest reconciliation"

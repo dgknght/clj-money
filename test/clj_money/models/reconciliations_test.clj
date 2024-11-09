@@ -116,30 +116,19 @@
     (assert-invalid (dissoc (attributes) :reconciliation/account)
                     {:reconciliation/account ["Account is required"]})))
 
-; (deftest end-of-period-is-required
-;   (let [context (realize reconciliation-context)
-;         checking (-> context :accounts first)
-;         [paycheck
-;          landlord
-;          _
-;          safeway] (->> context
-;                        :transactions
-;                        (mapcat :items)
-;                        (filter #(= (:id checking) (:account-id %))))
-;         result (reconciliations/create {:balance 447M
-;                                         :item-refs (map (juxt :id :transaction-date)
-;                                                         [paycheck landlord safeway])})]
-;     (is (invalid? result [:end-of-period] "End of period is required"))))
-;
-; (deftest end-of-period-must-come-after-the-previous-end-of-period
-;   (let [context (realize existing-reconciliation-context)
-;         checking (-> context :accounts first)
-;         reconciliation {:account-id (:id checking)
-;                         :balance 447M
-;                         :end-of-period (t/local-date 2016 12 31)}
-;         result (reconciliations/create reconciliation)]
-;     (is (invalid? result [:end-of-period] "End of period must be after that latest reconciliation"))))
-;
+(deftest end-of-period-is-required
+  (with-context reconciliation-context
+    (assert-invalid
+      (dissoc (attributes) :reconciliation/end-of-period)
+      {:reconciliation/end-of-period ["End of period is required"]})))
+
+(deftest end-of-period-must-come-after-the-previous-end-of-period
+  (with-context existing-reconciliation-context
+    (assert-invalid
+      (assoc (attributes)
+             :reconciliation/end-of-period (t/local-date 2016 12 31))
+      {:reconciliation/end-of-period ["End of period must be after that latest reconciliation"]})))
+
 ; (deftest status-must-be-new-or-completed
 ;   (let [context (realize reconciliation-context)
 ;         checking (-> context :accounts first)
