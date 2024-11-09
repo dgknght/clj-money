@@ -183,18 +183,18 @@
          :transaction/description description)))
 
 (defn find-transaction-item
-  ([transaction-date quantity account-id]
-   (find-transaction-item *context*
-                          transaction-date
-                          quantity
-                          account-id))
-  ([context transaction-date quantity account-id]
-   (->> context
-        (filter #(= transaction-date (:transaction-date %)))
-        (mapcat :items)
-        (filter #(and (= account-id (:account-id %))
-                      (= quantity (:quantity %))))
-        first)))
+  ([identifier]
+   (find-transaction-item *context* identifier))
+  ([context [transaction-date quantity account]]
+   (let [act (if (map? account)
+               account
+               (find-account account))]
+     (->> context
+          (filter #(= transaction-date (:transaction/transaction-date %)))
+          (mapcat :transaction/items)
+          (filter #(and (util/model= act (:transaction-item/account %))
+                        (= quantity (:transaction-item/quantity %))))
+          first))))
 
 (defn find-scheduled-transaction
   ([description] (find-scheduled-transaction *context* description))
@@ -578,10 +578,16 @@
              #(find-account ctx %)))
 
 (defmethod prepare :reconciliation
-  [trx ctx]
-  (-> trx
-      expand
-      (update-in [:reconciliation/account] #(find-account ctx %))))
+  [recon ctx]
+  (let [account (find-account ctx (:reconciliation/account recon))]
+    (-> recon
+        (assoc :reconciliation/account account)
+        (update-in [:reconciliation/item-refs]
+                   (fn [i]
+                     (mapv (comp (juxt :id :transaction-item/transaction-date)
+                                 #(find-transaction-item ctx %)
+                                 #(conj % account))
+                           i))))))
 
 (defmethod prepare :budget
   [budget ctx]

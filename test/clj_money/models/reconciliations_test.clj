@@ -50,8 +50,8 @@
                          :end-of-period (t/local-date 2017 1 1)
                          :balance 1000M
                          :status :completed
-                         :item-refs [{:transaction-date (t/local-date 2017 1 1)
-                                      :quantity 1000M}]}))
+                         :item-refs [[(t/local-date 2017 1 1)
+                                      1000M]]}))
 
 (def ^:private working-reconciliation-context
   (conj existing-reconciliation-context
@@ -59,8 +59,8 @@
                          :end-of-period (t/local-date 2017 1 3)
                          :balance 455M
                          :status :new
-                         :item-refs [{:transaction-date (t/local-date 2017 1 2)
-                                      :quantity 500M}]}))
+                         :item-refs [[(t/local-date 2017 1 2)
+                                      500M]]}))
 
 (defn- assert-created
   [attr]
@@ -100,15 +100,14 @@
                     (models/select {:transaction-item/account [:!= checking]}))
             "All other transaction items are not marked as reconcilied"))))
 
-; (deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
-;   (let [context (realize working-reconciliation-context)
-;         checking (-> context :accounts first)
-;         result (reconciliations/create {:account-id (:id checking)
-;                                         :balance 1M
-;                                         :status :new
-;                                         :end-of-period (t/local-date 2017 2 28)})]
-;     (is (invalid? result [:account-id] "Account already has a reconciliation in progress"))))
-; 
+(deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
+  (with-context working-reconciliation-context
+    (assert-invalid #:reconciliation{:account (find-account "Checking")
+                                     :balance 1M
+                                     :status :new
+                                     :end-of-period (t/local-date 2017 2 28)}
+                    {:reconciliation/account ["Account already has a reconciliation in progress"]})))
+
 ; (deftest account-id-is-required
 ;   (let [context (realize reconciliation-context)
 ;         checking (-> context :accounts first)

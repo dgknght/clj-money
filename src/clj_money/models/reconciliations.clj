@@ -47,9 +47,9 @@
                                    :account account}))
 
 (defn- working-reconciliation-exists?
-  [{:keys [account-id id]}]
-  (when-let [existing (when account-id
-                        (find-working account-id))]
+  [{:reconciliation/keys [account] :keys [id]}]
+  (when-let [existing (when account
+                        (find-working account))]
     (or (nil? id)
         (not= id (:id existing)))))
 
@@ -129,6 +129,8 @@
 
 (defn- resolve-item-refs
   [item-refs]
+  {:pre [(s/valid? :reconciliation/item-refs item-refs)]}
+
   (if (seq item-refs)
     (let [ids (map first item-refs)
           [start end] (->> item-refs
