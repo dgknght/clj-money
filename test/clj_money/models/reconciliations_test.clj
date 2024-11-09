@@ -95,7 +95,7 @@
                (every? :transaction/recondiliation))
           "specified transaction items are marked as reconciled")
       (is (not-any? :transaction/reconciliation
-                      (models/select {:transaction-item/account [:!= checking]}))
+                    (models/select {:transaction-item/account [:!= checking]}))
             "All other transaction items are not marked as reconcilied"))))
 
 ; (deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
