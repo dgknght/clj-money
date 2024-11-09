@@ -2,10 +2,15 @@
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
+            [clj-money.json]
             [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.model-helpers :refer [assert-invalid] :as helpers]
             [clj-money.models :as models]
+            [clj-money.models.users]
+            [clj-money.models.entities]
+            [clj-money.models.commodities]
+            [clj-money.models.accounts]
             [clj-money.test-context :refer [with-context
                                             basic-context
                                             find-entity
@@ -68,11 +73,14 @@
                           :refs [:reconciliation/account]
                           :compare-result? false))
 
+(defn- attributes []
+  #:reconciliation{:account (find-account "Checking")
+                   :balance 447M
+                   :end-of-period (t/local-date 2017 1 31)})
+
 (deftest create-a-reconciliation
   (with-context reconciliation-context
-    (assert-created #:reconciliation{:account (find-account "Checking")
-                                     :balance 447M
-                                     :end-of-period (t/local-date 2017 1 31)})
+    (assert-created (attributes))
     (testing "transaction items are not marked as reconciled"
       (is (->> (models/select {:transaction/entity (find-entity "Personal")})
                   (mapcat :transaction/items)
@@ -84,13 +92,10 @@
     (let [checking (find-account "Checking")
           checking-items (models/select {:transaction-item/account checking
                                          :transaction-item/quantity [:!= 45]})]
-      (assert-created
-        #:reconciliation{:account checking
-                         :balance 447M
-                         :end-of-period (t/local-date 2017 1 31)
-                         :item-refs (map (juxt :id :transaction-item/transaction-date)
-                                         checking-items)  
-                         :status :completed})
+      (assert-created (assoc (attributes)
+                             :reconciliation/item-refs (map (juxt :id :transaction-item/transaction-date)
+                                             checking-items)
+                             :reconciliation/status :completed))
       (is (->> checking-items
                (map models/find)
                (mapcat :transaction/items)
@@ -98,31 +103,19 @@
           "specified transaction items are marked as reconciled")
       (is (not-any? :transaction/reconciliation
                     (models/select {:transaction-item/account [:!= checking]}))
-            "All other transaction items are not marked as reconcilied"))))
+          "All other transaction items are not marked as reconcilied"))))
 
 (deftest a-new-reconciliation-cannot-be-created-if-one-already-exists
   (with-context working-reconciliation-context
-    (assert-invalid #:reconciliation{:account (find-account "Checking")
-                                     :balance 1M
-                                     :status :new
-                                     :end-of-period (t/local-date 2017 2 28)}
-                    {:reconciliation/account ["Account already has a reconciliation in progress"]})))
+    (assert-invalid
+      (assoc (attributes) :reconciliation/status :new)
+      {:reconciliation/account ["Account already has a reconciliation in progress"]})))
 
-; (deftest account-id-is-required
-;   (let [context (realize reconciliation-context)
-;         checking (-> context :accounts first)
-;         [paycheck
-;          landlord
-;          _
-;          safeway] (->> context
-;                        :transactions
-;                        (mapcat :items)
-;                        (filter #(= (:id checking) (:account-id %))))
-;         result (reconciliations/create {:balance 447M
-;                                         :item-refs (map (juxt :id :transaction-date)
-;                                                         [paycheck landlord safeway])})]
-;     (is (invalid? result [:account-id] "Account is required"))))
-; 
+(deftest account-is-required
+  (with-context reconciliation-context
+    (assert-invalid (dissoc (attributes) :reconciliation/account)
+                    {:reconciliation/account ["Account is required"]})))
+
 ; (deftest end-of-period-is-required
 ;   (let [context (realize reconciliation-context)
 ;         checking (-> context :accounts first)
@@ -137,7 +130,7 @@
 ;                                         :item-refs (map (juxt :id :transaction-date)
 ;                                                         [paycheck landlord safeway])})]
 ;     (is (invalid? result [:end-of-period] "End of period is required"))))
-; 
+;
 ; (deftest end-of-period-must-come-after-the-previous-end-of-period
 ;   (let [context (realize existing-reconciliation-context)
 ;         checking (-> context :accounts first)
@@ -146,7 +139,7 @@
 ;                         :end-of-period (t/local-date 2016 12 31)}
 ;         result (reconciliations/create reconciliation)]
 ;     (is (invalid? result [:end-of-period] "End of period must be after that latest reconciliation"))))
-; 
+;
 ; (deftest status-must-be-new-or-completed
 ;   (let [context (realize reconciliation-context)
 ;         checking (-> context :accounts first)
@@ -164,7 +157,7 @@
 ;                                         :item-refs (map (juxt :id :transaction-date)
 ;                                                         [paycheck landlord safeway])})]
 ;     (is (invalid? result [:status] "Status must be new or completed"))))
-; 
+;
 ; (deftest item-refs-cannot-reference-items-that-belong-to-the-account-being-reconciled
 ;   (let [context (realize reconciliation-context)
 ;         [checking
@@ -179,7 +172,7 @@
 ;                                         :balance 10M
 ;                                         :item-refs [((juxt :id :transaction-date) paycheck)]})]
 ;     (is (invalid? result [:item-refs] "All items must belong to the account being reconciled"))))
-; 
+;
 ; (def ^:private parent-account-context
 ;   (-> basic-context
 ;       (update-in [:accounts] concat [{:name "Savings"
@@ -207,7 +200,7 @@
 ;                                      {:action :debit
 ;                                       :account-id "Checking"
 ;                                       :quantity 700M}]}])))
-; 
+;
 ; (deftest item-refs-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
 ;   (let [ctx (realize parent-account-context)
 ;         account (find-account ctx "Savings")
@@ -222,7 +215,7 @@
 ;                                         :balance 300M
 ;                                         :item-refs (map (juxt :id :transaction-date) items)})]
 ;     (is (valid? result))))
-; 
+;
 ; (def ^:private working-rec-context
 ;   (assoc reconciliation-context
 ;          :reconciliations
@@ -239,13 +232,13 @@
 ;                        {:transaction-date (t/local-date 2017 1 10)
 ;                         :account-id "Groceries"
 ;                         :quantity 53M}]}]))
-; 
+;
 ; (deftest find-the-working-reconciliation
 ;   (let [context (realize working-rec-context)
 ;         checking (-> context :accounts first)
 ;         reconciliation (reconciliations/find-working (:id checking))]
 ;     (is reconciliation "A reconciliation is returned")))
-; 
+;
 ; (deftest transaction-item-can-only-belong-to-one-reconciliation
 ;   (let [context (realize existing-reconciliation-context)
 ;         checking (find-account context "Checking")
@@ -258,7 +251,7 @@
 ;                                         :balance 1500M
 ;                                         :item-refs [((juxt :id :transaction-date) item)]})]
 ;     (is (invalid? result [:item-refs] "No item can belong to another reconciliation"))))
-; 
+;
 ; (deftest a-working-reconciliation-can-be-updated
 ;   (let [context (realize working-reconciliation-context)
 ;         recon (-> context :reconciliations last)
@@ -268,7 +261,7 @@
 ;     (is (valid? result))
 ;     (is (= 1499M (:balance retrieved))
 ;         "The retrieved value has the correct balance after update")))
-; 
+;
 ; (deftest a-working-reconciliation-can-be-completed
 ;   (let [context (realize working-reconciliation-context)
 ;         previous-rec (find-recon context "Checking" (t/local-date 2017 1 1))
@@ -307,7 +300,7 @@
 ;                         checking-items)]
 ;         (is (= expected actual)
 ;             "The correct transaction items are associated with the reconciliation")))))
-; 
+;
 ; (deftest cannot-create-a-completed-out-of-balance-reconciliation
 ;   (let [context (realize reconciliation-context)
 ;         checking (find-account context "Checking")
@@ -316,7 +309,7 @@
 ;                                         :balance 101M
 ;                                         :status :completed})]
 ;     (is (invalid? result [:balance] "Balance must match the calculated balance"))))
-; 
+;
 ; (deftest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
 ;   (let [context (realize working-reconciliation-context)
 ;         checking (-> context :accounts first)
@@ -331,7 +324,7 @@
 ;                                                           last))))
 ;         result (reconciliations/update updated)]
 ;     (is (invalid? result [:balance] "Balance must match the calculated balance"))))
-; 
+;
 ; (deftest a-completed-reconciliation-cannot-be-updated
 ;   (let [context (realize existing-reconciliation-context)
 ;         reconciliation (-> context :reconciliations first)
@@ -339,7 +332,7 @@
 ;         retrieved (reconciliations/reload reconciliation)]
 ;     (is (invalid? result [:status] "A completed reconciliation cannot be updated"))
 ;     (is (= 1000M (:balance retrieved)) "The new value is not saved")))
-; 
+;
 ; (deftest the-most-recent-completed-reconciliation-can-be-deleted
 ;   (let [context (realize existing-reconciliation-context)
 ;         reconciliation (-> context :reconciliations first)
@@ -348,7 +341,7 @@
 ;         items (transactions/select-items-by-reconciliation reconciliation)]
 ;     (is (nil? retrieved) "The reconciliation cannot be retrieved after delete")
 ;     (is (empty? items) "The reconciliation is not associated with any items after delete")))
-; 
+;
 ; (deftest a-working-reconciliation-can-be-deleted
 ;   (let [context (realize working-reconciliation-context)
 ;         reconciliation (-> context :reconciliations second)
@@ -357,7 +350,7 @@
 ;         items (transactions/select-items-by-reconciliation reconciliation)]
 ;     (is (nil? retrieved) "The reconciliation cannot be retrieved after delete")
 ;     (is (empty? items) "The reconciliation is not associated with any items after delete")))
-; 
+;
 ; (deftest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
 ;   (let [context (realize working-reconciliation-context)
 ;         reconciliation (-> context :reconciliations first)]
@@ -367,7 +360,7 @@
 ;     (is (reconciliations/find reconciliation) "The reconciliation can still be retrieved")
 ;     (is (seq (transactions/select-items-by-reconciliation reconciliation))
 ;         "The transaction items are still associated with the reconciliation")))
-; 
+;
 ; (deftest check-if-a-transaction-can-be-deleted
 ;   (let [context (realize existing-reconciliation-context)
 ;         [t1 t2] (->> context

@@ -3,8 +3,10 @@
             [java-time.api :as t]
             [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.models :as models]
             [clj-money.db :as db]
-            [clj-money.db.sql :as sql]))
+            [clj-money.db.sql :as sql]
+            [clj-money.db.sql.types :refer [temp-id]]))
 
 (declare ->sql-refs)
 (sql/def->sql-refs ->sql-refs :reconciliation/account)
@@ -20,9 +22,7 @@
 
 (defmethod sql/before-save :reconciliation
   [recon]
-  (-> recon
-      coerce
-      (dissoc :reconciliation/item-refs)))
+  (coerce recon))
 
 (defmethod sql/after-read :reconciliation
   [recon]
@@ -42,3 +42,30 @@
                (mapv (juxt :id :transaction-item/transaction-date)
                      (db/select storage {:transaction-item/reconciliation %} {})))
        reconciliations))
+
+(defn- ->range
+  [vs & {:keys [compare] :or {compare <}}]
+  ((juxt first last) (sort compare vs)))
+
+(defn- item-refs->query
+  [item-refs]
+  (db/model-type
+    {:transaction/transaction-date (apply vector
+                                          :between
+                                          (->range (mapv second item-refs)
+                                                   :compare t/before?))
+     :id [:in (mapv first item-refs)]}
+    :transaction-item))
+
+(defmethod sql/deconstruct :reconciliation
+  [{:as recon :reconciliation/keys [item-refs]}]
+  (let [id (or (:id recon)
+               (temp-id))
+        without-refs (-> recon
+                         (assoc :id id)
+                         (dissoc :reconciliation/item-refs))]
+    (if (seq item-refs)
+      (cons without-refs
+            (->> (models/select (item-refs->query item-refs))
+                 (mapv #(assoc % :transaction-item/reconciliation {:id id}))))
+      [without-refs])))
