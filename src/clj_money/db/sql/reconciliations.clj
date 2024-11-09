@@ -18,7 +18,9 @@
 
 (defmethod sql/before-save :reconciliation
   [recon]
-  (coerce recon))
+  (-> recon
+      coerce
+      (dissoc :reconciliation/item-refs)))
 
 (defmethod sql/after-read :reconciliation
   [recon]

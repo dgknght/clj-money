@@ -2,31 +2,28 @@
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [config.core :refer [env]]
             [java-time.api :as t]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage
-                                                   with-transacted-storage]]
-            [dgknght.app-lib.core :refer [assoc-if]]
-            [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.models :as models]
-            [clj-money.accounts :refer [->criteria]]
-            [clj-money.models.accounts :as accounts]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.accounts :as acts]))
 
 (declare find
          find-by
          find-last-completed)
 
+(defn- get-meta
+  [recon & ks]
+  (get-in (meta recon) ks))
+
 (defn- in-balance?
-  [{:reconciliation/keys [balance] :as reconciliation}]
-  (let [starting-balance (get-in reconciliation
-                                 [::last-completed :reconciliation/balance]
-                                 0M)
-        new-balance (->> (::all-items reconciliation)
+  [{:reconciliation/keys [balance] :as recon}]
+  (let [starting-balance (or (get-meta recon
+                                       ::last-completed
+                                       :reconciliation/balance)
+                             0M)
+        new-balance (->> (::all-items (meta recon))
                          (map :transaction-item/polarized-quantity)
                          (reduce + starting-balance))]
     (= balance new-balance)))
@@ -145,13 +142,13 @@
     []))
 
 (defn- fetch-items
-  [{:keys [id account-id]}]
-  #_(if id
-    (let [accounts (accounts/search {:id account-id}
-                                    {:include-children? true})
-          criteria (assoc (->criteria accounts)
-                          :reconciliation-id id)]
-      (transactions/search-items criteria))
+  [{:keys [id] :reconciliation/keys [account] :as recon}]
+  (if id
+    (let [accounts (models/select {:transaction-item/account account}
+                                  {:include-children? true})
+          criteria (assoc (acts/->criteria accounts)
+                          :transaction-item/reconciliation recon)]
+      (models/select criteria))
     []))
 
 (defn- find-last-completed
@@ -163,68 +160,85 @@
                       (:id recon) (assoc :id [:!= (:id recon)]))
                     {:sort [[:reconciliation/end-of-period :desc]]})))
 
+(defn- polarize-item
+  [{:as item :transaction-item/keys [quantity action account]}]
+  (assoc item
+         :transaction-item/polarized-quantity
+         (acts/polarize-quantity quantity action account)))
+
+(defn- resolve-account
+  [item]
+  (update-in item [:transaction-item/account]
+             #(if (util/model-ref? %)
+                (models/find % :account)
+                %)))
+
+(def ^:private prepare-item
+  (comp polarize-item
+        resolve-account))
+
 (defmethod models/before-validation :reconciliation
   [{:reconciliation/keys [item-refs] :as reconciliation}]
-  (let [existing-items (fetch-items reconciliation)
+  (let [existing-items (map prepare-item
+                            (fetch-items reconciliation))
         ignore? (->> existing-items
                      (map :id)
                      set)
         new-items (->> item-refs
                        (remove #(ignore? (first %)))
                        resolve-item-refs
-                       (into []))
+                       (mapv prepare-item))
         all-items (concat existing-items new-items)]
     (-> reconciliation
         (update-in [:reconciliation/status] (fnil identity :new))
         (vary-meta
-          #(assoc % ::new-items new-items
+          #(assoc %
+                  ::new-items new-items
                   ::all-items all-items
                   ::existing-items existing-items
                   ::last-completed (find-last-completed reconciliation))))))
 
+(defn- fetch-transaction-item-refs
+  [recon]
+  (->> (models/select (db/model-type
+                        {:transaction-item/reconciliation recon}
+                        :transaction))
+       (util/pp->> ::items)
+       (mapcat (fn [{:transaction/keys [items transaction-date]}]
+                 (mapv (comp #(vector % transaction-date)
+                             :id)
+                       items)))))
+
 (defn- append-transaction-item-refs
-  [reconciliation]
-  reconciliation
-  #_(when reconciliation
-    (assoc reconciliation
-           :item-refs
-           (mapv (juxt :id :transaction-date)
-                 (transactions/select-items-by-reconciliation
-                  reconciliation)))))
+  [recon]
+  (when recon
+    (assoc recon
+           :reconciliation/item-refs
+           (fetch-transaction-item-refs recon))))
 
-(defn- after-read
-  [reconciliation]
-  (when reconciliation
-    (-> reconciliation
-        (update-in [:status] keyword)
-        (tag ::models/reconciliation)
-        (append-transaction-item-refs))))
+(defmethod models/after-read :reconciliation
+  [recon _opts]
+  (when recon
+    (append-transaction-item-refs recon)))
 
-(defn search
+(defn ^:deprecated search
   ([criteria]
    (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map after-read
-          (storage/select (tag criteria ::models/reconciliation)
-                          options)))))
+  ([_criteria _options]
+   (throw (Exception. "deprecated"))))
 
-(defn find-by
+(defn ^:deprecated find-by
   ([criteria]
    (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (assoc options :limit 1)))))
+  ([_criteria _options]
+   (throw (Exception. "deprecated"))
+   #_(first (search criteria (assoc options :limit 1)))))
 
-(defn find
+(defn ^:deprecated find
   "Returns the specified reconciliation"
-  [reconciliation-or-id]
-  (find-by {:id (->id reconciliation-or-id)}))
-
-(defn find-last
-  "Returns the last reconciliation for an account"
-  [account-id]
-  (find-by {:account-id account-id}
-           {:sort [[:end-of-period :desc]]}))
+  [_reconciliation-or-id]
+  (throw (Exception. "deprecated"))
+  #_(find-by {:id (->id reconciliation-or-id)}))
 
 (defn- ->date-range
   [items date-fn]
@@ -234,7 +248,7 @@
                             sort))))
 
 (defn- unreconcile-old-items
-  [{:keys [id] :as reconciliation}]
+  [_ #_{:keys [id] :as reconciliation}]
   #_(when (seq (::existing-items reconciliation))
     (let [[start end] (->date-range (::existing-items reconciliation)
                                     :transaction-date)]
@@ -246,24 +260,18 @@
   [recon]
   (when-let [all-items (-> recon meta ::all-items seq)]
     (let [[start end] (->date-range all-items :transaction-item/transaction-date)]
-      (models/update {:id [:in (map :id all-items)]
-                      :transaction/transaction-date [:between start end]}
-                     {:transaction-item/reconciliation (util/->model-ref recon)}))))
+      (models/update {:transaction-item/reconciliation (util/->model-ref recon)}
+                     {:id [:in (map :id all-items)]
+                      :transaction/transaction-date [:between start end]}))))
 
-(defn- after-save
-  [reconciliation]
-  (unreconcile-old-items reconciliation)
-  (reconcile-all-items reconciliation)
-  reconciliation)
-
-(defn ^:deprecated reload
-  "Returns the same reconciliation reloaded from the data store"
-  [reconciliation]
-  (throw (UnsupportedOperationException. "reconciliations/reload is deprecated"))
-  (find reconciliation))
+(defmethod models/after-save :reconciliation
+  [recon]
+  (unreconcile-old-items recon)
+  (reconcile-all-items recon)
+  recon)
 
 (defn ^:deprecated create
-  [reconciliation]
+  [_reconciliation]
   (throw (UnsupportedOperationException. "reconciliations/create is deprecated"))
   #_(with-transacted-storage (env :db)
     (let [recon (before-validation reconciliation)]
@@ -279,7 +287,7 @@
               after-read))))))
 
 (defn ^:deprecated update
-  [recon]
+  [_recon]
   (throw (UnsupportedOperationException. "reconciliations/update is deprecated"))
   #_(with-transacted-storage (env :db)
     (let [recon (before-validation recon)]
@@ -288,20 +296,3 @@
           (storage/update to-update)
           (after-save to-update)
           (reload recon))))))
-
-(defn ^:deprecated delete
-  "Removes the specified reconciliation from the system. (Only the most recent may be deleted.)"
-  [{:keys [account-id item-refs id] :as recon}]
-  (throw (UnsupportedOperationException. "reconciliations/delete is deprecated"))
-  #_(with-transacted-storage (env :db)
-    (let [most-recent (find-last account-id)
-          [start end] (->date-range item-refs second)]
-      (when (not= id (:id most-recent))
-        (throw (ex-info "Only the most recent reconciliation may be deleted"
-                        {:specified-reconciliation recon
-                         :most-recent-reconciliation most-recent})))
-      (when start
-        (transactions/update-items {:reconciliation-id nil}
-                                   {:reconciliation-id id
-                                    :transaction-date [:between start end]}))
-      (storage/delete recon))))
