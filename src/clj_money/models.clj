@@ -112,5 +112,5 @@
   (delete-many model))
 
 (defn update
-  [_criteria _updates]
-  (throw (Exception. "Not implemented")))
+  [criteria changes]
+  (db/update (db/storage) criteria changes))

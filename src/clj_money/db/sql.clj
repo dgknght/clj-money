@@ -18,7 +18,8 @@
             [dgknght.app-lib.models :refer [->id]]
             [clj-money.util :as util]
             [clj-money.db :as db]
-            [clj-money.db.sql.queries :refer [criteria->query]]
+            [clj-money.db.sql.queries :refer [criteria->query
+                                              ->update]]
             [clj-money.db.sql.types :refer [temp-id?
                                             coerce-id]])
   (:import org.postgresql.util.PGobject))
@@ -164,6 +165,21 @@
          (map after-read)
          (reconstruct))))
 
+(defn- update*
+  [ds changes criteria]
+  (let [m-type (db/model-type changes)
+        s (->update (before-save changes)
+                    (-> criteria
+                        (db/model-type m-type)
+                        prepare-criteria)
+                    {:target m-type})
+        result (jdbc/execute-one! ds s)]
+
+    ; TODO: scrub sensitive data
+    (log/debugf "database update %s %s -> %s" criteria changes s)
+
+    (:next.jdbc/update-count result)))
+
 (defn- id-key
   [x]
   (when-let [target (db/model-type x)]
@@ -233,6 +249,7 @@
   (let [ds (jdbc/get-datasource config)]
     (reify db/Storage
       (put [_ models] (put* ds models))
+      (update [_ changes criteria] (update* ds changes criteria))
       (select [this criteria options] (select* ds criteria (assoc options :storage this)))
       (delete [_ models] (delete* ds models))
       (close [_]) ; this is a no-op for next-jdbc

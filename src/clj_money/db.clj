@@ -1,4 +1,5 @@
 (ns clj-money.db
+  (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [union]]
             [config.core :refer [env]]))
@@ -23,6 +24,7 @@
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
   (put [this models] "Saves the specified models to the data store")
+  (update [this changes criteria] "Updates records with partial data (instead of full models)")
   (select [this criteria options] "Retrieves models from the data store")
   (delete [this models] "Removes models from the data store")
   (close [this] "Releases resources hold by the connection")

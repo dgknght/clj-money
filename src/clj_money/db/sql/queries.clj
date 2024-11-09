@@ -16,3 +16,7 @@
   {:pre [criteria]}
 
   (sql/->query criteria (merge default-options options)))
+
+(defn ->update
+  [changes criteria & [options]]
+  (sql/->update changes criteria (merge default-options options)))
