@@ -24,11 +24,14 @@
   (mapv #(simplify-refs % refs) models))
 
 (defn assert-created
-  [attr & {:keys [refs] :or {refs []}}]
+  [attr & {:keys [refs compare-result?]
+           :or {refs []
+                compare-result? true}}]
   (let [result (models/put attr)
         expected (simplify-refs attr refs)]
-    (is (comparable? expected result)
-        "The result matches the input")
+    (when compare-result?
+      (is (comparable? expected result)
+          "The result matches the input"))
     (is (comparable? expected (models/find result))
         "The retrieved matches the input")
     result))
