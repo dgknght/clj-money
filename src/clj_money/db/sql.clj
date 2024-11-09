@@ -5,12 +5,12 @@
             [clojure.set :refer [rename-keys]]
             [clojure.spec.alpha :as s]
             [cheshire.core :as json]
-            [cheshire.generate :refer [add-encoder]]
             [camel-snake-kebab.core :refer [->snake_case_keyword]]
             [next.jdbc :as jdbc]
             [next.jdbc.sql.builder :refer [for-insert
                                            for-update
                                            for-delete]]
+            [next.jdbc.date-time]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.inflection :refer [plural
@@ -23,11 +23,6 @@
             [clj-money.db.sql.types :refer [temp-id?
                                             coerce-id]])
   (:import org.postgresql.util.PGobject))
-
-(add-encoder
-  BigDecimal
-  (fn [d gen]
-    (.writeString gen (format "%.2f" d))))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
