@@ -1,7 +1,9 @@
 (ns clj-money.db.sql.reconciliations
-  (:require [java-time.api :as t]
+  (:require [clojure.pprint :refer [pprint]]
+            [java-time.api :as t]
             [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.db :as db]
             [clj-money.db.sql :as sql]))
 
 (declare ->sql-refs)
@@ -32,3 +34,11 @@
 (defmethod sql/prepare-criteria :reconciliation
   [criteria]
   (criteria/apply-to criteria coerce))
+
+(defmethod sql/post-select :reconciliation
+  [storage reconciliations]
+  (map #(assoc %
+               :reconciliation/item-refs
+               (mapv (juxt :id :transaction-item/transaction-date)
+                     (db/select storage {:transaction-item/reconciliation %} {})))
+       reconciliations))
