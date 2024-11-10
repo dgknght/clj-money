@@ -3,7 +3,7 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.util :as util]
+            [clj-money.util :as util :refer [model=]]
             [clj-money.factories.user-factory]
             [clj-money.models :as models]
             [clj-money.transactions :refer [expand]]))
@@ -72,7 +72,7 @@
 
 (defn- find
   ([context k v & kvs]
-   {:pre [k v]}
+   {:pre [context k v]}
    (or (find context (apply kv-pred k v kvs))
        (do
          (pprint {::context context})
@@ -175,11 +175,11 @@
   ([context [transaction-date quantity account]]
    (let [act (if (map? account)
                account
-               (find-account account))]
+               (find-account context account))]
      (->> context
           (filter #(= transaction-date (:transaction/transaction-date %)))
           (mapcat :transaction/items)
-          (filter #(and (util/model= act (:transaction-item/account %))
+          (filter #(and (model= act (:transaction-item/account %))
                         (= quantity (:transaction-item/quantity %))))
           first))))
 
