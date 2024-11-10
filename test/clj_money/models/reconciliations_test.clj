@@ -136,21 +136,18 @@
              :reconciliation/status :bouncy)
       {:reconciliation/status ["Status must be new or completed"]})))
 
-; (deftest item-refs-cannot-reference-items-that-belong-to-the-account-being-reconciled
-;   (let [context (realize reconciliation-context)
-;         [checking
-;          salary] (:accounts context)
-;         paycheck (->> context
-;                       :transactions
-;                       (mapcat :items)
-;                       (filter #(= (:id salary) (:account-id %)))
-;                       first)
-;         result (reconciliations/create {:account-id (:id checking)
-;                                         :end-of-period (t/local-date 2017 1 31)
-;                                         :balance 10M
-;                                         :item-refs [((juxt :id :transaction-date) paycheck)]})]
-;     (is (invalid? result [:item-refs] "All items must belong to the account being reconciled"))))
-;
+(deftest item-refs-cannot-reference-items-that-belong-to-the-account-being-reconciled
+  (with-context reconciliation-context
+    (assert-invalid #:reconciliation{:account (find-account "Groceries")
+                                     :end-of-period (t/local-date 2017 1 31)
+                                     :balance 500M
+                                     :item-refs [((juxt :id :transaction-item/transaction-date)
+                                                  (find-transaction-item
+                                                    [(t/local-date 2017 1 2)
+                                                     500M
+                                                     (find-account "Rent")]))]}
+                    {:reconciliation/item-refs ["All items must belong to the account being reconciled"]})))
+
 ; (def ^:private parent-account-context
 ;   (-> basic-context
 ;       (update-in [:accounts] concat [{:name "Savings"

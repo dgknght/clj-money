@@ -62,18 +62,19 @@
 
 (defn- items-belong-to-account?
   [{:reconciliation/keys [account] :as reconciliation}]
-  (or (empty? (::new-items reconciliation))
-      (let [account-ids (->> (models/select
-                               (db/model-type
-                                 {:id (:id account)}
-                                 :account)
-                               {:include-children? true})
-                             (map :id)
-                             set)]
-        (->> (::new-items reconciliation)
-             (map (comp :id
-                        :reconciliation/account))
-             (every? #(account-ids %))))))
+  (if-let [new-items (seq (get-meta reconciliation ::new-items))]
+    (let [account-ids (->> (models/select
+                             (db/model-type
+                               (util/->model-ref account)
+                               :account)
+                             {:include-children? true})
+                           (map :id)
+                           set)]
+      (->> new-items
+           (map (comp :id
+                      :transaction-item/account))
+           (every? #(account-ids %))))
+    true))
 
 (v/reg-spec items-belong-to-account?
             {:message "All items must belong to the account being reconciled"
