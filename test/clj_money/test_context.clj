@@ -188,15 +188,15 @@
   ([context description]
    (find context :scheduled-transaction/description description)))
 
-(defn find-recon
-  ([account-name end-of-period]
-   (find-recon *context*
-               account-name
-               end-of-period))
-  ([ctx account-name end-of-period]
-   (let [account (find-account ctx account-name)]
+(defn find-reconciliation
+  ([identifier]
+   (find-reconciliation *context* identifier))
+  ([ctx [account end-of-period]]
+   (let [act (if (map? account)
+               account
+               (util/->model-ref (find-account ctx account)))]
      (find ctx
-           :reconciliation/account account
+           :reconciliation/account act
            :reconciliation/end-of-period end-of-period))))
 
 #_(defn- execute-trade
