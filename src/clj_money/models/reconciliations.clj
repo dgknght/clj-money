@@ -151,9 +151,11 @@
 (defn- fetch-items
   [{:keys [id] :reconciliation/keys [account] :as recon}]
   (if id
-    (let [accounts (models/select {:transaction-item/account account}
+    (let [accounts (models/select (db/model-type
+                                    (util/->model-ref account)
+                                    :account)
                                   {:include-children? true})
-          criteria (assoc (acts/->criteria accounts)
+          criteria (assoc (acts/->>criteria accounts)
                           :transaction-item/reconciliation recon)]
       (models/select criteria))
     []))
