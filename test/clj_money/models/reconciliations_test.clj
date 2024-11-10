@@ -9,19 +9,18 @@
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.model-helpers :refer [assert-invalid] :as helpers]
             [clj-money.models :as models]
-            [clj-money.models.users]
+            [clj-money.models.users] ; TODO: create a ref ns for all of these model namespaces
             [clj-money.models.entities]
             [clj-money.models.commodities]
             [clj-money.models.accounts]
+            [clj-money.models.transactions]
             [clj-money.test-context :refer [with-context
                                             *context*
                                             basic-context
                                             find-entity
-                                            find-recon
                                             find-account
                                             find-transaction-item]]
-            [clj-money.models.reconciliations :as reconciliations]
-            [clj-money.models.transactions :as transactions]))
+            [clj-money.models.reconciliations :as recons]))
 
 (use-fixtures :each reset-db)
 
@@ -199,29 +198,24 @@
                                                               (:transaction-item/account %))))
                                          (mapv (juxt :id :transaction-item/transaction-date)))}))))
 
-; (def ^:private working-rec-context
-;   (assoc reconciliation-context
-;          :reconciliations
-;          [{:account-id "Checking"
-;            :end-of-period (t/local-date 2017 1 1)
-;            :balance 447M
-;            :status :new
-;            :item-refs [{:transaction-date (t/local-date 2017 1 1)
-;                         :account-id "Salary"
-;                         :quantity 1000M}
-;                        {:transaction-date (t/local-date 2017 1 2)
-;                         :account-id "Rent"
-;                         :quantity 500M}
-;                        {:transaction-date (t/local-date 2017 1 10)
-;                         :account-id "Groceries"
-;                         :quantity 53M}]}]))
-;
-; (deftest find-the-working-reconciliation
-;   (let [context (realize working-rec-context)
-;         checking (-> context :accounts first)
-;         reconciliation (reconciliations/find-working (:id checking))]
-;     (is reconciliation "A reconciliation is returned")))
-;
+(def ^:private working-rec-context
+  (conj reconciliation-context
+        #:reconciliation{:account "Checking"
+                         :end-of-period (t/local-date 2017 1 1)
+                         :balance 447M
+                         :status :new
+                         :item-refs [[(t/local-date 2017 1 1)
+                                      1000M]
+                                     [(t/local-date 2017 1 2)
+                                      500M]
+                                     [(t/local-date 2017 1 10)
+                                      53M]]}))
+
+(deftest find-the-working-reconciliation
+  (with-context working-rec-context
+    (is (comparable? #:reconciliation{:balance 447M}
+                     (recons/find-working (find-account "Checking"))))))
+
 ; (deftest transaction-item-can-only-belong-to-one-reconciliation
 ;   (let [context (realize existing-reconciliation-context)
 ;         checking (find-account context "Checking")
