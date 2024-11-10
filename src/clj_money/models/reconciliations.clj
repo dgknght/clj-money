@@ -17,15 +17,18 @@
   [recon & ks]
   (get-in (meta recon) ks))
 
+(defn- starting-balance
+  [recon]
+  (or (get-meta recon
+                ::last-completed
+                :reconciliation/balance)
+      0M))
+
 (defn- in-balance?
   [{:reconciliation/keys [balance] :as recon}]
-  (let [starting-balance (or (get-meta recon
-                                       ::last-completed
-                                       :reconciliation/balance)
-                             0M)
-        new-balance (->> (::all-items (meta recon))
+  (let [new-balance (->> (get-meta recon ::all-items)
                          (map :transaction-item/polarized-quantity)
-                         (reduce + starting-balance))]
+                         (reduce + (starting-balance recon)))]
     (= balance new-balance)))
 
 (defn- in-progress?
@@ -216,9 +219,11 @@
 (defn- append-transaction-item-refs
   [recon]
   (when recon
-    (assoc recon
-           :reconciliation/item-refs
-           (fetch-transaction-item-refs recon))))
+    (if (:reconciliation/item-refs recon)
+      recon
+      (assoc recon
+             :reconciliation/item-refs
+             (fetch-transaction-item-refs recon)))))
 
 (defmethod models/after-read :reconciliation
   [recon _opts]
