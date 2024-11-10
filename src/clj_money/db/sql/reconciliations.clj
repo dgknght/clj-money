@@ -3,6 +3,7 @@
             [java-time.api :as t]
             [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]
@@ -69,3 +70,16 @@
             (->> (models/select (item-refs->query item-refs))
                  (mapv #(assoc % :transaction-item/reconciliation {:id id}))))
       [without-refs])))
+
+(defmethod sql/reconstruct :reconciliation
+  [models]
+  (->> models
+       (util/reconstruct {:parent? :reconciliation/end-of-period
+                          :child? :transaction-item/reconciliation
+                          :children-key :reconciliation/item-refs})
+       (map (fn [m]
+              (if (db/model-type? m :reconciliation)
+                (update-in m
+                           [:reconciliation/item-refs]
+                           (partial mapv (juxt :id :transaction-item/transaction-date)))
+                m)))))
