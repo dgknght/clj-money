@@ -2,7 +2,9 @@
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
+            [clj-money.util :refer [model=]]
             [clj-money.json]
+            [clj-money.db :as db]
             [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.model-helpers :refer [assert-invalid] :as helpers]
@@ -12,6 +14,7 @@
             [clj-money.models.commodities]
             [clj-money.models.accounts]
             [clj-money.test-context :refer [with-context
+                                            *context*
                                             basic-context
                                             find-entity
                                             find-recon
@@ -148,49 +151,54 @@
                                                      (find-account "Rent")]))]}
                     {:reconciliation/item-refs ["All items must belong to the account being reconciled"]})))
 
-; (def ^:private parent-account-context
-;   (-> basic-context
-;       (update-in [:accounts] concat [{:name "Savings"
-;                                       :type :asset
-;                                       :entity-id "Personal"}
-;                                      {:name "Car"
-;                                       :type :asset
-;                                       :entity-id "Personal"
-;                                       :parent-id "Savings"}
-;                                      {:name "Reserve"
-;                                       :type :asset
-;                                       :entity-id "Personal"
-;                                       :parent-id "Savings"}])
-;       (assoc :transactions [{:transaction-date (t/local-date 2015 1 1)
-;                              :description "Paycheck"
-;                              :items [{:action :credit
-;                                       :account-id "Salary"
-;                                       :quantity 1000M}
-;                                      {:action :debit
-;                                       :account-id "Car"
-;                                       :quantity 100M}
-;                                      {:action :debit
-;                                       :account-id "Reserve"
-;                                       :quantity 200M}
-;                                      {:action :debit
-;                                       :account-id "Checking"
-;                                       :quantity 700M}]}])))
-;
-; (deftest item-refs-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
-;   (let [ctx (realize parent-account-context)
-;         account (find-account ctx "Savings")
-;         items (transactions/search-items {:account-id (:id account)
-;                                           :transaction-date [:between
-;                                                              (t/local-date 2015 1 1)
-;                                                              (t/local-date 2015 1 31)]}
-;                                          {:include-children? true})
-;         result (reconciliations/create {:account-id (:id account)
-;                                         :end-of-period (t/local-date 2015 1 31)
-;                                         :status :completed
-;                                         :balance 300M
-;                                         :item-refs (map (juxt :id :transaction-date) items)})]
-;     (is (valid? result))))
-;
+(def ^:private parent-account-context
+  (conj basic-context
+        #:account{:name "Savings"
+                  :type :asset
+                  :entity "Personal"}
+        #:account{:name "Car"
+                  :type :asset
+                  :entity "Personal"
+                  :parent "Savings"}
+        #:account{:name "Reserve"
+                  :type :asset
+                  :entity "Personal"
+                  :parent "Savings"}
+        #:transaction{:transaction-date (t/local-date 2015 1 1)
+                      :entity "Personal"
+                      :description "Paycheck"
+                      :items [#:transaction-item{:action :credit
+                                                 :account "Salary"
+                                                 :quantity 1000M}
+                              #:transaction-item{:action :debit
+                                                 :account "Car"
+                                                 :quantity 100M}
+                              #:transaction-item{:action :debit
+                                                 :account "Reserve"
+                                                 :quantity 200M}
+                              #:transaction-item{:action :debit
+                                                 :account "Checking"
+                                                 :quantity 700M}]}))
+
+(deftest item-refs-can-reference-items-that-belong-to-children-of-the-account-being-reconciled
+  (with-context parent-account-context
+    (let [savings (find-account "Savings")
+          car (find-account "Car")
+          reserve (find-account "Reserve")]
+      (assert-created
+        #:reconciliation{:account savings
+                         :end-of-period (t/local-date 2015 1 31)
+                         :status :completed
+                         :balance 300M
+                         :item-refs (->> *context*
+                                         (filter (db/model-type? :transaction))
+                                         (mapcat :transaction/items)
+                                         (filter #(or (model= reserve
+                                                              (:transaction-item/account %))
+                                                      (model= car
+                                                              (:transaction-item/account %))))
+                                         (mapv (juxt :id :transaction-item/transaction-date)))}))))
+
 ; (def ^:private working-rec-context
 ;   (assoc reconciliation-context
 ;          :reconciliations
