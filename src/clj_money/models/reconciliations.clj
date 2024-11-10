@@ -84,8 +84,8 @@
              :path [:reconciliation/item-refs]})
 
 (defn- items-not-already-reconciled?
-  [{:keys [id] :as reconciliation}]
-  (->> (::new-items reconciliation)
+  [{:keys [id] :as recon}]
+  (->> (get-meta recon ::new-items)
        (map (comp :id :transaction-item/reconciliation))
        (remove (some-fn nil? #(= id %)))
        empty?))

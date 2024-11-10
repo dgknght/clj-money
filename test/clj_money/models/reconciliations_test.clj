@@ -216,19 +216,19 @@
     (is (comparable? #:reconciliation{:balance 447M}
                      (recons/find-working (find-account "Checking"))))))
 
-; (deftest transaction-item-can-only-belong-to-one-reconciliation
-;   (let [context (realize existing-reconciliation-context)
-;         checking (find-account context "Checking")
-;         item (->> (:transactions context)
-;                   (mapcat :items)
-;                   (filter #(= (:id checking) (:account-id %)))
-;                   first)
-;         result (reconciliations/create {:account-id (:id checking)
-;                                         :end-of-period (t/local-date 2017 1 31)
-;                                         :balance 1500M
-;                                         :item-refs [((juxt :id :transaction-date) item)]})]
-;     (is (invalid? result [:item-refs] "No item can belong to another reconciliation"))))
-;
+(deftest transaction-item-can-only-belong-to-one-reconciliation
+  (with-context existing-reconciliation-context
+    (assert-invalid
+      #:reconciliation{:account (find-account "Checking")
+                       :end-of-period (t/local-date 2017 1 31)
+                       :balance 1500M
+                       :item-refs [((juxt :id :transaction-item/transaction-date)
+                                    (find-transaction-item
+                                      [(t/local-date 2017 1 1)
+                                       1000M
+                                       "Checking"]))]}
+      {:reconciliation/item-refs ["No item can belong to another reconciliation"]})))
+
 ; (deftest a-working-reconciliation-can-be-updated
 ;   (let [context (realize working-reconciliation-context)
 ;         recon (-> context :reconciliations last)
