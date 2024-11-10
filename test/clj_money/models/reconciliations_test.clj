@@ -19,7 +19,8 @@
                                             basic-context
                                             find-entity
                                             find-account
-                                            find-transaction-item]]
+                                            find-transaction-item
+                                            find-reconciliation]]
             [clj-money.models.reconciliations :as recons]))
 
 (use-fixtures :each reset-db)
@@ -229,16 +230,19 @@
                                        "Checking"]))]}
       {:reconciliation/item-refs ["No item can belong to another reconciliation"]})))
 
-; (deftest a-working-reconciliation-can-be-updated
-;   (let [context (realize working-reconciliation-context)
-;         recon (-> context :reconciliations last)
-;         result (reconciliations/update
-;                 (assoc recon :balance 1499M))
-;         retrieved (reconciliations/find recon)]
-;     (is (valid? result))
-;     (is (= 1499M (:balance retrieved))
-;         "The retrieved value has the correct balance after update")))
-;
+(deftest a-working-reconciliation-can-be-updated
+  (with-context working-reconciliation-context
+    (let [result (-> (find-reconciliation ["Checking"
+                                           (t/local-date 2017 1 3)])
+                     (assoc :reconciliation/balance 1499M)
+                     models/put)]
+      (is (comparable? {:reconciliation/balance 1499M}
+                       result)
+          "The result has the correct balance after update")
+      (is (comparable? {:reconciliation/balance 1499M}
+                       (models/find result))
+          "The retrieved value has the correct balance after update"))))
+
 ; (deftest a-working-reconciliation-can-be-completed
 ;   (let [context (realize working-reconciliation-context)
 ;         previous-rec (find-recon context "Checking" (t/local-date 2017 1 1))
