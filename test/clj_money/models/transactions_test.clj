@@ -1123,6 +1123,7 @@
                                            :credit))))
                           %))))))))
 
+; TODO: Also test for a query to see if a transaction item can be deleted
 #_(deftest a-reconciled-transaction-item-cannot-be-deleted
   (with-context existing-reconciliation-context
     (let [transaction (find-transaction (t/local-date 2017 1 1) "Paycheck")]
