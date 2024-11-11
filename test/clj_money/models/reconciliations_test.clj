@@ -1,5 +1,6 @@
 (ns clj-money.models.reconciliations-test
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.util :refer [model=
@@ -26,6 +27,9 @@
             [clj-money.models.reconciliations :as recons]))
 
 (use-fixtures :each reset-db)
+
+(def ^:private ->item-ref
+  (juxt :id :transaction-item/transaction-date))
 
 (def ^:private reconciliation-context
   (conj basic-context
@@ -98,8 +102,7 @@
           checking-items (models/select {:transaction-item/account checking
                                          :transaction-item/quantity [:!= 45]})]
       (assert-created (assoc (attributes)
-                             :reconciliation/item-refs (map (juxt :id :transaction-item/transaction-date)
-                                             checking-items)
+                             :reconciliation/item-refs (map ->item-ref checking-items)
                              :reconciliation/status :completed))
       (is (->> checking-items
                (map models/find)
@@ -146,7 +149,7 @@
     (assert-invalid #:reconciliation{:account (find-account "Groceries")
                                      :end-of-period (t/local-date 2017 1 31)
                                      :balance 500M
-                                     :item-refs [((juxt :id :transaction-item/transaction-date)
+                                     :item-refs [(->item-ref
                                                   (find-transaction-item
                                                     [(t/local-date 2017 1 2)
                                                      500M
@@ -199,7 +202,7 @@
                                                               (:transaction-item/account %))
                                                       (model= car
                                                               (:transaction-item/account %))))
-                                         (mapv (juxt :id :transaction-item/transaction-date)))}))))
+                                         (mapv ->item-ref))}))))
 
 (def ^:private working-rec-context
   (conj reconciliation-context
@@ -225,7 +228,7 @@
       #:reconciliation{:account (find-account "Checking")
                        :end-of-period (t/local-date 2017 1 31)
                        :balance 1500M
-                       :item-refs [((juxt :id :transaction-item/transaction-date)
+                       :item-refs [(->item-ref
                                     (find-transaction-item
                                       [(t/local-date 2017 1 1)
                                        1000M
@@ -249,7 +252,7 @@
   (with-context working-reconciliation-context
     (let [checking (find-account "Checking")
           previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
-          item-ref ((juxt :id :transaction-item/transaction-date)
+          item-ref (->item-ref
                     (find-transaction-item [(t/local-date 2017 1 3)
                                             45M
                                             checking]))
@@ -286,21 +289,18 @@
                                      :status :completed}
                     {:reconciliation/balance ["Balance must match the calculated balance"]})))
 
-; (deftest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
-;   (let [context (realize working-reconciliation-context)
-;         checking (-> context :accounts first)
-;         reconciliation (-> context :reconciliations last)
-;         updated (-> reconciliation
-;                     (assoc :status :completed)
-;                     (update-in [:item-refs] #(conj % (->> context
-;                                                           :transactions
-;                                                           (mapcat :items)
-;                                                           (filter (fn [i] (= (:id checking) (:account-id i))))
-;                                                           (map (juxt :id :transaction-date))
-;                                                           last))))
-;         result (reconciliations/update updated)]
-;     (is (invalid? result [:balance] "Balance must match the calculated balance"))))
-;
+(deftest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
+  (with-context working-reconciliation-context
+    (let [item-ref (->item-ref (find-transaction-item [(t/local-date 2017 1 10)
+                                                       53M
+                                                       "Checking"]))]
+      (assert-invalid (-> (find-reconciliation ["Checking" (t/local-date 2017 1 3)])
+                          (assoc :reconciliation/status :completed)
+                          (update-in [:reconciliation/item-refs]
+                                     conj
+                                     item-ref))
+                      {:reconciliation/balance ["Balance must match the calculated balance"]}))))
+
 ; (deftest a-completed-reconciliation-cannot-be-updated
 ;   (let [context (realize existing-reconciliation-context)
 ;         reconciliation (-> context :reconciliations first)
