@@ -332,23 +332,16 @@
                       :transaction-item)))
           "The reconciliation is not associated with any items after delete"))))
 
-; (deftest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
-;   (let [context (realize working-reconciliation-context)
-;         reconciliation (-> context :reconciliations first)]
-;     (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
-;                           (reconciliations/delete reconciliation))
-;         "an exception should be thrown")
-;     (is (reconciliations/find reconciliation) "The reconciliation can still be retrieved")
-;     (is (seq (transactions/select-items-by-reconciliation reconciliation))
-;         "The transaction items are still associated with the reconciliation")))
-;
-; (deftest check-if-a-transaction-can-be-deleted
-;   (let [context (realize existing-reconciliation-context)
-;         [t1 t2] (->> context
-;                      :transactions
-;                      (take 2)
-;                      (map transactions/reload))]
-;     (is (not (transactions/can-delete? t1))
-;         "A transaction with a reconciled item cannot be deleted")
-;     (is (transactions/can-delete? t2)
-;         "A transaction with no reconciled items can be deleted")))
+(deftest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
+  (with-context working-reconciliation-context
+    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
+      (is (thrown-with-msg? Exception #"Only the most recent reconciliation may be deleted"
+                            (models/delete reconciliation))
+          "an exception is thrown")
+      (is (models/find reconciliation) "The reconciliation can still be retrieved")
+      (is (seq (models/select
+                 (db/model-type
+                   {:transaction-item/reconciliation (->model-ref reconciliation)
+                    :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
+                   :transaction-item)))
+          "The transaction items are still associated with the reconciliation"))))

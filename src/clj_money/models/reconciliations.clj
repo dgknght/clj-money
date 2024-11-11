@@ -232,6 +232,13 @@
   (when recon
     (append-transaction-item-refs recon)))
 
+(defmethod models/before-delete :reconciliation
+  [{:as recon :reconciliation/keys [account end-of-period]}]
+  (when (< 0 (models/count {:reconciliation/account account
+                            :reconciliation/end-of-period [:> end-of-period]}))
+    (throw (ex-info "Only the most recent reconciliation may be deleted" {:reconciliation recon})))
+  recon)
+
 (defmethod models/propagate-delete :reconciliation
   [{:as recon :reconciliation/keys [account]}]
   (->> (models/select (assoc (acts/->criteria (models/find account :account))

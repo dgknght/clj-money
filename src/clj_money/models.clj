@@ -28,6 +28,9 @@
 (defmulti after-read db/type-dispatch)
 (defmethod after-read :default [m & _] m)
 
+(defmulti before-delete db/type-dispatch)
+(defmethod before-delete :default [m & _] [m])
+
 (defmulti propagate-delete db/type-dispatch)
 (defmethod propagate-delete :default [m & _] [m])
 
@@ -101,6 +104,7 @@
 (defn delete-many
   [& models]
   (->> models
+       (map before-delete)
        (mapcat (comp (fn [[m & ms]]
                        (cons [::db/delete m]
                              ms))
