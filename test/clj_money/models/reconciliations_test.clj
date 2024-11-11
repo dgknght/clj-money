@@ -301,14 +301,12 @@
                                      item-ref))
                       {:reconciliation/balance ["Balance must match the calculated balance"]}))))
 
-; (deftest a-completed-reconciliation-cannot-be-updated
-;   (let [context (realize existing-reconciliation-context)
-;         reconciliation (-> context :reconciliations first)
-;         result (reconciliations/update (assoc reconciliation :end-of-period (t/local-date 2017 1 2)))
-;         retrieved (reconciliations/reload reconciliation)]
-;     (is (invalid? result [:status] "A completed reconciliation cannot be updated"))
-;     (is (= 1000M (:balance retrieved)) "The new value is not saved")))
-;
+(deftest a-completed-reconciliation-cannot-be-updated
+  (with-context existing-reconciliation-context
+    (assert-invalid (assoc (find-reconciliation ["Checking" (t/local-date 2017 1 1)])
+                           :reconciliation/end-of-period (t/local-date 2017 1 31))
+                    {:reconciliation/status ["A completed reconciliation cannot be updated"]})))
+
 ; (deftest the-most-recent-completed-reconciliation-can-be-deleted
 ;   (let [context (realize existing-reconciliation-context)
 ;         reconciliation (-> context :reconciliations first)
