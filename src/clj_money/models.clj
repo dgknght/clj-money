@@ -29,7 +29,7 @@
 (defmethod after-read :default [m & _] m)
 
 (defmulti propagate-delete db/type-dispatch)
-(defmethod propagate-delete :default [m & _] m)
+(defmethod propagate-delete :default [m & _] [m])
 
 (defn- validate
   [model]
@@ -112,5 +112,7 @@
   (delete-many model))
 
 (defn update
+  "Updates multiple records in the data store against criteria instead of a
+  single model or group of models"
   [criteria changes]
   (db/update (db/storage) criteria changes))
