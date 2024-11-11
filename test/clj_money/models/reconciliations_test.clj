@@ -321,15 +321,17 @@
                       :transaction-item)))
           "The reconciliation is not associated with any items after delete"))))
 
-; (deftest a-working-reconciliation-can-be-deleted
-;   (let [context (realize working-reconciliation-context)
-;         reconciliation (-> context :reconciliations second)
-;         _ (reconciliations/delete reconciliation)
-;         retrieved (reconciliations/find reconciliation)
-;         items (transactions/select-items-by-reconciliation reconciliation)]
-;     (is (nil? retrieved) "The reconciliation cannot be retrieved after delete")
-;     (is (empty? items) "The reconciliation is not associated with any items after delete")))
-;
+(deftest a-working-reconciliation-can-be-deleted
+  (with-context working-reconciliation-context
+    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 3)])]
+      (assert-deleted reconciliation)
+      (is (empty? (models/select
+                    (db/model-type
+                      {:transaction-item/reconciliation (->model-ref reconciliation)
+                       :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
+                      :transaction-item)))
+          "The reconciliation is not associated with any items after delete"))))
+
 ; (deftest a-reconciliation-that-is-not-the-most-recent-cannot-be-deleted
 ;   (let [context (realize working-reconciliation-context)
 ;         reconciliation (-> context :reconciliations first)]
