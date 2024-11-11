@@ -2,11 +2,13 @@
   (:require [clojure.test :refer [deftest use-fixtures is testing]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
-            [clj-money.util :refer [model=]]
+            [clj-money.util :refer [model=
+                                    ->model-ref]]
             [clj-money.json]
             [clj-money.db :as db]
             [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db]]
+            [clj-money.accounts :as acts]
             [clj-money.model-helpers :refer [assert-invalid] :as helpers]
             [clj-money.models :as models]
             [clj-money.models.users] ; TODO: create a ref ns for all of these model namespaces
@@ -243,45 +245,39 @@
                        (models/find result))
           "The retrieved value has the correct balance after update"))))
 
-; (deftest a-working-reconciliation-can-be-completed
-;   (let [context (realize working-reconciliation-context)
-;         previous-rec (find-recon context "Checking" (t/local-date 2017 1 1))
-;         reconciliation (find-recon context "Checking" (t/local-date 2017 1 3))
-;         checking (find-account context "Checking")
-;         item (find-transaction-item context
-;                                     (t/local-date 2017 1 3)
-;                                     45M
-;                                     (:id checking))
-;         updated (-> reconciliation
-;                     (assoc :status :completed)
-;                     (update-in [:item-refs]
-;                                conj
-;                                ((juxt :id :transaction-date) item)))
-;         result (reconciliations/update updated)
-;         retrieved (reconciliations/reload updated)
-;         checking-items (transactions/search-items {:account-id (:id checking)
-;                                                    :transaction-date [:between> (t/local-date 2017 1 1) (t/local-date 2018 1 1)]}
-;                                                   {:sort [:transaction-date]})]
-;     (is (valid? result))
-;     (is (= (:status retrieved) :completed) "The retrieved value has the correct satus")
-;     (testing "reconciled transaction items"
-;       (let [expected [{:transaction-date (t/local-date 2017 1 1)
-;                        :quantity 1000M
-;                        :reconciliation-id (:id previous-rec)}
-;                       {:transaction-date (t/local-date 2017 1 2)
-;                        :quantity 500M
-;                        :reconciliation-id (:id retrieved)}
-;                       {:transaction-date (t/local-date 2017 1 3)
-;                        :quantity 45M
-;                        :reconciliation-id (:id retrieved)}
-;                       {:transaction-date (t/local-date 2017 1 10)
-;                        :quantity 53M
-;                        :reconciliation-id nil}]
-;             actual (map #(select-keys % [:transaction-date :quantity :reconciliation-id])
-;                         checking-items)]
-;         (is (= expected actual)
-;             "The correct transaction items are associated with the reconciliation")))))
-;
+(deftest a-working-reconciliation-can-be-completed
+  (with-context working-reconciliation-context
+    (let [checking (find-account "Checking")
+          previous-rec (find-reconciliation [checking (t/local-date 2017 1 1)])
+          item-ref ((juxt :id :transaction-item/transaction-date)
+                    (find-transaction-item [(t/local-date 2017 1 3)
+                                            45M
+                                            checking]))
+          result (-> (find-reconciliation [checking (t/local-date 2017 1 3)])
+                     (assoc :reconciliation/status :completed)
+                     (update-in [:reconciliation/item-refs] conj item-ref)
+                     models/put)]
+      (is (comparable? #:reconciliation {:status :completed}
+                       result)
+          "The result reflects the updated attributes")
+      (is (comparable? #:reconciliation{:status :completed}
+                       (models/find result))
+          "The retrieved record reflects the updated attributes")
+      (is (seq-of-maps-like? [#:transaction-item{:transaction-date (t/local-date 2017 1 1)
+                                                 :quantity 1000M
+                                                 :reconciliation (->model-ref previous-rec)}
+                              #:transaction-item{:transaction-date (t/local-date 2017 1 2)
+                                                 :quantity 500M
+                                                 :reconciliation (->model-ref result)}
+                              #:transaction-item{:transaction-date (t/local-date 2017 1 3)
+                                                 :quantity 45M
+                                                 :reconciliation (->model-ref result)}
+                              #:transaction-item{:transaction-date (t/local-date 2017 1 10)
+                                                 :quantity 53M
+                                                 :reconciliation nil}]
+                             (models/select (-> checking models/find acts/->criteria)))
+          "The retrieved transaction items have the new reconciliation reference"))))
+
 ; (deftest cannot-create-a-completed-out-of-balance-reconciliation
 ;   (let [context (realize reconciliation-context)
 ;         checking (find-account context "Checking")
