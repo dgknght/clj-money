@@ -10,7 +10,10 @@
             [clj-money.db.sql.ref]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.accounts :as acts]
-            [clj-money.model-helpers :refer [assert-invalid] :as helpers]
+            [clj-money.model-helpers
+             :refer [assert-invalid
+                     assert-deleted]
+             :as helpers]
             [clj-money.models :as models]
             [clj-money.models.users] ; TODO: create a ref ns for all of these model namespaces
             [clj-money.models.entities]
@@ -307,15 +310,17 @@
                            :reconciliation/end-of-period (t/local-date 2017 1 31))
                     {:reconciliation/status ["A completed reconciliation cannot be updated"]})))
 
-; (deftest the-most-recent-completed-reconciliation-can-be-deleted
-;   (let [context (realize existing-reconciliation-context)
-;         reconciliation (-> context :reconciliations first)
-;         _ (reconciliations/delete reconciliation)
-;         retrieved (reconciliations/find reconciliation)
-;         items (transactions/select-items-by-reconciliation reconciliation)]
-;     (is (nil? retrieved) "The reconciliation cannot be retrieved after delete")
-;     (is (empty? items) "The reconciliation is not associated with any items after delete")))
-;
+(deftest the-most-recent-completed-reconciliation-can-be-deleted
+  (with-context existing-reconciliation-context
+    (let [reconciliation (find-reconciliation ["Checking" (t/local-date 2017 1 1)])]
+      (assert-deleted reconciliation)
+      (is (empty? (models/select
+                    (db/model-type
+                      {:transaction-item/reconciliation (->model-ref reconciliation)
+                       :transaction/transaction-date [:between (t/local-date 2016 1 1) (t/local-date 2017 1 31)]}
+                      :transaction-item)))
+          "The reconciliation is not associated with any items after delete"))))
+
 ; (deftest a-working-reconciliation-can-be-deleted
 ;   (let [context (realize working-reconciliation-context)
 ;         reconciliation (-> context :reconciliations second)

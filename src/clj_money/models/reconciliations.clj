@@ -231,3 +231,10 @@
   [recon _opts]
   (when recon
     (append-transaction-item-refs recon)))
+
+(defmethod models/propagate-delete :reconciliation
+  [{:as recon :reconciliation/keys [account]}]
+  (->> (models/select (assoc (acts/->criteria (models/find account :account))
+                             :transaction-item/reconciliation recon))
+       (map #(assoc % :transaction-item/reconciliation nil))
+       (cons recon)))
