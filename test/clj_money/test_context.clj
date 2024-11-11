@@ -192,9 +192,9 @@
   ([identifier]
    (find-reconciliation *context* identifier))
   ([ctx [account end-of-period]]
-   (let [act (if (map? account)
-               account
-               (util/->model-ref (find-account ctx account)))]
+   (let [act (util/->model-ref (if (map? account)
+                                 account
+                                 (find-account ctx account)))]
      (find ctx
            :reconciliation/account act
            :reconciliation/end-of-period end-of-period))))
