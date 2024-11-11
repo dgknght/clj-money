@@ -278,15 +278,14 @@
                              (models/select (-> checking models/find acts/->criteria)))
           "The retrieved transaction items have the new reconciliation reference"))))
 
-; (deftest cannot-create-a-completed-out-of-balance-reconciliation
-;   (let [context (realize reconciliation-context)
-;         checking (find-account context "Checking")
-;         result (reconciliations/create {:account-id (:id checking)
-;                                         :end-of-period (t/local-date 2017 1 31)
-;                                         :balance 101M
-;                                         :status :completed})]
-;     (is (invalid? result [:balance] "Balance must match the calculated balance"))))
-;
+(deftest cannot-create-a-completed-out-of-balance-reconciliation
+  (with-context reconciliation-context
+    (assert-invalid #:reconciliation{:account (find-account "Checking")
+                                     :end-of-period (t/local-date 2017 1 31)
+                                     :balance 101M
+                                     :status :completed}
+                    {:reconciliation/balance ["Balance must match the calculated balance"]})))
+
 ; (deftest an-out-of-balance-reconciliation-cannot-be-updated-to-completed
 ;   (let [context (realize working-reconciliation-context)
 ;         checking (-> context :accounts first)
