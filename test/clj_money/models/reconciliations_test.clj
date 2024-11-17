@@ -15,11 +15,7 @@
                      assert-deleted]
              :as helpers]
             [clj-money.models :as models]
-            [clj-money.models.users] ; TODO: create a ref ns for all of these model namespaces
-            [clj-money.models.entities]
-            [clj-money.models.commodities]
-            [clj-money.models.accounts]
-            [clj-money.models.transactions]
+            [clj-money.models.ref]
             [clj-money.test-context :refer [with-context
                                             *context*
                                             basic-context
