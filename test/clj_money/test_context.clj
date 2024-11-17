@@ -4,7 +4,6 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util :refer [model=]]
-            [clj-money.factories.user-factory]
             [clj-money.models :as models]
             [clj-money.transactions :refer [expand]]))
 
