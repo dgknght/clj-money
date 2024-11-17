@@ -92,9 +92,13 @@
   key identyfying the model type, or another model from which the type is to be
   extracted"
   ([m]
+   {:pre [(map? m)]}
    (or (-> m meta ::type)
        (single-ns (dissoc m :id))))
   ([m model-or-type]
+   {:pre [(map? m)
+          (or (map? model-or-type)
+              (keyword? model-or-type))]}
    (let [t (extract-model-type model-or-type)]
      (assert (model-types t))
      (vary-meta m assoc ::type t))))
