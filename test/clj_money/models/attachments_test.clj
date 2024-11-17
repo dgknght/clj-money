@@ -38,8 +38,8 @@
 
 (defn- assert-created
   [attrs]
-  (helpers/assert-created attrs {:refs [:attachment/transaction
-                                        :attachment/image]}))
+  (helpers/assert-created attrs :refs [:attachment/transaction
+                                       :attachment/image]))
 
 (deftest create-an-attachment
   (with-context attach-context

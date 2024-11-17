@@ -31,9 +31,10 @@
 
 (defn- assert-created
   [attr]
-  (helpers/assert-created attr {:refs [:image/user]
-                                :ignore-attributes [:image/body]
-                                :compare-result? false}))
+  (helpers/assert-created attr
+                          :refs [:image/user]
+                          :ignore-attributes [:image/body]
+                          :compare-result? false))
 
 (deftest create-an-image
   (with-context image-context
