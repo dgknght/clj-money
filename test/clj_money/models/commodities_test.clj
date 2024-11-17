@@ -3,11 +3,11 @@
             [clojure.pprint :refer [pprint]]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
-            [dgknght.app-lib.validation :as v]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
             [clj-money.models :as models]
             [clj-money.db.sql.ref]
+            [clj-money.models.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
                                             find-entity
@@ -114,10 +114,8 @@
 
 (deftest symbol-is-required
   (with-context commodity-context
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:commodity/symbol ["Symbol is required"]}}
-          (models/put (dissoc (attributes) :commodity/symbol))))))
+    (assert-invalid (dissoc (attributes) :commodity/symbol)
+                    {:commodity/symbol ["Symbol is required"]})))
 
 (deftest symbol-is-unique-for-an-entity-and-exchange
   (with-context existing-context

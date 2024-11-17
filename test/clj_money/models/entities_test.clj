@@ -3,7 +3,8 @@
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test-assertions]
-            [dgknght.app-lib.validation :as v]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
             [clj-money.test-context :refer [with-context
                                             find-user
                                             find-entity]]
@@ -12,7 +13,6 @@
                                                          assert-updated
                                                          assert-deleted]]
             [clj-money.models :as models]
-            [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-helpers :refer [reset-db]]))
 
@@ -95,10 +95,8 @@
 
 (deftest inventory-method-cannot-be-something-other-than-fifo-or-lifo
   (with-context entity-context
-    (is (thrown-with-ex-data?
-          "Validation failed"
-          {::v/errors {:entity/settings
-                       {:settings/inventory-method
-                        ["Inventory method must be fifo or lifo"]}}}
-          (models/put (assoc (attributes)
-                             :entity/settings {:settings/inventory-method :not-valid}))))))
+    (assert-invalid (assoc (attributes)
+                           :entity/settings {:settings/inventory-method :not-valid})
+                    {:entity/settings
+                     {:settings/inventory-method
+                      ["Inventory method must be fifo or lifo"]}})))
