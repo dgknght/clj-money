@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.validation :as v]
             [dgknght.app-lib.models :refer [->id]]
+            [clj-money.json] ; to ensure encoders are registered
             [clj-money.util :as util]
             [clj-money.db :as db]))
 
@@ -29,7 +30,7 @@
 (defmethod after-read :default [m & _] m)
 
 (defmulti before-delete db/type-dispatch)
-(defmethod before-delete :default [m & _] [m])
+(defmethod before-delete :default [m & _] m)
 
 (defmulti propagate-delete db/type-dispatch)
 (defmethod propagate-delete :default [m & _] [m])
@@ -108,7 +109,7 @@
        (mapcat (comp (fn [[m & ms]]
                        (cons [::db/delete m]
                              ms))
-                  propagate-delete))
+                     propagate-delete))
        (db/put (db/storage))))
 
 (defn delete
