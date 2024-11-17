@@ -162,8 +162,8 @@
                          (= trade-date (:price/trade-date %)))))))
 
 (defn find-transaction
-  ([transaction-date description] (find-transaction *context* transaction-date description))
-  ([context transaction-date description]
+  ([identifier] (find-transaction *context* identifier))
+  ([context [transaction-date description]]
    {:pre [(string? description) (t/local-date? transaction-date)]}
 
    (find context
@@ -300,6 +300,12 @@
       (update-in [:image/user] #(find-user ctx %))
       (update-in [:image/body] (comp read-bytes
                                      io/input-stream))))
+
+(defmethod prepare :attachment
+  [att ctx]
+  (-> att
+      (update-in [:attachment/transaction] #(find-transaction ctx %))
+      (update-in [:attachment/image] #(find-image ctx %))))
 
 (defn realize
   "Realizes a test context"

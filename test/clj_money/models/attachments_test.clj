@@ -1,5 +1,6 @@
 (ns clj-money.models.attachments-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
+            [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.test]
             [clj-money.models :as models]
@@ -31,7 +32,7 @@
                 :content-type "image/jpeg"}))
 
 (defn- attributes []
-  #:attachment{:transaction (find-transaction (t/local-date 2017 1 1) "Paycheck")
+  #:attachment{:transaction (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
                :image (find-image "sample_receipt.jpg")
                :caption "receipt"})
 
@@ -44,43 +45,44 @@
   (with-context attach-context
     (assert-created (attributes))
     (is (comparable? {:transaction/attachment-count 1}
-                     (models/find (find-transaction (t/local-date 2017 1 1) "Paycheck"))))))
+                     (models/find (find-transaction [(t/local-date 2017 1 1) "Paycheck"]))))))
 
-; (deftest transaction-id-is-required
-;   (let [context (realize attach-context)
-;         result (attachments/create (dissoc (attributes context)
-;                                            :transaction-id))]
-;     (is (invalid? result [:transaction-id] "Transaction is required"))))
-; 
-; (deftest image-id-is-required
-;   (let [context (realize attach-context)
-;         result (attachments/create (dissoc (attributes context)
-;                                            :image-id))]
-;     (is (invalid? result [:image-id] "Image is required"))))
-; 
-; (def ^:private update-context
-;   (assoc attach-context :attachments
-;          [{:transaction-id {:transaction-date (t/local-date 2017 1 1)
-;                             :description "Paycheck"}
-;            :image-id "sample_receipt.jpg"
-;            :caption "receipt"}]))
-; 
-; (deftest update-an-attachment
-;   (let [ctx (realize update-context)
-;         attachment (find-attachment ctx "receipt")
-;         result (attachments/update (assoc attachment
-;                                           :caption "Updated caption"))
-;         retrieved (attachments/find attachment)]
-;     (is (valid? result))
-;     (is (= "Updated caption" (:caption result)) "The updated value is returned")
-;     (is (= "Updated caption" (:caption retrieved)) "The correct value is retrieved")))
-; 
-; (deftest delete-an-attachment
-;   (let [context (realize update-context)
-;         attachment (-> context :attachments first)
-;         _ (attachments/delete attachment)
-;         retrieved (attachments/find attachment)
-;         retrieved-trans (transactions/find attachment)]
-;     (is (nil? retrieved) "The value cannot be retrieved after delete")
-;     (is (= 0 (:attachment-count retrieved-trans))
-;         "The attachment count is updated in the transaction")))
+(deftest transaction-is-required
+  (with-context attach-context
+    (assert-invalid (-> (attributes)
+                        (dissoc :attachment/transaction)
+                        (assoc :attachment/transaction-date (t/local-date 2017 1 1)))
+                    {:attachment/transaction ["Transaction is required"]})))
+
+(deftest image-is-required
+  (with-context attach-context
+    (assert-invalid (dissoc (attributes) :attachment/image)
+                    {:attachment/image ["Image is required"]})))
+
+(def ^:private update-context
+  (conj attach-context 
+        #:attachment{:transaction [(t/local-date 2017 1 1) "Paycheck"] 
+                     :image "sample_receipt.jpg"
+                     :caption "receipt"}))
+
+(deftest update-an-attachment
+  (with-context update-context
+    (let [att (find-attachment "receipt")]
+      (is (comparable? {:attachment/caption "Updated caption"}
+                       (-> att
+                           (assoc :attachment/caption "Updated caption")
+                           models/put))
+          "The return value has the updated attributes")
+      (is (comparable? {:attachment/caption "Updated caption"}
+                       (models/find att))
+          "The retrieved valud has the updated attributes"))))
+
+(deftest delete-an-attachment
+  (with-context update-context
+    (let [att (find-attachment "receipt")]
+      (models/delete att)
+      (is (nil? (models/find att))
+          "The attachment cannot be retrieved after delete")
+      (is (comparable? {:transaction/attachment-count 0}
+                       (models/find (find-transaction [(t/local-date 2017 1 1) "Paycheck"])))
+          "The attachment count is updated in the transaction"))))

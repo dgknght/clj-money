@@ -406,7 +406,7 @@
 (deftest delete-a-transaction
   (with-context delete-context
     (let [checking-items-before (items-by-account "Checking")
-          trans (find-transaction (t/local-date 2016 3 3) "Kroger")
+          trans (find-transaction [(t/local-date 2016 3 3) "Kroger"])
           _ (models/delete trans)
           checking-items-after (items-by-account "Checking")]
       (testing "checking transaction item balances are adjusted"
@@ -448,7 +448,7 @@
 
 (deftest get-a-transaction
   (with-context update-context
-    (let [trx (find-transaction (t/local-date 2016 3 2) "Paycheck")]
+    (let [trx (find-transaction [(t/local-date 2016 3 2) "Paycheck"])]
       (testing "items are not included if not specified"
         (let [retrieved (models/find-by (select-keys trx [:id :transaction/transaction-date]))]
           (is retrieved "a value is returned")
@@ -530,7 +530,7 @@
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
-      (-> (find-transaction (t/local-date 2016 3 12) "Kroger")
+      (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
           (update-trx-items groceries {:transaction-item/quantity 99.99M}
                             checking {:transaction-item/quantity 99.99M})
           models/put)
@@ -549,7 +549,7 @@
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
-          trx (find-transaction (t/local-date 2016 3 22) "Kroger")
+          trx (find-transaction [(t/local-date 2016 3 22) "Kroger"])
           result (-> trx
                      (assoc :transaction/transaction-date (t/local-date 2016 3 10))
                      models/put)]
@@ -587,7 +587,7 @@
   (with-context update-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")
-          result (-> (find-transaction (t/local-date 2016 3 12) "Kroger")
+          result (-> (find-transaction [(t/local-date 2016 3 12) "Kroger"])
                      (assoc :transaction/transaction-date (t/local-date 2016 4 12))
                      models/put)]
       (is (seq-of-maps-like? [#:transaction-item{:index 2
@@ -666,7 +666,7 @@
       (with-redefs [sql/put* (fn [ds models]
                                (swap! calls conj models)
                                (orig-put ds models))]
-        (-> (find-transaction (t/local-date 2016 3 16) "Kroger")
+        (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
             (assoc :transaction/transaction-date (t/local-date 2016 3 8))
             models/put)
         (let [[c :as cs] @calls]
@@ -730,7 +730,7 @@
   (with-context change-account-context
     (let [[rent
            groceries] (find-accounts "Rent" "Groceries")]
-      (-> (find-transaction (t/local-date 2016 3 16) "Kroger")
+      (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
           (update-trx-items groceries {:transaction-item/account rent})
           models/put)
       (is (seq-of-maps-like? [#:transaction-item{:index 1
@@ -779,7 +779,7 @@
   (with-context change-action-context
     (let [checking (find-account "Checking")
           groceries (find-account "Groceries")]
-      (-> (find-transaction (t/local-date 2016 3 16) "Kroger")
+      (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
           (update-trx-items groceries {:transaction-item/action :credit}
                             checking {:transaction-item/action :debit})
           models/put)
@@ -864,7 +864,7 @@
 
 (deftest update-a-transaction-remove-item
   (with-context add-remove-item-context
-    (-> (find-transaction (t/local-date 2016 3 16) "Kroger")
+    (-> (find-transaction [(t/local-date 2016 3 16) "Kroger"])
         (update-trx-items (find-account "Groceries")
                           #:transaction-item{:quantity 102M
                                              :value 102M})
@@ -891,7 +891,7 @@
     (let [[pets
            groceries
            checking] (find-accounts "Pets" "Groceries" "Checking")]
-      (-> (find-transaction (t/local-date 2016 3 9) "Kroger")
+      (-> (find-transaction [(t/local-date 2016 3 9) "Kroger"])
           (update-trx-items groceries #:transaction-item{:quantity 90M
                                                          :value 90M})
           (update-in [:transaction/items]
@@ -1100,21 +1100,21 @@
 
 (deftest the-quantity-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context
-    (-> (find-transaction (t/local-date 2017 1 1) "Paycheck")
+    (-> (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
         (assoc-in [:transaction/items 0 :transaction-item/quantity] 1010M)
         (assoc-in [:transaction/items 1 :transaction-item/quantity] 1010M)
         (assert-invalid {:transaction/items ["A reconciled quantity cannot be updated"]}))))
 
 (deftest the-action-of-a-reconciled-item-cannot-be-changed
   (with-context existing-reconciliation-context
-    (-> (find-transaction (t/local-date 2017 1 1) "Paycheck")
+    (-> (find-transaction [(t/local-date 2017 1 1) "Paycheck"])
         (assoc-in [:transaction/items 0 :transaction-item/action] :credit)
         (assoc-in [:transaction/items 1 :transaction-item/action] :debit)
         (assert-invalid {:transaction/items ["A reconciled quantity cannot be updated"]}))))
 
 (deftest a-reconciled-transaction-item-cannot-be-deleted
   (with-context existing-reconciliation-context
-    (let [transaction (find-transaction (t/local-date 2017 1 1) "Paycheck")]
+    (let [transaction (find-transaction [(t/local-date 2017 1 1) "Paycheck"])]
       (is (thrown? IllegalStateException
                    (models/delete transaction)))
       (is (models/find transaction)

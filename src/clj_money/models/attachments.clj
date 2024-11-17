@@ -73,10 +73,23 @@
   [{:as att :attachment/keys [transaction]}]
   (update-in att [:attachment/transaction-date] (fnil identity (:transaction/transaction-date transaction))))
 
+(defn- find-trx
+  [att]
+  (models/find-by {:id (get-in att [:attachment/transaction :id])
+                   :transaction/transaction-date (:attachment/transaction-date att)}))
+
+(defn- adjust-trx
+  [att f]
+  (update-in (find-trx att)
+             [:transaction/attachment-count]
+             (fnil f 0)))
+
 (defmethod models/propagate :attachment
   [att]
   [att
-   (update-in (models/find-by {:id (get-in att [:attachment/transaction :id])
-                               :transaction/transaction-date (:attachment/transaction-date att)})
-              [:transaction/attachment-count]
-              (fnil inc 0))])
+   (adjust-trx att inc)])
+
+(defmethod models/propagate-delete :attachment
+  [att]
+  [att
+   (adjust-trx att dec)])
