@@ -292,6 +292,10 @@
   [item ctx]
   (update-in item [:budget-item/account] #(find-account ctx %)))
 
+(defmethod prepare :image
+  [image ctx]
+  (update-in image [:image/user] #(find-user ctx %)))
+
 (defn realize
   "Realizes a test context"
   [input]

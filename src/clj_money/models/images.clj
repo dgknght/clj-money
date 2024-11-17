@@ -13,7 +13,7 @@
   [img]
   (= 0 (count (models/select (select-keys img [:image/body-hash :image/user])))))
 (v/reg-spec body-hash-is-unique? {:message "The image has already been added"
-                                  :path [:body-hash]})
+                                  :path [:image/body-hash]})
 
 (s/def :image/user ::models/model-ref)
 (s/def :image/original-filename string?)
