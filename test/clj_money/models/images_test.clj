@@ -25,7 +25,9 @@
   #:image{:user (find-user "john@doe.com")
           :original-filename "sample.gnucash"
           :content-type "application/gnucash"
-          :body (read-bytes (io/input-stream "resources/fixtures/sample.gnucash"))})
+          :body (-> "resources/fixtures/sample.gnucash"
+                    io/input-stream
+                    read-bytes)})
 
 (defn- assert-created
   [attr]

@@ -3,49 +3,21 @@
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [config.core :refer [env]]
-            [stowaway.core
-             :refer [tag]]
-            [stowaway.implicit
-             :as storage
-             :refer [with-storage
-                     with-transacted-storage]]
-            [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :refer [with-validation]]
-            [clj-money.models :as models]
-            [clj-money.models.transactions :as transactions]
-            [clj-money.models.images :as images]))
+            [clj-money.models :as models]))
 
-(s/def ::id integer?)
-(s/def ::transaction-id uuid?)
-(s/def ::transaction-date t/local-date?)
-(s/def ::image-id integer?)
-(s/def ::caption string?)
-(s/def ::new-attachment (s/keys :req-un [::transaction-id
-                                         ::transaction-date
-                                         ::image-id]
-                                :opt-un [::caption]))
-(s/def ::existing-attachment (s/keys :req-un [::id]
-                                     :opt-un [::caption]))
+(s/def :attachment/transaction ::models/model-ref)
+(s/def :attachment/transaction-date t/local-date?)
+(s/def :attachment/image ::models/model-ref)
+(s/def :attachment/caption string?)
+(s/def ::models/attachment (s/keys :req [:attachment/transaction
+                                         :attachment/transaction-date
+                                         :attachment/image]
+                                   :opt [:attachment/caption]))
 
-(defn- after-read
-  [attachment]
-  (when attachment
-    (tag attachment ::models/attachment)))
-
-(defn- before-save
-  [attachment]
-  (tag attachment ::models/attachment))
-
-(defn- update-transaction
-  [attachment f]
-  (-> (transactions/find attachment)
-      (update-in [:attachment-count] f)
-      transactions/update))
-
-(defn create
-  [attachment]
-  (with-transacted-storage (env :db)
+(defn ^:deprecated create
+  [_attachment]
+  (throw (UnsupportedOperationException. "create is deprecated"))
+  #_(with-transacted-storage (env :db)
     (with-validation attachment ::new-attachment
       (update-transaction attachment inc)
       (-> attachment
@@ -53,37 +25,42 @@
           storage/create
           after-read))))
 
-(defn search
+(defn ^:deprecated search
   ([criteria]
    (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
+  ([_criteria _options]
+   (throw (UnsupportedOperationException. "search is deprecated"))
+   #_(with-storage (env :db)
      (map after-read
           (storage/select (tag criteria ::models/attachment)
                           options)))))
 
-(defn find-by
+(defn ^:deprecated find-by
   ([criteria]
    (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (assoc options :limit 1)))))
+  ([_criteria _options]
+   (throw (UnsupportedOperationException. "search is deprecated"))
+   #_(first (search criteria (assoc options :limit 1)))))
 
-(defn find
-  [attachment-or-id]
-  (find-by {:id (->id attachment-or-id)}))
+(defn ^:deprecated find
+  [_attachment-or-id]
+   (throw (UnsupportedOperationException. "find is deprecated"))
+  #_(find-by {:id (->id attachment-or-id)}))
 
-(defn update
-  [attachment]
-  (with-storage (env :db)
+(defn ^:deprecated update
+  [_attachment]
+   (throw (UnsupportedOperationException. "update is deprecated"))
+  #_(with-storage (env :db)
     (with-validation attachment ::existing-attachment
       (-> attachment
           before-save
           storage/update)
       (find attachment))))
 
-(defn delete
-  [id-or-attachment]
-  (with-transacted-storage (env :db)
+(defn ^:deprecated delete
+  [_id-or-attachment]
+   (throw (UnsupportedOperationException. "delete is deprecated"))
+  #_(with-transacted-storage (env :db)
     (let [attachment (if (integer? id-or-attachment)
                        (find id-or-attachment)
                        id-or-attachment)
@@ -91,3 +68,15 @@
       (images/delete image)
       (storage/delete attachment)
       (update-transaction attachment dec))))
+
+(defmethod models/before-validation :attachment
+  [{:as att :attachment/keys [transaction]}]
+  (update-in att [:attachment/transaction-date] (fnil identity (:transaction/transaction-date transaction))))
+
+(defmethod models/propagate :attachment
+  [att]
+  [att
+   (update-in (models/find-by {:id (get-in att [:attachment/transaction :id])
+                               :transaction/transaction-date (:attachment/transaction-date att)})
+              [:transaction/attachment-count]
+              (fnil inc 0))])

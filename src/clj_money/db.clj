@@ -16,6 +16,7 @@
     :account
     :transaction
     :transaction-item
+    :attachment
     :budget
     :budget-item
     :grant

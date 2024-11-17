@@ -2,7 +2,9 @@
   (:refer-clojure :exclude [find])
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
+            [clojure.java.io :as io]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.io :refer [read-bytes]]
             [clj-money.util :as util :refer [model=]]
             [clj-money.models :as models]
             [clj-money.transactions :refer [expand]]))
@@ -294,7 +296,10 @@
 
 (defmethod prepare :image
   [image ctx]
-  (update-in image [:image/user] #(find-user ctx %)))
+  (-> image
+      (update-in [:image/user] #(find-user ctx %))
+      (update-in [:image/body] (comp read-bytes
+                                     io/input-stream))))
 
 (defn realize
   "Realizes a test context"
