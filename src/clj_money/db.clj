@@ -9,6 +9,7 @@
 (def model-types
   #{:user
     :identity
+    :image
     :entity
     :commodity
     :price
@@ -20,6 +21,8 @@
     :grant
     :scheduled-transaction
     :reconciliation})
+
+(def valid-model-type? model-types)
 
 (defprotocol Storage
   "Defines the functions necessary to store and retrieve data"
@@ -100,7 +103,7 @@
           (or (map? model-or-type)
               (keyword? model-or-type))]}
    (let [t (extract-model-type model-or-type)]
-     (assert (model-types t))
+     (assert (valid-model-type? t))
      (vary-meta m assoc ::type t))))
 
 (defn model-type?
