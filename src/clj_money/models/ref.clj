@@ -4,5 +4,6 @@
             clj-money.models.commodities
             clj-money.models.accounts
             clj-money.models.transactions
-            clj-money.models.reconciliations))
+            clj-money.models.reconciliations
+            clj-money.models.images))
 
