@@ -500,6 +500,15 @@
     (delay-propagation trx)
     (cons trx (propagate-current-items trx :delete? true))))
 
+(defmethod models/before-delete :transaction
+  [trx]
+  (when (and (:id trx)
+             (< 0  (models/count {:transaction-item/transaction trx
+                                  :transaction-item/transaction-date (:transaction/transaction-date trx)
+                                  :transaction-item/reconciliation [:!= nil]})))
+    (throw (IllegalStateException. "Cannot delete transaction with reconciled items")))
+  trx)
+
 (defn process-delayed-balances*
   [{:keys [accounts earliest-date]} progress-chan]
   (a/>!! progress-chan
