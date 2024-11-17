@@ -27,40 +27,23 @@
                     :account/name
                     :entity/name])))
 
-(declare reload)
-
 (defn- no-reconciled-quantities-changed?
-  [transaction]
-  (let [existing (models/find transaction)
-        submitted (->> (:transaction/items transaction)
-                       (filter :id)
-                       (map #(select-keys % [:id
-                                             :transaction-item/quantity
-                                             :transaction-item/account
-                                             :transaction-item/action]))
-                       (index-by :id))
-        invalid (->> (:transaction/items existing)
-                     (filter :transaction-item/reconciled?)
-                     (map (comp #(hash-map :before %
-                                           :after (submitted (:id %)))
-                                #(select-keys % [:id
-                                                 :transaction-item/quantity
-                                                 :transaction-item/account
-                                                 :transaction-item/action])))
-                     (remove #(= (:before %) (:after %))))]
-    (log/warnf "Attempt to change reconciled item(s): %s %s %s"
-               (->> invalid
-                    (map #(assoc %
-                                 :account (:account/name
-                                            (models/find
-                                              (get-in % [:before
-                                                         :transaction-item/account
-                                                         :id])
-                                              :account))))
-                    (into []))
-               submitted
-               existing)
-    (empty? invalid)))
+  [{:transaction/keys [items] :as trx}]
+  (if (:id trx)
+    (let [after (->> items
+                     (map (juxt :id #(select-keys % [:id
+                                                     :transaction-item/quantity
+                                                     :transaction-item/action])))
+                     (into {}))]
+      (->> (models/select #:transaction-item{:transaction-date (:transaction/transaction-date trx)
+                                             :transaction trx
+                                             :reconciliation [:!= nil]})
+           (map #(select-keys % [:id
+                                 :transaction-item/quantity
+                                 :transaction-item/action]))
+           (remove #(= % (after (:id %))))
+           empty?))
+    true))
 
 (v/reg-spec no-reconciled-quantities-changed? {:message "A reconciled quantity cannot be updated"
                                                :path [:transaction/items]})
@@ -128,12 +111,13 @@
                                                :transaction-item/memo]))
 (s/def :transaction/items (s/and (s/coll-of ::models/transaction-item :min-count 2)
                                  sum-of-credits-equals-sum-of-debits?))
-(s/def ::models/transaction (s/keys :req [:transaction/description
-                                          :transaction/transaction-date
-                                          :transaction/items
-                                          :transaction/entity]
-                                    :opt [:transaction/memo
-                                          :transaction/lot-items]))
+(s/def ::models/transaction (s/and (s/keys :req [:transaction/description
+                                                 :transaction/transaction-date
+                                                 :transaction/items
+                                                 :transaction/entity]
+                                           :opt [:transaction/memo
+                                                 :transaction/lot-items])
+                                   no-reconciled-quantities-changed?))
 
 (defn- remove-empty-strings
   [model & keys]
