@@ -10,13 +10,6 @@
             [dgknght.app-lib.validation :refer [with-validation]]
             [clj-money.models :as models]))
 
-(s/def ::id integer?)
-(s/def ::entity-id integer?)
-(s/def ::user-id integer?)
-(s/def ::permissions (s/map-of keyword? set?))
-(s/def ::new-grant (s/keys :req-un [::entity-id ::user-id ::permissions]))
-(s/def ::existing-grant (s/keys :req-un [::id ::entity-id ::user-id ::permissions]))
-
 (def resource-types
   #{:account
     :entity
@@ -30,70 +23,28 @@
     :report})
 
 (def actions
-  #{:show :create :update :delete})
+  #{:show :create :update :delete :index})
 
-(def available-permissions
-  (->> {:report #{:income-statement :balance-sheet :budget}}
-       (merge (reduce #(assoc %1 %2 actions) {} resource-types))))
+(s/def :grant/entity ::models/model-ref)
+(s/def :grant/user ::models/model-ref)
+(s/def :grant/permissions (s/map-of resource-types
+                                    (s/coll-of actions
+                                               :min-count 1
+                                               :kind set?)))
+(s/def ::models/grant (s/keys :req [:grant/entity
+                                    :grant/user
+                                    :grant/permissions]))
 
-(defn- before-save
-  [grant]
-  (tag grant ::models/grant))
-
-(defn- prepare-permissions
-  [permissions]
-  (reduce (fn [p k]
-            (update-in-if p [k] #(set (map keyword %))))
-          (-> permissions
-              keywordize-keys)
-          [:account :transaction]))
-
-(defn- after-read
-  [grant]
-  (when grant
-    (-> grant
-        (update-in [:permissions] prepare-permissions)
-        (tag ::models/grant))))
-
-(defn create
-  [grant]
-  (with-storage (env :db)
-    (with-validation grant ::new-grant
-      (-> grant
-          before-save
-          storage/create
-          after-read))))
-
-(defn search
+(defn ^:deprecated search
   ([criteria]
    (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map after-read (storage/select (tag criteria ::models/grant)
-                                     options)))))
+  ([_criteria _options]
+   (throw (UnsupportedOperationException. "search is deprecated"))))
 
-(defn find-by
+(defn ^:deprecated find-by
   ([criteria] (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (assoc options :limit 1)))))
-
-(defn find
-  [grant-or-id]
-  (find-by {:id (->id grant-or-id)}))
-
-(defn update
-  [grant]
-  (with-storage (env :db)
-    (with-validation grant ::existing-grant
-      (-> grant
-          before-save
-          storage/update)
-      (find grant))))
-
-(defn delete
-  [grant]
-  (with-storage (env :db)
-    (storage/delete grant)))
+  ([_criteria _options]
+   (throw (UnsupportedOperationException. "find-by is deprecated"))))
 
 (defn has-permission?
   [grant resource-type action]

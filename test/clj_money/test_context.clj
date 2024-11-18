@@ -115,9 +115,17 @@
     (map #(find-import context %) entity-names)))
 
 (defn find-grant
-  ([entity user] (find-grant *context* entity user))
-  ([context entity user]
-   (find context :grant/entity entity :grant/user user)))
+  ([identifier] (find-grant *context* identifier))
+  ([context [entity user]]
+   (let [e (util/->model-ref
+             (if (map? entity)
+               entity
+               (find-entity context entity)))
+         u (util/->model-ref
+             (if (map? user)
+               user
+               (find-user context user)))]
+     (find context :grant/entity e :grant/user u))))
 
 (defn find-account
   ([account-name] (find-account *context* account-name))
@@ -306,6 +314,12 @@
   (-> att
       (update-in [:attachment/transaction] #(find-transaction ctx %))
       (update-in [:attachment/image] #(find-image ctx %))))
+
+(defmethod prepare :grant
+  [attr ctx]
+  (-> attr
+      (update-in [:grant/user] #(find-user ctx %))
+      (update-in [:grant/entity] #(find-entity ctx %))))
 
 (defn realize
   "Realizes a test context"
