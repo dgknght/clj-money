@@ -8,7 +8,8 @@
             [clj-money.util :as util]
             [clj-money.db :as db]))
 
-(s/def ::exchange #{:nyse :nasdaq :amex :otc})
+(def exchanges #{:nyse :nasdaq :amex :otc})
+
 (s/def ::model-ref (s/and map? #(contains? % :id)))
 
 (defmulti prepare-criteria db/type-dispatch)

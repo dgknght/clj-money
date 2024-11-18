@@ -13,6 +13,7 @@
     :entity
     :commodity
     :price
+    :cached-price
     :account
     :transaction
     :transaction-item
