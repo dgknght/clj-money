@@ -1,13 +1,6 @@
 (ns clj-money.models.grants
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [clojure.walk :refer [keywordize-keys]]
-            [config.core :refer [env]]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage]]
-            [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :refer [with-validation]]
             [clj-money.models :as models]))
 
 (def resource-types
@@ -34,12 +27,6 @@
 (s/def ::models/grant (s/keys :req [:grant/entity
                                     :grant/user
                                     :grant/permissions]))
-
-(defn ^:deprecated search
-  ([criteria]
-   (search criteria {}))
-  ([_criteria _options]
-   (throw (UnsupportedOperationException. "search is deprecated"))))
 
 (defn ^:deprecated find-by
   ([criteria] (find-by criteria {}))
