@@ -88,7 +88,10 @@
         first)))
 
 (defn find-user
-  ([email] (find-user *context* email))
+  ([arg]
+   (if (sequential? arg)
+     (partial find-user arg)
+     (find-user *context* arg)))
   ([context email]
    (find context :user/email email)))
 
@@ -235,7 +238,7 @@
 
 (defmethod prepare :entity
   [entity ctx]
-  (update-in entity [:entity/user] #(find-user ctx %)))
+  (update-in entity [:entity/user] (find-user ctx)))
 
 (defmethod prepare :commodity
   [commodity ctx]
@@ -305,7 +308,7 @@
 (defmethod prepare :image
   [image ctx]
   (-> image
-      (update-in [:image/user] #(find-user ctx %))
+      (update-in [:image/user] (find-user ctx))
       (update-in [:image/body] (comp read-bytes
                                      io/input-stream))))
 
@@ -318,8 +321,12 @@
 (defmethod prepare :grant
   [attr ctx]
   (-> attr
-      (update-in [:grant/user] #(find-user ctx %))
+      (update-in [:grant/user] (find-user ctx))
       (update-in [:grant/entity] #(find-entity ctx %))))
+
+(defmethod prepare :identity
+  [attr ctx]
+  (update-in attr [:identity/user] (find-user ctx)))
 
 (defn realize
   "Realizes a test context"
