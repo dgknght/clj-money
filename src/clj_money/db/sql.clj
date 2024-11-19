@@ -11,6 +11,7 @@
                                            for-update
                                            for-delete]]
             [next.jdbc.date-time]
+            [next.jdbc.result-set :as rs]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.inflection :refer [plural
@@ -22,7 +23,13 @@
                                               ->update]]
             [clj-money.db.sql.types :refer [temp-id?
                                             coerce-id]])
-  (:import org.postgresql.util.PGobject))
+  (:import org.postgresql.util.PGobject
+           java.sql.Array))
+
+(extend-protocol rs/ReadableColumn
+  Array
+  (read-column-by-label [^Array v _] (vec (.getArray v)))
+  (read-column-by-index [^Array v _ _] (vec (.getArray v))))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)

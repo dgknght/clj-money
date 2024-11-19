@@ -9,6 +9,7 @@
 (def model-types
   #{:user
     :identity
+    :import
     :image
     :entity
     :commodity

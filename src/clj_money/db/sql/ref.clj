@@ -2,6 +2,7 @@
   (:require clj-money.db.sql
             clj-money.db.sql.users
             clj-money.db.sql.identities
+            clj-money.db.sql.imports
             clj-money.db.sql.entities
             clj-money.db.sql.grants
             clj-money.db.sql.commodities

@@ -110,12 +110,7 @@
 (defn find-import
   ([entity-name] (find-import *context* entity-name))
   ([context entity-name]
-   (find context :entity-name entity-name)))
-
-(defn find-imports
-  [& args]
-  (let [[context & entity-names] (context+ args)]
-    (map #(find-import context %) entity-names)))
+   (find context :import/entity-name entity-name)))
 
 (defn find-grant
   ([identifier] (find-grant *context* identifier))
@@ -146,7 +141,10 @@
    (find context :attachment/caption caption)))
 
 (defn find-image
-  ([original-filename] (find-image *context* original-filename))
+  ([arg]
+   (if (sequential? arg)
+     (partial find-image arg)
+     (find-image *context* arg)))
   ([context original-filename]
    (find context :image/original-filename original-filename)))
 
@@ -316,7 +314,7 @@
   [att ctx]
   (-> att
       (update-in [:attachment/transaction] #(find-transaction ctx %))
-      (update-in [:attachment/image] #(find-image ctx %))))
+      (update-in [:attachment/image] (find-image ctx))))
 
 (defmethod prepare :grant
   [attr ctx]
@@ -327,6 +325,15 @@
 (defmethod prepare :identity
   [attr ctx]
   (update-in attr [:identity/user] (find-user ctx)))
+
+(defmethod prepare :import
+  [attr ctx]
+  (-> attr
+      (update-in [:import/user] (find-user ctx))
+      (update-in [:import/images] (fn [img-refs]
+                                    (mapv (comp util/->model-ref
+                                                (find-image ctx))
+                                          img-refs)))))
 
 (defn realize
   "Realizes a test context"

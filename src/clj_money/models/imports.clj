@@ -13,25 +13,15 @@
             [clj-money.models.entities :as entities]
             [clj-money.models.images :as images]))
 
-(s/def ::id integer?)
-(s/def ::entity-name string?)
-(s/def ::image-ids (s/coll-of integer?))
-(s/def ::user-id integer?)
-(s/def ::lt-capital-gains-account string?)
-(s/def ::st-capital-gains-account string?)
-(s/def ::lt-capital-loss-account string?)
-(s/def ::st-capital-loss-account string?)
-(s/def ::options (s/keys :opt-un [::lt-capital-gains-account
-                                  ::st-capital-gains-account
-                                  ::lt-capital-loss-account
-                                  ::st-captial-loss-account]))
-(s/def ::new-import (s/keys :req-un [::user-id ::entity-name ::image-ids] :opt-un [::options]))
-(s/def ::progress map?)
-(s/def ::existing-import (s/keys :req-un [::id ::progress]))
-
-(defn- before-save
-  [imp]
-  (tag imp ::models/import))
+(s/def :import/entity-name string?)
+(s/def :import/images (s/coll-of ::models/model-ref :min-count 1))
+(s/def :import/user ::models/model-ref)
+(s/def :import/options (s/nilable (s/map-of keyword? string?)))
+(s/def ::models/import (s/keys :req [:import/user
+                                     :import/entity-name
+                                     :import/images]
+                               :opt [:import/options
+                                     :import/progress]))
 
 (defn- prepare-progress
   [progress]
@@ -48,63 +38,43 @@
                     :finished
                     :errors])))
 
+(defmethod models/before-save :import
+  [imp]
+  (dissoc imp :import/entity-exists?))
+
 (defn- entity-exists?
-  [imp]
-  (boolean
-   (entities/find-by {:user-id (:user-id imp)
-                      :name (:entity-name imp)})))
+  [{:import/keys [user entity-name]}]
+  (< 0 (models/count #:entity{:user user
+                              :name entity-name})))
 
-(defn- after-read
-  [imp]
-  (when imp
-    (-> imp
-        (update-in [:progress] prepare-progress)
-        (update-in-if [:options] keywordize-keys)
-        (assoc :entity-exists? (entity-exists? imp))
-        (tag ::models/import))))
+(defmethod models/after-read :import
+  [imp _]
+  (assoc imp :import/entity-exists? (entity-exists? imp)))
 
-(defn create
-  [impt]
-  (with-storage (env :db)
-    (with-validation impt ::new-import
-      (-> impt
-          before-save
-          storage/create
-          after-read))))
+(defn ^:deprecated create
+  [_impt]
+  (throw (UnsupportedOperationException. "create is deprecated")))
 
-(defn search
+(defn ^:deprecated search
   ([criteria]
    (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map after-read
-          (storage/select (tag criteria ::models/import)
-                          (merge {:sort [:created-at]} options))))))
+  ([_criteria _options]
+   (throw (UnsupportedOperationException. "search is deprecated"))))
 
-(defn find-by
+(defn ^:deprecated find-by
   ([criteria]
    (find-by criteria {}))
-  ([criteria options]
-   (first (search criteria (assoc options :limit 1)))))
+  ([_criteria _options]
+   (throw (UnsupportedOperationException. "find-by is deprecated"))))
 
-(defn find
-  [import-or-id]
-  (find-by {:id (->id import-or-id)}))
+(defn ^:deprecated find
+  [_import-or-id]
+  (throw (UnsupportedOperationException. "find is deprecated")))
 
-(defn update
-  [impt]
-  (with-storage (env :db)
-    (with-validation impt ::existing-import
-      (storage/update impt)
-      (find impt))))
+(defn ^:deprecated update
+  [_impt]
+  (throw (UnsupportedOperationException. "update is deprecated")))
 
-(defn delete
-  [imp]
-  {:pre [imp (map? imp)]}
-
-  (with-transacted-storage (env :db)
-    (doseq [image (->> (:image-ids imp)
-                       (map images/find)
-                       (filter identity))]
-      (images/delete image))
-    (storage/delete imp)))
+(defn ^:deprecated delete
+  [_imp]
+  (throw (UnsupportedOperationException. "delete is deprecated")))

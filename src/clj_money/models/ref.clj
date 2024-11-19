@@ -1,6 +1,7 @@
 (ns clj-money.models.ref
   (:require clj-money.models.users
             clj-money.models.identities
+            clj-money.models.imports
             clj-money.models.entities
             clj-money.models.grants
             clj-money.models.commodities
