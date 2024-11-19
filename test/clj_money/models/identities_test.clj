@@ -60,32 +60,25 @@
 
 (deftest find-a-user-from-profile-via-identity
   (with-context find-context
-
-    (pprint {::find-or-create-from-profile (idents/find-or-create-from-profile
-                                             :google
-                                             profile)})
-
     (is (comparable? #:user{:email "john@doe.com"}
                      (idents/find-or-create-from-profile
                        :google
                        profile))
-        "The correct user record is returned")))
+        "The user record associated with the identity is returned")))
 
-; (deftest find-a-user-from-profile-and-create-identity
-;   (let [ctx (realize create-context)
-;         user (find-user ctx "john@doe.com")
-;         retrieved (idents/find-or-create-from-profile
-;                    :google
-;                    profile)]
-;     (is (comparable? user retrieved :id :email :first-name :last-name)
-;         "The correct user record is returned")))
-; 
-; (deftest create-a-user-from-a-profile
-;   (let [retrieved (idents/find-or-create-from-profile
-;                     :google
-;                     profile)]
-;     (is (comparable? {:email "john@doe.com"
-;                       :first-name "John"
-;                       :last-name "Doe"}
-;                      retrieved)
-;         "The correct user record is returned")))
+(deftest find-a-user-from-profile-and-create-identity
+  (with-context create-context
+    (is (comparable? #:user{:email "john@doe.com"}
+                     (idents/find-or-create-from-profile
+                       :google
+                       profile))
+        "The user record having the profile email is returned")))
+
+(deftest create-a-user-from-a-profile
+  (is (comparable? #:user{:email "john@doe.com"
+                          :first-name "John"
+                          :last-name "Doe"}
+                   (idents/find-or-create-from-profile
+                     :google
+                     profile))
+      "A new user record populated from the profile is returned"))

@@ -28,21 +28,13 @@
   [_criteria]
   (throw (UnsupportedOperationException. "find-by is deprecated")))
 
-(defn- identity->user
-  [ident]
-  (when ident
-    (-> ident
-        (rename-keys {:user-id :id
-                      :user-first-name :user/first-name
-                      :user-last-name :user/last-name
-                      :user-email :user/email})
-        (dissoc :provider :provider-id))))
-
 (defn- find-by-identity
   [provider {:keys [id]}]
-  (identity->user (models/find-by
-                    #:identity{:provider provider
-                               :provider-id id})))
+  (when-let [ident (models/find-by
+                     #:identity{:provider provider
+                                :provider-id id})]
+    (models/find (:identity/user ident)
+                 :user)))
 
 (defn- find-by-email
   [provider {:keys [email id]}]
@@ -57,8 +49,7 @@
   (let [user (models/put #:user{:email email
                                 :first-name given_name
                                 :last-name family_name
-                                :password "please001!"
-                                :password-confirmation "please001!"})
+                                :password "please001!"})
         ident (models/put #:identity{:provider provider
                                      :provider-id id
                                      :user user})]
