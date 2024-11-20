@@ -1,12 +1,10 @@
 (ns clj-money.models.transactions
   (:refer-clojure :exclude [update find])
   (:require [clojure.spec.alpha :as s]
-            [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [clojure.core.async :as a]
             [java-time.api :as t]
-            [dgknght.app-lib.core :refer [uuid
-                                          index-by]]
+            [dgknght.app-lib.core :refer [uuid]]
             [dgknght.app-lib.validation :as v]
             [clj-money.db :as db]
             [clj-money.util :as util]
@@ -77,8 +75,12 @@
        (apply = transaction-date)))
 (v/reg-msg transaction-dates-match? "All transaction items must have the same date as the transaction")
 
+(def actions
+  "Set of valid transaction action values, includes :debit and :credit"
+  #{:debit :credit})
+
 (s/def :transaction-item/account ::models/model-ref)
-(s/def :transaction-item/action #{:debit :credit})
+(s/def :transaction-item/action actions)
 (s/def :transaction-item/quantity (s/and decimal? pos?))
 ; Balance is the running total of quantities for the account to which
 ; the item belongs

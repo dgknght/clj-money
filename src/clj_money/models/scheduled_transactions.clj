@@ -2,85 +2,60 @@
   (:refer-clojure :exclude [find update])
   (:require [clojure.spec.alpha :as s]
             [clojure.pprint :refer [pprint]]
-            [clojure.set :refer [difference
-                                 rename-keys]]
             [java-time.api :as t]
-            [config.core :refer [env]]
-            [stowaway.core :as stow :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage
-                                                   with-transacted-storage]]
-            [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [dgknght.app-lib.validation :as v]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as trans]
-            [clj-money.scheduled-transactions :as st]))
-
-(defn- at-least-two-items?
-  [items]
-  (<= 2 (count items)))
-
-(v/reg-msg at-least-two-items? "There must be at least two items")
+            [clj-money.models.transactions :as trans]))
 
 (defn- debit-credit-balanced?
   [items]
   (let [totals (->> items
-                    (group-by :action)
+                    (group-by :scheduled-transaction-item/action)
                     (map (fn [entry]
-                           (update-in entry [1] #(->> %
-                                                      (map :quantity)
-                                                      (reduce +)))))
+                           (update-in entry
+                                      [1]
+                                      #(->> %
+                                            (map :scheduled-transaction-item/quantity)
+                                            (reduce + 0M)))))
                     (into {}))]
     (= (:debit totals)
        (:credit totals))))
 
 (v/reg-msg debit-credit-balanced? "The sum of debits must equal the sum of credits")
 
-(def greater-than-zero?
-  (every-pred integer? #(> % 0)))
-
+(defn- greater-than-zero?
+  [n]
+  (< 0 n))
 (v/reg-msg greater-than-zero? "%s must be greater than zero")
 
-(s/def ::action #{:credit :debit})
-(s/def ::account-id integer?)
-(s/def ::quantity v/positive-big-dec?)
-(s/def ::item (s/keys :req-un [::action ::account-id ::quantity]))
+(s/def :scheduled-transaction-item/action trans/actions)
+(s/def :scheduled-transaction-item/account ::models/model-ref)
+(s/def :scheduled-transaction-item/quantity v/positive-big-dec?)
+(s/def ::models/scheduled-transaction-item (s/keys :req [:scheduled-transaction-item/action
+                                                         :scheduled-transaction-item/account
+                                                         :scheduled-transaction-item/quantity]))
 
-(s/def ::items (s/and (s/coll-of ::item)
-                      at-least-two-items?
-                      debit-credit-balanced?))
-(s/def ::entity-id integer?)
-(s/def ::description string?)
-(s/def ::interval-type #{:day :week :month :year})
-(s/def ::interval-count greater-than-zero?)
-(s/def ::start-date t/local-date?)
-(s/def ::end-date (s/nilable t/local-date?))
-(s/def ::date-spec map?)
-(s/def ::scheduled-transaction (s/keys :req-un [::entity-id
-                                                ::description
-                                                ::interval-type
-                                                ::interval-count
-                                                ::start-date
-                                                ::date-spec
-                                                ::items]
-                                       :opt-un [::end-date]))
+(s/def :scheduled-transaction/items (s/and (s/coll-of ::models/scheduled-transaction-item
+                                                      :min-count 2)
+                                           debit-credit-balanced?))
+(s/def :scheduled-transaction/entity ::models/model-ref)
+(s/def :scheduled-transaction/description string?)
+(s/def :scheduled-transaction/interval-type #{:day :week :month :year})
+(s/def :scheduled-transaction/interval-count (s/and integer?
+                                                    greater-than-zero?))
+(s/def :scheduled-transaction/start-date t/local-date?)
+(s/def :scheduled-transaction/end-date (s/nilable t/local-date?))
+(s/def :scheduled-transaction/date-spec map?)
+(s/def ::models/scheduled-transaction (s/keys :req [:scheduled-transaction/entity
+                                                    :scheduled-transaction/description
+                                                    :scheduled-transaction/interval-type
+                                                    :scheduled-transaction/interval-count
+                                                    :scheduled-transaction/start-date
+                                                    :scheduled-transaction/date-spec
+                                                    :scheduled-transaction/items]
+                                              :opt [:scheduled-transaction/end-date]))
 
-(declare search-items)
-
-(defn- before-save
-  [scheduled-transaction]
-  (-> scheduled-transaction
-      (update-in-if [:interval-type] name)
-      (dissoc :items)
-      (tag ::models/scheduled-transaction)))
-
-(defn- before-item-save
-  [item]
-  (-> item
-      (update-in-if [:action] name)
-      (tag ::models/scheduled-transaction-item)))
-
-(defn- after-read
+#_(defn- after-read
   [scheduled-transaction]
   (-> scheduled-transaction
       (update-in [:interval-type] keyword)
@@ -94,22 +69,10 @@
       (assoc :items (search-items {:scheduled-transaction-id (:id scheduled-transaction)}))
       (tag ::models/scheduled-transaction)))
 
-(defn- after-item-read
-  [item]
-  (-> item
-      (update-in [:action] keyword)
-      (tag ::models/scheduled-transaction-item)))
-
-(defn- create-item
-  [item]
-  (-> item
-      before-item-save
-      storage/create
-      after-item-read))
-
-(defn create
-  [sched-tran]
-  (with-transacted-storage (env :db)
+(defn ^:deprecated create
+  [_sched-tran]
+  (throw (UnsupportedOperationException. "create is deprecated"))
+  #_(with-transacted-storage (env :db)
     (with-validation sched-tran ::scheduled-transaction
       (let [created (-> sched-tran
                         before-save
@@ -119,33 +82,17 @@
                                           #(assoc % :scheduled-transaction-id (:id created)))
                                     (:items sched-tran)))))))
 
-(defn search-items
-  ([criteria]
-   (search-items criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map after-item-read
-          (storage/select (tag criteria ::models/scheduled-transaction-item)
-                          options)))))
-
-(defn search
+(defn ^:deprecated search
   ([criteria]
    (search criteria {}))
-  ([criteria options]
-   (with-storage (env :db)
-     (map after-read
-          (storage/select (tag criteria ::models/scheduled-transaction)
-                          options)))))
+  ([_criteria _options]
+   (throw (UnsupportedOperationException. "search is deprecated"))))
 
-(defn find-by
-  [criteria]
-  (first (search criteria {:limit 1})))
+(defn ^:deprecated find
+  [_model-or-id]
+  (throw (UnsupportedOperationException. "find is deprecated")))
 
-(defn find
-  [model-or-id]
-  (find-by {:id (->id model-or-id)}))
-
-(defn- update-items
+#_(defn- update-items
   [{:keys [items id]}]
   (let [existing (find id)
         existing-ids (->> (:items existing)
@@ -165,30 +112,22 @@
           before-item-save
           storage/update))))
 
-(defn update
-  [sched-tran]
-  {:pre [(:id sched-tran)]}
+(defn ^:deprecated update
+  [_sched-tran]
+  (throw (UnsupportedOperationException. "update is deprecated")))
 
-  (with-transacted-storage (env :db)
-    (with-validation sched-tran ::scheduled-transaction
-      (update-items sched-tran)
-      (-> sched-tran
-          before-save
-          storage/update)
-      (find sched-tran))))
-
-(defn delete
+(defn ^:deprecated delete
   "Removes the scheduled transaction from the system"
-  [sched-tran]
-  (with-storage (env :db)
-    (storage/delete sched-tran)))
+  [_sched-tran]
+  (throw (UnsupportedOperationException. "delete is deprecated")))
 
-(defn realize
+(defn ^:deprecated realize
   "Creates new transactions based on the scheduled transaction,
   if the date of the new transactions would be within one week
   of the current date"
-  [sched-tran]
-  (let [transactions (->> (st/next-transaction-dates sched-tran)
+  [_sched-tran]
+  (throw (UnsupportedOperationException. "realize is deprecated"))
+  #_(let [transactions (->> (st/next-transaction-dates sched-tran)
                           (mapv #(-> sched-tran
                                      (st/->transaction %)
                                      trans/create)))]
