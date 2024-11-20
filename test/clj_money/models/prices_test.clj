@@ -4,17 +4,15 @@
             [java-time.api :as t]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.test-assertions]
-            [dgknght.app-lib.validation :as v]
             [clj-money.core]
             [clj-money.models :as models]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-updated]]
             [clj-money.db.sql.ref]
+            [clj-money.models.ref]
             [clj-money.factories.user-factory]
             [clj-money.test-context :refer [with-context
-                                            basic-context
                                             find-entity
-                                            find-account
                                             find-commodity
                                             find-price]]
             [clj-money.test-helpers :refer [reset-db]]
