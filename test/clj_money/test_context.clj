@@ -73,7 +73,10 @@
 
 (defn- find
   ([context k v & kvs]
-   {:pre [context k v]}
+   {:pre [context
+          (sequential? context)
+          k
+          v]}
    (or (find context (apply kv-pred k v kvs))
        (do
          (pprint {::context context})
@@ -126,7 +129,10 @@
      (find context :grant/entity e :grant/user u))))
 
 (defn find-account
-  ([account-name] (find-account *context* account-name))
+  ([arg]
+   (if (string? arg)
+     (find-account *context* arg)
+     (partial find-account arg)))
   ([context account-name]
    (find context :account/name account-name)))
 
@@ -142,14 +148,17 @@
 
 (defn find-image
   ([arg]
-   (if (sequential? arg)
-     (partial find-image arg)
-     (find-image *context* arg)))
+   (if (string? arg)
+     (find-image *context* arg)
+     (partial find-image arg)))
   ([context original-filename]
    (find context :image/original-filename original-filename)))
 
 (defn find-commodity
-  ([symbol] (find-commodity *context* symbol))
+  ([arg]
+   (if (string? arg)
+     (find-commodity *context* arg)
+     (partial find-commodity arg)))
   ([context symbol]
    (find context :commodity/symbol symbol)))
 
@@ -208,6 +217,19 @@
      (find ctx
            :reconciliation/account act
            :reconciliation/end-of-period end-of-period))))
+
+(defn find-lot
+  ([identifier] (find-lot *context* identifier))
+  ([ctx [account commodity]]
+   (let [act (util/->model-ref (if (map? account)
+                                 account
+                                 (find-account ctx account)))
+         cmd (util/->model-ref (if (map? commodity)
+                                 commodity
+                                 (find-commodity ctx commodity)))]
+     (find ctx
+           :lot/account act
+           :lot/commodity cmd))))
 
 #_(defn- execute-trade
   [trade context]
@@ -334,6 +356,12 @@
                                     (mapv (comp util/->model-ref
                                                 (find-image ctx))
                                           img-refs)))))
+
+(defmethod prepare :lot
+  [attr ctx]
+  (-> attr
+      (update-in [:lot/account] (find-account ctx))
+      (update-in [:lot/commodity] (find-commodity ctx))))
 
 (defn realize
   "Realizes a test context"
