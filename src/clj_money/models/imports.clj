@@ -1,17 +1,9 @@
 (ns clj-money.models.imports
   (:refer-clojure :exclude [update find])
-  (:require [clojure.spec.alpha :as s]
-            [clojure.walk :refer [keywordize-keys]]
-            [config.core :refer [env]]
-            [stowaway.core :refer [tag]]
-            [stowaway.implicit :as storage :refer [with-storage
-                                                   with-transacted-storage]]
-            [dgknght.app-lib.core :refer [update-in-if]]
-            [dgknght.app-lib.models :refer [->id]]
-            [dgknght.app-lib.validation :refer [with-validation]]
-            [clj-money.models :as models]
-            [clj-money.models.entities :as entities]
-            [clj-money.models.images :as images]))
+  (:require [clojure.pprint :refer [pprint]]
+            [clojure.spec.alpha :as s]
+            [clj-money.db :as db]
+            [clj-money.models :as models]))
 
 (s/def :import/entity-name string?)
 (s/def :import/images (s/coll-of ::models/model-ref :min-count 1))
@@ -22,21 +14,6 @@
                                      :import/images]
                                :opt [:import/options
                                      :import/progress]))
-
-(defn- prepare-progress
-  [progress]
-  (-> progress
-      keywordize-keys
-      (select-keys [:account
-                    :transaction
-                    :scheduled-transaction
-                    :budget
-                    :commodity
-                    :price
-                    :account-balance
-                    :process-reconciliation
-                    :finished
-                    :errors])))
 
 (defmethod models/before-save :import
   [imp]
@@ -50,6 +27,13 @@
 (defmethod models/after-read :import
   [imp _]
   (assoc imp :import/entity-exists? (entity-exists? imp)))
+
+(defmethod models/propagate-delete :import
+  [{:as imp :import/keys [images]}]
+  (cons imp
+        (map (comp (partial vector ::db/delete)
+                   (db/model-type :image))
+             images)))
 
 (defn ^:deprecated create
   [_impt]

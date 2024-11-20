@@ -60,7 +60,7 @@
 (def ^:private infer-table-name
   (comp ->snake_case_keyword
         plural
-        util/qualifier))
+        db/model-type))
 
 (defn- insert
   [db model]
