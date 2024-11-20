@@ -9,35 +9,28 @@
             [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
             [clj-money.models :as models]
-            [clj-money.models.accounts :as accounts]
             [clj-money.models.commodities :as commodities]
             [clj-money.models.prices :as prices]))
 
 (defn- asset-account?
-  [account-id]
+  [account]
   (= :asset
-     (:type (accounts/find account-id))))
+     (:account/type (models/find account :account))))
 (v/reg-msg asset-account? "%s must be an asset")
 
-(s/def ::id integer?)
-(s/def ::account-id (s/and integer?
+(s/def :lot/account (s/and ::models/model-ref
                            asset-account?))
-(s/def ::commodity-id integer?)
-(s/def ::purchase-date t/local-date?)
-(s/def ::purchase-price decimal?)
-(s/def ::shares-purchased decimal?)
-(s/def ::shares-owned decimal?)
-(s/def ::new-lot (s/keys :req-un [::account-id
-                                  ::commodity-id
-                                  ::purchase-date
-                                  ::purchase-price
-                                  ::shares-purchased]))
-(s/def ::existing-lot (s/keys :req-un [::id
-                                       ::account-id
-                                       ::commodity-id
-                                       ::purchase-date
-                                       ::shares-purchased
-                                       ::shares-owned]))
+(s/def :lot/commodity ::models/model-ref)
+(s/def :lot/purchase-date t/local-date?)
+(s/def :lot/purchase-price decimal?)
+(s/def :lot/shares-purchased decimal?)
+(s/def :lot/shares-owned decimal?)
+(s/def ::models/lot (s/keys :req [:lot/account
+                                  :lot/commodity
+                                  :lot/purchase-date
+                                  :lot/purchase-price
+                                  :lot/shares-purchased]
+                            :opt [:lot/shares-owned]))
 
 (defn- after-read
   [lot]

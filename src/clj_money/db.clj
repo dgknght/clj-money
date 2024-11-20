@@ -23,7 +23,8 @@
     :budget-item
     :grant
     :scheduled-transaction
-    :reconciliation})
+    :reconciliation
+    :lot})
 
 (def valid-model-type? model-types)
 
