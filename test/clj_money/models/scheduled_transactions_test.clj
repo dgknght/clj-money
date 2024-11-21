@@ -6,9 +6,8 @@
             [clj-money.db.sql.ref]
             [clj-money.dates :refer [with-fixed-time]]
             [clj-money.models :as models]
-            [clj-money.model-helpers :refer [assert-created
-                                             assert-invalid
-                                             assert-deleted]]
+            [clj-money.model-helpers :as helpers :refer [assert-invalid
+                                                         assert-deleted]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.test-context :refer [with-context
                                             find-entity
@@ -37,97 +36,149 @@
                                                                :account (find-account "Salary")
                                                                :quantity 1000M}]})
 
+(defn- assert-created
+  [attr]
+  (helpers/assert-created attr :refs [:scheduled-transaction/entity
+                                      [:scheduled-transaction/items :scheduled-transaction-item/account]]))
+
 (deftest create-a-scheduled-transaction
   (with-context
-    (assert-created (attributes) :refs [:scheduled-transaction/entity
-                                        [:scheduled-transaction/items :scheduled-transaction-item/account]])))
+    (assert-created (attributes))))
 
-; (deftest entity-id-is-required
-;   (binding [*attr* (dissoc (init-attr) :entity-id)]
-;     (failed-validation [:entity-id] "Entity is required" (create-scheduled-transaction))))
-; 
-; (deftest description-is-required
-;   (binding [*attr* (dissoc (init-attr) :description)]
-;     (failed-validation [:description] "Description is required" (create-scheduled-transaction))))
-; 
-; (deftest interval-type-is-required
-;   (binding [*attr* (dissoc (init-attr) :interval-type)]
-;     (failed-validation [:interval-type] "Interval type is required" (create-scheduled-transaction))))
-; 
-; (deftest interval-type-can-be-week
-;   (binding [*attr* (assoc (init-attr) :interval-type :week)]
-;     (successful-creation (create-scheduled-transaction))))
-; 
-; (deftest interval-type-can-be-month
-;   (binding [*attr* (assoc (init-attr) :interval-type :month)]
-;     (successful-creation (create-scheduled-transaction))))
-; 
-; (deftest interval-type-can-be-year
-;   (binding [*attr* (assoc (init-attr) :interval-type :year)]
-;     (successful-creation (create-scheduled-transaction))))
-; 
-; (deftest interval-type-cannot-be-off-list
-;   (binding [*attr* (assoc (init-attr) :interval-type :not-valid)]
-;     (failed-validation [:interval-type] "Interval type must be day, week, month, or year" (create-scheduled-transaction))))
-; 
-; (deftest start-date-is-required
-;   (binding [*attr* (dissoc (init-attr) :start-date)]
-;     (failed-validation [:start-date] "Start date is required" (create-scheduled-transaction))))
-; 
-; (deftest date-spec-is-required
-;   (binding [*attr* (dissoc (init-attr) :date-spec)]
-;     (failed-validation [:date-spec] "Date spec is required" (create-scheduled-transaction))))
-; 
-; (deftest interval-count-is-required
-;   (binding [*attr* (dissoc (init-attr) :interval-count)]
-;     (failed-validation [:interval-count] "Interval count is required" (create-scheduled-transaction))))
-; 
-; (deftest interval-must-be-greater-than-zero
-;   (binding [*attr* (assoc (init-attr) :interval-count 0)]
-;     (failed-validation [:interval-count] "Interval count must be greater than zero" (create-scheduled-transaction))))
-; 
-; (deftest at-least-two-items-are-required
-;   (binding [*attr* (update-in (init-attr) [:items] #(take 1 %))]
-;     (failed-validation [:items]
-;                        "There must be at least two items"
-;                        (create-scheduled-transaction))))
-; 
-; (deftest sum-of-credits-must-equal-sum-of-debits
-;   (binding [*attr* (assoc-in (init-attr) [:items 0 :quantity] 1001M)]
-;     (failed-validation [:items]
-;                        "The sum of debits must equal the sum of credits"
-;                        (create-scheduled-transaction))))
-; 
-; (deftest item-account-id-is-required
-;   (binding [*attr* (update-in (init-attr) [:items 0] dissoc :account-id)]
-;     (failed-validation [:items 0 :account-id]
-;                        "Account is required"
-;                        (create-scheduled-transaction))))
-; 
-; (deftest item-action-is-required
-;   (binding [*attr* (update-in (init-attr) [:items 0] dissoc :action)]
-;     (failed-validation [:items 0 :action]
-;                        "Action is required"
-;                        (create-scheduled-transaction))))
-; 
-; (deftest item-action-must-be-credit-or-debit
-;   (binding [*attr* (assoc-in (init-attr) [:items 0 :action] :not-valid)]
-;     (failed-validation [:items 0 :action]
-;                        "Action must be debit or credit"
-;                        (create-scheduled-transaction))))
-; 
-; (deftest item-quantity-is-required
-;   (binding [*attr* (update-in (init-attr) [:items 0] dissoc :quantity)]
-;     (failed-validation [:items 0 :quantity]
-;                        "Quantity is required"
-;                        (create-scheduled-transaction))))
-; 
-; (deftest item-quantity-must-be-greater-than-zero
-;   (binding [*attr* (assoc-in (init-attr) [:items 0 :quantity] 0M)]
-;     (failed-validation [:items 0 :quantity]
-;                        "Quantity must be greater than zero"
-;                        (create-scheduled-transaction))))
-; 
+(deftest entity-id-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :scheduled-transaction/entity)
+                    {:scheduled-transaction/entity ["Entity is required"]})))
+
+(deftest description-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :scheduled-transaction/description)
+                    {:scheduled-transaction/description ["Description is required"]})))
+
+(deftest interval-type-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :scheduled-transaction/interval-type)
+                    {:scheduled-transaction/interval-type ["Interval type is required"]})))
+
+(deftest interval-type-can-be-week
+  (with-context
+    (assert-created (assoc (attributes) :scheduled-transaction/interval-type :week))))
+
+(deftest interval-type-can-be-month
+  (with-context
+    (assert-created (assoc (attributes) :scheduled-transaction/interval-type :month))))
+
+(deftest interval-type-can-be-year
+  (with-context
+    (assert-created (assoc (attributes) :scheduled-transaction/interval-type :year))))
+
+(deftest interval-type-cannot-be-off-list
+  (with-context
+    (assert-invalid
+      (assoc (attributes) :scheduled-transaction/interval-type :not-valid)
+      {:scheduled-transaction/interval-type ["Interval type must be day, week, month, or year"]})))
+
+(deftest start-date-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :scheduled-transaction/start-date)
+                    {:scheduled-transaction/start-date ["Start date is required"]})))
+
+(deftest date-spec-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :scheduled-transaction/date-spec)
+                    {:scheduled-transaction/date-spec ["Date spec is required"]})))
+
+(deftest interval-count-is-required
+  (with-context
+    (assert-invalid (dissoc (attributes) :scheduled-transaction/interval-count)
+                    {:scheduled-transaction/interval-count ["Interval count is required"]})))
+
+(deftest interval-must-be-greater-than-zero
+  (with-context
+    (assert-invalid
+      (assoc (attributes) :scheduled-transaction/interval-count 0)
+      {:scheduled-transaction/interval-count ["Interval count must be greater than zero"]})))
+
+(deftest at-least-two-items-are-required
+  (with-context
+    (assert-invalid
+      (update-in (attributes) [:scheduled-transaction/items] #(take 1 %))
+      {:scheduled-transaction/items ["Items must contain at least 2 item(s)"]})))
+
+(deftest sum-of-credits-must-equal-sum-of-debits
+  (with-context
+    (assert-invalid
+      (assoc-in (attributes)
+                [:scheduled-transaction/items
+                 0
+                 :scheduled-transaction-item/quantity]
+                1001M)
+      {:scheduled-transaction/items ["The sum of debits must equal the sum of credits"]})))
+
+(deftest item-account-id-is-required
+  (with-context
+    (assert-invalid
+      (update-in (attributes)
+                 [:scheduled-transaction/items 0]
+                 dissoc
+                 :scheduled-transaction-item/account)
+      {:scheduled-transaction/items
+       {0
+        {:scheduled-transaction-item/account
+         ["Account is required"]}}})))
+
+(deftest item-action-is-required
+  (with-context
+    (assert-invalid
+      (update-in (attributes)
+                 [:scheduled-transaction/items 0]
+                 dissoc
+                 :scheduled-transaction-item/action)
+      {:scheduled-transaction/items
+       {0
+        {:scheduled-transaction-item/action
+         ["Action is required"]}}})))
+
+(deftest item-action-must-be-credit-or-debit
+  (with-context
+    (assert-invalid
+      (assoc-in
+        (attributes)
+        [:scheduled-transaction/items
+         0
+         :scheduled-transaction-item/action]
+        :not-valid)
+      {:scheduled-transaction/items
+       {0
+        {:scheduled-transaction-item/action
+         ["Action is invalid"]}}})))
+
+(deftest item-quantity-is-required
+  (with-context
+    (assert-invalid
+      (update-in (attributes)
+                 [:scheduled-transaction/items 0]
+                 dissoc
+                 :scheduled-transaction-item/quantity)
+      {:scheduled-transaction/items
+       {0
+        {:scheduled-transaction-item/quantity
+         ["Quantity is required"]}}})))
+
+(deftest item-quantity-must-be-greater-than-zero
+  (with-context
+    (assert-invalid
+      (assoc-in
+        (attributes)
+        [:scheduled-transaction/items
+         0
+         :scheduled-transaction-item/quantity]
+        0M)
+      {:scheduled-transaction/items
+       {0
+        {:scheduled-transaction-item/quantity
+         ["Quantity must be greater than zero"]}}})))
+
 ; (def ^:private update-context
 ;   (assoc basic-context
 ;          :scheduled-transactions [{:entity-id "Personal"
