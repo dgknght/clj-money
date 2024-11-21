@@ -1,6 +1,6 @@
 ; should this really exist in sql-storage?
 (ns clj-money.partitioning
-  (:require [clojure.java.jdbc :as jdbc]
+  (:require [next.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [config.core :refer [env]]
@@ -134,10 +134,10 @@
     :silent    - do not output the commands that are generated
     :dry-run   - do not execute the commands that are generated
     :rules     - a map of table names to interval type and count"
-  ([start-date end-date options]
-   (jdbc/with-db-connection [conn (env :db)]
-     (doseq [cmd (create-table-cmds start-date end-date options)]
-       (when-not (:silent options)
-         (println cmd))
-       (when-not (:dry-run options)
-         (jdbc/execute! conn cmd))))))
+    ([start-date end-date options]
+     (let [ds (jdbc/get-datasource (get-in env [:db :strategies :sql]))]
+       (doseq [cmd (create-table-cmds start-date end-date options)]
+         (when-not (:silent options)
+           (println cmd))
+         (when-not (:dry-run options)
+           (jdbc/execute! ds [cmd]))))))
