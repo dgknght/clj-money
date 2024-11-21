@@ -8,7 +8,7 @@ echo "Unpacking sass..."
 tar -xvf target/dart-sass.tar.gz -C target/
 
 echo "Compiling style sheet..."
-target/dart-sass/sass -s compressed resources/sass/site.scss resources/public/css/site.css
+target/dart-sass/sass -s compressed src/scss/site.scss resources/public/css/site.css
 
 echo "Release script done"
 ls resources/public/css
