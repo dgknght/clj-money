@@ -105,7 +105,10 @@
     (cons *context* args)))
 
 (defn find-entity
-  ([entity-name] (find-entity *context* entity-name))
+  ([arg]
+   (if (string? arg)
+     (find-entity *context* arg)
+     (partial find-entity arg)))
   ([context entity-name]
    {:pre [context entity-name]}
    (find context :entity/name entity-name)))
@@ -263,7 +266,7 @@
 (defmethod prepare :commodity
   [commodity ctx]
   (-> commodity
-      (update-in [:commodity/entity] #(find-entity ctx %))
+      (update-in [:commodity/entity] (find-entity ctx))
       (update-in [:commodity/price-config] (fnil identity {:price-config/enabled true}))))
 
 (defmethod prepare :price
@@ -284,16 +287,27 @@
   [account ctx]
   {:pre [(:account/entity account)]}
   (-> account
-      (update-in [:account/entity] #(find-entity ctx %))
+      (update-in [:account/entity] (find-entity ctx))
       (resolve-account-commodity ctx)
       (update-in-if [:account/parent] #(find-account ctx %))))
+
+(defn- prepare-coll
+  [ctx]
+  (fn [items]
+    (mapv #(prepare % ctx) items)))
 
 (defmethod prepare :transaction
   [trx ctx]
   (-> trx
       expand
-      (update-in [:transaction/items] (fn [i] (mapv #(prepare % ctx) i)))
-      (update-in [:transaction/entity] #(find-entity ctx %))))
+      (update-in [:transaction/items] (prepare-coll ctx))
+      (update-in [:transaction/entity] (find-entity ctx))))
+
+(defmethod prepare :scheduled-transaction
+  [trx ctx]
+  (-> trx
+      (update-in [:scheduled-transaction/items] (prepare-coll ctx))
+      (update-in [:scheduled-transaction/entity] (find-entity ctx))))
 
 (defmethod prepare :transaction-item
   [item ctx]
@@ -301,6 +315,14 @@
 
   (update-in item
              [:transaction-item/account]
+             #(find-account ctx %)))
+
+(defmethod prepare :scheduled-transaction-item
+  [item ctx]
+  {:pre [(:scheduled-transaction-item/account item)]}
+
+  (update-in item
+             [:scheduled-transaction-item/account]
              #(find-account ctx %)))
 
 (defmethod prepare :reconciliation
@@ -318,8 +340,8 @@
 (defmethod prepare :budget
   [budget ctx]
   (-> budget
-      (update-in [:budget/entity] #(find-entity ctx %))
-      (update-in [:budget/items] (fn [i] (map #(prepare % ctx) i)))))
+      (update-in [:budget/entity] (find-entity ctx))
+      (update-in [:budget/items] (prepare-coll ctx))))
 
 (defmethod prepare :budget-item
   [item ctx]
@@ -342,7 +364,7 @@
   [attr ctx]
   (-> attr
       (update-in [:grant/user] (find-user ctx))
-      (update-in [:grant/entity] #(find-entity ctx %))))
+      (update-in [:grant/entity] (find-entity ctx))))
 
 (defmethod prepare :identity
   [attr ctx]

@@ -179,84 +179,83 @@
         {:scheduled-transaction-item/quantity
          ["Quantity must be greater than zero"]}}})))
 
-; (def ^:private update-context
-;   (assoc basic-context
-;          :scheduled-transactions [{:entity-id "Personal"
-;                                    :description "Paycheck"
-;                                    :start-date (t/local-date 2016 1 1)
-;                                    :date-spec {:day 1}
-;                                    :interval-type :month
-;                                    :interval-count 1
-;                                    :items [{:action :debit
-;                                             :account-id "Checking"
-;                                             :quantity 900M}
-;                                            {:action :debit
-;                                             :account-id "FIT"
-;                                             :quantity 100M}
-;                                            {:action :credit
-;                                             :account-id "Salary"
-;                                             :quantity 1000M}]}]))
-; 
-; (defn- update-sched-tran
-;   [update-fn]
-;   (let [ctx (realize update-context)
-;         sched-tran (find-scheduled-transaction ctx "Paycheck")
-;         result (-> sched-tran
-;                    (update-fn ctx)
-;                    sched-trans/update)
-;         retrieved (sched-trans/find sched-tran)]
-;     [result retrieved]))
-; 
-; (deftest update-a-scheduled-transaction
-;   (let [changes {:interval-type :week
-;                  :interval-count 2}
-;         [result retrieved] (update-sched-tran
-;                              (fn [sched-tran _]
-;                                (-> sched-tran
-;                                    (merge changes)
-;                                    (assoc-in [:items 0 :quantity] 901M)
-;                                    (assoc-in [:items 2 :quantity] 1001M))))]
-;     (is (valid? result))
-;     (is (map? result) "A map is returned")
-;     (is (comparable? changes result) "The updated scheduled-transaction is returned")
-;     (is (comparable? changes retrieved) "The record is updated in the database")
-;     (is (= #{1001M 901M 100M}
-;            (->> (:items retrieved)
-;                 (map :quantity)
-;                 (into #{})))
-;         "The items are updated in the database.")))
-; 
-; (deftest add-an-item
-;   (let [[result retrieved] (update-sched-tran
-;                              (fn [sched-tran ctx]
-;                                (-> sched-tran
-;                                    (assoc-in [:items 0 :quantity] 850M)
-;                                    (update-in [:items]
-;                                               conj
-;                                               {:action :debit
-;                                                :account-id (:id (find-account ctx "Medicare"))
-;                                                :quantity 50M}))))]
-;     (is (valid? result))
-;     (is (= (->> (:items retrieved)
-;                 (map #(select-keys % [:action :quantity]))
-;                 set)
-;            #{{:action :credit
-;               :quantity 1000M}
-;              {:action :debit
-;               :quantity 850M}
-;              {:action :debit
-;               :quantity 100M}
-;              {:action :debit
-;               :quantity 50M}})
-;         "The new item can be retrieved after update")))
-; 
-; (deftest delete-a-scheduled-transaction
-;   (let [ctx (realize update-context)
-;         sched-tran (find-scheduled-transaction ctx "Paycheck")
-;         _ (sched-trans/delete sched-tran)
-;         retrieved (sched-trans/find sched-tran)]
-;     (is (nil? retrieved) "The record cannot be retrieved after delete")))
-; 
+(def ^:private update-context
+  (conj basic-context
+        #:scheduled-transaction{:entity "Personal"
+                                :description "Paycheck"
+                                :start-date (t/local-date 2016 1 1)
+                                :date-spec {:day 1}
+                                :interval-type :month
+                                :interval-count 1
+                                :items [#:scheduled-transaction-item{:action :debit
+                                                                     :account "Checking"
+                                                                     :quantity 900M}
+                                        #:scheduled-transaction-item{:action :debit
+                                                                     :account "FIT"
+                                                                     :quantity 100M}
+                                        #:scheduled-transaction-item{:action :credit
+                                                                     :account "Salary"
+                                                                     :quantity 1000M}]}))
+
+(deftest update-a-scheduled-transaction
+  (with-context update-context
+    (let [attrs #:scheduled-transaction{:interval-type :week
+                                        :interval-count 2}
+          trx (find-scheduled-transaction "Paycheck")]
+      (is (comparable? attrs
+                       (models/put
+                         (-> trx
+                             (merge attrs)
+                             (assoc-in [:scheduled-transaction/items
+                                        0
+                                        :scheduled-transaction-item/quantity]
+                                       901M)
+                             (assoc-in [:scheduled-transaction/items
+                                        2
+                                        :scheduled-transaction-item/quantity]
+                                       1001M))))
+          "The return value has the updated attributes")
+      (let [{:as retrieved :scheduled-transaction/keys [items]} (models/find trx)]
+        (is (comparable? attrs retrieved)
+            "The retrieved value has the updated attributes")
+        (is (seq-of-maps-like? [#:scheduled-transaction-item{:quantity 901M}
+                                #:scheduled-transaction-item{:quantity 100M}
+                                #:scheduled-transaction-item{:quantity 1001M}]
+                               items)
+            "The retrieved value has the updated items")))))
+
+(deftest add-an-item
+  (with-context update-context
+    (let [trx (find-scheduled-transaction "Paycheck")
+          result (models/put
+                   (-> trx
+                       (assoc-in [:scheduled-transaction/items
+                                  0
+                                  :scheduled-transaction-item/quantity]
+                                 850M)
+                       (update-in [:scheduled-transaction/items]
+                                  conj
+                                  #:scheduled-transaction-item{:action :debit
+                                                               :account (find-account "Medicare")
+                                                               :quantity 50M})
+                       models/put))]
+      (is (seq-of-maps-like? [#:scheduled-transaction-item{:quantity 850M}
+                              #:scheduled-transaction-item{:quantity 100M}
+                              #:scheduled-transaction-item{:quantity 1000M}
+                              #:scheduled-transaction-item{:quantity 50M}]
+                             (:scheduled-transaction/items result))
+          "The returned value has the updated items")
+      (is (seq-of-maps-like? [#:scheduled-transaction-item{:quantity 850M}
+                              #:scheduled-transaction-item{:quantity 100M}
+                              #:scheduled-transaction-item{:quantity 1000M}
+                              #:scheduled-transaction-item{:quantity 50M}]
+                             (:scheduled-transaction/items (models/find result)))
+          "The returned value has the updated items"))))
+
+(deftest delete-a-scheduled-transaction
+  (with-context update-context
+    (assert-deleted (find-scheduled-transaction "Paycheck"))))
+
 ; (defn- realize-tran
 ;   [date]
 ;   (let [ctx (realize update-context)

@@ -121,7 +121,7 @@
   [_sched-tran]
   (throw (UnsupportedOperationException. "delete is deprecated")))
 
-(defn ^:deprecated realize
+(defn realize
   "Creates new transactions based on the scheduled transaction,
   if the date of the new transactions would be within one week
   of the current date"
