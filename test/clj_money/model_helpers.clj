@@ -7,15 +7,28 @@
             [clj-money.util :as util]
             [clj-money.models :as models]))
 
+(derive clojure.lang.PersistentVector ::vector)
+
 (defmulti ^:private simplify-refs util/type-dispatch)
 
 (defmethod simplify-refs :default
   [x _]
   x)
 
+(defmulti ^:private simplify-ref
+  (fn [_ k] (type k)))
+
+(defmethod simplify-ref :default
+  [m k]
+  (update-in-if m [k] select-keys [:id]))
+
+(defmethod simplify-ref ::vector
+  [m ks]
+  (update-in-if m (take 1 ks) #(simplify-refs % (vec (rest ks)))))
+
 (defmethod simplify-refs ::util/map
   [model refs]
-  (reduce #(update-in-if %1 [%2] select-keys [:id])
+  (reduce simplify-ref
           (update-vals model #(simplify-refs % refs))
           refs))
 

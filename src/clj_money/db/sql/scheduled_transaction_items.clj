@@ -18,9 +18,9 @@
   [item]
   (-> item
       (update-in [:scheduled-transaction-item/action] keyword)
-      ->sql-refs))
+      ->model-refs))
 
-(defmethod sql/resolve-temp-ids :transaction-item
+(defmethod sql/resolve-temp-ids :scheduled-transaction-item
   [item id-map]
   (update-in item
              [:scheduled-transaction-item/scheduled-transaction-id]

@@ -39,7 +39,8 @@
 
 (deftest create-a-scheduled-transaction
   (with-context
-    (assert-created (attributes) :refs [:scheduled-transaction/entity])))
+    (assert-created (attributes) :refs [:scheduled-transaction/entity
+                                        [:scheduled-transaction/items :scheduled-transaction-item/account]])))
 
 ; (deftest entity-id-is-required
 ;   (binding [*attr* (dissoc (init-attr) :entity-id)]

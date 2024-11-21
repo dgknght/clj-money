@@ -2,6 +2,7 @@
   (:require [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.util :as util]
+            [clj-money.db :as db]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id]]))
 
@@ -42,8 +43,15 @@
 
 (defmethod sql/reconstruct :scheduled-transaction
   [models]
-  ; TODO: should we remove :transaction-item/transaction to be consistent with Datomic?
+  ; TODO: should we remove :scheduled-transaction-item/scheduled-transaction to be consistent with Datomic?
   (util/reconstruct {:parent? :scheduled-transaction/description
                      :child? :scheduled-transaction-item/action
                      :children-key :scheduled-transaction/items}
                     models))
+
+(defmethod sql/post-select :scheduled-transaction
+  [storage trxs]
+  (map #(assoc %
+               :scheduled-transaction/items
+               (vec (db/select storage {:scheduled-transaction-item/scheduled-transaction %} {})))
+       trxs))
