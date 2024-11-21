@@ -5,7 +5,8 @@
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
             [clj-money.models :as models]
-            [clj-money.models.transactions :as trans]))
+            [clj-money.models.transactions :as trans]
+            [clj-money.scheduled-transactions :as st]))
 
 (defn- debit-credit-balanced?
   [items]
@@ -125,12 +126,12 @@
   "Creates new transactions based on the scheduled transaction,
   if the date of the new transactions would be within one week
   of the current date"
-  [_sched-tran]
-  (throw (UnsupportedOperationException. "realize is deprecated"))
-  #_(let [transactions (->> (st/next-transaction-dates sched-tran)
-                          (mapv #(-> sched-tran
+  [sched-trx]
+  (let [transactions (->> (st/next-transaction-dates sched-trx)
+                          (mapv #(-> sched-trx
                                      (st/->transaction %)
-                                     trans/create)))]
-    (when-let [transaction-date (:transaction-date (last transactions))]
-      (update (assoc sched-tran :last-occurrence transaction-date)))
+                                     models/put)))]
+    ; TODO: This should be a propagation
+    (when-let [transaction-date (:transaction/transaction-date (last transactions))]
+      (models/put (assoc sched-trx :scheduled-transaction/last-occurrence transaction-date)))
     transactions))
