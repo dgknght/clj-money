@@ -322,7 +322,7 @@
 
 (defmulti ->instant type)
 
-(defmethod ->instant ::string
+(defmethod ->instant ::util/string
   [s]
   #?(:clj (t/instant (t/formatter :iso-instant) s)
      :cljs (tf/parse-local-date (tf/formatters :date-time) s)))
