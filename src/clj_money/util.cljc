@@ -4,6 +4,15 @@
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])))
 
+#?(:clj (derive clojure.lang.PersistentVector ::vector)
+   :cljs (derive cljs.core.PersistentVector ::vector))
+#?(:clj (derive clojure.lang.PersistentArrayMap ::map)
+   :cljs (derive cljs.core.PersistentArrayMap ::map))
+#?(:clj (derive clojure.lang.PersistentHashMap ::map)
+   :cljs (derive cljs.core.PersistentHashMap ::map))
+#?(:clj (derive java.lang.String ::string)
+   :cljs (derive js/String ::string))
+
 (defn abs
   [value]
   #?(:clj (.abs value) ; we're assuming BigDecimal here

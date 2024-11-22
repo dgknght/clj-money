@@ -5,20 +5,12 @@
                :cljs [cljs-time.core :as t])
             #?(:cljs [cljs-time.format :as tf])
             #?(:cljs [cljs-time.periodic :as periodic])
-            [dgknght.app-lib.core :refer [parse-int]])
+            [dgknght.app-lib.core :refer [parse-int]]
+            [clj-money.util :as util])
   #?(:clj (:import [org.threeten.extra Interval]
                    [java.time ZoneOffset LocalDate Instant]
                    [java.time.temporal ChronoUnit])
      :cljs (:import [goog.date Date DateTime])))
-
-#?(:clj (derive clojure.lang.PersistentVector ::vector)
-   :cljs (derive cljs.core.PersistentVector ::vector))
-#?(:clj (derive clojure.lang.PersistentArrayMap ::map)
-   :cljs (derive cljs.core.PersistentArrayMap ::map))
-#?(:clj (derive clojure.lang.PersistentHashMap ::map)
-   :cljs (derive cljs.core.PersistentHashMap ::map))
-#?(:clj (derive java.lang.String ::string)
-   :cljs (derive js/String ::string))
 
 #?(:cljs (extend-protocol IPrintWithWriter
            Date
@@ -41,7 +33,7 @@
   #?(:clj (t/= d1 d2)
      :cljs (t/equal? d1 d2)))
 
-(defmethod equal? ::vector
+(defmethod equal? ::util/vector
   [l1 l2]
   (and (= (count l1)
           (count l2))
@@ -330,7 +322,7 @@
 
 (defmulti ->instant type)
 
-(defmethod ->instant ::string
+(defmethod ->instant ::util/string
   [s]
   #?(:clj (t/instant (t/formatter :iso-instant) s)
      :cljs (tf/parse-local-date (tf/formatters :date-time) s)))
