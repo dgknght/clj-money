@@ -8,10 +8,10 @@
             [clj-money.db.sql.types :refer [temp-id]]))
 
 (declare ->sql-refs)
-(sql/def->sql-refs ->sql-refs :transaction/entity)
+(sql/def->sql-refs ->sql-refs :transaction/entity :transaction/scheduled-transaction)
 
 (declare ->model-refs)
-(sql/def->model-refs ->model-refs :transaction/entity)
+(sql/def->model-refs ->model-refs :transaction/entity :transaction/scheduled-transaction)
 
 (defmethod sql/prepare-criteria :transaction
   [criteria]

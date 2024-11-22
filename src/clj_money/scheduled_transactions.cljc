@@ -108,6 +108,22 @@
   [sched-trx]
   (first (next-transaction-dates sched-trx 365)))
 
+(defn- ->transaction-item
+  [item]
+  (-> item
+      (rename-keys {:scheduled-transaction-item/account  :transaction-item/account
+                    :scheduled-transaction-item/action   :transaction-item/action
+                    :scheduled-transaction-item/quantity :transaction-item/quantity
+                    :scheduled-transaction-item/memo     :transaction-item/memo})
+      (select-keys [:transaction-item/account
+                    :transaction-item/action
+                    :transaction-item/quantity
+                    :transaction-item/memo])))
+
+(defn- ->transaction-items
+  [items]
+  (map ->transaction-item items))
+
 (defn ->transaction
   [sched-trx transaction-date]
   (-> sched-trx
@@ -122,7 +138,8 @@
                     :transaction/entity
                     :transaction/items
                     :transaction/scheduled-transaction])
-      (assoc :transaction/transaction-date transaction-date)))
+      (assoc :transaction/transaction-date transaction-date)
+      (update-in [:transaction/items] ->transaction-items)))
 
 (defn pending?
   [{:scheduled-transaction/keys [enabled start-date end-date next-occurrence]}]
