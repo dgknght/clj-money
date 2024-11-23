@@ -220,7 +220,7 @@
                       :not-valid)
                     {:transaction/items
                      {0
-                      {:transaction-item/action ["Action must be debit or credit"]}}})))
+                      {:transaction-item/action ["Action is invalid"]}}})))
 
 (deftest sum-of-debits-must-equal-sum-of-credits
   (with-context base-context
