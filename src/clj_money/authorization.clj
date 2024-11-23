@@ -54,6 +54,8 @@
   ([criteria user]
    (+scope criteria (db/model-type criteria) user))
   ([criteria model-type user]
+   {:pre [model-type user]}
+
    (if-let [s (scope model-type user)]
      (if (empty? criteria)
        s
