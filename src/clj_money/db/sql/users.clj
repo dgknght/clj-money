@@ -22,7 +22,9 @@
 
 (defmethod sql/before-save :user
   [user]
-  (coerce-types user))
+  (-> user
+      coerce-types
+      (dissoc :user/password-confirmation)))
 
 (defmethod sql/prepare-criteria :user
   [criteria]
