@@ -31,7 +31,7 @@
       (util/qualify-keys :account) 
       (rename-keys {"system-tags[]" :account/system-tags
                     "user-tags[]" :account/user-tags
-                    :entity-id :account/entity})
+                    :account/entity-id :account/entity})
       (select-keys [:account/entity
                     :account/system-tags
                     :account/user-tags
