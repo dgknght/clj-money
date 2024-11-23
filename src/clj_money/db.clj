@@ -102,9 +102,10 @@
   extracted"
   ([arg]
    (cond
-     (map? arg) (or (-> arg meta ::type)
-                    (single-ns (dissoc arg :id)))
-     (keyword? arg) #(model-type % arg)))
+     ((some-fn map? vector?) arg) (or (-> arg meta ::type)
+                                      (single-ns (dissoc arg :id)))
+     (keyword? arg) #(model-type % arg)
+     :else (throw (IllegalArgumentException. "Argument must be a map, vector, or keyword"))))
   ([m model-or-type]
    {:pre [(map? m)
           (or (map? model-or-type)
