@@ -5,7 +5,8 @@
             [honey.sql :as sql]
             [honey.sql.helpers :refer [select from where]]
             [next.jdbc :as jdbc]
-            [next.jdbc.sql :refer [insert! update!]]))
+            [next.jdbc.sql :refer [insert! update!]]
+            [clj-money.core]))
 
 (def ^:private settings-cache (atom {}))
 
@@ -23,7 +24,7 @@
 (defn- get*
   [setting-name]
   (jdbc/execute-one! (ds)
-                     (-> (select :name)
+                     (-> (select :value)
                          (from :settings)
                          (where [:= :name setting-name])
                          sql/format)
@@ -32,10 +33,10 @@
 (defn- put*
   [setting-name value]
   (let [ds (ds)
-        {:keys [update-count]} (update! ds
-                                        :settings
-                                        {:value value}
-                                        {:name setting-name})]
+        {::jdbc/keys [update-count]} (update! ds
+                                              :settings
+                                              {:value value}
+                                              {:name setting-name})]
     (when (= 0 update-count)
       (insert! ds
                :settings
@@ -48,7 +49,8 @@
 
   (when-not (same-as-cached? setting-name value)
     (swap! settings-cache dissoc setting-name)
-    (put* (name setting-name) value)))
+    (put* (name setting-name)
+          (pr-str value))))
 
 (defn- encache
   [v k]
@@ -62,4 +64,6 @@
   (if-let [value (get-in @settings-cache [setting-name])]
     value
     (-> (get* (name setting-name))
+        :value
+        read-string
         (encache setting-name))))
