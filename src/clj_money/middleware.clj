@@ -3,8 +3,8 @@
   (:require [clojure.tools.logging :as log]
             [clojure.pprint :refer [pprint]]
             [ring.util.response :refer [response status header]]
-            [dgknght.app-lib.authorization :as authorization]
             [dgknght.app-lib.api :as api]
+            [clj-money.authorization :as authorization]
             [clj-money.models :as models]
             [clj-money.api :refer [log-error]]))
 
@@ -81,7 +81,7 @@
 
 (defmethod handle-exception ::authorization/unauthorized
   [e]
-  (if (:opaque? (ex-data e))
+  (if (authorization/opaque? (ex-data e))
     api/not-found
     api/forbidden))
 
@@ -102,7 +102,9 @@
 
 (defmethod handle-exception :default
   [e]
-  (log/error e "Unexpected ExceptionInfo was while hanlding the web request.")
+  (if-let [details (ex-data e)]
+    (log/error e "Unexpected ExceptionInfo was while hanlding the web request: %s" (pr-str details))
+    (log/error e "Unexpected ExceptionInfo was while hanlding the web request."))
   api/internal-server-error)
 
 ; TODO: Move this to the api namespace
