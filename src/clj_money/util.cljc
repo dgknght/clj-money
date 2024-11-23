@@ -254,8 +254,9 @@
   (map #(merge template %) series))
 
 (defn pp->
-  [v m]
-  (pprint {m v})
+  [v m & {:keys [meta?]}]
+  (binding [*print-meta* meta?]
+    (pprint {m v}))
   v)
 
 (defn pp->>
