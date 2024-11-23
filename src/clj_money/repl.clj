@@ -1,7 +1,5 @@
 (ns clj-money.repl
-  (:require [clj-money.web.server :as s]
-            [clj-money.models.sql-storage]
-            [clj-money.models.users :as usrs]))
+  (:require [clj-money.web.server :as s]))
 
 (def server (atom nil))
 
@@ -11,7 +9,3 @@
 (defn stop-server []
   (.stop @server)
   (reset! server nil))
-
-(defn create-user
-  [& {:as args}]
-  (usrs/create args))

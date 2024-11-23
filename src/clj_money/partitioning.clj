@@ -1,4 +1,3 @@
-; should this really exist in sql-storage?
 (ns clj-money.partitioning
   (:require [next.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
