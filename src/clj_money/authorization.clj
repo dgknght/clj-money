@@ -12,9 +12,9 @@
   authenticated user is allowed to perform the specified
   action on the specified model"
   (fn [model action _user]
-    (if-let [model-type (db/model-type model)]
-      [model-type action]
-      (throw (ex-info "Unable to determine the model type" {:model model})))))
+    (let [model-type (db/model-type model)]
+      (assert model-type (prn-str model))
+      [model-type action])))
 
 (defn opaque?
   [error]
