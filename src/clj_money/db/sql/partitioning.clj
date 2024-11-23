@@ -1,4 +1,4 @@
-(ns clj-money.partitioning
+(ns clj-money.db.sql.partitioning
   (:require [next.jdbc :as jdbc]
             [clojure.pprint :refer [pprint]]
             [java-time.api :as t]

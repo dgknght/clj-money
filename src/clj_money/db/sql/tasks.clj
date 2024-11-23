@@ -14,8 +14,8 @@
             [honey.sql :as sql]
             [honey.sql.helpers :refer [select from where limit]]
             [clj-money.core]
-            #_[clj-money.models.settings :as settings]
-            [clj-money.partitioning :refer [create-partition-tables]]))
+            [clj-money.models.settings :as settings]
+            [clj-money.db.sql.partitioning :refer [create-partition-tables]]))
 
 (defn- db-config []
   (get-in env [:db :strategies :sql]))
@@ -41,9 +41,8 @@
    ["-s" "--silent" "Do not output SQL commands"]])
 
 (defn put-partition-date
-  [_setting-name _date _compare-fn]
-  (log/warn "Not writing partition dates during transaction to next-jdbc")
-  #_(when (if-let [existing (settings/get setting-name)]
+  [setting-name date compare-fn]
+  (when (if-let [existing (settings/get setting-name)]
           (when (compare-fn date existing)
             date)
           date)
