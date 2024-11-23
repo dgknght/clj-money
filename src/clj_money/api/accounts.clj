@@ -57,8 +57,7 @@
   [{:keys [params authenticated]} action]
   (some-> params
           (select-keys [:id])
-          (db/model-type :account)
-          (+scope ::models/account authenticated)
+          (+scope :account authenticated)
           models/find-by
           (authorize action authenticated)))
 
