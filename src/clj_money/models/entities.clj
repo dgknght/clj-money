@@ -4,10 +4,8 @@
             [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [assoc-if
                                           present?]]
-            [dgknght.app-lib.models :refer [->id]]
             [dgknght.app-lib.validation :as v]
-            [clj-money.models :as models]
-            [clj-money.db :as db]))
+            [clj-money.models :as models]))
 
 (declare find-by)
 
@@ -37,27 +35,6 @@
                                       :opt [:entity/settings])
                               name-is-unique?))
 
-(defn ^:deprecated select
-  "Returns entities for the specified user"
-  ([criteria]
-   (select criteria {}))
-  ([criteria options]
-   (db/select (db/storage)
-              (db/model-type criteria :entity)
-              options)))
-
-(defn ^:deprecated find-by
-  "Returns the first entity that matches the specified criteria"
-  ([criteria]
-   (find-by criteria {}))
-  ([criteria options]
-   (first (models/select criteria (merge options {:limit 1})))))
-
-(defn ^:deprecated find
-  "Finds the entity with the specified ID"
-  [id-or-entity]
-  (models/find-by {:id (->id id-or-entity)}))
-
 (def ^:private find-or-create*
   (some-fn models/find-by models/put))
 
@@ -67,12 +44,3 @@
   [user entity-name]
   (find-or-create* #:entity{:user user
                             :name entity-name}))
-
-(defn ^:deprecatedn delete
-  "Removes the specifiedy entity and all related records from storage"
-  [entity]
-  (db/delete (db/storage) [entity]))
-
-(defn entity?
-  [model]
-  (= :entity (db/model-type model)))

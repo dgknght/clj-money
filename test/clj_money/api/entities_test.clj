@@ -1,76 +1,81 @@
 (ns clj-money.api.entities-test
   (:require [clojure.test :refer [deftest is use-fixtures]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test :refer [parse-json-body]]
+            [clj-money.models :as models]
+            [clj-money.db.sql.ref]
+            [clj-money.models.ref]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             find-user
                                             find-entity]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.web.server :refer [app]]
-            [clj-money.models.entities :as entities]))
+            [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private create-context
-  {:users [(factory :user {:email "john@doe.com"})
-           (factory :user {:email "jane@doe.com"})]})
+  [(factory :user {:user/email "john@doe.com"})
+   (factory :user {:user/email "jane@doe.com"})])
 
 (deftest a-user-can-create-an-entity
-  (let [ctx (realize create-context)
-        user (find-user ctx "john@doe.com")
-        response (-> (req/request :post (path :api :entities))
-                     (req/json-body {:name "Personal"
-                                     :settings {:inventory-method :fifo}})
-                     (add-auth user)
-                     app)
-        retrieved (entities/select {:user-id (:id user)})]
-    (is (http-success? response))
-    (is (comparable? {:user-id (:id user)
-                      :name "Personal"
-                      :settings {:inventory-method :fifo}}
-                     (first retrieved)))))
+  (with-context create-context
+    (let [user (find-user "john@doe.com")
+          response (-> (req/request :post (path :api :entities))
+                       (req/json-body #:entity{:name "Personal"
+                                               :settings {:settings/inventory-method :fifo}})
+                       (add-auth user)
+                       app
+                       parse-json-body)]
+      (is (http-success? response))
+      (is (comparable? #:entity{:user (select-keys user [:id])
+                                :name "Personal"
+                                :settings {:settings/inventory-method :fifo}}
+                       (models/find (get-in response [:json-body :id])
+                                    :entity))
+          "The entity can be retrieved"))))
 
 (def ^:private list-context
-  (assoc create-context :entities [{:user-id "john@doe.com"
-                                    :name "Personal"}
-                                   {:user-id "john@doe.com"
-                                    :name "Business"}]))
+  (conj create-context
+        #:entity{:user "john@doe.com"
+                 :name "Personal"}
+        #:entity{:user "john@doe.com"
+                 :name "Business"}))
 
 (defn- edit-an-entity
   [email]
-  (let [ctx (realize list-context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :patch (path :api :entities (:id entity)))
-                     (req/json-body (-> entity
-                                        (assoc :name "New Name")
-                                        (assoc-in [:settings :monitored-account-ids] #{1 2})
-                                        (select-keys [:name :settings])))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        retrieved (entities/find entity)]
-    [response body retrieved]))
+  (with-context list-context
+    (let [user (find-user email)
+          entity (find-entity "Personal")
+          response (-> (req/request :patch (path :api :entities (:id entity)))
+                       (req/json-body (-> entity
+                                          (assoc :entity/name "New Name")
+                                          (assoc-in [:entity/settings :settings/monitored-account-ids] #{1 2})
+                                          (select-keys [:entity/name
+                                                        :entity/settings])))
+                       (add-auth user)
+                       app
+                       parse-json-body)]
+      [response (models/find entity)])))
 
 (defn- assert-successful-edit
-  [[response body retrieved]]
+  [[response retrieved]]
   (is (http-success? response))
-  (is (comparable? {:name "New Name"}
-                   body)
+  (is (comparable? {:entity/name "New Name"}
+                   (:json-body response))
       "The updated entity is returned in the response")
-  (is (comparable? {:name "New Name"}
+  (is (comparable? {:entity/name "New Name"}
                    retrieved)
       "The retrieved value has the updated attributes"))
 
 (defn- assert-blocked-edit
-  [[response _ retrieved]]
+  [[response retrieved]]
   (is (http-not-found? response))
-  (is (comparable? {:name "Personal"}
+  (is (comparable? {:entity/name "Personal"}
                    retrieved)
       "The retrieved value has not been changed"))
 
@@ -81,39 +86,39 @@
   (assert-blocked-edit (edit-an-entity "jane@doe.com")))
 
 (deftest an-unauthenticated-user-cannot-edit-an-entity
-  (let [ctx (realize list-context)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :patch (path :api :entities (:id entity)))
-                     (req/json-body (-> entity
-                                        (assoc :name "New Name")
-                                        (select-keys [:name :settings])))
-                     app)
-        retrieved (entities/find entity)]
-    (is (http-unauthorized? response))
-    (is (comparable? {:name "Personal"}
-                     retrieved)
-        "The retrieved value has not been changed.")))
+  (with-context list-context
+    (let [entity (find-entity "Personal")
+          response (-> (req/request :patch (path :api :entities (:id entity)))
+                       (req/json-body (-> entity
+                                          (assoc :entity/name "New Name")
+                                          (select-keys [:entity/name
+                                                        :entity/settings])))
+                       app)]
+      (is (http-unauthorized? response))
+      (is (comparable? {:entity/name "Personal"}
+                       (models/find entity))
+          "The retrieved value has not been changed."))))
 
 (defn- get-a-list
   [email]
-  (let  [ctx (realize list-context)
-         user (find-user ctx email)
-         response (-> (req/request :get (path :api :entities))
-                      (add-auth user)
-                      app)
-         body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context list-context
+    (-> (req/request :get (path :api :entities))
+        (add-auth (find-user email))
+        app
+        parse-json-body)))
 
 (defn- assert-successful-list
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (= #{"Personal" "Business"} (set (map :name body)))
+  (is (seq-of-maps-like? [{:entity/name "Business"}
+                          {:entity/name "Personal"}]
+                         json-body)
       "The body contains the correct entities"))
 
 (defn- assert-blocked-list
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (empty? body) "The body is empty"))
+  (is (empty? json-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-his-entities
   (assert-successful-list (get-a-list "john@doe.com")))
@@ -123,14 +128,15 @@
 
 (defn- delete-an-entity
   [email]
-  (let  [ctx (realize list-context)
-         user (find-user ctx email)
-         entity (find-entity ctx "Personal")
-         response (-> (req/request :delete (path :api :entities (:id entity)))
-                      (add-auth user)
-                      app)
-         retrieved (entities/find entity)]
-    [response retrieved]))
+  (with-context list-context
+    (let [entity (find-entity "Personal")]
+      [(-> (req/request :delete
+                        (path :api
+                              :entities
+                              (:id entity)))
+           (add-auth (find-user email))
+           app)
+       (models/find entity)])))
 
 (defn- assert-successful-delete
   [[response retrieved]]

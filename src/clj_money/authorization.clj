@@ -60,5 +60,6 @@
      (if (empty? criteria)
        s
        (with-meta [:and criteria s]
-                  (meta s)))
+                  (or (meta s)
+                      {::db/type model-type})))
      criteria)))
