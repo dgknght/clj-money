@@ -278,6 +278,14 @@
   (is (dates/equal? (t/local-date 2000 1 1)
                     (dates/unserialize-local-date "2000-01-01"))))
 
+(deftest serialize-a-local-date-time
+  (is (= "2000-01-01T12:34:56"
+         (dates/serialize-local-date-time (t/local-date-time 2000 1 1 12 34 56)))))
+
+(deftest unserialize-a-local-date-time
+  (is (dates/equal? (t/local-date-time 2000 1 1 11 22 33)
+                    (dates/unserialize-local-date-time "2000-01-01T11:22:33"))))
+
 (deftest get-the-number-of-days-in-a-period
   (is (= 3 (dates/days-between (t/local-date 2000 1 1)
                                (t/local-date 2000 1 4)))))

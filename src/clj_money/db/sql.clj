@@ -27,7 +27,6 @@
   (:import org.postgresql.util.PGobject
            [java.sql Array PreparedStatement]))
 
-(next.jdbc.date-time/read-as-instant)
 (next.jdbc.date-time/read-as-local)
 
 (extend-protocol rs/ReadableColumn
@@ -38,9 +37,6 @@
 (extend-protocol p/SettableParameter
   clojure.lang.Keyword
   (set-parameter [^clojure.lang.Keyword k ^PreparedStatement s ^long i]
-
-    (pprint {::set-parameter k})
-
     (.setObject s i (name k))))
 
 (defmulti deconstruct (fn [x]

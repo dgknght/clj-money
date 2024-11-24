@@ -8,7 +8,6 @@
             [dgknght.app-lib.api :as api]
             [clj-money.util :as util]
             [clj-money.models :as models]
-            [clj-money.db :as db]
             [clj-money.authorization :as auth :refer [authorize
                                                       +scope]]
             [clj-money.authorization.accounts]))

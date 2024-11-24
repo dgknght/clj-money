@@ -6,6 +6,7 @@
             [dgknght.app-lib.web :refer [path]]
             [dgknght.app-lib.test :refer [parse-json-body]]
             [dgknght.app-lib.test-assertions]
+            [clj-money.json]
             [clj-money.db :as db]
             [clj-money.util :as util]
             [clj-money.models.ref]
