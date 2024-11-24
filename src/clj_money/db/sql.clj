@@ -73,6 +73,10 @@
    :account/parent
    :transaction/entity
    :transaction-item/account
+   :transaction-item/reconciliation
+   :transaction-item/transaction
+   :scheduled-transaction/entity
+   :scheduled-transaction-item/account
    :reconciliation/account
    :budget/entity
    :budget-item/account
