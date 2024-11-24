@@ -1,22 +1,9 @@
 (ns clj-money.db.sql.transaction-items
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [stowaway.criteria :as criteria]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id?]]))
-
-(declare ->sql-refs)
-(sql/def->sql-refs ->sql-refs
-  :transaction-item/account
-  :transaction-item/transaction
-  :transaction-item/reconciliation)
-
-(declare ->model-refs)
-(sql/def->model-refs ->model-refs
-  :transaction-item/account
-  :transaction-item/transaction
-  :transaction-item/reconciliation)
 
 (defmethod sql/resolve-temp-ids :transaction-item
   [{:transaction-item/keys [transaction-id reconciliation-id] :as item} id-map]
@@ -24,19 +11,12 @@
     (temp-id? transaction-id)    (update-in [:transaction-item/transaction-id] id-map)
     (temp-id? reconciliation-id) (update-in [:transaction-item/reconciliation-id] id-map)))
 
-(defmethod sql/prepare-criteria :transaction-item
-  [criteria]
-  (criteria/apply-to criteria ->sql-refs))
-
 (defmethod sql/before-save :transaction-item
   [item]
-  (-> item
-      (update-in-if [:transaction-item/action] name)
-      (->sql-refs)))
+  (update-in-if item [:transaction-item/action] name))
 
 (defmethod sql/after-read :transaction-item
   [item]
   (-> item
       (update-in [:transaction-item/action] keyword)
-      (update-in-if [:transaction-item/transaction-date] t/local-date)
-      (->model-refs)))
+      (update-in-if [:transaction-item/transaction-date] t/local-date)))

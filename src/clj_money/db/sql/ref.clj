@@ -16,6 +16,4 @@
             clj-money.db.sql.lots
             clj-money.db.sql.budgets
             clj-money.db.sql.budget-items
-            clj-money.db.sql.reconciliations
-            clj-money.db.sql.images
-            clj-money.db.sql.attachments))
+            clj-money.db.sql.reconciliations))

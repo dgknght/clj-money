@@ -1,31 +1,14 @@
 (ns clj-money.db.sql.budgets
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
-            [stowaway.criteria :as criteria]
             [clj-money.util :as util]
             [clj-money.db :as db]
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id]]))
 
-(declare ->sql-refs)
-(sql/def->sql-refs ->sql-refs :budget/entity)
-
-(declare ->model-refs)
-(sql/def->model-refs ->model-refs :budget/entity)
-
-(defmethod sql/prepare-criteria :budget
-  [criteria]
-  (-> criteria
-      (criteria/apply-to ->sql-refs)
-      (criteria/apply-to #(-> %
-                              (criteria/update-in [:budget/start-date] t/sql-date)
-                              (criteria/update-in [:budget/end-date] t/sql-date)))))
-
 (defmethod sql/before-save :budget
   [budget]
-  (-> budget
-      (update-in [:budget/period] name)
-      ->sql-refs))
+  (update-in budget [:budget/period] name))
 
 (defmethod sql/deconstruct :budget
   [{:budget/keys [items] :as budget}]
@@ -42,8 +25,7 @@
   (-> budget
       (update-in [:budget/start-date] t/local-date)
       (update-in [:budget/end-date] t/local-date)
-      (update-in [:budget/period] keyword)
-      ->model-refs))
+      (update-in [:budget/period] keyword)))
 
 (defmethod sql/post-select :budget
   [storage budgets]

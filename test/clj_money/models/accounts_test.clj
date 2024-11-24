@@ -6,6 +6,7 @@
             [clj-money.factories.user-factory]
             [clj-money.factories.entity-factory]
             [clj-money.factories.account-factory]
+            [clj-money.models.ref]
             [clj-money.db.sql.ref]
             [clj-money.test-context :refer [with-context
                                             find-entity
@@ -51,13 +52,11 @@
     (let [entity (find-entity "Personal")
           expected [#:account{:name "Checking"
                               :type :asset
-                              :system-tags #{}
                               :quantity 0M
                               :value 0M
                               :entity (select-keys entity [:id])}
                     #:account{:name "Credit card"
                               :type :liability
-                              :system-tags #{}
                               :quantity 0M
                               :value 0M
                               :entity (select-keys entity [:id])}]]

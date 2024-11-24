@@ -12,6 +12,7 @@
                                            for-delete]]
             [next.jdbc.date-time]
             [next.jdbc.result-set :as rs]
+            [next.jdbc.prepare :as p]
             [stowaway.criteria :as crt]
             [dgknght.app-lib.core :refer [update-in-if]]
             [dgknght.app-lib.inflection :refer [plural
@@ -24,12 +25,23 @@
             [clj-money.db.sql.types :refer [temp-id?
                                             coerce-id]])
   (:import org.postgresql.util.PGobject
-           java.sql.Array))
+           [java.sql Array PreparedStatement]))
+
+(next.jdbc.date-time/read-as-instant)
+(next.jdbc.date-time/read-as-local)
 
 (extend-protocol rs/ReadableColumn
   Array
   (read-column-by-label [^Array v _] (vec (.getArray v)))
   (read-column-by-index [^Array v _ _] (vec (.getArray v))))
+
+(extend-protocol p/SettableParameter
+  clojure.lang.Keyword
+  (set-parameter [^clojure.lang.Keyword k ^PreparedStatement s ^long i]
+
+    (pprint {::set-parameter k})
+
+    (.setObject s i (name k))))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)
@@ -48,8 +60,59 @@
 (defmulti after-read db/model-type)
 (defmethod after-read :default [m] m)
 
-(defmulti prepare-criteria db/model-type)
-(defmethod prepare-criteria :default [m] m)
+(def ^:private model-ref-keys
+  [:image/user
+   :identity/user
+   :entity/user
+   :grant/entity
+   :grant/user
+   :commodity/entity
+   :price/commodity
+   :account/entity
+   :account/commodity
+   :account/parent
+   :transaction/entity
+   :transaction-item/account
+   :reconciliation/account
+   :budget/entity
+   :budget-item/account
+   :attachment/image
+   :attachment/transaction
+   :lot/account
+   :lot/commodity])
+
+(def ^:private sql-ref-keys
+  (mapv #(keyword (namespace %)
+                  (str (name %) "-id"))
+        model-ref-keys))
+
+(def ^:private model->sql-ref-map
+  (zipmap model-ref-keys sql-ref-keys))
+
+(defn- ->sql-refs
+  [m]
+  (reduce (fn [m k]
+            (update-in-if m [k] (comp coerce-id ->id)))
+          (rename-keys m model->sql-ref-map)
+          sql-ref-keys))
+
+(def ^:private sql->model-ref-map
+  (zipmap sql-ref-keys model-ref-keys))
+
+(defn- ->model-refs
+  [m]
+  (reduce (fn [m k]
+            (update-in-if m [k] util/->model-ref))
+          (rename-keys m sql->model-ref-map)
+          model-ref-keys))
+
+; convert keywords to strings (or can this be done with SettableParameter?)
+; {:account/type :asset} -> {:account/type "asset"}
+; maybe convert java-time to sql? I think next-jdbc.date-time already handles this
+; {:transaction/transaction-date (t/local-date 2020 1 1)} -> {:transaction/transaction-date "2020-01-01"}
+(defn- prepare-criteria
+  [criteria]
+  (crt/apply-to criteria ->sql-refs))
 
 (defmulti post-select
   (fn [_storage ms]
@@ -158,13 +221,15 @@
   (jdbc/with-transaction [tx ds]
     (->> models
          (mapcat deconstruct)
-         (map (comp #(update-in % [1] before-save)
+         (map (comp #(update-in % [1] (comp before-save
+                                            ->sql-refs))
                     wrap-oper))
          (reduce (execute-and-aggregate tx)
                  {:saved []
                   :id-map {}})
          :saved
-         (map after-read)
+         (map (comp after-read
+                    ->model-refs))
          (reconstruct))))
 
 (defn- update*
@@ -227,6 +292,7 @@
       (post-select
         (:storage options)
         (map (comp after-read
+                   ->model-refs
                    refine-qualifiers)
              (jdbc/execute! ds
                             query
@@ -256,45 +322,6 @@
       (delete [_ models] (delete* ds models))
       (close [_]) ; this is a no-op for next-jdbc
       (reset [_] (reset* ds)))))
-
-(defmacro def->sql-refs
-  "Give a model map, covert the values at the specified keys into
-  simple id values and add the -id suffix to the key"
-  [fn-name & keys]
-  (let [id-keys (mapv #(keyword (namespace %)
-                                (str (name %) "-id"))
-                      keys)
-        key-map (zipmap keys id-keys)]
-    `(defn- ~fn-name
-       [model#]
-       (reduce #(util/update-in-criteria %1 %2 ->id)
-               (rename-keys model# ~key-map)
-               ~id-keys))))
-
-(defn ->model-ref
-  ([x] (->model-ref x identity))
-  ([x coerce]
-   (if (map? x)
-     (-> x
-         (select-keys [:id])
-         (update-in-if [:id] coerce))
-     {:id (coerce x)})))
-
-(defmacro def->model-refs
-  "Given a model map, convert the values at the specified keys into
-  model reference maps like {:id 123} and remove the -id suffix
-  from the key"
-  [fn-name & keys]
-  (let [id-keys (mapv #(keyword (namespace %)
-                                (str (name %) "-id"))
-                      keys)
-        key-map (zipmap id-keys keys)]
-    `(defn- ~fn-name
-       [model#]
-       (rename-keys (reduce #(update-in-if %1 [%2] ->model-ref)
-                            model#
-                            ~id-keys)
-                    ~key-map))))
 
 (defn ->json
   [x]

@@ -2,23 +2,13 @@
   (:require [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id?]]))
 
-(declare ->sql-refs)
-(sql/def->sql-refs ->sql-refs :scheduled-transaction-item/account)
-
-(declare ->model-refs)
-(sql/def->model-refs ->model-refs :scheduled-transaction-item/account)
-
 (defmethod sql/before-save :scheduled-transaction-item
   [item]
-  (-> item
-      (update-in [:scheduled-transaction-item/action] name)
-      ->sql-refs))
+  (update-in item [:scheduled-transaction-item/action] name))
 
 (defmethod sql/after-read :scheduled-transaction-item
   [item]
-  (-> item
-      (update-in [:scheduled-transaction-item/action] keyword)
-      ->model-refs))
+  (update-in item [:scheduled-transaction-item/action] keyword))
 
 (defmethod sql/resolve-temp-ids :scheduled-transaction-item
   [item id-map]

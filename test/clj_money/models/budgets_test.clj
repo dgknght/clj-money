@@ -5,6 +5,7 @@
             [dgknght.app-lib.test]
             [clj-money.db.sql.ref]
             [clj-money.models :as models]
+            [clj-money.models.ref]
             [clj-money.model-helpers :as helpers :refer [assert-invalid
                                                          assert-deleted]]
             [clj-money.models.budgets :as budgets]

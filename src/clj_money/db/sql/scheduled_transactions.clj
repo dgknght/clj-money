@@ -6,18 +6,11 @@
             [clj-money.db.sql :as sql]
             [clj-money.db.sql.types :refer [temp-id]]))
 
-(declare ->sql-refs)
-(sql/def->sql-refs ->sql-refs :scheduled-transaction/entity)
-
-(declare ->model-refs)
-(sql/def->model-refs ->model-refs :scheduled-transaction/entity)
-
 (defmethod sql/before-save :scheduled-transaction
   [trx]
   (-> trx
       (update-in [:scheduled-transaction/interval-type] name)
-      (update-in [:scheduled-transaction/date-spec] sql/->json)
-      ->sql-refs))
+      (update-in [:scheduled-transaction/date-spec] sql/->json)))
 
 (defmethod sql/deconstruct :scheduled-transaction
   [{:scheduled-transaction/keys [items] :as trx}]
@@ -38,8 +31,7 @@
       (update-in-if [:scheduled-transaction/end-date] t/local-date)
       (update-in-if [:scheduled-transaction/date-spec :day] #(if (string? %)
                                                                (keyword %)
-                                                               %))
-      ->model-refs))
+                                                               %))))
 
 (defmethod sql/reconstruct :scheduled-transaction
   [models]
