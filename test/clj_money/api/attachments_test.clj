@@ -45,13 +45,14 @@
                                                   (:transaction/transaction-date transaction))
                                                 :attachments))
                        (merge (build-multipart-request {:file {:file file
-                                                               :content-type "image/jpg"}}))
+                                                               :content-type "image/jpg"}
+                                                        :attachment/caption "receipt"}))
                        (add-auth (find-user email))
                        app
-                       parse-json-body)
-          retrieved (when-let [id (get-in response [:json-body :id])]
-                      (models/find id :attachment))]
-      [response retrieved])))
+                       parse-json-body)]
+      [response
+       (when-let [id (get-in response [:json-body :id])]
+         (models/find id :attachment))])))
 
 (defn- assert-successful-create
   [[{:keys [json-body] :as response} retrieved]]
@@ -59,7 +60,7 @@
   (is (empty? (::v/errors json-body))
       "There are no validation errors")
   (is (:id json-body) "An ID is assigned to the new record")
-  (is (comparable? {:transaction/transaction-date (t/local-date 2015 1 1)}
+  (is (comparable? {:attachment/transaction-date (t/local-date 2015 1 1)}
                    retrieved) 
       "The created attachment can be retrieved"))
 
@@ -74,52 +75,51 @@
 (deftest a-user-cannot-create-an-attachment-in-anothers-entity
   (assert-blocked-create (create-attachment "jane@doe.com")))
 
-; (def ^:private list-context
-;   (assoc att-context
-;          :images [{:user-id "john@doe.com"
-;                    :original-filename "receipt.jpg"
-;                    :content-type "image/jpg"
-;                    :body (io/file (io/resource "fixtures/attachment.jpg"))}]
-;          :attachments [{:caption "Receipt"
-;                         :transaction-id {:transaction-date (t/local-date 2015 1 1)
-;                                          :description "Paycheck"}
-;                         :image-id "receipt.jpg"}]))
-; 
-; (defn- list-attachments
-;   [email]
-;   (let [ctx (realize list-context)
-;         user (find-user ctx email)
-;         transaction (find-transaction ctx (t/local-date 2015 1 1) "Paycheck")
-;         response (-> (req/request :get (str (path :api
-;                                                   :attachments)
-;                                             "?"
-;                                             (map->query-string
-;                                              {:transaction-date-on-or-after "2015-01-01"
-;                                               :transaction-date-on-or-before "2015-01-31"
-;                                               :transaction-id (:id transaction)})))
-;                      (add-auth user)
-;                      app)
-;         body (json/parse-string (:body response) true)]
-;     [response body]))
-; 
-; (defn- assert-successful-list
-;   [[response body]]
-;   (is (http-success? response))
-;   (is (= [{:caption "Receipt"}]
-;          (map #(select-keys % [:caption]) body))
-;       "The correct content is returned."))
-; 
-; (defn- assert-blocked-list
-;   [[response body]]
-;   (is (http-success? response))
-;   (is (empty? body) "No records are returned"))
-; 
-; (deftest a-user-can-get-a-list-of-attachments-in-his-entity
-;   (assert-successful-list (list-attachments "john@doe.com")))
-; 
-; (deftest a-user-cannot-get-a-list-of-attachments-in-anothers-entity
-;   (assert-blocked-list (list-attachments "jane@doe.com")))
-; 
+(def ^:private list-context
+  (conj att-context
+        #:image{:user "john@doe.com"
+                :original-filename "receipt.jpg"
+                :content-type "image/jpg"
+                :body (io/file (io/resource "fixtures/attachment.jpg"))}
+        #:attachment{:caption "Receipt"
+                     :transaction [(t/local-date 2015 1 1)
+                                   "Paycheck"]
+                     :image "receipt.jpg"}))
+
+(defn- list-attachments
+  [email]
+  (with-context list-context
+    (let [transaction (find-transaction [(t/local-date 2015 1 1)
+                                         "Paycheck"])]
+      (-> (req/request :get (str (path :api
+                                       :attachments)
+                                 "?"
+                                 (map->query-string
+                                   {:transaction-date-on-or-after "2015-01-01"
+                                    :transaction-date-on-or-before "2015-01-31"
+                                    :transaction-id (:id transaction)})))
+          (add-auth (find-user email))
+          app
+          parse-json-body))))
+
+(defn- assert-successful-list
+  [{:as response :keys [json-body]}]
+  (is (http-success? response))
+  (is (= [{:caption "Receipt"}]
+         (map #(select-keys % [:caption]) json-body))
+      "The correct content is returned."))
+
+(defn- assert-blocked-list
+  [{:as response :keys [json-body]}]
+  (is (http-success? response))
+  (is (empty? json-body) "No records are returned"))
+
+(deftest a-user-can-get-a-list-of-attachments-in-his-entity
+  (assert-successful-list (list-attachments "john@doe.com")))
+
+(deftest a-user-cannot-get-a-list-of-attachments-in-anothers-entity
+  (assert-blocked-list (list-attachments "jane@doe.com")))
+
 ; (defn- update-attachment
 ;   [email]
 ;   (let [ctx (realize list-context)

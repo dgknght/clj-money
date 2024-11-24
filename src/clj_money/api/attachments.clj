@@ -44,24 +44,27 @@
   (-> params
       (select-keys [:transaction-id :transaction-date])
       (util/qualify-keys :attachment)
-      (update-in [:attachment/transaction-id] uuid)
-      (update-in [:attachment/transaction-date] dates/unserialize-local-date)))
+      (update-in [:attachment/transaction-id] (comp util/->model-ref
+                                                    uuid))
+      (update-in [:attachment/transaction-date] dates/unserialize-local-date)
+      (rename-keys {:attachment/transaction-id :attachment/transaction})))
 
-(defn- create-image
+(defn- find-or-create-image
   [{{:keys [file]} :params
     :keys [authenticated]}]
   (-> file
       (select-keys [:content-type :filename :tempfile])
       (update-in [:tempfile] read-bytes)
       (rename-keys {:filename :image/original-filename
-                    :tempfile :image/body})
+                    :tempfile :image/body
+                    :content-type :image/content-type})
       (assoc :image/user authenticated)
       img/find-or-create))
 
 (defn- assoc-image
   [att req]
-  (if-let [image (create-image req)]
-    (assoc att :image-id (:id image))
+  (if-let [image (find-or-create-image req)]
+    (assoc att :attachment/image image)
     att))
 
 (defn- create
