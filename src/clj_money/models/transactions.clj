@@ -393,10 +393,13 @@
     (map #(update-in % [:transaction-item/account] find-account)
          items)))
 
+(def ^:private transaction-item?
+  (db/model-type? :transaction-item))
+
 (defn- belongs-to-trx?
   [{:keys [id] :as trx}]
   (fn [model]
-    (if (db/model-type? model :transaction-item)
+    (if (transaction-item? model)
       (let [{:transaction-item/keys [transaction] :as item} model]
         (when (and id
                    (not (:id transaction)))
