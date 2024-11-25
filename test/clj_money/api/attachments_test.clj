@@ -120,70 +120,67 @@
 (deftest a-user-cannot-get-a-list-of-attachments-in-anothers-entity
   (assert-blocked-list (list-attachments "jane@doe.com")))
 
-; (defn- update-attachment
-;   [email]
-;   (let [ctx (realize list-context)
-;         attachment (find-attachment ctx "Receipt")
-;         user (find-user ctx email)
-;         response (-> (req/request :patch (path :api
-;                                                :attachments
-;                                                (:id attachment)))
-;                      (req/json-body (assoc attachment :caption "Updated caption"))
-;                      (add-auth user)
-;                      app)
-;         body (json/parse-string (:body response) true)
-;         retrieved (att/find attachment)]
-;     [response body retrieved]))
-; 
-; (defn- assert-successful-update
-;   [[response body retrieved]]
-;   (is (http-success? response))
-;   (is (= {:caption "Updated caption"}
-;          (select-keys body [:caption]))
-;       "The updated attachment is returned")
-;   (is (= {:caption "Updated caption"}
-;          (select-keys retrieved [:caption]))
-;       "The database is updated"))
-; 
-; (defn- assert-blocked-update
-;   [[response _ retrieved]]
-;   (is (http-not-found? response))
-;   (is (= {:caption "Receipt"}
-;          (select-keys retrieved [:caption]))
-;       "The database is not updated"))
-; 
-; (deftest a-user-can-update-an-attachment-in-his-entity
-;   (assert-successful-update (update-attachment "john@doe.com")))
-; 
-; (deftest a-user-cannot-update-an-attachment-in-anothers-entity
-;   (assert-blocked-update (update-attachment "jane@doe.com")))
-; 
-; (defn- delete-attachment
-;   [email]
-;   (let [ctx (realize list-context)
-;         attachment (find-attachment ctx "Receipt")
-;         user (find-user ctx email)
-;         response (-> (req/request :delete (path :api
-;                                                 :attachments
-;                                                 (:id attachment)))
-;                      (req/json-body (assoc attachment :caption "Updated caption"))
-;                      (add-auth user)
-;                      app)
-;         retrieved (att/find attachment)]
-;     [response retrieved]))
-; 
-; (defn- assert-successful-delete
-;   [[response retrieved]]
-;   (is (http-success? response))
-;   (is (nil? retrieved) "The attachment cannot be retrieved after delete"))
-; 
-; (defn- assert-blocked-delete
-;   [[response retrieved]]
-;   (is (http-not-found? response))
-;   (is retrieved "The attachment can be retrieved after a blocked delete"))
-; 
-; (deftest a-user-can-delete-an-attachment-in-his-entity
-;   (assert-successful-delete (delete-attachment "john@doe.com")))
-; 
-; (deftest a-user-cannot-delete-an-attachment-in-anothers-entity
-;   (assert-blocked-delete (delete-attachment "jane@doe.com")))
+(defn- update-attachment
+  [email]
+  (with-context list-context
+    (let [attachment (find-attachment "Receipt")
+          response (-> (req/request :patch (path :api
+                                                 :attachments
+                                                 (:id attachment)))
+                       (req/json-body (assoc attachment
+                                             :attachment/caption "Updated caption"))
+                       (add-auth (find-user email))
+                       app
+                       parse-json-body)]
+      [response (models/find attachment)])))
+
+(defn- assert-successful-update
+  [[{:as response :keys [json-body]} retrieved]]
+  (is (http-success? response))
+  (is (comparable? {:attachment/caption "Updated caption"}
+                   json-body)
+      "The updated attachment is returned")
+  (is (comparable? {:attachment/caption "Updated caption"}
+                   retrieved)
+      "The database is updated"))
+
+(defn- assert-blocked-update
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is (comparable? {:attachment/caption "Receipt"}
+                   retrieved)
+      "The retrieved attachment has the original values"))
+
+(deftest a-user-can-update-an-attachment-in-his-entity
+  (assert-successful-update (update-attachment "john@doe.com")))
+
+(deftest a-user-cannot-update-an-attachment-in-anothers-entity
+  (assert-blocked-update (update-attachment "jane@doe.com")))
+
+(defn- delete-attachment
+  [email]
+  (with-context list-context
+    (let [attachment (find-attachment "Receipt")
+          response (-> (req/request :delete (path :api
+                                                  :attachments
+                                                  (:id attachment)))
+                       (req/json-body (assoc attachment :caption "Updated caption"))
+                       (add-auth (find-user email))
+                       app)]
+      [response (models/find attachment)])))
+
+(defn- assert-successful-delete
+  [[response retrieved]]
+  (is (http-success? response))
+  (is (nil? retrieved) "The attachment cannot be retrieved after delete"))
+
+(defn- assert-blocked-delete
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is retrieved "The attachment can be retrieved after a blocked delete"))
+
+(deftest a-user-can-delete-an-attachment-in-his-entity
+  (assert-successful-delete (delete-attachment "john@doe.com")))
+
+(deftest a-user-cannot-delete-an-attachment-in-anothers-entity
+  (assert-blocked-delete (delete-attachment "jane@doe.com")))

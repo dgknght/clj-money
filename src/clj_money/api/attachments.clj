@@ -91,7 +91,7 @@
   [{:keys [body] :as req}]
   (if-let [attachment (find-and-auth req ::auth/update)]
     (-> attachment
-        (merge (select-keys body [:caption]))
+        (merge (select-keys body [:attachment/caption]))
         models/put
         api/update-response)
     api/not-found))
