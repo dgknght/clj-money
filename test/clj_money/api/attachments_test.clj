@@ -105,8 +105,8 @@
 (defn- assert-successful-list
   [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (= [{:caption "Receipt"}]
-         (map #(select-keys % [:caption]) json-body))
+  (is (seq-of-maps-like? [{:attachment/caption "Receipt"}]
+                         json-body)
       "The correct content is returned."))
 
 (defn- assert-blocked-list
