@@ -28,8 +28,10 @@
   (-> params
       unserialize-transaction-date
       (symbolic-comparatives :transaction-date)
-      (rename-keys {"transaction-id[]" :transaction-id})
-      (update-in-if [:transaction-id] #(if (coll? %)
+      (rename-keys {"transaction-id[]" :transaction/id
+                    :transaction-id :transaction/id
+                    :transaction-date :transaction/transaction-date})
+      (update-in-if [:transaction/id] #(if (coll? %)
                                          (map uuid %)
                                          (uuid %)))
       (+scope :attachment authenticated)))
