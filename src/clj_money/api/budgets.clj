@@ -1,11 +1,11 @@
 (ns clj-money.api.budgets
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
-            [stowaway.core :as stow]
+            [clojure.set :refer [rename-keys]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
-            [dgknght.app-lib.authorization
+            [clj-money.authorization
              :as auth
              :refer [+scope
                      authorize]]
@@ -13,46 +13,46 @@
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :refer [create-items-from-history]]
-            [clj-money.models.transactions :as trans]
-            [clj-money.models.budgets :as budgets]
             [clj-money.authorization.budgets]))
 
 (defn- index
   [{:keys [params authenticated]}]
   (api/response
-    (budgets/search (-> params
-                        (select-keys [:entity-id])
-                        (+scope ::models/budget authenticated))
-                    {:sort [[:start-date :desc]]})))
+    (models/select (-> params
+                       (select-keys [:entity-id])
+                       (rename-keys {:entity-id :budget/entity-id})
+                       (+scope :budget authenticated))
+                   {:sort [[:budget/start-date :desc]]})))
+
 (defn- prepare-item
   [item]
   (-> item
-      (update-in-if [:periods] #(map bigdec %))
-      (update-in-if [:spec :start-date] dates/unserialize-local-date)))
+      (update-in-if [:budget-item/periods] #(map bigdec %))
+      (update-in-if [:budget-item/spec :start-date] dates/unserialize-local-date)))
 
 (defn- extract-budget
   [{:keys [body]}]
   (-> body
-      (select-keys [:name
-                    :start-date
-                    :period
-                    :period-count
-                    :items])
-      (update-in-if [:items] #(map prepare-item %))
-      (update-in-if [:period] keyword)
-      (update-in-if [:start-date] dates/unserialize-local-date)))
+      (select-keys [:budget/name
+                    :budget/start-date
+                    :budget/period
+                    :budget/period-count
+                    :budget/items])
+      (update-in-if [:budget/items] #(map prepare-item %))
+      (update-in-if [:budget/period] keyword)
+      (update-in-if [:budget/start-date] dates/unserialize-local-date)))
 
 (defn- auto-create-items
-  [{:keys [entity-id period period-count] :as budget} start-date]
+  [{:budget/keys [entity period period-count] :as budget} start-date]
   (let [end-date (t/plus start-date
                          ((case period
                             :month t/months
                             :year t/years
                             :week t/weeks)
                           period-count))
-        items (trans/search-items {[:transaction :entity-id] entity-id
-                                   [:account :type] [:in #{:income :expense}]
-                                   :transaction-date [:between> start-date end-date]})]
+        items (models/select #:transaction-item{:transaction/entity entity
+                                                :transaction/transaction-date [:between> start-date end-date]
+                                                :account/type [:in #{:income :expense}]})]
     (create-items-from-history
       budget
       start-date
@@ -64,28 +64,28 @@
   (if (and (not (v/has-error? budget))
            start-date)
     (-> budget
-        (assoc :items (auto-create-items
-                        budget
-                        (dates/unserialize-local-date start-date)))
-        budgets/update)
+        (assoc :budget/items (auto-create-items
+                               budget
+                               (dates/unserialize-local-date start-date)))
+        models/put)
     budget))
 
 (defn- create
   [{:keys [authenticated params body] :as req}]
   (-> req
       extract-budget
-      (assoc :entity-id (:entity-id params))
-      (stow/tag ::models/budget)
+      (assoc :budget/entity {:id (:entity-id params)} )
       (authorize ::auth/create authenticated)
-      budgets/create ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
-      (append-items (:auto-create-start-date body))
+      models/put ; creating and then updating allows us to skip the transaction lookup if the original budget is not valid
+      (append-items (:budget/auto-create-start-date body))
       api/creation-response))
 
 (defn- find-and-auth
   [{:keys [params authenticated]} action]
-  (when-let [budget (budgets/find-by (+scope {:id (:id params)}
-                                             ::models/budget
-                                             authenticated))]
+  (when-let [budget (-> params
+                        (select-keys [:id])
+                        (+scope :budget authenticated)
+                        models/find-by)]
     (authorize budget action authenticated)))
 
 (defn- show
@@ -99,7 +99,7 @@
   (if-let [budget (find-and-auth req ::auth/update)]
     (-> budget
         (merge (extract-budget req))
-        budgets/update
+        models/put
         api/update-response)
     api/not-found))
 
@@ -107,7 +107,7 @@
   [req]
   (if-let [budget (find-and-auth req ::auth/destroy)]
     (do
-      (budgets/delete budget)
+      (models/delete budget)
       (api/response))
     api/not-found))
 

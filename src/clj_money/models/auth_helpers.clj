@@ -23,6 +23,12 @@
        :transaction/transaction-date transaction-date}
       :entity)))
 
+(defmethod fetch-entity :budget
+  [{:budget/keys [entity]}]
+  (if (util/model-ref? entity)
+    (models/find entity :entity)
+    entity))
+
 (defmethod fetch-entity :budget-item
   [{:budget-item/keys [budget]}]
   (models/find-by
