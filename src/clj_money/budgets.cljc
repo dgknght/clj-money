@@ -166,20 +166,6 @@
                accounts))
       output)))
 
-(defn- trace-items
-  [msg items]
-  (println "")
-  (println msg)
-  (doseq [line (map (comp #(string/join " " %)
-                          (juxt :transaction-item/transaction-date
-                                :transaction-item/account
-                                :transaction-item/action
-                                :transaction-item/quantity)
-                          #(update-in % [:transaction-item/account] :account/name))
-                    items)]
-    (println line))
-  items)
-
 (defn- trx-items->budget-item
   [{:budget/keys [period]}
    start-date
@@ -188,7 +174,6 @@
     #:budget-item{:account account
                   :periods (->> trx-items
                                 realize-accounts
-                                (trace-items ::trx-items->budget-item)
                                 (txns/summarize-items {:interval-type period
                                                        :interval-count 1
                                                        :start-date start-date

@@ -138,60 +138,56 @@
                   first))
           "The response contains periods calculated from the transaction history for the salary account"))))
 
-; (def ^:private list-context
-;   (assoc create-context
-;          :budgets [{:name "2015"
-;                     :entity-id "Personal"
-;                     :period :month
-;                     :period-count 12
-;                     :start-date (t/local-date 2015 1 1)
-;                     :items [{:account-id "Salary"    :periods (repeat 12 1000M)}
-;                             {:account-id "Rent"      :periods (repeat 12 500M)}
-;                             {:account-id "Groceries" :periods (repeat 12 200M)}]}
-;                    {:name "2016"
-;                     :entity-id "Personal"
-;                     :period :month
-;                     :period-count 12
-;                     :start-date (t/local-date 2016 1 1)
-;                     :items [{:account-id "Salary"    :periods (repeat 12 1001M)}
-;                             {:account-id "Rent"      :periods (repeat 12 501M)}
-;                             {:account-id "Groceries" :periods (repeat 12 201M)}]}]))
-; 
-; (defn- get-budgets
-;   [email]
-;   (let [ctx (realize list-context)
-;         user (find-user ctx email)
-;         entity (find-entity ctx "Personal")
-;         response (-> (req/request :get (path :api
-;                                              :entities
-;                                              (:id entity)
-;                                              :budgets))
-;                      (add-auth user)
-;                      app)
-;         body (json/parse-string (:body response) true)]
-;     [response body]))
-; 
-; (defn- assert-successful-get-list
-;   [[response body]]
-;   (is (http-success? response))
-;   (is (= [{:name "2016"
-;            :start-date "2016-01-01"}
-;           {:name "2015"
-;            :start-date "2015-01-01"}]
-;          (map #(select-keys % [:name :start-date])
-;               body))))
-; 
-; (defn- assert-blocked-get-list
-;   [[response body]]
-;   (is (http-success? response))
-;   (is (empty? body) "The body is empty"))
-; 
-; (deftest a-user-can-get-a-list-of-budgets-for-his-entity
-;   (assert-successful-get-list (get-budgets "john@doe.com")))
-; 
-; (deftest a-user-cannot-get-a-list-of-budgets-for-anothers-entity
-;   (assert-blocked-get-list (get-budgets "jane@doe.com")))
-; 
+(def ^:private list-context
+  (conj create-context
+        #:budget{:name "2015"
+                 :entity "Personal"
+                 :period :month
+                 :period-count 12
+                 :start-date (t/local-date 2015 1 1)
+                 :items [#:budget-item{:account "Salary"    :periods (repeat 12 1000M)}
+                         #:budget-item{:account "Rent"      :periods (repeat 12 500M)}
+                         #:budget-item{:account "Groceries" :periods (repeat 12 200M)}]}
+        #:budget{:name "2016"
+                 :entity "Personal"
+                 :period :month
+                 :period-count 12
+                 :start-date (t/local-date 2016 1 1)
+                 :items [#:budget-item{:account "Salary"    :periods (repeat 12 1001M)}
+                         #:budget-item{:account "Rent"      :periods (repeat 12 501M)}
+                         #:budget-item{:account "Groceries" :periods (repeat 12 201M)}]}))
+
+(defn- get-budgets
+  [email]
+  (with-context list-context
+    (-> (req/request :get (path :api
+                                :entities
+                                (:id (find-entity "Personal"))
+                                :budgets))
+        (add-auth (find-user email))
+        app
+        parse-json-body)))
+
+(defn- assert-successful-get-list
+  [{:as response :keys [json-body]}]
+  (is (http-success? response))
+  (is (seq-of-maps-like? [#:budget{:name "2016"
+                                   :start-date "2016-01-01"}
+                          #:budget{:name "2015"
+                                   :start-date "2015-01-01"}]
+                         json-body)))
+
+(defn- assert-blocked-get-list
+  [[response body]]
+  (is (http-success? response))
+  (is (empty? body) "The body is empty"))
+
+(deftest a-user-can-get-a-list-of-budgets-for-his-entity
+  (assert-successful-get-list (get-budgets "john@doe.com")))
+
+(deftest a-user-cannot-get-a-list-of-budgets-for-anothers-entity
+  (assert-blocked-get-list (get-budgets "jane@doe.com")))
+
 ; (defn- get-budget
 ;   [email]
 ;   (let [ctx (realize list-context)
