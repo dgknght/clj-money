@@ -4,7 +4,9 @@
             #?(:clj [clojure.pprint :refer [pprint]]
                :cljs [cljs.pprint :refer [pprint]])
             [dgknght.app-lib.inflection :refer [title-case]]
+            [clj-money.util :as util]
             [clj-money.dates :as dates]
+            [clj-money.models :as models]
             [clj-money.accounts :as acts]
             [clj-money.transactions :as txns]
             #?(:clj [java-time.api :as t]
@@ -141,24 +143,66 @@
       (render-tagged items tags)
       (render-untagged items))))
 
-(defn- ->budget-item
-  [[account-id tran-items]
-   {:keys [period]}
+(defn- fetch-account
+  [account-or-ref accounts]
+  (if (util/model-ref? account-or-ref)
+    (if-let [account (accounts (:id account-or-ref))]
+      [account accounts]
+      (let [account (models/find account-or-ref :account)]
+        [account (assoc accounts (:id account) account)]))
+    [account-or-ref accounts]))
+
+(defn- realize-accounts
+  [trx-items]
+  (loop [input trx-items output [] accounts {}]
+    (if-let [item (first input)]
+      (let [[account accounts] (fetch-account (:transaction-item/account item)
+                                              accounts)]
+        (recur (rest input)
+               (conj output
+                     (assoc item
+                            :transaction-item/account
+                            account))
+               accounts))
+      output)))
+
+(defn- trace-items
+  [msg items]
+  (println "")
+  (println msg)
+  (doseq [line (map (comp #(string/join " " %)
+                          (juxt :transaction-item/transaction-date
+                                :transaction-item/account
+                                :transaction-item/action
+                                :transaction-item/quantity)
+                          #(update-in % [:transaction-item/account] :account/name))
+                    items)]
+    (println line))
+  items)
+
+(defn- trx-items->budget-item
+  [{:budget/keys [period]}
    start-date
    end-date]
-  {:account-id account-id
-   :periods (->> tran-items
-                 (txns/summarize-items {:interval-type period
-                                        :interval-count 1
-                                        :start-date start-date
-                                        :end-date end-date})
-                 (map :quantity))})
+  (fn [[account trx-items]]
+    #:budget-item{:account account
+                  :periods (->> trx-items
+                                realize-accounts
+                                (trace-items ::trx-items->budget-item)
+                                (txns/summarize-items {:interval-type period
+                                                       :interval-count 1
+                                                       :start-date start-date
+                                                       :end-date end-date})
+                                (map :quantity))}))
 
 (defn create-items-from-history
   [budget start-date end-date trx-items]
   (->> trx-items
-       (group-by :account-id)
-       (map #(->budget-item % budget start-date (t/minus end-date (t/days 1))))))
+       (group-by (comp util/->model-ref
+                       :transaction-item/account))
+       (map (trx-items->budget-item budget
+                                    start-date
+                                    (t/minus end-date (t/days 1))))))
 
 (def ^:private period-map
   {:month (t/months 1)
