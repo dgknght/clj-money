@@ -155,13 +155,20 @@
         (assoc :transaction/items items)
         (dissoc :trade/account :trade/shares :trade/action :trade/commodity))))
 
+(defn- polarize-item-quantity
+  [{:transaction-item/keys [account quantity action] :as item}]
+  (assoc item
+         :transaction-item/polarized-quantity
+         (polarize-quantity quantity action account)))
+
 (defn- summarize-period
   [[start-date end-date] items]
   {:start-date start-date
    :end-date end-date
    :quantity (->> items
                   (filter #(dates/within? (:transaction-item/transaction-date %) start-date end-date))
-                  (map :transaction-item/polarized-quantity)
+                  (map (comp :transaction-item/polarized-quantity
+                             polarize-item-quantity))
                   (reduce + 0M))})
 
 (defn summarize-items
