@@ -2,6 +2,7 @@
   (:refer-clojure :exclude [update])
   (:require [clojure.pprint :refer [pprint]]
             [clojure.set :refer [rename-keys]]
+            [clojure.tools.logging :as log]
             [dgknght.app-lib.core :refer [update-in-if]]
             [java-time.api :as t]
             [dgknght.app-lib.validation :as v]
@@ -10,6 +11,7 @@
              :refer [+scope
                      authorize]]
             [dgknght.app-lib.api :as api]
+            [clj-money.db :as db]
             [clj-money.dates :as dates]
             [clj-money.models :as models]
             [clj-money.budgets :refer [create-items-from-history]]
@@ -42,22 +44,33 @@
       (update-in-if [:budget/period] keyword)
       (update-in-if [:budget/start-date] dates/unserialize-local-date)))
 
-(defn- auto-create-items
-  [{:budget/keys [entity period period-count] :as budget} start-date]
+(defn- historical-items
+  [{:budget/keys [entity period period-count]} start-date]
   (let [end-date (t/plus start-date
                          ((case period
                             :month t/months
                             :year t/years
                             :week t/weeks)
-                          period-count))
-        items (models/select #:transaction-item{:transaction/entity entity
-                                                :transaction/transaction-date [:between> start-date end-date]
-                                                :account/type [:in #{:income :expense}]})]
+                          period-count))]
+    (models/select (db/model-type
+                     #:transaction-item{:transaction/entity entity
+                                        :transaction/transaction-date [:between> start-date end-date]
+                                        :account/type [:in #{:income :expense}]}
+                     :transaction-item))))
+
+(defn- auto-create-items
+  [{:budget/keys [period period-count] :as budget} start-date]
+  (let [end-date (t/plus start-date
+                         ((case period
+                            :month t/months
+                            :year t/years
+                            :week t/weeks)
+                          period-count))]
     (create-items-from-history
       budget
       start-date
       end-date
-      items)))
+      (historical-items budget start-date))))
 
 (defn- append-items
   [budget start-date]
