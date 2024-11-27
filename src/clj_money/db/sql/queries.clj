@@ -10,6 +10,7 @@
                     [:entities :commodities]
                     [:entities :accounts]
                     [:entities :transactions]
+                    [:accounts :transaction_items]
                     [:transactions :transaction_items]
                     [:transactions :attachments]}})
 
