@@ -18,7 +18,8 @@
                                             find-entity
                                             find-account
                                             find-budget]]
-            [clj-money.util :refer [make-series]]
+            [clj-money.util :refer [make-series
+                                    model=]]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
@@ -72,68 +73,70 @@
 (deftest a-user-cannot-create-a-budget-in-anothers-entity
   (assert-blocked-create (create-budget "jane@doe.com")))
 
-; (defn- transaction-date-seq
-;   [start end period]
-;   (map (fn [d] {:transaction-date d})
-;        (periodic-seq start
-;                      end
-;                      period)))
-; 
-; (def ^:private auto-create-context
-;   (assoc create-context
-;          :transactions (concat (apply make-series {:description "Paycheck"
-;                                                    :entity-id "Personal"
-;                                                    :quantity 1000M
-;                                                    :debit-account-id "Checking"
-;                                                    :credit-account-id "Salary"}
-;                                       (transaction-date-seq (t/local-date 2016 1 1)
-;                                                             (t/local-date 2016 12 31)
-;                                                             (t/weeks 2)))
-;                                (apply make-series {:description "Kroger"
-;                                                    :entity-id "Personal"
-;                                                    :quantity 100M
-;                                                    :debit-account-id "Groceries"
-;                                                    :credit-account-id "Checking"}
-;                                       (transaction-date-seq (t/local-date 2016 1 1)
-;                                                             (t/local-date 2016 12 31)
-;                                                             (t/weeks 1))))))
-; 
-; (deftest a-user-can-auto-create-items-from-history
-;   (let [ctx (realize auto-create-context)
-;         user (find-user ctx "john@doe.com")
-;         entity (find-entity ctx "Personal")
-;         salary (find-account ctx "Salary")
-;         groceries (find-account ctx "Groceries")
-;         {:keys [json-body]
-;          :as response} (-> (req/request :post (path :api
-;                                                     :entities
-;                                                     (:id entity)
-;                                                     :budgets))
-;                            (req/json-body {:name "2020"
-;                                            :start-date "2017-01-01"
-;                                            :period "month"
-;                                            :period-count 12
-;                                            :auto-create-start-date "2016-01-01"})
-;                            (add-auth user)
-;                            app
-;                            parse-json-body)]
-;     (is (http-created? response))
-;     (is (= 2 (count (:items json-body)))
-;         "The created budget contains an item for each income statement account with transaction items in the specified time frame")
-;     (is (= [500.0 400.0 400.0
-;             500.0 400.0 400.0
-;             500.0 400.0 500.0
-;             400.0 400.0 500.0]
-;            (:periods (->> (:items json-body)
-;                           (filter #(= (:id groceries) (:account-id %)))
-;                           first))))
-;     (is (= [3000.0 2000.0 2000.0
-;             2000.0 2000.0 2000.0
-;             3000.0 2000.0 2000.0
-;             2000.0 2000.0 3000.0]
-;            (:periods (->> (:items json-body)
-;                           (filter #(= (:id salary) (:account-id %)))
-;                           first))))))
+(defn- transaction-date-seq
+  [start end period]
+  (map #(hash-map :transaction/transaction-date %)
+       (periodic-seq start
+                     end
+                     period)))
+
+(def ^:private auto-create-context
+  (concat create-context
+          (apply make-series #:transaction{:description "Paycheck"
+                                           :entity "Personal"
+                                           :quantity 1000M
+                                           :debit-account "Checking"
+                                           :credit-account "Salary"}
+                 (transaction-date-seq (t/local-date 2016 1 1)
+                                       (t/local-date 2016 12 31)
+                                       (t/weeks 2)))
+          (apply make-series #:transaction{:description "Kroger"
+                                           :entity "Personal"
+                                           :quantity 100M
+                                           :debit-account "Groceries"
+                                           :credit-account "Checking"}
+                 (transaction-date-seq (t/local-date 2016 1 1)
+                                       (t/local-date 2016 12 31)
+                                       (t/weeks 1)))))
+
+(deftest a-user-can-auto-create-items-from-history
+  (with-context auto-create-context
+    (let [salary (find-account "Salary")
+          groceries (find-account "Groceries")
+          {:keys [json-body]
+           :as response} (-> (req/request :post (path :api
+                                                      :entities
+                                                      (:id (find-entity "Personal"))
+                                                      :budgets))
+                             (req/json-body #:budget{:name "2020"
+                                                     :start-date "2017-01-01"
+                                                     :period "month"
+                                                     :period-count 12
+                                                     :auto-create-start-date "2016-01-01"})
+                             (add-auth (find-user "john@doe.com"))
+                             app
+                             parse-json-body)]
+      (is (http-created? response))
+      (is (= 2 (count (:budget/items json-body)))
+          "The created budget contains an item for each income statement account with transaction items in the specified time frame")
+      (is (= [500.0 400.0 400.0
+              500.0 400.0 400.0
+              500.0 400.0 500.0
+              400.0 400.0 500.0]
+             (->> (:budget/items json-body)
+                  (filter #(model= groceries (:budget-item/account %)))
+                  (map :budget-item/periods)
+                  first))
+          "The response contains periods calculated from the transaction history for the groceries account")
+      (is (= [3000.0 2000.0 2000.0
+              2000.0 2000.0 2000.0
+              3000.0 2000.0 2000.0
+              2000.0 2000.0 3000.0]
+             (->> (:budget/items json-body)
+                  (filter #(model= salary (:budget-item/account %)))
+                  (map :budget-item/periods)
+                  first))
+          "The response contains periods calculated from the transaction history for the salary account"))))
 
 ; (def ^:private list-context
 ;   (assoc create-context
