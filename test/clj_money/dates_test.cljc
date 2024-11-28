@@ -289,3 +289,11 @@
 (deftest get-the-number-of-days-in-a-period
   (is (= 3 (dates/days-between (t/local-date 2000 1 1)
                                (t/local-date 2000 1 4)))))
+
+(deftest get-range-boundaries
+  (is (= [(t/local-date 2000 1 1)
+          (t/local-date 2000 1 31)]
+         (dates/range-boundaries [(t/local-date 2000 1 15)
+                                  (t/local-date 2000 1 31)
+                                  (t/local-date 2000 1 1)]))
+      "The earliest and latest dates are returned"))

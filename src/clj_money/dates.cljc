@@ -341,3 +341,10 @@
   [time & body]
   #?(:clj `(t/with-clock (t/fixed-clock (->instant ~time)) ~@body)
      :cljs `(t/do-at (->instant ~time) ~@body)))
+
+(def ^:private first-and-last
+  (juxt first last))
+
+(defn range-boundaries
+  [ds]
+  (first-and-last (sort t/before? ds)))
