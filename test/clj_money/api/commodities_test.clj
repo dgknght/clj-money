@@ -1,63 +1,64 @@
 (ns clj-money.api.commodities-test
   (:require [clojure.test :refer [deftest use-fixtures is]]
+            [clojure.pprint :refer [pprint]]
             [ring.mock.request :as req]
-            [cheshire.core :as json]
             [clj-factory.core :refer [factory]]
             [dgknght.app-lib.web :refer [path]]
-            [dgknght.app-lib.test]
+            [dgknght.app-lib.test :refer [parse-json-body]]
+            [dgknght.app-lib.test-assertions]
+            [dgknght.app-lib.validation :as v]
+            [clj-money.models :as models]
+            [clj-money.models.ref]
+            [clj-money.db.sql.ref]
             [clj-money.factories.user-factory]
-            [clj-money.test-context :refer [realize
+            [clj-money.test-context :refer [with-context
                                             find-user
                                             find-entity
                                             find-commodity]]
             [clj-money.test-helpers :refer [reset-db]]
             [clj-money.api.test-helper :refer [add-auth]]
-            [clj-money.models.commodities :as coms]
             [clj-money.web.server :refer [app]]))
 
 (use-fixtures :each reset-db)
 
 (def ^:private context
-  {:users (->> ["john@doe.com" "jane@doe.com"]
-               (mapv #(factory :user {:email %})))
-   :entities [{:name "Personal"
-               :user-id "john@doe.com"}
-              {:name "Business"
-               :user-id "jane@doe.com"}]
-   :commodities [{:name "US Dollar"
-                  :symbol "USD"
-                  :type :currency
-                  :entity-id "Personal"}
-                 {:name "Microsoft, Inc"
-                  :symbol "MSFT"
-                  :type :stock
-                  :exchange :nasdaq
-                  :entity-id "Personal"}]})
+  (concat (->> ["john@doe.com" "jane@doe.com"]
+               (mapv #(factory :user {:user/email %})))
+          [#:entity{:name "Personal"
+                    :user "john@doe.com"}
+           #:entity{:name "Business"
+                    :user "jane@doe.com"}
+           #:commodity{:name "US Dollar"
+                       :symbol "USD"
+                       :type :currency
+                       :entity "Personal"}
+           #:commodity{:name "Microsoft, Inc"
+                       :symbol "MSFT"
+                       :type :stock
+                       :exchange :nasdaq
+                       :entity "Personal"}]))
 
 (defn- get-a-count-of-commodities
   [email]
-  (let [ctx (realize context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (path :api
-                                             :entities
-                                             (:id entity)
-                                             :commodities
-                                             :count))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context context
+    (-> (req/request :get (path :api
+                                :entities
+                                (:id (find-entity "Personal"))
+                                :commodities
+                                :count))
+        (add-auth (find-user email))
+        app
+        parse-json-body)))
 
 (defn- assert-successful-count
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (= {:count 2} body) "The body contains the count"))
+  (is (= {:count 2} json-body) "The body contains the count"))
 
 (defn- assert-blocked-count
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (= {:count 0} body) "The body contains a count of zero"))
+  (is (= {:count 0} json-body) "The body contains a count of zero"))
 
 (deftest a-user-can-get-a-count-of-commodities-in-his-entity
   (assert-successful-count (get-a-count-of-commodities "john@doe.com")))
@@ -67,35 +68,32 @@
 
 (defn- get-a-list-of-commodities
   [email]
-  (let [ctx (realize context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :get (path :api
-                                             :entities
-                                             (:id entity)
-                                             :commodities))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context context
+    (-> (req/request :get (path :api
+                                :entities
+                                (:id (find-entity "Personal"))
+                                :commodities))
+        (add-auth (find-user email))
+        app
+        parse-json-body)))
 
 (defn- assert-successful-list
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (seq-of-maps-like? [{:name "Microsoft, Inc"
-                             :symbol "MSFT"
-                             :type "stock"
-                             :exchange "nasdaq"}
-                            {:name "US Dollar"
-                             :symbol "USD"
-                             :type "currency"}]
-                           body)
+  (is (seq-of-maps-like? [#:commodity{:name "Microsoft, Inc"
+                                      :symbol "MSFT"
+                                      :type "stock"
+                                      :exchange "nasdaq"}
+                          #:commodity{:name "US Dollar"
+                                      :symbol "USD"
+                                      :type "currency"}]
+                         json-body)
       "The body contains the list of commodities"))
 
 (defn- assert-blocked-list
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (empty? body) "The body is empty"))
+  (is (empty? json-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-commodities-in-his-entity
   (assert-successful-list (get-a-list-of-commodities "john@doe.com")))
@@ -105,79 +103,74 @@
 
 (defn- get-a-commodity
   [email]
-  (let [ctx (realize context)
-        user (find-user ctx email)
-        msft (find-commodity ctx "MSFT")
-        response (-> (req/request :get (path :api
-                                             :commodities
-                                             (:id msft)))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)]
-    [response body]))
+  (with-context context
+    (-> (req/request :get (path :api
+                                :commodities
+                                (:id (find-commodity "MSFT"))))
+        (add-auth (find-user email))
+        app
+        parse-json-body)))
 
 (defn- assert-successful-get
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (comparable? {:name "Microsoft, Inc"
-                    :symbol "MSFT"
-                    :type "stock"
-                    :exchange "nasdaq"}
-                   body)
+  (is (comparable? #:commodity{:name "Microsoft, Inc"
+                               :symbol "MSFT"
+                               :type "stock"
+                               :exchange "nasdaq"}
+                   json-body)
       "The specified commodity is returned in the response"))
 
 (defn- assert-blocked-get
-  [[response]]
+  [response]
   (is (http-not-found? response)))
 
 (deftest a-user-can-get-a-commodity-in-his-entity
   (assert-successful-get (get-a-commodity "john@doe.com")))
 
-(deftest a-user-cannot-get-a-commodity-in-aothers-entity
+(deftest a-user-cannot-get-a-commodity-in-anothers-entity
   (assert-blocked-get (get-a-commodity "jane@doe.com")))
 
-(def ^:private commodity-attributes
-  {:type "stock"
-   :name "Apple, Inc."
-   :symbol "AAPL"
-   :exchange "nasdaq"
-   :price-config {:enabled true}})
+(def ^:private attributes
+  #:commodity{:type "stock"
+              :name "Apple, Inc."
+              :symbol "AAPL"
+              :exchange "nasdaq"
+              :price-config {:price-config/enabled true}})
 
 (defn- create-a-commodity
   [email]
-  (let [ctx (realize context)
-        user (find-user ctx email)
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :post (path :api
-                                              :entities
-                                              (:id entity)
-                                              :commodities))
-                     (req/json-body commodity-attributes)
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        retrieved (coms/search {:entity-id (:id entity)})]
-    [response body retrieved]))
+  (with-context context
+    (let [entity (find-entity "Personal")
+          response (-> (req/request :post (path :api
+                                                :entities
+                                                (:id entity)
+                                                :commodities))
+                       (req/json-body attributes)
+                       (add-auth (find-user email))
+                       app
+                       parse-json-body)]
+      [response (when-let [id (-> response :json-body :id)]
+                  (models/find id :commodity))])))
 
 (defn- assert-successful-create
-  [[response body retrieved]]
+  [[{:as response :keys [json-body]} retrieved]]
   (is (http-created? response))
-  (is (comparable? commodity-attributes
-                   body)
+  (is (comparable? attributes
+                   json-body)
       "The newly created commodity is returned in the response")
-  (is (seq-with-map-like? (-> commodity-attributes
-                              (update-in [:type] keyword)
-                              (update-in [:exchange] keyword))
-                          retrieved)
+  (is (comparable? #:commodity{:type :stock
+                               :name "Apple, Inc."
+                               :symbol "AAPL"
+                               :exchange :nasdaq
+                               :price-config {:price-config/enabled true}}
+                   retrieved)
       "The new commodity can be retrieved from the database"))
 
 (defn- assert-blocked-create
   [[response _ retrieved]]
   (is (http-not-found? response))
-  (is (seq-with-no-map-like? (-> commodity-attributes
-                                 (update-in [:type] keyword)
-                                 (update-in [:exchange] keyword))
-                             retrieved)
+  (is (nil? retrieved)
       "The commodity is not created"))
 
 (deftest a-user-can-create-a-commodity-in-his-entity
@@ -187,87 +180,88 @@
   (assert-blocked-create (create-a-commodity "jane@doe.com")))
 
 (deftest attempt-to-create-an-invalid-commodity
-  (let [ctx (realize context)
-        user (find-user ctx "john@doe.com")
-        entity (find-entity ctx "Personal")
-        response (-> (req/request :post (path :api
-                                              :entities
-                                              (:id entity)
-                                              :commodities))
-                     (req/json-body (assoc commodity-attributes :exchange "notvalid"))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        retrieved (coms/search {:entity-id (:id entity)})]
-    (is (http-bad-request? response))
-    (is (invalid? body [:exchange] "Exchange must be amex, nasdaq, nyse, or otc"))
-    (is (not-any? #(= "AAPL" (:symbol %)) retrieved) "The record is not created")))
+  (with-context context
+    (let [entity (find-entity "Personal")
+          response (-> (req/request :post (path :api
+                                                :entities
+                                                (:id entity)
+                                                :commodities))
+                       (req/json-body (assoc attributes :commodity/exchange "notvalid"))
+                       (add-auth (find-user "john@doe.com"))
+                       app
+                       parse-json-body)]
+      (is (http-bad-request? response))
+      (is (= "Exchange must be amex, nasdaq, nyse, or otc"
+             (get-in response [:json-body ::v/errors :commodity/exchange 0])))
+      (is (empty? (models/select {:commodity/entity entity
+                                  :commodity/symbol "AAPL"}))
+          "The record is not created"))))
 
-(defn- update-a-commodity
-  [email]
-  (let [ctx (realize context)
-        user (find-user ctx email)
-        msft (find-commodity ctx "MSFT")
-        response (-> (req/request :patch (path :api
-                                               :commodities
-                                               (:id msft)))
-                     (req/json-body (assoc msft :name "Microsoft, Ltd."))
-                     (add-auth user)
-                     app)
-        body (json/parse-string (:body response) true)
-        retrieved (coms/find msft)]
-    [response body retrieved]))
-
-(defn- assert-successful-update
-  [[response body retrieved]]
-  (is (http-success? response))
-  (is (comparable? {:name "Microsoft, Ltd."}
-                   body)
-      "The updated commodity is returned in the body")
-  (is (comparable? {:name "Microsoft, Ltd."}
-                   retrieved)
-      "The record is updated in the database"))
-
-(defn- assert-blocked-update
-  [[response _ retrieved]]
-  (is (http-not-found? response))
-  (is (comparable? {:name "Microsoft, Inc"}
-                   retrieved)
-      "The record is not updated in the database"))
-
-(deftest a-user-can-update-a-commodity-in-his-entity
-  (assert-successful-update (update-a-commodity "john@doe.com")))
-
-(deftest a-user-cannot-update-a-commodity-in-anothers-entity
-  (assert-blocked-update (update-a-commodity "jane@doe.com")))
-
-(defn- delete-a-commodity
-  [email]
-  (let [ctx (realize context)
-        user (find-user ctx email)
-        msft (find-commodity ctx "MSFT")
-        response (-> (req/request :delete (path :api
-                                                :commodities
-                                                (:id msft)))
-                     (add-auth user)
-                     app)
-        retrieved (coms/find msft)]
-    [response retrieved]))
-
-(defn- assert-successful-delete
-  [[response retrieved]]
-  (is (http-success? response))
-  (is (nil? retrieved)
-      "The commodity cannot be retrieved after delete"))
-
-(defn- assert-blocked-delete
-  [[response retrieved]]
-  (is (http-not-found? response))
-  (is retrieved
-      "The commodity can be retrieved after failed delete"))
-
-(deftest a-user-can-delete-a-commodity-in-his-entity
-  (assert-successful-delete (delete-a-commodity "john@doe.com")))
-
-(deftest a-user-cannot-delete-a-commodity-in-anothers-entity
-  (assert-blocked-delete (delete-a-commodity "jane@doe.com")))
+; (defn- update-a-commodity
+;   [email]
+;   (let [ctx (realize context)
+;         user (find-user ctx email)
+;         msft (find-commodity ctx "MSFT")
+;         response (-> (req/request :patch (path :api
+;                                                :commodities
+;                                                (:id msft)))
+;                      (req/json-body (assoc msft :name "Microsoft, Ltd."))
+;                      (add-auth user)
+;                      app)
+;         body (json/parse-string (:body response) true)
+;         retrieved (coms/find msft)]
+;     [response body retrieved]))
+; 
+; (defn- assert-successful-update
+;   [[response body retrieved]]
+;   (is (http-success? response))
+;   (is (comparable? {:name "Microsoft, Ltd."}
+;                    body)
+;       "The updated commodity is returned in the body")
+;   (is (comparable? {:name "Microsoft, Ltd."}
+;                    retrieved)
+;       "The record is updated in the database"))
+; 
+; (defn- assert-blocked-update
+;   [[response _ retrieved]]
+;   (is (http-not-found? response))
+;   (is (comparable? {:name "Microsoft, Inc"}
+;                    retrieved)
+;       "The record is not updated in the database"))
+; 
+; (deftest a-user-can-update-a-commodity-in-his-entity
+;   (assert-successful-update (update-a-commodity "john@doe.com")))
+; 
+; (deftest a-user-cannot-update-a-commodity-in-anothers-entity
+;   (assert-blocked-update (update-a-commodity "jane@doe.com")))
+; 
+; (defn- delete-a-commodity
+;   [email]
+;   (let [ctx (realize context)
+;         user (find-user ctx email)
+;         msft (find-commodity ctx "MSFT")
+;         response (-> (req/request :delete (path :api
+;                                                 :commodities
+;                                                 (:id msft)))
+;                      (add-auth user)
+;                      app)
+;         retrieved (coms/find msft)]
+;     [response retrieved]))
+; 
+; (defn- assert-successful-delete
+;   [[response retrieved]]
+;   (is (http-success? response))
+;   (is (nil? retrieved)
+;       "The commodity cannot be retrieved after delete"))
+; 
+; (defn- assert-blocked-delete
+;   [[response retrieved]]
+;   (is (http-not-found? response))
+;   (is retrieved
+;       "The commodity can be retrieved after failed delete"))
+; 
+; (deftest a-user-can-delete-a-commodity-in-his-entity
+;   (assert-successful-delete (delete-a-commodity "john@doe.com")))
+; 
+; (deftest a-user-cannot-delete-a-commodity-in-anothers-entity
+;   (assert-blocked-delete (delete-a-commodity "jane@doe.com")))

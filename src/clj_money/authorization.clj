@@ -37,10 +37,11 @@
   This function returns the model so that it can be threaded together
   with other left-threadable operations"
   [model action user]
-  {:pre [model action user]}
-  (if (allowed? model action user)
-    model
-    (throw (auth-error model action (not (allowed? model ::show user))))))
+  {:pre [action user]}
+  (when model
+    (if (allowed? model action user)
+      model
+      (throw (auth-error model action (not (allowed? model ::show user)))))))
 
 (defmulti scope
   "Returns a criteria structure limiting the scope

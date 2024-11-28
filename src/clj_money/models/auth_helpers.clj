@@ -7,13 +7,23 @@
 
 (defmulti ^:private fetch-entity db/type-dispatch)
 
+(defn- fetch-entity*
+  [model-or-ref]
+  (if (util/model-ref? model-or-ref)
+    (models/find model-or-ref :entity)
+    model-or-ref))
+
 (defmethod fetch-entity :entity
   [resource]
   resource)
 
+(defmethod fetch-entity :commodity
+  [{:commodity/keys [entity]}]
+  (fetch-entity* entity))
+
 (defmethod fetch-entity :account
   [{:account/keys [entity]}]
-  (models/find entity :entity))
+  (fetch-entity* entity))
 
 (defmethod fetch-entity :attachment
   [{:attachment/keys [transaction transaction-date]}]
@@ -25,9 +35,7 @@
 
 (defmethod fetch-entity :budget
   [{:budget/keys [entity]}]
-  (if (util/model-ref? entity)
-    (models/find entity :entity)
-    entity))
+  (fetch-entity* entity))
 
 (defmethod fetch-entity :budget-item
   [{:budget-item/keys [budget]}]

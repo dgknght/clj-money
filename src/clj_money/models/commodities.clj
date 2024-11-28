@@ -62,6 +62,10 @@
                                  symbol-is-unique?
                                  exchange-is-satisfied?))
 
+(defmethod models/before-validation :commodity
+  [comm]
+  (update-in comm [:commodity/price-config] #(or % {:price-config/enabled false})))
+
 (defn ^:deprecated search
   "Returns commodities matching the specified criteria"
   ([criteria]

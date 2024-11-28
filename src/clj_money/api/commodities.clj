@@ -1,112 +1,107 @@
 (ns clj-money.api.commodities
   (:refer-clojure :exclude [update count])
-  (:require [java-time.api :as t]
-            [stowaway.core :as storage]
-            [dgknght.app-lib.authorization :refer [authorize
+  (:require [clojure.set :refer [rename-keys]]
+            [clj-money.authorization :refer [authorize
                                              +scope]
              :as authorization]
             [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.models :as models]
-            [clj-money.models.commodities :as coms]
-            [clj-money.models.prices :as prices]
-            [clj-money.models.lots :as lots]
             [clj-money.authorization.commodities]))
 
-(defn- scoped-params
+(defn- extract-criteria
   [{:keys [params authenticated]}]
   (-> params
       (select-keys [:entity-id])
-      (+scope ::models/commodity authenticated)))
+      (rename-keys {:entity-id :commodity/entity})
+      (update-in [:commodity/entity] #(hash-map :id %))
+      (+scope :commodity authenticated)))
 
 (defn- count
   [req]
   (api/response
-    {:count (coms/count (scoped-params req))}))
+    {:count (models/count (extract-criteria req))}))
 
 (defn- append-current-prices
   [commodities]
-  (if (seq commodities)
-    (let [prices (prices/batch-fetch (set (map :id commodities))
-                                     {:transform-fn identity
-                                      :earliest-date (t/local-date 1900 1 1)})] ; TODO: get this from the entity
-      (map #(assoc % :most-recent-price (get-in prices [(:id %)]))
-           commodities))
-    commodities))
+  ; TODO: performance tuning opportunity - reduces the number of queries here
+  (map (fn [{:as comm :commodity/keys [earliest-price latest-price]}]
+         (assoc comm
+                :commodity/most-recent-price
+                (models/find-by {:price/commodity comm
+                                 :price/trade-date [:between
+                                                    earliest-price
+                                                    latest-price]}
+                                {:sort [[:price/trade-date :desc]]})))
+       commodities))
 
 (defn- append-shares-owned
   [commodities]
   (if (seq commodities)
-    (let [lots (->> (lots/search {:commodity-id (map :id commodities)
-                                  :shares-owned [:> 0]})
-                    (group-by :commodity-id)
-                    (map (fn [[commodity-id lots]]
-                           [commodity-id (->> lots
-                                              (map :shares-owned)
-                                              (reduce + 0M))]))
+    (let [lots (->> (models/select {:lot/commodity {:id [:in (map :id commodities)]}
+                                    :shares-owned [:> 0]})
+                    (group-by (comp :lot/commodity :id))
+                    (map #(update-in % [1] (fn [lots]
+                                             (->> lots
+                                                  (map :lot/shares-owned)
+                                                  (reduce + 0M)))))
                     (into {}))]
-      (map #(assoc % :shares-owned (get-in lots [(:id %)] 0M))
+      (map #(assoc % :lot/shares-owned (get-in lots [(:id %)] 0M))
            commodities))
     commodities))
 
 (defn- index
   [req]
-  (->> (coms/search (scoped-params req))
+  (->> (models/select (extract-criteria req))
        append-current-prices
        append-shares-owned
        api/response))
 
 (defn- find-and-authorize
   [{:keys [params authenticated]} action]
-  (authorize (coms/find (:id params))
-             action
-             authenticated))
+  (-> params
+      (select-keys [:id])
+      (+scope :commodity authenticated)
+      models/find-by
+      (authorize action authenticated)))
 
 (defn- show
   [req]
-  (api/response
-    (find-and-authorize req ::authorization/show)))
+  (if-let [comm (find-and-authorize req ::authorization/show)]
+    (api/response comm)
+    api/not-found))
 
 (def ^:private attribute-keys
   [:id
-   :entity-id
-   :name
-   :symbol
-   :exchange
-   :type
-   :price-config])
-
-(defn- ensure-keyword
-  [m & ks]
-  (reduce #(if (contains? %1 %2)
-             (update-in %1 [%2] keyword)
-             m)
-          m
-          ks))
+   :commodity/entity
+   :commodity/name
+   :commodity/symbol
+   :commodity/exchange
+   :commodity/type
+   :commodity/price-config])
 
 (defn- extract-commodity
   [{:keys [body params]}]
   (-> body
-      (assoc :entity-id (:entity-id params))
       (select-keys attribute-keys)
-      (ensure-keyword :exchange :type)
-      (storage/tag ::models/commodity)))
+      (assoc :commodity/entity {:id (:entity-id params)})
+      (update-in-if [:commodity/exchange] keyword)
+      (update-in-if [:commodity/type] keyword)))
 
 (defn- create
   [{:keys [authenticated] :as req}]
   (-> req
       extract-commodity
       (authorize ::authorization/create authenticated)
-      coms/create
+      models/put
       api/creation-response))
 
 (defn- update
-  [{:keys [body] :as req}]
+  [req]
   (if-let [commodity (find-and-authorize req ::authorization/update)]
     (-> commodity
-        (merge (-> body
-                   (select-keys attribute-keys)
-                   (ensure-keyword :exchange :type)))
-        coms/update
+        (merge (extract-commodity req))
+        models/put
         api/update-response)
     api/not-found))
 
@@ -114,7 +109,7 @@
   [req]
   (if-let [commodity (find-and-authorize req ::authorization/destroy)]
     (do
-      (coms/delete commodity)
+      (models/delete commodity)
       (api/response))
     api/not-found))
 
