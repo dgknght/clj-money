@@ -3,6 +3,52 @@ Clojure cloud accounting application
 
 ![build status](https://github.com/dgknght/clj-money/actions/workflows/clojure.yml/badge.svg)
 
+## ERD
+```mermaid
+erDiagram
+  user ||--o{ entity : owns
+  identity }o--|| user : identifies
+  entity ||--o{ account : "consists of"
+  entity ||--o{ commodity : uses
+  entity ||--|| commodity : "has default"
+  entity ||--o{ grant : "is gated by"
+  grant ||--|| user : "give access"
+  account ||--|{ commodity : uses
+  entity ||--|{ transaction : has
+  transaction }|--|{ transaction-item : has
+  transaction-item ||--|| account : references
+  identity {
+    string oauth-provider
+    string oauth-id
+  }
+  user {
+    string email
+  }
+  entity {
+    string name
+  }
+  commodity {
+    string name
+    string symbol
+  }
+  account {
+    string name
+    string type
+  }
+  transaction {
+    date transaction-date
+    string description
+  }
+  transaction-item {
+    string action
+    decimal quantity
+    decimal value
+  }
+  grant {
+    hashmap permissions
+  }
+```
+
 ## Running locally
 
 ### Setup the database:
