@@ -188,109 +188,106 @@
 (deftest a-user-cannot-get-a-list-of-budgets-for-anothers-entity
   (assert-blocked-get-list (get-budgets "jane@doe.com")))
 
-; (defn- get-budget
-;   [email]
-;   (let [ctx (realize list-context)
-;         user (find-user ctx email)
-;         budget (find-budget ctx "2016")
-;         response (-> (req/request :get (path :api
-;                                              :budgets
-;                                              (:id budget)))
-;                      (add-auth user)
-;                      app)
-;         body (json/parse-string (:body response) true)]
-;     [response body]))
-; 
-; (defn- assert-successful-get
-;   [[response body]]
-;   (is (http-success? response))
-;   (is (= 3 (count (:items body)))
-;       "The items are included")
-;   (is (some #(= 1001.0 (first (:periods %)))
-;             (:items body))
-;       "The salary item is present in the response")
-;   (is (some #(= 501.0 (first (:periods %)))
-;             (:items body))
-;       "The rent item is present in the response")
-;   (is (some #(= 201.0 (first (:periods %)))
-;             (:items body))
-;       "The groceries item is present in the response"))
-; 
-; (defn- assert-blocked-get
-;   [[response]]
-;   (is (http-not-found? response)))
-; 
-; (deftest a-user-can-get-a-detailed-budget-for-his-entity
-;   (assert-successful-get (get-budget "john@doe.com")))
-; 
-; (deftest a-user-cannot-get-a-detailed-budget-for-anothers-entity
-;   (assert-blocked-get (get-budget "jane@doe.com")))
-; 
-; (defn- update-budget
-;   [email]
-;   (let [ctx (realize list-context)
-;         user (find-user ctx email)
-;         budget (find-budget ctx "2016")
-;         response (-> (req/request :patch (path :api
-;                                                :budgets
-;                                                (:id budget)))
-;                      (req/json-body (assoc-in budget [:items 1 :periods] (repeat 12 502)))
-;                      (add-auth user)
-;                      app)
-;         body (json/parse-string (:body response) true)
-;         retrieved (budgets/find budget)]
-;     [response body retrieved]))
-; 
-; (defn- assert-successful-update
-;   [[response body retrieved]]
-;   (is (http-success? response))
-;   (is (empty? (v/error-messages body)))
-;   (is (= (repeat 12 502.0)
-;          (get-in body [:items 1 :periods]))
-;       "The response contains the updated budget")
-;   (is (= [502M 502M 502M 502M 502M 502M 502M 502M 502M 502M 502M 502M]
-;          (get-in retrieved [:items 1 :periods]))
-;       "The retrieved value contains the update attributes"))
-; 
-; (defn- assert-blocked-update
-;   [[response _ retrieved]]
-;   (is (http-not-found? response))
-;   (is (comparable? {:periods [501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M]}
-;                    (get-in retrieved [:items 1]))
-;       "The record is not updated"))
-; 
-; (deftest a-user-can-update-a-budget-in-his-entity
-;   (assert-successful-update (update-budget "john@doe.com")))
-; 
-; (deftest a-user-cannot-update-a-budget-in-anothers-entity
-;   (assert-blocked-update (update-budget "jane@doe.com")))
-; 
-; (defn- delete-budget
-;   [email]
-;   (let [ctx (realize list-context)
-;         user (find-user ctx email)
-;         budget (find-budget ctx "2016")
-;         response (-> (req/request :delete (path :api
-;                                                 :budgets
-;                                                 (:id budget)))
-;                      (add-auth user)
-;                      app)
-;         retrieved (budgets/find budget)]
-;     [response retrieved]))
-; 
-; (defn- assert-successful-delete
-;   [[response retrieved]]
-;   (is (http-no-content? response))
-;   (is (nil? retrieved)
-;       "The delete budget cannot be retrieved"))
-; 
-; (defn- assert-blocked-delete
-;   [[response retrieved]]
-;   (is (http-not-found? response))
-;   (is retrieved "The record is not deleted"))
-; 
-; (deftest a-user-can-delete-a-budget-in-his-entity
-;   (assert-successful-delete (delete-budget "john@doe.com")))
-; 
-; (deftest a-user-cannot-delete-a-budget-in-anothers-entity
-;   (assert-blocked-delete (delete-budget "jane@doe.com")))
+(defn- get-budget
+  [email]
+  (with-context list-context
+    (-> (req/request :get (path :api
+                                :budgets
+                                (:id (find-budget "2016"))))
+        (add-auth (find-user email))
+        app
+        parse-json-body)))
+
+(defn- assert-successful-get
+  [{:as response :keys [json-body]}]
+  (is (http-success? response))
+  (is (= 3 (count (:budget/items json-body)))
+      "The items are included")
+  (is (some #(= 1001.0 (first (:budget-item/periods %)))
+            (:budget/items json-body))
+      "The salary item is present in the response")
+  (is (some #(= 501.0 (first (:budget-item/periods %)))
+            (:budget/items json-body))
+      "The rent item is present in the response")
+  (is (some #(= 201.0 (first (:budget-item/periods %)))
+            (:budget/items json-body))
+      "The groceries item is present in the response"))
+
+(defn- assert-blocked-get
+  [response]
+  (is (http-not-found? response)))
+
+(deftest a-user-can-get-a-detailed-budget-for-his-entity
+  (assert-successful-get (get-budget "john@doe.com")))
+
+(deftest a-user-cannot-get-a-detailed-budget-for-anothers-entity
+  (assert-blocked-get (get-budget "jane@doe.com")))
+
+(defn- update-budget
+  [email]
+  (with-context list-context
+    (let [budget (find-budget "2016")
+          response (-> (req/request :patch (path :api
+                                                 :budgets
+                                                 (:id budget)))
+                       (req/json-body (assoc-in budget
+                                                [:budget/items
+                                                 1
+                                                 :budget-item/periods]
+                                                (repeat 12 502.1M)))
+                       (add-auth (find-user email))
+                       app
+                       parse-json-body)]
+      [response (models/find budget)])))
+
+(defn- assert-successful-update
+  [[{:as response :keys [json-body]} retrieved]]
+  (is (http-success? response))
+  (is (empty? (v/error-messages json-body)))
+  (is (= (repeat 12 502.1)
+         (get-in json-body [:budget/items 1 :budget-item/periods]))
+      "The response contains the updated budget")
+  (is (= (repeat 12 502.1M)
+         (get-in retrieved [:budget/items 1 :budget-item/periods]))
+      "The retrieved value contains the update attributes"))
+
+(defn- assert-blocked-update
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is (comparable? {:budget-item/periods [501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M 501M]}
+                   (get-in retrieved [:budget/items 1]))
+      "The record is not updated"))
+
+(deftest a-user-can-update-a-budget-in-his-entity
+  (assert-successful-update (update-budget "john@doe.com")))
+
+(deftest a-user-cannot-update-a-budget-in-anothers-entity
+  (assert-blocked-update (update-budget "jane@doe.com")))
+
+(defn- delete-budget
+  [email]
+  (with-context list-context
+    (let [budget (find-budget "2016")
+          response (-> (req/request :delete (path :api
+                                                  :budgets
+                                                  (:id budget)))
+                       (add-auth (find-user email))
+                       app)]
+      [response (models/find budget)])))
+
+(defn- assert-successful-delete
+  [[response retrieved]]
+  (is (http-no-content? response))
+  (is (nil? retrieved)
+      "The delete budget cannot be retrieved"))
+
+(defn- assert-blocked-delete
+  [[response retrieved]]
+  (is (http-not-found? response))
+  (is retrieved "The record is not deleted"))
+
+(deftest a-user-can-delete-a-budget-in-his-entity
+  (assert-successful-delete (delete-budget "john@doe.com")))
+
+(deftest a-user-cannot-delete-a-budget-in-anothers-entity
+  (assert-blocked-delete (delete-budget "jane@doe.com")))
