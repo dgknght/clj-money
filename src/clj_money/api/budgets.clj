@@ -17,13 +17,17 @@
             [clj-money.budgets :refer [create-items-from-history]]
             [clj-money.authorization.budgets]))
 
-(defn- index
+(defn- extract-criteria
   [{:keys [params authenticated]}]
+  (-> params
+      (select-keys [:entity-id])
+      (rename-keys {:entity-id :budget/entity-id})
+      (+scope :budget authenticated)))
+
+(defn- index
+  [req]
   (api/response
-    (models/select (-> params
-                       (select-keys [:entity-id])
-                       (rename-keys {:entity-id :budget/entity-id})
-                       (+scope :budget authenticated))
+    (models/select (extract-criteria req)
                    {:sort [[:budget/start-date :desc]]})))
 
 (defn- prepare-item

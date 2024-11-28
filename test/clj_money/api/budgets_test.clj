@@ -178,9 +178,9 @@
                          json-body)))
 
 (defn- assert-blocked-get-list
-  [[response body]]
+  [{:as response :keys [json-body]}]
   (is (http-success? response))
-  (is (empty? body) "The body is empty"))
+  (is (empty? json-body) "The body is empty"))
 
 (deftest a-user-can-get-a-list-of-budgets-for-his-entity
   (assert-successful-get-list (get-budgets "john@doe.com")))
