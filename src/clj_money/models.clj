@@ -10,7 +10,8 @@
 
 (def exchanges #{:nyse :nasdaq :amex :otc})
 
-(s/def ::model-ref (s/and map? #(contains? % :id)))
+(s/def ::id (some-fn uuid? int?))
+(s/def ::model-ref (s/keys :req-un [::id]))
 
 (defmulti prepare-criteria db/type-dispatch)
 (defmethod prepare-criteria :default [m] m)
