@@ -4,23 +4,17 @@ Clojure cloud accounting application
 ![build status](https://github.com/dgknght/clj-money/actions/workflows/clojure.yml/badge.svg)
 
 ## ERD
+These are the essential entities of the system.
 ```mermaid
 erDiagram
   user ||--o{ entity : owns
-  identity }o--|| user : identifies
   entity ||--o{ account : "consists of"
   entity ||--o{ commodity : uses
   entity ||--|| commodity : "has default"
-  entity ||--o{ grant : "is gated by"
-  grant ||--|| user : "give access"
   account ||--|{ commodity : uses
   entity ||--|{ transaction : has
   transaction }|--|{ transaction-item : has
   transaction-item ||--|| account : references
-  identity {
-    string oauth-provider
-    string oauth-id
-  }
   user {
     string email
   }
@@ -44,10 +38,8 @@ erDiagram
     decimal quantity
     decimal value
   }
-  grant {
-    hashmap permissions
-  }
 ```
+See more at [ERD.md](ERD.md)
 
 ## Running locally
 
