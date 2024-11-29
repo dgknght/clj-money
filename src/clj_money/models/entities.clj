@@ -7,8 +7,6 @@
             [dgknght.app-lib.validation :as v]
             [clj-money.models :as models]))
 
-(declare find-by)
-
 (defn- name-is-unique?
   [{:as entity :keys [id]}]
   (-> entity
