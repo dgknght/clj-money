@@ -3,6 +3,44 @@ Clojure cloud accounting application
 
 ![build status](https://github.com/dgknght/clj-money/actions/workflows/clojure.yml/badge.svg)
 
+## ERD
+These are the essential entities of the system.
+```mermaid
+erDiagram
+  user ||--o{ entity : owns
+  entity ||--o{ account : "consists of"
+  entity ||--o{ commodity : uses
+  entity ||--|| commodity : "has default"
+  account ||--|{ commodity : uses
+  entity ||--|{ transaction : has
+  transaction }|--|{ transaction-item : has
+  transaction-item ||--|| account : references
+  user {
+    string email
+  }
+  entity {
+    string name
+  }
+  commodity {
+    string name
+    string symbol
+  }
+  account {
+    string name
+    string type
+  }
+  transaction {
+    date transaction-date
+    string description
+  }
+  transaction-item {
+    string action
+    decimal quantity
+    decimal value
+  }
+```
+See more at [ERD.md](ERD.md)
+
 ## Running locally
 
 ### Setup the database:
