@@ -4,6 +4,7 @@
             [clojure.pprint :refer [pprint]]
             [ring.util.response :refer [response status header]]
             [dgknght.app-lib.api :as api]
+            [dgknght.app-lib.validation :as v]
             [clj-money.authorization :as authorization]
             [clj-money.models :as models]
             [clj-money.api :refer [log-error]]))
@@ -77,7 +78,12 @@
   (fn [req]
     (handler (update-in req [:params] normalize-collection-params))))
 
-(defmulti handle-exception (comp :type ex-data))
+(defmulti handle-exception
+  (fn [e]
+    (when-let [data (ex-data e)]
+      (if (::v/errors data)
+        :validation
+        (:type data)))))
 
 (defmethod handle-exception ::authorization/unauthorized
   [e]
@@ -99,6 +105,13 @@
 (defmethod handle-exception ::models/not-found
   [_]
   api/not-found)
+
+(defmethod handle-exception :validation
+  [e]
+  (-> e
+      ex-data
+      ::v/errors
+      (api/response 400)))
 
 (defmethod handle-exception :default
   [e]
