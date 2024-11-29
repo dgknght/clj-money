@@ -6,6 +6,7 @@
              :as authorization]
             [dgknght.app-lib.api :as api]
             [dgknght.app-lib.core :refer [update-in-if]]
+            [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.authorization.commodities]))
 
@@ -84,7 +85,8 @@
   [{:keys [body params]}]
   (-> body
       (select-keys attribute-keys)
-      (assoc :commodity/entity {:id (:entity-id params)})
+      (update-in [:commodity/entity] (fnil identity
+                                           {:id (:entity-id params)}))
       (update-in-if [:commodity/exchange] keyword)
       (update-in-if [:commodity/type] keyword)))
 

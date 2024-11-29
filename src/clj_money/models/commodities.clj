@@ -12,13 +12,17 @@
 
 (defn- name-is-unique?
   [{:keys [id] :as commodity}]
-  (nil?
-    (models/find-by
-      (-> commodity
-          (select-keys [:commodity/name
-                        :commodity/exchange
-                        :commodity/entity])
-          (assoc-if :id (when id [:!= id]))))))
+  (if (every? #(% commodity)
+              [:commodity/name
+               :commodity/exchange
+               :commodity/entity])
+    (= 0 (models/count
+           (-> commodity
+               (select-keys [:commodity/name
+                             :commodity/exchange
+                             :commodity/entity])
+               (assoc-if :id (when id [:!= id])))))
+    true))
 
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:commodity/name]})
@@ -47,7 +51,7 @@
 (s/def :commodity/name string?)
 (s/def :commodity/symbol string?)
 (s/def :commodity/type #{:currency :stock :fund})
-(s/def :commodity/exchange (s/nilable #{:nasdaq :nyse :otc}))
+(s/def :commodity/exchange (s/nilable #{:amex :nasdaq :nyse :otc}))
 
 (s/def :price-config/enabled boolean?)
 (s/def :commodity/price-config (s/keys :req [:price-config/enabled]))
