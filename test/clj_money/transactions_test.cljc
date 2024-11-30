@@ -5,7 +5,6 @@
                :cljs [cljs.pprint :refer [pprint]])
             #?(:clj [java-time.api :as t]
                :cljs [cljs-time.core :as t])
-            [camel-snake-kebab.core :refer [->kebab-case-keyword]]
             [clj-money.util :as util]
             [clj-money.transactions :as trx]))
 
