@@ -25,6 +25,7 @@
             :type :asset
             :entity (find-entity "Personal")
             :commodity (find-commodity "USD")
+            :user-tags #{:favorite}
             :system-tags #{:something-special}})
 
 (def ^:private account-context
