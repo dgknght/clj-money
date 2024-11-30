@@ -10,9 +10,8 @@
 
 (def exchanges #{:nyse :nasdaq :amex :otc})
 
-(s/def ::id (some-fn uuid? int?))
+(s/def ::id (some-fn uuid? int? util/temp-id?))
 (s/def ::model-ref (s/keys :req-un [::id]))
-(s/def ::weak-model-ref (s/keys :opt-un [::id]))
 
 (defmulti prepare-criteria db/type-dispatch)
 (defmethod prepare-criteria :default [m] m)
@@ -90,21 +89,20 @@
                            model-type))))
 
 (defn put-many
-  ([models] (put-many {} models))
-  ([_opts models]
-   (->> models
-        (map (comp validate
-                   before-validation))
-        (mapcat propagate)
-        (map before-save)
-        (db/put (db/storage))
-        (map (comp append-before
-                   after-save
-                   #(after-read % {}))))))
+  [models]
+  (->> models
+       (map (comp validate
+                  before-validation))
+       (mapcat propagate)
+       (map before-save)
+       (db/put (db/storage))
+       (map (comp append-before
+                  after-save
+                  #(after-read % {})))))
 
 (defn put
   [model]
-  (first (put-many model)))
+  (first (put-many [model])))
 
 (defn delete-many
   [& models]

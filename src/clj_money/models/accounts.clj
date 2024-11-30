@@ -11,19 +11,21 @@
             [dgknght.app-lib.models :refer [->id
                                             extract-nested]]
             [dgknght.app-lib.validation :as v :refer [with-validation]]
+            [clj-money.util :refer [live-id]]
             [clj-money.models :as models]))
 
 (declare find-by find)
 
 (defn- name-is-unique?
-  [{:keys [id] :as account}]
+  [account]
   (= 0 (models/count (-> account
                          (select-keys [:account/entity
                                        :account/parent
                                        :account/name
                                        :account/type])
                          (update-in [:account/parent] identity) ; Ensure that nil is included, as it matters for this query
-                         (assoc-if :id (when id [:!= id]))))))
+                         (assoc-if :id (when-let [id (live-id account)]
+                                         [:!= id]))))))
 (v/reg-spec name-is-unique? {:message "%s is already in use"
                              :path [:account/name]})
 

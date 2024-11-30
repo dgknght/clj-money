@@ -117,12 +117,13 @@
 
 (defn- create-commodity-account
   [parent commodity]
-  #:account{:name (:commodity/symbol commodity)
-            :type :asset
-            :commodity commodity
-            :parent parent
-            :entity (:account/entity parent)
-            :system-tags #{:tradable}})
+  {:id (util/temp-id)
+   :account/name (:commodity/symbol commodity)
+   :account/type :asset
+   :account/commodity commodity
+   :account/parent parent
+   :account/entity (:account/entity parent)
+   :account/system-tags #{:tradable}})
 
 (defn- find-or-create-commodity-account
   [parent commodity]
@@ -141,10 +142,7 @@
     (assoc :account (models/find account :account))
     
     (nil? commodity-account)
-    (assoc :commodity-account (find-or-create-commodity-account account commodity))
-
-    (util/model-ref? commodity-account)
-    (assoc :commodity-account (models/find commodity-account :account))))
+    (assoc :commodity-account (find-or-create-commodity-account account commodity))))
 
 (defn- append-entity
   [{{:account/keys [entity]} :account
@@ -274,25 +272,29 @@
            commodity
            account
            price] :as context}]
-  (assoc context :lot #:lot{:account account
-                            :commodity commodity
-                            :purchase-date trade-date
-                            :purchase-price (:price/price price)
-                            :shares-purchased shares
-                            :shares-owned shares}))
+  (assoc context :lot {:id (util/temp-id)
+                       :lot/account account
+                       :lot/commodity commodity
+                       :lot/purchase-date trade-date
+                       :lot/purchase-price (:price/price price)
+                       :lot/shares-purchased shares
+                       :lot/shares-owned shares}))
 
 (defn- propagate-price-to-accounts
   "Propagate price change to affected accounts"
-  [{:keys [price commodity trade-date] :as trade}]
+  [{:keys [price commodity trade-date commodity-account] :as trade}]
   ; For any account that references the commodity in this trade,
   ; that reflects a price-as-of date that is earlier than this
   ; trade date, update the value of the account based on the current
   ; price
   (assoc trade
          :affected-accounts
-         (->> (models/select #:account{:commodity commodity
-                                       :price-as-of [:<= trade-date]
-                                       :quantity [:> 0M]})
+         (->> (models/select (cond-> #:account{:commodity commodity
+                                               :price-as-of [:<= trade-date]
+                                               :quantity [:> 0M]}
+
+                               (util/live-id? (:id commodity-account))
+                               (assoc :account/id [:!= (:id commodity-account)])))
               (map (fn [{:as act :account/keys [quantity]}]
                      (assoc act
                             :account/price-as-of trade-date
@@ -312,12 +314,12 @@
   ; Finall save the affected accounts
   (let [result (group-by db/model-type
                          (models/put-many
-                           [commodity-account
-                            lot
-                            transaction
-                            commodity
-                            account
-                            affected-accounts]))]
+                           (concat [commodity-account
+                                    lot
+                                    transaction
+                                    commodity
+                                    account]
+                                   affected-accounts)))]
     (assoc context
            :transaction (first (:transaction result)))))
 

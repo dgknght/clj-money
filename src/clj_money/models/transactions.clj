@@ -79,7 +79,7 @@
   "Set of valid transaction action values, includes :debit and :credit"
   #{:debit :credit})
 
-(s/def :transaction-item/account ::models/weak-model-ref)
+(s/def :transaction-item/account ::models/model-ref)
 (s/def :transaction-item/action actions)
 (s/def :transaction-item/quantity (s/and decimal? pos?))
 ; Balance is the running total of quantities for the account to which
@@ -96,7 +96,7 @@
 (s/def :transaction/description v/non-empty-string?)
 (s/def :transaction/transaction-date t/local-date?)
 (s/def :transaction/entity ::models/model-ref)
-(s/def :transaction-lot-item/lot ::models/weak-model-ref)
+(s/def :transaction-lot-item/lot ::models/model-ref)
 (s/def :transaction-lot-item/lot-action #{:buy :sell})
 (s/def :transaction-lot-item/shares decimal?)
 (s/def ::models/lot-item (s/keys :req [:transaction-lot-item/lot

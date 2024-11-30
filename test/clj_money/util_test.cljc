@@ -188,3 +188,12 @@
         "The specified value is returned the second time")
     (is (= 1 (count @calls))
         "The original function is not called the second time")))
+
+(deftest identity-a-temporary-id
+  (is (util/temp-id? (util/temp-id))
+      "The result of calling temp-id is a temporary id")
+  (is (not (util/temp-id? 101))
+      "An integer is not a temp id")
+  (is (not (util/temp-id? "101"))
+      "A string is not a temp id")
+  (is (not (util/temp-id? (random-uuid)))))

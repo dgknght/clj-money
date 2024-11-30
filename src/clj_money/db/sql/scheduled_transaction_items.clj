@@ -1,6 +1,6 @@
 (ns clj-money.db.sql.scheduled-transaction-items
   (:require [clj-money.db.sql :as sql]
-            [clj-money.db.sql.types :refer [temp-id?]]))
+            [clj-money.util :refer [temp-id?]]))
 
 (defmethod sql/before-save :scheduled-transaction-item
   [item]

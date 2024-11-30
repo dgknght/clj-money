@@ -3,7 +3,7 @@
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]
-            [clj-money.db.sql.types :refer [temp-id?]]))
+            [clj-money.util :refer [temp-id?]]))
 
 (defmethod sql/resolve-temp-ids :transaction-item
   [{:transaction-item/keys [transaction-id reconciliation-id] :as item} id-map]

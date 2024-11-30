@@ -1,10 +1,10 @@
 (ns clj-money.db.sql.types
   (:require [clojure.pprint :refer [pprint]]
-            [clojure.string :as string]
             [cheshire.core :as json]
             [next.jdbc.result-set :as rs]
             [next.jdbc.prepare :as p]
-            [next.jdbc.date-time])
+            [next.jdbc.date-time]
+            [clj-money.util :refer [temp-id?]])
   (:import org.postgresql.util.PGobject
            [java.sql Array PreparedStatement]))
 
@@ -27,21 +27,6 @@
   clojure.lang.Keyword
   (set-parameter [^clojure.lang.Keyword k ^PreparedStatement s ^long i]
     (.setObject s i (name k))))
-
-(defn temp-id
-  "Generates a new temporary id"
-  []
-  (str "temp-" (random-uuid)))
-
-(def ^:private ->id (some-fn :id identity))
-
-(defn temp-id?
-  "Given a model or an id, returns true if the model has a temporary
-  id or if the specified id is a temporary id"
-  [id-or-model]
-  (when-let [id (->id id-or-model)]
-    (and (string? id)
-         (string/starts-with? id "temp-"))))
 
 (defmulti coerce-id type)
 

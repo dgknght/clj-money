@@ -15,13 +15,11 @@
             [dgknght.app-lib.inflection :refer [plural
                                                 singular]]
             [dgknght.app-lib.models :refer [->id]]
-            [clj-money.util :as util]
+            [clj-money.util :as util :refer [temp-id temp-id?]]
             [clj-money.db :as db]
             [clj-money.db.sql.queries :refer [criteria->query
                                               ->update]]
-            [clj-money.db.sql.types :refer [temp-id
-                                            temp-id?
-                                            coerce-id]]))
+            [clj-money.db.sql.types :refer [coerce-id]]))
 
 (defmulti deconstruct (fn [x]
                         (when-not (vector? x)

@@ -357,3 +357,25 @@
         (let [retrieved (f id)]
           (swap! cache assoc id retrieved)
           retrieved)))))
+
+(defn temp-id
+  "Generates a new temporary id"
+  []
+  (str "temp-" (random-uuid)))
+
+(def ^:private ->id (some-fn :id identity))
+
+(defn temp-id?
+  "Given a model or an id, returns true if the model has a temporary
+  id or if the specified id is a temporary id"
+  [id-or-model]
+  (when-let [id (->id id-or-model)]
+    (and (string? id)
+         (string/starts-with? id "temp-"))))
+
+(defn live-id
+  [{:keys [id]}]
+  (when-not (temp-id? id)
+    id))
+
+(def live-id? (complement temp-id?))
