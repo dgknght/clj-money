@@ -15,8 +15,8 @@
                              :transaction-item/transaction-date transaction-date)
                      items)
                 (map #(assoc %
-                             :transaction-lot-item/transaction-id id
-                             :transaction-lot-item/transaction-date transaction-date)
+                             :lot-item/transaction-id id
+                             :lot-item/transaction-date transaction-date)
                      lot-items))))
 
 (defmethod sql/reconstruct :transaction

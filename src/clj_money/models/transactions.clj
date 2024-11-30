@@ -48,8 +48,8 @@
 
 (defn- not-a-trading-transaction?
   [{:keys [id] :transaction/keys [original-transaction-date]}]
-  (zero? (models/count {:lot-transaction/transaction  {:id id}
-                        :lot-transaction/transaction-date original-transaction-date})))
+  (zero? (models/count {:lot-item/transaction  {:id id}
+                        :lot-item/transaction-date original-transaction-date})))
 
 (v/reg-spec not-a-trading-transaction? {:message "A trading transaction cannot be updated."
                                         :path []})
@@ -96,13 +96,13 @@
 (s/def :transaction/description v/non-empty-string?)
 (s/def :transaction/transaction-date t/local-date?)
 (s/def :transaction/entity ::models/model-ref)
-(s/def :transaction-lot-item/lot ::models/model-ref)
-(s/def :transaction-lot-item/lot-action #{:buy :sell})
-(s/def :transaction-lot-item/shares decimal?)
-(s/def ::models/lot-item (s/keys :req [:transaction-lot-item/lot
-                                       :transaction-lot-item/shares
-                                       :transaction-lot-item/lot-action
-                                       :transaction-lot-item/price]))
+(s/def :lot-item/lot ::models/model-ref)
+(s/def :lot-item/lot-action #{:buy :sell})
+(s/def :lot-item/shares decimal?)
+(s/def ::models/lot-item (s/keys :req [:lot-item/lot
+                                       :lot-item/shares
+                                       :lot-item/lot-action
+                                       :lot-item/price]))
 (s/def :transaction/lot-items (s/coll-of ::models/lot-item))
 
 (s/def ::models/transaction-item (s/keys :req [:transaction-item/account
@@ -314,7 +314,8 @@
   the date. If no such item exists, return a dummy item with
   starting index and balance values."
   [account date]
-  (or (last-account-item-before account date)
+  (or (when (util/live-id? account)
+        (last-account-item-before account date))
       #:transaction-item{:index -1
                          :balance 0M}))
 
@@ -369,9 +370,11 @@
     (let [ids (->> items
                    (map :id)
                    set)
-          affected-items (->> (account-items-on-or-after account as-of)
-                              (remove #(ids (:id %)))
-                              (map #(assoc % :transaction-item/account account)))]
+          affected-items (if (util/temp-id? account)
+                           []
+                           (->> (account-items-on-or-after account as-of)
+                                (remove #(ids (:id %)))
+                                (map #(assoc % :transaction-item/account account))))]
       (re-index (if delete?
                   account
                   (push-date-boundaries account as-of

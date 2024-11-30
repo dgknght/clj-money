@@ -202,10 +202,10 @@
                          :transaction-date trade-date
                          :description (purchase-transaction-description context)
                          :items items
-                         :lot-items [#:transaction-lot-item{:lot lot
-                                                            :lot-action :buy
-                                                            :price (with-precision 4 (/ value shares))
-                                                            :shares shares}]})))
+                         :lot-items [#:lot-item{:lot lot
+                                                :lot-action :buy
+                                                :price (with-precision 4 (/ value shares))
+                                                :shares shares}]})))
 
 (defn- create-capital-gains-item
   [{:keys [quantity description long-term?]} context]

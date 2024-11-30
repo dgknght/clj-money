@@ -53,8 +53,8 @@
    :transaction-item/account
    :transaction-item/reconciliation
    :transaction-item/transaction
-   :transaction-lot-item/transaction
-   :transaction-lot-item/lot
+   :lot-item/transaction
+   :lot-item/lot
    :scheduled-transaction/entity
    :scheduled-transaction-item/account
    :reconciliation/account
