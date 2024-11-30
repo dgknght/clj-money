@@ -387,9 +387,11 @@
   "Given a list of items, lookup the associated account and assoc
   it into the item"
   [items]
-  (let [find-account (comp (util/cache-fn
-                             #(models/find % :account))
-                           util/->model-ref)]
+  (let [cached-fn (util/cache-fn #(models/find % :account))
+        find-account (fn [act]
+                       (if (util/live-id? (:id act))
+                         (cached-fn (util/->model-ref act))
+                         act))]
     (map #(update-in % [:transaction-item/account] find-account)
          items)))
 
