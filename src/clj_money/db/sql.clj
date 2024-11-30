@@ -179,6 +179,14 @@
   [model _id-map]
   model)
 
+(defn- ensure-id
+  "When saving a new record, make sure we have a temp id"
+  [m]
+  (if (map? m) ; this could also be a vector like [:delete {:id 123}]
+    (update-in m [:id] (fn [id]
+                         (or id (temp-id))))
+    m))
+
 (defn- execute-and-aggregate
   "Returns a function that executes the database operation, saves the result
   and updates the id map for resolving temporary ids"
@@ -207,6 +215,7 @@
   {:pre [(s/valid? ::putables models)]}
   (jdbc/with-transaction [tx ds]
     (->> models
+         (map ensure-id)
          (mapcat deconstruct)
          (map (comp #(update-in % [1] (comp before-save
                                             ->sql-refs))
