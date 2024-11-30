@@ -2,7 +2,9 @@
   (:require [clojure.pprint :refer [pprint]]
             [java-time.api :as t]
             [dgknght.app-lib.core :refer [update-in-if parse-int]]
-            [clj-money.db.sql :as sql])
+            [clj-money.db.sql :as sql]
+            [clj-money.db.sql.types :refer [->json
+                                            json->map]])
   (:import org.postgresql.jdbc.PgArray))
 
 (defn- ->array
@@ -30,12 +32,12 @@
       (update-in [:account/type] name)
       (update-in [:account/system-tags] ->array)
       (update-in [:account/user-tags] ->array)
-      (update-in-if [:account/allocations] sql/->json)))
+      (update-in-if [:account/allocations] ->json)))
 
 (defn- parse-allocations
   [allocations]
   (when allocations
-    (update-vals (sql/json->map allocations :key-fn parse-int)
+    (update-vals (json->map allocations :key-fn parse-int)
                  bigdec)))
 
 (defmethod sql/after-read :account

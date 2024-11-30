@@ -1,7 +1,9 @@
 (ns clj-money.db.sql.budget-items
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
-            [clj-money.db.sql :as sql])
+            [clj-money.db.sql :as sql]
+            [clj-money.db.sql.types :refer [->json
+                                            json->map]])
   (:import org.postgresql.jdbc.PgArray))
 
 
@@ -14,7 +16,7 @@
   [budget-item]
   (-> budget-item
       (update-in [:budget-item/periods] ->array)
-      (update-in [:budget-item/spec] sql/->json)))
+      (update-in [:budget-item/spec] ->json)))
 
 (defmethod sql/resolve-temp-ids :budget-item
   [budget-item id-map]
@@ -33,7 +35,7 @@
 (defmethod sql/after-read :budget-item
   [budget-item]
   (-> budget-item
-      (update-in [:budget-item/spec] sql/json->map)
+      (update-in [:budget-item/spec] json->map)
       (update-in [:budget-item/periods] extract-bigdec-array)
       (update-in-if [:budget-item/spec :average] bigdec)
       (dissoc :budget-item/budget-id)))

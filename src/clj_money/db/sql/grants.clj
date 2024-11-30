@@ -2,7 +2,8 @@
   (:require [clojure.pprint :refer [pprint]]
             [dgknght.app-lib.core :refer [update-in-if]]
             [clj-money.db.sql :as sql]
-            [clj-money.models.grants :as grants]))
+            [clj-money.models.grants :as grants]
+            [clj-money.db.sql.types :refer [->json json->map]]))
 
 (defn- prepare-permissions
   [permissions]
@@ -14,8 +15,8 @@
 (defmethod sql/after-read :grant
   [grant]
   (update-in grant [:grant/permissions] (comp prepare-permissions
-                                              sql/json->map)))
+                                              json->map)))
 
 (defmethod sql/before-save :grant
   [grant]
-  (update-in grant [:grant/permissions] sql/->json))
+  (update-in grant [:grant/permissions] ->json))

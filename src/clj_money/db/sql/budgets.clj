@@ -3,22 +3,17 @@
             [java-time.api :as t]
             [clj-money.util :as util]
             [clj-money.db :as db]
-            [clj-money.db.sql :as sql]
-            [clj-money.db.sql.types :refer [temp-id]]))
+            [clj-money.db.sql :as sql]))
 
 (defmethod sql/before-save :budget
   [budget]
   (update-in budget [:budget/period] name))
 
 (defmethod sql/deconstruct :budget
-  [{:budget/keys [items] :as budget}]
-  (let [budget-id (or (:id budget)
-                      (temp-id))]
-    (cons (-> budget
-              (assoc :id budget-id)
-              (dissoc :budget/items))
-          (map #(assoc % :budget-item/budget-id budget-id)
-               items))))
+  [{:budget/keys [items] :keys [id] :as budget}]
+  (cons (dissoc budget :budget/items)
+        (map #(assoc % :budget-item/budget-id id)
+             items)))
 
 (defmethod sql/after-read :budget
   [budget]
