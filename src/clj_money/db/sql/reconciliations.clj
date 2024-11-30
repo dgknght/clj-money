@@ -5,8 +5,7 @@
             [clj-money.util :as util]
             [clj-money.models :as models]
             [clj-money.db :as db]
-            [clj-money.db.sql :as sql]
-            [clj-money.db.sql.types :refer [temp-id]]))
+            [clj-money.db.sql :as sql]))
 
 (defn- coerce
   [m]
@@ -45,12 +44,8 @@
     :transaction-item))
 
 (defmethod sql/deconstruct :reconciliation
-  [{:as recon :reconciliation/keys [item-refs]}]
-  (let [id (or (:id recon)
-               (temp-id))
-        without-refs (-> recon
-                         (assoc :id id)
-                         (dissoc :reconciliation/item-refs))]
+  [{:as recon :keys [id] :reconciliation/keys [item-refs]}]
+  (let [without-refs (dissoc recon :reconciliation/item-refs)]
     (if (seq item-refs)
       (cons without-refs
             (->> (models/select (item-refs->query item-refs))

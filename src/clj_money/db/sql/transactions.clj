@@ -3,20 +3,21 @@
             [java-time.api :as t]
             [clj-money.util :as util]
             [clj-money.db :as db]
-            [clj-money.db.sql :as sql]
-            [clj-money.db.sql.types :refer [temp-id]]))
+            [clj-money.db.sql :as sql]))
 
 (defmethod sql/deconstruct :transaction
-  [{:transaction/keys [items transaction-date] :as trx}]
-  (let [trx-id (or (:id trx)
-                   (temp-id))]
-    (cons (-> trx
-              (assoc :id trx-id)
-              (dissoc :transaction/items))
-          (map #(assoc %
-                       :transaction-item/transaction-id trx-id
-                       :transaction-item/transaction-date transaction-date)
-               items))))
+  [{:transaction/keys [items lot-items transaction-date] :keys [id] :as trx}]
+  (cons (dissoc trx
+                :transaction/items
+                :transaction/lot-items)
+        (concat (map #(assoc %
+                             :transaction-item/transaction-id id
+                             :transaction-item/transaction-date transaction-date)
+                     items)
+                (map #(assoc %
+                             :transaction-lot-item/transaction-id id
+                             :transaction-lot-item/transaction-date transaction-date)
+                     lot-items))))
 
 (defmethod sql/reconstruct :transaction
   [models]
